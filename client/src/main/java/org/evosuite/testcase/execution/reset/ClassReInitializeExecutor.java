@@ -31,7 +31,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * This class implements the actual invocation to the __STATIC_RESET() method
@@ -45,7 +52,23 @@ class ClassReInitializeExecutor {
 
     private static final ClassReInitializeExecutor instance = new ClassReInitializeExecutor();
 
+    /**
+     * Classes whose {@code __STATIC_RESET()} timed out. These are skipped on
+     * subsequent reset attempts to avoid wasting time and leaving more zombie
+     * threads.
+     */
+    private final Set<String> timedOutClasses = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
     private ClassReInitializeExecutor() {
+    }
+
+    /**
+     * Clears the set of timed-out classes, allowing them to be reset again.
+     * Call this at phase boundaries (e.g., before minimization) when the
+     * environment may have changed enough to make previously stuck resets succeed.
+     */
+    public void clearTimedOutClasses() {
+        timedOutClasses.clear();
     }
 
     public static synchronized ClassReInitializeExecutor getInstance() {
@@ -83,14 +106,20 @@ class ClassReInitializeExecutor {
             if (!className.equals(Properties.TARGET_CLASS)
                     && (!TimeController.getInstance().isThereStillTimeInThisPhase()
                     || elapsed > Properties.TIMEOUT_RESET)) {
-                // Note: we no longer cancel the class re-initialization since
-                // it might leave the static data in an inconsistent state
+                logger.info("Skipping reset of non-target class {} (elapsed {}ms, budget {}ms)",
+                        className, elapsed, Properties.TIMEOUT_RESET);
+                continue;
             }
             resetClass(className);
         }
     }
 
     private void resetClass(String className) {
+
+        if (timedOutClasses.contains(className)) {
+            logger.debug("Skipping reset of {} — previously timed out", className);
+            return;
+        }
 
         // className.__STATIC_RESET() exists
         logger.debug("Resetting class " + className);
@@ -110,7 +139,7 @@ class ClassReInitializeExecutor {
             Method resetMethod = ClassResetter.getInstance().getResetMethod(className);
             if (resetMethod != null) {
                 LoopCounter.getInstance().setActive(false);
-                resetMethod.invoke(null, (Object[]) null);
+                invokeResetWithTimeout(resetMethod, className);
             }
         } catch (Throwable e) {
             ClassResetter.getInstance().logWarn(className,
@@ -121,6 +150,51 @@ class ClassReInitializeExecutor {
             TestGenerationContext.getInstance().doneWithExecutingSUTCode();
             MutationObserver.activateMutation(mutationActive);
             LoopCounter.getInstance().setActive(wasLoopCheckOn);
+        }
+    }
+
+    /**
+     * Invokes the __STATIC_RESET() method on a separate daemon thread with a timeout.
+     * This prevents hangs when a class's static initializer blocks on operations
+     * like Object.wait(), network I/O, or semaphore acquisition that would otherwise
+     * stall the search indefinitely.
+     */
+    private void invokeResetWithTimeout(Method resetMethod, String className) throws Throwable {
+        ClassLoader sutClassLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+
+        FutureTask<Void> task = new FutureTask<>(() -> {
+            resetMethod.invoke(null, (Object[]) null);
+            return null;
+        });
+
+        Thread resetThread = new Thread(task, "StaticReset-" + className);
+        resetThread.setDaemon(true);
+        resetThread.setContextClassLoader(sutClassLoader);
+        resetThread.start();
+
+        try {
+            task.get(Properties.TIMEOUT_RESET, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            logger.warn("Static reset for {} timed out after {}ms — interrupting reset thread. "
+                    + "This class will be skipped on subsequent reset attempts.",
+                    className, Properties.TIMEOUT_RESET);
+            timedOutClasses.add(className);
+            resetThread.interrupt();
+            // Give the thread a short grace period to react to the interrupt.
+            // Object.wait() and Thread.sleep() throw InterruptedException promptly.
+            try {
+                resetThread.join(500);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            if (resetThread.isAlive()) {
+                logger.warn("Static reset thread for {} still alive after interrupt, abandoning.", className);
+            }
+        } catch (ExecutionException e) {
+            // Unwrap and rethrow so the caller sees the original exception
+            throw e.getCause() != null ? e.getCause() : e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 }

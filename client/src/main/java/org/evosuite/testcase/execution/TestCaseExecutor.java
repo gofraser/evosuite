@@ -90,6 +90,55 @@ public class TestCaseExecutor implements ThreadFactory {
     private final Set<Thread> stalledThreads = new HashSet<>();
 
     /**
+     * Timestamp of the last executor rotation, used to enforce a cooldown
+     * between rotations and prevent GC thrashing from rapid timeout cycling.
+     */
+    private long lastRotationTimestamp = 0;
+
+    /**
+     * Set to true inside the TimeoutException handler when the task is still
+     * not done after all cleanup attempts. Used by the outer execute() to
+     * decide whether rotation is needed — avoids the race condition where
+     * a stack trace check sees the pool thread in a transient state.
+     */
+    private volatile boolean lastTaskStillRunning = false;
+
+    /**
+     * Cumulative count of executor rotations. Unlike {@link #stalledThreads},
+     * this is never decremented when threads die, so it catches the pattern
+     * where threads die quickly but cycling is pathological.
+     */
+    private int totalRotationCount = 0;
+
+    /**
+     * Number of consecutive test executions that ended in timeout.
+     * Used to disable mocking when a SUT class consistently hangs.
+     */
+    private int consecutiveTimeoutCount = 0;
+
+    /**
+     * How many consecutive timeouts before we temporarily disable mocking.
+     */
+    private static final int CONSECUTIVE_TIMEOUT_THRESHOLD = 15;
+
+    /**
+     * After disabling mocking, re-enable it every N tests even if timeouts
+     * continue.  This prevents a one-way trap for classes that need mocking
+     * to reach non-blocking code paths.
+     */
+    private static final int MOCK_DISABLE_RETRY_INTERVAL = 30;
+
+    /**
+     * Saved values of mocking properties before timeout-based disabling.
+     * Used to restore them if the timeout pattern breaks (i.e., a test
+     * succeeds without timeout after mocking was disabled).
+     */
+    private double savedPFunctionalMocking = -1;
+    private boolean savedMockIfNoGenerator = false;
+    private boolean mockingDisabledDueToTimeouts = false;
+    private int testsSinceMockingDisabled = 0;
+
+    /**
      * Constant <code>timeExecuted=0</code>.
      */
     private static long timeExecuted = 0;
@@ -203,6 +252,32 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
+     * Clears adaptive timeout state on the existing singleton, if present.
+     * Unlike {@link #getInstance()}, this method does not create a new executor.
+     */
+    public static void resetAdaptiveTimeoutStateIfPresent() {
+        if (instance != null) {
+            instance.resetAdaptiveTimeoutState();
+        }
+    }
+
+    /**
+     * Clears adaptive timeout/mocking state kept on this singleton between runs.
+     * If timeout-adaptive logic previously disabled mocking, restore the
+     * original property values before starting the next search.
+     */
+    public synchronized void resetAdaptiveTimeoutState() {
+        consecutiveTimeoutCount = 0;
+        testsSinceMockingDisabled = 0;
+        if (mockingDisabledDueToTimeouts) {
+            logger.info("Restoring functional mocking during context reset.");
+            Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
+            Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+            mockingDisabledDueToTimeouts = false;
+        }
+    }
+
+    /**
      * <p>
      * addObserver.
      * </p>
@@ -281,15 +356,59 @@ public class TestCaseExecutor implements ThreadFactory {
         try {
             result = execute(tc, scope, timeout);
             timedOutExecution = result != null && result.hasTimeout();
-            workerThreadStillAliveAfterTimeout = timedOutExecution
-                    && currentThread != null
-                    && currentThread.isAlive();
+            // Use the flag set by the inner execute()'s TimeoutException handler
+            // which checks FutureTask.isDone() — this is authoritative and avoids
+            // the race condition where stack trace inspection catches the pool
+            // thread in a transient cleanup state.
+            workerThreadStillAliveAfterTimeout = timedOutExecution && lastTaskStillRunning;
         } finally {
             clearMockInvocationsIfNeeded(tc, scope, timedOutExecution,
                     workerThreadStillAliveAfterTimeout);
         }
         if (timedOutExecution && workerThreadStillAliveAfterTimeout) {
             rotateExecutorAfterStalledTimeout();
+        }
+
+        // Track consecutive timeouts and temporarily disable mocking if the SUT
+        // consistently hangs.  Unlike FunctionalMockStatement's own global disable
+        // (which is permanent based on mock failure rates), this is reversible:
+        //  - Immediately restored when a test succeeds without timeout.
+        //  - Periodically restored after MOCK_DISABLE_RETRY_INTERVAL tests even
+        //    if all tests keep timing out, to avoid a one-way trap where mocking
+        //    is needed for some code paths but never gets re-enabled.
+        if (timedOutExecution) {
+            consecutiveTimeoutCount++;
+            if (consecutiveTimeoutCount >= CONSECUTIVE_TIMEOUT_THRESHOLD
+                    && !mockingDisabledDueToTimeouts
+                    && (Properties.P_FUNCTIONAL_MOCKING > 0.0 || Properties.MOCK_IF_NO_GENERATOR)) {
+                logger.warn("Temporarily disabling functional mocking after {} consecutive timeouts "
+                        + "to reduce mock class generation overhead.", consecutiveTimeoutCount);
+                savedPFunctionalMocking = Properties.P_FUNCTIONAL_MOCKING;
+                savedMockIfNoGenerator = Properties.MOCK_IF_NO_GENERATOR;
+                Properties.P_FUNCTIONAL_MOCKING = 0.0;
+                Properties.MOCK_IF_NO_GENERATOR = false;
+                mockingDisabledDueToTimeouts = true;
+                testsSinceMockingDisabled = 0;
+            } else if (mockingDisabledDueToTimeouts) {
+                testsSinceMockingDisabled++;
+                if (testsSinceMockingDisabled >= MOCK_DISABLE_RETRY_INTERVAL) {
+                    logger.info("Restoring functional mocking after {} tests without success "
+                            + "— giving mocked tests another chance.", testsSinceMockingDisabled);
+                    Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
+                    Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+                    mockingDisabledDueToTimeouts = false;
+                    consecutiveTimeoutCount = 0;
+                }
+            }
+        } else {
+            consecutiveTimeoutCount = 0;
+            // Restore mocking if we previously disabled it and the timeout pattern broke
+            if (mockingDisabledDueToTimeouts) {
+                logger.info("Restoring functional mocking — consecutive timeout streak broken.");
+                Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
+                Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+                mockingDisabledDueToTimeouts = false;
+            }
         }
 
         if (Properties.RESET_STATIC_FIELDS) {
@@ -308,6 +427,7 @@ public class TestCaseExecutor implements ThreadFactory {
      */
     @SuppressWarnings({"deprecation", "removal"})
     private ExecutionResult execute(TestCase tc, Scope scope, int timeout) {
+        lastTaskStillRunning = false;
         ExecutionTracer.getExecutionTracer().clear();
 
         // TODO: Re-insert!
@@ -319,6 +439,7 @@ public class TestCaseExecutor implements ThreadFactory {
         long startTime = System.currentTimeMillis();
 
         TimeoutHandler<ExecutionResult> handler = new TimeoutHandler<>();
+        handler.setTaskThread(currentThread);
 
         // #TODO steenbuck could be nicer (TestRunnable should be an interface
         TestRunnable callable = new TestRunnable(tc, scope, observers);
@@ -425,19 +546,33 @@ public class TestCaseExecutor implements ThreadFactory {
                 // throwing inside <clinit> would leave the class broken.
                 boolean loopCounter = LoopCounter.getInstance().isActivated();
                 boolean wasInStaticInit = false;
+                int clinitWaitAttempts = 0;
+                // Allow up to timeout ms for the static initializer to complete normally
+                int maxClinitWaitAttempts = (int) Math.max(1, timeout / Properties.SHUTDOWN_TIMEOUT);
                 while (needsTimeoutCleanup(handler)
                         && currentThread != null
                         && currentThread.isAlive()
-                        && isInStaticInit()) {
+                        && isInStaticInit()
+                        && clinitWaitAttempts < maxClinitWaitAttempts) {
                     wasInStaticInit = true;
                     LoopCounter.getInstance().setActive(false);
                     ExecutionTracer.setKillSwitch(false);
-                    logger.info("Run still not finished, but awaiting for static initializer to finish.");
+                    logger.info("Run still not finished, but awaiting for static initializer to finish ({}/{}).",
+                            clinitWaitAttempts + 1, maxClinitWaitAttempts);
                     waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
+                    clinitWaitAttempts++;
                 }
                 LoopCounter.getInstance().setActive(loopCounter);
 
-                if (wasInStaticInit && needsTimeoutCleanup(handler)) {
+                if (wasInStaticInit && needsTimeoutCleanup(handler) && isInStaticInit()) {
+                    // Static initializer is still running after max wait — it's likely stuck.
+                    // Re-enable kill switch and loop counter so the thread can be terminated.
+                    logger.warn("Static initializer still running after {}ms — re-enabling kill switch "
+                            + "to force termination.", clinitWaitAttempts * Properties.SHUTDOWN_TIMEOUT);
+                    ExecutionTracer.setKillSwitch(true);
+                    LoopCounter.getInstance().setActive(true);
+                    waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
+                } else if (wasInStaticInit && needsTimeoutCleanup(handler)) {
                     // The initial timeout was consumed by classloading/static initialization.
                     // Give the actual test code a fresh timeout budget so it gets a fair chance.
                     logger.info("Static initializer finished; granting fresh timeout of {}ms for test execution.", timeout);
@@ -494,22 +629,33 @@ public class TestCaseExecutor implements ThreadFactory {
                         logger.warn("  {}", element);
                     }
                 }
-                // Try one last time to clean up the stuck thread.
-                // Executor rotation is handled by the outer execute() method.
-                try {
-                    if (currentThread != null && currentThread.isAlive()) {
-                        try {
-                            currentThread.setDaemon(true);
-                        } catch (IllegalThreadStateException ignored) {
-                        }
-                        currentThread.interrupt();
+                // Try interrupt first — works for threads blocked on I/O,
+                // sleeping, or waiting on monitors.
+                if (currentThread != null && currentThread.isAlive()) {
+                    currentThread.interrupt();
+                }
+                // Last resort: Thread.stop() to kill CPU-bound loops in
+                // uninstrumented JDK code (e.g. Logger.getEffectiveLoggerBundle)
+                // that don't respond to interrupt(). Deprecated but necessary —
+                // a leaked thread burns 100% CPU for the entire process lifetime.
+                if (currentThread != null && currentThread.isAlive()) {
+                    try {
+                        logger.warn("Force-stopping stuck thread {} via Thread.stop()",
+                                currentThread.getName());
+                        currentThread.stop();
+                        currentThread.join(Properties.SHUTDOWN_TIMEOUT);
+                    } catch (Throwable t) {
+                        logger.info("Exception during Thread.stop() cleanup: {}", t.getMessage());
                     }
-                } catch (Throwable t) {
-                    logger.info("Exception during thread cleanup: {}", t.getMessage());
                 }
                 ExecutionTracer.disable();
             }
             ExecutionTracer.disable();
+
+            // Record whether the task is genuinely still running after all
+            // cleanup attempts.  The outer execute() uses this to decide on
+            // rotation instead of a racey stack-trace check.
+            lastTaskStillRunning = needsTimeoutCleanup(handler);
 
             // TODO: If this is true, is this problematic?
             if (Sandbox.isOnAndExecutingSUTCode()) {
@@ -518,12 +664,19 @@ public class TestCaseExecutor implements ThreadFactory {
             }
 
             ExecutionResult result = new ExecutionResult(tc, null);
-            result.setThrownExceptions(callable.getExceptionsThrown());
-            result.reportNewThrownException(tc.size(), new TestCaseExecutor.TimeoutExceeded());
-            result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
-            ExecutionTracer.getExecutionTracer().clear();
-            ExecutionTracer.setKillSwitch(false);
-            ExecutionTracer.enable();
+            try {
+                result.setThrownExceptions(callable.getExceptionsThrown());
+                result.reportNewThrownException(tc.size(), new TestCaseExecutor.TimeoutExceeded());
+                result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
+                ExecutionTracer.getExecutionTracer().clear();
+            } finally {
+                // Ensure the tracer is always re-enabled after a timeout, even if
+                // result construction throws (e.g., due to a race with the
+                // still-running worker thread).  Leaving the tracer disabled would
+                // cause ALL subsequent test executions to produce empty traces.
+                ExecutionTracer.setKillSwitch(false);
+                ExecutionTracer.enable();
+            }
             System.setOut(systemOut);
             System.setErr(systemErr);
 
@@ -585,11 +738,30 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     private synchronized void rotateExecutorAfterStalledTimeout() {
+        long now = System.currentTimeMillis();
+        long elapsed = now - lastRotationTimestamp;
+        if (elapsed < Properties.ROTATION_COOLDOWN_MS) {
+            logger.info("Skipping executor rotation: only {}ms since last rotation (cooldown {}ms). "
+                    + "Reusing existing executor.", elapsed, Properties.ROTATION_COOLDOWN_MS);
+            // Still track the stalled thread even if we skip rotation
+            if (currentThread != null && currentThread.isAlive()) {
+                currentThread.setPriority(Thread.MIN_PRIORITY);
+                stalledThreads.add(currentThread);
+            }
+            return;
+        }
+
         logger.warn("Rotating TestCaseExecutor worker after timeout with live thread "
                 + "to avoid leaking thread-local state.");
         // Track the stalled thread so ResourceController can count it and
         // stop the search before we accumulate too many.
         if (currentThread != null && currentThread.isAlive()) {
+            // Log where the thread is stuck to aid diagnosis
+            StringBuilder sb = new StringBuilder("Stalled thread stack trace:");
+            for (StackTraceElement elem : currentThread.getStackTrace()) {
+                sb.append("\n  at ").append(elem);
+            }
+            logger.warn(sb.toString());
             currentThread.setPriority(Thread.MIN_PRIORITY);
             stalledThreads.add(currentThread);
         }
@@ -599,13 +771,13 @@ public class TestCaseExecutor implements ThreadFactory {
         executor = Executors.newSingleThreadExecutor(this);
         currentThread = null;
         threadGroup = null;
+        totalRotationCount++;
+        lastRotationTimestamp = now;
         int numStalled = getNumStalledThreads();
-        if (numStalled > 0) {
-            logger.warn("Total stalled threads: {}. ResourceController will stop the search at {}.",
-                    numStalled, Properties.MAX_STALLED_THREADS);
-        }
-        // Hint the GC to reclaim objects released by scope.clear() for the stalled execution.
-        System.gc();
+        logger.warn("Executor rotation #{} complete. Stalled threads: {} (limit {}). "
+                        + "Total rotations: {} (limit {}).",
+                totalRotationCount, numStalled, Properties.MAX_STALLED_THREADS,
+                totalRotationCount, Properties.MAX_TOTAL_ROTATIONS);
     }
 
     private boolean isInStaticInit() {
@@ -626,6 +798,33 @@ public class TestCaseExecutor implements ThreadFactory {
                 return true;
             }
         }
+        return false;
+    }
+
+    /**
+     * Check if a thread is stuck in SUT code (or EvoSuite test execution code),
+     * as opposed to being idle in the thread pool's work queue.
+     * A thread that has finished its task but is still alive in the
+     * ThreadPoolExecutor's getTask/runWorker loop should NOT trigger rotation.
+     */
+    private boolean isThreadStuckInSutCode(Thread thread) {
+        if (thread == null || !thread.isAlive()) {
+            return false;
+        }
+        for (StackTraceElement elem : thread.getStackTrace()) {
+            String className = elem.getClassName();
+            // If the thread is still in TestRunnable.call or executeStatements,
+            // it's executing SUT code and is genuinely stuck
+            if (className.equals(TestRunnable.class.getName())) {
+                return true;
+            }
+            // If it's in Statement.execute or AbstractStatement.exceptionHandler,
+            // it's in the middle of SUT invocation
+            if (className.endsWith("Statement") && elem.getMethodName().equals("execute")) {
+                return true;
+            }
+        }
+        // Thread is alive but not in SUT code — likely idle in the executor pool
         return false;
     }
 
@@ -675,6 +874,13 @@ public class TestCaseExecutor implements ThreadFactory {
             long remaining = deadline - System.currentTimeMillis();
             waitForLastTask(handler, Math.max(1L, Math.min(100L, remaining)));
         }
+    }
+
+    /**
+     * @return the cumulative number of executor rotations since this executor was created.
+     */
+    public int getTotalRotationCount() {
+        return totalRotationCount;
     }
 
     /**

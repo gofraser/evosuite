@@ -239,5 +239,32 @@ public class ClassReInitializer {
         }
     }
 
+    /**
+     * Resets ALL known initialized classes by invoking their {@code __STATIC_RESET()}
+     * methods.  This is useful before phases (like minimization) that need a consistent
+     * static state across the entire SUT.
+     *
+     * <p>Because {@code __STATIC_RESET()} replays the {@code <clinit>} body, classes
+     * with cross-dependencies may fail on the first pass if their dependency hasn't been
+     * reset yet.  To handle this, we perform {@code passes} reset rounds.  The first pass
+     * restores leaf classes; subsequent passes restore classes that depend on those.</p>
+     *
+     * @param passes how many reset rounds to perform (typically 2)
+     */
+    public void resetAllInitializedClasses(int passes) {
+        final List<String> classesToReset;
+        synchronized (initializedClassesLock) {
+            classesToReset = new LinkedList<>(initializedClasses);
+        }
+        if (classesToReset.isEmpty()) {
+            return;
+        }
+        // Clear the timed-out blacklist at phase boundaries — conditions may
+        // have changed enough for previously stuck resets to succeed.
+        ClassReInitializeExecutor.getInstance().clearTimedOutClasses();
+        for (int i = 0; i < passes; i++) {
+            ClassReInitializeExecutor.getInstance().resetClasses(classesToReset);
+        }
+    }
 
 }

@@ -2300,7 +2300,7 @@ public class Properties {
 
     @Parameter(key = "replace_gui", group = "Test Execution",
             description = "Replace javax.swing with a smart stub/mock")
-    public static boolean REPLACE_GUI = false;
+    public static boolean REPLACE_GUI = true;
 
 
     @Parameter(key = "max_started_threads", group = "Test Execution",
@@ -2482,6 +2482,16 @@ public class Properties {
 
     @Parameter(key = "max_stalled_threads", group = "Runtime", description = "Number of stalled threads")
     public static int MAX_STALLED_THREADS = 10;
+
+    @Parameter(key = "max_total_rotations", group = "Runtime",
+            description = "Cumulative executor rotation limit before stopping search. "
+                    + "Catches rapid timeout cycling where threads die quickly and evade the stalled thread check.")
+    public static int MAX_TOTAL_ROTATIONS = 50;
+
+    @Parameter(key = "rotation_cooldown_ms", group = "Runtime",
+            description = "Minimum interval in milliseconds between executor rotations. "
+                    + "Prevents GC thrashing from rapid timeout cycling.")
+    public static long ROTATION_COOLDOWN_MS = 1000;
 
     @Parameter(key = "ignore_threads", group = "Runtime",
             description = "Do not attempt to kill threads matching this prefix")

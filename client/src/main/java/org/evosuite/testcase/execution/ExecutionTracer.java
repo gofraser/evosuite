@@ -46,12 +46,36 @@ public class ExecutionTracer {
      * We need to disable the execution tracer sometimes, e.g. when calling
      * equals in the branch distance function.
      */
-    private boolean disabled = true;
+    private volatile boolean disabled = true;
 
     /**
      * Flag that is used to kill threads that are stuck in endless loops.
      */
-    private boolean killSwitch = false;
+    private volatile boolean killSwitch = false;
+
+    /**
+     * Counts how many times checkTimeout() has been called with the kill switch
+     * active while inside a static initializer. When this exceeds a threshold,
+     * we force the timeout even inside &lt;clinit&gt; to prevent permanently
+     * stalled threads.
+     */
+    private int clinitKillSwitchCount = 0;
+
+    /**
+     * Tracks the nesting depth of &lt;clinit&gt; (static initializer) calls
+     * on the current thread. Incremented by instrumented enterClassInit()
+     * calls and decremented by exitClassInit(). Used to cheaply detect
+     * whether we are inside a static initializer without walking the stack.
+     */
+    private int clinitDepth = 0;
+
+    /**
+     * Maximum number of checkTimeout() calls inside &lt;clinit&gt; with kill
+     * switch active before we force the timeout. This is a last resort to
+     * prevent threads from being stuck forever in static initializers with
+     * infinite loops.
+     */
+    private static final int MAX_CLINIT_KILL_SWITCH_CHECKS = 100_000;
 
     private int numStatements = 0;
 
@@ -109,6 +133,9 @@ public class ExecutionTracer {
     public static void setKillSwitch(boolean value) {
         ExecutionTracer tracer = ExecutionTracer.getExecutionTracer();
         tracer.killSwitch = value;
+        if (value) {
+            tracer.clinitKillSwitchCount = 0;
+        }
     }
 
     /**
@@ -173,6 +200,7 @@ public class ExecutionTracer {
         trace = new ExecutionTraceProxy();
         BooleanHelper.clearStack();
         numStatements = 0;
+        clinitDepth = 0;
     }
 
     /**
@@ -356,20 +384,27 @@ public class ExecutionTracer {
         }
 
         if (tracer.killSwitch) {
-            // logger.info("Raising TimeoutException as kill switch is active - passedLine");
             if (!isInStaticInit()) {
+                tracer.clinitKillSwitchCount = 0;
+                throw new TestCaseExecutor.TimeoutExceeded();
+            }
+            // Inside <clinit>: normally we don't throw to avoid breaking the class.
+            // But if the kill switch has been active for too many checks, the static
+            // initializer is likely stuck in an infinite loop — force the timeout
+            // to prevent a permanently stalled thread.
+            tracer.clinitKillSwitchCount++;
+            if (tracer.clinitKillSwitchCount >= MAX_CLINIT_KILL_SWITCH_CHECKS) {
+                tracer.clinitKillSwitchCount = 0;
+                logger.warn("Forcing timeout inside <clinit> after {} kill switch checks "
+                        + "— static initializer appears stuck in an infinite loop",
+                        MAX_CLINIT_KILL_SWITCH_CHECKS);
                 throw new TestCaseExecutor.TimeoutExceeded();
             }
         }
     }
 
     private static boolean isInStaticInit() {
-        for (StackTraceElement elem : Thread.currentThread().getStackTrace()) {
-            if (elem.getMethodName().equals("<clinit>")) {
-                return true;
-            }
-        }
-        return false;
+        return getExecutionTracer().clinitDepth > 0;
     }
 
     /**
@@ -491,6 +526,18 @@ public class ExecutionTracer {
 
 
     /**
+     * Called by instrumented bytecode at the start of each &lt;clinit&gt; method.
+     * Increments the clinit depth counter so that {@link #isInStaticInit()}
+     * can cheaply detect whether we are inside a static initializer without
+     * walking the stack trace.
+     *
+     * @param className the name of the class (unused, kept for symmetry with exitClassInit).
+     */
+    public static void enterClassInit(String className) {
+        getExecutionTracer().clinitDepth++;
+    }
+
+    /**
      * This method is added in the transformed bytecode.
      *
      * @param className the name of the class.
@@ -500,13 +547,9 @@ public class ExecutionTracer {
         final String classNameWithDots = className.replace('/', '.');
 
         ExecutionTracer tracer = getExecutionTracer();
-        //        if (tracer.disabled)
-        //            return;
-        //
-        //        if (isThreadNeqCurrentThread())
-        //            return;
-        //
-        //        checkTimeout();
+        if (tracer.clinitDepth > 0) {
+            tracer.clinitDepth--;
+        }
 
         tracer.trace.classInitialized(classNameWithDots);
 

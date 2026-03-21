@@ -120,6 +120,12 @@ public class LoopCounter {
      */
     public void checkLoop(int index) throws TooManyResourcesException, IllegalArgumentException {
         if (delegate != null) {
+            // Check interrupt before delegating — the delegate runs via
+            // reflection which is slow, and we want fast termination.
+            if (Thread.currentThread().isInterrupted()) {
+                throw new TooManyResourcesException(
+                        "Loop terminated early: thread was interrupted (likely timeout)");
+            }
             try {
                 java.lang.reflect.Method m = delegate.getClass().getMethod("checkLoop", int.class);
                 m.invoke(delegate, index);
@@ -147,6 +153,19 @@ public class LoopCounter {
             return; //do nothing, no check
         }
 
+        // If the thread has been interrupted (e.g., by the timeout handler),
+        // terminate the loop immediately. This is critical because the kill
+        // switch / ExecutionTracer.checkTimeout() only fires at instrumented
+        // line checkpoints, which the thread may never reach if each loop
+        // iteration blocks in native code (e.g., file I/O, DNS lookup).
+        // checkLoop() is called at the loop back-edge — the earliest point
+        // we regain control after a native call returns.
+        if (Thread.currentThread().isInterrupted()) {
+            this.reset();
+            throw new TooManyResourcesException(
+                    "Loop terminated early: thread was interrupted (likely timeout)");
+        }
+
         //first check initialization
         int size = counters.size();
         if (index >= size) {
@@ -161,11 +180,24 @@ public class LoopCounter {
             long value = counters.get(index) + 1L;
             counters.set(index, value);
 
-            if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInit()) {
-                this.reset();
-                throw new TooManyResourcesException("Loop has been executed more times than the allowed "
-                        + RuntimeSettings.maxNumberOfIterationsPerLoop);
+            if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop) {
+                if (!isInStaticInit()) {
+                    this.reset();
+                    throw new TooManyResourcesException("Loop has been executed more times than the allowed "
+                            + RuntimeSettings.maxNumberOfIterationsPerLoop);
+                }
+                // In static initializers, allow a 10x higher limit before giving up.
+                // Throwing here will leave the class in a broken state (NoClassDefFoundError),
+                // but that's better than a permanently stalled thread consuming resources.
+                if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop * 10) {
+                    this.reset();
+                    throw new TooManyResourcesException("Loop in static initializer has been executed more "
+                            + "times than the allowed " + (RuntimeSettings.maxNumberOfIterationsPerLoop * 10)
+                            + " (10x clinit limit)");
+                }
             }
+        } catch (TooManyResourcesException e) {
+            throw e; // re-throw — must not be swallowed
         } catch (NullPointerException e) {
             // Some weird Java internal NPE can happen:
             // https://github.com/EvoSuite/evosuite/issues/143

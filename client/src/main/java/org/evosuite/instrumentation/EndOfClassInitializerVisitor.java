@@ -86,6 +86,13 @@ public class EndOfClassInitializerVisitor extends ClassVisitor {
         public void visitCode() {
             super.visitCode();
             if (methodName.equals("<clinit>")) {
+                // Insert enterClassInit call at the very start of <clinit>
+                String executionTracerClassName = ExecutionTracer.class.getName().replace('.', '/');
+                String executionTracerDescriptor = Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(String.class));
+                String classNameWithDots = className.replace('/', '.');
+                super.visitLdcInsn(classNameWithDots);
+                super.visitMethodInsn(INVOKESTATIC, executionTracerClassName, ENTER_CLASS_INIT,
+                        executionTracerDescriptor, false);
 
                 startingTryLabel = new Label();
                 endingTryLabel = new Label();
@@ -176,6 +183,7 @@ public class EndOfClassInitializerVisitor extends ClassVisitor {
     private boolean hasStaticFields = false;
 
     private static final String EXIT_CLASS_INIT = "exitClassInit";
+    private static final String ENTER_CLASS_INIT = "enterClassInit";
 
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
@@ -215,6 +223,10 @@ public class EndOfClassInitializerVisitor extends ClassVisitor {
         String executionTracerDescriptor = Type.getMethodDescriptor(Type.VOID_TYPE, Type.getType(String.class));
 
         String classNameWithDots = className.replace('/', '.');
+
+        mv.visitLdcInsn(classNameWithDots);
+        mv.visitMethodInsn(INVOKESTATIC, executionTracerClassName, ENTER_CLASS_INIT, executionTracerDescriptor, false);
+
         mv.visitLdcInsn(classNameWithDots);
         mv.visitMethodInsn(INVOKESTATIC, executionTracerClassName, EXIT_CLASS_INIT, executionTracerDescriptor, false);
 

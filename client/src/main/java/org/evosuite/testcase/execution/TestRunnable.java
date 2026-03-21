@@ -28,7 +28,11 @@ import org.evosuite.runtime.jvm.ShutdownHookHandler;
 import org.evosuite.runtime.thread.KillSwitch;
 import org.evosuite.runtime.thread.ThreadStopper;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -331,14 +335,70 @@ public class TestRunnable implements InterfaceTestRunnable {
                 }
                 // -------------------------------------------------------
 
+                // When a ClassCastException involves a mock object, register a
+                // mock type upgrade so future mocks use the more specific type.
+                // E.g., mock(Graphics.class) cast to Graphics2D → upgrade to Graphics2D.
+                if (exceptionThrown instanceof ClassCastException) {
+                    FunctionalMockStatement.detectMockTypeUpgrade(
+                            (ClassCastException) exceptionThrown, s, test);
+                }
+
+                // When a constructor or method causes OOM, register the class
+                // so that future test generation caps its int arguments and
+                // rejectAbsurdIntInputs kicks in for that class.
+                if (exceptionThrown instanceof OutOfMemoryError) {
+                    String className = null;
+                    if (s instanceof ConstructorStatement) {
+                        className = ((ConstructorStatement) s).getDeclaringClassName();
+                        try {
+                            Object[] args = extractIntArgs((ConstructorStatement) s, test);
+                            org.evosuite.testcase.StatementFactory
+                                    .addAllocationSensitiveMethod(className, "<init>", args);
+                        } catch (Exception ex) {
+                            logger.debug("Could not extract args for constructor OOM registration", ex);
+                        }
+                    } else if (s instanceof MethodStatement) {
+                        className = ((MethodStatement) s).getMethod()
+                                .getMethod().getDeclaringClass().getName();
+                        // Register the specific method with its arg values
+                        // so future calls get a threshold derived from
+                        // the values that caused this OOM.
+                        try {
+                            MethodStatement ms = (MethodStatement) s;
+                            String methodName = ms.getMethod().getMethod().getName();
+                            // Extract int arg values from the test case statements
+                            // rather than the scope (which may be corrupted after OOM)
+                            Object[] args = extractIntArgs(ms, test);
+                            org.evosuite.testcase.StatementFactory
+                                    .addAllocationSensitiveMethod(className, methodName, args);
+                        } catch (Exception ex) {
+                            logger.debug("Could not extract args for method OOM registration", ex);
+                        }
+                    }
+                    if (className != null) {
+                        org.evosuite.testcase.StatementFactory.addAllocationSensitiveClass(className);
+                        logger.warn("OOM in {} at statement {}/{}: {}\nFull test case:\n{}",
+                                s.getClass().getSimpleName(), num.get(), test.size(),
+                                s.getCode(), test.toCode());
+                    }
+                }
+
                 /*
-                 * This is implemented in this way due to ExecutionResult.hasTimeout()
+                 * This is implemented in this way due to ExecutionResult.hasTimeout().
+                 * Also unwrap CodeUnderTestException wrapping TimeoutExceeded — this
+                 * happens when our allocation guards (rejectAbsurdIntInputs,
+                 * rejectLargeIntInputs) simulate a timeout to give worst-case fitness.
                  */
-                if (exceptionThrown instanceof TestCaseExecutor.TimeoutExceeded) {
+                Throwable timeoutCandidate = exceptionThrown;
+                if (timeoutCandidate instanceof CodeUnderTestException
+                        && timeoutCandidate.getCause() instanceof TestCaseExecutor.TimeoutExceeded) {
+                    timeoutCandidate = timeoutCandidate.getCause();
+                }
+                if (timeoutCandidate instanceof TestCaseExecutor.TimeoutExceeded) {
                     logger.debug("Test timed out!");
-                    exceptionsThrown.put(test.size(), exceptionThrown);
+                    exceptionsThrown.put(test.size(), timeoutCandidate);
                     result.setThrownExceptions(exceptionsThrown);
-                    result.reportNewThrownException(test.size(), exceptionThrown);
+                    result.reportNewThrownException(test.size(), timeoutCandidate);
                     result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
                     break;
                 }
@@ -380,6 +440,25 @@ public class TestRunnable implements InterfaceTestRunnable {
         } // end of loop
         informObservers_finished(result);
         //TODO
+    }
+
+    /**
+     * Extracts the int argument values from a statement with parameters by looking up
+     * the PrimitiveStatements that define the parameter variables.
+     * Safe to call after OOM (doesn't use scope).
+     */
+    private static Object[] extractIntArgs(
+            org.evosuite.testcase.statements.EntityWithParametersStatement ms, TestCase tc) {
+        List<VariableReference> params = ms.getParameterReferences();
+        Object[] args = new Object[params.size()];
+        for (int i = 0; i < params.size(); i++) {
+            VariableReference ref = params.get(i);
+            Statement defStmt = tc.getStatement(ref.getStPosition());
+            if (defStmt instanceof org.evosuite.testcase.statements.PrimitiveStatement) {
+                args[i] = ((org.evosuite.testcase.statements.PrimitiveStatement<?>) defStmt).getValue();
+            }
+        }
+        return args;
     }
 
     private void printDebugInfo(Statement s, Throwable exceptionThrown) {

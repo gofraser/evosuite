@@ -42,9 +42,26 @@ public class TimeoutHandler<T> {
     private final ThreadMXBean bean;
 
     /**
+     * The thread that will execute the task.  Set this before calling
+     * {@link #execute} so that the CPU-based timeout can account for CPU
+     * time consumed by the (pre-existing) worker thread.
+     */
+    private volatile Thread taskThread;
+
+    /**
      * Constant <code>logger</code>.
      */
     protected static final Logger logger = LoggerFactory.getLogger(TimeoutHandler.class);
+
+    /**
+     * Sets the thread that will run the submitted task, so that the CPU-based
+     * timeout can include its CPU time in the accounting.
+     *
+     * @param thread the worker thread, or {@code null}
+     */
+    public void setTaskThread(Thread thread) {
+        this.taskThread = thread;
+    }
 
     /**
      * <p>
@@ -101,6 +118,18 @@ public class TimeoutHandler<T> {
             ExecutionException, TimeoutException {
         long[] otherThreadIds = bean.getAllThreadIds();
 
+        // Record the task thread's CPU baseline so we can include its delta in the
+        // accounting.  The worker thread is pre-existing (in the executor pool) and
+        // therefore appears in otherThreadIds.  Without this, CPU-bound work on the
+        // worker thread (e.g., SQLException.setNextException traversing a long chain)
+        // is never counted and the timeout loop runs forever.
+        long taskThreadId = taskThread != null ? taskThread.getId() : -1;
+        long taskThreadCpuBaseline = 0;
+        if (taskThreadId >= 0) {
+            long ns = bean.getThreadCpuTime(taskThreadId);
+            taskThreadCpuBaseline = ns >= 0 ? ns / 1_000_000 : 0;
+        }
+
         task = new FutureTask<>(testcase);
         executor.execute(task);
         T result = null;
@@ -119,6 +148,13 @@ public class TimeoutHandler<T> {
 
                 outer:
                 for (long id : allThreadIds) {
+                    // Always include the task thread's delta even though it's "old"
+                    if (id == taskThreadId) {
+                        long ns = bean.getThreadCpuTime(id);
+                        long ms = ns >= 0 ? ns / 1_000_000 : 0;
+                        cpuUsage += Math.max(0, ms - taskThreadCpuBaseline);
+                        continue;
+                    }
                     for (final long otherThreadId : otherThreadIds) {
                         if (id == otherThreadId) {
                             continue outer;
