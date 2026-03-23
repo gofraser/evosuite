@@ -408,7 +408,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (!Properties.LLM_ASYNC_PRODUCER || uncoveredGoalsSupplier == null) {
             return;
         }
-        asyncProducer = new AsyncLlmTestProducer(uncoveredGoalsSupplier);
+        Supplier<List<TestChromosome>> popSupplier = Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS
+                ? this::getPopulationAsTestChromosomes : null;
+        asyncProducer = new AsyncLlmTestProducer(uncoveredGoalsSupplier, popSupplier);
         asyncProducer.start();
     }
 
@@ -445,7 +447,12 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (!stagnationDetector.checkStagnation(currentBestFitness)) {
             return;
         }
-        injectLlmTests(stagnationDetector.requestHelp(uncoveredGoals, getPopulationAsTestChromosomes()));
+        List<TestChromosome> pop = getPopulationAsTestChromosomes();
+        int totalGoals = uncoveredGoals.size() + countCoveredGoals();
+        int coveredCount = totalGoals - uncoveredGoals.size();
+        Map<TestFitnessFunction, Double> bestFitness = computeBestFitnessPerGoal(uncoveredGoals, pop);
+        injectLlmTests(stagnationDetector.requestHelp(
+                uncoveredGoals, pop, totalGoals, coveredCount, bestFitness));
     }
 
     protected void maybeInjectOnStagnationByCoverage(int currentCoveredGoals,
@@ -456,7 +463,11 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (!stagnationDetector.checkStagnation(currentCoveredGoals)) {
             return;
         }
-        injectLlmTests(stagnationDetector.requestHelp(uncoveredGoals, getPopulationAsTestChromosomes()));
+        List<TestChromosome> pop = getPopulationAsTestChromosomes();
+        int totalGoals = currentCoveredGoals + uncoveredGoals.size();
+        Map<TestFitnessFunction, Double> bestFitness = computeBestFitnessPerGoal(uncoveredGoals, pop);
+        injectLlmTests(stagnationDetector.requestHelp(
+                uncoveredGoals, pop, totalGoals, currentCoveredGoals, bestFitness));
     }
 
     protected Collection<TestFitnessFunction> getUncoveredGoalsForTestChromosomes() {
@@ -566,6 +577,46 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             return tests;
         }
         return Collections.emptyList();
+    }
+
+    /** Rough count of covered goals based on fitnessFunctions (for diagnostics). */
+    private int countCoveredGoals() {
+        int covered = 0;
+        if (population.isEmpty()) {
+            return covered;
+        }
+        for (FitnessFunction<T> ff : fitnessFunctions) {
+            if (ff instanceof TestFitnessFunction && population.get(0) instanceof TestChromosome) {
+                TestFitnessFunction tff = (TestFitnessFunction) ff;
+                for (T individual : population) {
+                    if (tff.isCovered((TestChromosome) individual)) {
+                        covered++;
+                        break;
+                    }
+                }
+            }
+        }
+        return covered;
+    }
+
+    /** Computes the best (minimum) fitness distance per uncovered goal across the population. */
+    private Map<TestFitnessFunction, Double> computeBestFitnessPerGoal(
+            Collection<TestFitnessFunction> uncoveredGoals, List<TestChromosome> pop) {
+        if (pop.isEmpty() || uncoveredGoals.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<TestFitnessFunction, Double> result = new LinkedHashMap<>();
+        for (TestFitnessFunction goal : uncoveredGoals) {
+            double best = Double.MAX_VALUE;
+            for (TestChromosome tc : pop) {
+                double f = goal.getFitness(tc);
+                if (f < best) {
+                    best = f;
+                }
+            }
+            result.put(goal, best);
+        }
+        return result;
     }
 
 

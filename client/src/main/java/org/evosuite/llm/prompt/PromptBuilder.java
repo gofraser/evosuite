@@ -164,22 +164,88 @@ public class PromptBuilder {
 
     /** Adds an existing test case to the user prompt as context. */
     public PromptBuilder withExistingTest(TestCase test) {
-        userSections.add("Existing test:\n```java\n" + testCaseFormatter.format(test) + "\n```");
+        String formatted = Properties.LLM_ANNOTATE_EXISTING_TESTS
+                ? testCaseFormatter.formatWithCoverage(test)
+                : testCaseFormatter.format(test);
+        userSections.add("Existing test:\n```java\n" + formatted + "\n```");
         return this;
     }
 
-    /** Adds multiple existing test cases to the user prompt as context. */
+    /**
+     * Adds multiple existing test cases to the user prompt as context,
+     * enforcing per-test and total character budgets from
+     * {@code LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST} and
+     * {@code LLM_EXISTING_TESTS_MAX_CHARS_TOTAL}. If
+     * {@code LLM_ANNOTATE_EXISTING_TESTS} is enabled, each test is
+     * annotated with its covered goals.
+     */
     public PromptBuilder withExistingTests(List<TestCase> tests) {
         if (tests == null || tests.isEmpty()) {
             return this;
         }
+        int maxTotal = Properties.LLM_EXISTING_TESTS_MAX_CHARS_TOTAL;
+        int maxPerTest = Properties.LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST;
+        boolean annotate = Properties.LLM_ANNOTATE_EXISTING_TESTS;
         StringBuilder builder = new StringBuilder("Existing tests:\n");
+        int totalChars = 0;
+
         for (TestCase test : tests) {
-            builder.append("```java\n")
-                    .append(testCaseFormatter.format(test))
-                    .append("\n```\n");
+            String code = annotate
+                    ? testCaseFormatter.formatWithCoverage(test)
+                    : testCaseFormatter.format(test);
+
+            if (maxPerTest > 0 && code.length() > maxPerTest) {
+                String marker = "\n// ... (truncated)";
+                if (maxPerTest > marker.length()) {
+                    code = code.substring(0, maxPerTest - marker.length()) + marker;
+                } else {
+                    code = code.substring(0, maxPerTest);
+                }
+            }
+
+            if (maxTotal > 0 && totalChars + code.length() > maxTotal
+                    && totalChars > 0) {
+                break;
+            }
+
+            builder.append("```java\n").append(code).append("\n```\n");
+            totalChars += code.length();
         }
         userSections.add(builder.toString());
+        return this;
+    }
+
+    /**
+     * Adds a coverage feedback section summarising what the previous LLM
+     * batch achieved, helping the LLM understand what worked.
+     *
+     * @param newlyCovered goals covered by the previous batch (may be null/empty)
+     * @param totalGoals   total number of coverage goals
+     * @param coveredCount number of goals now covered
+     */
+    public PromptBuilder withCoverageFeedback(
+            Collection<TestFitnessFunction> newlyCovered,
+            int totalGoals, int coveredCount) {
+        if (newlyCovered == null || newlyCovered.isEmpty()) {
+            return this;
+        }
+        double pct = totalGoals > 0 ? (100.0 * coveredCount / totalGoals) : 0.0;
+        GoalDescriptionMapper mapper = new GoalDescriptionMapper();
+        StringBuilder sb = new StringBuilder();
+        sb.append(String.format("Progress: Your previous tests covered %d new goal(s) "
+                        + "(total: %d/%d, %.1f%%). Newly covered:\n",
+                newlyCovered.size(), coveredCount, totalGoals, pct));
+        int count = 0;
+        for (TestFitnessFunction goal : newlyCovered) {
+            if (count >= 10) {
+                sb.append("  ... and ").append(newlyCovered.size() - count).append(" more\n");
+                break;
+            }
+            sb.append("- ").append(mapper.describe(goal)).append('\n');
+            count++;
+        }
+        sb.append("Focus on the remaining uncovered goals below.");
+        userSections.add(sb.toString());
         return this;
     }
 

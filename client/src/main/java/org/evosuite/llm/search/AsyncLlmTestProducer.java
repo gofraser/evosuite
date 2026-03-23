@@ -27,9 +27,11 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.slf4j.Logger;
@@ -53,6 +55,7 @@ public class AsyncLlmTestProducer {
     private final BlockingQueue<TestChromosome> testQueue;
     private final Thread producerThread;
     private final Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
+    private final Supplier<List<TestChromosome>> populationSupplier;
     private final LlmService llmService;
     private final int refreshInterval;
     private final int delayMs;
@@ -61,6 +64,18 @@ public class AsyncLlmTestProducer {
     /** Creates a producer using singleton LLM service and Properties-configured settings. */
     public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
         this(uncoveredGoalsSupplier,
+                null,
+                LlmService.getInstance(),
+                Properties.LLM_ASYNC_PRODUCER_QUEUE_SIZE,
+                Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL,
+                Properties.LLM_ASYNC_PRODUCER_DELAY_MS);
+    }
+
+    /** Creates a producer with a population supplier for existing-test context. */
+    public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+                                Supplier<List<TestChromosome>> populationSupplier) {
+        this(uncoveredGoalsSupplier,
+                populationSupplier,
                 LlmService.getInstance(),
                 Properties.LLM_ASYNC_PRODUCER_QUEUE_SIZE,
                 Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL,
@@ -69,11 +84,13 @@ public class AsyncLlmTestProducer {
 
     /** Creates a producer with explicit dependencies and configuration. */
     public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+                                Supplier<List<TestChromosome>> populationSupplier,
                                 LlmService llmService,
                                 int queueSize,
                                 int refreshInterval,
                                 int delayMs) {
         this.uncoveredGoalsSupplier = uncoveredGoalsSupplier == null ? Collections::emptyList : uncoveredGoalsSupplier;
+        this.populationSupplier = populationSupplier;
         this.llmService = llmService;
         this.testQueue = new ArrayBlockingQueue<>(Math.max(1, queueSize));
         this.refreshInterval = Math.max(1, refreshInterval);
@@ -111,6 +128,7 @@ public class AsyncLlmTestProducer {
         TestRepairLoop repairLoop = TestRepairLoop.createDefault(llmService);
         int generatedSinceRefresh = refreshInterval;
         Collection<TestFitnessFunction> currentGoals = Collections.emptyList();
+        List<TestCase> currentTests = Collections.emptyList();
 
         while (running) {
             if (!llmService.isAvailable() || !llmService.hasBudget()) {
@@ -119,20 +137,26 @@ public class AsyncLlmTestProducer {
 
             if (generatedSinceRefresh >= refreshInterval || currentGoals.isEmpty()) {
                 currentGoals = safeGoalsSnapshot();
+                currentTests = safePopulationSnapshot(currentGoals);
                 generatedSinceRefresh = 0;
                 if (currentGoals.isEmpty()) {
                     break;
                 }
             }
 
-            PromptResult prompt = new PromptBuilder()
+            PromptBuilder builder = new PromptBuilder()
                     .withSystemPrompt()
                     .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                     .withUncoveredGoals(currentGoals)
                     .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(currentGoals, null))
                     .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                    .withInstruction("Generate one JUnit test that targets one uncovered goal.")
-                    .buildWithMetadata();
+                    .withInstruction("Generate one JUnit test that targets one uncovered goal.");
+
+            if (Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS && !currentTests.isEmpty()) {
+                builder.withExistingTests(currentTests);
+            }
+
+            PromptResult prompt = builder.buildWithMetadata();
             try {
                 String response = llmService.query(prompt, LlmFeature.ASYNC_PRODUCER);
                 RepairResult result = repairLoop.attemptParse(
@@ -162,6 +186,31 @@ public class AsyncLlmTestProducer {
             return goals == null ? Collections.emptyList() : goals;
         } catch (RuntimeException e) {
             logger.debug("Async producer goal snapshot failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /** Snapshots up to 2 relevant tests from the population supplier. */
+    private List<TestCase> safePopulationSnapshot(Collection<TestFitnessFunction> goals) {
+        if (populationSupplier == null) {
+            return Collections.emptyList();
+        }
+        try {
+            List<TestChromosome> pop = populationSupplier.get();
+            if (pop == null || pop.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<TestChromosome> ranked = TestRelevanceRanker.rankByRelevance(pop, goals, 2);
+            List<TestCase> result = new ArrayList<>(ranked.size());
+            for (TestChromosome tc : ranked) {
+                TestCase test = tc.getTestCase();
+                if (test != null) {
+                    result.add(test);
+                }
+            }
+            return result;
+        } catch (RuntimeException e) {
+            logger.debug("Async producer population snapshot failed: {}", e.getMessage());
             return Collections.emptyList();
         }
     }

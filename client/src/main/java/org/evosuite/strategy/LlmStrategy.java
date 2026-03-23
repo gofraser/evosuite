@@ -31,6 +31,7 @@ import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.ClusterExpansionManager;
 import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
@@ -162,7 +163,7 @@ public class LlmStrategy extends TestGenerationStrategy {
      * <ol>
      *   <li>Initial broad-coverage query</li>
      *   <li>Evaluate tests, compute uncovered goals</li>
-     *   <li>Follow-up queries targeting uncovered goals</li>
+     *   <li>Follow-up queries targeting uncovered goals with coverage feedback</li>
      *   <li>Stop when stopping-condition budget or LLM call budget exhausted</li>
      * </ol>
      */
@@ -175,6 +176,10 @@ public class LlmStrategy extends TestGenerationStrategy {
         LlmService llmService = getLlmService();
         TestSuiteChromosome suite = new TestSuiteChromosome();
         List<Double> ratioTimeline = new ArrayList<>();
+        int totalGoals = allGoals.size();
+
+        // Track uncovered goals for feedback between iterations
+        Set<TestFitnessFunction> previousUncovered = new HashSet<>(allGoals);
 
         // --- Initial broad-coverage query ---
         List<TestChromosome> initialTests = queryForBroadCoverage(llmService);
@@ -210,8 +215,16 @@ public class LlmStrategy extends TestGenerationStrategy {
                 break;
             }
 
+            // Compute newly-covered delta for feedback
+            Set<TestFitnessFunction> currentUncovered = new HashSet<>(uncoveredGoals);
+            Set<TestFitnessFunction> newlyCovered = new HashSet<>(previousUncovered);
+            newlyCovered.removeAll(currentUncovered);
+            int coveredCount = coveredGoals.size();
+            previousUncovered = currentUncovered;
+
             List<TestChromosome> newTests = queryForUncoveredGoals(
-                    llmService, uncoveredGoals, suite.getTestChromosomes());
+                    llmService, uncoveredGoals, suite.getTestChromosomes(),
+                    newlyCovered, totalGoals, coveredCount);
 
             if (!newTests.isEmpty()) {
                 for (TestChromosome tc : newTests) {
@@ -261,16 +274,19 @@ public class LlmStrategy extends TestGenerationStrategy {
     }
 
     /**
-     * Follow-up LLM query targeting specific uncovered goals.
+     * Follow-up LLM query targeting specific uncovered goals, with coverage feedback.
      */
     private List<TestChromosome> queryForUncoveredGoals(
             LlmService llmService,
             Collection<TestFitnessFunction> uncoveredGoals,
-            List<TestChromosome> currentTests) {
+            List<TestChromosome> currentTests,
+            Set<TestFitnessFunction> newlyCovered,
+            int totalGoals, int coveredCount) {
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withCoverageFeedback(newlyCovered, totalGoals, coveredCount)
                 .withUncoveredGoals(uncoveredGoals)
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(uncoveredGoals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
@@ -278,8 +294,9 @@ public class LlmStrategy extends TestGenerationStrategy {
                         + "Generate JUnit test methods specifically targeting these uncovered goals.");
 
         if (currentTests != null && !currentTests.isEmpty()) {
-            List<org.evosuite.testcase.TestCase> existing = currentTests.stream()
-                    .limit(3)
+            List<org.evosuite.testcase.TestCase> existing =
+                    TestRelevanceRanker.rankByRelevance(currentTests, uncoveredGoals, 3)
+                    .stream()
                     .map(TestChromosome::getTestCase)
                     .collect(Collectors.toList());
             builder.withExistingTests(existing);

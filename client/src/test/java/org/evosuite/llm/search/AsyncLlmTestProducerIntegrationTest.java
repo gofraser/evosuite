@@ -57,6 +57,7 @@ class AsyncLlmTestProducerIntegrationTest {
 
         AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
                 () -> Collections.singleton(goal),
+                null,
                 service,
                 5,
                 1,

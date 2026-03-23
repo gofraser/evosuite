@@ -725,8 +725,23 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 if (!stagnationDetector.checkStagnation(coveredGoalCountSupplier.getAsInt())) {
                     return Collections.emptyList();
                 }
+                Set<TestFitnessFunction> uncovered = uncoveredGoalsSupplier.get();
+                List<TestChromosome> pop = new ArrayList<>(population);
+                int coveredCount = coveredGoalCountSupplier.getAsInt();
+                int totalGoals = coveredCount + uncovered.size();
+                Map<TestFitnessFunction, Double> bestFitness = new LinkedHashMap<>();
+                for (TestFitnessFunction goal : uncovered) {
+                    double best = Double.MAX_VALUE;
+                    for (TestChromosome tc : pop) {
+                        double f = goal.getFitness(tc);
+                        if (f < best) {
+                            best = f;
+                        }
+                    }
+                    bestFitness.put(goal, best);
+                }
                 List<TestChromosome> tests = stagnationDetector.requestHelp(
-                        uncoveredGoalsSupplier.get(), new ArrayList<>(population));
+                        uncovered, pop, totalGoals, coveredCount, bestFitness);
                 return tests != null ? tests : Collections.emptyList();
             });
         }

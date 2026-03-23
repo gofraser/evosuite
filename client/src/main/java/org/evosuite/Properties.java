@@ -1744,6 +1744,47 @@ public class Properties {
     @IntValue(min = 0)
     public static int LLM_CLUSTER_SUMMARY_MAX_CHARS = 4000;
 
+    // --- LLM Goal Format ---
+    public enum LlmGoalFormat {
+        /** Raw goal.toString() output (backward-compatible). */
+        RAW,
+        /** Human-readable descriptions grouped by method (default). */
+        LLM_FRIENDLY
+    }
+
+    @Parameter(key = "llm_goal_format", group = "LLM",
+            description = "Format for uncovered goals in LLM prompts: RAW uses toString(), "
+                    + "LLM_FRIENDLY uses human-readable descriptions grouped by method")
+    public static LlmGoalFormat LLM_GOAL_FORMAT = LlmGoalFormat.LLM_FRIENDLY;
+
+    @Parameter(key = "llm_annotate_existing_tests", group = "LLM",
+            description = "Annotate existing tests in prompts with their covered goals")
+    public static boolean LLM_ANNOTATE_EXISTING_TESTS = true;
+
+    @Parameter(key = "llm_existing_tests_max_chars_total", group = "LLM",
+            description = "Maximum total characters for existing tests in LLM prompts "
+                    + "(0 means unlimited; default 6000)")
+    @IntValue(min = 0)
+    public static int LLM_EXISTING_TESTS_MAX_CHARS_TOTAL = 6000;
+
+    @Parameter(key = "llm_existing_tests_max_chars_per_test", group = "LLM",
+            description = "Maximum characters per individual existing test in LLM prompts "
+                    + "(0 means unlimited; default 2500)")
+    @IntValue(min = 0)
+    public static int LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST = 2500;
+
+    @Parameter(key = "llm_async_producer_include_tests", group = "LLM",
+            description = "Include existing test context in async LLM producer prompts")
+    public static boolean LLM_ASYNC_PRODUCER_INCLUDE_TESTS = true;
+
+    @Parameter(key = "llm_relevance_based_test_selection", group = "LLM",
+            description = "Select tests most relevant to uncovered goals for LLM prompts (vs first-N)")
+    public static boolean LLM_RELEVANCE_BASED_TEST_SELECTION = true;
+
+    @Parameter(key = "llm_relevance_method_overlap_weight", group = "LLM",
+            description = "Weight for method-overlap signal in relevance-based test selection")
+    public static double LLM_RELEVANCE_METHOD_OVERLAP_WEIGHT = 2.0;
+
     @Parameter(key = "llm_decompiler_timeout_seconds", group = "LLM",
             description = "Timeout in seconds for decompiler-based context extraction")
     @IntValue(min = 1)

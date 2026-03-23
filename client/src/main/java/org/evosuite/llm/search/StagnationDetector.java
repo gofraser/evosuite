@@ -24,9 +24,11 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -40,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Detects search stagnation and requests targeted LLM assistance.
@@ -125,6 +128,22 @@ public class StagnationDetector {
     /** Requests LLM-generated tests targeting uncovered goals when the search has stagnated. */
     public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
                                             List<TestChromosome> currentPopulation) {
+        return requestHelp(uncoveredGoals, currentPopulation, 0, 0, null);
+    }
+
+    /**
+     * Requests LLM-generated tests with enriched diagnostic context.
+     *
+     * @param uncoveredGoals     remaining uncovered goals
+     * @param currentPopulation  current best tests
+     * @param totalGoals         total number of coverage goals (0 to omit from prompt)
+     * @param coveredGoalCount   number of goals already covered
+     * @param bestFitnessPerGoal optional fitness-distance map for "almost covered" annotations
+     */
+    public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
+                                            List<TestChromosome> currentPopulation,
+                                            int totalGoals, int coveredGoalCount,
+                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
         if (!llmService.isAvailable() || !llmService.hasBudget()) {
             return Collections.emptyList();
         }
@@ -132,7 +151,8 @@ public class StagnationDetector {
             return Collections.emptyList();
         }
 
-        PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation);
+        PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation,
+                totalGoals, coveredGoalCount, bestFitnessPerGoal);
         try {
             String response = llmService.query(prompt, LlmFeature.STAGNATION);
             RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
@@ -155,23 +175,34 @@ public class StagnationDetector {
     }
 
     private PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
-                                         List<TestChromosome> currentPopulation) {
+                                         List<TestChromosome> currentPopulation,
+                                         int totalGoals, int coveredGoalCount,
+                                         Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
         List<TestChromosome> popCandidates = currentPopulation != null
                 ? currentPopulation : Collections.emptyList();
+
+        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
+        String goalsSection = goalFormatter.format(uncoveredGoals, bestFitnessPerGoal);
+
+        String instruction = buildEnrichedInstruction(totalGoals, coveredGoalCount);
+
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withUncoveredGoals(uncoveredGoals)
+                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(
                         uncoveredGoals, new ArrayList<>(popCandidates)))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                .withInstruction("The evolutionary search stagnated with no improvement for several generations. "
-                        + "Generate " + testsPerRequest + " JUnit tests targeting the uncovered goals.");
+                .withInstruction(instruction);
+
+        // Add pre-formatted goals (bypasses PromptBuilder.withUncoveredGoals to
+        // include fitness annotations)
+        builder.withInstruction("Uncovered goals:\n" + goalsSection);
 
         List<TestCase> existingTests = new ArrayList<>();
         if (currentPopulation != null) {
-            currentPopulation.stream()
-                    .limit(3)
+            TestRelevanceRanker.rankByRelevance(currentPopulation, uncoveredGoals, 3)
+                    .stream()
                     .map(TestChromosome::getTestCase)
                     .forEach(existingTests::add);
         }
@@ -179,6 +210,22 @@ public class StagnationDetector {
             builder.withExistingTests(existingTests);
         }
         return builder.buildWithMetadata();
+    }
+
+    private String buildEnrichedInstruction(int totalGoals, int coveredGoalCount) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("The evolutionary search stagnated after ")
+                .append(stagnationThreshold)
+                .append(" generations with no fitness improvement.");
+        if (totalGoals > 0) {
+            double pct = 100.0 * coveredGoalCount / totalGoals;
+            sb.append(String.format(" Current coverage: %d/%d goals (%.1f%%).",
+                    coveredGoalCount, totalGoals, pct));
+        }
+        sb.append(" Goals marked [almost covered] were close to being reached — focus on those first.");
+        sb.append(" Generate ").append(testsPerRequest)
+                .append(" JUnit tests targeting the uncovered goals.");
+        return sb.toString();
     }
 
 }
