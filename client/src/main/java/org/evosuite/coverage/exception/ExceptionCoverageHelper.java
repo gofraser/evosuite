@@ -166,6 +166,9 @@ public class ExceptionCoverageHelper {
 
         //not interested in security exceptions when Sandbox is active
         Throwable t = result.getExceptionThrownAtPosition(exceptionPosition);
+        if (t == null) {
+            return true;
+        }
         if (t instanceof SecurityException && Properties.SANDBOX) {
             return true;
         }

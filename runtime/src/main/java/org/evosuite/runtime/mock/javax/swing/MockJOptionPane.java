@@ -19,12 +19,15 @@
  */
 package org.evosuite.runtime.mock.javax.swing;
 
+import org.evosuite.runtime.mock.java.awt.MockFrame;
 import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.runtime.util.JOptionPaneInputs;
 import org.evosuite.runtime.util.JOptionPaneInputs.GUIAction;
 import javax.swing.Icon;
 import javax.swing.JOptionPane;
+import java.awt.GraphicsEnvironment;
 import java.awt.Component;
+import java.awt.Frame;
 import java.awt.HeadlessException;
 
 /**
@@ -37,6 +40,38 @@ import java.awt.HeadlessException;
 public abstract class MockJOptionPane extends JOptionPane implements OverrideMock {
 
     private static final long serialVersionUID = 1531475063681545845L;
+    private static volatile Frame rootFrame;
+
+    /**
+     * Replaces method javax.swing.JOptionPane.getRootFrame().
+     *
+     * @return a headless-safe frame instance
+     */
+    public static Frame getRootFrame() {
+        if (GraphicsEnvironment.isHeadless()) {
+            return null;
+        }
+        Frame local = rootFrame;
+        if (local == null) {
+            synchronized (MockJOptionPane.class) {
+                local = rootFrame;
+                if (local == null) {
+                    local = new MockFrame();
+                    rootFrame = local;
+                }
+            }
+        }
+        return local;
+    }
+
+    /**
+     * Replaces method javax.swing.JOptionPane.setRootFrame(Frame).
+     *
+     * @param frame root frame to store for subsequent getRootFrame calls
+     */
+    public static void setRootFrame(Frame frame) {
+        rootFrame = frame;
+    }
 
     /**
      * Replaces method javax.swing.JOptionPane.showMessageDialog(Component

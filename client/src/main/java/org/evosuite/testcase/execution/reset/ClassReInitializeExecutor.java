@@ -30,7 +30,9 @@ import org.evosuite.runtime.sandbox.Sandbox;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -140,6 +142,10 @@ class ClassReInitializeExecutor {
             if (resetMethod != null) {
                 LoopCounter.getInstance().setActive(false);
                 invokeResetWithTimeout(resetMethod, className);
+            } else {
+                logger.debug("ClassReInitializeExecutor: no {} in {}, using reflective static reset fallback",
+                        ClassResetter.STATIC_RESET, className);
+                resetStaticFieldsReflectively(className);
             }
         } catch (Throwable e) {
             ClassResetter.getInstance().logWarn(className,
@@ -150,6 +156,47 @@ class ClassReInitializeExecutor {
             TestGenerationContext.getInstance().doneWithExecutingSUTCode();
             MutationObserver.activateMutation(mutationActive);
             LoopCounter.getInstance().setActive(wasLoopCheckOn);
+        }
+    }
+
+    private void resetStaticFieldsReflectively(String className) {
+        try {
+            ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+            Class<?> clazz = Class.forName(className, false, loader);
+            int resetCount = 0;
+            for (Field field : clazz.getDeclaredFields()) {
+                int mods = field.getModifiers();
+                if (!Modifier.isStatic(mods) || Modifier.isFinal(mods)) {
+                    continue;
+                }
+                field.setAccessible(true);
+                Class<?> type = field.getType();
+                if (!type.isPrimitive()) {
+                    field.set(null, null);
+                } else if (type == Boolean.TYPE) {
+                    field.setBoolean(null, false);
+                } else if (type == Byte.TYPE) {
+                    field.setByte(null, (byte) 0);
+                } else if (type == Short.TYPE) {
+                    field.setShort(null, (short) 0);
+                } else if (type == Integer.TYPE) {
+                    field.setInt(null, 0);
+                } else if (type == Long.TYPE) {
+                    field.setLong(null, 0L);
+                } else if (type == Float.TYPE) {
+                    field.setFloat(null, 0f);
+                } else if (type == Double.TYPE) {
+                    field.setDouble(null, 0d);
+                } else if (type == Character.TYPE) {
+                    field.setChar(null, '\u0000');
+                }
+                resetCount++;
+            }
+            logger.debug("ClassReInitializeExecutor: reflective static reset fallback applied to {} field(s) in {}",
+                    resetCount, className);
+        } catch (Throwable t) {
+            logger.debug("ClassReInitializeExecutor: reflective static reset fallback failed for {}: {}",
+                    className, t.getMessage());
         }
     }
 

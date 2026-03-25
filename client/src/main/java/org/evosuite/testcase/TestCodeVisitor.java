@@ -31,6 +31,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.*;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.runtime.LenientMockAnswer;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.testcase.fm.MethodDescriptor;
@@ -1186,8 +1187,9 @@ public class TestCodeVisitor extends TestVisitor {
             builder.append(getVariableName(retval));
             builder.append(" = null;");
             builder.append(NEWLINE);
-            builder.append("try {  ");
+            builder.append("try {");
             builder.append(NEWLINE);
+            builder.append("    ");
         } else {
             builder.append(getClassName(retval));
             builder.append(" ");
@@ -1477,10 +1479,19 @@ public class TestCodeVisitor extends TestVisitor {
 
         if (st instanceof FunctionalMockForAbstractClassStatement) {
             result.append("mock(").append(rawClassName).append(".class, CALLS_REAL_METHODS);").append(NEWLINE);
+        } else if (st.isUseLenientDefaultAnswer()) {
+            // DMoN-promoted mocks use LenientMockAnswer to match the lenient default
+            // answer used during search (returns sensible non-null values for all
+            // return types).  No explicit doReturn stubs are needed.
+            result.append("mock(").append(rawClassName).append(".class, new ")
+                    .append(LenientMockAnswer.class.getSimpleName()).append("());").append(NEWLINE);
         } else {
             result.append("mock(").append(rawClassName).append(".class, new ")
                     .append(ViolatedAssumptionAnswer.class.getSimpleName()).append("());").append(NEWLINE);
         }
+
+        // DMoN lenient mocks: skip doReturn stubs — RETURNS_MOCKS handles all calls.
+        if (!st.isUseLenientDefaultAnswer()) {
 
         //when(...).thenReturn(...)
         for (MethodDescriptor md : st.getMockedMethods()) {
@@ -1537,6 +1548,8 @@ public class TestCodeVisitor extends TestVisitor {
                     .append(md.getInputParameterMatchers()).append(");").append(NEWLINE);
 
         }
+
+        } // end if (!st.isUseLenientDefaultAnswer())
 
         testCode.append(result);
     }
@@ -1674,7 +1687,7 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
         if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            result += "try { " + NEWLINE + "  ";
+            result += "try {" + NEWLINE + "    ";
         }
 
         if (!this.argumentNames.containsKey(retval) && VariableNameStrategyFactory.gatherInformation()) {
@@ -1910,11 +1923,11 @@ public class TestCodeVisitor extends TestVisitor {
                 do not print comments if it was a non-valid source.
                 however, if source is undefined, then it should be OK
              */
-            result += "   //" + NEWLINE;
+            result += "    //" + NEWLINE;
             for (String msg : exceptionMessage.split("\n")) {
-                result += "   // " + StringEscapeUtils.escapeJava(msg) + NEWLINE;
+                result += "    // " + StringEscapeUtils.escapeJava(msg) + NEWLINE;
             }
-            result += "   //" + NEWLINE;
+            result += "    //" + NEWLINE;
         }
 
         if (sourceClass != null && isValidSource(sourceClass)
@@ -1926,7 +1939,7 @@ public class TestCodeVisitor extends TestVisitor {
              */
 
             //from class EvoAssertions
-            result += "   verifyException(\"" + sourceClass + "\", e);" + NEWLINE;
+            result += "    verifyException(\"" + sourceClass + "\", e);" + NEWLINE;
         }
 
         result += "}" + NEWLINE;// closing the catch block
@@ -2037,7 +2050,7 @@ public class TestCodeVisitor extends TestVisitor {
             }
 
             result = className + " " + getVariableName(retval) + " = null;" + NEWLINE;
-            result += "try {" + NEWLINE + "  ";
+            result += "try {" + NEWLINE + "    ";
         } else {
             result += getClassName(retval) + " ";
         }
@@ -2072,8 +2085,19 @@ public class TestCodeVisitor extends TestVisitor {
         return t != null
                 && !(t instanceof OutOfMemoryError)
                 && !(t instanceof TooManyResourcesException)
+                && !isEnvironmentSpecificError(t)
                 && !test.isFailing()
                 && (Properties.CATCH_UNDECLARED_EXCEPTIONS || isDeclared);
+    }
+
+    /**
+     * Errors caused by classloader/initialization issues are environment-specific
+     * and not reproducible across classloader instances. They should not be wrapped
+     * in try/catch as "expected behavior".
+     */
+    private static boolean isEnvironmentSpecificError(Throwable t) {
+        return t instanceof NoClassDefFoundError
+                || t instanceof ExceptionInInitializerError;
     }
 
     /**
@@ -2091,7 +2115,7 @@ public class TestCodeVisitor extends TestVisitor {
         // boolean isExpected = getDeclaredExceptions().contains(ex);
         // if (isExpected)
 
-        String stmt = " fail(\"Expecting exception: " + getClassName(ex) + "\");" + NEWLINE;
+        String stmt = "fail(\"Expecting exception: " + getClassName(ex) + "\");" + NEWLINE;
 
         if (isTestUnstable()) {
             /*
@@ -2100,7 +2124,7 @@ public class TestCodeVisitor extends TestVisitor {
             stmt = "// " + stmt + getUnstableTestComment();
         }
 
-        return NEWLINE + " " + stmt;
+        return NEWLINE + "    " + stmt;
     }
 
     /*

@@ -101,6 +101,15 @@ public class ClassReInitializer {
                     FieldReference fieldReference = (FieldReference) statement.getReturnValue();
                     if (fieldReference.getField().isStatic()) {
                         moreClassesForStaticReset.add(fieldReference.getField().getOwnerClass().getClassName());
+                    } else if (Properties.DMON_ENABLED) {
+                        /*
+                         * DMoN promotions can assign into singleton instance fields
+                         * (e.g., Configuration.getInstance().service = mock).
+                         * Those writes are not static themselves, but resetting the
+                         * owner class static state is required to avoid cross-test
+                         * leakage via cached singleton instances.
+                         */
+                        moreClassesForStaticReset.add(fieldReference.getField().getOwnerClass().getClassName());
                     }
                 }
             } else if (statement instanceof FieldStatement) {
@@ -134,6 +143,15 @@ public class ClassReInitializer {
             } else if (statement instanceof PrivateFieldStatement) {
                 PrivateFieldStatement fieldStatement = (PrivateFieldStatement) statement;
                 if (fieldStatement.isStaticField()) {
+                    moreClassesForStaticReset.add(fieldStatement.getOwnerClassName());
+                } else if (Properties.DMON_ENABLED) {
+                    /*
+                     * DMoN promotions may write private instance fields on singleton
+                     * objects (eg, Configuration.getInstance().service = mock). Even
+                     * though the write is non-static, the mutated receiver is usually
+                     * reachable via static state, so we reset the owner class to avoid
+                     * cross-test leakage.
+                     */
                     moreClassesForStaticReset.add(fieldStatement.getOwnerClassName());
                 }
             }

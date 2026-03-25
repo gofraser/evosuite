@@ -59,4 +59,31 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/lang/System", consoleKey));
         Assertions.assertFalse(cache.hasReplacementCall("java/lang/System", arraycopyKey));
     }
+
+    @Test
+    public void testHeadlessSwingReplacementsAreRegistered() throws Exception {
+        Method jListDrag = javax.swing.JList.class.getMethod("setDragEnabled", boolean.class);
+        String jListKey = jListDrag.getName() + Type.getMethodDescriptor(jListDrag);
+
+        Method jTreeDrag = javax.swing.JTree.class.getMethod("setDragEnabled", boolean.class);
+        String jTreeKey = jTreeDrag.getName() + Type.getMethodDescriptor(jTreeDrag);
+
+        Method jTableDrag = javax.swing.JTable.class.getMethod("setDragEnabled", boolean.class);
+        String jTableKey = jTableDrag.getName() + Type.getMethodDescriptor(jTableDrag);
+
+        Method setDropTarget = javax.swing.JComponent.class.getMethod(
+                "setDropTarget", java.awt.dnd.DropTarget.class);
+        String dropTargetKey = setDropTarget.getName() + Type.getMethodDescriptor(setDropTarget);
+
+        Method setMixingCutoutShape = java.awt.Component.class.getMethod(
+                "setMixingCutoutShape", java.awt.Shape.class);
+        String mixingCutoutKey = setMixingCutoutShape.getName() + Type.getMethodDescriptor(setMixingCutoutShape);
+
+        MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JList", jListKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTree", jTreeKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTable", jTableKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComponent", dropTargetKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", mixingCutoutKey));
+    }
 }

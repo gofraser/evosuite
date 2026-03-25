@@ -48,6 +48,7 @@ import org.evosuite.utils.generic.GenericClassUtils;
 import org.mockito.MockSettings;
 import org.mockito.Mockito;
 import org.mockito.exceptions.base.MockitoException;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -228,6 +229,24 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * rather than by execution. Used to relax assertions about listener state.
      */
     protected boolean populatedFromParser;
+
+    /**
+     * When true, the mock uses a lenient default answer that returns non-null
+     * values for all return types (empty strings, empty collections, zero for
+     * primitives, and recursive mocks for other types).  This is used by DMoN
+     * promotion to match the behavior of the ephemeral mock used during search.
+     * Without it, the default Mockito answer returns null for objects, which
+     * causes secondary NPEs when the SUT calls methods on the mock before mock
+     * stubs are materialized.
+     */
+    protected boolean useLenientDefaultAnswer;
+
+    /**
+     * Marks this mock as having been created by DMoN promotion.
+     * Used by the promotion dedup guard to distinguish DMoN mocks from
+     * regular functional mocks.
+     */
+    protected boolean isDmonPromotion;
 
     protected transient volatile EvoInvocationListener listener;
 
@@ -503,6 +522,26 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     /**
+     * Enables the lenient default answer for this mock. When enabled, unstubbed
+     * method calls return sensible non-null defaults instead of null.
+     */
+    public void setUseLenientDefaultAnswer(boolean lenient) {
+        this.useLenientDefaultAnswer = lenient;
+    }
+
+    public boolean isUseLenientDefaultAnswer() {
+        return useLenientDefaultAnswer;
+    }
+
+    public void setDmonPromotion(boolean dmonPromotion) {
+        this.isDmonPromotion = dmonPromotion;
+    }
+
+    public boolean isDmonPromotion() {
+        return isDmonPromotion;
+    }
+
+    /**
      * getMockedMethods.
      *
      * @return the list of mocked methods
@@ -540,6 +579,12 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      * @return true if update is needed
      */
     public boolean doesNeedToUpdateInputs() {
+        // Lenient mocks (DMoN) don't need explicit stubs — the lenient default
+        // answer already returns sensible non-null values for all return types.
+        // Materializing would add null stubs that override the lenient defaults.
+        if (useLenientDefaultAnswer) {
+            return false;
+        }
         if (listener == null) {
             /*
                 Tricky case: if no execution yet, then there should be no mocked method yet.
@@ -833,6 +878,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
         copy.listener = this.listener; //no need to clone, as only read, and created new instance at each new execution
         copy.populatedFromParser = this.populatedFromParser;
+        copy.useLenientDefaultAnswer = this.useLenientDefaultAnswer;
+        copy.isDmonPromotion = this.isDmonPromotion;
 
         for (MethodDescriptor md : this.mockedMethods) {
             copy.mockedMethods.add(md.getCopy());
@@ -866,7 +913,99 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // load a SECOND mock maker instance (because the alias "mock-maker-subclass"
         // now resolves to ByteBuddyMockMaker, not SubclassByteBuddyMockMaker),
         // triggering an internal AssertionError in MockUtil.getMockHandlerOrNull.
-        return withSettings().stubOnly().invocationListeners(listener);
+        MockSettings settings = withSettings().stubOnly().invocationListeners(listener);
+        if (useLenientDefaultAnswer) {
+            settings = settings.defaultAnswer(FunctionalMockStatement::lenientDefaultAnswer);
+        }
+        return settings;
+    }
+
+    /**
+     * Lenient default answer that returns sensible non-null values for all
+     * return types.  Mirrors the behavior of the ephemeral mocks created by
+     * DMoN during the search: empty strings, zero for numerics, empty
+     * collections, and recursively mocked objects for other types.
+     */
+    private static final int MAX_LENIENT_MOCK_DEPTH = 3;
+    private static final ThreadLocal<Integer> lenientMockDepth = ThreadLocal.withInitial(() -> 0);
+
+    @SuppressWarnings("unchecked")
+    static Object lenientDefaultAnswer(InvocationOnMock invocation) {
+        Class<?> returnType = invocation.getMethod().getReturnType();
+        if (returnType == void.class || returnType == Void.class) {
+            return null;
+        }
+        if (returnType == String.class || returnType == CharSequence.class) {
+            return "";
+        }
+        if (returnType == boolean.class || returnType == Boolean.class) {
+            return false;
+        }
+        if (returnType == byte.class || returnType == Byte.class) {
+            return (byte) 0;
+        }
+        if (returnType == short.class || returnType == Short.class) {
+            return (short) 0;
+        }
+        if (returnType == int.class || returnType == Integer.class) {
+            return 0;
+        }
+        if (returnType == long.class || returnType == Long.class) {
+            return 0L;
+        }
+        if (returnType == float.class || returnType == Float.class) {
+            return 0.0f;
+        }
+        if (returnType == double.class || returnType == Double.class) {
+            return 0.0;
+        }
+        if (returnType == char.class || returnType == Character.class) {
+            return '\0';
+        }
+        if (returnType == Optional.class) {
+            return Optional.empty();
+        }
+        // Check collection/map types by verifying the return type IS a collection,
+        // not just that a collection could be assigned to it (which would match Object,
+        // Serializable, etc. and cause ClassCastExceptions downstream).
+        if (List.class.isAssignableFrom(returnType)
+                || returnType == Collection.class
+                || returnType == Iterable.class) {
+            return new ArrayList<>();
+        }
+        if (Set.class.isAssignableFrom(returnType)) {
+            return new HashSet<>();
+        }
+        if (Map.class.isAssignableFrom(returnType)) {
+            return new HashMap<>();
+        }
+        if (returnType.isArray()) {
+            return java.lang.reflect.Array.newInstance(returnType.getComponentType(), 0);
+        }
+        // For other object types, try to create a sub-mock with the same lenient answer.
+        // Skip Object and other overly-broad supertypes — mocking them produces opaque
+        // proxy objects that cause ClassCastExceptions when the SUT casts to a concrete type.
+        // Limit recursion depth to avoid stack overflow from fluent/builder patterns
+        // where a method returns its own type (e.g., Builder.withX() → Builder).
+        int depth = lenientMockDepth.get();
+        if (depth < MAX_LENIENT_MOCK_DEPTH
+                && returnType != Object.class
+                && returnType != java.io.Serializable.class
+                && returnType != Comparable.class
+                && returnType != Cloneable.class
+                && !Modifier.isFinal(returnType.getModifiers())
+                && !returnType.isPrimitive()) {
+            try {
+                lenientMockDepth.set(depth + 1);
+                return Mockito.mock(returnType,
+                        (org.mockito.stubbing.Answer<?>) FunctionalMockStatement::lenientDefaultAnswer);
+            } catch (Exception ignored) {
+                // Cannot mock (e.g., final class, sealed) — fall through to null.
+            } finally {
+                lenientMockDepth.set(depth);
+            }
+        }
+        return null;
     }
 
     /**
@@ -1074,6 +1213,12 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 logger.debug("Mockito: create mock for {}", targetClass);
                 ret = mock(targetClass.getRawClass(), settings);
 
+                // When the lenient default answer is active, skip explicit when/thenReturn
+                // stubs entirely — the default answer already handles all method calls with
+                // sensible non-null values.  Explicit stubs would override the defaults with
+                // null (from fillWithNullRefs/satisfyParameters), defeating the purpose.
+                if (!useLenientDefaultAnswer) {
+
                 //execute all "when" statements
                 int index = 0;
 
@@ -1207,6 +1352,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                     index += thenReturnInputs == null ? 0 : thenReturnInputs.length;
                 }
 
+                } // end if (!useLenientDefaultAnswer)
             } catch (CodeUnderTestException e) {
                 throw e;
             } catch (java.lang.NoClassDefFoundError e) {

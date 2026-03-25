@@ -20,6 +20,7 @@
 package org.evosuite.testcase;
 
 import org.evosuite.ga.FitnessFunction;
+import org.evosuite.testcase.dmon.DmonPromotionOperator;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -60,6 +61,7 @@ public abstract class TestFitnessFunction
             individual.setLastExecutionResult(origResult);
             individual.setChanged(false);
         }
+        origResult = DmonPromotionOperator.applyIfNeeded(individual, origResult);
 
         double fitness = getFitness(individual, origResult);
         updateIndividual(individual, fitness);
@@ -159,6 +161,7 @@ public abstract class TestFitnessFunction
             tc.setLastExecutionResult(result);
             tc.setChanged(false);
         }
+        result = DmonPromotionOperator.applyIfNeeded(tc, result);
 
         return isCovered(tc, result);
     }

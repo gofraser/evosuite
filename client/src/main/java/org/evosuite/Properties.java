@@ -426,6 +426,43 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double FUNCTIONAL_MOCKING_FAILURE_THRESHOLD_RATIO = 0.30;
 
+    @Parameter(key = "dmon_enabled", group = "Test Creation",
+            description = "Enable Dynamic Mock-on-Null (DMoN) support for constructor NPE bottlenecks")
+    public static boolean DMON_ENABLED = true;
+
+    @Parameter(key = "dmon_only_target_class_constructor", group = "Test Creation",
+            description = "Restrict DMoN detection to constructors declared in the target class")
+    public static boolean DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+
+    @Parameter(key = "dmon_helpful_npe_parse", group = "Test Creation",
+            description = "Use Java 14+ helpful NPE messages to extract null dereference hints for DMoN")
+    public static boolean DMON_HELPFUL_NPE_PARSE = true;
+
+    @Parameter(key = "dmon_asm_fallback", group = "Test Creation",
+            description = "Fallback to bytecode-based mapping when helpful NPE parsing is unavailable or weak")
+    public static boolean DMON_ASM_FALLBACK = true;
+
+    @Parameter(key = "dmon_allow_reflection_fallback", group = "Test Creation",
+            description = "Allow reflection-based injection fallback for DMoN promotion")
+    public static boolean DMON_ALLOW_REFLECTION_FALLBACK = true;
+
+    @Parameter(key = "dmon_cache_analysis", group = "Test Creation",
+            description = "Cache DMoN post-mortem analysis results for repeated crashes")
+    public static boolean DMON_CACHE_ANALYSIS = true;
+
+    @Parameter(key = "dmon_promote_in_place", group = "Test Creation",
+            description = "Apply DMoN promotion in-place on the evaluated chromosome (Option 1 integration)")
+    public static boolean DMON_PROMOTE_IN_PLACE = true;
+
+    @Parameter(key = "dmon_validate_promoted_once", group = "Test Creation",
+            description = "Immediately re-run once with DMoN disabled after promotion")
+    public static boolean DMON_VALIDATE_PROMOTED_ONCE = false;
+
+    @Parameter(key = "dmon_max_ephemeral_retries", group = "Test Creation",
+            description = "Maximum number of DMoN assist+retry attempts for constructor NPEs within one execution")
+    @IntValue(min = 1)
+    public static int DMON_MAX_EPHEMERAL_RETRIES = 2;
+
     @Parameter(key = "num_parallel_clients", group = "Test Creation",
             description = "Number of EvoSuite clients to run in parallel")
     public static int NUM_PARALLEL_CLIENTS = 1;

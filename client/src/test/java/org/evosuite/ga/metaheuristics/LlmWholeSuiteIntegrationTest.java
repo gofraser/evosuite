@@ -299,6 +299,14 @@ class LlmWholeSuiteIntegrationTest {
             tc.setTestCase(new DefaultTestCase());
             return Collections.singletonList(tc);
         }
+
+        @Override
+        public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
+                                                List<TestChromosome> currentPopulation,
+                                                int totalGoals, int coveredGoalCount,
+                                                java.util.Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
+            return requestHelp(uncoveredGoals, currentPopulation);
+        }
     }
 
     private static class PreloadedAsyncProducer extends AsyncLlmTestProducer {

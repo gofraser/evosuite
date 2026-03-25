@@ -372,6 +372,14 @@ class LlmMosaIntegrationTest {
                                                 List<TestChromosome> currentPopulation) {
             return Collections.singletonList(new TestChromosome());
         }
+
+        @Override
+        public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
+                                                List<TestChromosome> currentPopulation,
+                                                int totalGoals, int coveredGoalCount,
+                                                java.util.Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
+            return requestHelp(uncoveredGoals, currentPopulation);
+        }
     }
 
     private static class FakeAsyncProducer extends AsyncLlmTestProducer {

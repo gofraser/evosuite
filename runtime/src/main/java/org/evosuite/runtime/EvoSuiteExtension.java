@@ -46,6 +46,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -265,11 +266,27 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
     }
 
     private void resetDiscoveredClasses() {
-        if (classesToInitialize.length == 0) {
+        String[] classesToReset = resolveClassesToReset();
+        if (classesToReset.length == 0) {
             return;
         }
         ClassResetter.getInstance().setClassLoader(testClass.getClassLoader());
-        ClassStateSupport.resetClasses(classesToInitialize);
+        ClassStateSupport.resetClasses(classesToReset);
+    }
+
+    private String[] resolveClassesToReset() {
+        LinkedHashSet<String> classes = new LinkedHashSet<>();
+        classes.addAll(Arrays.asList(classesToInitialize));
+        try {
+            TransformerForTests transformer = InstrumentingAgent.getTransformer();
+            if (transformer != null) {
+                List<String> instrumented = transformer.getViewOfInstrumentedClasses();
+                classes.addAll(instrumented);
+            }
+        } catch (RuntimeException e) {
+            logger.debug("Could not access transformer instrumented-class snapshot: {}", e.getMessage());
+        }
+        return classes.toArray(new String[0]);
     }
 
     private boolean needsAgentLifecycle() {

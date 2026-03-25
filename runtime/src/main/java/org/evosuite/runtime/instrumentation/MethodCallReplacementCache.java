@@ -79,6 +79,49 @@ public class MethodCallReplacementCache {
                     PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockJComponent.class),
                     "getPreferredSize", "()Ljava/awt/Dimension;", true, false));
 
+            String headlessSwing = PackageInfo.getNameWithSlash(
+                    org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class);
+            addReplacementCall(new MethodCallReplacement("javax/swing/JList", "setDragEnabled",
+                    "(Z)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_setDragEnabled",
+                    "(Ljavax/swing/JList;Z)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTree", "setDragEnabled",
+                    "(Z)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_setDragEnabled",
+                    "(Ljavax/swing/JTree;Z)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTable", "setDragEnabled",
+                    "(Z)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_setDragEnabled",
+                    "(Ljavax/swing/JTable;Z)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JComponent", "setDropTarget",
+                    "(Ljava/awt/dnd/DropTarget;)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_setDropTarget",
+                    "(Ljavax/swing/JComponent;Ljava/awt/dnd/DropTarget;)V", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Component", "setMixingCutoutShape",
+                    "(Ljava/awt/Shape;)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_setMixingCutoutShape",
+                    "(Ljava/awt/Component;Ljava/awt/Shape;)V", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
+                    "()V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newDropTarget",
+                    "()Ljava/awt/dnd/DropTarget;", true, true));
+            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
+                    "(Ljava/awt/Component;Ljava/awt/dnd/DropTargetListener;)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newDropTarget",
+                    "(Ljava/awt/Component;Ljava/awt/dnd/DropTargetListener;)Ljava/awt/dnd/DropTarget;", true, true));
+            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newDropTarget",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;)Ljava/awt/dnd/DropTarget;", true, true));
+            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;Z)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newDropTarget",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;Z)Ljava/awt/dnd/DropTarget;", true, true));
+            addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZLjava/awt/datatransfer/FlavorMap;)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newDropTarget",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZLjava/awt/datatransfer/FlavorMap;)Ljava/awt/dnd/DropTarget;", true, true));
+
             addExtraceExceptionReplacements();
 
         }

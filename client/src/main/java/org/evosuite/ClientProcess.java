@@ -28,6 +28,7 @@ import org.evosuite.rmi.service.MasterNodeRemote;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
+import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.MSecurityManager;
 import org.evosuite.runtime.sandbox.Sandbox;
@@ -141,6 +142,12 @@ public class ClientProcess {
     }
 
     private static void setupRuntimeProperties() {
+        if (Properties.NO_RUNTIME_DEPENDENCY && Properties.DMON_ENABLED) {
+            Properties.DMON_ENABLED = false;
+            LoggingUtils.getEvoLogger().info("* " + getPrettyPrintIdentifier()
+                    + "Disabling DMoN because no_runtime_dependency=true");
+        }
+
         RuntimeSettings.useVFS = Properties.VIRTUAL_FS;
         RuntimeSettings.mockJVMNonDeterminism = Properties.REPLACE_CALLS;
         RuntimeSettings.mockSystemIn = Properties.REPLACE_SYSTEM_IN;
@@ -153,6 +160,22 @@ public class ClientProcess {
         RuntimeSettings.className = Properties.TARGET_CLASS;
         RuntimeSettings.applyUIDTransformation = true;
         RuntimeSettings.isRunningASystemTest = Properties.IS_RUNNING_A_SYSTEM_TEST;
+
+        // Set target class prefix so the instrumentation exclusion list can
+        // skip problematic libraries (e.g., dom4j) that cause classloader
+        // conflicts, while still allowing instrumentation of the CUT itself.
+        if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.isEmpty()) {
+            if (Properties.TARGET_CLASS.contains(".")) {
+                String prefix = Properties.TARGET_CLASS.substring(
+                        0, Properties.TARGET_CLASS.lastIndexOf('.') + 1);
+                RuntimeInstrumentation.setTargetClassPrefix(prefix);
+            } else {
+                // Default package — no library prefix can match, but we still
+                // need a non-null value to activate the exclusion list.
+                RuntimeInstrumentation.setTargetClassPrefix("");
+            }
+        }
+
         MethodCallReplacementCache.resetSingleton();
     }
 

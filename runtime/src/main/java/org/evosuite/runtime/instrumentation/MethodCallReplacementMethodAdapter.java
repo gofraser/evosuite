@@ -20,6 +20,7 @@
 package org.evosuite.runtime.instrumentation;
 
 
+import org.evosuite.PackageInfo;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.GeneratorAdapter;
@@ -83,6 +84,48 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 
         boolean isReplaced = false;
+
+        // Generic Swing/AWT fallbacks for methods not covered by the cache-based
+        // replacements (e.g., subclass calls that don't match the exact owner).
+        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+                && "setDragEnabled".equals(name)
+                && "(Z)V".equals(desc)
+                && isSwingAwtOrAppOwner(owner)) {
+            super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
+                    "replacement_setDragEnabledGeneric",
+                    "(Ljava/lang/Object;Z)V",
+                    false);
+            hasBeenInstrumented = true;
+            isReplaced = true;
+        }
+
+        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+                && "setDropTarget".equals(name)
+                && "(Ljava/awt/dnd/DropTarget;)V".equals(desc)
+                && isSwingAwtOrAppOwner(owner)) {
+            super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
+                    "replacement_setDropTargetGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/dnd/DropTarget;)V",
+                    false);
+            hasBeenInstrumented = true;
+            isReplaced = true;
+        }
+
+        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+                && "setMixingCutoutShape".equals(name)
+                && "(Ljava/awt/Shape;)V".equals(desc)
+                && isSwingAwtOrAppOwner(owner)) {
+            super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
+                    "replacement_setMixingCutoutShapeGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/Shape;)V",
+                    false);
+            hasBeenInstrumented = true;
+            isReplaced = true;
+        }
+
         // Static replacement methods
         // For invokespecial this can only be used if a constructor is called,
         // not for super calls because not all mock classes may be superclasses
@@ -159,5 +202,14 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         } else {
             super.visitMaxs(maxStack, maxLocals);
         }
+    }
+
+    private static boolean isSwingAwtOrAppOwner(String owner) {
+        if (owner.startsWith("javax/swing/") || owner.startsWith("java/awt/")) {
+            return true;
+        }
+        // Also support project-specific wrappers/subclasses (eg custom JList subclasses).
+        // Keep JDK/Javax non-Swing owners excluded to avoid broad accidental rewrites.
+        return !(owner.startsWith("java/") || owner.startsWith("javax/"));
     }
 }

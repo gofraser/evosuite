@@ -27,8 +27,11 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.instrument.ClassFileTransformer;
 import java.lang.instrument.IllegalClassFormatException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.security.ProtectionDomain;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -99,6 +102,15 @@ public class TransformerForTests implements ClassFileTransformer {
     public boolean isClassAlreadyTransformed(String className) {
         synchronized (instrumentedClasses) {
             return instrumentedClasses.contains(className);
+        }
+    }
+
+    /**
+     * Returns a snapshot of classes instrumented by this transformer.
+     */
+    public List<String> getViewOfInstrumentedClasses() {
+        synchronized (instrumentedClasses) {
+            return Collections.unmodifiableList(new ArrayList<>(instrumentedClasses));
         }
     }
 

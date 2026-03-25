@@ -45,8 +45,9 @@ class CodeAssertionTest {
     void evaluate_trueWhenAssertionHolds() throws Exception {
         TestCase tc = new DefaultTestCase();
         VariableReference ref = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+        String varName = variableNameFor(tc, ref);
 
-        CodeAssertion a = new CodeAssertion("assertEquals(42, int0);");
+        CodeAssertion a = new CodeAssertion("assertEquals(42, " + varName + ");");
         a.setSource(ref);
         tc.getStatement(0).addAssertion(a);
 
@@ -59,8 +60,9 @@ class CodeAssertionTest {
     void evaluate_falseWhenAssertionFails() throws Exception {
         TestCase tc = new DefaultTestCase();
         VariableReference ref = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+        String varName = variableNameFor(tc, ref);
 
-        CodeAssertion a = new CodeAssertion("assertEquals(7, int0);");
+        CodeAssertion a = new CodeAssertion("assertEquals(7, " + varName + ");");
         a.setSource(ref);
         tc.getStatement(0).addAssertion(a);
 
@@ -92,15 +94,16 @@ class CodeAssertionTest {
     void isValid_trueWhenSourceAndCodeSet() {
         TestCase tc = new DefaultTestCase();
         VariableReference ref = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+        String varName = variableNameFor(tc, ref);
 
-        CodeAssertion a = new CodeAssertion("assertEquals(42, int0);");
+        CodeAssertion a = new CodeAssertion("assertEquals(42, " + varName + ");");
         a.setSource(ref);
         assertTrue(a.isValid());
     }
 
     @Test
     void isValid_falseWhenSourceNull() {
-        CodeAssertion a = new CodeAssertion("assertEquals(42, int0);");
+        CodeAssertion a = new CodeAssertion("assertEquals(42, value);");
         assertFalse(a.isValid());
     }
 
@@ -191,8 +194,9 @@ class CodeAssertionTest {
     void canBeAttachedToStatement() {
         TestCase tc = new DefaultTestCase();
         VariableReference ref = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+        String varName = variableNameFor(tc, ref);
 
-        CodeAssertion a = new CodeAssertion("assertEquals(42, int0);");
+        CodeAssertion a = new CodeAssertion("assertEquals(42, " + varName + ");");
         a.setSource(ref);
 
         tc.getStatement(0).addAssertion(a);
@@ -218,5 +222,11 @@ class CodeAssertionTest {
         Set<VariableReference> referenced = a.getReferencedVariables();
         assertTrue(referenced.contains(intRef));
         assertTrue(referenced.contains(strRef));
+    }
+
+    private static String variableNameFor(TestCase testCase, VariableReference ref) {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        testCase.accept(visitor);
+        return visitor.getVariableName(ref);
     }
 }

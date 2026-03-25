@@ -492,6 +492,7 @@ public class TestSuiteWriter implements Opcodes {
             String mockito = Mockito.class.getCanonicalName();
             builder.append("import static " + mockito + ".*;" + NEWLINE);
             imports.add(ViolatedAssumptionAnswer.class);
+            imports.add(LenientMockAnswer.class);
         }
 
         if (hasException && requirements.isRuntimeEnabled()) {

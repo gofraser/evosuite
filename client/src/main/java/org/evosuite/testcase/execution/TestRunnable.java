@@ -28,18 +28,29 @@ import org.evosuite.runtime.jvm.ShutdownHookHandler;
 import org.evosuite.runtime.thread.KillSwitch;
 import org.evosuite.runtime.thread.ThreadStopper;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.dmon.DmonCoordinator;
+import org.evosuite.testcase.dmon.DmonFailureSite;
+import org.evosuite.testcase.dmon.DmonInjectionDiscovery;
+import org.evosuite.testcase.dmon.DmonPromotionPlan;
+import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -72,6 +83,101 @@ public class TestRunnable implements InterfaceTestRunnable {
     protected Set<ExecutionObserver> observers;
 
     protected final ThreadStopper threadStopper;
+
+    private final Deque<DmonRollbackAction> dmonRollbackLog = new ArrayDeque<>();
+
+    private interface DmonRollbackAction {
+        void rollback() throws Exception;
+        String describe();
+    }
+
+    private static final class DmonStaticWrite implements DmonRollbackAction {
+        private final Field field;
+        private final Object oldValue;
+
+        private DmonStaticWrite(Field field, Object oldValue) {
+            this.field = field;
+            this.oldValue = oldValue;
+        }
+
+        @Override
+        public void rollback() throws IllegalAccessException {
+            field.setAccessible(true);
+            field.set(null, oldValue);
+        }
+
+        @Override
+        public String describe() {
+            return field.getDeclaringClass().getName() + "." + field.getName();
+        }
+    }
+
+    private static final class DmonSetterRollback implements DmonRollbackAction {
+        private final Method setter;
+        private final Object oldValue;
+
+        private DmonSetterRollback(Method setter, Object oldValue) {
+            this.setter = setter;
+            this.oldValue = oldValue;
+        }
+
+        @Override
+        public void rollback() throws Exception {
+            setter.setAccessible(true);
+            setter.invoke(null, oldValue);
+        }
+
+        @Override
+        public String describe() {
+            return setter.getDeclaringClass().getName() + "." + setter.getName() + "(...)";
+        }
+    }
+
+    private static final class DmonInstanceWrite implements DmonRollbackAction {
+        private final Field field;
+        private final Object target;
+        private final Object oldValue;
+
+        private DmonInstanceWrite(Field field, Object target, Object oldValue) {
+            this.field = field;
+            this.target = target;
+            this.oldValue = oldValue;
+        }
+
+        @Override
+        public void rollback() throws IllegalAccessException {
+            field.setAccessible(true);
+            field.set(target, oldValue);
+        }
+
+        @Override
+        public String describe() {
+            return field.getDeclaringClass().getName() + "." + field.getName() + " (instance)";
+        }
+    }
+
+    private static final class DmonInstanceSetterRollback implements DmonRollbackAction {
+        private final Method setter;
+        private final Object receiver;
+        private final Object oldValue;
+
+        private DmonInstanceSetterRollback(Method setter, Object receiver, Object oldValue) {
+            this.setter = setter;
+            this.receiver = receiver;
+            this.oldValue = oldValue;
+        }
+
+        @Override
+        public void rollback() throws Exception {
+            setter.setAccessible(true);
+            setter.invoke(receiver, oldValue);
+        }
+
+        @Override
+        public String describe() {
+            return setter.getDeclaringClass().getName() + "." + setter.getName() + "(...) (instance)";
+        }
+    }
 
     /**
      * <p>
@@ -239,6 +345,9 @@ public class TestRunnable implements InterfaceTestRunnable {
                     + Properties.TARGET_CLASS + ": "
                     + e.getMessage(), e);
         } finally {
+            if (!rollbackDmonWrites(result)) {
+                result.setDmonContaminated(true);
+            }
             resetMockitoProgressStateBestEffort();
             if (!Properties.PRINT_TO_SYSTEM) {
                 LoggingUtils.restorePreviousOutAndErrStream();
@@ -322,6 +431,7 @@ public class TestRunnable implements InterfaceTestRunnable {
             /*
              * Here actually execute a statement of the SUT
              */
+            maybeCaptureFieldAssignmentRollback(s);
             Throwable exceptionThrown = s.execute(scope, out);
 
             if (exceptionThrown != null) {
@@ -338,9 +448,16 @@ public class TestRunnable implements InterfaceTestRunnable {
                 // When a ClassCastException involves a mock object, register a
                 // mock type upgrade so future mocks use the more specific type.
                 // E.g., mock(Graphics.class) cast to Graphics2D → upgrade to Graphics2D.
-                if (exceptionThrown instanceof ClassCastException) {
-                    FunctionalMockStatement.detectMockTypeUpgrade(
-                            (ClassCastException) exceptionThrown, s, test);
+                ClassCastException classCast = findClassCastException(exceptionThrown);
+                if (classCast != null) {
+                    FunctionalMockStatement.detectMockTypeUpgrade(classCast, s, test);
+                }
+
+                exceptionThrown = maybeAssistAndRecordDmonCandidate(result, s, exceptionThrown, out);
+                if (exceptionThrown == null) {
+                    informObservers_after(s, null);
+                    num.incrementAndGet();
+                    continue;
                 }
 
                 // When a constructor or method causes OOM, register the class
@@ -459,6 +576,429 @@ public class TestRunnable implements InterfaceTestRunnable {
             }
         }
         return args;
+    }
+
+    private static void maybeRecordDmonCandidate(ExecutionResult result, Statement statement, Throwable throwable) {
+        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+            return;
+        }
+        if (!(statement instanceof ConstructorStatement)) {
+            logger.trace("DMoN runtime: skip candidate [reason=NOT_CONSTRUCTOR_STATEMENT]");
+            return;
+        }
+        if (!(throwable instanceof NullPointerException)) {
+            logger.trace("DMoN runtime: skip candidate [reason=NOT_NPE, type={}]", throwable.getClass().getName());
+            return;
+        }
+        if (result.getDmonPromotionPlan() != null) {
+            logger.debug("DMoN runtime: candidate already recorded for this execution");
+            return;
+        }
+        ConstructorStatement constructorStatement = (ConstructorStatement) statement;
+        Optional<DmonPromotionPlan> plan = DmonCoordinator.getInstance()
+                .analyzeConstructorFailure(constructorStatement, throwable);
+        if (plan.isPresent()) {
+            result.setDmonPromotionPlan(plan.get());
+            DmonFailureSite fs = plan.get().getFailureSite();
+            logger.debug("DMoN runtime: candidate recorded [owner={}, method={}, line={}, member={}, inferredType={}]",
+                    fs.getOwnerClass(), fs.getMethodName(), fs.getLineNumber(),
+                    plan.get().getMemberToken().orElse(""),
+                    plan.get().getInferredMissingTypeName().orElse(""));
+        } else {
+            logger.debug("DMoN runtime: analyzer returned no candidate");
+        }
+    }
+
+    private Throwable maybeAssistAndRecordDmonCandidate(ExecutionResult result,
+                                                         Statement statement,
+                                                         Throwable throwable,
+                                                         PrintStream out)
+            throws InvocationTargetException, IllegalAccessException, InstantiationException {
+        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+            return throwable;
+        }
+        if (!(statement instanceof ConstructorStatement)) {
+            return throwable;
+        }
+
+        ConstructorStatement constructorStatement = (ConstructorStatement) statement;
+        Throwable lastThrown = throwable;
+        NullPointerException currentNpe = extractNpe(throwable);
+        if (currentNpe == null) {
+            return throwable;
+        }
+        int maxRetries = Math.max(1, Properties.DMON_MAX_EPHEMERAL_RETRIES);
+
+        for (int attempt = 0; attempt < maxRetries; attempt++) {
+            maybeRecordDmonCandidate(result, statement, currentNpe);
+            Optional<DmonPromotionPlan> analyzedPlan = DmonCoordinator.getInstance()
+                    .analyzeConstructorFailure(constructorStatement, currentNpe);
+            if (!analyzedPlan.isPresent()) {
+                logger.debug("DMoN runtime: cascading assist stopped [attempt={}, reason=NO_PLAN]",
+                        attempt + 1);
+                return lastThrown;
+            }
+            if (!tryEphemeralInjection(constructorStatement, analyzedPlan.get())) {
+                logger.debug("DMoN runtime: cascading assist stopped [attempt={}, reason=INJECTION_FAILED]",
+                        attempt + 1);
+                return lastThrown;
+            }
+            logger.debug("DMoN runtime: cascading assist applied [attempt={}, maxRetries={}]",
+                    attempt + 1, maxRetries);
+            Throwable retried = statement.execute(scope, out);
+            if (retried == null) {
+                return null;
+            }
+            lastThrown = retried;
+            currentNpe = extractNpe(retried);
+            if (currentNpe == null) {
+                return retried;
+            }
+        }
+        logger.debug("DMoN runtime: cascading assist exhausted retry budget [maxRetries={}]", maxRetries);
+        return lastThrown;
+    }
+
+    private static NullPointerException extractNpe(Throwable throwable) {
+        if (throwable instanceof NullPointerException) {
+            return (NullPointerException) throwable;
+        }
+        if (throwable instanceof CodeUnderTestException && throwable.getCause() instanceof NullPointerException) {
+            return (NullPointerException) throwable.getCause();
+        }
+        return null;
+    }
+
+    private static ClassCastException findClassCastException(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof ClassCastException) {
+                return (ClassCastException) current;
+            }
+            Throwable next = current.getCause();
+            if (next == current) {
+                break;
+            }
+            current = next;
+        }
+        return null;
+    }
+
+    private void maybeCaptureFieldAssignmentRollback(Statement statement) {
+        if (!(statement instanceof AssignmentStatement)) {
+            return;
+        }
+        VariableReference target = statement.getReturnValue();
+        if (!(target instanceof FieldReference)) {
+            return;
+        }
+        FieldReference fieldRef = (FieldReference) target;
+        Field field = fieldRef.getField().getField();
+        if (Modifier.isFinal(field.getModifiers())) {
+            return;
+        }
+        try {
+            field.setAccessible(true);
+            if (fieldRef.getField().isStatic()) {
+                Object oldValue = field.get(null);
+                dmonRollbackLog.push(new DmonStaticWrite(field, oldValue));
+                return;
+            }
+            VariableReference sourceRef = fieldRef.getSource();
+            if (sourceRef == null) {
+                return;
+            }
+            Object receiver = sourceRef.getObject(scope);
+            if (receiver == null) {
+                return;
+            }
+            Object oldValue = field.get(receiver);
+            dmonRollbackLog.push(new DmonInstanceWrite(field, receiver, oldValue));
+        } catch (Throwable t) {
+            logger.debug("Could not snapshot field assignment for rollback: {}", t.getMessage());
+        }
+    }
+
+    private boolean tryEphemeralInjection(ConstructorStatement constructorStatement, DmonPromotionPlan plan) {
+        Class<?> ownerClass = resolveOwnerClassForEphemeral(constructorStatement, plan);
+        if (ownerClass == null) {
+            return false;
+        }
+
+        String fieldName = DmonInjectionDiscovery.resolveFieldName(plan);
+        Field field = DmonInjectionDiscovery.findStaticField(ownerClass, fieldName);
+        Field instanceField = field == null ? DmonInjectionDiscovery.findInstanceField(ownerClass, fieldName) : null;
+
+        Class<?> dependencyType = null;
+        if (field != null) {
+            dependencyType = field.getType();
+        } else if (instanceField != null) {
+            dependencyType = instanceField.getType();
+        } else if (plan.getInferredMissingTypeName().isPresent()) {
+            try {
+                dependencyType = Class.forName(plan.getInferredMissingTypeName().get(), false, ownerClass.getClassLoader());
+            } catch (ClassNotFoundException ignored) {
+                dependencyType = null;
+            }
+        }
+        if (dependencyType == null || dependencyType.isPrimitive()) {
+            return false;
+        }
+
+        if (tryEphemeralSetterInjection(ownerClass, dependencyType, fieldName)) {
+            return true;
+        }
+        if (tryEphemeralFieldInjection(field, dependencyType)) {
+            return true;
+        }
+        return tryEphemeralInstanceInjection(ownerClass, instanceField, dependencyType, fieldName);
+    }
+
+    private static Class<?> resolveOwnerClassForEphemeral(ConstructorStatement constructorStatement, DmonPromotionPlan plan) {
+        String ownerName = plan.getFailureSite() == null ? null : plan.getFailureSite().getOwnerClass();
+        ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        if (ownerName != null && !ownerName.trim().isEmpty()) {
+            try {
+                return Class.forName(ownerName, false, sutLoader);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        return constructorStatement.getConstructor().getConstructor().getDeclaringClass();
+    }
+
+    private boolean tryEphemeralSetterInjection(Class<?> ownerClass, Class<?> dependencyType, String fieldName) {
+        Method setter = DmonInjectionDiscovery.findStaticSetter(ownerClass, dependencyType, fieldName);
+        if (setter == null) {
+            return false;
+        }
+        Field rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForSetter(ownerClass, setter, fieldName);
+        if (rollbackField == null) {
+            return false;
+        }
+        try {
+            rollbackField.setAccessible(true);
+            Object oldValue = rollbackField.get(null);
+            Class<?> setterType = setter.getParameterTypes()[0];
+            Object mock = createEphemeralMock(setterType);
+            setter.setAccessible(true);
+            setter.invoke(null, mock);
+            dmonRollbackLog.push(new DmonSetterRollback(setter, oldValue));
+            return true;
+        } catch (Throwable t) {
+            logger.debug("DMoN ephemeral setter injection failed: {}", t.getMessage(), t);
+            return false;
+        }
+    }
+
+    private boolean tryEphemeralInstanceInjection(Class<?> ownerClass,
+                                                  Field field,
+                                                  Class<?> dependencyType,
+                                                  String fieldName) {
+        if (ownerClass == null || dependencyType == null || dependencyType.isPrimitive()) {
+            return false;
+        }
+        Method accessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
+        if (accessor == null) {
+            return false;
+        }
+        try {
+            accessor.setAccessible(true);
+            Object receiver = accessor.invoke(null);
+            if (receiver == null) {
+                return false;
+            }
+            if (tryEphemeralInstanceSetterInjection(ownerClass, receiver, dependencyType, fieldName)) {
+                return true;
+            }
+            return tryEphemeralInstanceFieldInjection(ownerClass, receiver, field, dependencyType, fieldName);
+        } catch (Throwable t) {
+            logger.debug("DMoN ephemeral instance accessor injection failed: {}", t.getMessage(), t);
+            return false;
+        }
+    }
+
+    private boolean tryEphemeralInstanceSetterInjection(Class<?> ownerClass,
+                                                        Object receiver,
+                                                        Class<?> dependencyType,
+                                                        String fieldName) {
+        Method setter = findInstanceSetter(ownerClass, dependencyType, fieldName);
+        if (setter == null) {
+            return false;
+        }
+        Field rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForInstanceSetter(ownerClass, setter, fieldName);
+        if (rollbackField == null) {
+            return false;
+        }
+        try {
+            rollbackField.setAccessible(true);
+            Object oldValue = rollbackField.get(receiver);
+            Class<?> setterType = setter.getParameterTypes()[0];
+            Object mock = createEphemeralMock(setterType);
+            setter.setAccessible(true);
+            setter.invoke(receiver, mock);
+            dmonRollbackLog.push(new DmonInstanceSetterRollback(setter, receiver, oldValue));
+            return true;
+        } catch (Throwable t) {
+            logger.debug("DMoN ephemeral instance setter injection failed: {}", t.getMessage(), t);
+            return false;
+        }
+    }
+
+    private boolean tryEphemeralInstanceFieldInjection(Class<?> ownerClass,
+                                                       Object receiver,
+                                                       Field field,
+                                                       Class<?> dependencyType,
+                                                       String fieldName) {
+        Field targetField = field != null ? field : DmonInjectionDiscovery.findInstanceField(ownerClass, fieldName);
+        if (targetField == null) {
+            return false;
+        }
+        try {
+            targetField.setAccessible(true);
+            Object oldValue = targetField.get(receiver);
+            Object mock = createEphemeralMock(dependencyType);
+            targetField.set(receiver, mock);
+            dmonRollbackLog.push(new DmonInstanceWrite(targetField, receiver, oldValue));
+            return true;
+        } catch (Throwable t) {
+            logger.debug("DMoN ephemeral instance field injection failed: {}", t.getMessage(), t);
+            return false;
+        }
+    }
+
+    private static Method findInstanceSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {
+        if (ownerClass == null || dependencyType == null) {
+            return null;
+        }
+        Method best = null;
+        int bestScore = Integer.MIN_VALUE;
+        String normalizedFieldHint = fieldNameHint == null ? "" : fieldNameHint.toLowerCase(Locale.ROOT);
+        for (Method method : ownerClass.getMethods()) {
+            int mods = method.getModifiers();
+            if (java.lang.reflect.Modifier.isStatic(mods) || !java.lang.reflect.Modifier.isPublic(mods)) {
+                continue;
+            }
+            if (method.getParameterTypes().length != 1) {
+                continue;
+            }
+            Class<?> param = method.getParameterTypes()[0];
+            if (!param.isAssignableFrom(dependencyType) && !dependencyType.isAssignableFrom(param)) {
+                continue;
+            }
+            String lowerName = method.getName().toLowerCase(Locale.ROOT);
+            if (!lowerName.startsWith("set")) {
+                continue;
+            }
+            int score = 20;
+            if (!normalizedFieldHint.isEmpty() && lowerName.contains(normalizedFieldHint)) {
+                score += 30;
+            }
+            if (param.equals(dependencyType)) {
+                score += 5;
+            }
+            if (best == null || score > bestScore) {
+                best = method;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
+    private boolean tryEphemeralFieldInjection(Field field, Class<?> dependencyType) {
+        if (field == null) {
+            return false;
+        }
+        try {
+            field.setAccessible(true);
+            Object oldValue = field.get(null);
+            Object mock = createEphemeralMock(dependencyType);
+            field.set(null, mock);
+            dmonRollbackLog.push(new DmonStaticWrite(field, oldValue));
+            return true;
+        } catch (Throwable t) {
+            logger.debug("DMoN ephemeral field injection failed: {}", t.getMessage(), t);
+            return false;
+        }
+    }
+
+    private boolean rollbackDmonWrites(ExecutionResult result) {
+        boolean ok = true;
+        while (!dmonRollbackLog.isEmpty()) {
+            DmonRollbackAction write = dmonRollbackLog.pop();
+            try {
+                write.rollback();
+            } catch (Throwable t) {
+                ok = false;
+                logger.warn("DMoN rollback failed for {}: {}", write.describe(), t.getMessage());
+            }
+        }
+        if (!ok && result != null) {
+            result.setDmonContaminated(true);
+        }
+        return ok;
+    }
+
+    private static Object createEphemeralMock(Class<?> type) {
+        return Mockito.mock(type, invocation -> createEphemeralReturnValue(invocation.getMethod().getReturnType()));
+    }
+
+    private static Object createEphemeralReturnValue(Class<?> returnType) {
+        if (returnType == null || returnType.equals(Void.TYPE)) {
+            return null;
+        }
+        if (returnType.equals(String.class)
+                || returnType.equals(Object.class)
+                || returnType.equals(CharSequence.class)) {
+            return "";
+        }
+        if (returnType.isPrimitive()) {
+            return defaultPrimitiveValue(returnType);
+        }
+        if (returnType.isArray()) {
+            return Array.newInstance(returnType.getComponentType(), 0);
+        }
+        if (returnType.isEnum()) {
+            Object[] values = returnType.getEnumConstants();
+            return values != null && values.length > 0 ? values[0] : null;
+        }
+        if (Modifier.isFinal(returnType.getModifiers())
+                && returnType.getName().startsWith("java.lang.")) {
+            return null;
+        }
+        try {
+            return Mockito.mock(returnType, invocation ->
+                    createEphemeralReturnValue(invocation.getMethod().getReturnType()));
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static Object defaultPrimitiveValue(Class<?> type) {
+        if (type.equals(Boolean.TYPE)) {
+            return false;
+        }
+        if (type.equals(Character.TYPE)) {
+            return '\0';
+        }
+        if (type.equals(Byte.TYPE)) {
+            return (byte) 0;
+        }
+        if (type.equals(Short.TYPE)) {
+            return (short) 0;
+        }
+        if (type.equals(Integer.TYPE)) {
+            return 0;
+        }
+        if (type.equals(Long.TYPE)) {
+            return 0L;
+        }
+        if (type.equals(Float.TYPE)) {
+            return 0.0f;
+        }
+        if (type.equals(Double.TYPE)) {
+            return 0.0d;
+        }
+        return null;
     }
 
     private void printDebugInfo(Statement s, Throwable exceptionThrown) {

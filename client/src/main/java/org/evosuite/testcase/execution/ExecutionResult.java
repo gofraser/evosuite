@@ -24,6 +24,7 @@ import org.evosuite.coverage.io.input.InputCoverageGoal;
 import org.evosuite.coverage.io.output.OutputCoverageGoal;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.ga.metaheuristics.mapelites.FeatureVector;
+import org.evosuite.testcase.dmon.DmonPromotionPlan;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.slf4j.Logger;
@@ -87,6 +88,21 @@ public class ExecutionResult implements Cloneable {
     protected boolean wasAnyPropertyWritten;
 
     private List<FeatureVector> featureVectors = new ArrayList<>(1);
+
+    /**
+     * Optional DMoN promotion plan discovered during this execution.
+     */
+    private DmonPromotionPlan dmonPromotionPlan;
+
+    /**
+     * Idempotence guard for fitness-layer promotion consumption.
+     */
+    private boolean dmonPromotionConsumed = false;
+
+    /**
+     * True if DMoN runtime rollback could not restore touched global state.
+     */
+    private boolean dmonContaminated = false;
 
     /**
      * Summary.
@@ -428,6 +444,9 @@ public class ExecutionResult implements Cloneable {
         }
         copy.wasAnyPropertyWritten = wasAnyPropertyWritten;
         copy.featureVectors = new ArrayList<>(this.featureVectors);
+        copy.dmonPromotionPlan = this.dmonPromotionPlan;
+        copy.dmonPromotionConsumed = this.dmonPromotionConsumed;
+        copy.dmonContaminated = this.dmonContaminated;
 
         return copy;
     }
@@ -559,5 +578,34 @@ public class ExecutionResult implements Cloneable {
         } else {
             this.explicitExceptions = new HashMap<>();
         }
+    }
+
+    public DmonPromotionPlan getDmonPromotionPlan() {
+        return dmonPromotionPlan;
+    }
+
+    public void setDmonPromotionPlan(DmonPromotionPlan dmonPromotionPlan) {
+        this.dmonPromotionPlan = dmonPromotionPlan;
+        this.dmonPromotionConsumed = false;
+    }
+
+    public boolean hasUnconsumedDmonPromotionPlan() {
+        return dmonPromotionPlan != null && !dmonPromotionConsumed;
+    }
+
+    public void markDmonPromotionConsumed() {
+        this.dmonPromotionConsumed = true;
+    }
+
+    public boolean isDmonPromotionConsumed() {
+        return dmonPromotionConsumed;
+    }
+
+    public boolean isDmonContaminated() {
+        return dmonContaminated;
+    }
+
+    public void setDmonContaminated(boolean dmonContaminated) {
+        this.dmonContaminated = dmonContaminated;
     }
 }

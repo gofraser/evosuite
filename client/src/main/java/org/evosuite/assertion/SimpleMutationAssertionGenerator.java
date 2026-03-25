@@ -389,17 +389,23 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
             }
         }
 
-        // Collect all trace assertions for the last statement without
-        // disturbing existing assertions on other statements
-        Set<Assertion> existingAssertions = new HashSet<>(lastStatement.getAssertions());
+        // Collect all trace assertions for the last statement.
+        // getAllAssertions adds to EVERY statement, so save/restore the
+        // entire test to avoid leaking trace assertions onto other statements.
+        Map<Integer, Set<Assertion>> savedAssertions = new HashMap<>();
+        for (int i = 0; i < test.size(); i++) {
+            savedAssertions.put(i, new HashSet<>(test.getStatement(i).getAssertions()));
+        }
         for (OutputTrace<?> trace : origResult.getTraces()) {
             trace.getAllAssertions(test);
         }
         Set<Assertion> allLastAssertions = new HashSet<>(lastStatement.getAssertions());
-        // Remove trace-added assertions, restoring original state
-        lastStatement.removeAssertions();
-        for (Assertion existing : existingAssertions) {
-            lastStatement.addAssertion(existing);
+        // Restore all statements to their pre-getAllAssertions state
+        for (int i = 0; i < test.size(); i++) {
+            test.getStatement(i).removeAssertions();
+            for (Assertion existing : savedAssertions.get(i)) {
+                test.getStatement(i).addAssertion(existing);
+            }
         }
 
         boolean haveAssertion = false;

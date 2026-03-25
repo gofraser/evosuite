@@ -85,15 +85,12 @@ public class ClassStateSupport {
 
                 if (!InstrumentedClass.class.isAssignableFrom(clazz)) {
                     String msg = "Class " + clazz.getName() + " was not instrumented by EvoSuite. "
-                            + "This could happen if you are running JUnit tests in a way that is not handled "
-                            + "by EvoSuite, in "
-                            + "which some classes are loaded be reflection before the tests are run. "
-                            + "Consult the EvoSuite documentation "
-                            + "for possible workarounds for this issue.";
-                    logger.error(msg);
+                            + "This can happen during the initial JUnit verification pass with "
+                            + "NonInstrumentingClassLoader and is usually resolved by an automatic "
+                            + "retry with the full InstrumentingClassLoader.";
+                    logger.info(msg);
                     nonInstrumentedClassDetected = true;
                     problem = true;
-                    //throw new IllegalStateException(msg); // throwing an exception might be a bit too extreme
                 }
             }
         }

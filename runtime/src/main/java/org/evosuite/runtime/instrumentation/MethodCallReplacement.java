@@ -104,6 +104,30 @@ public class MethodCallReplacement {
      * @param opcode a int.
      */
     public void insertMethodCall(MethodCallReplacementMethodAdapter mv, int opcode) {
+        if (popUninitialisedReference) {
+            // Constructor-to-static-factory replacement:
+            // stack before invokespecial is [uninit, uninit, arg1..argN].
+            // We remove both uninitialized refs and invoke factory with args only.
+            Type[] args = Type.getArgumentTypes(desc);
+            Map<Integer, Integer> to = new HashMap<>();
+            for (int i = args.length - 1; i >= 0; i--) {
+                int loc = mv.newLocal(args[i]);
+                mv.storeLocal(loc);
+                to.put(i, loc);
+            }
+
+            mv.pop(); // callee reference for invokespecial
+            mv.pop(); // duplicated uninitialized reference
+
+            for (int i = 0; i < args.length; i++) {
+                mv.loadLocal(to.get(i));
+            }
+
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, replacementClassName, replacementMethodName,
+                    replacementDesc, false);
+            return;
+        }
+
         mv.visitMethodInsn(Opcodes.INVOKESTATIC, MockFramework.class.getCanonicalName().replace('.', '/'),
                 "isEnabled", "()Z", false);
         Label origCallLabel = new Label();

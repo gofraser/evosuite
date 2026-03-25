@@ -55,6 +55,14 @@ public class RuntimeInstrumentation {
     private static boolean avoidInstrumentingShadedClasses = false;
 
     /**
+     * Package prefix of the target class under test (e.g., "org.dom4j.").
+     * When set, the problematic-library exclusion list is applied to avoid
+     * classloader conflicts, but classes in this prefix are exempted so
+     * the target class can still be instrumented.
+     */
+    private static volatile String targetClassPrefix = null;
+
+    /**
      * <p>Constructor for RuntimeInstrumentation.</p>
      */
     public RuntimeInstrumentation() {
@@ -97,6 +105,14 @@ public class RuntimeInstrumentation {
         return RuntimeInstrumentation.avoidInstrumentingShadedClasses;
     }
 
+    public static void setTargetClassPrefix(String prefix) {
+        RuntimeInstrumentation.targetClassPrefix = prefix;
+    }
+
+    public static String getTargetClassPrefix() {
+        return RuntimeInstrumentation.targetClassPrefix;
+    }
+
     /**
      * <p>checkIfCanInstrument.</p>
      *
@@ -112,6 +128,13 @@ public class RuntimeInstrumentation {
 
         if (className.contains("EnhancerByMockito")) {
             //very special case, as Mockito will create classes on the fly
+            return false;
+        }
+        if (className.contains("$MockitoMock$")
+                || className.contains("$auxiliary$")
+                || className.contains("$ByteBuddy$")
+                || className.startsWith("net.bytebuddy.")) {
+            // Mockito/ByteBuddy generated runtime classes should not be instrumented.
             return false;
         }
 

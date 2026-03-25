@@ -47,6 +47,7 @@ import org.evosuite.runtime.mock.java.util.logging.MockLogRecord;
 import org.evosuite.runtime.mock.java.util.logging.MockLogger;
 import org.evosuite.runtime.mock.java.util.prefs.MockPreferences;
 import org.evosuite.runtime.mock.javax.swing.MockDefaultListSelectionModel;
+import org.evosuite.runtime.mock.javax.swing.MockImageIcon;
 import org.evosuite.runtime.mock.javax.swing.MockJFileChooser;
 import org.evosuite.runtime.mock.javax.swing.MockJOptionPane;
 import org.evosuite.runtime.mock.javax.swing.MockSpinnerDateModel;
@@ -208,9 +209,11 @@ public class MockList {
         if (RuntimeSettings.mockGUI) {
             // why not including JFileChooser?
             list.add(MockJOptionPane.class);
+            list.add(MockImageIcon.class);
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.awt.MockWindow");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.awt.MockFrame");
             addMockIfPresent(list, "org.evosuite.runtime.mock.javax.swing.MockJFrame");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.javax.swing.MockJDialog");
         }
 
         return list;

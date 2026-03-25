@@ -81,24 +81,33 @@ public class ExcludedClasses {
 
         // Note: be sure each package is ended with ".", otherwise you might ban more packages than you wanted
 
-        if (RuntimeInstrumentation.getAvoidInstrumentingShadedClasses()) {
-            list.addAll(Arrays.asList(/*
-             * TODO:
-             * These classes are shaded. So, should be no problem in instrumenting them during search, even though
-             * they are used by EvoSuite. However, problems arise when running system tests before shading :(
-             * For now, we just skip them, but need to check if it leads to side effects
-             *
-             * Main problem due to libraries used in the generated JUnit files to test JavaEE applications relying
-             * on database
-             *
-             */
-                    "org.hibernate.", "org.hsqldb.", "org.jboss.",
-                    "org.springframework.", "org.apache.commons.logging.",
-                    "javassist.", "antlr.", "org.dom4j.", "org.aopalliance.",
-                    "javax.servlet.", // note, Servlet is special. see comments in pom file
-                    "org.mockito.", "org.apache", "org.hamcrest", "org.objenesis"));
+        // Libraries with singleton/factory patterns that cause ClassCastExceptions
+        // when loaded by both the app classloader and InstrumentingClassLoader.
+        // Always excluded unless the target class is IN one of these packages
+        // (i.e., we are generating tests for that library itself).
+        String targetPrefix = RuntimeInstrumentation.getTargetClassPrefix();
+        boolean applyLibraryExclusions = RuntimeInstrumentation.getAvoidInstrumentingShadedClasses()
+                || targetPrefix != null;
+        if (applyLibraryExclusions) {
+            for (String pkg : PROBLEMATIC_LIBRARY_PREFIXES) {
+                if (targetPrefix != null && targetPrefix.startsWith(pkg)) {
+                    continue;
+                }
+                list.add(pkg);
+            }
         }
 
         return list;
     }
+
+    /**
+     * Library packages known to cause classloader conflicts due to
+     * singleton/factory patterns when loaded by multiple classloaders.
+     */
+    private static final List<String> PROBLEMATIC_LIBRARY_PREFIXES = Arrays.asList(
+            "org.hibernate.", "org.hsqldb.", "org.jboss.",
+            "org.springframework.", "org.apache.commons.logging.",
+            "javassist.", "antlr.", "org.dom4j.", "org.aopalliance.",
+            "javax.servlet.",
+            "org.mockito.", "org.apache.", "org.hamcrest.", "org.objenesis.");
 }

@@ -31,6 +31,8 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -147,6 +149,9 @@ public class ClassResetter {
 
         Method m = getResetMethod(classNameWithDots);
         if (m == null) {
+            logger.debug("ClassResetter: no {} in {}, using reflective static reset fallback",
+                    STATIC_RESET, classNameWithDots);
+            resetStaticFieldsReflectively(classNameWithDots);
             return;
         }
 
@@ -187,6 +192,50 @@ public class ClassResetter {
         }
 
         InstrumentingAgent.deactivate();
+    }
+
+    /**
+     * Runtime fallback when no __STATIC_RESET() exists (e.g., class has no <clinit>):
+     * reset all mutable static fields to JVM default values.
+     */
+    private void resetStaticFieldsReflectively(String classNameWithDots) {
+        try {
+            Class<?> clazz = loader.loadClass(classNameWithDots);
+            int resetCount = 0;
+            for (Field field : clazz.getDeclaredFields()) {
+                int mods = field.getModifiers();
+                if (!Modifier.isStatic(mods) || Modifier.isFinal(mods)) {
+                    continue;
+                }
+                field.setAccessible(true);
+                Class<?> type = field.getType();
+                if (!type.isPrimitive()) {
+                    field.set(null, null);
+                } else if (type == Boolean.TYPE) {
+                    field.setBoolean(null, false);
+                } else if (type == Byte.TYPE) {
+                    field.setByte(null, (byte) 0);
+                } else if (type == Short.TYPE) {
+                    field.setShort(null, (short) 0);
+                } else if (type == Integer.TYPE) {
+                    field.setInt(null, 0);
+                } else if (type == Long.TYPE) {
+                    field.setLong(null, 0L);
+                } else if (type == Float.TYPE) {
+                    field.setFloat(null, 0f);
+                } else if (type == Double.TYPE) {
+                    field.setDouble(null, 0d);
+                } else if (type == Character.TYPE) {
+                    field.setChar(null, '\u0000');
+                }
+                resetCount++;
+            }
+            logger.debug("ClassResetter: reflective static reset fallback applied to {} field(s) in {}",
+                    resetCount, classNameWithDots);
+        } catch (Throwable t) {
+            logger.debug("ClassResetter: reflective static reset fallback failed for {}: {}",
+                    classNameWithDots, t.getMessage());
+        }
     }
 
 }
