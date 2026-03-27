@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm;
 
+import org.evosuite.Properties;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
 
@@ -106,6 +107,9 @@ public class LlmStatistics {
     /** Publishes collected LLM statistics as EvoSuite runtime variables. */
     public void publishRuntimeVariables() {
         initializeRuntimeVariables();
+        String model = Properties.LLM_PROVIDER != Properties.LlmProvider.NONE
+                ? Properties.LLM_MODEL : "";
+        ClientServices.track(RuntimeVariable.LLM_Model, model);
         ClientServices.track(RuntimeVariable.LLM_Calls, getTotalCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, getSuccessfulCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, getFailedCalls());
@@ -116,11 +120,14 @@ public class LlmStatistics {
     }
 
     /**
-     * Initializes all LLM-related runtime variables to 0.
+     * Initializes all LLM-related runtime variables to their zero/default values.
      * This ensures that requested statistics variables are present in the output
      * even if the corresponding features are disabled or never triggered.
+     * <p>
+     * Safe to call regardless of whether LLM mode is enabled.
      */
-    private void initializeRuntimeVariables() {
+    public static void initializeRuntimeVariables() {
+        ClientServices.track(RuntimeVariable.LLM_Model, "");
         ClientServices.track(RuntimeVariable.LLM_Calls, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, 0);

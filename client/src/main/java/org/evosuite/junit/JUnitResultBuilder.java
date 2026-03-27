@@ -104,7 +104,14 @@ public class JUnitResultBuilder {
     }
 
     private static JUnitFailure toFailure(TestIdentifier identifier, TestExecutionResult failure) {
+        // JUnit5 display names include trailing "()" (e.g. "test0()"), but
+        // TestSuiteWriterUtils.getNameOfTest returns the bare method name
+        // (e.g. "test0").  Strip the parentheses so that
+        // handleTestsThatAreUnstable can match failures to test cases.
         String descriptionMethodName = identifier.getDisplayName();
+        if (descriptionMethodName != null && descriptionMethodName.endsWith("()")) {
+            descriptionMethodName = descriptionMethodName.substring(0, descriptionMethodName.length() - 2);
+        }
         Throwable throwable = failure.getThrowable().get();
         String exceptionClassName = throwable.getClass().getName();
         String message = throwable.getMessage();

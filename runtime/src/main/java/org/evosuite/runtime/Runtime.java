@@ -21,6 +21,7 @@ package org.evosuite.runtime;
 
 
 import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.runtime.mock.java.lang.MockObjectWait;
 import org.evosuite.runtime.mock.java.lang.MockThread;
 import org.evosuite.runtime.mock.java.util.MockLocale;
 import org.evosuite.runtime.mock.java.util.MockTimeZone;
@@ -73,11 +74,19 @@ public class Runtime {
             Random.reset();
             System.resetRuntime();
             MockThread.reset();
+            MockObjectWait.reset();
             ThreadCounter.getInstance().resetSingleton();
             MockTimeZone.reset();
             MockLocale.reset();
             MockPreferences.resetPreferences();
             JComponent.setDefaultLocale(Locale.getDefault());
+
+            // Disable DebugGraphics flash delays.  DebugGraphics.sleep()
+            // calls real Thread.sleep() inside JDK code that EvoSuite
+            // cannot instrument, causing timeouts when paint methods are
+            // exercised on Swing components with debug graphics enabled.
+            javax.swing.DebugGraphics.setFlashTime(0);
+            javax.swing.DebugGraphics.setFlashCount(0);
         }
 
         if (RuntimeSettings.useVFS) {
@@ -91,6 +100,22 @@ public class Runtime {
         }
 
         LoopCounter.getInstance().reset();
+    }
+
+    /**
+     * Called from instrumented catch/finally handlers to prevent SUT code from
+     * swallowing EvoSuite's timeout exception. If {@code t} is the
+     * {@code TestCaseExecutor.TimeoutExceeded} exception, it is rethrown;
+     * otherwise this method returns normally.
+     *
+     * <p>Uses string-based class name comparison to avoid a hard dependency on
+     * the client module's {@code TestCaseExecutor} class.
+     */
+    public static void rethrowIfTimeout(Throwable t) {
+        if ("org.evosuite.testcase.execution.TestCaseExecutor$TimeoutExceeded"
+                .equals(t.getClass().getName())) {
+            throw (RuntimeException) t;
+        }
     }
 
 }

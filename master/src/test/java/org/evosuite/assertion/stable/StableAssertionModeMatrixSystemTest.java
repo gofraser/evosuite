@@ -24,8 +24,6 @@ import com.examples.with.different.packagename.stable.RandomUUIDUser;
 import com.examples.with.different.packagename.stable.ResetOrderClassA;
 import com.examples.with.different.packagename.stable.ResourceLoaderUser;
 import com.examples.with.different.packagename.stable.SecureRandomUser;
-import com.examples.with.different.packagename.stable.SingletonUser;
-import com.examples.with.different.packagename.stable.FinalSingletonUser;
 import com.examples.with.different.packagename.stable.HashCodeClassInit;
 import com.examples.with.different.packagename.stable.NoClinit;
 import com.examples.with.different.packagename.stable.HasClinit;
@@ -54,12 +52,13 @@ public class StableAssertionModeMatrixSystemTest extends SystemTestBase {
         JUNIT5_EXTENSION_MODE
     }
 
+    // SingletonUser and FinalSingletonUser are excluded because they require
+    // RESET_STATIC_FIELD_GETS=true to produce stable assertions; they are
+    // covered by their own dedicated system tests (SingletonUserSystemTest).
     private static final List<Class<?>> TARGETS = Arrays.asList(
             RandomUser.class,
             ResetOrderClassA.class,
             ResourceLoaderUser.class,
-            SingletonUser.class,
-            FinalSingletonUser.class,
             HashCodeClassInit.class,
             NoClinit.class,
             HasClinit.class,

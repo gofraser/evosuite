@@ -63,6 +63,13 @@ public class NonTargetClassAdapter extends ClassVisitor {
                                      String signature, final String[] exceptions) {
 
         MethodVisitor mv = super.visitMethod(access & ~Opcodes.ACC_FINAL, name, desc, signature, exceptions);
+        // TimeoutExceededRethrowAdapter MUST sit between JSRInlinerAdapter and
+        // the ClassWriter (below, not above).  JSRInlinerAdapter extends MethodNode
+        // and buffers the full instruction stream; anything injected above it
+        // (into its buffer) doubles memory pressure for classes that also go
+        // through the testability ClassNode pipeline.  Below JSRInlinerAdapter,
+        // the injected code is written straight to the ClassWriter output.
+        mv = new TimeoutExceededRethrowAdapter(mv);
         mv = new JSRInlinerAdapter(mv, access, name, desc, signature, exceptions);
         if (!"<clinit>".equals(name)) {
             mv = new YieldAtLineNumberMethodAdapter(mv, access, className, name, desc);

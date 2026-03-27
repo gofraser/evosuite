@@ -180,13 +180,13 @@ public class LocalSearchSystemTest extends SystemTestBase {
     }
 
     @Test
-    public void testStringGlobalSearch() {
+    public void testStringGxlobalSearch() {
         EvoSuite evosuite = new EvoSuite();
 
         String targetClass = StringLocalSearchExample.class.getCanonicalName();
 
         Properties.TARGET_CLASS = targetClass;
-        //Properties.SEARCH_BUDGET = 20000;
+        Properties.SEARCH_BUDGET = 20000;
 
         String[] command = new String[]{"-generateSuite", "-class", targetClass};
 

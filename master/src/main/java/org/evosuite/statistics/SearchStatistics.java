@@ -54,6 +54,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -66,9 +67,11 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     private static final long serialVersionUID = -1859683466333302151L;
 
     /**
-     * Singleton instance.
+     * Singleton instance.  ConcurrentHashMap is used because getInstance() may
+     * be called from the client thread (via fallbackSetOutputVariable) and
+     * from the master thread concurrently.
      */
-    private static final Map<String, SearchStatistics> instances = new LinkedHashMap<>();
+    private static final Map<String, SearchStatistics> instances = new ConcurrentHashMap<>();
 
     private static final Logger logger = LoggerFactory.getLogger(SearchStatistics.class);
 
@@ -85,7 +88,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     /**
      * Output variables and their values.
      */
-    private final Map<String, OutputVariable<?>> outputVariables = new TreeMap<>();
+    private final Map<String, OutputVariable<?>> outputVariables = new ConcurrentHashMap<>();
 
     /**
      * Variable factories to extract output variables from chromosomes.
@@ -225,12 +228,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         if (rmiClientIdentifier == null || rmiClientIdentifier.isEmpty()) {
             rmiClientIdentifier = ClientProcess.DEFAULT_CLIENT_NAME;
         }
-        SearchStatistics instance = instances.get(rmiClientIdentifier);
-        if (instance == null) {
-            instance = new SearchStatistics();
-            instances.put(rmiClientIdentifier, instance);
-        }
-        return instance;
+        return instances.computeIfAbsent(rmiClientIdentifier, k -> new SearchStatistics());
     }
 
     /**

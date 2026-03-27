@@ -429,6 +429,8 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
         if (llmWasActive) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
+        } else {
+            org.evosuite.llm.LlmStatistics.initializeRuntimeVariables();
         }
     }
 

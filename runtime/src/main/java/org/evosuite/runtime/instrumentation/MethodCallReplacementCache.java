@@ -383,6 +383,25 @@ public class MethodCallReplacementCache {
                 Opcodes.INVOKEVIRTUAL, PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "toString",
                 "(Ljava/lang/Object;)Ljava/lang/String;", false, false));
 
+        // java/lang/Object — monitor methods
+        String mockObjectWait = PackageInfo.getNameWithSlash(
+                org.evosuite.runtime.mock.java.lang.MockObjectWait.class);
+        addReplacementCall(new MethodCallReplacement("java/lang/Object", "wait", "()V",
+                Opcodes.INVOKEVIRTUAL, mockObjectWait, "wait",
+                "(Ljava/lang/Object;)V", false, false));
+        addReplacementCall(new MethodCallReplacement("java/lang/Object", "wait", "(J)V",
+                Opcodes.INVOKEVIRTUAL, mockObjectWait, "wait",
+                "(Ljava/lang/Object;J)V", false, false));
+        addReplacementCall(new MethodCallReplacement("java/lang/Object", "wait", "(JI)V",
+                Opcodes.INVOKEVIRTUAL, mockObjectWait, "wait",
+                "(Ljava/lang/Object;JI)V", false, false));
+        addReplacementCall(new MethodCallReplacement("java/lang/Object", "notify", "()V",
+                Opcodes.INVOKEVIRTUAL, mockObjectWait, "notify",
+                "(Ljava/lang/Object;)V", false, false));
+        addReplacementCall(new MethodCallReplacement("java/lang/Object", "notifyAll", "()V",
+                Opcodes.INVOKEVIRTUAL, mockObjectWait, "notifyAll",
+                "(Ljava/lang/Object;)V", false, false));
+
         addReplacementCall(new MethodCallReplacement("java/lang/Math", "random", "()D", Opcodes.INVOKESTATIC,
                 PackageInfo.getNameWithSlash(org.evosuite.runtime.Random.class), "nextDouble", "()D", false, false));
 

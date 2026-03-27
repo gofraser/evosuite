@@ -625,6 +625,10 @@ public enum RuntimeVariable {
     QueryCacheCalls,
     QueryCacheHitRate,
     /**
+     * The LLM model identifier used for this run (empty string when LLM is disabled).
+     */
+    LLM_Model,
+    /**
      * Total number of LLM calls attempted by EvoSuite.
      */
     LLM_Calls,

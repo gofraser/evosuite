@@ -31,6 +31,7 @@ import static org.evosuite.testcase.variable.name.VariableNameAssertions.assertV
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class TypeBasedVariableNameStrategyTest {
 
@@ -75,6 +76,30 @@ class TypeBasedVariableNameStrategyTest {
         actualName = strategy.createNameForVariable(variable);
         assertValidIdentifierName(actualName);
         assertEquals("stringArray1", actualName);
+    }
+
+    @Test
+    void testNameWithMissingSimpleClassName() {
+        VariableReference variable = mock(VariableReference.class);
+        when(variable.getSimpleClassName()).thenReturn(null, "");
+
+        String actualName = strategy.createNameForVariable(variable);
+        assertValidIdentifierName(actualName);
+        assertEquals("var0", actualName);
+
+        actualName = strategy.createNameForVariable(variable);
+        assertValidIdentifierName(actualName);
+        assertEquals("var1", actualName);
+    }
+
+    @Test
+    void testArrayNameWithMissingSimpleClassName() {
+        ArrayReference variable = mock(ArrayReference.class);
+        when(variable.getSimpleClassName()).thenReturn(null);
+
+        String actualName = strategy.createNameForVariable(variable);
+        assertValidIdentifierName(actualName);
+        assertEquals("varArray0", actualName);
     }
 
 }

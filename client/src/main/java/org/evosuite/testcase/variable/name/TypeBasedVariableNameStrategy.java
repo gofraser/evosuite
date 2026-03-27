@@ -51,13 +51,16 @@ public class TypeBasedVariableNameStrategy extends AbstractVariableNameStrategy 
      */
     public String getPlainNameForVariable(VariableReference var) {
         String className = var.getSimpleClassName();
+        if (className == null || className.isEmpty()) {
+            className = "var";
+        }
         String variableName;
         if (var instanceof ArrayReference) {
-            variableName = className.substring(0, 1).toLowerCase()
+            variableName = Character.toLowerCase(className.charAt(0))
                     + className.substring(1) + "Array";
             variableName = variableName.replace('.', '_').replace("[]", "");
         } else {
-            variableName = className.substring(0, 1).toLowerCase()
+            variableName = Character.toLowerCase(className.charAt(0))
                     + className.substring(1);
             if (variableName.contains("[]")) {
                 variableName = variableName.replace("[]", "Array");

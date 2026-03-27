@@ -265,6 +265,8 @@ public class TestSuiteGenerator {
          */
         if (Properties.LLM_PROVIDER != Properties.LlmProvider.NONE) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
+        } else {
+            org.evosuite.llm.LlmStatistics.initializeRuntimeVariables();
         }
         ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_STATISTICS);
 
