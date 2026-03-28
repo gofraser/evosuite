@@ -28,7 +28,6 @@ import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.runtime.sandbox.Sandbox;
-import org.evosuite.statistics.SearchStatistics;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.*;
@@ -760,7 +759,8 @@ public class ExternalProcessGroupHandler {
                 if (!finished && clientRunningOnThread == null) {
                     int processIndex = parseClientIndex(entry.getKey());
                     if (processIndex >= 0 && !isClientProcessAlive(processIndex)) {
-                        ClientState postState = MasterServices.getInstance().getMasterNode().getCurrentState(entry.getKey());
+                        ClientState postState = MasterServices.getInstance().getMasterNode()
+                                .getCurrentState(entry.getKey());
                         int exitCode = getProcessExitCode(processIndex);
                         if (isBenignCleanExit(exitCode, postState)) {
                             logger.info("Client {} process exited cleanly (exitCode=0) in state {}; "
@@ -1028,22 +1028,23 @@ public class ExternalProcessGroupHandler {
             if (dumpProcess != null) {
                 try {
                     dumpProcess.getInputStream().close();
-                } catch (Exception ignored) {
+                } catch (Exception expected) {
                 }
                 try {
                     dumpProcess.getErrorStream().close();
-                } catch (Exception ignored) {
+                } catch (Exception expected) {
                 }
                 try {
                     dumpProcess.getOutputStream().close();
-                } catch (Exception ignored) {
+                } catch (Exception expected) {
                 }
             }
         }
     }
 
     private void requestSignalThreadDump(long pid, String clientId) {
-        logger.error("Attach-based thread dump failed for client '{}'. Sending SIGQUIT to pid {}.", clientId, pid);
+        logger.error("Attach-based thread dump failed for client '{}'. Sending SIGQUIT to pid {}.",
+                clientId, pid);
         runProcessSnapshotCommand(new String[]{"kill", "-3", String.valueOf(pid)}, "kill -3");
         runProcessSnapshotCommand(new String[]{"ps", "-o", "pid,ppid,stat,time,command", "-p", String.valueOf(pid)},
                 "ps");
@@ -1077,15 +1078,15 @@ public class ExternalProcessGroupHandler {
             if (commandProcess != null) {
                 try {
                     commandProcess.getInputStream().close();
-                } catch (Exception ignored) {
+                } catch (Exception expected) {
                 }
                 try {
                     commandProcess.getErrorStream().close();
-                } catch (Exception ignored) {
+                } catch (Exception expected) {
                 }
                 try {
                     commandProcess.getOutputStream().close();
-                } catch (Exception ignored) {
+                } catch (Exception expected) {
                 }
             }
         }
