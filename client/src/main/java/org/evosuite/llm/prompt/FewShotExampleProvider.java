@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.prompt;
 
@@ -241,7 +241,9 @@ public class FewShotExampleProvider {
             seen.add(stableKey(ex));
         }
         for (TestChromosome tc : ranked) {
-            if (remaining <= 0) break;
+            if (remaining <= 0) {
+                break;
+            }
             TestCase testCase = tc.getTestCase();
             if (testCase != null && testCase.size() > 0) {
                 String key = stableKey(testCase);
@@ -309,7 +311,9 @@ public class FewShotExampleProvider {
                 .reversed()
                 .thenComparing(tc -> {
                     TestCase t = tc.getTestCase();
-                    if (t == null) return 0;
+                    if (t == null) {
+                        return 0;
+                    }
                     Set<TestFitnessFunction> goals = t.getCoveredGoals();
                     return goals != null ? goals.size() : 0;
                 }, Comparator.reverseOrder())
@@ -326,7 +330,9 @@ public class FewShotExampleProvider {
         sorted.sort(Comparator
                 .<TestChromosome, Integer>comparing(tc -> {
                     TestCase t = tc.getTestCase();
-                    if (t == null) return 0;
+                    if (t == null) {
+                        return 0;
+                    }
                     Set<TestFitnessFunction> goals = t.getCoveredGoals();
                     return goals != null ? goals.size() : 0;
                 })
@@ -416,7 +422,9 @@ public class FewShotExampleProvider {
     }
 
     static String stableKey(TestCase tc) {
-        if (tc == null) return "";
+        if (tc == null) {
+            return "";
+        }
         try {
             return String.valueOf(tc.hashCode()) + ":" + tc.size();
         } catch (Exception e) {

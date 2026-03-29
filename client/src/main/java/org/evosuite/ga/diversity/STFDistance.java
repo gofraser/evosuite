@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.ga.diversity;
 
@@ -65,8 +65,8 @@ public class STFDistance implements SpeciesDistance {
     public double distance(TestChromosome a, TestChromosome b) {
         double stfDist = stfCosineDistance(a, b);
         if (jaccardWeight > 0.0 && jaccardFallback != null) {
-            double jDist = jaccardFallback.distance(a, b);
-            return jaccardWeight * jDist + (1.0 - jaccardWeight) * stfDist;
+            double jdist = jaccardFallback.distance(a, b);
+            return jaccardWeight * jdist + (1.0 - jaccardWeight) * stfDist;
         }
         return stfDist;
     }

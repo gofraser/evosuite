@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.execution;
 
@@ -40,9 +40,9 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.LoggingUtils;
+import org.mockito.Mockito;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.mockito.Mockito;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
@@ -87,7 +87,9 @@ public class TestRunnable implements InterfaceTestRunnable {
     private final Deque<DmonRollbackAction> dmonRollbackLog = new ArrayDeque<>();
 
     private interface DmonRollbackAction {
+
         void rollback() throws Exception;
+
         String describe();
     }
 
@@ -391,7 +393,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                         progress.getClass().getMethod("reset");
                 reset.invoke(progress);
             }
-        } catch (Throwable ignored) {
+        } catch (Throwable expected) {
             // Mockito internals unavailable or changed; proceed without reset.
         }
     }
@@ -736,8 +738,9 @@ public class TestRunnable implements InterfaceTestRunnable {
             dependencyType = instanceField.getType();
         } else if (plan.getInferredMissingTypeName().isPresent()) {
             try {
-                dependencyType = Class.forName(plan.getInferredMissingTypeName().get(), false, ownerClass.getClassLoader());
-            } catch (ClassNotFoundException ignored) {
+                dependencyType = Class.forName(plan.getInferredMissingTypeName().get(),
+                        false, ownerClass.getClassLoader());
+            } catch (ClassNotFoundException expected) {
                 dependencyType = null;
             }
         }
@@ -754,13 +757,14 @@ public class TestRunnable implements InterfaceTestRunnable {
         return tryEphemeralInstanceInjection(ownerClass, instanceField, dependencyType, fieldName);
     }
 
-    private static Class<?> resolveOwnerClassForEphemeral(ConstructorStatement constructorStatement, DmonPromotionPlan plan) {
+    private static Class<?> resolveOwnerClassForEphemeral(
+            ConstructorStatement constructorStatement, DmonPromotionPlan plan) {
         String ownerName = plan.getFailureSite() == null ? null : plan.getFailureSite().getOwnerClass();
         ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
         if (ownerName != null && !ownerName.trim().isEmpty()) {
             try {
                 return Class.forName(ownerName, false, sutLoader);
-            } catch (ClassNotFoundException ignored) {
+            } catch (ClassNotFoundException expected) {
             }
         }
         return constructorStatement.getConstructor().getConstructor().getDeclaringClass();
@@ -825,7 +829,8 @@ public class TestRunnable implements InterfaceTestRunnable {
         if (setter == null) {
             return false;
         }
-        Field rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForInstanceSetter(ownerClass, setter, fieldName);
+        Field rollbackField = DmonInjectionDiscovery
+                .resolveRollbackFieldForInstanceSetter(ownerClass, setter, fieldName);
         if (rollbackField == null) {
             return false;
         }
@@ -968,7 +973,7 @@ public class TestRunnable implements InterfaceTestRunnable {
         try {
             return Mockito.mock(returnType, invocation ->
                     createEphemeralReturnValue(invocation.getMethod().getReturnType()));
-        } catch (Throwable ignored) {
+        } catch (Throwable expected) {
             return null;
         }
     }

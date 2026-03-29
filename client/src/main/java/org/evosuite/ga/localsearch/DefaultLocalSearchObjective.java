@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.ga.localsearch;
 
@@ -135,7 +135,9 @@ public class DefaultLocalSearchObjective<T extends Chromosome<T>> implements Loc
         return isMaximization;
     }
 
-    /** {@inheritDoc} */
+    /**
+     * {@inheritDoc}
+     */
     @Override
     public List<FitnessFunction<T>> getFitnessFunctions() {
         return fitnessFunctions;

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.junit;
 
@@ -184,9 +184,12 @@ public class CoverageAnalysis {
             StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
             int coveredGoals = testSuite.getCoveredGoals().size();
             double coverage = goals == 0 ? 1.0 : ((double) coveredGoals) / ((double) goals);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Total_Goals, goals);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Covered_Goals, coveredGoals);
-            ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Coverage, coverage);
+            ClientServices.getInstance().getClientNode()
+                    .trackOutputVariable(RuntimeVariable.Total_Goals, goals);
+            ClientServices.getInstance().getClientNode()
+                    .trackOutputVariable(RuntimeVariable.Covered_Goals, coveredGoals);
+            ClientServices.getInstance().getClientNode()
+                    .trackOutputVariable(RuntimeVariable.Coverage, coverage);
 
             // Generate test suite (may fail, but coverage is already tracked)
             TestSuiteGenerator.writeJUnitTestsAndCreateResult(testSuite);

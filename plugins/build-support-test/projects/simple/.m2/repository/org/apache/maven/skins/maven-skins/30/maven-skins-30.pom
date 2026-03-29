@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.apache.maven</groupId>
+    <artifactId>maven-parent</artifactId>
+    <version>30</version>
+    <relativePath>../pom.xml</relativePath>
+  </parent>
+
+  <groupId>org.apache.maven.skins</groupId>
+  <artifactId>maven-skins</artifactId>
+  <packaging>pom</packaging>
+
+  <name>Apache Maven Skins</name>
+  <description>Maven Skins</description>
+  <url>https://maven.apache.org/skins/</url>
+
+  <scm>
+    <connection>scm:svn:https://svn.apache.org/repos/asf/maven/skins/tags/maven-parent-30/maven-skins</connection>
+    <developerConnection>scm:svn:https://svn.apache.org/repos/asf/maven/skins/tags/maven-parent-30/maven-skins</developerConnection>
+    <url>https://svn.apache.org/viewvc/maven/skins/tags/maven-parent-30/maven-skins</url>
+  </scm>
+  <issueManagement>
+    <system>jira</system>
+    <url>https://issues.apache.org/jira/browse/MSKINS</url>
+  </issueManagement>
+  <ciManagement>
+    <system>Jenkins</system>
+    <url>https://builds.apache.org/job/maven-skins/</url>
+  </ciManagement>
+
+  <distributionManagement>
+    <site>
+      <id>apache.website</id>
+      <url>scm:svn:https://svn.apache.org/repos/infra/websites/production/maven/components/skins-archives/</url>
+    </site>
+  </distributionManagement>
+
+  <properties>
+    <maven.site.path>skins-archives/${project.artifactId}-LATEST</maven.site.path>
+    <maven.site.scm-deploy>true</maven.site.scm-deploy>
+    <sitePluginVersion>3.5.1</sitePluginVersion>
+  </properties>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>maven-release-plugin</artifactId>
+          <configuration>
+            <tagBase>https://svn.apache.org/repos/asf/maven/skins/tags</tagBase>
+            <arguments>-Papache-release,run-its</arguments>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+</project>

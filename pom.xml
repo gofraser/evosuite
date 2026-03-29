@@ -651,6 +651,9 @@
                         <exclude>removed/**</exclude>
                         <exclude>llm_experiment/**</exclude>
                     </excludes>
+                    <mapping>
+                        <java>SLASHSTAR_STYLE</java>
+                    </mapping>
                 </configuration>
             </plugin>
             <plugin>

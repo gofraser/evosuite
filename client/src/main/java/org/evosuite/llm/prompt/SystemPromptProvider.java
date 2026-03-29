@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.prompt;
 
@@ -51,7 +51,8 @@ public class SystemPromptProvider {
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5) {
             return "You are an expert Java test generation assistant integrated into EvoSuite. "
                     + "Generate only valid Java JUnit5 test code using org.junit.jupiter.api annotations. "
-                    + "Return code only. Follow method signatures and generic types from the provided context strictly. "
+                    + "Return code only. Follow method signatures and generic types from the "
+                    + "provided context strictly. "
                     + "Use assertThrows() for exception testing instead of @Test(expected=...)."
                     + structuralDirectives
                     + coverageDirective;

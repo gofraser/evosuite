@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.instrumentation.testability;
 
@@ -51,19 +51,19 @@ public class ContainerHelper {
     }
 
     /**
-     * Helper function that is called instead of Collection.contains
-     *
-     * @param c  a {@link java.util.Collection} object.
-     * @param o1 a {@link java.lang.Object} object.
-     * @return a int.
-     */
-    /**
      * Maximum number of elements to iterate when examining a collection.
      * Guards against infinite loops when the collection (or its iterator)
      * is a mock whose hasNext() always returns true.
      */
     private static final int MAX_ITERATION = 10_000;
 
+    /**
+     * Helper function that is called instead of Collection.contains
+     *
+     * @param c  a {@link java.util.Collection} object.
+     * @param o1 a {@link java.lang.Object} object.
+     * @return a int.
+     */
     public static int collectionContains(Collection<?> c, Object o1) {
         if (o1 != null) {
             TestCluster.getInstance().addCastClassForContainer(o1.getClass());

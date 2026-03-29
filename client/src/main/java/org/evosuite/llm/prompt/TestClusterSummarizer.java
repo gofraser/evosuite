@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.prompt;
 
@@ -40,7 +40,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 
 /**
  * Produces concise prompt context from the current test cluster.
@@ -50,6 +49,7 @@ public class TestClusterSummarizer {
     private static final Logger logger = LoggerFactory.getLogger(TestClusterSummarizer.class);
 
     private static final Set<String> EXCLUDED_TYPES = new HashSet<>();
+
     static {
         EXCLUDED_TYPES.add("java.lang.Object");
         EXCLUDED_TYPES.add("java.lang.String");
@@ -89,7 +89,9 @@ public class TestClusterSummarizer {
         return builder.toString();
     }
 
-    /** Result of {@link #summarizeDependencies} carrying the text and truncation metadata. */
+    /**
+     * Result of {@link #summarizeDependencies} carrying the text and truncation metadata.
+     */
     public static class DependencySummaryResult {
         private final String text;
         private final boolean truncated;
@@ -101,9 +103,17 @@ public class TestClusterSummarizer {
             this.totalCharsBeforeTruncation = totalCharsBeforeTruncation;
         }
 
-        public String getText() { return text; }
-        public boolean isTruncated() { return truncated; }
-        public int getTotalCharsBeforeTruncation() { return totalCharsBeforeTruncation; }
+        public String getText() {
+            return text;
+        }
+
+        public boolean isTruncated() {
+            return truncated;
+        }
+
+        public int getTotalCharsBeforeTruncation() {
+            return totalCharsBeforeTruncation;
+        }
     }
 
     /**
@@ -160,7 +170,8 @@ public class TestClusterSummarizer {
             }
 
             Set<GenericAccessibleObject<?>> generators = entry.getValue();
-            Set<GenericAccessibleObject<?>> modifiers = modifiersByClassName.getOrDefault(className, Collections.emptySet());
+            Set<GenericAccessibleObject<?>> modifiers = modifiersByClassName.getOrDefault(className,
+                    Collections.emptySet());
             String line = formatTypeSummary(rawClass, generators, modifiers);
             if (line == null || line.isEmpty()) {
                 continue;
@@ -169,9 +180,15 @@ public class TestClusterSummarizer {
             TypeSummary summary = new TypeSummary(rawClass.getSimpleName(), line);
             int tier = classifyTier(className, directDependencyNames, sutPrefix);
             switch (tier) {
-                case 1: tier1DirectDeps.add(summary); break;
-                case 2: tier2SutTypes.add(summary); break;
-                default: tier3ThirdParty.add(summary); break;
+                case 1:
+                    tier1DirectDeps.add(summary);
+                    break;
+                case 2:
+                    tier2SutTypes.add(summary);
+                    break;
+                default:
+                    tier3ThirdParty.add(summary);
+                    break;
             }
         }
 
@@ -225,7 +242,9 @@ public class TestClusterSummarizer {
             if (constants != null && constants.length > 0) {
                 sb.append("  ").append(rawClass.getSimpleName()).append(" { ");
                 for (int i = 0; i < constants.length; i++) {
-                    if (i > 0) sb.append(", ");
+                    if (i > 0) {
+                        sb.append(", ");
+                    }
                     sb.append(((Enum<?>) constants[i]).name());
                 }
                 sb.append(" }");
@@ -234,7 +253,9 @@ public class TestClusterSummarizer {
             // Constructors from reflection
             Constructor<?>[] constructors = rawClass.getConstructors();
             for (Constructor<?> ctor : constructors) {
-                if (sb.length() > 0) sb.append('\n');
+                if (sb.length() > 0) {
+                    sb.append('\n');
+                }
                 sb.append("  ").append(rawClass.getSimpleName())
                         .append('(').append(genericParameterList(ctor.getGenericParameterTypes())).append(')');
             }
@@ -243,13 +264,17 @@ public class TestClusterSummarizer {
             if (generators != null) {
                 for (GenericAccessibleObject<?> gen : generators) {
                     if (gen.isMethod() && gen.isStatic()) {
-                        Method method = ((java.lang.reflect.AccessibleObject) gen.getAccessibleObject()) instanceof Method
+                        Method method = ((java.lang.reflect.AccessibleObject) gen.getAccessibleObject())
+                                instanceof Method
                                 ? (Method) gen.getAccessibleObject() : null;
                         if (method != null) {
-                            if (sb.length() > 0) sb.append('\n');
+                            if (sb.length() > 0) {
+                                sb.append('\n');
+                            }
                             sb.append("  static ").append(rawClass.getSimpleName())
                                     .append(' ').append(method.getName())
-                                    .append('(').append(genericParameterList(method.getGenericParameterTypes())).append(')');
+                                    .append('(').append(genericParameterList(method.getGenericParameterTypes()))
+                                    .append(')');
                         }
                     }
                 }
@@ -263,9 +288,12 @@ public class TestClusterSummarizer {
                         Method method = mod.getAccessibleObject() instanceof Method
                                 ? (Method) mod.getAccessibleObject() : null;
                         if (method != null && Modifier.isPublic(method.getModifiers())) {
-                            String sig = method.getName() + "(" + genericParameterList(method.getGenericParameterTypes()) + ")";
+                            String sig = method.getName() + "("
+                                    + genericParameterList(method.getGenericParameterTypes()) + ")";
                             if (seen.add(sig)) {
-                                if (sb.length() > 0) sb.append('\n');
+                                if (sb.length() > 0) {
+                                    sb.append('\n');
+                                }
                                 sb.append("  ").append(genericTypeName(method.getGenericReturnType()))
                                         .append(' ').append(sig);
                             }
@@ -326,8 +354,12 @@ public class TestClusterSummarizer {
 
         // Class declaration line
         int mod = raw.getModifiers();
-        if (Modifier.isPublic(mod)) b.append("public ");
-        if (Modifier.isAbstract(mod) && !raw.isInterface() && !raw.isEnum()) b.append("abstract ");
+        if (Modifier.isPublic(mod)) {
+            b.append("public ");
+        }
+        if (Modifier.isAbstract(mod) && !raw.isInterface() && !raw.isEnum()) {
+            b.append("abstract ");
+        }
 
         if (raw.isEnum()) {
             b.append("enum ");
@@ -343,13 +375,17 @@ public class TestClusterSummarizer {
         if (typeParams.length > 0) {
             b.append('<');
             for (int i = 0; i < typeParams.length; i++) {
-                if (i > 0) b.append(", ");
+                if (i > 0) {
+                    b.append(", ");
+                }
                 b.append(typeParams[i].getName());
                 Type[] bounds = typeParams[i].getBounds();
                 if (bounds.length > 0 && !(bounds.length == 1 && bounds[0] == Object.class)) {
                     b.append(" extends ");
                     for (int j = 0; j < bounds.length; j++) {
-                        if (j > 0) b.append(" & ");
+                        if (j > 0) {
+                            b.append(" & ");
+                        }
                         b.append(genericTypeName(bounds[j]));
                     }
                 }
@@ -370,7 +406,9 @@ public class TestClusterSummarizer {
         if (ifaces.length > 0) {
             b.append(raw.isInterface() ? " extends " : " implements ");
             for (int i = 0; i < ifaces.length; i++) {
-                if (i > 0) b.append(", ");
+                if (i > 0) {
+                    b.append(", ");
+                }
                 b.append(genericTypeName(ifaces[i]));
             }
         }
@@ -383,7 +421,9 @@ public class TestClusterSummarizer {
             if (constants != null && constants.length > 0) {
                 b.append("  ");
                 for (int i = 0; i < constants.length; i++) {
-                    if (i > 0) b.append(", ");
+                    if (i > 0) {
+                        b.append(", ");
+                    }
                     b.append(((Enum<?>) constants[i]).name());
                 }
                 b.append(System.lineSeparator());
@@ -394,21 +434,33 @@ public class TestClusterSummarizer {
         Field[] fields = raw.getDeclaredFields();
         boolean hasFields = false;
         for (Field field : fields) {
-            if (field.isSynthetic()) continue;
+            if (field.isSynthetic()) {
+                continue;
+            }
             int fm = field.getModifiers();
-            if (Modifier.isPrivate(fm) || Modifier.isProtected(fm)) continue;
+            if (Modifier.isPrivate(fm) || Modifier.isProtected(fm)) {
+                continue;
+            }
             // Skip enum internal fields ($VALUES, etc.)
             if (raw.isEnum() && (field.getName().equals("$VALUES")
                     || (Modifier.isStatic(fm) && Modifier.isFinal(fm)
-                        && field.getType() == raw))) continue;
+                        && field.getType() == raw))) {
+                continue;
+            }
             if (!hasFields) {
                 b.append(System.lineSeparator()).append("  // Fields").append(System.lineSeparator());
                 hasFields = true;
             }
             b.append("  ");
-            if (Modifier.isPublic(fm)) b.append("public ");
-            if (Modifier.isStatic(fm)) b.append("static ");
-            if (Modifier.isFinal(fm)) b.append("final ");
+            if (Modifier.isPublic(fm)) {
+                b.append("public ");
+            }
+            if (Modifier.isStatic(fm)) {
+                b.append("static ");
+            }
+            if (Modifier.isFinal(fm)) {
+                b.append("final ");
+            }
             b.append(genericTypeName(field.getGenericType())).append(' ').append(field.getName());
             b.append(System.lineSeparator());
         }
@@ -438,8 +490,12 @@ public class TestClusterSummarizer {
             }
             b.append("  ");
             int mm = method.getModifiers();
-            if (Modifier.isStatic(mm)) b.append("static ");
-            if (Modifier.isAbstract(mm)) b.append("abstract ");
+            if (Modifier.isStatic(mm)) {
+                b.append("static ");
+            }
+            if (Modifier.isAbstract(mm)) {
+                b.append("abstract ");
+            }
             b.append(genericTypeName(method.getGenericReturnType())).append(' ')
                     .append(method.getName())
                     .append('(').append(genericParameterList(method.getGenericParameterTypes())).append(')');
@@ -509,9 +565,13 @@ public class TestClusterSummarizer {
         return String.join(", ", names);
     }
 
-    /** Returns the type name with {@code java.lang.} prefix stripped for readability. */
+    /**
+     * Returns the type name with {@code java.lang.} prefix stripped for readability.
+     */
     static String genericTypeName(Type type) {
-        if (type == null) return "void";
+        if (type == null) {
+            return "void";
+        }
         String name = type.getTypeName();
         // Strip java.lang. prefix but not java.lang.reflect. or sub-packages
         return name.replaceAll("\\bjava\\.lang\\.(?![a-z])", "");
@@ -519,7 +579,9 @@ public class TestClusterSummarizer {
 
     /** Joins generic type names into a comma-separated parameter list. */
     static String genericParameterList(Type[] types) {
-        if (types == null || types.length == 0) return "";
+        if (types == null || types.length == 0) {
+            return "";
+        }
         List<String> names = new ArrayList<>();
         for (Type t : types) {
             names.add(genericTypeName(t));
@@ -529,7 +591,9 @@ public class TestClusterSummarizer {
 
     /** Returns " throws X, Y" or empty string if no exceptions. */
     static String throwsClause(Type[] exceptionTypes) {
-        if (exceptionTypes == null || exceptionTypes.length == 0) return "";
+        if (exceptionTypes == null || exceptionTypes.length == 0) {
+            return "";
+        }
         return " throws " + genericParameterList(exceptionTypes);
     }
 
@@ -597,11 +661,17 @@ public class TestClusterSummarizer {
      * Uses the first two package segments (e.g., "com.example.foo.Bar" → "com.example").
      */
     static String extractSutPrefix(String className) {
-        if (className == null) return "";
+        if (className == null) {
+            return "";
+        }
         int firstDot = className.indexOf('.');
-        if (firstDot < 0) return "";
+        if (firstDot < 0) {
+            return "";
+        }
         int secondDot = className.indexOf('.', firstDot + 1);
-        if (secondDot < 0) return className.substring(0, firstDot);
+        if (secondDot < 0) {
+            return className.substring(0, firstDot);
+        }
         return className.substring(0, secondDot);
     }
 
@@ -611,9 +681,13 @@ public class TestClusterSummarizer {
     private Map<String, Set<GenericAccessibleObject<?>>> buildModifierLookup(TestCluster cluster) {
         Map<String, Set<GenericAccessibleObject<?>>> lookup = new HashMap<>();
         Set<GenericAccessibleObject<?>> allModifiers = cluster.getModifiers();
-        if (allModifiers == null) return lookup;
+        if (allModifiers == null) {
+            return lookup;
+        }
         for (GenericAccessibleObject<?> mod : allModifiers) {
-            if (mod == null) continue;
+            if (mod == null) {
+                continue;
+            }
             try {
                 GenericClass<?> owner = mod.getOwnerClass();
                 if (owner != null && owner.getRawClass() != null) {

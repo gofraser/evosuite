@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.runtime.instrumentation;
 
@@ -118,9 +118,10 @@ public class MethodCallReplacementCache {
                     headlessSwing, "replacement_newDropTarget",
                     "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;Z)Ljava/awt/dnd/DropTarget;", true, true));
             addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
-                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZLjava/awt/datatransfer/FlavorMap;)V", Opcodes.INVOKESTATIC,
-                    headlessSwing, "replacement_newDropTarget",
-                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZLjava/awt/datatransfer/FlavorMap;)Ljava/awt/dnd/DropTarget;", true, true));
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZLjava/awt/datatransfer/FlavorMap;)V",
+                    Opcodes.INVOKESTATIC, headlessSwing, "replacement_newDropTarget",
+                    "(Ljava/awt/Component;ILjava/awt/dnd/DropTargetListener;ZL"
+                            + "java/awt/datatransfer/FlavorMap;)Ljava/awt/dnd/DropTarget;", true, true));
 
             addExtraceExceptionReplacements();
 

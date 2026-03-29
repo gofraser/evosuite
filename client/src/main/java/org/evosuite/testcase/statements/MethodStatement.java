@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.statements;
 
@@ -26,8 +26,8 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.EvosuiteError;
-import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.UncompilableCodeException;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
@@ -579,7 +579,9 @@ public class MethodStatement extends EntityWithParametersStatement {
         for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
             if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
                 int val = (Integer) inputs[i];
-                if (val > 0) return val;
+                if (val > 0) {
+                    return val;
+                }
             }
         }
         return 0;

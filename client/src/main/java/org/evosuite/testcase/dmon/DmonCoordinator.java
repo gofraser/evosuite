@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.dmon;
 
@@ -36,10 +36,22 @@ public class DmonCoordinator {
     private final DmonNpeAnalyzer analyzer = new DmonNpeAnalyzer();
     private final Map<CacheKey, Optional<DmonPromotionPlan>> analysisCache = new ConcurrentHashMap<>();
 
+    /**
+     * Returns the singleton instance of the DmonCoordinator.
+     *
+     * @return the singleton instance
+     */
     public static DmonCoordinator getInstance() {
         return INSTANCE;
     }
 
+    /**
+     * Analyzes a constructor failure to determine if it can be promoted.
+     *
+     * @param statement the constructor statement
+     * @param throwable the throwable that occurred
+     * @return an optional promotion plan
+     */
     public Optional<DmonPromotionPlan> analyzeConstructorFailure(ConstructorStatement statement, Throwable throwable) {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
             return Optional.empty();

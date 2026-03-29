@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,13 +15,13 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.dmon;
 
-import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.TestCase;
@@ -49,7 +49,6 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Option 1 integration point: consume promotion plans at fitness level.
@@ -111,6 +110,13 @@ public final class DmonPromotionOperator {
     private DmonPromotionOperator() {
     }
 
+    /**
+     * Apply DMoN promotion if needed.
+     *
+     * @param individual The chromosome to evaluate.
+     * @param result The current execution result.
+     * @return The updated execution result.
+     */
     public static ExecutionResult applyIfNeeded(TestChromosome individual, ExecutionResult result) {
         if (!Properties.DMON_ENABLED || !Properties.DMON_PROMOTE_IN_PLACE || Properties.NO_RUNTIME_DEPENDENCY) {
             return result;
@@ -189,7 +195,8 @@ public final class DmonPromotionOperator {
                 }
             }
         }
-        if (staticTargetMethod == null && staticTargetField == null && instanceSetter == null && instanceField == null) {
+        if (staticTargetMethod == null && staticTargetField == null
+                && instanceSetter == null && instanceField == null) {
             return new PromotionAttempt(originalResult, false, "NO_INJECTION_TARGET");
         }
 
@@ -589,7 +596,8 @@ public final class DmonPromotionOperator {
         if (staticTargetMethod != null || staticTargetField != null) {
             Field rollbackField = staticTargetField;
             if (rollbackField == null && staticTargetMethod != null) {
-                rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForSetter(ownerClass, staticTargetMethod, fieldHint);
+                rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForSetter(
+                        ownerClass, staticTargetMethod, fieldHint);
             }
             if (rollbackField == null) {
                 return null;
@@ -614,7 +622,8 @@ public final class DmonPromotionOperator {
         }
         Field rollbackField = instanceTargetField;
         if (rollbackField == null && instanceTargetMethod != null) {
-            rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForInstanceSetter(ownerClass, instanceTargetMethod, fieldHint);
+            rollbackField = DmonInjectionDiscovery.resolveRollbackFieldForInstanceSetter(
+                    ownerClass, instanceTargetMethod, fieldHint);
         }
         if (rollbackField == null) {
             return null;
@@ -630,7 +639,7 @@ public final class DmonPromotionOperator {
                 Field f = c.getDeclaredField(fieldName);
                 f.setAccessible(true);
                 return f;
-            } catch (NoSuchFieldException ignored) {
+            } catch (NoSuchFieldException expected) {
             }
         }
         return null;

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.ga.metaheuristics.mosa;
 
@@ -225,6 +225,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         int targetSize, double survivalCap) {
                     return rankedSurvivors.subList(0, Math.min(targetSize, rankedSurvivors.size()));
                 }
+
                 @Override
                 public List<TestChromosome> balanceParentPool(
                         List<TestChromosome> pop,
@@ -1061,7 +1062,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * Evaluates all fitness functions on the given chromosome and updates the
      * archive's coverage tracking.
      *
-     * <h3>Subclass contract</h3>
+     * <p><h3>Subclass contract</h3>
+     *
      * <p>This default implementation evaluates <em>every</em> fitness function
      * registered via {@link #addFitnessFunction} against the chromosome.
      * {@code MOSA} inherits this behavior (O(n × m) where n=chromosomes,

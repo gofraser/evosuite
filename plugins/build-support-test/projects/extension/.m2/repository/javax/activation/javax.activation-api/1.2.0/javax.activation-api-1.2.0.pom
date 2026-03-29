@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
+<!--
+    This project builds the JAF API jar file, which contains only
+    the javax.activation.* API definitions and is *only* intended to be used
+    for programs to compile against.  Note that it includes none of the
+    implementation-specific classes that the javax.activation.* classes rely on.
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+			    http://maven.apache.org/maven-v4_0_0.xsd">
+    <parent>
+	<groupId>com.sun.activation</groupId>
+	<artifactId>all</artifactId>
+	<version>1.2.0</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>javax.activation</groupId>
+    <artifactId>javax.activation-api</artifactId>
+    <packaging>jar</packaging>
+    <name>JavaBeans Activation Framework API jar</name>
+
+    <properties>
+	<activation.extensionName>
+	    javax.activation
+	</activation.extensionName>
+	<activation.moduleName>
+	    java.activation
+	</activation.moduleName>
+	<activation.packages.export>
+	    javax.activation.*; version=${activation.spec.version}
+	</activation.packages.export>
+	<activation.bundle.symbolicName>
+	    javax.activation-api
+	</activation.bundle.symbolicName>
+    </properties>
+
+    <build>
+        <plugins>
+	    <plugin>
+		<artifactId>maven-dependency-plugin</artifactId>
+		<executions>
+		    <execution>
+			<!-- download the binaries -->
+			<id>get-binaries</id>
+			<phase>process-sources</phase>
+			<goals>
+			    <goal>unpack</goal>
+			</goals>
+		    </execution>
+		    <execution>
+			<!-- download the sources -->
+			<id>get-sources</id>
+			<phase>process-sources</phase>
+			<goals>
+			    <goal>unpack</goal>
+			</goals>
+			<configuration>
+			    <artifactItems>
+				<artifactItem>
+				    <groupId>com.sun.activation</groupId>
+				    <artifactId>javax.activation</artifactId>
+				    <version>${project.version}</version>
+				    <classifier>sources</classifier>
+				    <outputDirectory>
+					${project.build.directory}/sources
+				    </outputDirectory>
+				</artifactItem>
+			    </artifactItems>
+			</configuration>
+		    </execution>
+		</executions>
+		<configuration>
+		    <artifactItems>
+			<artifactItem>
+			    <groupId>com.sun.activation</groupId>
+			    <artifactId>javax.activation</artifactId>
+			    <version>${project.version}</version>
+			</artifactItem>
+		    </artifactItems>
+		    <outputDirectory>
+			${project.build.outputDirectory}
+		    </outputDirectory>
+		    <includes>
+			javax/**,
+			META-INF/LICENSE.txt
+		    </includes>
+		</configuration>
+	    </plugin>
+	    <plugin>
+		<artifactId>maven-jar-plugin</artifactId>
+		<configuration>
+		    <finalName>${project.artifactId}</finalName>
+		    <archive>
+			<manifestFile>
+			  ${project.build.outputDirectory}/META-INF/MANIFEST.MF
+			</manifestFile>
+		    </archive>
+		</configuration>
+	    </plugin>
+        </plugins>
+    </build>
+</project>

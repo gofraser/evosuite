@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.dmon;
 
@@ -30,6 +30,8 @@ import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.LineNumberNode;
 import org.objectweb.asm.tree.MethodInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,8 +39,6 @@ import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Post-mortem analyzer for constructor NPE failures.
@@ -50,6 +50,13 @@ public class DmonNpeAnalyzer {
 
     private final NpeMessageParser messageParser = new NpeMessageParser();
 
+    /**
+     * Analyzes a constructor NullPointerException to determine if it can be promoted.
+     *
+     * @param statement the constructor statement
+     * @param throwable the NullPointerException that occurred
+     * @return an optional promotion plan
+     */
     public Optional<DmonPromotionPlan> analyzeConstructorNpe(ConstructorStatement statement, Throwable throwable) {
         if (statement == null || throwable == null) {
             logger.debug("DMoN analyzer: skip [reason=NULL_INPUT]");
@@ -113,7 +120,8 @@ public class DmonNpeAnalyzer {
                 memberToken,
                 inferredType
         );
-        logger.debug("DMoN analyzer: plan created [owner={}, method={}, line={}, nullExpr={}, member={}, inferredType={}]",
+        logger.debug("DMoN analyzer: plan created "
+                        + "[owner={}, method={}, line={}, nullExpr={}, member={}, inferredType={}]",
                 plan.getFailureSite().getOwnerClass(),
                 plan.getFailureSite().getMethodName(),
                 plan.getFailureSite().getLineNumber(),

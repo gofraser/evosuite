@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.runtime.classhandling;
 
@@ -108,6 +108,8 @@ public class ClassStateSupport {
     }
 
     /**
+     * Checks if any non-instrumented classes were detected.
+     *
      * @return true iff initializeClasses observed at least one class without EvoSuite instrumentation.
      */
     public static boolean hadNonInstrumentedClassDetection() {

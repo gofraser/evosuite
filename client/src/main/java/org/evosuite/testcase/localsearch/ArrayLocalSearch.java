@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.localsearch;
 
@@ -239,7 +239,8 @@ public class ArrayLocalSearch extends StatementLocalSearch {
                         currentVar = ((org.evosuite.testcase.variable.FieldReference) currentVar).getSource();
                     }
                     if (currentVar instanceof org.evosuite.testcase.variable.ArrayIndex) {
-                        org.evosuite.testcase.variable.ArrayIndex index = (org.evosuite.testcase.variable.ArrayIndex) currentVar;
+                        org.evosuite.testcase.variable.ArrayIndex index =
+                                (org.evosuite.testcase.variable.ArrayIndex) currentVar;
                         maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
                     }
                 }

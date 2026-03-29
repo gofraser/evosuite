@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.response;
 
@@ -226,7 +226,9 @@ public class ClusterExpansionManager {
         // All segments except the last must look like package names (lowercase, no uppercase)
         for (int i = 0; i < segments.length - 1; i++) {
             String seg = segments[i];
-            if (seg.isEmpty()) return false;
+            if (seg.isEmpty()) {
+                return false;
+            }
             for (int j = 0; j < seg.length(); j++) {
                 if (Character.isUpperCase(seg.charAt(j))) {
                     return false;

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.runtime.mock.javax.swing;
 
@@ -42,6 +42,12 @@ public final class MockHeadlessSwing {
     private MockHeadlessSwing() {
     }
 
+    /**
+     * Replacement for {@code setDragEnabled} on {@link JList}.
+     *
+     * @param source  the source component
+     * @param enabled the enabled state
+     */
     public static void replacement_setDragEnabled(JList<?> source, boolean enabled) {
         if (source == null) {
             throw new NullPointerException();
@@ -53,6 +59,12 @@ public final class MockHeadlessSwing {
         // Headless and mocking enabled: skip DnD activation.
     }
 
+    /**
+     * Generic replacement for {@code setDragEnabled}.
+     *
+     * @param source  the source component
+     * @param enabled the enabled state
+     */
     public static void replacement_setDragEnabledGeneric(Object source, boolean enabled) {
         if (source == null) {
             throw new NullPointerException();
@@ -72,6 +84,12 @@ public final class MockHeadlessSwing {
         invokeSetDragEnabledReflective(source, enabled);
     }
 
+    /**
+     * Replacement for {@code setDragEnabled} on {@link JTree}.
+     *
+     * @param source  the source component
+     * @param enabled the enabled state
+     */
     public static void replacement_setDragEnabled(JTree source, boolean enabled) {
         if (source == null) {
             throw new NullPointerException();
@@ -83,6 +101,12 @@ public final class MockHeadlessSwing {
         // Headless and mocking enabled: skip DnD activation.
     }
 
+    /**
+     * Replacement for {@code setDragEnabled} on {@link JTable}.
+     *
+     * @param source  the source component
+     * @param enabled the enabled state
+     */
     public static void replacement_setDragEnabled(JTable source, boolean enabled) {
         if (source == null) {
             throw new NullPointerException();
@@ -94,6 +118,12 @@ public final class MockHeadlessSwing {
         // Headless and mocking enabled: skip DnD activation.
     }
 
+    /**
+     * Replacement for {@code setDropTarget} on {@link JComponent}.
+     *
+     * @param source     the source component
+     * @param dropTarget the drop target
+     */
     public static void replacement_setDropTarget(JComponent source, DropTarget dropTarget) {
         if (source == null) {
             throw new NullPointerException();
@@ -105,6 +135,12 @@ public final class MockHeadlessSwing {
         // Headless and mocking enabled: skip DropTarget wiring.
     }
 
+    /**
+     * Generic replacement for {@code setDropTarget}.
+     *
+     * @param source     the source component
+     * @param dropTarget the drop target
+     */
     public static void replacement_setDropTargetGeneric(Object source, DropTarget dropTarget) {
         if (source == null) {
             throw new NullPointerException();
@@ -116,6 +152,12 @@ public final class MockHeadlessSwing {
         invokeSetDropTargetReflective(source, dropTarget);
     }
 
+    /**
+     * Replacement for {@code setMixingCutoutShape} on {@link Component}.
+     *
+     * @param source the source component
+     * @param shape  the shape
+     */
     public static void replacement_setMixingCutoutShape(Component source, Shape shape) {
         if (source == null) {
             throw new NullPointerException();
@@ -127,6 +169,12 @@ public final class MockHeadlessSwing {
         // Headless and mocking enabled: skip expensive shape mixing computation.
     }
 
+    /**
+     * Generic replacement for {@code setMixingCutoutShape}.
+     *
+     * @param source the source component
+     * @param shape  the shape
+     */
     public static void replacement_setMixingCutoutShapeGeneric(Object source, Shape shape) {
         if (source == null) {
             throw new NullPointerException();
@@ -138,6 +186,11 @@ public final class MockHeadlessSwing {
         invokeSetMixingCutoutShapeReflective(source, shape);
     }
 
+    /**
+     * Replacement for {@code new DropTarget()}.
+     *
+     * @return a new drop target or null if headless
+     */
     public static DropTarget replacement_newDropTarget() {
         if (MockFramework.isEnabled() && GraphicsEnvironment.isHeadless()) {
             return null;
@@ -145,6 +198,13 @@ public final class MockHeadlessSwing {
         return new DropTarget();
     }
 
+    /**
+     * Replacement for {@code new DropTarget(Component, DropTargetListener)}.
+     *
+     * @param c   the component
+     * @param dtl the drop target listener
+     * @return a new drop target or null if headless
+     */
     public static DropTarget replacement_newDropTarget(Component c, DropTargetListener dtl) {
         if (MockFramework.isEnabled() && GraphicsEnvironment.isHeadless()) {
             return null;
@@ -152,6 +212,14 @@ public final class MockHeadlessSwing {
         return new DropTarget(c, dtl);
     }
 
+    /**
+     * Replacement for {@code new DropTarget(Component, int, DropTargetListener)}.
+     *
+     * @param c   the component
+     * @param ops the operations
+     * @param dtl the drop target listener
+     * @return a new drop target or null if headless
+     */
     public static DropTarget replacement_newDropTarget(Component c, int ops, DropTargetListener dtl) {
         if (MockFramework.isEnabled() && GraphicsEnvironment.isHeadless()) {
             return null;
@@ -159,6 +227,15 @@ public final class MockHeadlessSwing {
         return new DropTarget(c, ops, dtl);
     }
 
+    /**
+     * Replacement for {@code new DropTarget(Component, int, DropTargetListener, boolean)}.
+     *
+     * @param c   the component
+     * @param ops the operations
+     * @param dtl the drop target listener
+     * @param act the active state
+     * @return a new drop target or null if headless
+     */
     public static DropTarget replacement_newDropTarget(Component c, int ops, DropTargetListener dtl, boolean act) {
         if (MockFramework.isEnabled() && GraphicsEnvironment.isHeadless()) {
             return null;
@@ -166,6 +243,16 @@ public final class MockHeadlessSwing {
         return new DropTarget(c, ops, dtl, act);
     }
 
+    /**
+     * Replacement for {@code new DropTarget(Component, int, DropTargetListener, boolean, FlavorMap)}.
+     *
+     * @param c         the component
+     * @param ops       the operations
+     * @param dtl       the drop target listener
+     * @param act       the active state
+     * @param flavorMap the flavor map
+     * @return a new drop target or null if headless
+     */
     public static DropTarget replacement_newDropTarget(Component c, int ops, DropTargetListener dtl, boolean act,
                                                        FlavorMap flavorMap) {
         if (MockFramework.isEnabled() && GraphicsEnvironment.isHeadless()) {
@@ -174,6 +261,12 @@ public final class MockHeadlessSwing {
         return new DropTarget(c, ops, dtl, act, flavorMap);
     }
 
+    /**
+     * Invoke {@code setDragEnabled} reflectively.
+     *
+     * @param source  the source component
+     * @param enabled the enabled state
+     */
     private static void invokeSetDragEnabledReflective(Object source, boolean enabled) {
         try {
             Method method = source.getClass().getMethod("setDragEnabled", boolean.class);
@@ -183,10 +276,17 @@ public final class MockHeadlessSwing {
         } catch (NoSuchMethodException e) {
             throw new IllegalArgumentException("No setDragEnabled(boolean) on " + source.getClass().getName(), e);
         } catch (IllegalAccessException e) {
-            throw new IllegalStateException("Cannot access setDragEnabled(boolean) on " + source.getClass().getName(), e);
+            throw new IllegalStateException("Cannot access setDragEnabled(boolean) on "
+                    + source.getClass().getName(), e);
         }
     }
 
+    /**
+     * Invoke {@code setDropTarget} reflectively.
+     *
+     * @param source     the source component
+     * @param dropTarget the drop target
+     */
     private static void invokeSetDropTargetReflective(Object source, DropTarget dropTarget) {
         try {
             Method method = source.getClass().getMethod("setDropTarget", DropTarget.class);
@@ -196,10 +296,17 @@ public final class MockHeadlessSwing {
         } catch (NoSuchMethodException e) {
             throw new IllegalArgumentException("No setDropTarget(DropTarget) on " + source.getClass().getName(), e);
         } catch (IllegalAccessException e) {
-            throw new IllegalStateException("Cannot access setDropTarget(DropTarget) on " + source.getClass().getName(), e);
+            throw new IllegalStateException("Cannot access setDropTarget(DropTarget) on "
+                    + source.getClass().getName(), e);
         }
     }
 
+    /**
+     * Invoke {@code setMixingCutoutShape} reflectively.
+     *
+     * @param source the source component
+     * @param shape  the shape
+     */
     private static void invokeSetMixingCutoutShapeReflective(Object source, Shape shape) {
         try {
             Method method = source.getClass().getMethod("setMixingCutoutShape", Shape.class);
@@ -209,10 +316,16 @@ public final class MockHeadlessSwing {
         } catch (NoSuchMethodException e) {
             throw new IllegalArgumentException("No setMixingCutoutShape(Shape) on " + source.getClass().getName(), e);
         } catch (IllegalAccessException e) {
-            throw new IllegalStateException("Cannot access setMixingCutoutShape(Shape) on " + source.getClass().getName(), e);
+            throw new IllegalStateException("Cannot access setMixingCutoutShape(Shape) on "
+                    + source.getClass().getName(), e);
         }
     }
 
+    /**
+     * Rethrow cause of {@link InvocationTargetException}.
+     *
+     * @param e the exception
+     */
     private static void rethrowCause(InvocationTargetException e) {
         Throwable cause = e.getCause();
         if (cause == null) {

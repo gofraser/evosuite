@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase;
 
@@ -30,8 +30,8 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.*;
 import org.evosuite.classpath.ResourceList;
-import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.LenientMockAnswer;
+import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.testcase.fm.MethodDescriptor;
@@ -1493,61 +1493,62 @@ public class TestCodeVisitor extends TestVisitor {
         // DMoN lenient mocks: skip doReturn stubs — RETURNS_MOCKS handles all calls.
         if (!st.isUseLenientDefaultAnswer()) {
 
-        //when(...).thenReturn(...)
-        for (MethodDescriptor md : st.getMockedMethods()) {
-            if (!md.shouldBeMocked()) {
-                continue;
-            }
-
-            List<VariableReference> params = st.getParameters(md.getID());
-            if (params == null) {
-                continue;
-            }
-
-            GenericClass<?> returnType = md.getReturnClass();
-
-            String parameterString;
-
-            if (!returnType.isPrimitive()) {
-                Type[] types = new Type[params.size()];
-                boolean isOverloaded = false;
-                for (int i = 0; i < types.length; i++) {
-                    if (types.length > 1 && returnType.isArray()) {
-                        types[i] = Object.class;
-                        isOverloaded = true;
-                    } else {
-                        // Use the method's return type, not the variable's type.
-                        // For null references the variable type defaults to Object,
-                        // but the cast must match the mocked method's return type
-                        // (e.g. String, not Object) to produce compilable code.
-                        types[i] = returnType.getType();
-                    }
+            //when(...).thenReturn(...)
+            for (MethodDescriptor md : st.getMockedMethods()) {
+                if (!md.shouldBeMocked()) {
+                    continue;
                 }
 
-                parameterString = getParameterString(types, params, false, isOverloaded, 0);
-                // TODO unsure of these parameters
-            } else {
+                List<VariableReference> params = st.getParameters(md.getID());
+                if (params == null) {
+                    continue;
+                }
 
-                //if return type is a primitive, then things can get complicated due to autoboxing :(
+                GenericClass<?> returnType = md.getReturnClass();
 
-                parameterString = getParameterStringForFMthatReturnPrimitive(returnType.getRawClass(), params);
+                String parameterString;
+
+                if (!returnType.isPrimitive()) {
+                    Type[] types = new Type[params.size()];
+                    boolean isOverloaded = false;
+                    for (int i = 0; i < types.length; i++) {
+                        if (types.length > 1 && returnType.isArray()) {
+                            types[i] = Object.class;
+                            isOverloaded = true;
+                        } else {
+                            // Use the method's return type, not the variable's type.
+                            // For null references the variable type defaults to Object,
+                            // but the cast must match the mocked method's return type
+                            // (e.g. String, not Object) to produce compilable code.
+                            types[i] = returnType.getType();
+                        }
+                    }
+
+                    parameterString = getParameterString(types, params, false, isOverloaded, 0);
+                    // TODO unsure of these parameters
+                } else {
+
+                    //if return type is a primitive, then things can get complicated due to autoboxing :(
+
+                    parameterString = getParameterStringForFMthatReturnPrimitive(returnType.getRawClass(), params);
+                }
+
+                // this does not work when throwing exception as default answer
+                // result += "when("+getVariableName(retval)+"."+md.getMethodName()
+                //         +"("+md.getInputParameterMatchers()+"))";
+                // result += ".thenReturn( ";
+                // result += parameterString + " );"+NEWLINE;
+
+                // Mockito doReturn() only takes single arguments. So we need to make sure
+                // that in the generated tests we import MockitoExtension class
+                //parameterString = "doReturn(" + parameterString.replaceAll(", ", ").doReturn(") + ")";
+                //result += parameterString+".when("+getVariableName(retval)+")";
+                result.append("doReturn(").append(parameterString)
+                        .append(").when(").append(getVariableName(retval)).append(")");
+                result.append(".").append(md.getMethodName()).append("(")
+                        .append(md.getInputParameterMatchers()).append(");").append(NEWLINE);
+
             }
-
-            // this does not work when throwing exception as default answer
-            // result += "when("+getVariableName(retval)+"."+md.getMethodName()+"("+md.getInputParameterMatchers()+"))";
-            // result += ".thenReturn( ";
-            // result += parameterString + " );"+NEWLINE;
-
-            // Mockito doReturn() only takes single arguments. So we need to make sure that in the generated
-            // tests we import MockitoExtension class
-            //parameterString = "doReturn(" + parameterString.replaceAll(", ", ").doReturn(") + ")";
-            //result += parameterString+".when("+getVariableName(retval)+")";
-            result.append("doReturn(").append(parameterString).append(").when(")
-                    .append(getVariableName(retval)).append(")");
-            result.append(".").append(md.getMethodName()).append("(")
-                    .append(md.getInputParameterMatchers()).append(");").append(NEWLINE);
-
-        }
 
         } // end if (!st.isUseLenientDefaultAnswer())
 

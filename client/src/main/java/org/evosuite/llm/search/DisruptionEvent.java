@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.search;
 
@@ -120,6 +120,11 @@ public class DisruptionEvent {
             + "isolated_probe,probe_failure,"
             + "isolated_fitness_post_crossover,isolated_fitness_post_mutation,isolated_mutation_delta";
 
+    /**
+     * Converts the disruption event to a CSV row.
+     *
+     * @return a CSV string representation of the event
+     */
     public String toCsvRow() {
         return generation + "," + eventIndex + ","
                 + operatorKind + "," + operatorSource + "," + outcome + ","
@@ -143,37 +148,119 @@ public class DisruptionEvent {
 
     // ---- Getters ----
 
-    public int getGeneration() { return generation; }
-    public int getEventIndex() { return eventIndex; }
-    public OperatorKind getOperatorKind() { return operatorKind; }
-    public OperatorSource getOperatorSource() { return operatorSource; }
-    public OperatorOutcome getOutcome() { return outcome; }
-    public int getParent1Hash() { return parent1Hash; }
-    public int getParent2Hash() { return parent2Hash; }
-    public int getOffspringHash() { return offspringHash; }
-    public double getFitnessPreOperator() { return fitnessPreOperator; }
-    public double getFitnessPostOperator() { return fitnessPostOperator; }
-    public double getFitnessDelta() { return fitnessDelta; }
-    public int getStatementCountBefore() { return statementCountBefore; }
-    public int getStatementCountAfter() { return statementCountAfter; }
-    public int getStatementCountDelta() { return statementCountDelta; }
-    public int getEditsAdded() { return editsAdded; }
-    public int getEditsRemoved() { return editsRemoved; }
-    public double getBranchJaccardDistance() { return branchJaccardDistance; }
-    public double getLineJaccardDistance() { return lineJaccardDistance; }
-    public double getGoalJaccardDistance() { return goalJaccardDistance; }
-    public double getSpeciationMetricDistance() { return speciationMetricDistance; }
-    public Boolean getAcceptedIntoOffspring() { return acceptedIntoOffspring; }
-    public Boolean getSurvivesToNextGeneration() { return survivesToNextGeneration; }
-    public boolean isIsolatedProbe() { return isolatedProbe; }
-    public boolean isProbeFailure() { return probeFailure; }
-    public double getIsolatedFitnessPostCrossover() { return isolatedFitnessPostCrossover; }
-    public double getIsolatedFitnessPostMutation() { return isolatedFitnessPostMutation; }
-    public double getIsolatedMutationDelta() { return isolatedMutationDelta; }
+    public int getGeneration() {
+        return generation;
+    }
+
+    public int getEventIndex() {
+        return eventIndex;
+    }
+
+    public OperatorKind getOperatorKind() {
+        return operatorKind;
+    }
+
+    public OperatorSource getOperatorSource() {
+        return operatorSource;
+    }
+
+    public OperatorOutcome getOutcome() {
+        return outcome;
+    }
+
+    public int getParent1Hash() {
+        return parent1Hash;
+    }
+
+    public int getParent2Hash() {
+        return parent2Hash;
+    }
+
+    public int getOffspringHash() {
+        return offspringHash;
+    }
+
+    public double getFitnessPreOperator() {
+        return fitnessPreOperator;
+    }
+
+    public double getFitnessPostOperator() {
+        return fitnessPostOperator;
+    }
+
+    public double getFitnessDelta() {
+        return fitnessDelta;
+    }
+
+    public int getStatementCountBefore() {
+        return statementCountBefore;
+    }
+
+    public int getStatementCountAfter() {
+        return statementCountAfter;
+    }
+
+    public int getStatementCountDelta() {
+        return statementCountDelta;
+    }
+
+    public int getEditsAdded() {
+        return editsAdded;
+    }
+
+    public int getEditsRemoved() {
+        return editsRemoved;
+    }
+
+    public double getBranchJaccardDistance() {
+        return branchJaccardDistance;
+    }
+
+    public double getLineJaccardDistance() {
+        return lineJaccardDistance;
+    }
+
+    public double getGoalJaccardDistance() {
+        return goalJaccardDistance;
+    }
+
+    public double getSpeciationMetricDistance() {
+        return speciationMetricDistance;
+    }
+
+    public Boolean getAcceptedIntoOffspring() {
+        return acceptedIntoOffspring;
+    }
+
+    public Boolean getSurvivesToNextGeneration() {
+        return survivesToNextGeneration;
+    }
+
+    public boolean isIsolatedProbe() {
+        return isolatedProbe;
+    }
+
+    public boolean isProbeFailure() {
+        return probeFailure;
+    }
+
+    public double getIsolatedFitnessPostCrossover() {
+        return isolatedFitnessPostCrossover;
+    }
+
+    public double getIsolatedFitnessPostMutation() {
+        return isolatedFitnessPostMutation;
+    }
+
+    public double getIsolatedMutationDelta() {
+        return isolatedMutationDelta;
+    }
 
     // ---- Builder ----
 
-    public static Builder builder() { return new Builder(); }
+    public static Builder builder() {
+        return new Builder();
+    }
 
     public static class Builder {
         private int generation;
@@ -204,33 +291,140 @@ public class DisruptionEvent {
         private double isolatedFitnessPostMutation = Double.NaN;
         private double isolatedMutationDelta = Double.NaN;
 
-        public Builder generation(int v) { generation = v; return this; }
-        public Builder eventIndex(int v) { eventIndex = v; return this; }
-        public Builder operatorKind(OperatorKind v) { operatorKind = v; return this; }
-        public Builder operatorSource(OperatorSource v) { operatorSource = v; return this; }
-        public Builder outcome(OperatorOutcome v) { outcome = v; return this; }
-        public Builder parent1Hash(int v) { parent1Hash = v; return this; }
-        public Builder parent2Hash(int v) { parent2Hash = v; return this; }
-        public Builder offspringHash(int v) { offspringHash = v; return this; }
-        public Builder fitnessPreOperator(double v) { fitnessPreOperator = v; return this; }
-        public Builder fitnessPostOperator(double v) { fitnessPostOperator = v; return this; }
-        public Builder fitnessDelta(double v) { fitnessDelta = v; return this; }
-        public Builder statementCountBefore(int v) { statementCountBefore = v; return this; }
-        public Builder statementCountAfter(int v) { statementCountAfter = v; return this; }
-        public Builder statementCountDelta(int v) { statementCountDelta = v; return this; }
-        public Builder editsAdded(int v) { editsAdded = v; return this; }
-        public Builder editsRemoved(int v) { editsRemoved = v; return this; }
-        public Builder branchJaccardDistance(double v) { branchJaccardDistance = v; return this; }
-        public Builder lineJaccardDistance(double v) { lineJaccardDistance = v; return this; }
-        public Builder goalJaccardDistance(double v) { goalJaccardDistance = v; return this; }
-        public Builder speciationMetricDistance(double v) { speciationMetricDistance = v; return this; }
-        public Builder acceptedIntoOffspring(Boolean v) { acceptedIntoOffspring = v; return this; }
-        public Builder survivesToNextGeneration(Boolean v) { survivesToNextGeneration = v; return this; }
-        public Builder isolatedProbe(boolean v) { isolatedProbe = v; return this; }
-        public Builder probeFailure(boolean v) { probeFailure = v; return this; }
-        public Builder isolatedFitnessPostCrossover(double v) { isolatedFitnessPostCrossover = v; return this; }
-        public Builder isolatedFitnessPostMutation(double v) { isolatedFitnessPostMutation = v; return this; }
-        public Builder isolatedMutationDelta(double v) { isolatedMutationDelta = v; return this; }
+        public Builder generation(int v) {
+            generation = v;
+            return this;
+        }
+
+        public Builder eventIndex(int v) {
+            eventIndex = v;
+            return this;
+        }
+
+        public Builder operatorKind(OperatorKind v) {
+            operatorKind = v;
+            return this;
+        }
+
+        public Builder operatorSource(OperatorSource v) {
+            operatorSource = v;
+            return this;
+        }
+
+        public Builder outcome(OperatorOutcome v) {
+            outcome = v;
+            return this;
+        }
+
+        public Builder parent1Hash(int v) {
+            parent1Hash = v;
+            return this;
+        }
+
+        public Builder parent2Hash(int v) {
+            parent2Hash = v;
+            return this;
+        }
+
+        public Builder offspringHash(int v) {
+            offspringHash = v;
+            return this;
+        }
+
+        public Builder fitnessPreOperator(double v) {
+            fitnessPreOperator = v;
+            return this;
+        }
+
+        public Builder fitnessPostOperator(double v) {
+            fitnessPostOperator = v;
+            return this;
+        }
+
+        public Builder fitnessDelta(double v) {
+            fitnessDelta = v;
+            return this;
+        }
+
+        public Builder statementCountBefore(int v) {
+            statementCountBefore = v;
+            return this;
+        }
+
+        public Builder statementCountAfter(int v) {
+            statementCountAfter = v;
+            return this;
+        }
+
+        public Builder statementCountDelta(int v) {
+            statementCountDelta = v;
+            return this;
+        }
+
+        public Builder editsAdded(int v) {
+            editsAdded = v;
+            return this;
+        }
+
+        public Builder editsRemoved(int v) {
+            editsRemoved = v;
+            return this;
+        }
+
+        public Builder branchJaccardDistance(double v) {
+            branchJaccardDistance = v;
+            return this;
+        }
+
+        public Builder lineJaccardDistance(double v) {
+            lineJaccardDistance = v;
+            return this;
+        }
+
+        public Builder goalJaccardDistance(double v) {
+            goalJaccardDistance = v;
+            return this;
+        }
+
+        public Builder speciationMetricDistance(double v) {
+            speciationMetricDistance = v;
+            return this;
+        }
+
+        public Builder acceptedIntoOffspring(Boolean v) {
+            acceptedIntoOffspring = v;
+            return this;
+        }
+
+        public Builder survivesToNextGeneration(Boolean v) {
+            survivesToNextGeneration = v;
+            return this;
+        }
+
+        public Builder isolatedProbe(boolean v) {
+            isolatedProbe = v;
+            return this;
+        }
+
+        public Builder probeFailure(boolean v) {
+            probeFailure = v;
+            return this;
+        }
+
+        public Builder isolatedFitnessPostCrossover(double v) {
+            isolatedFitnessPostCrossover = v;
+            return this;
+        }
+
+        public Builder isolatedFitnessPostMutation(double v) {
+            isolatedFitnessPostMutation = v;
+            return this;
+        }
+
+        public Builder isolatedMutationDelta(double v) {
+            isolatedMutationDelta = v;
+            return this;
+        }
 
         public DisruptionEvent build() {
             return new DisruptionEvent(this);

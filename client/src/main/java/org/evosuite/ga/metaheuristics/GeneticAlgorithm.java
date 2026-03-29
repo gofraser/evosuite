@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.ga.metaheuristics;
 
@@ -40,6 +40,7 @@ import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
+import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
 import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.StagnationDetector;
@@ -47,9 +48,8 @@ import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
-import org.evosuite.llm.factory.LlmTestChromosomeFactory;
-import org.evosuite.testsuite.factories.TestSuiteChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.testsuite.factories.TestSuiteChromosomeFactory;
 import org.evosuite.utils.ArrayUtil;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
@@ -102,6 +102,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      */
     protected ChromosomeFactory<T> chromosomeFactory;
 
+    /**
+     * Seeds the initial population with tests from LLM if enabled.
+     */
     public void seedPopulation() {
         if (!Properties.LLM_SEED_INITIAL_POPULATION) {
             return;

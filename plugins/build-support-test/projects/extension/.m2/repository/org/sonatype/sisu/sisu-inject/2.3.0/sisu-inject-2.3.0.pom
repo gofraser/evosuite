@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.sonatype.sisu</groupId>
+    <artifactId>sisu-parent</artifactId>
+    <version>2.3.0</version>
+  </parent>
+
+  <packaging>pom</packaging>
+
+  <artifactId>sisu-inject</artifactId>
+
+  <name>Sisu-Inject</name>
+
+  <modules>
+    <module>containers</module>
+    <module>registries</module>
+  </modules>
+
+  <properties>
+    <sisu.guice.version>3.1.0</sisu.guice.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+
+      <dependency>
+        <groupId>org.sonatype.sisu</groupId>
+        <artifactId>sisu-guice</artifactId>
+        <version>${sisu.guice.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.sonatype.sisu</groupId>
+        <artifactId>sisu-guice</artifactId>
+        <version>${sisu.guice.version}</version>
+        <classifier>no_aop</classifier>
+      </dependency>
+
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <configuration>
+            <doclet>com.google.doclava.Doclava</doclet>
+            <docletPath>
+              ${project.basedir}/../../lib/doclava.jar:
+              ${project.basedir}/../../../lib/doclava.jar
+            </docletPath>
+            <!--
+             | bootclasspath required by Sun's JVM
+            -->
+            <bootclasspath>${sun.boot.class.path}</bootclasspath>
+            <excludePackageNames>*.internal</excludePackageNames>
+            <additionalparam>
+              -quiet
+              -federate JDK http://download.oracle.com/javase/6/docs/api/index.html?
+              -federationxml JDK http://doclava.googlecode.com/svn/static/api/openjdk-6.xml
+              -federate Guice http://google-guice.googlecode.com/svn/trunk/javadoc/
+              -federate OSGi http://osgi.org/javadoc/r4v42/index.html?
+              -federationxml OSGi https://raw.github.com/sonatype/sisu/master/sisu-inject/lib/osgi.xml
+              -hdf project.name "${project.name}"
+              -d ${project.build.directory}/apidocs
+            </additionalparam>
+            <useStandardDocletOptions>false</useStandardDocletOptions>
+            <!--
+             | Apple's JVM sometimes requires more memory
+            -->
+            <additionalJOption>-J-Xmx1024m</additionalJOption>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
+
+</project>

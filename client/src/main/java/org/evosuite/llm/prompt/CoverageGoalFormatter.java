@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.prompt;
 
@@ -44,7 +44,9 @@ public class CoverageGoalFormatter {
     private final GoalDescriptionMapper mapper;
     private final int maxGoalsPerMethod;
 
-    /** Creates a formatter that respects the current {@code LLM_GOAL_FORMAT} property. */
+    /**
+     * Creates a formatter that respects the current {@code LLM_GOAL_FORMAT} property.
+     */
     public CoverageGoalFormatter() {
         this(new GoalDescriptionMapper(), DEFAULT_MAX_GOALS_PER_METHOD);
     }
@@ -100,7 +102,9 @@ public class CoverageGoalFormatter {
         return String.join(System.lineSeparator(), lines);
     }
 
-    /** Original flat numbered list using {@code goal.toString()}. */
+    /**
+     * Original flat numbered list using {@code goal.toString()}.
+     */
     private String formatRaw(Collection<TestFitnessFunction> goals) {
         List<String> lines = new ArrayList<>();
         int index = 1;

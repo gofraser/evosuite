@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.statements;
 
@@ -26,9 +26,9 @@ import org.evosuite.dse.VM;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
-import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.UncompilableCodeException;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.VariableReferenceImpl;
@@ -324,7 +324,9 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                     throw new CodeUnderTestException(
                             new TestCaseExecutor.TimeoutExceeded());
                 }
-                if (val > 0) factor = val;
+                if (val > 0) {
+                    factor = val;
+                }
             } else if (inputs[i] instanceof java.util.Collection) {
                 factor = ((java.util.Collection<?>) inputs[i]).size();
             } else if (inputs[i] != null && inputs[i].getClass().isArray()) {

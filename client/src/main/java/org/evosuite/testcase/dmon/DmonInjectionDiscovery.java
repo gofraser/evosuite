@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.dmon;
 
@@ -45,6 +45,12 @@ public final class DmonInjectionDiscovery {
     private DmonInjectionDiscovery() {
     }
 
+    /**
+     * Resolves the field name from a promotion plan.
+     *
+     * @param plan the promotion plan
+     * @return the resolved field name, or null
+     */
     public static String resolveFieldName(DmonPromotionPlan plan) {
         if (plan == null) {
             return null;
@@ -63,6 +69,13 @@ public final class DmonInjectionDiscovery {
         return plan.getMemberToken().orElse(null);
     }
 
+    /**
+     * Finds a static field in the given class or its superclasses.
+     *
+     * @param ownerClass the class to search
+     * @param fieldName the name of the field
+     * @return the field if found and valid, or null
+     */
     public static Field findStaticField(Class<?> ownerClass, String fieldName) {
         if (ownerClass == null || fieldName == null || fieldName.trim().isEmpty()) {
             return null;
@@ -74,12 +87,19 @@ public final class DmonInjectionDiscovery {
                 if (Modifier.isStatic(mods) && !Modifier.isFinal(mods)) {
                     return f;
                 }
-            } catch (NoSuchFieldException ignored) {
+            } catch (NoSuchFieldException expected) {
             }
         }
         return null;
     }
 
+    /**
+     * Finds an instance field in the given class or its superclasses.
+     *
+     * @param ownerClass the class to search
+     * @param fieldName the name of the field
+     * @return the field if found and valid, or null
+     */
     public static Field findInstanceField(Class<?> ownerClass, String fieldName) {
         if (ownerClass == null || fieldName == null || fieldName.trim().isEmpty()) {
             return null;
@@ -91,12 +111,20 @@ public final class DmonInjectionDiscovery {
                 if (!Modifier.isStatic(mods) && !Modifier.isFinal(mods)) {
                     return f;
                 }
-            } catch (NoSuchFieldException ignored) {
+            } catch (NoSuchFieldException expected) {
             }
         }
         return null;
     }
 
+    /**
+     * Finds a static setter method for a given dependency type.
+     *
+     * @param ownerClass the class to search
+     * @param dependencyType the type of the dependency
+     * @param fieldNameHint an optional hint for the field name
+     * @return the best matching setter method, or null
+     */
     public static Method findStaticSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {
         if (ownerClass == null || dependencyType == null) {
             return null;
@@ -148,6 +176,12 @@ public final class DmonInjectionDiscovery {
         return best;
     }
 
+    /**
+     * Finds a static method that returns an instance of the class.
+     *
+     * @param ownerClass the class to search
+     * @return the best matching accessor method, or null
+     */
     public static Method findStaticInstanceAccessor(Class<?> ownerClass) {
         if (ownerClass == null) {
             return null;
@@ -183,6 +217,14 @@ public final class DmonInjectionDiscovery {
         return best;
     }
 
+    /**
+     * Resolves the field that should be used for rollback after a static setter call.
+     *
+     * @param ownerClass the class owning the field
+     * @param setter the setter method
+     * @param fieldNameHint an optional hint for the field name
+     * @return the resolved field, or null
+     */
     public static Field resolveRollbackFieldForSetter(Class<?> ownerClass, Method setter, String fieldNameHint) {
         if (ownerClass == null || setter == null) {
             return null;
@@ -204,7 +246,16 @@ public final class DmonInjectionDiscovery {
         return null;
     }
 
-    public static Field resolveRollbackFieldForInstanceSetter(Class<?> ownerClass, Method setter, String fieldNameHint) {
+    /**
+     * Resolves the field that should be used for rollback after an instance setter call.
+     *
+     * @param ownerClass the class owning the field
+     * @param setter the setter method
+     * @param fieldNameHint an optional hint for the field name
+     * @return the resolved field, or null
+     */
+    public static Field resolveRollbackFieldForInstanceSetter(Class<?> ownerClass, Method setter,
+                                                              String fieldNameHint) {
         if (ownerClass == null || setter == null) {
             return null;
         }
@@ -251,8 +302,8 @@ public final class DmonInjectionDiscovery {
                 ClassReader reader = new ClassReader(in);
                 ClassNode node = new ClassNode();
                 reader.accept(node, ClassReader.SKIP_FRAMES);
-                for (Object mObj : node.methods) {
-                    MethodNode mn = (MethodNode) mObj;
+                for (Object mobj : node.methods) {
+                    MethodNode mn = (MethodNode) mobj;
                     for (AbstractInsnNode insn = mn.instructions.getFirst(); insn != null; insn = insn.getNext()) {
                         if (!(insn instanceof MethodInsnNode)) {
                             continue;
@@ -270,7 +321,7 @@ public final class DmonInjectionDiscovery {
                     }
                 }
             }
-        } catch (IOException | RuntimeException ignored) {
+        } catch (IOException | RuntimeException expected) {
             // Best-effort ranking signal only.
         }
         return result;

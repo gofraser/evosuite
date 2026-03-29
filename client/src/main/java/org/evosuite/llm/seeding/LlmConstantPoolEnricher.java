@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.seeding;
 
@@ -26,7 +26,6 @@ import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
-
 import org.evosuite.utils.generic.GenericAccessibleObject;
 
 import java.lang.reflect.Method;
@@ -153,7 +152,9 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
 
             StringBuilder paramList = new StringBuilder();
             for (int i = 0; i < paramTypes.length; i++) {
-                if (i > 0) paramList.append(", ");
+                if (i > 0) {
+                    paramList.append(", ");
+                }
                 paramList.append(paramTypes[i].getSimpleName());
             }
             String line = "  " + method.getName() + "(" + paramList + ")\n";

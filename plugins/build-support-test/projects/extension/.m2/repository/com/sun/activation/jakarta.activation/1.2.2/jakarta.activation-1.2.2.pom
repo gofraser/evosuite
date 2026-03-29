@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="iso-8859-1"?>
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+			    http://maven.apache.org/maven-v4_0_0.xsd">
+    <parent>
+	<groupId>com.sun.activation</groupId>
+	<artifactId>all</artifactId>
+	<version>1.2.2</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>com.sun.activation</groupId>
+    <artifactId>jakarta.activation</artifactId>
+    <packaging>jar</packaging>
+    <name>Jakarta Activation</name>
+
+    <properties>
+	<activation.extensionName>
+	    jakarta.activation
+	</activation.extensionName>
+	<activation.moduleName>
+	    jakarta.activation
+	</activation.moduleName>
+	<activation.specificationTitle>
+	    Jakarta Activation Specification
+	</activation.specificationTitle>
+	<activation.implementationTitle>
+	    javax.activation
+	</activation.implementationTitle>
+	<activation.packages.export>
+	    javax.activation.*; version=${activation.spec.version},
+	    com.sun.activation.*; version=${activation.osgiversion}
+	</activation.packages.export>
+	<findbugs.skip>
+	    false
+	</findbugs.skip>
+	<findbugs.exclude>
+	    ${project.basedir}/exclude.xml
+	</findbugs.exclude>
+    </properties>
+
+    <build>
+	<resources>
+	    <resource>
+		<directory>src/main/resources</directory>
+		<filtering>true</filtering>
+	    </resource>
+	</resources>
+	<plugins>
+	    <!--
+		Configure compiler plugin to print lint warnings.
+	    -->
+	    <plugin>
+		<artifactId>maven-compiler-plugin</artifactId>
+		<executions>
+		    <execution>
+			<id>default-compile</id>
+			<configuration>
+			    <!--
+				ignore some of the errors that are
+				too hard to fix for now
+			    -->
+			    <!--
+			    <compilerArguments>
+				<Xlint:all/>
+				<Xlint:-rawtypes/>
+				<Xlint:-unchecked/>
+				<Xlint:-finally/>
+			    </compilerArguments>
+			    <showWarnings>true</showWarnings>
+			    -->
+			</configuration>
+		    </execution>
+		</executions>
+	    </plugin>
+
+	    <!--
+		Configure test plugin to find *TestSuite classes.
+	    -->
+	    <plugin>
+		<groupId>org.apache.maven.plugins</groupId>
+		<artifactId>maven-surefire-plugin</artifactId>
+		<configuration>
+		    <includes>
+			<include>**/*Test.java</include>
+			<include>**/*TestSuite.java</include>
+		    </includes>
+		</configuration>
+	    </plugin>
+
+	    <plugin>
+		<artifactId>maven-javadoc-plugin</artifactId>
+		<inherited>false</inherited>
+                <executions>
+		    <execution>
+			<phase>package</phase>
+			<goals>
+			    <goal>javadoc</goal>
+			</goals>
+			<configuration>
+			    <author>false</author>
+			    <description>
+				Jakarta Activation API documentation
+			    </description>
+			    <doctitle>
+				Jakarta Activation API documentation
+			    </doctitle>
+			    <windowtitle>
+				Jakarta Activation API documentation
+			    </windowtitle>
+			    <splitindex>true</splitindex>
+			    <use>true</use>
+			    <notimestamp>true</notimestamp>
+			    <serialwarn>true</serialwarn>
+			    <quiet>true</quiet>
+			    <bottom>
+<![CDATA[Copyright &#169; 2019 Eclipse Foundation.
+    Use is subject to
+    <a href="{@docRoot}/doc-files/speclicense.html" target="_top">license terms</a>.
+]]>
+			    </bottom>
+			    <groups>
+				<group>
+				    <title>Jakarta Activation API Packages</title>
+				    <packages>javax.*</packages>
+				</group>
+			    </groups>
+			    <!--
+			    <subpackages>javax.activation</subpackages>
+			    -->
+			    <!--
+				Force javadoc to produce non-module docs
+				since the module definition isn't part of
+				the API specification.
+			    -->
+			    <release>8</release>
+			    <sourceFileExcludes>
+				<sourceFileExclude>module-info.java</sourceFileExclude>
+				<sourceFileExclude>com/**</sourceFileExclude>
+			    </sourceFileExcludes>
+			    <!-- force the doc-files directory to be copied -->
+			    <docfilessubdirs>true</docfilessubdirs>
+			    <detectJavaApiLink>false</detectJavaApiLink>
+			</configuration>
+		    </execution>
+                </executions>
+	    </plugin>
+	</plugins>
+    </build>
+
+    <dependencies>
+	<dependency>
+	    <groupId>junit</groupId>
+	    <artifactId>junit</artifactId>
+	    <version>4.12</version>
+	    <scope>test</scope>
+	    <optional>true</optional>
+	</dependency>
+    </dependencies>
+</project>

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm;
 
@@ -159,7 +159,9 @@ public class LlmConfiguration {
         return runId;
     }
 
-    /** Fluent builder for {@link LlmConfiguration}. */
+    /**
+     * Fluent builder for {@link LlmConfiguration}.
+     */
     public static class Builder {
         private Properties.LlmProvider provider = Properties.LlmProvider.NONE;
         private String model = "";
@@ -174,19 +176,71 @@ public class LlmConfiguration {
         private Path traceDir = Paths.get("evosuite-report", "llm-traces");
         private String runId = UUID.randomUUID().toString();
 
-        public Builder provider(Properties.LlmProvider provider) { this.provider = provider; return this; }
-        public Builder model(String model) { this.model = model; return this; }
-        public Builder apiKey(String apiKey) { this.apiKey = apiKey; return this; }
-        public Builder baseUrl(String baseUrl) { this.baseUrl = baseUrl; return this; }
-        public Builder temperature(double temperature) { this.temperature = temperature; return this; }
-        public Builder maxTokens(int maxTokens) { this.maxTokens = maxTokens; return this; }
-        public Builder timeoutSeconds(int timeoutSeconds) { this.timeoutSeconds = timeoutSeconds; return this; }
-        public Builder retryMaxAttempts(int retryMaxAttempts) { this.retryMaxAttempts = retryMaxAttempts; return this; }
-        public Builder retryBaseDelayMs(int retryBaseDelayMs) { this.retryBaseDelayMs = retryBaseDelayMs; return this; }
-        public Builder traceEnabled(boolean traceEnabled) { this.traceEnabled = traceEnabled; return this; }
-        public Builder traceDir(Path traceDir) { this.traceDir = traceDir; return this; }
-        public Builder runId(String runId) { this.runId = runId; return this; }
+        public Builder provider(Properties.LlmProvider provider) {
+            this.provider = provider;
+            return this;
+        }
 
+        public Builder model(String model) {
+            this.model = model;
+            return this;
+        }
+
+        public Builder apiKey(String apiKey) {
+            this.apiKey = apiKey;
+            return this;
+        }
+
+        public Builder baseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+            return this;
+        }
+
+        public Builder temperature(double temperature) {
+            this.temperature = temperature;
+            return this;
+        }
+
+        public Builder maxTokens(int maxTokens) {
+            this.maxTokens = maxTokens;
+            return this;
+        }
+
+        public Builder timeoutSeconds(int timeoutSeconds) {
+            this.timeoutSeconds = timeoutSeconds;
+            return this;
+        }
+
+        public Builder retryMaxAttempts(int retryMaxAttempts) {
+            this.retryMaxAttempts = retryMaxAttempts;
+            return this;
+        }
+
+        public Builder retryBaseDelayMs(int retryBaseDelayMs) {
+            this.retryBaseDelayMs = retryBaseDelayMs;
+            return this;
+        }
+
+        public Builder traceEnabled(boolean traceEnabled) {
+            this.traceEnabled = traceEnabled;
+            return this;
+        }
+
+        public Builder traceDir(Path traceDir) {
+            this.traceDir = traceDir;
+            return this;
+        }
+
+        public Builder runId(String runId) {
+            this.runId = runId;
+            return this;
+        }
+
+        /**
+         * Builds and returns a new {@link LlmConfiguration} instance.
+         *
+         * @return a new {@link LlmConfiguration} instance
+         */
         public LlmConfiguration build() {
             return new LlmConfiguration(provider, model, apiKey, baseUrl, temperature,
                     maxTokens, timeoutSeconds, retryMaxAttempts, retryBaseDelayMs,

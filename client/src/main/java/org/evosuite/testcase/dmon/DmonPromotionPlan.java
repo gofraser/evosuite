@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.dmon;
 
@@ -37,6 +37,15 @@ public final class DmonPromotionPlan implements Serializable {
     private final Optional<String> memberToken;
     private final Optional<String> inferredMissingTypeName;
 
+    /**
+     * Create a new DmonPromotionPlan.
+     *
+     * @param failureSite The site where the failure occurred.
+     * @param nullExpression The expression that was null.
+     * @param ownerToken The owner token.
+     * @param memberToken The member token.
+     * @param inferredMissingTypeName The inferred missing type name.
+     */
     public DmonPromotionPlan(DmonFailureSite failureSite,
                              Optional<String> nullExpression,
                              Optional<String> ownerToken,
@@ -71,8 +80,12 @@ public final class DmonPromotionPlan implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof DmonPromotionPlan)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DmonPromotionPlan)) {
+            return false;
+        }
         DmonPromotionPlan that = (DmonPromotionPlan) o;
         return Objects.equals(failureSite, that.failureSite)
                 && Objects.equals(nullExpression, that.nullExpression)

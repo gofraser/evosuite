@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.dmon;
 
@@ -40,6 +40,14 @@ public final class NpeMessageParser {
         private final Optional<String> memberToken;
         private final ParseStrength strength;
 
+        /**
+         * Create a new ParseResult.
+         *
+         * @param nullExpression The expression that was null.
+         * @param ownerToken The owner token.
+         * @param memberToken The member token.
+         * @param strength The strength of the parse result.
+         */
         public ParseResult(Optional<String> nullExpression,
                            Optional<String> ownerToken,
                            Optional<String> memberToken,
@@ -87,6 +95,12 @@ public final class NpeMessageParser {
             "Cannot\\s+invoke\\s+\"([^\"]+)\"",
             Pattern.CASE_INSENSITIVE);
 
+    /**
+     * Parses the NullPointerException message to extract member names and null expressions.
+     *
+     * @param message the NullPointerException message to parse
+     * @return the result of the parsing operation
+     */
     public ParseResult parse(String message) {
         if (message == null || message.isEmpty()) {
             return new ParseResult(Optional.empty(), Optional.empty(), Optional.empty(), ParseStrength.NO_MATCH);

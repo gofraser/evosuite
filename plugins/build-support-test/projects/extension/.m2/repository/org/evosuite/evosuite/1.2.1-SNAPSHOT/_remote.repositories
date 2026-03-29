@@ -1,0 +1,4 @@
+#NOTE: This is a Maven Resolver internal implementation file, its format can be changed without prior notice.
+#Tue Feb 24 15:58:17 CET 2026
+evosuite-1.2.1-SNAPSHOT-tests.jar>=
+evosuite-1.2.1-SNAPSHOT.pom>=

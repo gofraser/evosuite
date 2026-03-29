@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.runtime;
 
@@ -141,8 +141,8 @@ public class GuiSupport {
      * Temporarily disable headless mode so that mock Window/Frame/JFrame
      * constructors can call their JDK super-constructors without
      * triggering {@link java.awt.HeadlessException}.
-     * <p>
-     * Must be paired with {@link #restoreHeadlessAfterMockConstruction()}.
+     *
+     * <p>Must be paired with {@link #restoreHeadlessAfterMockConstruction()}.
      */
     public static void disableHeadlessForMockConstruction() {
         setHeadless(false);

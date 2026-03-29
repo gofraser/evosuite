@@ -17,7 +17,7 @@
     Lesser Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
 
 -->
 <project name="Example Ant Build with EvoSuite" default="compile" xmlns:jacoco="antlib:org.jacoco.ant">

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.utils;
 
@@ -27,8 +27,8 @@ import java.io.PrintWriter;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Set;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -159,7 +159,7 @@ public class SpawnProcessKeepAliveChecker {
                 boolean failed = false;
 
                 try (Socket socket = new Socket(InetAddress.getLoopbackAddress(), port);
-                     Scanner in = new Scanner(socket.getInputStream())) {
+                        Scanner in = new Scanner(socket.getInputStream())) {
                     clientSocket = socket;
 
                     sleep(DELTA_MS);
@@ -228,7 +228,7 @@ public class SpawnProcessKeepAliveChecker {
         @Override
         public void run() {
             try (Socket s = socket;
-                 PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
+                    PrintWriter out = new PrintWriter(s.getOutputStream(), true)) {
                 while (!Thread.currentThread().isInterrupted() && !s.isClosed()) {
                     out.println(STILL_ALIVE);
                     if (out.checkError()) {

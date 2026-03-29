@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.runtime.mock.javax.swing;
 
@@ -32,6 +32,10 @@ public class MockImageIcon extends ImageIcon implements OverrideMock {
 
     private static final long serialVersionUID = 1L;
 
+    /**
+     * Creates a new MockImageIcon from a URL.
+     * @param location the URL of the image
+     */
     public MockImageIcon(URL location) {
         super();
         if (location != null) {

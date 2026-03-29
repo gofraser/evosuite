@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,12 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
- */
-/**
- * <p>DescriptorMapping class.</p>
- *
- * @author Gordon Fraser
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.instrumentation.testability;
 
@@ -38,6 +33,11 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.util.*;
 
+/**
+ * <p>DescriptorMapping class.</p>
+ *
+ * @author Gordon Fraser
+ */
 public class DescriptorMapping {
 
     private static int id = 0;

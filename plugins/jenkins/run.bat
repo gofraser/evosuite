@@ -15,7 +15,7 @@
 @REM Lesser Public License for more details.
 @REM
 @REM You should have received a copy of the GNU Lesser General Public
-@REM License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+@REM License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
 @REM
 
 @ECHO off

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite;
 
@@ -2081,11 +2081,13 @@ public class Properties {
     public static int DIVERSITY_SAMPLE_SIZE = 0;
 
     @Parameter(key = "stf_enabled", group = "Speciation",
-            description = "Enable State Transition Frequency (STF) distance for diversity tracking (optional, not default)")
+            description = "Enable State Transition Frequency (STF) distance for diversity tracking "
+                    + "(optional, not default)")
     public static boolean STF_ENABLED = false;
 
     @Parameter(key = "stf_jaccard_weight", group = "Speciation",
-            description = "Weight of Jaccard component when STF is enabled in hybrid mode (0.0 = pure STF, 1.0 = pure Jaccard)")
+            description = "Weight of Jaccard component when STF is enabled in hybrid mode "
+                    + "(0.0 = pure STF, 1.0 = pure Jaccard)")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double STF_JACCARD_WEIGHT = 0.0;
 

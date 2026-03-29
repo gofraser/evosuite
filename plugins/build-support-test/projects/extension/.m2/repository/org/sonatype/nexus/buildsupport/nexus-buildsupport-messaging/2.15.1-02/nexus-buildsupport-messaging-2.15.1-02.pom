@@ -1,0 +1,184 @@
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.sonatype.nexus.buildsupport</groupId>
+    <artifactId>nexus-buildsupport</artifactId>
+    <version>2.15.1-02</version>
+  </parent>
+
+  <artifactId>nexus-buildsupport-messaging</artifactId>
+  <name>${project.groupId}:${project.artifactId}</name>
+  <packaging>pom</packaging>
+
+  <properties>
+    <apache-activemq.version>5.16.3</apache-activemq.version>
+    <apache-camel.version>2.25.2</apache-camel.version>
+    <spring.version>4.3.16.RELEASE</spring.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+
+      <dependency>
+        <groupId>org.apache.activemq</groupId>
+        <artifactId>activemq-broker</artifactId>
+        <version>${apache-activemq.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.activemq</groupId>
+        <artifactId>activemq-client</artifactId>
+        <version>${apache-activemq.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.activemq</groupId>
+        <artifactId>activemq-pool</artifactId>
+        <version>${apache-activemq.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.activemq</groupId>
+        <artifactId>activemq-kahadb-store</artifactId>
+        <version>${apache-activemq.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-context</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>org.fusesource.hawtbuf</groupId>
+        <artifactId>hawtbuf-proto</artifactId>
+        <version>1.11</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.camel</groupId>
+        <artifactId>camel-core</artifactId>
+        <version>${apache-camel.version}</version>
+      </dependency>
+
+      <!--
+      NOTE: This dependency pulls in a bunch of Spring due to its heavy use of JmsTemplate and MessageListenerContainer :-(
+      NOTE: Quick test shows its ~400k of Spring required, but pulls in ~3m of Spring w/o fancy shade w/minimialJar=true
+      -->
+      <dependency>
+        <groupId>org.apache.camel</groupId>
+        <artifactId>camel-jms</artifactId>
+        <version>${apache-camel.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.camel</groupId>
+            <artifactId>camel-spring</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-asm</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-aop</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>aopalliance</groupId>
+            <artifactId>aopalliance</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-expression</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.camel</groupId>
+        <artifactId>camel-sjms</artifactId>
+        <version>${apache-camel.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.apache.activemq</groupId>
+        <artifactId>activemq-camel</artifactId>
+        <version>${apache-activemq.version}</version>
+        <exclusions>
+          <exclusion>
+            <groupId>commons-logging</groupId>
+            <artifactId>commons-logging</artifactId>
+          </exclusion>
+          <exclusion>
+            <groupId>org.apache.activemq</groupId>
+            <artifactId>activemq-spring</artifactId>
+          </exclusion>
+        </exclusions>
+      </dependency>
+
+      <dependency>
+      	<groupId>org.springframework</groupId>
+      	<artifactId>spring-beans</artifactId>
+      	<version>${spring.version}</version>
+      </dependency>
+
+      <dependency>
+      	<groupId>org.springframework</groupId>
+      	<artifactId>spring-context</artifactId>
+      	<version>${spring.version}</version>
+      </dependency>
+
+      <dependency>
+      	<groupId>org.springframework</groupId>
+      	<artifactId>spring-core</artifactId>
+      	<version>${spring.version}</version>
+      </dependency>
+
+      <dependency>
+      	<groupId>org.springframework</groupId>
+      	<artifactId>spring-jms</artifactId>
+      	<version>${spring.version}</version>
+      </dependency>
+
+      <dependency>
+      	<groupId>org.springframework</groupId>
+      	<artifactId>spring-messaging</artifactId>
+      	<version>${spring.version}</version>
+      </dependency>
+
+      <dependency>
+      	<groupId>org.springframework</groupId>
+      	<artifactId>spring-tx</artifactId>
+      	<version>${spring.version}</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+</project>

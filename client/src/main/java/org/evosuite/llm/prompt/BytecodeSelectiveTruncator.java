@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.prompt;
 
@@ -49,9 +49,13 @@ public class BytecodeSelectiveTruncator implements SelectiveMethodTruncator {
     private static final Pattern ACCESS_FLAGS =
             Pattern.compile("// access flags 0x([0-9A-Fa-f]+)");
 
-    /** Matches the method/constructor signature line (e.g. "  public <init>()V"). */
+    /**
+     * Matches the method/constructor signature line (e.g. "  public {@code <init>}()V").
+     */
     private static final Pattern SIGNATURE_LINE =
-            Pattern.compile("^\\s*(?:public |private |protected )?(?:static |final |abstract |synchronized |native )*(?:<(?:cl)?init>|\\S+)\\s*\\(", Pattern.MULTILINE);
+            Pattern.compile("^\\s*(?:public |private |protected )?"
+                    + "(?:static |final |abstract |synchronized |native )*"
+                    + "(?:<(?:cl)?init>|\\S+)\\s*\\(", Pattern.MULTILINE);
 
     private static final int ACC_PUBLIC = 0x0001;
 

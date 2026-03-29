@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.prompt;
 
@@ -58,6 +58,7 @@ public class GoalDescriptionMapper {
             Pattern.compile("^([^(]+)(\\(.*\\).*)$");
 
     private static final Map<String, String> VALUE_DESCRIPTOR_MAP = new LinkedHashMap<>();
+
     static {
         VALUE_DESCRIPTOR_MAP.put("NUM_NEGATIVE", "negative number");
         VALUE_DESCRIPTOR_MAP.put("NUM_ZERO", "zero");
@@ -212,9 +213,15 @@ public class GoalDescriptionMapper {
 
     private String describeExceptionType(ExceptionCoverageTestFitness goal) {
         String key = goal.getKey();
-        if (key.endsWith("_EXPLICIT")) return "explicit";
-        if (key.endsWith("_IMPLICIT")) return "implicit";
-        if (key.endsWith("_DECLARED")) return "declared";
+        if (key.endsWith("_EXPLICIT")) {
+            return "explicit";
+        }
+        if (key.endsWith("_IMPLICIT")) {
+            return "implicit";
+        }
+        if (key.endsWith("_DECLARED")) {
+            return "declared";
+        }
         return "unknown";
     }
 
@@ -311,7 +318,9 @@ public class GoalDescriptionMapper {
             Type[] argTypes = Type.getArgumentTypes(descriptor);
             StringBuilder sb = new StringBuilder(name).append('(');
             for (int i = 0; i < argTypes.length; i++) {
-                if (i > 0) sb.append(", ");
+                if (i > 0) {
+                    sb.append(", ");
+                }
                 sb.append(humanType(argTypes[i]));
             }
             sb.append(')');
@@ -321,7 +330,9 @@ public class GoalDescriptionMapper {
         }
     }
 
-    /** Converts an ASM {@link Type} to a human-readable string. */
+    /**
+     * Converts an ASM {@link Type} to a human-readable string.
+     */
     static String humanType(Type t) {
         switch (t.getSort()) {
             case Type.VOID:    return "void";
@@ -343,18 +354,23 @@ public class GoalDescriptionMapper {
     }
 
     static String simpleName(String fqcn) {
-        if (fqcn == null) return "";
+        if (fqcn == null) {
+            return "";
+        }
         int dot = fqcn.lastIndexOf('.');
         return dot >= 0 ? fqcn.substring(dot + 1) : fqcn;
     }
 
     static String humanizeValueDescriptor(String descriptor) {
-        if (descriptor == null) return "unknown";
+        if (descriptor == null) {
+            return "unknown";
+        }
         String human = VALUE_DESCRIPTOR_MAP.get(descriptor);
         return human != null ? human : descriptor.toLowerCase().replace('_', ' ');
     }
 
     private static final Map<String, String> MUTATION_NAME_MAP = new LinkedHashMap<>();
+
     static {
         MUTATION_NAME_MAP.put("AOR", "arithmetic operator replacement");
         MUTATION_NAME_MAP.put("ROR", "relational operator replacement");
@@ -371,7 +387,9 @@ public class GoalDescriptionMapper {
     }
 
     static String humanizeMutationName(String name) {
-        if (name == null) return "mutation";
+        if (name == null) {
+            return "mutation";
+        }
         String human = MUTATION_NAME_MAP.get(name);
         return human != null ? human : name;
     }

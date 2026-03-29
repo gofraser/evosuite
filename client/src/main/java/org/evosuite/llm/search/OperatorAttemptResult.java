@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.search;
 
@@ -62,10 +62,21 @@ public class OperatorAttemptResult {
         return new OperatorAttemptResult(false, false, false, reason);
     }
 
-    public boolean isAttemptedSemantic() { return attemptedSemantic; }
-    public boolean isAppliedSemantic() { return appliedSemantic; }
-    public boolean isFallbackUsed() { return fallbackUsed; }
-    public SkipReason getSkipReason() { return skipReason; }
+    public boolean isAttemptedSemantic() {
+        return attemptedSemantic;
+    }
+
+    public boolean isAppliedSemantic() {
+        return appliedSemantic;
+    }
+
+    public boolean isFallbackUsed() {
+        return fallbackUsed;
+    }
+
+    public SkipReason getSkipReason() {
+        return skipReason;
+    }
 
     /**
      * Derive disruption event source from this result.
@@ -81,8 +92,12 @@ public class OperatorAttemptResult {
      * Derive disruption event outcome from this result.
      */
     public DisruptionEvent.OperatorOutcome toOperatorOutcome() {
-        if (appliedSemantic) return DisruptionEvent.OperatorOutcome.APPLIED;
-        if (fallbackUsed) return DisruptionEvent.OperatorOutcome.FALLBACK;
+        if (appliedSemantic) {
+            return DisruptionEvent.OperatorOutcome.APPLIED;
+        }
+        if (fallbackUsed) {
+            return DisruptionEvent.OperatorOutcome.FALLBACK;
+        }
         return DisruptionEvent.OperatorOutcome.APPLIED; // standard applied
     }
 }

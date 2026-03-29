@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.execution;
 
@@ -27,14 +27,14 @@ import org.slf4j.LoggerFactory;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
-import java.io.File;
+
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.net.URL;
@@ -63,8 +63,19 @@ public final class ExecutableSnippetEngine {
 
     /** An output stream that silently discards all bytes written to it. */
     private static final OutputStream DISCARD = new OutputStream() {
-        @Override public void write(int b) { }
-        @Override public void write(byte[] b, int off, int len) { }
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void write(int b) {
+        }
+
+        /**
+         * {@inheritDoc}
+         */
+        @Override
+        public void write(byte[] b, int off, int len) {
+        }
     };
 
     private static final class Binding {

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.search;
 
@@ -60,8 +60,17 @@ public class DisruptionRecorder {
 
     private String sidecarPath;
 
-    private DisruptionRecorder() {}
+    /**
+     * Private constructor for singleton.
+     */
+    private DisruptionRecorder() {
+    }
 
+    /**
+     * Gets the singleton instance of DisruptionRecorder.
+     *
+     * @return the DisruptionRecorder instance
+     */
     public static synchronized DisruptionRecorder getInstance() {
         if (instance == null) {
             instance = new DisruptionRecorder();
@@ -94,7 +103,9 @@ public class DisruptionRecorder {
 
     /** Record a disruption event. No-op if analysis is disabled. */
     public void record(DisruptionEvent event) {
-        if (!isEnabled()) return;
+        if (!isEnabled()) {
+            return;
+        }
         events.add(event);
         updateCounters(event);
     }
@@ -121,7 +132,9 @@ public class DisruptionRecorder {
 
     /** Flush all recorded events to the sidecar CSV file. */
     public void flush() {
-        if (!isEnabled() || events.isEmpty()) return;
+        if (!isEnabled() || events.isEmpty()) {
+            return;
+        }
 
         sidecarPath = resolveSidecarPath();
         File dirFile = new File(sidecarPath).getParentFile();
@@ -162,13 +175,33 @@ public class DisruptionRecorder {
 
     // ---- Run-level counter accessors ----
 
-    public int getTotalEvents() { return events.size(); }
-    public int getStandardMutations() { return standardMutations.get(); }
-    public int getSemanticMutations() { return semanticMutations.get(); }
-    public int getStandardCrossovers() { return standardCrossovers.get(); }
-    public int getSemanticCrossovers() { return semanticCrossovers.get(); }
-    public int getSemanticFallbacks() { return semanticFallbacks.get(); }
-    public String getSidecarPath() { return sidecarPath; }
+    public int getTotalEvents() {
+        return events.size();
+    }
+
+    public int getStandardMutations() {
+        return standardMutations.get();
+    }
+
+    public int getSemanticMutations() {
+        return semanticMutations.get();
+    }
+
+    public int getStandardCrossovers() {
+        return standardCrossovers.get();
+    }
+
+    public int getSemanticCrossovers() {
+        return semanticCrossovers.get();
+    }
+
+    public int getSemanticFallbacks() {
+        return semanticFallbacks.get();
+    }
+
+    public String getSidecarPath() {
+        return sidecarPath;
+    }
 
     /** Get a snapshot of all events (for testing). */
     public List<DisruptionEvent> getEvents() {

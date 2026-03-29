@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm;
 
@@ -451,7 +451,8 @@ public class LlmService implements AutoCloseable {
                     throw new LlmCallFailedException(
                             "LLM query failed after " + attempt + " attempt(s): " + friendly, lastError, retryable);
                 }
-                logger.debug("LLM call failed (attempt {}/{}): {}; retrying...", attempt, maxTries, friendlyMessage(lastError));
+                logger.debug("LLM call failed (attempt {}/{}): {}; retrying...", 
+                        attempt, maxTries, friendlyMessage(lastError));
                 sleepBackoff(attempt);
             }
         }
@@ -571,6 +572,7 @@ public class LlmService implements AutoCloseable {
     }
 
     private static final java.util.Map<Integer, java.util.regex.Pattern> HTTP_CODE_PATTERNS;
+
     static {
         java.util.Map<Integer, java.util.regex.Pattern> map = new java.util.HashMap<>();
         for (int code : new int[]{400, 401, 403, 404, 422, 429, 500, 502, 503, 504}) {

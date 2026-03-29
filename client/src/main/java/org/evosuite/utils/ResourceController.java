@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,24 +15,23 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.utils;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
+import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
-import org.evosuite.testcase.execution.TestCaseExecutor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.MethodCall;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.lang.management.ManagementFactory;
@@ -167,9 +166,14 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
                 int count = 0;
                 for (String line : lines) {
                     sb.append("  ").append(line).append('\n');
-                    if (line.trim().startsWith("1:")) count = 1;
-                    else if (count > 0) count++;
-                    if (count > 30) break;
+                    if (line.trim().startsWith("1:")) {
+                        count = 1;
+                    } else if (count > 0) {
+                        count++;
+                    }
+                    if (count > 30) {
+                        break;
+                    }
                 }
             } catch (Exception e) {
                 sb.append("  Heap histogram: unavailable (").append(e.getMessage()).append(")\n");
@@ -185,7 +189,9 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
                     for (T individual : pop) {
                         int s = individual.size();
                         totalStatements += s;
-                        if (s > maxStatements) maxStatements = s;
+                        if (s > maxStatements) {
+                            maxStatements = s;
+                        }
                     }
                     sb.append(String.format("  Population: size=%d, total statements=%d, max statements=%d, avg=%.1f%n",
                             popSize, totalStatements, maxStatements,
@@ -234,8 +240,12 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
                                             maxMethodCallsInOne = callCount;
                                         }
                                         for (MethodCall mc : calls) {
-                                            if (mc.branchTrace != null) totalBranchEntries += mc.branchTrace.size();
-                                            if (mc.lineTrace != null) totalLineEntries += mc.lineTrace.size();
+                                            if (mc.branchTrace != null) {
+                                                totalBranchEntries += mc.branchTrace.size();
+                                            }
+                                            if (mc.lineTrace != null) {
+                                                totalLineEntries += mc.lineTrace.size();
+                                            }
                                         }
                                     }
                                 }
@@ -245,8 +255,8 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
                     }
                     sb.append(String.format("  Cached execution results: %d / %d individuals%n",
                             withResults, pop.size()));
-                    sb.append(String.format("  Traces (population): method calls=%d (max in one=%d), " +
-                                    "branch entries=%d, line entries=%d, output traces=%d%n",
+                    sb.append(String.format("  Traces (population): method calls=%d (max in one=%d), "
+                                    + "branch entries=%d, line entries=%d, output traces=%d%n",
                             totalMethodCalls, maxMethodCallsInOne,
                             totalBranchEntries, totalLineEntries, totalOutputTraces));
 
@@ -268,13 +278,17 @@ public class ResourceController<T extends Chromosome<T>> implements SearchListen
                                             archiveMaxMethodCalls = calls.size();
                                         }
                                         for (MethodCall mc : calls) {
-                                            if (mc.branchTrace != null) archiveBranchEntries += mc.branchTrace.size();
+                                            if (mc.branchTrace != null) {
+                                                archiveBranchEntries += mc.branchTrace.size();
+                                            }
                                         }
                                     }
                                 }
                             }
-                            sb.append(String.format("  Traces (archive, %d solutions): method calls=%d (max in one=%d), branch entries=%d%n",
-                                    archiveSolutions.size(), archiveMethodCalls, archiveMaxMethodCalls, archiveBranchEntries));
+                            sb.append(String.format("  Traces (archive, %d solutions): method calls=%d "
+                                            + "(max in one=%d), branch entries=%d%n",
+                                    archiveSolutions.size(), archiveMethodCalls,
+                                    archiveMaxMethodCalls, archiveBranchEntries));
                         }
                     } catch (Exception e) {
                         // archive diagnostics unavailable

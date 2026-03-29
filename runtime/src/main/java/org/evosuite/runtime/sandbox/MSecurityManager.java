@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.runtime.sandbox;
 
@@ -1211,7 +1211,8 @@ public class MSecurityManager extends SecurityManager {
         if (name.endsWith("bytebuddy.createJavaDispatcher")) {
             return true;
         }
-        // ByteBuddy agent accessor, potentially shaded (e.g., org.evosuite.shaded.net.bytebuddy.agent.getInstrumentation)
+        // ByteBuddy agent accessor, potentially shaded
+        // (e.g., org.evosuite.shaded.net.bytebuddy.agent.getInstrumentation)
         if (name.endsWith("bytebuddy.agent.getInstrumentation")) {
             return true;
         }

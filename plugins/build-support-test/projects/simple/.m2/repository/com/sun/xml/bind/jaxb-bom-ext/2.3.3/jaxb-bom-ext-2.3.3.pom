@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.glassfish.jaxb</groupId>
+        <artifactId>jaxb-bom</artifactId>
+        <relativePath>../bom/pom.xml</relativePath>
+        <version>2.3.3</version>
+    </parent>
+
+    <groupId>com.sun.xml.bind</groupId>
+    <artifactId>jaxb-bom-ext</artifactId>
+
+    <packaging>pom</packaging>
+    <name>JAXB BOM with ALL dependencies</name>
+    <description>
+        JAXB Bill of Materials (BOM) with all dependencies.
+        If you are not sure - DON'T USE THIS BOM. Use com.sun.xml.bind:jaxb-bom instead.
+    </description>
+
+    <properties>
+        <codemodel.version>${project.version}</codemodel.version>
+        <dtd-parser.version>1.4.3</dtd-parser.version>
+        <relaxng.version>${project.version}</relaxng.version>
+        <xsom.version>${project.version}</xsom.version>
+        <ant.version>1.10.7</ant.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.sun.xml.bind.external</groupId>
+                <artifactId>rngom</artifactId>
+                <version>${relaxng.version}</version>
+            </dependency>
+            <!-- Dependencies -->
+            <dependency>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>xsom</artifactId>
+                <version>${xsom.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.xml.dtd-parser</groupId>
+                <artifactId>dtd-parser</artifactId>
+                <version>${dtd-parser.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sun.istack</groupId>
+                <artifactId>istack-commons-tools</artifactId>
+                <version>${istack.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>codemodel</artifactId>
+                <version>${codemodel.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.glassfish.jaxb</groupId>
+                <artifactId>txw2</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.ant</groupId>
+                <artifactId>ant</artifactId>
+                <version>${ant.version}</version>
+            </dependency>
+            <dependency> <!-- xjc dependency... needed to be specified for xjc maven-dependency-plugin -->
+                <groupId>com.sun.xml.bind.external</groupId>
+                <artifactId>relaxng-datatype</artifactId>
+                <version>${relaxng.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>

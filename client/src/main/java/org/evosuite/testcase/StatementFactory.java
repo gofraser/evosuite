@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase;
 
@@ -293,7 +293,9 @@ public class StatementFactory {
      * at execution time to cap mutated values.
      */
     public static boolean isAllocationSensitive(Class<?> clazz) {
-        if (clazz == null) return false;
+        if (clazz == null) {
+            return false;
+        }
         if (Collection.class.isAssignableFrom(clazz) || Map.class.isAssignableFrom(clazz)) {
             return true;
         }
@@ -318,12 +320,19 @@ public class StatementFactory {
         Class<?>[] rawParams = constructor.getConstructor().getParameterTypes();
         boolean hasIntParam = false;
         for (Class<?> p : rawParams) {
-            if (p.equals(int.class)) { hasIntParam = true; break; }
+            if (p.equals(int.class)) {
+                hasIntParam = true;
+                break;
+            }
         }
-        if (!hasIntParam) return false;
+        if (!hasIntParam) {
+            return false;
+        }
 
         Class<?> rawType = constructor.getRawGeneratedType();
-        if (rawType == null) return false;
+        if (rawType == null) {
+            return false;
+        }
 
         if (Collection.class.isAssignableFrom(rawType) || Map.class.isAssignableFrom(rawType)) {
             return true;
@@ -356,10 +365,14 @@ public class StatementFactory {
 
         // First pass: cap individual values
         for (int i = 0; i < rawParams.length && i < parameters.size(); i++) {
-            if (!rawParams[i].equals(int.class)) continue;
+            if (!rawParams[i].equals(int.class)) {
+                continue;
+            }
             VariableReference param = parameters.get(i);
             Statement st = test.getStatement(param.getStPosition());
-            if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) continue;
+            if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) {
+                continue;
+            }
 
             org.evosuite.testcase.statements.numeric.IntPrimitiveStatement intSt =
                     (org.evosuite.testcase.statements.numeric.IntPrimitiveStatement) st;
@@ -377,10 +390,14 @@ public class StatementFactory {
         long product = 1;
         boolean hasPositiveInt = false;
         for (int i = 0; i < rawParams.length && i < parameters.size(); i++) {
-            if (!rawParams[i].equals(int.class)) continue;
+            if (!rawParams[i].equals(int.class)) {
+                continue;
+            }
             VariableReference param = parameters.get(i);
             Statement st = test.getStatement(param.getStPosition());
-            if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) continue;
+            if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) {
+                continue;
+            }
             int value = ((org.evosuite.testcase.statements.numeric.IntPrimitiveStatement) st).getValue();
             if (value > 0) {
                 product *= value;
@@ -391,14 +408,20 @@ public class StatementFactory {
             // Scale down: set each positive int arg to roughly the nth root of maxCapacity
             int intArgCount = 0;
             for (Class<?> p : rawParams) {
-                if (p.equals(int.class)) intArgCount++;
+                if (p.equals(int.class)) {
+                    intArgCount++;
+                }
             }
             int perArgLimit = (int) Math.pow(maxCapacity, 1.0 / intArgCount);
             for (int i = 0; i < rawParams.length && i < parameters.size(); i++) {
-                if (!rawParams[i].equals(int.class)) continue;
+                if (!rawParams[i].equals(int.class)) {
+                    continue;
+                }
                 VariableReference param = parameters.get(i);
                 Statement st = test.getStatement(param.getStPosition());
-                if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) continue;
+                if (!(st instanceof org.evosuite.testcase.statements.numeric.IntPrimitiveStatement)) {
+                    continue;
+                }
                 org.evosuite.testcase.statements.numeric.IntPrimitiveStatement intSt =
                         (org.evosuite.testcase.statements.numeric.IntPrimitiveStatement) st;
                 if (intSt.getValue() > perArgLimit) {

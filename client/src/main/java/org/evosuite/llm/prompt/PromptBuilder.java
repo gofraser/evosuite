@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.prompt;
 
@@ -67,6 +67,7 @@ public class PromptBuilder {
 
     /**
      * Creates a builder using the default {@link SutContextProviderFactory} singleton.
+     *
      * <p><b>Note:</b> Each builder instance should be used for a single {@link #build()} or
      * {@link #buildWithMetadata()} call. Do not reuse builders across multiple prompts.
      */
@@ -142,7 +143,8 @@ public class PromptBuilder {
         this.clusterSummaryChars = result.getTotalCharsBeforeTruncation();
         String summary = result.getText();
         if (summary != null && !summary.trim().isEmpty()) {
-            userSections.add("Available dependency types (standard Java library classes may also be used freely):\n" + summary);
+            userSections.add("Available dependency types (standard Java library "
+                    + "classes may also be used freely):\n" + summary);
         }
         return this;
     }

@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testparser;
 
@@ -2245,7 +2245,9 @@ public class StatementParser {
         if (declared.length > 0) {
             msg.append(". Available constructors: ");
             for (int i = 0; i < declared.length; i++) {
-                if (i > 0) msg.append("; ");
+                if (i > 0) {
+                    msg.append("; ");
+                }
                 msg.append(clazz.getSimpleName()).append(formatTypes(declared[i].getParameterTypes()));
             }
         }
@@ -2535,8 +2537,12 @@ public class StatementParser {
      */
     private boolean isAccessibleMember(java.lang.reflect.Member member) {
         int mod = member.getModifiers();
-        if (Modifier.isPublic(mod)) return true;
-        if (Modifier.isPrivate(mod) || Modifier.isProtected(mod)) return false;
+        if (Modifier.isPublic(mod)) {
+            return true;
+        }
+        if (Modifier.isPrivate(mod) || Modifier.isProtected(mod)) {
+            return false;
+        }
         // Package-private: allow (test may be in same package)
         return true;
     }

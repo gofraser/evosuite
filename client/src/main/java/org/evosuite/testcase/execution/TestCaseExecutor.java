@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.execution;
 
@@ -575,7 +575,8 @@ public class TestCaseExecutor implements ThreadFactory {
                 } else if (wasInStaticInit && needsTimeoutCleanup(handler)) {
                     // The initial timeout was consumed by classloading/static initialization.
                     // Give the actual test code a fresh timeout budget so it gets a fair chance.
-                    logger.info("Static initializer finished; granting fresh timeout of {}ms for test execution.", timeout);
+                    logger.info("Static initializer finished; granting fresh timeout of {}ms for test execution.",
+                            timeout);
                     ExecutionTracer.setKillSwitch(false);
                     waitForLastTask(handler, timeout);
                 }
@@ -691,24 +692,24 @@ public class TestCaseExecutor implements ThreadFactory {
 
     /**
      * Release Mockito mock state if the test case used functional mocks.
-     * <p>
-     * EvoSuite always uses {@code SubclassByteBuddyMockMaker} (not the inline
+     *
+     * <p>EvoSuite always uses {@code SubclassByteBuddyMockMaker} (not the inline
      * mock maker), so {@code framework().clearInlineMocks()} is intentionally
      * omitted — it is a no-op for subclass mocks and risks interacting with an
      * accidentally-loaded inline mock maker, which can corrupt mock handler state.
-     * <p>
-     * {@code Mockito.clearInvocations(mock)} drains the per-mock
+     *
+     * <p>{@code Mockito.clearInvocations(mock)} drains the per-mock
      * {@code registeredInvocations} LinkedList inside each handler.  Although
      * mocks are now created with {@code stubOnly()} (which disables invocation
      * recording), this call is kept as defense-in-depth for any code path that
      * creates mocks without that flag.
-     * <p>
-     * Both cleanups are safe because EvoSuite tracks invocations independently
+     *
+     * <p>Both cleanups are safe because EvoSuite tracks invocations independently
      * via {@code EvoInvocationListener}, which is read at mutation time
      * <em>before</em> re-execution — Mockito's own invocation log is never
      * consulted by the search.
-     * <p>
-     * We only skip cleanup when the <em>current</em> test's worker thread is
+     *
+     * <p>We only skip cleanup when the <em>current</em> test's worker thread is
      * still alive after a timeout — it might be inside Mockito code and
      * concurrent cleanup could deadlock. Stalled threads from prior executions
      * do not block cleanup; they are already abandoned.
@@ -844,7 +845,7 @@ public class TestCaseExecutor implements ThreadFactory {
         try {
             task.get(timeoutMillis, TimeUnit.MILLISECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException
-                 | CancellationException ignored) {
+                 | CancellationException expected) {
         }
     }
 
@@ -877,6 +878,8 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
+     * Returns the cumulative number of executor rotations since this executor was created.
+     *
      * @return the cumulative number of executor rotations since this executor was created.
      */
     public int getTotalRotationCount() {
@@ -884,6 +887,7 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
+     * Returns the number of stalled threads.
      *
      * @return a int.
      */

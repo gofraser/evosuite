@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,12 +15,13 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm;
 
 /**
  * Raised when an LLM request fails (after retries for retryable failures).
+ *
  * <p>The {@code retryable} flag records whether the root cause was retryable;
  * since the service already exhausted retries before throwing, callers typically
  * only use this flag for diagnostic logging.

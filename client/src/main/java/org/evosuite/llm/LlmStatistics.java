@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm;
 
@@ -123,8 +123,8 @@ public class LlmStatistics {
      * Initializes all LLM-related runtime variables to their zero/default values.
      * This ensures that requested statistics variables are present in the output
      * even if the corresponding features are disabled or never triggered.
-     * <p>
-     * Safe to call regardless of whether LLM mode is enabled.
+     *
+     * <p>Safe to call regardless of whether LLM mode is enabled.
      */
     public static void initializeRuntimeVariables() {
         ClientServices.track(RuntimeVariable.LLM_Model, "");
@@ -199,7 +199,8 @@ public class LlmStatistics {
 
         /** Returns an immutable snapshot of this feature's statistics. */
         FeatureSnapshot snapshot() {
-            return new FeatureSnapshot(calls.get(), failures.get(), timedOut.get(), input.get(), output.get(), latency.get());
+            return new FeatureSnapshot(calls.get(), failures.get(), timedOut.get(),
+                    input.get(), output.get(), latency.get());
         }
     }
 
@@ -212,7 +213,8 @@ public class LlmStatistics {
         private final long latencyMs;
 
         /** Constructs a snapshot with per-feature call, failure, token, and latency counts. */
-        public FeatureSnapshot(long calls, long failures, long timedOut, long inputTokens, long outputTokens, long latencyMs) {
+        public FeatureSnapshot(long calls, long failures, long timedOut, 
+                               long inputTokens, long outputTokens, long latencyMs) {
             this.calls = calls;
             this.failures = failures;
             this.timedOut = timedOut;

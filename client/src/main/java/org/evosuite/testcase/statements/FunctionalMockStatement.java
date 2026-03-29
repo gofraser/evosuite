@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.statements;
 
@@ -168,7 +168,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                     if (mockClass.isAssignableFrom(castTarget)) {
                         registerMockTypeUpgrade(mockClass.getName(), targetType);
                     }
-                } catch (ClassNotFoundException ignored) {
+                } catch (ClassNotFoundException expected) {
                 }
             }
         } catch (Exception ex) {
@@ -1219,138 +1219,138 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 // null (from fillWithNullRefs/satisfyParameters), defeating the purpose.
                 if (!useLenientDefaultAnswer) {
 
-                //execute all "when" statements
-                int index = 0;
+                    //execute all "when" statements
+                    int index = 0;
 
-                logger.debug("Mockito: going to mock {} different methods", mockedMethods.size());
-                for (MethodDescriptor md : mockedMethods) {
+                    logger.debug("Mockito: going to mock {} different methods", mockedMethods.size());
+                    for (MethodDescriptor md : mockedMethods) {
 
-                    if (!md.shouldBeMocked()) {
-                        //no need to mock a method that returns void
-                        logger.debug("Mockito: method {} cannot be mocked", md.getMethodName());
-                        continue;
-                    }
+                        if (!md.shouldBeMocked()) {
+                            //no need to mock a method that returns void
+                            logger.debug("Mockito: method {} cannot be mocked", md.getMethodName());
+                            continue;
+                        }
 
-                    Method method = md.getMethod(); //target method, eg foo.aMethod(...)
+                        Method method = md.getMethod(); //target method, eg foo.aMethod(...)
 
-                    // this is needed if method is protected: it couldn't be called here,
-                    // although fine in the generated JUnit tests
-                    method.setAccessible(true);
+                        // this is needed if method is protected: it couldn't be called here,
+                        // although fine in the generated JUnit tests
+                        method.setAccessible(true);
 
-                    //target inputs
-                    Object[] targetInputs = new Object[md.getNumberOfInputParameters()];
-                    for (int i = 0; i < targetInputs.length; i++) {
-                        logger.debug("Mockito: executing matcher {}/{}", (1 + i),
-                                targetInputs.length);
-                        targetInputs[i] = md.executeMatcher(i);
-                    }
+                        //target inputs
+                        Object[] targetInputs = new Object[md.getNumberOfInputParameters()];
+                        for (int i = 0; i < targetInputs.length; i++) {
+                            logger.debug("Mockito: executing matcher {}/{}", (1 + i),
+                                    targetInputs.length);
+                            targetInputs[i] = md.executeMatcher(i);
+                        }
 
-                    logger.debug("Mockito: going to invoke method {} with {} matchers",
-                            method.getName(), targetInputs.length);
+                        logger.debug("Mockito: going to invoke method {} with {} matchers",
+                                method.getName(), targetInputs.length);
 
-                    if (!method.getDeclaringClass().isAssignableFrom(ret.getClass())) {
+                        if (!method.getDeclaringClass().isAssignableFrom(ret.getClass())) {
 
-                        String msg = "Mismatch between callee's class " + ret.getClass()
-                                + " and method's class " + method.getDeclaringClass();
-                        msg += "\nTarget class classloader "
-                                + targetClass.getRawClass().getClassLoader()
-                                + " vs method's classloader "
-                                + method.getDeclaringClass().getClassLoader();
-                        throw new EvosuiteError(msg);
-                    }
+                            String msg = "Mismatch between callee's class " + ret.getClass()
+                                    + " and method's class " + method.getDeclaringClass();
+                            msg += "\nTarget class classloader "
+                                    + targetClass.getRawClass().getClassLoader()
+                                    + " vs method's classloader "
+                                    + method.getDeclaringClass().getClassLoader();
+                            throw new EvosuiteError(msg);
+                        }
 
-                    //actual call foo.aMethod(...)
-                    Object targetMethodResult;
+                        //actual call foo.aMethod(...)
+                        Object targetMethodResult;
 
-                    try {
-                        if (targetInputs.length == 0) {
-                            targetMethodResult = method.invoke(ret);
+                        try {
+                            if (targetInputs.length == 0) {
+                                targetMethodResult = method.invoke(ret);
+                            } else {
+                                targetMethodResult = method.invoke(ret, targetInputs);
+                            }
+                        } catch (InvocationTargetException e) {
+                            logger.error("Invocation of mocked {}.{}() threw an exception. "
+                                    + "This means the method was not mocked",
+                                    targetClass.getClassName(), method.getName());
+                            throw e;
+                        } catch (IllegalArgumentException | IllegalAccessError e) {
+                            // FIXME: Happens for reasons I don't understand. By throwing a
+                            // CodeUnderTestException EvoSuite will just ignore that
+                            // mocking statement and continue, instead of crashing
+                            logger.error("IAE on <{}> when called with {}", method,
+                                    Arrays.toString(targetInputs));
+                            throw new CodeUnderTestException(e);
+                        }
+
+                        //when(...)
+                        logger.debug("Mockito: call 'when'");
+                        OngoingStubbing<Object> retForThen = Mockito.when(targetMethodResult);
+
+                        //thenReturn(...)
+                        Object[] thenReturnInputs = null;
+                        try {
+                            int size = Math.min(md.getCounter(),
+                                    Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT);
+
+                            thenReturnInputs = new Object[size];
+
+                            for (int i = 0; i < thenReturnInputs.length; i++) {
+
+                                int k = i + index; //the position in flat parameter list
+                                if (k >= parameters.size()) {
+                                    throw new CodeUnderTestException(new FalsePositiveException(
+                                            "EvoSuite ERROR: index " + k + " out of "
+                                                    + parameters.size()));
+                                }
+
+                                VariableReference parameterVar = parameters.get(i + index);
+                                thenReturnInputs[i] = parameterVar.getObject(scope);
+
+                                CodeUnderTestException codeUnderTestException = null;
+
+                                if (thenReturnInputs[i] == null && method.getReturnType().isPrimitive()) {
+                                    codeUnderTestException = new CodeUnderTestException(
+                                            new NullPointerException());
+
+                                } else if (thenReturnInputs[i] != null
+                                        && !TypeUtils.isAssignable(thenReturnInputs[i].getClass(),
+                                        method.getReturnType())) {
+                                    codeUnderTestException = new CodeUnderTestException(
+                                            new UncompilableCodeException("Cannot assign "
+                                                    + parameterVar.getVariableClass().getName()
+                                                    + " to " + method.getReturnType()));
+                                }
+
+                                if (codeUnderTestException != null) {
+                                    throw codeUnderTestException;
+                                }
+
+                                thenReturnInputs[i] = fixBoxing(thenReturnInputs[i],
+                                        method.getReturnType());
+                            }
+                        } catch (Exception e) {
+                            // be sure "then" is always called after a "when", otherwise
+                            // Mockito might end up in a inconsistent state
+                            retForThen.thenThrow(new RuntimeException("Failed to setup mock: "
+                                    + e.getMessage()));
+                            throw e;
+                        }
+
+
+                        //final call when(...).thenReturn(...)
+                        logger.debug("Mockito: executing 'thenReturn'");
+                        if (thenReturnInputs == null || thenReturnInputs.length == 0) {
+                            retForThen.thenThrow(new RuntimeException("No valid return value"));
+                        } else if (thenReturnInputs.length == 1) {
+                            retForThen.thenReturn(thenReturnInputs[0]);
                         } else {
-                            targetMethodResult = method.invoke(ret, targetInputs);
+                            Object[] values = Arrays.copyOfRange(thenReturnInputs, 1,
+                                    thenReturnInputs.length);
+                            retForThen.thenReturn(thenReturnInputs[0], values);
                         }
-                    } catch (InvocationTargetException e) {
-                        logger.error("Invocation of mocked {}.{}() threw an exception. "
-                                + "This means the method was not mocked",
-                                targetClass.getClassName(), method.getName());
-                        throw e;
-                    } catch (IllegalArgumentException | IllegalAccessError e) {
-                        // FIXME: Happens for reasons I don't understand. By throwing a
-                        // CodeUnderTestException EvoSuite will just ignore that
-                        // mocking statement and continue, instead of crashing
-                        logger.error("IAE on <{}> when called with {}", method,
-                                Arrays.toString(targetInputs));
-                        throw new CodeUnderTestException(e);
+
+                        index += thenReturnInputs == null ? 0 : thenReturnInputs.length;
                     }
-
-                    //when(...)
-                    logger.debug("Mockito: call 'when'");
-                    OngoingStubbing<Object> retForThen = Mockito.when(targetMethodResult);
-
-                    //thenReturn(...)
-                    Object[] thenReturnInputs = null;
-                    try {
-                        int size = Math.min(md.getCounter(),
-                                Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT);
-
-                        thenReturnInputs = new Object[size];
-
-                        for (int i = 0; i < thenReturnInputs.length; i++) {
-
-                            int k = i + index; //the position in flat parameter list
-                            if (k >= parameters.size()) {
-                                throw new CodeUnderTestException(new FalsePositiveException(
-                                        "EvoSuite ERROR: index " + k + " out of "
-                                                + parameters.size()));
-                            }
-
-                            VariableReference parameterVar = parameters.get(i + index);
-                            thenReturnInputs[i] = parameterVar.getObject(scope);
-
-                            CodeUnderTestException codeUnderTestException = null;
-
-                            if (thenReturnInputs[i] == null && method.getReturnType().isPrimitive()) {
-                                codeUnderTestException = new CodeUnderTestException(
-                                        new NullPointerException());
-
-                            } else if (thenReturnInputs[i] != null
-                                    && !TypeUtils.isAssignable(thenReturnInputs[i].getClass(),
-                                    method.getReturnType())) {
-                                codeUnderTestException = new CodeUnderTestException(
-                                        new UncompilableCodeException("Cannot assign "
-                                                + parameterVar.getVariableClass().getName()
-                                                + " to " + method.getReturnType()));
-                            }
-
-                            if (codeUnderTestException != null) {
-                                throw codeUnderTestException;
-                            }
-
-                            thenReturnInputs[i] = fixBoxing(thenReturnInputs[i],
-                                    method.getReturnType());
-                        }
-                    } catch (Exception e) {
-                        // be sure "then" is always called after a "when", otherwise
-                        // Mockito might end up in a inconsistent state
-                        retForThen.thenThrow(new RuntimeException("Failed to setup mock: "
-                                + e.getMessage()));
-                        throw e;
-                    }
-
-
-                    //final call when(...).thenReturn(...)
-                    logger.debug("Mockito: executing 'thenReturn'");
-                    if (thenReturnInputs == null || thenReturnInputs.length == 0) {
-                        retForThen.thenThrow(new RuntimeException("No valid return value"));
-                    } else if (thenReturnInputs.length == 1) {
-                        retForThen.thenReturn(thenReturnInputs[0]);
-                    } else {
-                        Object[] values = Arrays.copyOfRange(thenReturnInputs, 1,
-                                thenReturnInputs.length);
-                        retForThen.thenReturn(thenReturnInputs[0], values);
-                    }
-
-                    index += thenReturnInputs == null ? 0 : thenReturnInputs.length;
-                }
 
                 } // end if (!useLenientDefaultAnswer)
             } catch (CodeUnderTestException e) {

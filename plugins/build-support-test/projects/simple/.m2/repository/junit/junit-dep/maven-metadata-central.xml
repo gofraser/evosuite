@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+    contributors
+
+    This file is part of EvoSuite.
+
+    EvoSuite is free software: you can redistribute it and/or modify it
+    under the terms of the GNU Lesser General Public License as published
+    by the Free Software Foundation, either version 3.0 of the License, or
+    (at your option) any later version.
+
+    EvoSuite is distributed in the hope that it will be useful, but
+    WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+    Lesser Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public
+    License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+
+-->
+<metadata>
+  <groupId>junit</groupId>
+  <artifactId>junit-dep</artifactId>
+  <versioning>
+    <latest>4.11</latest>
+    <release>4.11</release>
+    <versions>
+      <version>4.6</version>
+      <version>4.7</version>
+      <version>4.8</version>
+      <version>4.8.1</version>
+      <version>4.8.2</version>
+      <version>4.9</version>
+      <version>4.10</version>
+      <version>4.11-beta-1</version>
+      <version>4.11</version>
+    </versions>
+    <lastUpdated>20121114192419</lastUpdated>
+  </versioning>
+</metadata>

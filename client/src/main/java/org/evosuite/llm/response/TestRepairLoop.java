@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.response;
 
@@ -31,7 +31,6 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -172,7 +171,8 @@ public class TestRepairLoop {
             List<ParseResult> parseResults;
             try {
                 String sutPackage = getSutPackage();
-                String extractedClass = responseParser.extractTestClass(currentResponse, "GeneratedLlmTest", sutPackage);
+                String extractedClass = responseParser.extractTestClass(currentResponse, 
+                        "GeneratedLlmTest", sutPackage);
                 parseResults = testParser.parseTestClass(extractedClass);
             } catch (Throwable parserFailure) {
                 String parserFailureText = "Parser failure: " + formatThrowable(parserFailure);

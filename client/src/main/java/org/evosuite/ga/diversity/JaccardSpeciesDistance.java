@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.ga.diversity;
 
@@ -91,6 +91,12 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         return jaccardDistance(setA, setB);
     }
 
+    /**
+     * Get the set of branches covered by the chromosome.
+     *
+     * @param tc the chromosome
+     * @return the set of covered branch IDs
+     */
     public static Set<Integer> getCoveredBranches(TestChromosome tc) {
         ExecutionResult result = tc.getLastExecutionResult();
         if (result == null || result.getTrace() == null) {
@@ -103,6 +109,12 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         return branches;
     }
 
+    /**
+     * Get the set of lines covered by the chromosome.
+     *
+     * @param tc the chromosome
+     * @return the set of covered line numbers
+     */
     public static Set<Integer> getCoveredLines(TestChromosome tc) {
         ExecutionResult result = tc.getLastExecutionResult();
         if (result == null || result.getTrace() == null) {
@@ -111,6 +123,12 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         return new HashSet<>(result.getTrace().getCoveredLines());
     }
 
+    /**
+     * Get the set of fitness goals covered by the chromosome.
+     *
+     * @param tc the chromosome
+     * @return the set of covered fitness functions
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static Set<FitnessFunction<?>> getCoveredGoals(TestChromosome tc) {
         Map<FitnessFunction<TestChromosome>, Double> fitnessValues = tc.getFitnessValues();
@@ -123,6 +141,12 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         return covered;
     }
 
+    /**
+     * Get the set of method signatures called during the chromosome execution.
+     *
+     * @param tc the chromosome
+     * @return the set of method signatures
+     */
     public static Set<String> getMethodSignatures(TestChromosome tc) {
         ExecutionResult result = tc.getLastExecutionResult();
         if (result == null || result.getTrace() == null) {

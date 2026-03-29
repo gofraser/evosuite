@@ -1,4 +1,4 @@
-/**
+/*
  * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
  * contributors
  *
@@ -15,7 +15,7 @@
  * Lesser Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see <http://www.gnu.org/licenses/>.
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.testcase.dmon;
 
@@ -31,6 +31,14 @@ public final class DmonFailureSite implements Serializable {
     private final int lineNumber;
     private final DmonFailureSiteKind kind;
 
+    /**
+     * Create a new DmonFailureSite.
+     *
+     * @param ownerClass The class where the failure occurred.
+     * @param methodName The method where the failure occurred.
+     * @param lineNumber The line number where the failure occurred.
+     * @param kind The kind of failure.
+     */
     public DmonFailureSite(String ownerClass,
                            String methodName,
                            int lineNumber,
@@ -59,8 +67,12 @@ public final class DmonFailureSite implements Serializable {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof DmonFailureSite)) return false;
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof DmonFailureSite)) {
+            return false;
+        }
         DmonFailureSite that = (DmonFailureSite) o;
         return lineNumber == that.lineNumber
                 && Objects.equals(ownerClass, that.ownerClass)
