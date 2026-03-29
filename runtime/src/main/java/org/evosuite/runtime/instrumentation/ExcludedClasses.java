@@ -86,8 +86,7 @@ public class ExcludedClasses {
         // Always excluded unless the target class is IN one of these packages
         // (i.e., we are generating tests for that library itself).
         String targetPrefix = RuntimeInstrumentation.getTargetClassPrefix();
-        boolean applyLibraryExclusions = RuntimeInstrumentation.getAvoidInstrumentingShadedClasses()
-                || targetPrefix != null;
+        boolean applyLibraryExclusions = RuntimeInstrumentation.getAvoidInstrumentingShadedClasses();
         if (applyLibraryExclusions) {
             for (String pkg : PROBLEMATIC_LIBRARY_PREFIXES) {
                 if (targetPrefix != null && targetPrefix.startsWith(pkg)) {
