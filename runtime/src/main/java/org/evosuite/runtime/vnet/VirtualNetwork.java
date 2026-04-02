@@ -152,6 +152,11 @@ public class VirtualNetwork {
      */
     private final Set<String> remoteAccessedFiles;
 
+    /**
+     * Raw host strings resolved via mocked DNS.
+     */
+    private final Set<String> remoteDnsLookups;
+
     private DNS dns;
 
     /**
@@ -167,6 +172,7 @@ public class VirtualNetwork {
         networkInterfaces = new CopyOnWriteArrayList<>();
         remoteFiles = new ConcurrentHashMap<>();
         remoteAccessedFiles = new CopyOnWriteArraySet<>();
+        remoteDnsLookups = new CopyOnWriteArraySet<>();
         sentUdpPackets = new ConcurrentHashMap<>();
         udpPacketsToSUT = new ConcurrentHashMap<>();
 
@@ -207,6 +213,7 @@ public class VirtualNetwork {
         openedTcpConnections.clear();
         remoteContactedPorts.clear();
         remoteAccessedFiles.clear();
+        remoteDnsLookups.clear();
     }
 
     // -------  observers ----------------------
@@ -225,6 +232,10 @@ public class VirtualNetwork {
 
     public Set<EndPointInfo> getViewOfRemoteContactedPorts() {
         return Collections.unmodifiableSet(remoteContactedPorts);
+    }
+
+    public Set<String> getViewOfRemoteDnsLookups() {
+        return Collections.unmodifiableSet(remoteDnsLookups);
     }
 
     /**
@@ -404,6 +415,9 @@ public class VirtualNetwork {
      * @return the resolved IP address, or {@code null} if resolution failed
      */
     public String dnsResolve(String host) {
+        if (host != null) {
+            remoteDnsLookups.add(host);
+        }
         return dns.resolve(host);
     }
 

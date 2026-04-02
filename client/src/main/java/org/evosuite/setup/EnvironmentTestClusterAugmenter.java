@@ -34,6 +34,7 @@ import org.evosuite.runtime.util.SystemInUtil;
 import org.evosuite.runtime.vfs.VirtualFileSystem;
 import org.evosuite.runtime.vnet.EndPointInfo;
 import org.evosuite.runtime.vnet.VirtualNetwork;
+import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
@@ -416,6 +417,8 @@ public class EnvironmentTestClusterAugmenter {
         test.getAccessedEnvironment()
                 .addRemoteContactedPorts(VirtualNetwork.getInstance().getViewOfRemoteContactedPorts());
 
+        seedNetworkRelatedConstants();
+
         if (!hasAddedRemoteURLs && test.getAccessedEnvironment().getViewOfRemoteURLs().size() > 0) {
             hasAddedRemoteURLs = true;
             try {
@@ -494,6 +497,24 @@ public class EnvironmentTestClusterAugmenter {
             } catch (Exception e) {
                 logger.error("Error while handling hasAddedTcpRemoteSupport: " + e.getMessage(), e);
             }
+        }
+    }
+
+    /**
+     * Seed runtime-observed network values into the dynamic constant pool so generated
+     * String/int primitives are more likely to match active network interactions.
+     */
+    private void seedNetworkRelatedConstants() {
+        ConstantPoolManager constants = ConstantPoolManager.getInstance();
+
+        for (String host : VirtualNetwork.getInstance().getViewOfRemoteDnsLookups()) {
+            constants.addDynamicConstant(host);
+        }
+
+        for (EndPointInfo info : VirtualNetwork.getInstance().getViewOfRemoteContactedPorts()) {
+            constants.addDynamicConstant(info.getHost());
+            constants.addDynamicConstant(info.getPort());
+            constants.addDynamicConstant(String.valueOf(info.getPort()));
         }
     }
 

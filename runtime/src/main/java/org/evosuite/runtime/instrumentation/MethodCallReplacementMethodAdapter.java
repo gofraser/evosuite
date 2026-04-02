@@ -126,6 +126,35 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
             isReplaced = true;
         }
 
+        // Generic socket connect fallback for Socket subclasses (eg SSLSocket).
+        // Cache-based replacements are owner-exact (java/net/Socket), so subclass
+        // owners may otherwise bypass VNET and attempt real network connects.
+        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+                && "connect".equals(name)
+                && "(Ljava/net/SocketAddress;)V".equals(desc)
+                && isSocketLikeOwner(owner)) {
+            super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.net.SocketConnectDispatch.class),
+                    "connect",
+                    "(Ljava/net/Socket;Ljava/net/SocketAddress;)V",
+                    false);
+            hasBeenInstrumented = true;
+            isReplaced = true;
+        }
+
+        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+                && "connect".equals(name)
+                && "(Ljava/net/SocketAddress;I)V".equals(desc)
+                && isSocketLikeOwner(owner)) {
+            super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.net.SocketConnectDispatch.class),
+                    "connect",
+                    "(Ljava/net/Socket;Ljava/net/SocketAddress;I)V",
+                    false);
+            hasBeenInstrumented = true;
+            isReplaced = true;
+        }
+
         // Static replacement methods
         // For invokespecial this can only be used if a constructor is called,
         // not for super calls because not all mock classes may be superclasses
@@ -211,5 +240,9 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         // Also support project-specific wrappers/subclasses (eg custom JList subclasses).
         // Keep JDK/Javax non-Swing owners excluded to avoid broad accidental rewrites.
         return !(owner.startsWith("java/") || owner.startsWith("javax/"));
+    }
+
+    private static boolean isSocketLikeOwner(String owner) {
+        return "java/net/Socket".equals(owner) || "javax/net/ssl/SSLSocket".equals(owner);
     }
 }

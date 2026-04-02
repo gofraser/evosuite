@@ -46,6 +46,7 @@ import org.evosuite.runtime.mock.java.util.logging.MockFileHandler;
 import org.evosuite.runtime.mock.java.util.logging.MockLogRecord;
 import org.evosuite.runtime.mock.java.util.logging.MockLogger;
 import org.evosuite.runtime.mock.java.util.prefs.MockPreferences;
+import org.evosuite.runtime.mock.javax.net.ssl.MockSSLSocketFactory;
 import org.evosuite.runtime.mock.javax.swing.MockDefaultListSelectionModel;
 import org.evosuite.runtime.mock.javax.swing.MockImageIcon;
 import org.evosuite.runtime.mock.javax.swing.MockJFileChooser;
@@ -195,6 +196,7 @@ public class MockList {
             list.add(MockURL.class);
             list.add(MockURLStreamHandler.class);
             list.add(MockURI.class);
+            list.add(MockSSLSocketFactory.class);
             list.add(MockServerSocketChannel.class);
             list.add(MockSocketChannel.class);
             list.add(MockDatagramChannel.class);
