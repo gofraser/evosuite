@@ -132,6 +132,10 @@ public class MutationSystemTest extends SystemTestBase {
         boolean archive = Properties.TEST_ARCHIVE;
         Properties.TEST_ARCHIVE = false;
         Properties.CRITERION = new Properties.Criterion[]{Criterion.STRONGMUTATION};
+        // Disable primitive pool to avoid the search getting stuck reusing 0 from
+        // the constant pool, which makes add(0,0) indistinguishable from half the
+        // mutations (e.g. x-y, x*y, x%y all return 0).
+        Properties.PRIMITIVE_POOL = 0.0;
 
         String targetClass = SimpleMutationExample1.class.getCanonicalName();
 
