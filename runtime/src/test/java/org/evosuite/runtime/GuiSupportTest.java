@@ -52,4 +52,32 @@ public class GuiSupportTest {
         GuiSupport.restoreHeadlessMode(); //should restore headless
         Assertions.assertFalse(GraphicsEnvironment.isHeadless());
     }
+
+    @Test
+    public void testMockConstructionCycleWhenNotHeadless() {
+        Assumptions.assumeTrue(!GraphicsEnvironment.isHeadless());
+
+        // Simulate: set headless, then disable for mock construction, then restore.
+        GuiSupport.setHeadless();
+        if (GuiSupport.canForceHeadlessForTests()) {
+            Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+        }
+
+        GuiSupport.disableHeadlessForMockConstruction();
+        Assertions.assertFalse(GraphicsEnvironment.isHeadless());
+
+        // The cached GE should now be the real (non-headless) one, so
+        // getDefaultScreenDevice() should not throw HeadlessException.
+        if (GuiSupport.canSwapGeForTests()) {
+            Assertions.assertDoesNotThrow(() ->
+                    GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice());
+        }
+
+        GuiSupport.restoreHeadlessAfterMockConstruction();
+        if (GuiSupport.canForceHeadlessForTests()) {
+            Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+        }
+
+        GuiSupport.restoreHeadlessMode();
+    }
 }

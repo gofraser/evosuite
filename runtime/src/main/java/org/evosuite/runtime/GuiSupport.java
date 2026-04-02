@@ -45,6 +45,16 @@ public class GuiSupport {
     private static final Field headless; // need reflection
     private static final boolean canForceHeadless;
 
+    // Fields for swapping the cached GraphicsEnvironment singleton.
+    // In JDK 17+ the singleton lives in GraphicsEnvironment$LocalGE.INSTANCE;
+    // in older JDKs it was GraphicsEnvironment.localEnv.
+    private static final Field geInstanceField;
+    private static final Field headlessWrappedGeField;
+    private static final boolean canSwapGe;
+
+    // Saved HeadlessGraphicsEnvironment to restore after mock construction.
+    private static GraphicsEnvironment savedHeadlessGe;
+
     static {
         Field tmpHeadless = null;
         boolean tmpCanForceHeadless = false;
@@ -59,6 +69,37 @@ public class GuiSupport {
         }
         headless = tmpHeadless;
         canForceHeadless = tmpCanForceHeadless;
+
+        Field tmpGeInstance = null;
+        Field tmpWrappedGe = null;
+        boolean tmpCanSwap = false;
+        try {
+            // JDK 17+: GraphicsEnvironment$LocalGE.INSTANCE (static final)
+            Class<?> localGeClass = Class.forName("java.awt.GraphicsEnvironment$LocalGE");
+            tmpGeInstance = localGeClass.getDeclaredField("INSTANCE");
+            tmpGeInstance.setAccessible(true);
+        } catch (Throwable e) {
+            try {
+                // Older JDKs: GraphicsEnvironment.localEnv
+                tmpGeInstance = GraphicsEnvironment.class.getDeclaredField("localEnv");
+                tmpGeInstance.setAccessible(true);
+            } catch (Throwable e2) {
+                logger.debug("Cannot access cached GraphicsEnvironment field: {}", e2.getMessage());
+            }
+        }
+        if (tmpGeInstance != null) {
+            try {
+                tmpWrappedGe = Class.forName("sun.java2d.HeadlessGraphicsEnvironment")
+                        .getDeclaredField("ge");
+                tmpWrappedGe.setAccessible(true);
+                tmpCanSwap = true;
+            } catch (Throwable e) {
+                logger.debug("Cannot access HeadlessGraphicsEnvironment.ge: {}", e.getMessage());
+            }
+        }
+        geInstanceField = tmpGeInstance;
+        headlessWrappedGeField = tmpWrappedGe;
+        canSwapGe = tmpCanSwap;
     }
 
     /**
@@ -142,10 +183,30 @@ public class GuiSupport {
      * constructors can call their JDK super-constructors without
      * triggering {@link java.awt.HeadlessException}.
      *
+     * <p>Setting the {@code headless} flag alone is not enough: if the cached
+     * {@link GraphicsEnvironment} singleton is a {@code HeadlessGraphicsEnvironment},
+     * its {@code getDefaultScreenDevice()} throws unconditionally.  We therefore
+     * also swap the cached singleton to the unwrapped real environment.
+     *
      * <p>Must be paired with {@link #restoreHeadlessAfterMockConstruction()}.
      */
     public static void disableHeadlessForMockConstruction() {
         setHeadless(false);
+        if (canSwapGe) {
+            try {
+                GraphicsEnvironment current = (GraphicsEnvironment) geInstanceField.get(null);
+                if (current != null
+                        && "sun.java2d.HeadlessGraphicsEnvironment".equals(current.getClass().getName())) {
+                    GraphicsEnvironment real = (GraphicsEnvironment) headlessWrappedGeField.get(current);
+                    if (real != null) {
+                        savedHeadlessGe = current;
+                        setStaticField(geInstanceField, real);
+                    }
+                }
+            } catch (Throwable t) {
+                logger.debug("Could not swap cached GraphicsEnvironment: {}", t.getMessage());
+            }
+        }
     }
 
     /**
@@ -154,6 +215,15 @@ public class GuiSupport {
      * @see #disableHeadlessForMockConstruction()
      */
     public static void restoreHeadlessAfterMockConstruction() {
+        if (canSwapGe && savedHeadlessGe != null) {
+            try {
+                setStaticField(geInstanceField, savedHeadlessGe);
+            } catch (Throwable t) {
+                logger.debug("Could not restore cached GraphicsEnvironment: {}", t.getMessage());
+            } finally {
+                savedHeadlessGe = null;
+            }
+        }
         setHeadless(true);
     }
 
@@ -174,7 +244,54 @@ public class GuiSupport {
 
     }
 
+    /**
+     * Sets a static field value, handling both regular and static-final fields.
+     * For static-final fields (like the LocalGE.INSTANCE holder), we use
+     * sun.misc.Unsafe since Field.set refuses to modify final fields in Java 12+.
+     */
+    private static void setStaticField(Field field, Object value) throws Exception {
+        int mods = field.getModifiers();
+        if (!java.lang.reflect.Modifier.isFinal(mods)) {
+            field.set(null, value);
+            return;
+        }
+        // static final: need Unsafe
+        try {
+            Class<?> unsafeClass = Class.forName("sun.misc.Unsafe");
+            Field theUnsafe = unsafeClass.getDeclaredField("theUnsafe");
+            theUnsafe.setAccessible(true);
+            Object unsafe = theUnsafe.get(null);
+            java.lang.reflect.Method staticFieldOffset =
+                    unsafeClass.getMethod("staticFieldOffset", Field.class);
+            java.lang.reflect.Method staticFieldBase =
+                    unsafeClass.getMethod("staticFieldBase", Field.class);
+            java.lang.reflect.Method putObject =
+                    unsafeClass.getMethod("putObject", Object.class, long.class, Object.class);
+            Object base = staticFieldBase.invoke(unsafe, field);
+            long offset = (long) staticFieldOffset.invoke(unsafe, field);
+            putObject.invoke(unsafe, base, offset, value);
+        } catch (ClassNotFoundException e) {
+            // sun.misc.Unsafe not available — try jdk.internal.misc.Unsafe
+            Class<?> unsafeClass = Class.forName("jdk.internal.misc.Unsafe");
+            java.lang.reflect.Method getUnsafe = unsafeClass.getMethod("getUnsafe");
+            Object unsafe = getUnsafe.invoke(null);
+            java.lang.reflect.Method staticFieldOffset =
+                    unsafeClass.getMethod("staticFieldOffset", Field.class);
+            java.lang.reflect.Method staticFieldBase =
+                    unsafeClass.getMethod("staticFieldBase", Field.class);
+            java.lang.reflect.Method putReference =
+                    unsafeClass.getMethod("putReference", Object.class, long.class, Object.class);
+            Object base = staticFieldBase.invoke(unsafe, field);
+            long offset = (long) staticFieldOffset.invoke(unsafe, field);
+            putReference.invoke(unsafe, base, offset, value);
+        }
+    }
+
     static boolean canForceHeadlessForTests() {
         return canForceHeadless;
+    }
+
+    static boolean canSwapGeForTests() {
+        return canSwapGe;
     }
 }

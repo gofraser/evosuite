@@ -582,6 +582,8 @@ public class TestRunnable implements InterfaceTestRunnable {
 
     private static void maybeRecordDmonCandidate(ExecutionResult result, Statement statement, Throwable throwable) {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+            logger.debug("DMoN runtime: skip candidate [reason=DISABLED, dmon_enabled={}, no_runtime_dep={}]",
+                    Properties.DMON_ENABLED, Properties.NO_RUNTIME_DEPENDENCY);
             return;
         }
         if (!(statement instanceof ConstructorStatement)) {
@@ -617,6 +619,8 @@ public class TestRunnable implements InterfaceTestRunnable {
                                                          PrintStream out)
             throws InvocationTargetException, IllegalAccessException, InstantiationException {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+            logger.debug("DMoN runtime: skip assist [reason=DISABLED, dmon_enabled={}, no_runtime_dep={}]",
+                    Properties.DMON_ENABLED, Properties.NO_RUNTIME_DEPENDENCY);
             return throwable;
         }
         if (!(statement instanceof ConstructorStatement)) {
@@ -730,6 +734,30 @@ public class TestRunnable implements InterfaceTestRunnable {
         String fieldName = DmonInjectionDiscovery.resolveFieldName(plan);
         Field field = DmonInjectionDiscovery.findStaticField(ownerClass, fieldName);
         Field instanceField = field == null ? DmonInjectionDiscovery.findInstanceField(ownerClass, fieldName) : null;
+
+        // If the field is not found on the failure-site owner, try the class extracted
+        // from the null expression (e.g., "jaw.Main" from "jaw.Main.janelaPrincipal").
+        if (field == null && instanceField == null) {
+            String exprOwner = DmonInjectionDiscovery.resolveFieldOwnerClassName(plan);
+            if (exprOwner != null) {
+                ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+                try {
+                    Class<?> exprClass = Class.forName(exprOwner, false, sutLoader);
+                    if (!exprClass.equals(ownerClass)) {
+                        field = DmonInjectionDiscovery.findStaticField(exprClass, fieldName);
+                        if (field != null) {
+                            ownerClass = exprClass;
+                        } else {
+                            instanceField = DmonInjectionDiscovery.findInstanceField(exprClass, fieldName);
+                            if (instanceField != null) {
+                                ownerClass = exprClass;
+                            }
+                        }
+                    }
+                } catch (ClassNotFoundException expected) {
+                }
+            }
+        }
 
         Class<?> dependencyType = null;
         if (field != null) {

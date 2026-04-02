@@ -24,6 +24,7 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import java.lang.reflect.Method;
+import java.util.Optional;
 
 public class DmonInjectionDiscoveryTest {
 
@@ -43,6 +44,56 @@ public class DmonInjectionDiscoveryTest {
         public void touch() {
             OwnerWithMultipleSetters.registerDep(null);
         }
+    }
+
+    @Test
+    public void resolveFieldOwnerClassNameExtractsQualifiedPrefix() {
+        DmonPromotionPlan plan = new DmonPromotionPlan(
+                null,
+                Optional.of("jaw.Main.janelaPrincipal"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+        Assert.assertEquals("jaw.Main", DmonInjectionDiscovery.resolveFieldOwnerClassName(plan));
+    }
+
+    @Test
+    public void resolveFieldOwnerClassNameReturnsNullForSimpleName() {
+        DmonPromotionPlan plan = new DmonPromotionPlan(
+                null,
+                Optional.of("janelaPrincipal"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+        Assert.assertNull(DmonInjectionDiscovery.resolveFieldOwnerClassName(plan));
+    }
+
+    @Test
+    public void resolveFieldOwnerClassNameReturnsNullForNullPlan() {
+        Assert.assertNull(DmonInjectionDiscovery.resolveFieldOwnerClassName(null));
+    }
+
+    @Test
+    public void resolveFieldOwnerClassNameReturnsNullForNoExpression() {
+        DmonPromotionPlan plan = new DmonPromotionPlan(
+                null,
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+        Assert.assertNull(DmonInjectionDiscovery.resolveFieldOwnerClassName(plan));
+    }
+
+    @Test
+    public void resolveFieldOwnerClassNameHandlesUnqualifiedClassName() {
+        // e.g., "Main.field" — Main starts with uppercase so it's treated as a class
+        DmonPromotionPlan plan = new DmonPromotionPlan(
+                null,
+                Optional.of("Main.janelaPrincipal"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+        Assert.assertEquals("Main", DmonInjectionDiscovery.resolveFieldOwnerClassName(plan));
     }
 
     @Test

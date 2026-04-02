@@ -46,6 +46,37 @@ public final class DmonInjectionDiscovery {
     }
 
     /**
+     * Extracts the class name prefix from the null expression in a promotion plan.
+     * For example, given {@code "jaw.Main.janelaPrincipal"}, returns {@code "jaw.Main"}.
+     * This is useful when the null field belongs to a different class than the one
+     * where the constructor failure occurred.
+     *
+     * @param plan the promotion plan
+     * @return the class name prefix, or null if not extractable
+     */
+    public static String resolveFieldOwnerClassName(DmonPromotionPlan plan) {
+        if (plan == null) {
+            return null;
+        }
+        Optional<String> nullExpression = plan.getNullExpression();
+        if (!nullExpression.isPresent()) {
+            return null;
+        }
+        String expr = nullExpression.get().trim();
+        int dot = expr.lastIndexOf('.');
+        if (dot <= 0) {
+            return null;
+        }
+        String prefix = expr.substring(0, dot);
+        // Sanity check: must look like a qualified class name (contains at least one dot
+        // or starts with an uppercase letter suggesting a class in the default package).
+        if (prefix.contains(".") || Character.isUpperCase(prefix.charAt(0))) {
+            return prefix;
+        }
+        return null;
+    }
+
+    /**
      * Resolves the field name from a promotion plan.
      *
      * @param plan the promotion plan

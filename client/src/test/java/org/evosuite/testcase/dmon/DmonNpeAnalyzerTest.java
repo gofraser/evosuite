@@ -28,6 +28,7 @@ import org.junit.Test;
 
 import java.util.Collections;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 public class DmonNpeAnalyzerTest {
 
@@ -36,6 +37,20 @@ public class DmonNpeAnalyzerTest {
 
         public AsmFallbackTarget() {
             dep.run();
+        }
+    }
+
+    public static class NullGuardedTarget {
+        static Supplier<String> nullableSource;
+        static Supplier<String> nameSource;
+
+        @SuppressWarnings("all")
+        public NullGuardedTarget() {
+            // nullableSource.get() is null-guarded (== null check), so the ASM
+            // fallback should skip it and pick nameSource.get() instead.
+            if (nullableSource.get() == null && nameSource.get().equals("")) {
+                return;
+            }
         }
     }
 
@@ -126,6 +141,63 @@ public class DmonNpeAnalyzerTest {
             Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
             Properties.DMON_HELPFUL_NPE_PARSE = oldHelpful;
             Properties.TARGET_CLASS = oldTargetClass;
+        }
+    }
+
+    @Test
+    public void asmFallbackSkipsNullGuardedInstruction() throws Exception {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        boolean oldHelpful = Properties.DMON_HELPFUL_NPE_PARSE;
+        boolean oldAsm = Properties.DMON_ASM_FALLBACK;
+        String oldTargetClass = Properties.TARGET_CLASS;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.DMON_HELPFUL_NPE_PARSE = false;
+            Properties.DMON_ASM_FALLBACK = true;
+            Properties.TARGET_CLASS = NullGuardedTarget.class.getCanonicalName();
+
+            // nullableSource.get() returns null (guarded by == null check),
+            // nameSource.get() returns null (causes NPE in .equals()).
+            NullGuardedTarget.nullableSource = () -> null;
+            NullGuardedTarget.nameSource = () -> null;
+
+            NullPointerException npe = captureNullGuardedNpe();
+            Assert.assertNotNull(npe);
+
+            DefaultTestCase test = new DefaultTestCase();
+            GenericConstructor gc = new GenericConstructor(
+                    NullGuardedTarget.class.getDeclaredConstructor(), NullGuardedTarget.class);
+            ConstructorStatement statement = new ConstructorStatement(test, gc, Collections.emptyList());
+
+            DmonNpeAnalyzer analyzer = new DmonNpeAnalyzer();
+            Optional<DmonPromotionPlan> maybePlan = analyzer.analyzeConstructorNpe(statement, npe);
+
+            Assert.assertTrue(maybePlan.isPresent());
+            DmonPromotionPlan plan = maybePlan.get();
+            Assert.assertTrue(plan.getMemberToken().isPresent());
+            // Should pick "nameSource" (getstatic after the null check), NOT
+            // "nullableSource" (getstatic before the null check).
+            Assert.assertEquals("nameSource", plan.getMemberToken().get());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.DMON_HELPFUL_NPE_PARSE = oldHelpful;
+            Properties.DMON_ASM_FALLBACK = oldAsm;
+            Properties.TARGET_CLASS = oldTargetClass;
+            NullGuardedTarget.nullableSource = null;
+            NullGuardedTarget.nameSource = null;
+        }
+    }
+
+    private static NullPointerException captureNullGuardedNpe() {
+        try {
+            new NullGuardedTarget();
+            return null;
+        } catch (NullPointerException npe) {
+            // Use the actual stack trace — the NPE comes from .equals() on null
+            return npe;
         }
     }
 

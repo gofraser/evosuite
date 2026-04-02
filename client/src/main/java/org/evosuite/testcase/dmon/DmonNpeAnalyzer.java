@@ -260,25 +260,73 @@ public class DmonNpeAnalyzer {
             return Optional.empty();
         }
 
-        LineInstructionCandidate exact = null;
+        // Collect all candidates on the target line.  When the line contains an
+        // explicit null check (ifnull/ifnonnull), the NPE must have occurred in the
+        // branch past that check, so prefer candidates that appear after it.
+        List<LineInstructionCandidate> exactMatches = new ArrayList<>();
         LineInstructionCandidate next = null;
         LineInstructionCandidate prev = null;
         for (LineInstructionCandidate c : candidates) {
-            if (c.line == targetLine && exact == null) {
-                exact = c;
+            if (c.line == targetLine) {
+                exactMatches.add(c);
             } else if (c.line > targetLine && next == null) {
                 next = c;
             } else if (c.line <= targetLine) {
                 prev = c;
             }
         }
-        if (exact != null) {
-            return Optional.of(exact.insn);
+        if (!exactMatches.isEmpty()) {
+            AbstractInsnNode firstNullCheck = findFirstNullCheckOnLine(method, targetLine);
+            if (firstNullCheck != null) {
+                // Prefer the first candidate after the null check.
+                for (LineInstructionCandidate c : exactMatches) {
+                    if (isAfter(c.insn, firstNullCheck)) {
+                        return Optional.of(c.insn);
+                    }
+                }
+            }
+            // No null check on this line, or no candidates after it: use first match.
+            return Optional.of(exactMatches.get(0).insn);
         }
         if (next != null) {
             return Optional.of(next.insn);
         }
-        return Optional.of(prev.insn);
+        if (prev != null) {
+            return Optional.of(prev.insn);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Finds the first IFNULL or IFNONNULL instruction on the given source line.
+     */
+    private static AbstractInsnNode findFirstNullCheckOnLine(MethodNode method, int targetLine) {
+        int currentLine = -1;
+        for (AbstractInsnNode insn = method.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (insn instanceof LineNumberNode) {
+                currentLine = ((LineNumberNode) insn).line;
+                continue;
+            }
+            if (currentLine == targetLine) {
+                int opcode = insn.getOpcode();
+                if (opcode == Opcodes.IFNULL || opcode == Opcodes.IFNONNULL) {
+                    return insn;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Returns true if {@code insn} appears after {@code reference} in the instruction list.
+     */
+    private static boolean isAfter(AbstractInsnNode insn, AbstractInsnNode reference) {
+        for (AbstractInsnNode n = reference.getNext(); n != null; n = n.getNext()) {
+            if (n == insn) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static Optional<AsmHint> toAsmHint(AbstractInsnNode insn) {

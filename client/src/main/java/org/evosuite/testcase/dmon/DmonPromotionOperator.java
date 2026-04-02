@@ -195,6 +195,35 @@ public final class DmonPromotionOperator {
                 }
             }
         }
+        // If no injection target found on the failure-site owner, try the class from
+        // the null expression (e.g., "jaw.Main" from "jaw.Main.janelaPrincipal").
+        if (staticTargetMethod == null && staticTargetField == null
+                && instanceSetter == null && instanceField == null) {
+            String exprOwner = DmonInjectionDiscovery.resolveFieldOwnerClassName(plan);
+            if (exprOwner != null) {
+                Class<?> exprClass = tryLoadClass(exprOwner, sutLoader);
+                if (exprClass != null && !exprClass.equals(ownerClass)) {
+                    ownerClass = exprClass;
+                    mockType = resolveMockType(plan, ownerClass, sutLoader);
+                    if (mockType == null) {
+                        return new PromotionAttempt(originalResult, false, "MOCK_TYPE_UNRESOLVED");
+                    }
+                    staticTargetMethod = DmonInjectionDiscovery.findStaticSetter(ownerClass, mockType, fieldHint);
+                    staticTargetField = staticTargetMethod == null && Properties.DMON_ALLOW_REFLECTION_FALLBACK
+                            ? findStaticInjectionField(ownerClass, mockType, fieldHint)
+                            : null;
+                    if (staticTargetMethod == null && staticTargetField == null) {
+                        instanceAccessor = DmonInjectionDiscovery.findStaticInstanceAccessor(ownerClass);
+                        if (instanceAccessor != null) {
+                            instanceSetter = findInstanceSetter(ownerClass, mockType, fieldHint);
+                            if (instanceSetter == null && Properties.DMON_ALLOW_REFLECTION_FALLBACK) {
+                                instanceField = findInstanceInjectionField(ownerClass, mockType, fieldHint);
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if (staticTargetMethod == null && staticTargetField == null
                 && instanceSetter == null && instanceField == null) {
             return new PromotionAttempt(originalResult, false, "NO_INJECTION_TARGET");
