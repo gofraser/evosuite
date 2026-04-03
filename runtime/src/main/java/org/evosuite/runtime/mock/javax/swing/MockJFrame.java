@@ -38,32 +38,40 @@ public class MockJFrame extends JFrame implements OverrideMock {
 
     private static final long serialVersionUID = 4875318892903060591L;
 
-    // ── side-effect helper (evaluated before super()) ───────────────
+    // ── side-effect helpers (evaluated before super()) ──────────────
 
     private static String prepareTitle(String title) {
         GuiSupport.disableHeadlessForMockConstruction();
         return title;
     }
 
+    private static GraphicsConfiguration prepareGc(GraphicsConfiguration gc) {
+        GuiSupport.disableHeadlessForMockConstruction();
+        return gc != null ? gc : GuiSupport.getStubGraphicsConfiguration();
+    }
+
     // ── constructors (mirror every public JFrame constructor) ───────
+    // All constructors route through super(String, GraphicsConfiguration)
+    // with a non-null GC so that Window.initGC() never calls
+    // getDefaultScreenDevice() (which returns null on headless servers).
 
     public MockJFrame() throws HeadlessException {
-        super(prepareTitle(""));
+        super(prepareTitle(""), GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJFrame(String title) throws HeadlessException {
-        super(prepareTitle(title));
+        super(prepareTitle(title), GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJFrame(GraphicsConfiguration gc) {
-        super(prepareTitle(""), gc);
+        super(prepareTitle(""), gc != null ? gc : GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJFrame(String title, GraphicsConfiguration gc) {
-        super(prepareTitle(title), gc);
+        super(prepareTitle(title), gc != null ? gc : GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 

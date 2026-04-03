@@ -41,30 +41,28 @@ public class MockWindow extends Window implements OverrideMock {
 
     // ── side-effect helpers (evaluated before super()) ──────────────
 
-    private static Frame prepareFrame(Frame owner) {
-        GuiSupport.disableHeadlessForMockConstruction();
-        return owner;
-    }
-
     private static Window prepareWindow(Window owner) {
         GuiSupport.disableHeadlessForMockConstruction();
         return owner;
     }
 
     // ── constructors (mirror every public Window constructor) ───────
+    // All constructors route through super(Window, GraphicsConfiguration)
+    // with a non-null GC so that Window.initGC() never calls
+    // getDefaultScreenDevice() (which returns null on headless servers).
 
     public MockWindow(Frame owner) {
-        super(prepareFrame(owner));
+        super(prepareWindow(owner), GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockWindow(Window owner) {
-        super(prepareWindow(owner));
+        super(prepareWindow(owner), GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockWindow(Window owner, GraphicsConfiguration gc) {
-        super(prepareWindow(owner), gc);
+        super(prepareWindow(owner), gc != null ? gc : GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 

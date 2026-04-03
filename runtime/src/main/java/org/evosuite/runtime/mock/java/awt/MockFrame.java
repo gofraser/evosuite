@@ -46,24 +46,27 @@ public class MockFrame extends Frame implements OverrideMock {
     }
 
     // ── constructors (mirror every public Frame constructor) ────────
+    // All constructors route through super(String, GraphicsConfiguration)
+    // with a non-null GC so that Window.initGC() never calls
+    // getDefaultScreenDevice() (which returns null on headless servers).
 
     public MockFrame() throws HeadlessException {
-        super(prepareTitle(""));
+        super(prepareTitle(""), GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockFrame(String title) throws HeadlessException {
-        super(prepareTitle(title));
+        super(prepareTitle(title), GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockFrame(GraphicsConfiguration gc) {
-        super(prepareTitle(""), gc);
+        super(prepareTitle(""), gc != null ? gc : GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockFrame(String title, GraphicsConfiguration gc) {
-        super(prepareTitle(title), gc);
+        super(prepareTitle(title), gc != null ? gc : GuiSupport.getStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 

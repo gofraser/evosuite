@@ -41,6 +41,14 @@ public class MockProcessBuilder implements StaticReplacementMock {
         return ProcessBuilder.class.getName();
     }
 
+    public static ProcessBuilder ProcessBuilder(String... command) {
+        return new ProcessBuilder(command);
+    }
+
+    public static ProcessBuilder ProcessBuilder(List<String> command) {
+        return new ProcessBuilder(command);
+    }
+
     public static Process start(ProcessBuilder builder) throws IOException {
         Objects.requireNonNull(builder);
         if (!MockFramework.isEnabled()) {

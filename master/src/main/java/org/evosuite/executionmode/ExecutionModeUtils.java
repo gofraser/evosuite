@@ -294,6 +294,8 @@ public final class ExecutionModeUtils {
         addOpen(cmdLine, "java.prefs/java.util.prefs=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt.font=ALL-UNNAMED");
+        addOpen(cmdLine, "java.desktop/sun.java2d=ALL-UNNAMED");
+        addOpen(cmdLine, "java.desktop/sun.awt=ALL-UNNAMED");
         // Internal JDK packages sometimes used by legacy dependencies
         addExport(cmdLine, "java.xml.crypto/org.jcp.xml.dsig.internal.dom=ALL-UNNAMED");
         addExport(cmdLine, "jdk.javadoc/jdk.javadoc.internal.api=ALL-UNNAMED");

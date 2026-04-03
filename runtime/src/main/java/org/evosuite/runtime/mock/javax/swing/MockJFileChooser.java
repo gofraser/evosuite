@@ -19,6 +19,7 @@
  */
 package org.evosuite.runtime.mock.javax.swing;
 
+import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.runtime.mock.javax.swing.filechooser.MockFileSystemView;
 import javax.accessibility.AccessibleContext;
@@ -230,7 +231,14 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
             view = MockFileSystemView.getFileSystemView();
         }
         setFileSystemView(view);
-        updateUI();
+        // updateUI() installs the platform L&F UI (e.g. AquaFileChooserUI)
+        // which may create a DropTarget that checks headless state.
+        GuiSupport.disableHeadlessForMockConstruction();
+        try {
+            updateUI();
+        } finally {
+            GuiSupport.restoreHeadlessAfterMockConstruction();
+        }
         if (isAcceptAllFileFilterUsed()) {
             setFileFilter(getAcceptAllFileFilter());
         }

@@ -38,6 +38,8 @@ public class MockJDialog extends JDialog implements OverrideMock {
 
     private static final long serialVersionUID = 7519384748043296025L;
 
+    private static final GraphicsConfiguration STUB_GC = GuiSupport.getStubGraphicsConfiguration();
+
     private static Frame prepareFrame(Frame owner) {
         GuiSupport.disableHeadlessForMockConstruction();
         return owner;
@@ -53,83 +55,87 @@ public class MockJDialog extends JDialog implements OverrideMock {
         return owner;
     }
 
+    // All constructors route through the GC-accepting super overload
+    // so that Window.initGC() never calls getDefaultScreenDevice()
+    // (which returns null on headless servers).
+
     public MockJDialog() throws HeadlessException {
-        super(prepareFrame((Frame) null));
+        super(prepareFrame((Frame) null), "", false, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Frame owner) throws HeadlessException {
-        super(prepareFrame(owner));
+        super(prepareFrame(owner), "", false, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Frame owner, boolean modal) throws HeadlessException {
-        super(prepareFrame(owner), modal);
+        super(prepareFrame(owner), "", modal, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Frame owner, String title) throws HeadlessException {
-        super(prepareFrame(owner), title);
+        super(prepareFrame(owner), title, false, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Frame owner, String title, boolean modal) throws HeadlessException {
-        super(prepareFrame(owner), title, modal);
+        super(prepareFrame(owner), title, modal, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Frame owner, String title, boolean modal, GraphicsConfiguration gc) {
-        super(prepareFrame(owner), title, modal, gc);
+        super(prepareFrame(owner), title, modal, gc != null ? gc : STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Dialog owner) throws HeadlessException {
-        super(prepareDialog(owner));
+        super(prepareDialog(owner), "", false, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Dialog owner, boolean modal) throws HeadlessException {
-        super(prepareDialog(owner), modal);
+        super(prepareDialog(owner), "", modal, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Dialog owner, String title) throws HeadlessException {
-        super(prepareDialog(owner), title);
+        super(prepareDialog(owner), title, false, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Dialog owner, String title, boolean modal) throws HeadlessException {
-        super(prepareDialog(owner), title, modal);
+        super(prepareDialog(owner), title, modal, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Dialog owner, String title, boolean modal, GraphicsConfiguration gc) {
-        super(prepareDialog(owner), title, modal, gc);
+        super(prepareDialog(owner), title, modal, gc != null ? gc : STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Window owner) {
-        super(prepareWindow(owner));
+        super(prepareWindow(owner), "", ModalityType.MODELESS, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Window owner, ModalityType modalityType) {
-        super(prepareWindow(owner), modalityType);
+        super(prepareWindow(owner), "", modalityType, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Window owner, String title) {
-        super(prepareWindow(owner), title);
+        super(prepareWindow(owner), title, ModalityType.MODELESS, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Window owner, String title, ModalityType modalityType) {
-        super(prepareWindow(owner), title, modalityType);
+        super(prepareWindow(owner), title, modalityType, STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJDialog(Window owner, String title, ModalityType modalityType, GraphicsConfiguration gc) {
-        super(prepareWindow(owner), title, modalityType, gc);
+        super(prepareWindow(owner), title, modalityType, gc != null ? gc : STUB_GC);
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 

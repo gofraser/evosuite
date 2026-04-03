@@ -23,6 +23,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.awt.*;
+import java.awt.geom.AffineTransform;
+import java.awt.image.ColorModel;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
 
@@ -52,8 +54,15 @@ public class GuiSupport {
     private static final Field headlessWrappedGeField;
     private static final boolean canSwapGe;
 
-    // Saved HeadlessGraphicsEnvironment to restore after mock construction.
+    // Fields for swapping the cached Toolkit singleton.
+    // HeadlessToolkit wraps the real toolkit and throws from getScreenInsets().
+    private static final Field toolkitField;
+    private static final java.lang.reflect.Method getUnderlyingToolkitMethod;
+    private static final boolean canSwapToolkit;
+
+    // Saved HeadlessGraphicsEnvironment and HeadlessToolkit to restore.
     private static GraphicsEnvironment savedHeadlessGe;
+    private static Toolkit savedHeadlessToolkit;
 
     static {
         Field tmpHeadless = null;
@@ -100,6 +109,23 @@ public class GuiSupport {
         geInstanceField = tmpGeInstance;
         headlessWrappedGeField = tmpWrappedGe;
         canSwapGe = tmpCanSwap;
+
+        // Resolve Toolkit.toolkit field and HeadlessToolkit.getUnderlyingToolkit().
+        Field tmpToolkitField = null;
+        java.lang.reflect.Method tmpGetUnderlying = null;
+        boolean tmpCanSwapToolkit = false;
+        try {
+            tmpToolkitField = Toolkit.class.getDeclaredField("toolkit");
+            tmpToolkitField.setAccessible(true);
+            Class<?> headlessToolkitClass = Class.forName("sun.awt.HeadlessToolkit");
+            tmpGetUnderlying = headlessToolkitClass.getMethod("getUnderlyingToolkit");
+            tmpCanSwapToolkit = true;
+        } catch (Throwable e) {
+            logger.debug("Cannot access Toolkit swap fields: {}", e.getMessage());
+        }
+        toolkitField = tmpToolkitField;
+        getUnderlyingToolkitMethod = tmpGetUnderlying;
+        canSwapToolkit = tmpCanSwapToolkit;
     }
 
     /**
@@ -206,6 +232,25 @@ public class GuiSupport {
             } catch (Throwable t) {
                 logger.debug("Could not swap cached GraphicsEnvironment: {}", t.getMessage());
             }
+        } else {
+            logger.debug("Cannot swap cached GraphicsEnvironment singleton "
+                    + "(missing --add-opens java.desktop/sun.java2d=ALL-UNNAMED?). "
+                    + "Mock constructors for Window/Frame/JFrame may throw HeadlessException.");
+        }
+        if (canSwapToolkit) {
+            try {
+                Toolkit current = (Toolkit) toolkitField.get(null);
+                if (current != null
+                        && "sun.awt.HeadlessToolkit".equals(current.getClass().getName())) {
+                    Toolkit real = (Toolkit) getUnderlyingToolkitMethod.invoke(current);
+                    if (real != null) {
+                        savedHeadlessToolkit = current;
+                        toolkitField.set(null, real);
+                    }
+                }
+            } catch (Throwable t) {
+                logger.debug("Could not swap cached Toolkit: {}", t.getMessage());
+            }
         }
     }
 
@@ -215,6 +260,15 @@ public class GuiSupport {
      * @see #disableHeadlessForMockConstruction()
      */
     public static void restoreHeadlessAfterMockConstruction() {
+        if (canSwapToolkit && savedHeadlessToolkit != null) {
+            try {
+                toolkitField.set(null, savedHeadlessToolkit);
+            } catch (Throwable t) {
+                logger.debug("Could not restore cached Toolkit: {}", t.getMessage());
+            } finally {
+                savedHeadlessToolkit = null;
+            }
+        }
         if (canSwapGe && savedHeadlessGe != null) {
             try {
                 setStaticField(geInstanceField, savedHeadlessGe);
@@ -287,11 +341,80 @@ public class GuiSupport {
         }
     }
 
+    /**
+     * Returns a stub {@link GraphicsConfiguration} for use in mock constructors
+     * when no real display is available.  This allows {@code Window.init(gc)}
+     * to skip {@code getDefaultScreenDevice()} (which returns null on headless
+     * servers) while still satisfying the {@code gc.getDevice().getType()}
+     * and {@code gc.getBounds()} calls in the JDK init path.
+     */
+    public static GraphicsConfiguration getStubGraphicsConfiguration() {
+        return StubGraphicsConfiguration.INSTANCE;
+    }
+
     static boolean canForceHeadlessForTests() {
         return canForceHeadless;
     }
 
     static boolean canSwapGeForTests() {
         return canSwapGe;
+    }
+
+    private static final class StubGraphicsDevice extends GraphicsDevice {
+        static final StubGraphicsDevice INSTANCE = new StubGraphicsDevice();
+
+        @Override
+        public int getType() {
+            return TYPE_RASTER_SCREEN;
+        }
+
+        @Override
+        public String getIDstring() {
+            return "EvoSuite-Stub";
+        }
+
+        @Override
+        public GraphicsConfiguration[] getConfigurations() {
+            return new GraphicsConfiguration[]{StubGraphicsConfiguration.INSTANCE};
+        }
+
+        @Override
+        public GraphicsConfiguration getDefaultConfiguration() {
+            return StubGraphicsConfiguration.INSTANCE;
+        }
+    }
+
+    private static final class StubGraphicsConfiguration extends GraphicsConfiguration {
+        static final StubGraphicsConfiguration INSTANCE = new StubGraphicsConfiguration();
+
+        @Override
+        public GraphicsDevice getDevice() {
+            return StubGraphicsDevice.INSTANCE;
+        }
+
+        @Override
+        public ColorModel getColorModel() {
+            return ColorModel.getRGBdefault();
+        }
+
+        @Override
+        public ColorModel getColorModel(int transparency) {
+            return ColorModel.getRGBdefault();
+        }
+
+        @Override
+        public AffineTransform getDefaultTransform() {
+            return new AffineTransform();
+        }
+
+        @Override
+        public AffineTransform getNormalizingTransform() {
+            return new AffineTransform();
+        }
+
+        @Override
+        public Rectangle getBounds() {
+            return new Rectangle(0, 0, 1024, 768);
+        }
     }
 }
