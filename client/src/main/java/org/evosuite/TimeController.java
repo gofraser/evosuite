@@ -325,6 +325,24 @@ public class TimeController {
     }
 
     /**
+     * Get the remaining time in the current phase, in milliseconds.
+     * Returns 0 if there is no time left, or if the current phase has no timeout.
+     */
+    public synchronized long getRemainingTimeInPhaseMs() {
+        if (state.equals(ClientState.NOT_STARTED)) {
+            return Long.MAX_VALUE;
+        }
+        long left = getLeftTimeBeforeEnd();
+        if (currentPhaseHasTimeout()) {
+            long timeoutInMs = getCurrentPhaseTimeout();
+            long timeSincePhaseStarted = System.currentTimeMillis() - currentPhaseStartTime;
+            long phaseLeft = timeoutInMs - timeSincePhaseStarted + timeLeftFromPreviousPhases;
+            left = Math.min(left, phaseLeft);
+        }
+        return Math.max(0, left);
+    }
+
+    /**
      * Get the remaining time before the client should terminate.
      *
      * @return the remaining time in milliseconds
