@@ -1970,6 +1970,10 @@ public class Properties {
     @IntValue(min = 0)
     public static int LLM_REPAIR_ATTEMPTS = 3;
 
+    @Parameter(key = "llm_enable_truncation_recovery", group = "LLM",
+            description = "Attempt to salvage truncated Java test output by trimming incomplete members")
+    public static boolean LLM_ENABLE_TRUNCATION_RECOVERY = true;
+
     @Parameter(key = "llm_expand_cluster_on_demand", group = "LLM",
             description = "Expand test cluster for resolvable classpath symbols referenced by LLM output")
     public static boolean LLM_EXPAND_CLUSTER_ON_DEMAND = true;
@@ -2412,7 +2416,6 @@ public class Properties {
             description = "Experimental: activate Flight Recorder in spawn client process for "
                     + "Java Mission Control")
     public static boolean JMC = false;
-
 
     // ---------------------------------------------------------------
     // TODO: Fix description
