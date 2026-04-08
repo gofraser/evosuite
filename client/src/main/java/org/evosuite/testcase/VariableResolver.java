@@ -104,13 +104,13 @@ public class VariableResolver {
                 || clazz.isClass() || clazz.isString();
 
         if (isPrimitiveOrSimilar && !objects.isEmpty() && reuse <= Properties.PRIMITIVE_REUSE_PROBABILITY) {
-            logger.debug(" Looking for existing object of type {}", parameterType);
+            logger.trace(" Looking for existing object of type {}", parameterType);
             return Randomness.choice(objects);
 
         } else if (!isPrimitiveOrSimilar && !objects.isEmpty() && (reuse <= Properties.OBJECT_REUSE_PROBABILITY)) {
 
             if (logger.isDebugEnabled()) {
-                logger.debug(" Choosing from {} existing objects: {}", objects.size(),
+                logger.trace(" Choosing from {} existing objects: {}", objects.size(),
                         Arrays.toString(objects.toArray()));
             }
             return Randomness.choice(objects);
@@ -135,13 +135,13 @@ public class VariableResolver {
         }
 
         if (logger.isDebugEnabled()) {
-            logger.debug(" Choosing from {} existing objects: {}", objects.size(),
+            logger.trace(" Choosing from {} existing objects: {}", objects.size(),
                     Arrays.toString(objects.toArray()));
         }
         VariableReference reference = Randomness.choice(objects);
         assert config.isCanUseMocks()
                 || !(test.getStatement(reference.getStPosition()) instanceof FunctionalMockStatement);
-        logger.debug(" Using existing object of type {}: {}", parameterType, reference);
+        logger.trace(" Using existing object of type {}: {}", parameterType, reference);
         return reference;
     }
 
@@ -224,12 +224,12 @@ public class VariableResolver {
         if (reuse) { // Only reuse objects if they are related to a target call
             List<VariableReference> candidates = getCandidatesForReuse(test, Object.class, position, config);
             filterVariablesByCastClasses(candidates);
-            logger.debug("Choosing object from: {}", candidates);
+            logger.trace("Choosing object from: {}", candidates);
             if (!candidates.isEmpty()) {
                 return Randomness.choice(candidates);
             }
         }
-        logger.debug("Attempting object generation");
+        logger.trace("Attempting object generation");
 
         return attemptObjectGeneration(test, position, context, config.isAllowNull());
     }
@@ -254,7 +254,7 @@ public class VariableResolver {
         GenericClass<?> clazz = GenericClassFactory.get(parameterType);
 
         if (clazz.hasWildcardOrTypeVariables()) {
-            logger.debug("Getting generic instantiation of {}", clazz);
+            logger.trace("Getting generic instantiation of {}", clazz);
             if (config.getExcludeVar() != null) {
                 clazz = clazz.getGenericInstantiation(config.getExcludeVar().getGenericClass().getTypeVariableMap());
             } else {
@@ -268,7 +268,7 @@ public class VariableResolver {
                 || clazz.isString() || clazz.isArray() || TestCluster.getInstance().hasGenerator(parameterType)
                 || Properties.P_FUNCTIONAL_MOCKING > 0 || Properties.MOCK_IF_NO_GENERATOR) {
 
-            logger.debug(" Generating new object of type {}", parameterType);
+            logger.trace(" Generating new object of type {}", parameterType);
 
             VariableReference reference = attemptGeneration(test, parameterType, position, context, config);
 
@@ -349,7 +349,7 @@ public class VariableResolver {
                         while (test.size() > originalSize) {
                             test.remove(test.size() - 1);
                         }
-                        logger.debug("Object pool sequence insertion failed, falling through: {}", e.getMessage());
+                        logger.trace("Object pool sequence insertion failed, falling through: {}", e.getMessage());
                     }
                 }
             }
