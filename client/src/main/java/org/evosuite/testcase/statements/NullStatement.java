@@ -165,6 +165,10 @@ public class NullStatement extends PrimitiveStatement<Void> {
         logger.info("Method randomize not implemented: How to randomize null?");
     }
 
+    public boolean hasMoreThanOneValue() {
+        return false;
+    }
+
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException,
             IOException {
         ois.defaultReadObject();
