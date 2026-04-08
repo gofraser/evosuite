@@ -880,7 +880,14 @@ public class StatementParser {
             return testCase.addStatement(stmt);
         }
 
-        NullStatement stmt = new NullStatement(testCase, declaredType);
+        // When the declared type is Object (i.e., unknown — no type hint from
+        // a resolved parameter), use Void.class as the null sentinel so that
+        // isAssignableFrom matches any reference type during constructor/method
+        // resolution.  The NullStatement will be re-typed once the target
+        // method/constructor is resolved and arguments are re-resolved with
+        // proper parameter types.
+        Type nullType = (rawClass == Object.class) ? Void.class : declaredType;
+        NullStatement stmt = new NullStatement(testCase, nullType);
         return testCase.addStatement(stmt);
     }
 
