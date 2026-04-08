@@ -189,6 +189,28 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
                     "ARRAY_LIMIT", "I");
             super.visitJumpInsn(Opcodes.IF_ICMPGE, errorTarget);
         }
+
+        // Check the product of all dimensions against ARRAY_LIMIT.
+        // Individual dimensions may each be under the limit, but their
+        // product can still cause OOM (e.g. new Float[50000][50000]).
+        if (dims >= 2) {
+            // Compute product as long to avoid int overflow
+            loadLocal(to.get(0));
+            visitInsn(Opcodes.I2L);
+            for (int i = 1; i < dims; i++) {
+                loadLocal(to.get(i));
+                visitInsn(Opcodes.I2L);
+                visitInsn(Opcodes.LMUL);
+            }
+            // Compare: product >= (long) ARRAY_LIMIT → reject
+            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
+                    "ARRAY_LIMIT", "I");
+            visitInsn(Opcodes.I2L);
+            visitInsn(Opcodes.LCMP);
+            // LCMP pushes 1 if product > limit, 0 if equal, -1 if less
+            super.visitJumpInsn(Opcodes.IFGE, errorTarget);
+        }
+
         goTo(origTarget);
         super.visitLabel(errorTarget);
         super.visitTypeInsn(Opcodes.NEW,
