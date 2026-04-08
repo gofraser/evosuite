@@ -93,7 +93,7 @@ public class ClassPrimitiveStatement extends PrimitiveStatement<Class<?>> {
 
     @Override
     public boolean hasMoreThanOneValue() {
-        return assignableClasses.size() != 1;
+        return assignableClasses.size() > 1;
     }
 
     @Override

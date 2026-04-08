@@ -94,6 +94,11 @@ public class UrlPrimitiveStatement extends EnvironmentDataStatement<EvoSuiteURL>
 
     }
 
+    @Override
+    public boolean hasMoreThanOneValue() {
+        return tc.getAccessedEnvironment().getViewOfRemoteURLs().size() > 1;
+    }
+
     /**
      * {@inheritDoc}
      */
