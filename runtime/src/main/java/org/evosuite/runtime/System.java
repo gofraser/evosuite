@@ -224,9 +224,9 @@ public class System {
      *
      * @return a long.
      */
-    public static long currentTimeMillis() {
+    public static synchronized long currentTimeMillis() {
         wasTimeAccessed = true;
-        return currentTime; //++;
+        return currentTime++;
     }
 
     /**
@@ -236,9 +236,9 @@ public class System {
      *
      * @return Current time in milliseconds
      */
-    public static long getCurrentTimeMillisForVFS() {
+    public static synchronized long getCurrentTimeMillisForVFS() {
         //wasTimeAccessed = true;
-        return currentTime; //++;
+        return currentTime;
     }
 
     private static final Map<Integer, Integer> hashKeys = new HashMap<>();
@@ -293,9 +293,9 @@ public class System {
      *
      * @return a long.
      */
-    public static long nanoTime() {
+    public static synchronized long nanoTime() {
         wasTimeAccessed = true;
-        return currentTime * 1000; //++;
+        return (currentTime++) * 1000L;
     }
 
     /**
@@ -340,8 +340,13 @@ public class System {
      *
      * @param time a long.
      */
-    public static void setCurrentTimeMillis(long time) {
-        currentTime = time;
+    public static synchronized void setCurrentTimeMillis(long time) {
+        // Keep mocked wall-clock monotonic. Backward jumps can poison
+        // time-dependent algorithms that assume non-decreasing timestamps
+        // (eg UUID clock synchronization loops).
+        if (time > currentTime) {
+            currentTime = time;
+        }
     }
 
     /**
