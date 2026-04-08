@@ -140,37 +140,50 @@ public class ClientNodeImpl<T extends Chromosome<T>>
          * function call until end of the search, even if it is on remote process
          */
         searchExecutor.submit(() -> {
-            changeState(ClientState.STARTED);
-
-            //Before starting search, let's activate the sandbox
-            if (Properties.SANDBOX) {
-                Sandbox.initializeSecurityManagerForSUT();
-            }
-            List<TestGenerationResult> results = new ArrayList<>();
-
+            List<TestGenerationResult> results = null;
             try {
-                // Starting a new search
-                TestSuiteGenerator generator = new TestSuiteGenerator();
-                results.add(generator.generateTestSuite());
-                // TODO: Why?
-                // GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
+                changeState(ClientState.STARTED);
+
+                //Before starting search, let's activate the sandbox
+                if (Properties.SANDBOX) {
+                    Sandbox.initializeSecurityManagerForSUT();
+                }
+                results = new ArrayList<>();
+
+                try {
+                    // Starting a new search
+                    TestSuiteGenerator generator = new TestSuiteGenerator();
+                    results.add(generator.generateTestSuite());
+                    // TODO: Why?
+                    // GeneticAlgorithm<?> ga = generator.getEmployedGeneticAlgorithm();
+                } catch (Throwable t) {
+                    safeLogSearchFailure(t);
+                    safeAppendErrorResult(results, t);
+                }
+
+                sendTestGenerationResultBestEffort(results);
             } catch (Throwable t) {
-                logger.error("Error when generating tests for: "
-                        + Properties.TARGET_CLASS + " with seed "
-                        + Randomness.getSeed() + ". Configuration id : "
-                        + Properties.CONFIGURATION_ID, t);
-                results.add(TestGenerationResultBuilder.buildErrorResult("Error when generating tests for: "
-                        + Properties.TARGET_CLASS + ": " + t));
-            }
+                safeLogSearchFailure(t);
+                if (results != null) {
+                    safeAppendErrorResult(results, t);
+                }
+            } finally {
+                try {
+                    changeState(ClientState.DONE);
+                } catch (Throwable t) {
+                    java.lang.System.err.println("Failed to change client state to DONE: " + t);
+                }
 
-            sendTestGenerationResultBestEffort(results);
-            changeState(ClientState.DONE);
-
-            if (Properties.SANDBOX) {
-                /*
-                 * Note: this is mainly done for debugging purposes, to simplify how test cases are run/written
-                 */
-                Sandbox.resetDefaultSecurityManager();
+                if (Properties.SANDBOX) {
+                    /*
+                     * Note: this is mainly done for debugging purposes, to simplify how test cases are run/written
+                     */
+                    try {
+                        Sandbox.resetDefaultSecurityManager();
+                    } catch (Throwable t) {
+                        java.lang.System.err.println("Failed to reset sandbox security manager: " + t);
+                    }
+                }
             }
 
             /*
@@ -183,6 +196,32 @@ public class ClientNodeImpl<T extends Chromosome<T>>
              */
             //org.evosuite.runtime.System.fullReset();
         });
+    }
+
+    private void safeLogSearchFailure(Throwable t) {
+        try {
+            logger.error("Error when generating tests for: "
+                    + Properties.TARGET_CLASS + " with seed "
+                    + Randomness.getSeed() + ". Configuration id : "
+                    + Properties.CONFIGURATION_ID, t);
+        } catch (Throwable ignored) {
+            java.lang.System.err.println("Error when generating tests for: "
+                    + Properties.TARGET_CLASS + " with seed "
+                    + Randomness.getSeed() + ". Configuration id : "
+                    + Properties.CONFIGURATION_ID + ". Cause: " + t);
+        }
+    }
+
+    private static void safeAppendErrorResult(List<TestGenerationResult> results, Throwable t) {
+        if (results == null) {
+            return;
+        }
+        try {
+            results.add(TestGenerationResultBuilder.buildErrorResult("Error when generating tests for: "
+                    + Properties.TARGET_CLASS + ": " + t));
+        } catch (Throwable ignored) {
+            // avoid rethrowing under low-memory conditions
+        }
     }
 
     @Override
