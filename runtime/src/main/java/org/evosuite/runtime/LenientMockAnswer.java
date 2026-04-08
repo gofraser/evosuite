@@ -23,8 +23,11 @@ import org.mockito.Mockito;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
 
+import java.io.InputStream;
+import java.io.Reader;
 import java.lang.reflect.Array;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.Method;
 import java.util.*;
 
 /**
@@ -44,6 +47,11 @@ public class LenientMockAnswer implements Answer<Object> {
 
     @Override
     public Object answer(InvocationOnMock invocation) throws Throwable {
+        if (isEofReadMethod(invocation)) {
+            // Unstubbed Reader/InputStream read() returning 0 can create
+            // non-progress loops. Default to EOF; explicit stubs still win.
+            return -1;
+        }
         return answerForType(invocation.getMethod().getReturnType());
     }
 
@@ -111,5 +119,20 @@ public class LenientMockAnswer implements Answer<Object> {
             }
         }
         return null;
+    }
+
+    private static boolean isEofReadMethod(InvocationOnMock invocation) {
+        Method method = invocation.getMethod();
+        if (!"read".equals(method.getName())) {
+            return false;
+        }
+        Class<?> returnType = method.getReturnType();
+        if (!(returnType == int.class || returnType == Integer.class)) {
+            return false;
+        }
+        Class<?> owner = method.getDeclaringClass();
+        return Reader.class.isAssignableFrom(owner)
+                || InputStream.class.isAssignableFrom(owner)
+                || java.nio.channels.ReadableByteChannel.class.isAssignableFrom(owner);
     }
 }

@@ -53,7 +53,9 @@ import org.mockito.stubbing.OngoingStubbing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
 import java.io.PrintStream;
+import java.io.Reader;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -780,9 +782,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         throw new IllegalArgumentException("Not enough parameter place holders");
                     }
                 }
-                logger.debug("Current input: {} for expected type {}", ref,
-                        getExpectedParameterType(index));
-
                 assert ref.isAssignableTo(getExpectedParameterType(index));
 
                 parameters.set(index, ref);
@@ -931,6 +930,11 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
     @SuppressWarnings("unchecked")
     static Object lenientDefaultAnswer(InvocationOnMock invocation) {
+        if (isEofReadMethod(invocation)) {
+            // Unstubbed Reader/InputStream read() returning 0 can create
+            // non-progress loops. Default to EOF; explicit stubs still win.
+            return -1;
+        }
         Class<?> returnType = invocation.getMethod().getReturnType();
         if (returnType == void.class || returnType == Void.class) {
             return null;
@@ -1006,6 +1010,21 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             }
         }
         return null;
+    }
+
+    private static boolean isEofReadMethod(InvocationOnMock invocation) {
+        Method method = invocation.getMethod();
+        if (!"read".equals(method.getName())) {
+            return false;
+        }
+        Class<?> returnType = method.getReturnType();
+        if (!(returnType == int.class || returnType == Integer.class)) {
+            return false;
+        }
+        Class<?> owner = method.getDeclaringClass();
+        return Reader.class.isAssignableFrom(owner)
+                || InputStream.class.isAssignableFrom(owner)
+                || java.nio.channels.ReadableByteChannel.class.isAssignableFrom(owner);
     }
 
     /**
