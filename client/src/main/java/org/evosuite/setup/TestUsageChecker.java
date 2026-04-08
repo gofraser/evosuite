@@ -237,6 +237,16 @@ public class TestUsageChecker {
             return false;
         }
 
+        // Piped I/O primitives are highly prone to deadlocks in generated tests:
+        // constructors like new PipedInputStream(new PipedOutputStream()) create
+        // blocking channels that require coordinated writer/closer threads.
+        if (java.io.PipedInputStream.class.isAssignableFrom(c)
+                || java.io.PipedOutputStream.class.isAssignableFrom(c)
+                || java.io.PipedReader.class.isAssignableFrom(c)
+                || java.io.PipedWriter.class.isAssignableFrom(c)) {
+            return false;
+        }
+
         // Don't use Lambdas...for now
         if (c.getName().contains("$$Lambda")) {
             return false;
@@ -465,6 +475,10 @@ public class TestUsageChecker {
             return false;
         }
 
+        if (isBlockingMethod(m)) {
+            return false;
+        }
+
         // Hashcode only if we need to cover it
         if (m.getName().equals("hashCode")) {
             final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
@@ -652,6 +666,103 @@ public class TestUsageChecker {
     private static boolean isForkJoinClass(Class<?> clazz) {
         return java.util.concurrent.ForkJoinTask.class.isAssignableFrom(clazz)
                 || java.util.concurrent.ForkJoinPool.class.isAssignableFrom(clazz);
+    }
+
+    /**
+     * Methods that block indefinitely when called without proper setup
+     * (e.g., take() on an empty queue, await() on a latch).  These always
+     * hit the timeout and waste search budget without contributing coverage.
+     */
+    private static boolean isBlockingMethod(Method m) {
+        Class<?> declaringClass = m.getDeclaringClass();
+        String name = m.getName();
+
+        // BlockingQueue / BlockingDeque: take() and put() block indefinitely
+        if (java.util.concurrent.BlockingQueue.class.isAssignableFrom(declaringClass)) {
+            if ("take".equals(name) || "put".equals(name)) {
+                return true;
+            }
+            if ("poll".equals(name) && m.getParameterCount() == 2
+                    && m.getParameterTypes()[0].equals(long.class)
+                    && m.getParameterTypes()[1].equals(java.util.concurrent.TimeUnit.class)) {
+                return true;
+            }
+        }
+
+        // SynchronousQueue: all blocking ops (offer/poll with timeout are fine,
+        // but the no-arg variants and take/put block forever without a partner thread)
+        if (java.util.concurrent.SynchronousQueue.class.isAssignableFrom(declaringClass)) {
+            if ("take".equals(name) || "put".equals(name)) {
+                return true;
+            }
+        }
+
+        // CountDownLatch.await(), CyclicBarrier.await() — need coordinating threads
+        if (java.util.concurrent.CountDownLatch.class.isAssignableFrom(declaringClass)
+                || java.util.concurrent.CyclicBarrier.class.isAssignableFrom(declaringClass)) {
+            if ("await".equals(name) && m.getParameterCount() == 0) {
+                return true;
+            }
+        }
+
+        // Phaser.awaitAdvance variants without timeout
+        if (java.util.concurrent.Phaser.class.isAssignableFrom(declaringClass)) {
+            if ("awaitAdvance".equals(name) || "awaitAdvanceInterruptibly".equals(name)) {
+                if (m.getParameterCount() <= 1) {
+                    return true;
+                }
+            }
+        }
+
+        // Semaphore.acquire() with no permits available blocks forever
+        if (java.util.concurrent.Semaphore.class.isAssignableFrom(declaringClass)) {
+            if ("acquire".equals(name) || "acquireUninterruptibly".equals(name)) {
+                return true;
+            }
+        }
+
+        // Exchanger.exchange() blocks until a partner thread arrives
+        if (java.util.concurrent.Exchanger.class.isAssignableFrom(declaringClass)) {
+            if ("exchange".equals(name) && m.getParameterCount() == 1) {
+                return true;
+            }
+        }
+
+        // CompletableFuture.get() / join() block until completion
+        if (java.util.concurrent.CompletableFuture.class.isAssignableFrom(declaringClass)) {
+            if ("get".equals(name) && m.getParameterCount() == 0) {
+                return true;
+            }
+            if ("join".equals(name)) {
+                return true;
+            }
+        }
+
+        // Future.get() without timeout blocks indefinitely
+        if (java.util.concurrent.Future.class.isAssignableFrom(declaringClass)) {
+            if ("get".equals(name) && m.getParameterCount() == 0) {
+                return true;
+            }
+        }
+
+        // Lock.lock() / lockInterruptibly() — no unlock in generated tests
+        if (java.util.concurrent.locks.Lock.class.isAssignableFrom(declaringClass)) {
+            if ("lock".equals(name) || "lockInterruptibly".equals(name)) {
+                return true;
+            }
+        }
+
+        // Condition.await() — needs signal from another thread
+        if (java.util.concurrent.locks.Condition.class.isAssignableFrom(declaringClass)) {
+            if ("await".equals(name) && m.getParameterCount() == 0) {
+                return true;
+            }
+            if ("awaitUninterruptibly".equals(name)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

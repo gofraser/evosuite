@@ -25,6 +25,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.concurrent.DelayQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.Set;
 
 public class TestAccessMethod {
@@ -292,6 +294,20 @@ public class TestAccessMethod {
                 "bar");
         boolean result = TestUsageChecker.canUse(m,
                 com.examples.with.different.packagename.otherpackage.ExampleWithStaticPackagePrivateInnerClass.class);
+        Assertions.assertTrue(result);
+    }
+
+    @Test
+    public void testDelayQueueTimedPollIsBlocked() throws NoSuchMethodException {
+        Method m = DelayQueue.class.getMethod("poll", long.class, TimeUnit.class);
+        boolean result = TestUsageChecker.canUse(m, DelayQueue.class);
+        Assertions.assertFalse(result);
+    }
+
+    @Test
+    public void testDelayQueueNonBlockingPollIsAllowed() throws NoSuchMethodException {
+        Method m = DelayQueue.class.getMethod("poll");
+        boolean result = TestUsageChecker.canUse(m, DelayQueue.class);
         Assertions.assertTrue(result);
     }
 }
