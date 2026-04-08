@@ -86,4 +86,17 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComponent", dropTargetKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", mixingCutoutKey));
     }
+
+    @Test
+    public void testThreadSleepReplacementsAreRegistered() throws Exception {
+        Method sleepLong = java.lang.Thread.class.getMethod("sleep", long.class);
+        String sleepLongKey = sleepLong.getName() + Type.getMethodDescriptor(sleepLong);
+
+        Method sleepLongInt = java.lang.Thread.class.getMethod("sleep", long.class, int.class);
+        String sleepLongIntKey = sleepLongInt.getName() + Type.getMethodDescriptor(sleepLongInt);
+
+        MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
+        Assertions.assertTrue(cache.hasReplacementCall("java/lang/Thread", sleepLongKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/lang/Thread", sleepLongIntKey));
+    }
 }

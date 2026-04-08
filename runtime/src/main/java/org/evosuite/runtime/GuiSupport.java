@@ -226,7 +226,20 @@ public class GuiSupport {
                     GraphicsEnvironment real = (GraphicsEnvironment) headlessWrappedGeField.get(current);
                     if (real != null) {
                         savedHeadlessGe = current;
-                        setStaticField(geInstanceField, real);
+                        // On truly headless servers the real GE has no screen
+                        // devices, so getDefaultScreenDevice() returns null.
+                        // In that case, install a stub GE that delegates to
+                        // the real one but provides our stub screen device.
+                        GraphicsEnvironment replacement = real;
+                        try {
+                            if (real.getDefaultScreenDevice() == null) {
+                                replacement = new StubGraphicsEnvironment(real);
+                            }
+                        } catch (Throwable ignore) {
+                            // getDefaultScreenDevice() may throw on some platforms
+                            replacement = new StubGraphicsEnvironment(real);
+                        }
+                        setStaticField(geInstanceField, replacement);
                     }
                 }
             } catch (Throwable t) {
@@ -358,6 +371,76 @@ public class GuiSupport {
 
     static boolean canSwapGeForTests() {
         return canSwapGe;
+    }
+
+    /**
+     * A GraphicsEnvironment that delegates to the real (unwrapped) environment
+     * but provides a {@link StubGraphicsDevice} when no real screen device is
+     * available.  This prevents NPEs from JDK code that calls
+     * {@code getDefaultScreenDevice().getDefaultConfiguration()}.
+     */
+    private static final class StubGraphicsEnvironment extends GraphicsEnvironment {
+        private final GraphicsEnvironment delegate;
+
+        StubGraphicsEnvironment(GraphicsEnvironment delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public GraphicsDevice[] getScreenDevices() {
+            try {
+                GraphicsDevice[] real = delegate.getScreenDevices();
+                if (real != null && real.length > 0) {
+                    return real;
+                }
+            } catch (Throwable ignored) {
+            }
+            return new GraphicsDevice[]{StubGraphicsDevice.INSTANCE};
+        }
+
+        @Override
+        public GraphicsDevice getDefaultScreenDevice() {
+            try {
+                GraphicsDevice real = delegate.getDefaultScreenDevice();
+                if (real != null) {
+                    return real;
+                }
+            } catch (Throwable ignored) {
+            }
+            return StubGraphicsDevice.INSTANCE;
+        }
+
+        @Override
+        public Graphics2D createGraphics(java.awt.image.BufferedImage img) {
+            return delegate.createGraphics(img);
+        }
+
+        @Override
+        public Font[] getAllFonts() {
+            try {
+                return delegate.getAllFonts();
+            } catch (Throwable ignored) {
+                return new Font[0];
+            }
+        }
+
+        @Override
+        public String[] getAvailableFontFamilyNames() {
+            try {
+                return delegate.getAvailableFontFamilyNames();
+            } catch (Throwable ignored) {
+                return new String[0];
+            }
+        }
+
+        @Override
+        public String[] getAvailableFontFamilyNames(java.util.Locale l) {
+            try {
+                return delegate.getAvailableFontFamilyNames(l);
+            } catch (Throwable ignored) {
+                return new String[0];
+            }
+        }
     }
 
     private static final class StubGraphicsDevice extends GraphicsDevice {

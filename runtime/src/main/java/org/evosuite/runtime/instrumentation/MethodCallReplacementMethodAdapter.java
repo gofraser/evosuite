@@ -155,6 +155,24 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
             isReplaced = true;
         }
 
+        // Thread subclasses can compile unqualified sleep(...) calls to
+        // INVOKESTATIC on the current class owner (eg TestClockLike.sleep).
+        // Route these to MockThread.sleep so sleep-guarding remains active.
+        if (!isReplaced
+                && opcode == Opcodes.INVOKESTATIC
+                && owner.equals(className)
+                && isCurrentClassThreadSubclass()
+                && "sleep".equals(name)
+                && ("(J)V".equals(desc) || "(JI)V".equals(desc))) {
+            super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.lang.MockThread.class),
+                    "sleep",
+                    desc,
+                    false);
+            hasBeenInstrumented = true;
+            isReplaced = true;
+        }
+
         // Static replacement methods
         // For invokespecial this can only be used if a constructor is called,
         // not for super calls because not all mock classes may be superclasses
@@ -244,5 +262,9 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
 
     private static boolean isSocketLikeOwner(String owner) {
         return "java/net/Socket".equals(owner) || "javax/net/ssl/SSLSocket".equals(owner);
+    }
+
+    private boolean isCurrentClassThreadSubclass() {
+        return "java.lang.Thread".equals(superClassName);
     }
 }

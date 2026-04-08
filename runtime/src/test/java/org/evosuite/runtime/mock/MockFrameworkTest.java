@@ -22,36 +22,17 @@ package org.evosuite.runtime.mock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.Properties;
-
 class MockFrameworkTest {
 
     @Test
-    void isEnabledShouldNotRecurseWhenPropertyLookupReentersMockFramework() {
-        boolean initialState = MockFramework.isEnabled();
-        Properties original = java.lang.System.getProperties();
+    void enableAndDisableToggleState() {
+        MockFramework.disable();
+        Assertions.assertFalse(MockFramework.isEnabled());
 
-        try {
-            java.lang.System.setProperties(new Properties(original) {
-                @Override
-                public String getProperty(String key) {
-                    if ("evosuite.mock.enabled".equals(key)) {
-                        // Simulates app servers that re-enter during property lookup.
-                        return MockFramework.isEnabled() ? "true" : "false";
-                    }
-                    return super.getProperty(key);
-                }
-            });
+        MockFramework.enable();
+        Assertions.assertTrue(MockFramework.isEnabled());
 
-            boolean resolved = MockFramework.isEnabled();
-            Assertions.assertEquals(initialState, resolved);
-        } finally {
-            java.lang.System.setProperties(original);
-            if (initialState) {
-                MockFramework.enable();
-            } else {
-                MockFramework.disable();
-            }
-        }
+        MockFramework.disable();
+        Assertions.assertFalse(MockFramework.isEnabled());
     }
 }

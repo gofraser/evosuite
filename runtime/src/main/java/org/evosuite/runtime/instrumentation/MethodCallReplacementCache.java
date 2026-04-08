@@ -375,6 +375,16 @@ public class MethodCallReplacementCache {
                 Opcodes.INVOKESTATIC, "org/evosuite/runtime/System", "identityHashCode", "(Ljava/lang/Object;)I", false,
                 false));
 
+        // java/lang/Thread
+        // Register explicit sleep replacements here (in addition to MockList-driven
+        // discovery) to guarantee interception of tight polling loops that rely on
+        // Thread.sleep in instrumented SUT code.
+        String mockThread = PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.lang.MockThread.class);
+        addReplacementCall(new MethodCallReplacement("java/lang/Thread", "sleep", "(J)V", Opcodes.INVOKESTATIC,
+                mockThread, "sleep", "(J)V", false, false));
+        addReplacementCall(new MethodCallReplacement("java/lang/Thread", "sleep", "(JI)V", Opcodes.INVOKESTATIC,
+                mockThread, "sleep", "(JI)V", false, false));
+
         // java/lang/Object
         addReplacementCall(new MethodCallReplacement("java/lang/Object", "hashCode", "()I", Opcodes.INVOKEVIRTUAL,
                 PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "identityHashCode",

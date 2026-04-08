@@ -102,20 +102,41 @@ public class Sandbox {
             return;
         }
 
+        if (manager != null) {
+            SecurityManager currentManager = System.getSecurityManager();
+            if (currentManager != manager) {
+                logger.warn("Sandbox state out of sync: internal manager is {}, JVM manager is {}. "
+                                + "Resetting sandbox state and reinitializing.",
+                        manager.getClass().getName(),
+                        currentManager == null ? "null" : currentManager.getClass().getName());
+                manager = null;
+                counter = 0;
+            } else {
+                logger.warn("Sandbox can be initalized only once");
+                counter++;
+                return;
+            }
+        }
+
         if (manager == null) {
-            manager = new MSecurityManager();
+            MSecurityManager newManager = new MSecurityManager();
 
             if (privileged == null) {
-                manager.makePrivilegedAllCurrentThreads();
+                newManager.makePrivilegedAllCurrentThreads();
             } else {
                 for (Thread t : privileged) {
-                    manager.addPrivilegedThread(t);
+                    newManager.addPrivilegedThread(t);
                 }
             }
 
-            manager.apply();
-        } else {
-            logger.warn("Sandbox can be initalized only once");
+            try {
+                newManager.apply();
+                manager = newManager;
+            } catch (RuntimeException e) {
+                // Avoid stale internal state if applying the manager fails.
+                manager = null;
+                throw e;
+            }
         }
 
         counter++;
@@ -152,13 +173,25 @@ public class Sandbox {
             privileged = manager.getPrivilegedThreads();
         }
 
-        counter--;
+        if (counter > 0) {
+            counter--;
+        } else {
+            counter = 0;
+        }
 
         if (counter == 0) {
-            if (manager != null) {
-                manager.restoreDefaultManager();
-            }
+            MSecurityManager oldManager = manager;
             manager = null;
+            if (oldManager != null) {
+                try {
+                    oldManager.restoreDefaultManager();
+                } catch (SecurityException e) {
+                    SecurityManager currentManager = System.getSecurityManager();
+                    logger.warn("Cannot restore default SecurityManager; current JVM manager is {}. "
+                                    + "Sandbox internal state was cleared for recovery.",
+                            currentManager == null ? "null" : currentManager.getClass().getName(), e);
+                }
+            }
         }
 
         return privileged;

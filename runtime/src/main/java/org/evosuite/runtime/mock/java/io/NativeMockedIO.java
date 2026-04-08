@@ -19,6 +19,7 @@
  */
 package org.evosuite.runtime.mock.java.io;
 
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.vfs.FSObject;
 import org.evosuite.runtime.vfs.VFile;
 import org.evosuite.runtime.vfs.VirtualFileSystem;
@@ -65,7 +66,17 @@ public class NativeMockedIO {
 
         VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(path);
 
-        int b = vf.read(position.getAndIncrement());
+        int pos = position.getAndIncrement();
+        int b = vf.read(pos);
+
+        if (b == -1 && RuntimeSettings.maxNumberOfIterationsPerLoop >= 0) {
+            int pastEof = pos - vf.getDataSize() + 1;
+            if (pastEof > RuntimeSettings.maxNumberOfIterationsPerLoop) {
+                throw new MockIOException(
+                        "Read past EOF " + pastEof + " times (limit: "
+                                + RuntimeSettings.maxNumberOfIterationsPerLoop + ")");
+            }
+        }
 
         return b;
     }
