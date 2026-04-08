@@ -560,7 +560,8 @@ public class MSecurityManager extends SecurityManager {
             return true;
         }
 
-        if (checkIfEvoSuiteLlm(perm)) {
+        if ((perm instanceof SocketPermission || perm instanceof NetPermission)
+                && checkIfEvoSuiteLlm(perm)) {
             return true;
         }
 
@@ -1294,7 +1295,7 @@ public class MSecurityManager extends SecurityManager {
          * writing in persistent backing store of the file system does not sound much safe...
          */
         if (name.equals("preferences")) {
-            return false;
+            return RuntimeSettings.mockJVMNonDeterminism;
         }
 
         /*
