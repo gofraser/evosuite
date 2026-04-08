@@ -78,6 +78,8 @@ public class MethodCallReplacementCacheTest {
         Method setMixingCutoutShape = java.awt.Component.class.getMethod(
                 "setMixingCutoutShape", java.awt.Shape.class);
         String mixingCutoutKey = setMixingCutoutShape.getName() + Type.getMethodDescriptor(setMixingCutoutShape);
+        Method getScreenSize = java.awt.Toolkit.class.getMethod("getScreenSize");
+        String getScreenSizeKey = getScreenSize.getName() + Type.getMethodDescriptor(getScreenSize);
 
         MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JList", jListKey));
@@ -85,6 +87,7 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTable", jTableKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComponent", dropTargetKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", mixingCutoutKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Toolkit", getScreenSizeKey));
     }
 
     @Test

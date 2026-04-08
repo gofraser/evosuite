@@ -26,8 +26,10 @@ import javax.swing.JList;
 import javax.swing.JTable;
 import javax.swing.JTree;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.GraphicsEnvironment;
 import java.awt.Shape;
+import java.awt.Toolkit;
 import java.awt.datatransfer.FlavorMap;
 import java.awt.dnd.DropTarget;
 import java.awt.dnd.DropTargetListener;
@@ -39,7 +41,25 @@ import java.lang.reflect.Method;
  * HeadlessException when GUI setup is executed in headless CI.
  */
 public final class MockHeadlessSwing {
+    private static final Dimension HEADLESS_SCREEN_SIZE = new Dimension(1024, 768);
+
     private MockHeadlessSwing() {
+    }
+
+    /**
+     * Replacement for {@code Toolkit.getScreenSize()}.
+     *
+     * @param source the toolkit instance
+     * @return screen size; fixed value in headless mode when mocking is enabled
+     */
+    public static Dimension replacement_getScreenSize(Toolkit source) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (MockFramework.isEnabled() && GraphicsEnvironment.isHeadless()) {
+            return new Dimension(HEADLESS_SCREEN_SIZE);
+        }
+        return source.getScreenSize();
     }
 
     /**

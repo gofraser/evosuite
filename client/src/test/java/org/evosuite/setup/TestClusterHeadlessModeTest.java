@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JFrame;
+import javax.swing.JPanel;
 import java.awt.HeadlessException;
 import java.util.Collections;
 
@@ -40,6 +41,13 @@ public class TestClusterHeadlessModeTest {
     @SuppressWarnings("serial")
     static class FakeJFrameSubclass extends JFrame {
         public FakeJFrameSubclass() throws HeadlessException {
+            super();
+        }
+    }
+
+    @SuppressWarnings("serial")
+    static class FakeJPanelSubclass extends JPanel {
+        public FakeJPanelSubclass() throws HeadlessException {
             super();
         }
     }
@@ -134,5 +142,21 @@ public class TestClusterHeadlessModeTest {
         cluster.addTestCall(cutConstructor);
         Assertions.assertEquals(0, cluster.getNumTestCalls(),
                 "CUT constructor should be filtered when no mock available");
+    }
+
+    @Test
+    public void testNonJdkCutDeclaringHeadlessExceptionIsNotAutoFiltered() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+
+        RuntimeSettings.mockGUI = false;
+        Properties.HEADLESS_MODE = true;
+        Properties.HEADLESS_FILTER_CUT_CALLS = true;
+
+        GenericConstructor cutConstructor = new GenericConstructor(
+                FakeJPanelSubclass.class.getConstructor(), FakeJPanelSubclass.class);
+        cluster.addTestCall(cutConstructor);
+        Assertions.assertEquals(1, cluster.getNumTestCalls(),
+                "Non-JDK CUT constructor should not be filtered only due to declared HeadlessException");
     }
 }

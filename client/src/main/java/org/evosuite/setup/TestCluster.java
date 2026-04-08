@@ -1310,7 +1310,15 @@ public class TestCluster {
                 if (hasMockedAncestor(declaringClass)) {
                     return false;
                 }
-                return true;
+                // Keep filtering JDK classes and Window hierarchy constructors,
+                // which are known to invoke GraphicsEnvironment.checkHeadless().
+                if (isJdkType(declaringClass)
+                        || isAssignableToTypeName(declaringClass, "java.awt.Window")) {
+                    return true;
+                }
+                // For non-JDK CUT classes, a declared HeadlessException alone is
+                // too coarse as a filter and can hide testable code paths.
+                return false;
             }
         }
 
@@ -1413,6 +1421,11 @@ public class TestCluster {
             }
         }
         return false;
+    }
+
+    private static boolean isJdkType(Class<?> type) {
+        String name = type.getName();
+        return name.startsWith("java.") || name.startsWith("javax.");
     }
 
     /**

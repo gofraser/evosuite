@@ -101,6 +101,10 @@ public class MethodCallReplacementCache {
                     "(Ljava/awt/Shape;)V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_setMixingCutoutShape",
                     "(Ljava/awt/Component;Ljava/awt/Shape;)V", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Toolkit", "getScreenSize",
+                    "()Ljava/awt/Dimension;", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_getScreenSize",
+                    "(Ljava/awt/Toolkit;)Ljava/awt/Dimension;", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/dnd/DropTarget", "<init>",
                     "()V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_newDropTarget",
