@@ -1,0 +1,3 @@
+# Force shaded Mockito to use reflection-based access instead of module-access
+# instrumentation that may trigger ByteBuddy self-attach and block in tests.
+org.evosuite.shaded.org.mockito.internal.util.reflection.ReflectionMemberAccessor

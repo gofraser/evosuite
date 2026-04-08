@@ -366,6 +366,12 @@ public class TestClusterUtils {
      * @return the class if found, null otherwise
      */
     public static Class<?> getClass(String className) {
+        // Set the thread context classloader to the InstrumentingClassLoader so that
+        // libraries using Thread.currentThread().getContextClassLoader() for class loading
+        // (e.g., dom4j's DocumentFactory singleton) resolve classes through the same
+        // classloader, avoiding ClassCastExceptions from classloader splits.
+        // See also TestGenerationContext.goingToExecuteSUTCode().
+        TestGenerationContext.getInstance().goingToExecuteSUTCode();
         try {
             Class<?> clazz = Class.forName(className,
                     true,
@@ -376,6 +382,8 @@ public class TestClusterUtils {
         } catch (NoClassDefFoundError e) {
             // an ExceptionInInitializationError might have happened during class initialization.
             return null;
+        } finally {
+            TestGenerationContext.getInstance().doneWithExecutingSUTCode();
         }
     }
 

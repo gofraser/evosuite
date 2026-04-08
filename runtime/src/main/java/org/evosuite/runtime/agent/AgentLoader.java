@@ -54,13 +54,31 @@ public class AgentLoader {
     private static volatile boolean alreadyLoaded = false;
 
     /**
+     * When true, {@link #loadAgent()} returns immediately without attempting
+     * self-attachment.  This is set by the EvoSuite client process during the
+     * JUnit compile-and-rerun check: the client already instruments classes
+     * via {@code InstrumentingClassLoader}, so the agent is unnecessary, and
+     * self-attachment can hang on some JDK/OS combinations.
+     */
+    private static volatile boolean skipAttach = false;
+
+    /**
+     * Tells the agent loader to skip (or allow) dynamic attachment.
+     *
+     * @param skip true to skip, false to allow
+     */
+    public static void setSkipAttach(boolean skip) {
+        AgentLoader.skipAttach = skip;
+    }
+
+    /**
      * Dynamically loads the EvoSuite javaagent into the current JVM.
      *
      * @throws RuntimeException if the agent jar cannot be found or attachment fails.
      */
     public static synchronized void loadAgent() throws RuntimeException {
 
-        if (alreadyLoaded) {
+        if (alreadyLoaded || skipAttach) {
             return;
         }
 

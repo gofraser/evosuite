@@ -262,11 +262,14 @@ public class DependencyAnalysis {
     private static void loadCallTreeClasses(CallGraph callGraph) {
         for (String className : callGraph.getClasses()) {
             if (className.startsWith(Properties.TARGET_CLASS + "$")) {
+                TestGenerationContext.getInstance().goingToExecuteSUTCode();
                 try {
                     Class.forName(className, true,
                             TestGenerationContext.getInstance().getClassLoaderForSUT());
                 } catch (ClassNotFoundException e) {
                     logger.debug("Error loading " + className + ": " + e);
+                } finally {
+                    TestGenerationContext.getInstance().doneWithExecutingSUTCode();
                 }
             }
         }

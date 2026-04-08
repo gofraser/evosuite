@@ -21,6 +21,7 @@ package org.evosuite.instrumentation;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -32,8 +33,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.regex.Pattern;
 
 
@@ -161,6 +165,46 @@ public class InstrumentingClassLoader extends ClassLoader {
         }
     }
 
+    @Override
+    public URL getResource(String name) {
+        for (String candidate : resourceNameCandidates(name)) {
+            URL resource = getResourceFromTargetClasspath(candidate);
+            if (resource != null) {
+                return resource;
+            }
+            resource = super.getResource(candidate);
+            if (resource != null) {
+                return resource;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Enumeration<URL> getResources(String name) throws IOException {
+        LinkedHashSet<URL> resources = new LinkedHashSet<>();
+
+        for (String candidate : resourceNameCandidates(name)) {
+            resources.addAll(getResourcesFromTargetClasspath(candidate));
+            addEnumeration(resources, super.getResources(candidate));
+        }
+
+        return Collections.enumeration(resources);
+    }
+
+    @Override
+    public InputStream getResourceAsStream(String name) {
+        URL resource = getResource(name);
+        if (resource == null) {
+            return null;
+        }
+        try {
+            return resource.openStream();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     //This is needed, as it is overridden in subclasses
     protected byte[] getTransformedBytes(String className, InputStream is) throws IOException {
         return instrumentation.transformBytes(this, className, new ClassReader(is));
@@ -262,6 +306,80 @@ public class InstrumentingClassLoader extends ClassLoader {
             current = current.getCause();
         }
         return false;
+    }
+
+    private URL getResourceFromTargetClasspath(String name) {
+        List<URL> resources = getResourcesFromTargetClasspath(name);
+        return resources.isEmpty() ? null : resources.get(0);
+    }
+
+    private List<URL> getResourcesFromTargetClasspath(String name) {
+        String targetClasspath;
+        try {
+            targetClasspath = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        } catch (Throwable ignored) {
+            return Collections.emptyList();
+        }
+
+        if (targetClasspath == null || targetClasspath.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        LinkedHashSet<URL> resources = new LinkedHashSet<>();
+        for (String entry : targetClasspath.split(File.pathSeparator)) {
+            if (entry == null || entry.isEmpty()) {
+                continue;
+            }
+            File cpEntry = new File(entry);
+            if (!cpEntry.exists()) {
+                continue;
+            }
+
+            if (cpEntry.isDirectory()) {
+                File resourceFile = new File(cpEntry, name);
+                if (resourceFile.isFile()) {
+                    try {
+                        resources.add(resourceFile.toURI().toURL());
+                    } catch (Exception ignored) {
+                        // Best-effort fallback.
+                    }
+                }
+                continue;
+            }
+
+            String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
+            if (lower.endsWith(".jar") || lower.endsWith(".war")) {
+                try (JarFile jarFile = new JarFile(cpEntry)) {
+                    JarEntry jarEntry = jarFile.getJarEntry(name);
+                    if (jarEntry != null) {
+                        resources.add(new URL("jar:" + cpEntry.toURI().toURL() + "!/" + name));
+                    }
+                } catch (Exception ignored) {
+                    // Best-effort fallback.
+                }
+            }
+        }
+        return new ArrayList<>(resources);
+    }
+
+    private static void addEnumeration(Set<URL> sink, Enumeration<URL> enumeration) {
+        while (enumeration != null && enumeration.hasMoreElements()) {
+            sink.add(enumeration.nextElement());
+        }
+    }
+
+    private static List<String> resourceNameCandidates(String name) {
+        if (name == null || name.isEmpty()) {
+            return Collections.emptyList();
+        }
+        if (name.charAt(0) == '/') {
+            String normalized = name.substring(1);
+            if (normalized.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return Collections.singletonList(normalized);
+        }
+        return Collections.singletonList(name);
     }
 
     private Class<?> defineInstrumentedClass(String fullyQualifiedTargetClass, byte[] byteBuffer) {

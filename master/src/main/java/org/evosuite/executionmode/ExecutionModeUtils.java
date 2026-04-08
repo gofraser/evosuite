@@ -291,6 +291,7 @@ public final class ExecutionModeUtils {
         addOpen(cmdLine, "java.base/java.text=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.regex=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.concurrent=ALL-UNNAMED");
+        addOpen(cmdLine, "java.logging/java.util.logging=ALL-UNNAMED");
         addOpen(cmdLine, "java.prefs/java.util.prefs=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt.font=ALL-UNNAMED");

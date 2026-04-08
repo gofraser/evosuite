@@ -1,0 +1,2 @@
+# Force doubly shaded Mockito to use reflection-based member access.
+shaded.org.evosuite.shaded.org.mockito.internal.util.reflection.ReflectionMemberAccessor

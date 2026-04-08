@@ -1265,6 +1265,8 @@ public abstract class JUnitAnalyzer {
             Result result = null;
             ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
 
+            // Skip agent self-attachment during the in-process JUnit check.
+            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
             try {
                 TestGenerationContext.getInstance().goingToExecuteSUTCode();
                 Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
@@ -1275,6 +1277,7 @@ public abstract class JUnitAnalyzer {
             } finally {
                 Thread.currentThread().setContextClassLoader(currentLoader);
                 TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
             }
 
 
@@ -1316,6 +1319,10 @@ public abstract class JUnitAnalyzer {
             ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
 
 
+            // Skip agent self-attachment during the in-process JUnit check.
+            // Classes are already instrumented by InstrumentingClassLoader, and
+            // ByteBuddyAgent.attach() can hang on some JDK/OS combinations.
+            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
             try {
                 TestGenerationContext.getInstance().goingToExecuteSUTCode();
                 Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
@@ -1340,6 +1347,7 @@ public abstract class JUnitAnalyzer {
             } finally {
                 Thread.currentThread().setContextClassLoader(currentLoader);
                 TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
             }
 
 
