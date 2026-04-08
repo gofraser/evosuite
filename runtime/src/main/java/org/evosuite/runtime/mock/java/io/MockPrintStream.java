@@ -24,9 +24,11 @@ import org.evosuite.runtime.mock.OverrideMock;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 
 /**
  * Custom mock implementation of {@link java.io.PrintStream}.
@@ -54,6 +56,10 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
         super(out, autoFlush, encoding);
     }
 
+    public MockPrintStream(OutputStream out, boolean autoFlush, Charset charset) {
+        super(out, autoFlush, charset);
+    }
+
     public MockPrintStream(String fileName) throws FileNotFoundException {
         this(!MockFramework.isEnabled()
                 ? new FileOutputStream(fileName) : new MockFileOutputStream(fileName));
@@ -76,6 +82,21 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
         this((!MockFramework.isEnabled()
                 ? new FileOutputStream(fileName) : new MockFileOutputStream(fileName)),
                 false, csn);
+    }
+
+    /**
+     * Creates a new MockPrintStream, without automatic line flushing, with the
+     * specified file name and charset.
+     *
+     * @param fileName the name of the file to use as the destination of this print stream
+     * @param charset  the charset
+     * @throws IOException if the file cannot be opened
+     */
+    public MockPrintStream(String fileName, Charset charset) throws IOException {
+        this((!MockFramework.isEnabled()
+                ? new FileOutputStream(fileName)
+                : new MockFileOutputStream(fileName)),
+                false, charset);
     }
 
     public MockPrintStream(File file) throws FileNotFoundException {
@@ -101,5 +122,20 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
         this((!MockFramework.isEnabled()
                 ? new FileOutputStream(file) : new MockFileOutputStream(file)),
                 false, csn);
+    }
+
+    /**
+     * Creates a new MockPrintStream, without automatic line flushing, with the
+     * specified file and charset.
+     *
+     * @param file    the file to use as destination
+     * @param charset the charset
+     * @throws IOException if the file cannot be opened
+     */
+    public MockPrintStream(File file, Charset charset) throws IOException {
+        this((!MockFramework.isEnabled()
+                ? new FileOutputStream(file)
+                : new MockFileOutputStream(file)),
+                false, charset);
     }
 }

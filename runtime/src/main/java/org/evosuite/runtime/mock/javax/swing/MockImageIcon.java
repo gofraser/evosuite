@@ -22,6 +22,7 @@ package org.evosuite.runtime.mock.javax.swing;
 import org.evosuite.runtime.mock.OverrideMock;
 
 import javax.swing.ImageIcon;
+import java.awt.Image;
 import java.net.URL;
 
 /**
@@ -33,6 +34,13 @@ public class MockImageIcon extends ImageIcon implements OverrideMock {
     private static final long serialVersionUID = 1L;
 
     /**
+     * Default constructor matching {@link ImageIcon#ImageIcon()}.
+     */
+    public MockImageIcon() {
+        super();
+    }
+
+    /**
      * Creates a new MockImageIcon from a URL.
      * @param location the URL of the image
      */
@@ -41,5 +49,34 @@ public class MockImageIcon extends ImageIcon implements OverrideMock {
         if (location != null) {
             setDescription(location.toExternalForm());
         }
+    }
+
+    public MockImageIcon(String filename) {
+        super(filename);
+    }
+
+    public MockImageIcon(String filename, String description) {
+        super(filename, description);
+    }
+
+    public MockImageIcon(byte[] imageData) {
+        super(imageData);
+    }
+
+    public MockImageIcon(byte[] imageData, String description) {
+        super(imageData, description);
+    }
+
+    public MockImageIcon(Image image) {
+        super(image);
+    }
+
+    public MockImageIcon(Image image, String description) {
+        super(image, description);
+    }
+
+    public MockImageIcon(URL location, String description) {
+        this(location);
+        setDescription(description);
     }
 }

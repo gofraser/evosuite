@@ -33,6 +33,7 @@ import java.net.Proxy;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.net.SocketException;
+import java.net.SocketImpl;
 import java.net.SocketImplFactory;
 import java.net.SocketOptions;
 import java.net.UnknownHostException;
@@ -118,6 +119,26 @@ public class MockSocket extends Socket implements OverrideMock {
         this.impl = impl;
         if (impl != null) {
             this.impl.setSocket(this);
+        }
+    }
+
+    /**
+     * Creates an unconnected Socket with a user-specified SocketImpl.
+     *
+     * @param impl an instance of a SocketImpl.
+     * @throws SocketException if there is an error in the underlying protocol.
+     */
+    protected MockSocket(SocketImpl impl) throws SocketException {
+        super(impl);
+        if (!MockFramework.isEnabled()) {
+            return;
+        }
+
+        if (impl instanceof MockSocketImpl) {
+            this.impl = (MockSocketImpl) impl;
+            this.impl.setSocket(this);
+        } else {
+            setImpl();
         }
     }
 

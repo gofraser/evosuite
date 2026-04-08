@@ -30,6 +30,15 @@ public class EvoURLStreamHandler extends MockURLStreamHandler {
     private final String protocol;
 
     /**
+     * Default constructor kept for constructor-signature compatibility when
+     * bytecode instrumentation rewrites super calls.
+     */
+    public EvoURLStreamHandler() {
+        super();
+        this.protocol = "http";
+    }
+
+    /**
      * Creates a new stream handler for the specified protocol.
      *
      * @param protocol the protocol

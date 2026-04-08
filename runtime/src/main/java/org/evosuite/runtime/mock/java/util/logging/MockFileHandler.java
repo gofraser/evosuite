@@ -149,6 +149,24 @@ public class MockFileHandler extends FileHandler implements OverrideMock {
         }
     }
 
+    /**
+     * Initialize a MockFileHandler to write to a set of files with optional append.
+     *
+     * @param pattern the pattern for naming the output file
+     * @param limit   the maximum number of bytes to write to any one file
+     * @param count   the number of files to use
+     * @param append  specifies append mode
+     * @throws IOException       if there are IO problems opening the files.
+     * @throws SecurityException if a security manager exists and the caller lacks permissions.
+     */
+    public MockFileHandler(String pattern, long limit, int count, boolean append)
+            throws IOException, SecurityException {
+        this();
+        if (limit < 0 || count < 1 || pattern.length() < 1) {
+            throw new IllegalArgumentException();
+        }
+    }
+
     //------- methods of FileHandler ---------
 
     @Override

@@ -27,6 +27,7 @@ import java.io.FileDescriptor;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
+import java.nio.charset.Charset;
 
 /**
  * Custom mock implementation of {@link java.io.FileWriter}.
@@ -98,6 +99,67 @@ public class MockFileWriter extends FileWriter implements OverrideMock {
 
         stream = new OutputStreamWriter(mock);
 
+        VirtualFileSystem.getInstance().addLeakingResource(mock);
+    }
+
+    /**
+     * Constructs a MockFileWriter object given a file name and charset.
+     *
+     * @param fileName String The system-dependent filename.
+     * @param charset  the charset to use
+     * @throws IOException if the file cannot be opened
+     */
+    public MockFileWriter(String fileName, Charset charset) throws IOException {
+        this(fileName, charset, false);
+    }
+
+    /**
+     * Constructs a MockFileWriter object given a file name, charset and append mode.
+     *
+     * @param fileName String The system-dependent filename.
+     * @param charset  the charset to use
+     * @param append   append mode
+     * @throws IOException if the file cannot be opened
+     */
+    public MockFileWriter(String fileName, Charset charset, boolean append) throws IOException {
+        this(fileName != null
+                ? (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName))
+                : null, charset, append);
+    }
+
+    /**
+     * Constructs a MockFileWriter object given a file and charset.
+     *
+     * @param file    file to write
+     * @param charset the charset to use
+     * @throws IOException if the file cannot be opened
+     */
+    public MockFileWriter(File file, Charset charset) throws IOException {
+        this(file, charset, false);
+    }
+
+    /**
+     * Constructs a MockFileWriter object given a file, charset and append mode.
+     *
+     * @param file    file to write
+     * @param charset the charset to use
+     * @param append  append mode
+     * @throws IOException if the file cannot be opened
+     */
+    public MockFileWriter(File file, Charset charset, boolean append) throws IOException {
+        super(!MockFramework.isEnabled()
+                ? file
+                : VirtualFileSystem.getInstance().getRealTmpFile(),
+                append);
+
+        if (!MockFramework.isEnabled()) {
+            return;
+        }
+
+        charset.getClass(); // keep java.io.FileWriter null-check semantics
+
+        MockFileOutputStream mock = new MockFileOutputStream(file, append);
+        stream = new OutputStreamWriter(mock, charset);
         VirtualFileSystem.getInstance().addLeakingResource(mock);
     }
 

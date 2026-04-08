@@ -349,6 +349,23 @@ public class MockThread extends Thread implements OverrideMock {
         mockSetup(name);
     }
 
+    /**
+     * Allocates a new {@code MockThread} object.
+     * The inheritThreadLocals flag is ignored for compatibility on older JDK APIs.
+     *
+     * @param group                the thread group.
+     * @param target               the object whose {@code run} method is invoked.
+     * @param name                 the name of the new thread.
+     * @param stackSize            desired stack size.
+     * @param inheritThreadLocals  whether inheritable thread locals are inherited.
+     */
+    public MockThread(ThreadGroup group, Runnable target, String name,
+                      long stackSize, boolean inheritThreadLocals) {
+        super(group, target, name, stackSize);
+        this.target = target;
+        mockSetup(name);
+    }
+
     private void mockSetup(String name) {
         if (!MockFramework.isEnabled()) {
             return;

@@ -42,6 +42,35 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
     private static final long serialVersionUID = 1531475063681545845L;
     private static volatile Frame rootFrame;
 
+    public MockJOptionPane() {
+        super();
+    }
+
+    public MockJOptionPane(Object message) {
+        super(message);
+    }
+
+    public MockJOptionPane(Object message, int messageType) {
+        super(message, messageType);
+    }
+
+    public MockJOptionPane(Object message, int messageType, int optionType) {
+        super(message, messageType, optionType);
+    }
+
+    public MockJOptionPane(Object message, int messageType, int optionType, Icon icon) {
+        super(message, messageType, optionType, icon);
+    }
+
+    public MockJOptionPane(Object message, int messageType, int optionType, Icon icon, Object[] options) {
+        super(message, messageType, optionType, icon, options);
+    }
+
+    public MockJOptionPane(Object message, int messageType, int optionType, Icon icon,
+                           Object[] options, Object initialValue) {
+        super(message, messageType, optionType, icon, options, initialValue);
+    }
+
     /**
      * Replaces method javax.swing.JOptionPane.getRootFrame().
      *

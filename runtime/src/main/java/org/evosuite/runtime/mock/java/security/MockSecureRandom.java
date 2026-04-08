@@ -21,7 +21,9 @@ package org.evosuite.runtime.mock.java.security;
 
 import org.evosuite.runtime.mock.OverrideMock;
 import java.nio.ByteBuffer;
+import java.security.Provider;
 import java.security.SecureRandom;
+import java.security.SecureRandomSpi;
 
 /**
  * Mock class for {@link java.security.SecureRandom}.
@@ -47,6 +49,25 @@ public class MockSecureRandom extends SecureRandom implements OverrideMock {
      */
     public MockSecureRandom(long seed) {
         super(toBytes(seed));
+    }
+
+    /**
+     * Constructs a {@code MockSecureRandom} with the given seed bytes.
+     *
+     * @param seed the seed bytes
+     */
+    public MockSecureRandom(byte[] seed) {
+        super(seed);
+    }
+
+    /**
+     * Protected constructor matching {@link SecureRandom}.
+     *
+     * @param secureRandomSpi the SPI implementation
+     * @param provider        the provider
+     */
+    protected MockSecureRandom(SecureRandomSpi secureRandomSpi, Provider provider) {
+        super(secureRandomSpi, provider);
     }
 
     private static byte[] toBytes(long x) {

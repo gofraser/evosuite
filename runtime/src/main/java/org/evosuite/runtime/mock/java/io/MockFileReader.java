@@ -28,6 +28,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.Charset;
 
 /**
  * Custom mock implementation of {@link java.io.FileReader}.
@@ -84,6 +85,42 @@ public class MockFileReader extends FileReader implements OverrideMock {
 
         stream = new InputStreamReader(mock);
 
+        VirtualFileSystem.getInstance().addLeakingResource(mock);
+    }
+
+    /**
+     * Creates a new MockFileReader with the given charset.
+     *
+     * @param fileName the name of the file to read from
+     * @param charset  the charset to use
+     * @throws IOException if an I/O error occurs
+     */
+    public MockFileReader(String fileName, Charset charset) throws IOException {
+        this(fileName != null
+                ? (!MockFramework.isEnabled() ? new File(fileName) : new MockFile(fileName))
+                : null, charset);
+    }
+
+    /**
+     * Creates a new MockFileReader with the given charset.
+     *
+     * @param file    the file to read from
+     * @param charset the charset to use
+     * @throws IOException if an I/O error occurs
+     */
+    public MockFileReader(File file, Charset charset) throws IOException {
+        super(!MockFramework.isEnabled()
+                ? file
+                : VirtualFileSystem.getInstance().getRealTmpFile()); // just to make compiler happy
+
+        if (!MockFramework.isEnabled()) {
+            return;
+        }
+
+        charset.getClass(); // keep java.io.FileReader null-check semantics
+
+        MockFileInputStream mock = new MockFileInputStream(file);
+        stream = new InputStreamReader(mock, charset);
         VirtualFileSystem.getInstance().addLeakingResource(mock);
     }
 
