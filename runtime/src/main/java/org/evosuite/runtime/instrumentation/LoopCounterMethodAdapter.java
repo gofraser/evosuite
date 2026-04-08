@@ -68,20 +68,36 @@ public class LoopCounterMethodAdapter extends MethodVisitor {
 
     @Override
     public void visitJumpInsn(int opcode, Label label) {
-        if (!hasUninitializedValue()) {
+        if (!hasUninitializedValue(opcode == Opcodes.GOTO)) {
             addInstrumentation();
         }
         super.visitJumpInsn(opcode, label);
     }
 
-    private boolean hasUninitializedValue() {
-        return containsUninitialized(analyzer.locals) || containsUninitialized(analyzer.stack);
+    /**
+     * Checks whether injecting a {@code checkLoop()} call at the current
+     * position could cause a JVM verifier error due to uninitialized
+     * references in the frame.
+     *
+     * <p>When {@code isGoto} is true, null frames (unknown state from the
+     * {@link AnalyzerAdapter}) are treated as safe.  GOTO is the opcode
+     * used for loop back-edges, where the JVM verifier requires matching
+     * frame states at the merge target — so the stack is empty and all
+     * locals are initialized.  Skipping injection on null frames in
+     * try/catch regions would leave loops unprotected.
+     */
+    private boolean hasUninitializedValue(boolean isGoto) {
+        return containsUninitialized(analyzer.locals, isGoto)
+                || containsUninitialized(analyzer.stack, isGoto);
     }
 
-    private boolean containsUninitialized(List<Object> values) {
+    private boolean containsUninitialized(List<Object> values, boolean nullIsSafe) {
         if (values == null) {
-            // Unknown frame state (eg, unreachable code): skip injection conservatively.
-            return true;
+            // Unknown frame state (eg, inside try/catch or unreachable code).
+            // For GOTO (loop back-edges) this is safe — the verifier guarantees
+            // a clean frame at the merge target.  For conditional jumps we
+            // conservatively skip injection.
+            return !nullIsSafe;
         }
         for (Object value : values) {
             if (value instanceof Label || value == Opcodes.UNINITIALIZED_THIS) {

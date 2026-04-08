@@ -74,7 +74,8 @@ public class NonTargetClassAdapter extends ClassVisitor {
         if (!"<clinit>".equals(name)) {
             mv = new YieldAtLineNumberMethodAdapter(mv, access, className, name, desc);
         }
-        return mv; //new ArrayAllocationLimitMethodAdapter(mv, className, name, access, desc);
+        mv = new ArrayAllocationLimitMethodAdapter(mv, className, name, access, desc);
+        return mv;
     }
 
     @Override

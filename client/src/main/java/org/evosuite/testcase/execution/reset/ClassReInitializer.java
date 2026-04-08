@@ -48,7 +48,6 @@ import java.util.List;
  * @author galeotti
  */
 public class ClassReInitializer {
-
     private final LinkedHashSet<String> initializedClasses = new LinkedHashSet<>();
     private final Object initializedClassesLock = new Object();
 

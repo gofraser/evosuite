@@ -41,6 +41,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.regex.Pattern;
 
 /**
  * This class implements the actual invocation to the __STATIC_RESET() method
@@ -51,6 +52,7 @@ import java.util.concurrent.TimeoutException;
 class ClassReInitializeExecutor {
 
     private static final Logger logger = LoggerFactory.getLogger(ClassReInitializeExecutor.class);
+    private static final Pattern ANONYMOUS_CLASS_PATTERN = Pattern.compile(".*\\$\\d+.*");
 
     private static final ClassReInitializeExecutor instance = new ClassReInitializeExecutor();
 
@@ -60,6 +62,11 @@ class ClassReInitializeExecutor {
      * threads.
      */
     private final Set<String> timedOutClasses = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    /**
+     * Classes whose reset thread remained alive even after a staged timeout and
+     * an interrupt attempt. These are quarantined for the whole run.
+     */
+    private final Set<String> hardTimedOutClasses = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private ClassReInitializeExecutor() {
     }
@@ -117,6 +124,10 @@ class ClassReInitializeExecutor {
     }
 
     private void resetClass(String className) {
+        if (hardTimedOutClasses.contains(className)) {
+            logger.debug("Skipping reset of {} — previously hard-timed out in this run", className);
+            return;
+        }
 
         if (timedOutClasses.contains(className)) {
             logger.debug("Skipping reset of {} — previously timed out", className);
@@ -140,9 +151,12 @@ class ClassReInitializeExecutor {
         try {
             Method resetMethod = ClassResetter.getInstance().getResetMethod(className);
             if (resetMethod != null) {
-                LoopCounter.getInstance().setActive(false);
                 invokeResetWithTimeout(resetMethod, className);
             } else {
+                if (shouldSkipReflectiveFallback(className)) {
+                    logger.debug("Skipping reflective static reset fallback for {}", className);
+                    return;
+                }
                 logger.debug("ClassReInitializeExecutor: no {} in {}, using reflective static reset fallback",
                         ClassResetter.STATIC_RESET, className);
                 resetStaticFieldsReflectively(className);
@@ -208,6 +222,9 @@ class ClassReInitializeExecutor {
      */
     private void invokeResetWithTimeout(Method resetMethod, String className) throws Throwable {
         ClassLoader sutClassLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        long softTimeoutMs = Math.max(1L, Properties.TIMEOUT_RESET);
+        long graceTimeoutMs = Math.max(1L, softTimeoutMs * 2L);
+        long postInterruptWaitMs = Math.max(250L, softTimeoutMs / 2L);
 
         FutureTask<Void> task = new FutureTask<>(() -> {
             resetMethod.invoke(null, (Object[]) null);
@@ -220,28 +237,88 @@ class ClassReInitializeExecutor {
         resetThread.start();
 
         try {
-            task.get(Properties.TIMEOUT_RESET, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            logger.warn("Static reset for {} timed out after {}ms — interrupting reset thread. "
-                    + "This class will be skipped on subsequent reset attempts.",
-                    className, Properties.TIMEOUT_RESET);
+            if (waitForCompletion(task, softTimeoutMs)) {
+                return;
+            }
+
+            logger.warn("Static reset for {} exceeded soft timeout of {}ms; "
+                    + "waiting an additional grace period of {}ms before interrupting.",
+                    className, softTimeoutMs, graceTimeoutMs);
             timedOutClasses.add(className);
+
+            if (waitForCompletion(task, graceTimeoutMs)) {
+                logger.warn("Static reset for {} completed during grace period after soft timeout.", className);
+                return;
+            }
+
+            logger.warn("Static reset for {} still running after {}ms (soft+grace). "
+                            + "Interrupting reset thread and waiting {}ms.",
+                    className, (softTimeoutMs + graceTimeoutMs), postInterruptWaitMs);
             resetThread.interrupt();
-            // Give the thread a short grace period to react to the interrupt.
-            // Object.wait() and Thread.sleep() throw InterruptedException promptly.
-            try {
-                resetThread.join(500);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
+
+            if (waitForCompletion(task, postInterruptWaitMs)) {
+                logger.warn("Static reset for {} completed after interrupt.", className);
+                return;
             }
-            if (resetThread.isAlive()) {
-                logger.warn("Static reset thread for {} still alive after interrupt, abandoning.", className);
-            }
-        } catch (ExecutionException e) {
-            // Unwrap and rethrow so the caller sees the original exception
-            throw e.getCause() != null ? e.getCause() : e;
+
+            hardTimedOutClasses.add(className);
+            timedOutClasses.add(className);
+            logger.warn("Static reset thread for {} is still alive after interrupt. "
+                            + "Class is quarantined for the remainder of this run.",
+                    className);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    private boolean waitForCompletion(FutureTask<Void> task, long timeoutMs)
+            throws Throwable {
+        try {
+            task.get(timeoutMs, TimeUnit.MILLISECONDS);
+            return true;
+        } catch (TimeoutException e) {
+            return false;
+        } catch (ExecutionException e) {
+            // Unwrap and rethrow so the caller sees the original exception
+            throw e.getCause() != null ? e.getCause() : e;
+        }
+    }
+
+    private static boolean shouldSkipReflectiveFallback(String className) {
+        if (className == null) {
+            return false;
+        }
+
+        // Never apply reflective static reset fallback to JDK/platform classes.
+        // Nulling static internals there (eg, java.lang.System.props) can corrupt
+        // the whole JVM process and break subsequent EvoSuite phases.
+        if (className.startsWith("java.")
+                || className.startsWith("javax.")
+                || className.startsWith("jdk.")
+                || className.startsWith("sun.")) {
+            return true;
+        }
+
+        // Anonymous/synthetic helper classes (e.g., Outer$1) frequently host compiler-generated
+        // enum switch maps. Nulling their static fields via reflective fallback can corrupt state.
+        if (ANONYMOUS_CLASS_PATTERN.matcher(className).matches()) {
+            return true;
+        }
+
+        try {
+            ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+            Class<?> clazz = Class.forName(className, false, loader);
+            for (Field field : clazz.getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers())
+                        && field.getName() != null
+                        && field.getName().startsWith("$SwitchMap$")) {
+                    return true;
+                }
+            }
+        } catch (Throwable ignored) {
+            // Best-effort heuristic: if class metadata cannot be inspected, do not skip by default.
+        }
+
+        return false;
     }
 }
