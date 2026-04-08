@@ -236,6 +236,14 @@ public class TestCaseExecutor implements ThreadFactory {
     }
 
     /**
+     * Returns true if the singleton executor exists and has a live thread pool,
+     * i.e. it is safe to call {@link #runTest(TestCase)}.
+     */
+    public static boolean isAvailable() {
+        return instance != null && instance.executor != null;
+    }
+
+    /**
      * <p>
      * initExecutor.
      * </p>
@@ -531,7 +539,14 @@ public class TestCaseExecutor implements ThreadFactory {
                 logger.warn("Timeout occurred for " + Properties.TARGET_CLASS);
             }
             logger.info("TimeoutException, need to stop runner", e1);
-            ExecutionTracer.setKillSwitch(true);
+            // If timeout happened while executing <clinit>, enter the dedicated
+            // grace branch first. Forcing TimeoutExceeded inside <clinit> can
+            // poison class initialization and block later static reads.
+            boolean initialInStaticInit = isInStaticInit();
+            ExecutionTracer.setKillSwitch(!initialInStaticInit);
+            if (initialInStaticInit) {
+                logger.info("Timeout happened inside <clinit>; entering grace handling before kill switch.");
+            }
 
             // Interrupt immediately — the kill switch only works at instrumented
             // checkpoints, but the thread may be blocked in JDK code (e.g.,
@@ -653,10 +668,16 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             ExecutionTracer.disable();
 
-            // Record whether the task is genuinely still running after all
-            // cleanup attempts.  The outer execute() uses this to decide on
-            // rotation instead of a racey stack-trace check.
-            lastTaskStillRunning = needsTimeoutCleanup(handler);
+            // Record whether execution is genuinely still running in SUT code
+            // after all cleanup attempts.
+            //
+            // Do not rely on FutureTask.isDone() here: cancel(true) marks the
+            // Future as done even if the worker thread keeps running after
+            // swallowing interrupts. That would miss stalled workers and skip
+            // rotation.
+            lastTaskStillRunning = currentThread != null
+                    && currentThread.isAlive()
+                    && isThreadStuckInSutCode(currentThread);
 
             // TODO: If this is true, is this problematic?
             if (Sandbox.isOnAndExecutingSUTCode()) {

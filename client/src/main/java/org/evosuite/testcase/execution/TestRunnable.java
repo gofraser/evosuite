@@ -582,20 +582,16 @@ public class TestRunnable implements InterfaceTestRunnable {
 
     private static void maybeRecordDmonCandidate(ExecutionResult result, Statement statement, Throwable throwable) {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
-            logger.debug("DMoN runtime: skip candidate [reason=DISABLED, dmon_enabled={}, no_runtime_dep={}]",
-                    Properties.DMON_ENABLED, Properties.NO_RUNTIME_DEPENDENCY);
             return;
         }
         if (!(statement instanceof ConstructorStatement)) {
-            logger.trace("DMoN runtime: skip candidate [reason=NOT_CONSTRUCTOR_STATEMENT]");
             return;
         }
         if (!(throwable instanceof NullPointerException)) {
-            logger.trace("DMoN runtime: skip candidate [reason=NOT_NPE, type={}]", throwable.getClass().getName());
             return;
         }
         if (result.getDmonPromotionPlan() != null) {
-            logger.debug("DMoN runtime: candidate already recorded for this execution");
+            logger.trace("DMoN runtime: candidate already recorded for this execution");
             return;
         }
         ConstructorStatement constructorStatement = (ConstructorStatement) statement;
@@ -609,7 +605,7 @@ public class TestRunnable implements InterfaceTestRunnable {
                     plan.get().getMemberToken().orElse(""),
                     plan.get().getInferredMissingTypeName().orElse(""));
         } else {
-            logger.debug("DMoN runtime: analyzer returned no candidate");
+            logger.trace("DMoN runtime: analyzer returned no candidate");
         }
     }
 
@@ -619,8 +615,6 @@ public class TestRunnable implements InterfaceTestRunnable {
                                                          PrintStream out)
             throws InvocationTargetException, IllegalAccessException, InstantiationException {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
-            logger.debug("DMoN runtime: skip assist [reason=DISABLED, dmon_enabled={}, no_runtime_dep={}]",
-                    Properties.DMON_ENABLED, Properties.NO_RUNTIME_DEPENDENCY);
             return throwable;
         }
         if (!(statement instanceof ConstructorStatement)) {
@@ -639,6 +633,12 @@ public class TestRunnable implements InterfaceTestRunnable {
             maybeRecordDmonCandidate(result, statement, currentNpe);
             Optional<DmonPromotionPlan> analyzedPlan = DmonCoordinator.getInstance()
                     .analyzeConstructorFailure(constructorStatement, currentNpe);
+            if (!analyzedPlan.isPresent()) {
+                // For non-target-class constructors, try relaxed analysis for ephemeral
+                // assist only (not recorded for promotion).
+                analyzedPlan = DmonCoordinator.getInstance()
+                        .analyzeForEphemeralAssist(constructorStatement, currentNpe);
+            }
             if (!analyzedPlan.isPresent()) {
                 logger.debug("DMoN runtime: cascading assist stopped [attempt={}, reason=NO_PLAN]",
                         attempt + 1);
