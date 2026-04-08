@@ -298,12 +298,8 @@ public class ConstructorStatement extends EntityWithParametersStatement {
     private void rejectLargeIntInputs(Object[] inputs) throws CodeUnderTestException {
         if (!org.evosuite.testcase.StatementFactory.isAllocationSensitive(
                 constructor.getRawGeneratedType())) {
-            logger.debug("rejectLargeIntInputs: {} is NOT allocation-sensitive, skipping",
-                    constructor.getRawGeneratedType().getName());
             return;
         }
-        logger.debug("rejectLargeIntInputs: checking {} with {} inputs",
-                constructor.getRawGeneratedType().getName(), inputs.length);
         Class<?>[] paramTypes = constructor.getConstructor().getParameterTypes();
         int limit = Properties.COLLECTION_CAPACITY_LIMIT;
 
