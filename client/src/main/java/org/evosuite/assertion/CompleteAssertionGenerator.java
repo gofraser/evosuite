@@ -54,6 +54,7 @@ public class CompleteAssertionGenerator extends AssertionGenerator {
         filterRedundantIsEmptySizeAssertions(test);
         for (int i = 0; i < test.size(); i++) {
             filterInspectorPrimitiveDuplication(test.getStatement(i));
+            filterVolatileGuiPrimitiveAssertions(test.getStatement(i));
         }
         logger.debug("Test after adding assertions: " + test.toCode());
     }

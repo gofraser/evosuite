@@ -111,6 +111,9 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
         filterRedundantNonnullAssertions(test);
         filterRedundantChainedInspectorAssertions(test);
         filterRedundantIsEmptySizeAssertions(test);
+        for (int i = 0; i < test.size(); i++) {
+            filterVolatileGuiPrimitiveAssertions(test.getStatement(i));
+        }
     }
 
     /**
@@ -319,6 +322,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
         logger.info("2. Done with assertions");
         filterInspectorPrimitiveDuplication(lastStatement);
+        filterVolatileGuiPrimitiveAssertions(lastStatement);
     }
 
     /**

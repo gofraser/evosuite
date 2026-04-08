@@ -474,4 +474,50 @@ public abstract class AssertionGenerator {
         }
     }
 
+    /**
+     * Remove primitive assertions on GUI visibility/state methods that are known
+     * to be unstable between generation and JUnit re-execution.
+     */
+    protected void filterVolatileGuiPrimitiveAssertions(Statement statement) {
+        if (!(statement instanceof MethodStatement)) {
+            return;
+        }
+
+        MethodStatement methodStatement = (MethodStatement) statement;
+        Method method = methodStatement.getMethod().getMethod();
+        if (method == null) {
+            return;
+        }
+
+        String methodName = method.getName();
+        if (!("isVisible".equals(methodName)
+                || "isShowing".equals(methodName)
+                || "isDisplayable".equals(methodName))) {
+            return;
+        }
+
+        boolean guiRelated = false;
+        if (method.getDeclaringClass() != null) {
+            guiRelated = java.awt.Component.class.isAssignableFrom(method.getDeclaringClass())
+                    || method.getDeclaringClass().getName().startsWith("javax.swing.");
+        }
+        if (!guiRelated && methodStatement.getCallee() != null
+                && methodStatement.getCallee().getVariableClass() != null) {
+            Class<?> calleeType = methodStatement.getCallee().getVariableClass();
+            guiRelated = java.awt.Component.class.isAssignableFrom(calleeType)
+                    || calleeType.getName().startsWith("javax.swing.");
+        }
+
+        if (!guiRelated) {
+            return;
+        }
+
+        Set<Assertion> assertions = new HashSet<>(statement.getAssertions());
+        for (Assertion assertion : assertions) {
+            if (assertion instanceof PrimitiveAssertion && assertion.getStatement().equals(statement)) {
+                statement.removeAssertion(assertion);
+            }
+        }
+    }
+
 }
