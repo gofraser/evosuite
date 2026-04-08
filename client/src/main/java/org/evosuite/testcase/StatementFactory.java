@@ -249,6 +249,9 @@ public class StatementFactory {
      * passed when the OOM occurred. If the method is already registered,
      * the threshold is halved again.
      *
+     * <p>If the method has no positive int arguments, no dynamic threshold
+     * can be learned and the registration is skipped.</p>
+     *
      * @param className  fully qualified class name
      * @param methodName method name
      * @param args       the arguments that caused the OOM
@@ -265,6 +268,12 @@ public class StatementFactory {
                     minPositiveArg = val;
                 }
             }
+        }
+        if (minPositiveArg == Integer.MAX_VALUE) {
+            LoggerFactory.getLogger(StatementFactory.class)
+                    .warn("OOM in method {} but no positive int args were present; "
+                            + "skipping dynamic threshold registration", key);
+            return;
         }
         int newThreshold = Math.max(1, minPositiveArg / 2);
 
