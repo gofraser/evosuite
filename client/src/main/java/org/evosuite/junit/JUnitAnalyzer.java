@@ -51,12 +51,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
+import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaCompiler.CompilationTask;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -98,6 +99,9 @@ public abstract class JUnitAnalyzer {
     private static final String JAVA = ".java";
     private static final String CLASS = ".class";
     private static final Map<String, String> SANITIZED_COMPILER_CLASSPATH_ENTRIES = new HashMap<>();
+    private static final int MAX_STORED_COMPILER_DIAGNOSTICS = 100;
+    private static final int MAX_LOGGED_SOURCE_EXCERPT_LINES_PER_FILE = 200;
+    private static final int MAX_LOGGED_SOURCE_EXCERPT_CHARS_TOTAL = 20_000;
 
     private static InstrumentingClassLoader loader = new NonInstrumentingClassLoader();
 
@@ -123,6 +127,43 @@ public abstract class JUnitAnalyzer {
 
         public Set<String> getReverseFailures() {
             return reverseFailures;
+        }
+    }
+
+    private static final class BoundedDiagnosticListener implements DiagnosticListener<JavaFileObject> {
+        private static final String ERROR_WHILE_WRITING_PREFIX = "error while writing";
+        private final int maxDiagnostics;
+        private final List<Diagnostic<? extends JavaFileObject>> diagnostics = new ArrayList<>();
+        private boolean truncated = false;
+        private boolean sawErrorWhileWriting = false;
+
+        private BoundedDiagnosticListener(int maxDiagnostics) {
+            this.maxDiagnostics = Math.max(0, maxDiagnostics);
+        }
+
+        @Override
+        public void report(Diagnostic<? extends JavaFileObject> diagnostic) {
+            String message = diagnostic.getMessage(null);
+            if (message != null && message.startsWith(ERROR_WHILE_WRITING_PREFIX)) {
+                sawErrorWhileWriting = true;
+            }
+            if (diagnostics.size() < maxDiagnostics) {
+                diagnostics.add(diagnostic);
+            } else {
+                truncated = true;
+            }
+        }
+
+        private List<Diagnostic<? extends JavaFileObject>> getDiagnostics() {
+            return diagnostics;
+        }
+
+        private boolean wasTruncated() {
+            return truncated;
+        }
+
+        private boolean sawErrorWhileWriting() {
+            return sawErrorWhileWriting;
         }
     }
 
@@ -222,8 +263,11 @@ public abstract class JUnitAnalyzer {
                 return numUnstable;
             }
 
-            // Create a new classloader so that each test gets freshly loaded classes
-            loader = new NonInstrumentingClassLoader();
+            // Create a new classloader so that each test gets freshly loaded classes.
+            // GUI mocking relies on bytecode call replacement; starting with a
+            // non-instrumenting loader can yield headless-only failures in JUnit
+            // re-execution even when search-time execution was stable.
+            loader = createInitialJUnitClassLoader();
             Class<?>[] testClasses = loadTests(generated);
 
             if (testClasses == null) {
@@ -518,6 +562,13 @@ public abstract class JUnitAnalyzer {
                 : JUNIT4_ANALYZER;
     }
 
+    private static InstrumentingClassLoader createInitialJUnitClassLoader() {
+        if (Properties.REPLACE_GUI) {
+            return new InstrumentingClassLoader();
+        }
+        return new NonInstrumentingClassLoader();
+    }
+
     private static List<TestCase> cloneTests(List<TestCase> tests) {
         List<TestCase> clones = new ArrayList<>(tests.size());
         for (TestCase test : tests) {
@@ -536,7 +587,7 @@ public abstract class JUnitAnalyzer {
             if (generated == null) {
                 return Collections.singleton("compilation-error");
             }
-            loader = new NonInstrumentingClassLoader();
+            loader = createInitialJUnitClassLoader();
             Class<?>[] testClasses = loadTests(generated);
             if (testClasses == null) {
                 return Collections.singleton("load-error");
@@ -636,70 +687,111 @@ public abstract class JUnitAnalyzer {
                 return null;
             }
 
-            DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+            BoundedDiagnosticListener diagnostics = new BoundedDiagnosticListener(MAX_STORED_COMPILER_DIAGNOSTICS);
             Locale locale = Locale.getDefault();
             Charset charset = StandardCharsets.UTF_8;
-            StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics,
+            try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics,
                     locale,
-                    charset);
+                    charset)) {
+                Iterable<? extends JavaFileObject> compilationUnits =
+                        fileManager.getJavaFileObjectsFromFiles(generated);
 
-            Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(generated);
+                String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
+                if (JarPathing.containsAPathingJar(evosuiteCP)) {
+                    evosuiteCP = JarPathing.expandPathingJars(evosuiteCP);
+                }
 
-            String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
-            if (JarPathing.containsAPathingJar(evosuiteCP)) {
-                evosuiteCP = JarPathing.expandPathingJars(evosuiteCP);
-            }
+                String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
+                if (JarPathing.containsAPathingJar(targetProjectCP)) {
+                    targetProjectCP = JarPathing.expandPathingJars(targetProjectCP);
+                }
 
-            String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
-            if (JarPathing.containsAPathingJar(targetProjectCP)) {
-                targetProjectCP = JarPathing.expandPathingJars(targetProjectCP);
-            }
+                String classpath = targetProjectCP + File.pathSeparator + evosuiteCP;
+                classpath = sanitizeClasspathForCompiler(classpath);
 
-            String classpath = targetProjectCP + File.pathSeparator + evosuiteCP;
-            classpath = sanitizeClasspathForCompiler(classpath);
+                List<String> optionList = new ArrayList<>(Arrays.asList("-classpath", classpath));
 
-            List<String> optionList = new ArrayList<>(Arrays.asList("-classpath", classpath));
+                CompilationTask task = compiler.getTask(null, fileManager, diagnostics,
+                        optionList, null, compilationUnits);
+                boolean compiled = task.call();
 
-            CompilationTask task = compiler.getTask(null, fileManager, diagnostics,
-                    optionList, null, compilationUnits);
-            boolean compiled = task.call();
-            fileManager.close();
+                if (!compiled) {
+                    logger.error("Compilation failed on {} generated test file(s)", generated.size());
+                    logger.error("Classpath: {}", classpath);
+                    // TODO remove
+                    logger.error("evosuiteCP: {}", evosuiteCP);
 
-            if (!compiled) {
-                logger.error("Compilation failed on compilation units: " + compilationUnits);
-                logger.error("Classpath: " + classpath);
-                //TODO remove
-                logger.error("evosuiteCP: " + evosuiteCP);
-
-
-                for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
-                    if (diagnostic.getMessage(null).startsWith("error while writing")) {
+                    if (diagnostics.sawErrorWhileWriting()) {
                         logger.error("Error is due to file permissions, ignoring...");
                         return generated;
                     }
-                    logger.error("Diagnostic: " + diagnostic.getMessage(null) + ": "
-                            + diagnostic.getLineNumber());
-                }
 
-                StringBuffer buffer = new StringBuffer();
-                for (JavaFileObject sourceFile : compilationUnits) {
-                    List<String> lines = FileUtils.readLines(new File(sourceFile.toUri().getPath()));
-
-                    buffer.append(compilationUnits.iterator().next().toString() + "\n");
-
-                    for (int i = 0; i < lines.size(); i++) {
-                        buffer.append((i + 1) + ": " + lines.get(i) + "\n");
+                    for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
+                        logger.error("Diagnostic: {}: {}", diagnostic.getMessage(null),
+                                diagnostic.getLineNumber());
                     }
+                    if (diagnostics.wasTruncated()) {
+                        logger.error("Additional compiler diagnostics were omitted after {} entries",
+                                MAX_STORED_COMPILER_DIAGNOSTICS);
+                    }
+
+                    logGeneratedSourceExcerptsOnCompilationFailure(generated);
+                    return null;
                 }
-                logger.error(buffer.toString());
-                return null;
             }
 
             return generated;
 
+        } catch (OutOfMemoryError e) {
+            logger.error("Out of memory while compiling generated tests ({} test case(s))", tests.size(), e);
+            return null;
         } catch (IOException e) {
             logger.error("" + e, e);
             return null;
+        }
+    }
+
+    private static void logGeneratedSourceExcerptsOnCompilationFailure(List<File> generated) {
+        int remainingChars = MAX_LOGGED_SOURCE_EXCERPT_CHARS_TOTAL;
+        for (File source : generated) {
+            if (remainingChars <= 0) {
+                logger.error("Omitted remaining generated source output after {} characters",
+                        MAX_LOGGED_SOURCE_EXCERPT_CHARS_TOTAL);
+                break;
+            }
+
+            StringBuilder excerpt = new StringBuilder();
+            excerpt.append(source.getAbsolutePath()).append('\n');
+            int linesLogged = 0;
+            boolean truncated = false;
+
+            try (BufferedReader reader = Files.newBufferedReader(source.toPath(), StandardCharsets.UTF_8)) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (linesLogged >= MAX_LOGGED_SOURCE_EXCERPT_LINES_PER_FILE) {
+                        truncated = true;
+                        break;
+                    }
+                    String rendered = (linesLogged + 1) + ": " + line + '\n';
+                    if (rendered.length() > remainingChars) {
+                        excerpt.append(rendered, 0, Math.max(0, remainingChars));
+                        remainingChars = 0;
+                        truncated = true;
+                        break;
+                    }
+                    excerpt.append(rendered);
+                    remainingChars -= rendered.length();
+                    linesLogged++;
+                }
+            } catch (IOException e) {
+                logger.error("Failed to read generated test source {}: {}", source.getAbsolutePath(), e.getMessage());
+                continue;
+            }
+
+            if (truncated) {
+                excerpt.append("... source excerpt truncated ...\n");
+            }
+            logger.error(excerpt.toString());
         }
     }
 
