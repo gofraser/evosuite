@@ -122,7 +122,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      */
     public static void registerMockTypeUpgrade(String declaredType, String targetType) {
         if (mockTypeUpgrades.putIfAbsent(declaredType, targetType) == null) {
-            logger.warn("Registered mock type upgrade: {} → {}", declaredType, targetType);
+            logger.debug("Registered mock type upgrade: {} → {}", declaredType, targetType);
         }
     }
 
@@ -1027,43 +1027,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 || java.nio.channels.ReadableByteChannel.class.isAssignableFrom(owner);
     }
 
-    /**
-     * Log Mockito mock-maker configuration once, at the first mock creation attempt.
-     * Uses reflection on the shaded MockUtil to report which mock makers are registered
-     * and whether the SubclassByteBuddyMockMaker SPI override was picked up.
-     */
-    private static volatile boolean mockMakerDiagnosticsLogged;
-
-    private static void logMockMakerDiagnosticsOnce() {
-        if (mockMakerDiagnosticsLogged || !logger.isDebugEnabled()) {
-            return;
-        }
-        mockMakerDiagnosticsLogged = true;
-        try {
-            @SuppressWarnings("unchecked")
-            java.util.Map<?, ?> makers = (java.util.Map<?, ?>)
-                    getDeclaredFieldValue(Mockito.class.getPackage().getName()
-                            + ".internal.util.MockUtil", "mockMakers");
-            if (makers != null) {
-                logger.debug("Mockito mock makers registered: {}, keys: {}",
-                        makers.size(), makers.keySet());
-            }
-        } catch (Throwable ignored) {
-            // Reflection may fail on different Mockito versions; not critical
-        }
-    }
-
-    private static Object getDeclaredFieldValue(String className, String fieldName) {
-        try {
-            Class<?> clazz = Class.forName(className);
-            java.lang.reflect.Field f = clazz.getDeclaredField(fieldName);
-            f.setAccessible(true);
-            return f.get(null);
-        } catch (Throwable t) {
-            return null;
-        }
-    }
-
     private static boolean hasCause(Throwable throwable, Class<? extends Throwable> expectedType) {
         Throwable current = throwable;
         while (current != null) {
@@ -1210,7 +1173,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             Object ret = null;
             try {
                 functionalMockingAttempts.incrementAndGet();
-                logMockMakerDiagnosticsOnce();
 
                 MockSettings settings = createMockSettings();
                 // Check if a more specific type should be used (e.g., Graphics2D
@@ -1288,10 +1250,18 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                                 targetMethodResult = method.invoke(ret, targetInputs);
                             }
                         } catch (InvocationTargetException e) {
-                            logger.error("Invocation of mocked {}.{}() threw an exception. "
-                                    + "This means the method was not mocked",
-                                    targetClass.getClassName(), method.getName());
-                            throw e;
+                            // The mock setup call on the Mockito proxy threw — the method
+                            // was not properly intercepted by Mockito (e.g., a final method,
+                            // or Mockito's subclass proxy delegated to the real implementation).
+                            // This is a mock infrastructure failure, not an EvoSuite bug —
+                            // treat it as CodeUnderTestException so the search can continue.
+                            AtMostOnceLogger.warn(logger,
+                                    "Invocation of mocked " + targetClass.getClassName()
+                                    + "." + method.getName() + "() was not intercepted by Mockito"
+                                    + " and threw: "
+                                    + (e.getCause() != null ? e.getCause().getMessage() : e.getMessage()));
+                            throw new CodeUnderTestException(
+                                    e.getCause() != null ? e.getCause() : e);
                         } catch (IllegalArgumentException | IllegalAccessError e) {
                             // FIXME: Happens for reasons I don't understand. By throwing a
                             // CodeUnderTestException EvoSuite will just ignore that

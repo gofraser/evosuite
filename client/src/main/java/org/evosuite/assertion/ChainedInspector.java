@@ -19,9 +19,6 @@
  */
 package org.evosuite.assertion;
 
-import org.evosuite.TestGenerationContext;
-import org.objectweb.asm.Type;
-
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -135,33 +132,14 @@ public class ChainedInspector extends Inspector {
 
     private void writeObject(ObjectOutputStream oos) throws IOException {
         oos.defaultWriteObject();
-        // Write outer method info for deserialization
-        oos.writeObject(outerClass.getName());
-        oos.writeObject(outerMethod.getDeclaringClass().getName());
-        oos.writeObject(outerMethod.getName());
-        oos.writeObject(Type.getMethodDescriptor(outerMethod));
+        // No extra data — the outer class/method are already serialized by Inspector.writeObject()
     }
 
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException,
             IOException {
         ois.defaultReadObject();
-
-        this.outerClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
-                .loadClass((String) ois.readObject());
-        Class<?> methodClass = TestGenerationContext.getInstance().getClassLoaderForSUT()
-                .loadClass((String) ois.readObject());
-
-        String methodName = (String) ois.readObject();
-        String methodDesc = (String) ois.readObject();
-
-        for (Method method : methodClass.getDeclaredMethods()) {
-            if (method.getName().equals(methodName)) {
-                if (Type.getMethodDescriptor(method).equals(methodDesc)) {
-                    this.outerMethod = method;
-                    this.outerMethod.setAccessible(true);
-                    return;
-                }
-            }
-        }
+        // Sync from the parent's fields, which Inspector.readObject() has already resolved
+        this.outerClass = this.clazz;
+        this.outerMethod = this.method;
     }
 }

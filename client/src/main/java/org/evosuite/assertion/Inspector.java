@@ -36,9 +36,9 @@ public class Inspector implements Serializable {
 
     private static final long serialVersionUID = -6865880297202184953L;
 
-    private transient Class<?> clazz;
+    protected transient Class<?> clazz;
 
-    private transient Method method;
+    protected transient Method method;
 
     /**
      * <p>
