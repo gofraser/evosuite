@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.response;
 
+import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
@@ -27,6 +28,7 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -41,6 +43,52 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class TestRepairLoopTest {
+
+    private final boolean originalTruncationRecovery = Properties.LLM_ENABLE_TRUNCATION_RECOVERY;
+
+    @AfterEach
+    void restoreProperties() {
+        Properties.LLM_ENABLE_TRUNCATION_RECOVERY = originalTruncationRecovery;
+    }
+
+    @Test
+    void truncatedResponseRecoveredWithoutRepairCall() {
+        Properties.LLM_ENABLE_TRUNCATION_RECOVERY = true;
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                assertFalse(sourceCode.contains("public void broken()"));
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                2);
+
+        String truncated = "```java\n"
+                + "public class GeneratedLlmTest {\n"
+                + "  @org.junit.Test\n"
+                + "  public void test(){ int a = 1; }\n"
+                + "  @org.junit.Test\n"
+                + "  public void broken(){ int x =\n";
+
+        RepairResult result = loop.attemptParse(truncated,
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getDiagnostics().stream()
+                .anyMatch(d -> d.contains("Applied truncation recovery")));
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
 
     @Test
     void retriesSameResponseAfterSuccessfulClusterExpansion() {

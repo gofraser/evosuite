@@ -20,6 +20,7 @@
 package org.evosuite.llm;
 
 import com.google.gson.Gson;
+import org.evosuite.Properties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -162,6 +163,7 @@ public class LlmTraceRecorder {
         List<String> expanded = expandedClasses == null ? Collections.<String>emptyList() : expandedClasses;
         Map<String, Object> traceRecord = new LinkedHashMap<>();
         traceRecord.put("run_id", configuration.getRunId());
+        traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
         traceRecord.put("timestamp", Instant.now().toString());
         traceRecord.put("feature", feature.name());
         traceRecord.put("provider", configuration.getProvider().name());

@@ -20,6 +20,7 @@
 package org.evosuite.strategy;
 
 import org.evosuite.Properties;
+import org.evosuite.TimeController;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
@@ -138,7 +139,9 @@ public class LlmStrategy extends TestGenerationStrategy {
     private TestSuiteChromosome runSinglePrompt(
             List<TestSuiteFitnessFunction> fitnessFunctions) {
         LlmSeededPopulationFactory seededFactory = createSeededFactory();
-        long waitMillis = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS * 1000L);
+        long llmTimeout = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS * 1000L);
+        long phaseRemaining = TimeController.getInstance().getRemainingTimeInPhaseMs();
+        long waitMillis = Math.min(llmTimeout, phaseRemaining);
         List<TestChromosome> llmSeeds = seededFactory.awaitAndDrainSeeds(waitMillis);
         LoggingUtils.getEvoLogger().info("* Received {} LLM seeds",
                 llmSeeds.size());
@@ -256,7 +259,12 @@ public class LlmStrategy extends TestGenerationStrategy {
      */
     private List<TestChromosome> queryForBroadCoverage(
             LlmService llmService) {
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+        if (!llmService.isAvailable()) {
+            LoggingUtils.getEvoLogger().info("* LLM broad-coverage query skipped: service is not available");
+            return Collections.emptyList();
+        }
+        if (!llmService.hasBudget()) {
+            LoggingUtils.getEvoLogger().info("* LLM broad-coverage query skipped: call budget exhausted");
             return Collections.emptyList();
         }
         PromptResult prompt = new PromptBuilder()

@@ -97,13 +97,41 @@ public class LlmResponseParser {
 
     private static final Pattern PACKAGE_DECLARATION_PATTERN =
             Pattern.compile("^\\s*package\\s+[\\w.]+\\s*;", Pattern.MULTILINE);
+    private final TruncatedJavaRecovery truncatedJavaRecovery = new TruncatedJavaRecovery();
+
+    /**
+     * Extraction result carrying synthesized source and recovery metadata.
+     */
+    public static final class ExtractionResult {
+        private final String source;
+        private final boolean recoveryApplied;
+        private final String recoveryReason;
+
+        ExtractionResult(String source, boolean recoveryApplied, String recoveryReason) {
+            this.source = source;
+            this.recoveryApplied = recoveryApplied;
+            this.recoveryReason = recoveryReason;
+        }
+
+        public String getSource() {
+            return source;
+        }
+
+        public boolean isRecoveryApplied() {
+            return recoveryApplied;
+        }
+
+        public String getRecoveryReason() {
+            return recoveryReason;
+        }
+    }
 
     /**
      * Extracts or synthesises a complete Java class from the LLM response,
      * using {@code className} as the class name.
      */
     public String extractTestClass(String response, String className) {
-        return extractTestClass(response, className, null);
+        return extractTestClassWithMetadata(response, className, null).getSource();
     }
 
     /**
@@ -114,19 +142,29 @@ public class LlmResponseParser {
      * same package as the SUT (enabling access to package-private members).
      */
     public String extractTestClass(String response, String className, String packageName) {
+        return extractTestClassWithMetadata(response, className, packageName).getSource();
+    }
+
+    /**
+     * Extracts or synthesises a complete Java class and returns recovery metadata.
+     */
+    public ExtractionResult extractTestClassWithMetadata(String response, String className, String packageName) {
         List<String> blocks = extractCodeBlocks(response);
         String code = blocks.isEmpty() ? "" : blocks.get(0);
+        String extractedSource;
         if (code.isEmpty()) {
-            return packageDeclaration(packageName)
+            extractedSource = packageDeclaration(packageName)
                     + "public class " + className + " {\n"
                     + "    " + getTestAnnotation() + "\n"
                     + "    public void generatedTest() {\n"
                     + "    }\n"
                     + "}";
+            return maybeRecover(extractedSource);
         }
 
         if (code.contains("class ")) {
-            return ensurePackageDeclaration(code, packageName);
+            extractedSource = ensurePackageDeclaration(code, packageName);
+            return maybeRecover(extractedSource);
         }
 
         StringBuilder imports = new StringBuilder();
@@ -145,11 +183,20 @@ public class LlmResponseParser {
             bodyCode = getTestAnnotation() + "\npublic void generatedTest() {\n" + bodyCode + "\n}";
         }
 
-        return packageDeclaration(packageName)
+        extractedSource = packageDeclaration(packageName)
                 + imports.toString()
                 + "public class " + className + " {\n"
                 + indent(bodyCode)
                 + "\n}";
+        return maybeRecover(extractedSource);
+    }
+
+    private ExtractionResult maybeRecover(String source) {
+        if (!Properties.LLM_ENABLE_TRUNCATION_RECOVERY) {
+            return new ExtractionResult(source, false, "disabled");
+        }
+        TruncatedJavaRecovery.RecoveryResult recovery = truncatedJavaRecovery.recover(source);
+        return new ExtractionResult(recovery.getSource(), recovery.isRecovered(), recovery.getReason());
     }
 
     /**

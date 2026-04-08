@@ -42,21 +42,17 @@ public class SignatureContextProvider implements SutContextProvider {
 
     @Override
     public Optional<String> getContext(String className, TestCluster cluster) {
-        if (cluster == null) {
-            return Optional.empty();
-        }
-        // Try to find the target class in the cluster and summarize it
+        // Only provide CUT signatures here; dependency context is added
+        // separately by PromptBuilder.addDependencyContext() for all modes.
         GenericClass<?> targetClass = findTargetClass(className, cluster);
+        if (targetClass == null) {
+            targetClass = loadClassByName(className);
+        }
         if (targetClass != null) {
             String detail = summarizer.summarizeClass(targetClass);
-            if (detail != null && !detail.trim().isEmpty()) {
+            if (isNonBlank(detail)) {
                 return Optional.of(detail);
             }
-        }
-        // Fall back to general cluster summary
-        String summary = summarizer.summarize(cluster);
-        if (summary != null && !summary.trim().isEmpty()) {
-            return Optional.of(summary);
         }
         return Optional.empty();
     }
@@ -67,6 +63,9 @@ public class SignatureContextProvider implements SutContextProvider {
     }
 
     private GenericClass<?> findTargetClass(String className, TestCluster cluster) {
+        if (cluster == null) {
+            return null;
+        }
         if (className == null || className.trim().isEmpty()) {
             return null;
         }
@@ -80,5 +79,22 @@ public class SignatureContextProvider implements SutContextProvider {
             // best-effort
         }
         return null;
+    }
+
+    private GenericClass<?> loadClassByName(String className) {
+        if (className == null || className.trim().isEmpty()) {
+            return null;
+        }
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        try {
+            Class<?> clazz = Class.forName(className, false, cl);
+            return new GenericClassImpl(clazz);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isNonBlank(String text) {
+        return text != null && !text.trim().isEmpty();
     }
 }

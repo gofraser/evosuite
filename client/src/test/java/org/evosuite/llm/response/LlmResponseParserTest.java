@@ -79,4 +79,38 @@ class LlmResponseParserTest {
 
         assertTrue(blocks.isEmpty());
     }
+
+    @Test
+    void recoversTruncatedClassByDroppingIncompleteMethod() {
+        String response = "```java\n"
+                + "public class ExampleTest {\n"
+                + "  @org.junit.Test\n"
+                + "  public void complete(){ int x = 1; }\n"
+                + "  @org.junit.Test\n"
+                + "  public void broken(){ int y =\n"
+                + "```";
+        LlmResponseParser.ExtractionResult result =
+                parser.extractTestClassWithMetadata(response, "MyGeneratedTest", null);
+
+        assertTrue(result.isRecoveryApplied());
+        assertTrue(result.getSource().contains("public void complete()"));
+        assertFalse(result.getSource().contains("public void broken()"));
+        assertTrue(result.getSource().trim().endsWith("}"));
+    }
+
+    @Test
+    void keepsValidClassWithoutRecovery() {
+        String response = "```java\n"
+                + "public class AlreadyValid {\n"
+                + "  @org.junit.Test\n"
+                + "  public void t(){ int x = 1; }\n"
+                + "}\n"
+                + "```";
+
+        LlmResponseParser.ExtractionResult result =
+                parser.extractTestClassWithMetadata(response, "IgnoredName", null);
+
+        assertFalse(result.isRecoveryApplied());
+        assertTrue(result.getSource().contains("public class AlreadyValid"));
+    }
 }

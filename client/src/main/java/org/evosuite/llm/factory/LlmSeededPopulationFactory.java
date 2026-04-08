@@ -115,10 +115,10 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
         if (!seedsMerged.compareAndSet(false, true)) {
             return;
         }
+        long waitMillis = Math.max(1L, timeoutMs);
         try {
             List<TestChromosome> produced;
             if (waitForCompletion) {
-                long waitMillis = Math.max(1L, timeoutMs);
                 produced = pendingSeeds.get(waitMillis, TimeUnit.MILLISECONDS);
             } else {
                 produced = pendingSeeds.get();
@@ -126,11 +126,16 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             mergeProducedSeeds(produced);
         } catch (TimeoutException e) {
             seedsMerged.set(false);
-            logger.debug("Timed out while waiting for async LLM seeds");
+            pendingSeeds.cancel(true);
+            LoggingUtils.getEvoLogger().info(
+                    "* LLM seeding timed out after {}ms; cancelled pending task", waitMillis);
+            logger.warn("Timed out while waiting for async LLM seeds after {}ms", waitMillis);
         } catch (InterruptedException e) {
             seedsMerged.set(false);
             Thread.currentThread().interrupt();
         } catch (ExecutionException e) {
+            LoggingUtils.getEvoLogger().info(
+                    "* LLM seeding failed: {}", e.getMessage());
             logger.warn("Could not merge async LLM seeds: {}", e.getMessage());
         }
     }
@@ -145,24 +150,45 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     }
 
     private List<TestChromosome> generateSeeds() {
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+        if (Thread.currentThread().isInterrupted()) {
+            LoggingUtils.getEvoLogger().info("* LLM seeding skipped: thread interrupted before start");
+            return Collections.emptyList();
+        }
+        if (!llmService.isAvailable()) {
+            LoggingUtils.getEvoLogger().info("* LLM seeding skipped: service is not available "
+                    + "(check LLM provider configuration and JDK compiler availability)");
+            return Collections.emptyList();
+        }
+        if (!llmService.hasBudget()) {
+            LoggingUtils.getEvoLogger().info("* LLM seeding skipped: call budget exhausted");
             return Collections.emptyList();
         }
         PromptResult prompt = buildPrompt();
         try {
             String response = llmService.query(prompt, LlmFeature.SEEDING);
-            RepairResult repairResult = TestRepairLoop.createDefault(llmService).attemptParse(
-                    response, prompt.getMessages(), LlmFeature.SEEDING);
+            if (Thread.currentThread().isInterrupted()) {
+                LoggingUtils.getEvoLogger().info("* LLM seeding interrupted after LLM query");
+                return Collections.emptyList();
+            }
+            RepairResult repairResult = new org.evosuite.llm.response.TestRepairLoop(
+                    llmService,
+                    org.evosuite.testparser.TestParser.forSUTWithLlmProvenance(),
+                    new org.evosuite.llm.response.LlmResponseParser(),
+                    new org.evosuite.llm.response.ClusterExpansionManager())
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.SEEDING);
             if (!repairResult.isSuccess()) {
-                logger.warn("LLM seeding failed to produce valid tests after {} attempt(s).",
+                LoggingUtils.getEvoLogger().info(
+                        "* LLM seeding failed after {} attempt(s)",
                         repairResult.getAttemptsUsed());
                 for (String diag : repairResult.getDiagnostics()) {
+                    LoggingUtils.getEvoLogger().info("*   Diagnostic: {}", diag);
                     logger.warn("  LLM repair diagnostic: {}", diag);
                 }
                 if (repairResult.getParseResults() != null) {
                     for (ParseResult pr : repairResult.getParseResults()) {
                         for (ParseDiagnostic d : pr.getDiagnostics()) {
-                            logger.warn("  [LLM Parse {}] {} (Line {})",
+                            LoggingUtils.getEvoLogger().info(
+                                    "*   Parse {}: {} (Line {})",
                                     d.getSeverity(), d.getMessage(), d.getLineNumber());
                         }
                     }
@@ -170,12 +196,17 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                 return Collections.emptyList();
             }
             List<TestChromosome> seeds = repairResult.toChromosomes();
-            logger.debug("LLM seeding produced {} valid test chromosomes.", seeds.size());
+            if (seeds.isEmpty()) {
+                LoggingUtils.getEvoLogger().info(
+                        "* LLM seeding: repair succeeded but produced 0 chromosomes");
+            }
             return seeds;
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
+            LoggingUtils.getEvoLogger().info("* LLM seeding unavailable: {}", e.getMessage());
             logger.warn("LLM seeding unavailable: {}", e.getMessage());
             return Collections.emptyList();
         } catch (RuntimeException e) {
+            LoggingUtils.getEvoLogger().info("* LLM seeding failed: {}", e.getMessage());
             logger.warn("LLM seeding failed: {}", e.getMessage(), e);
             return Collections.emptyList();
         }

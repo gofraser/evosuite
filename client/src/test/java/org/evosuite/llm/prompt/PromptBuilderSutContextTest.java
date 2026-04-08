@@ -28,21 +28,32 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import org.evosuite.utils.generic.GenericAccessibleObject;
+import org.evosuite.utils.generic.GenericClass;
+import org.evosuite.utils.generic.GenericClassFactory;
 
 class PromptBuilderSutContextTest {
 
     private LlmSutContextMode originalMode;
     private boolean originalFallback;
     private int originalMaxChars;
+    private String originalTargetClass;
 
     @BeforeEach
     void saveProperties() {
         originalMode = Properties.LLM_SUT_CONTEXT_MODE;
         originalFallback = Properties.LLM_CONTEXT_FALLBACK_ENABLED;
         originalMaxChars = Properties.LLM_CONTEXT_MAX_CHARS;
+        originalTargetClass = Properties.TARGET_CLASS;
     }
 
     @AfterEach
@@ -50,6 +61,7 @@ class PromptBuilderSutContextTest {
         Properties.LLM_SUT_CONTEXT_MODE = originalMode;
         Properties.LLM_CONTEXT_FALLBACK_ENABLED = originalFallback;
         Properties.LLM_CONTEXT_MAX_CHARS = originalMaxChars;
+        Properties.TARGET_CLASS = originalTargetClass;
     }
 
     @Test
@@ -152,6 +164,75 @@ class PromptBuilderSutContextTest {
         assertTrue(userPrompt.contains("abcde"));
         assertTrue(userPrompt.contains("(truncated)"));
         assertFalse(userPrompt.contains("fghij"));
+    }
+
+    @Test
+    void withSutContextAutomaticallyAddsDependencySignatures() {
+        Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.SIGNATURE_ONLY;
+        Properties.TARGET_CLASS = "com.example.Foo";
+
+        SutContextProvider stubProvider = new StubSutContextProvider("public class Foo {}");
+        SutContextProviderFactory factory = new SutContextProviderFactory(
+                stubProvider, stubProvider, stubProvider, stubProvider);
+
+        PromptBuilder builder = new PromptBuilder(
+                new SystemPromptProvider(),
+                new TestClusterSummarizer(),
+                new SourceCodeProvider(),
+                new CoverageGoalFormatter(),
+                new TestCaseFormatter(),
+                factory);
+
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        GenericClass<?> depType = GenericClassFactory.get(SignatureContextProvider.class);
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType = new LinkedHashMap<>();
+        generatorsByType.put(depType, java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generatorsByType);
+
+        List<LlmMessage> messages = builder
+                .withSutContext("com.example.Foo", cluster)
+                .build();
+
+        String userPrompt = messages.get(1).getContent();
+        assertTrue(userPrompt.contains("Available dependency types"),
+                "Dependency signatures should be included automatically");
+    }
+
+    @Test
+    void withSutContextAndExplicitClusterContextDoNotDuplicateDependencySection() {
+        Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.SIGNATURE_ONLY;
+        Properties.TARGET_CLASS = "com.example.Foo";
+
+        SutContextProvider stubProvider = new StubSutContextProvider("public class Foo {}");
+        SutContextProviderFactory factory = new SutContextProviderFactory(
+                stubProvider, stubProvider, stubProvider, stubProvider);
+
+        PromptBuilder builder = new PromptBuilder(
+                new SystemPromptProvider(),
+                new TestClusterSummarizer(),
+                new SourceCodeProvider(),
+                new CoverageGoalFormatter(),
+                new TestCaseFormatter(),
+                factory);
+
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        GenericClass<?> depType = GenericClassFactory.get(SignatureContextProvider.class);
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType = new LinkedHashMap<>();
+        generatorsByType.put(depType, java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generatorsByType);
+
+        List<LlmMessage> messages = builder
+                .withSutContext("com.example.Foo", cluster)
+                .withTestClusterContext("com.example.Foo", cluster)
+                .build();
+
+        String userPrompt = messages.get(1).getContent();
+        int first = userPrompt.indexOf("Available dependency types");
+        int second = userPrompt.indexOf("Available dependency types", first + 1);
+        assertTrue(first >= 0, "Dependency section should be present");
+        assertEquals(-1, second, "Dependency section should not be duplicated");
     }
 
     // --- Test helpers ---

@@ -19,6 +19,8 @@
  */
 package org.evosuite.llm.response;
 
+import com.github.javaparser.ParseProblemException;
+import com.github.javaparser.StaticJavaParser;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
@@ -171,8 +173,13 @@ public class TestRepairLoop {
             List<ParseResult> parseResults;
             try {
                 String sutPackage = getSutPackage();
-                String extractedClass = responseParser.extractTestClass(currentResponse, 
-                        "GeneratedLlmTest", sutPackage);
+                LlmResponseParser.ExtractionResult extraction = responseParser.extractTestClassWithMetadata(
+                        currentResponse, "GeneratedLlmTest", sutPackage);
+                String extractedClass = extraction.getSource();
+                if (extraction.isRecoveryApplied()) {
+                    diagnostics.add("Applied truncation recovery: " + extraction.getRecoveryReason());
+                    validateRecoveredSource(extractedClass);
+                }
                 parseResults = testParser.parseTestClass(extractedClass);
             } catch (Throwable parserFailure) {
                 String parserFailureText = "Parser failure: " + formatThrowable(parserFailure);
@@ -310,6 +317,15 @@ public class TestRepairLoop {
         return null;
     }
 
+    private void validateRecoveredSource(String source) {
+        try {
+            StaticJavaParser.parse(source);
+        } catch (ParseProblemException parseProblemException) {
+            throw new IllegalArgumentException("Recovered source is still not valid Java: "
+                    + parseProblemException.getMessage(), parseProblemException);
+        }
+    }
+
     /**
      * Sends a repair request and accumulates the conversation with the assistant's
      * previous response and the error feedback, so subsequent repairs have full context.
@@ -331,12 +347,12 @@ public class TestRepairLoop {
         if (previousResponse != null && !previousResponse.isEmpty()) {
             conversation.add(LlmMessage.assistant(previousResponse));
         }
-        if (!expandedClasses.isEmpty()) {
-            conversation.add(LlmMessage.system("Cluster expanded with newly resolved classes: " + expandedClasses));
-        }
-
         // Build repair message with error + SUT context reminder
         StringBuilder repairMessage = new StringBuilder();
+        if (!expandedClasses.isEmpty()) {
+            repairMessage.append("Note: The test cluster has been expanded with newly resolved classes: ")
+                         .append(expandedClasses).append("\n\n");
+        }
         repairMessage.append("The following issue was found in the generated tests:\n")
                      .append(error);
         if (sutContextSummary != null && !sutContextSummary.isEmpty()) {
@@ -458,6 +474,10 @@ public class TestRepairLoop {
     private static class DefaultExecutor implements TestExecutor {
         @Override
         public ExecutionResult execute(org.evosuite.testcase.TestCase testCase) {
+            if (!TestCaseExecutor.isAvailable()) {
+                logger.debug("TestCaseExecutor has been shut down; skipping execution check");
+                return null;
+            }
             return TestCaseExecutor.runTest(testCase);
         }
     }

@@ -51,6 +51,7 @@ public class PromptBuilder {
     private boolean sutContextSelectivelyTruncated;
     private boolean clusterSummaryTruncated;
     private int clusterSummaryChars;
+    private boolean dependencyContextAdded;
 
     private List<TestCase> fewShotExamples;
     private List<String> fewShotSnippets;
@@ -122,12 +123,13 @@ public class PromptBuilder {
             userSections.add("IMPORTANT: Do NOT access private or protected fields or methods. "
                     + "Only use public and package-private members in the generated tests.");
         }
+        addDependencyContext(className, cluster);
         return this;
     }
 
     /** Adds test cluster context (available API signatures) to the user prompt. */
     public PromptBuilder withTestClusterContext(TestCluster cluster) {
-        userSections.add("Available API context:\n" + testClusterSummarizer.summarize(cluster));
+        addDependencyContext(Properties.TARGET_CLASS, cluster);
         return this;
     }
 
@@ -136,17 +138,29 @@ public class PromptBuilder {
      * The CUT itself is excluded since it's already covered by {@link #withSutContext}.
      */
     public PromptBuilder withTestClusterContext(String className, TestCluster cluster) {
+        addDependencyContext(className, cluster);
+        return this;
+    }
+
+    private void addDependencyContext(String className, TestCluster cluster) {
+        if (dependencyContextAdded) {
+            return;
+        }
+        if (cluster == null) {
+            return;
+        }
+        String targetClassName = className == null ? "" : className;
         TestClusterSummarizer.DependencySummaryResult result =
                 testClusterSummarizer.summarizeDependencies(
-                        cluster, className, Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS);
+                        cluster, targetClassName, Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS);
         this.clusterSummaryTruncated = result.isTruncated();
         this.clusterSummaryChars = result.getTotalCharsBeforeTruncation();
         String summary = result.getText();
         if (summary != null && !summary.trim().isEmpty()) {
             userSections.add("Available dependency types (standard Java library "
                     + "classes may also be used freely):\n" + summary);
+            dependencyContextAdded = true;
         }
-        return this;
     }
 
     /** Adds the source code of the given class to the user prompt when available. */

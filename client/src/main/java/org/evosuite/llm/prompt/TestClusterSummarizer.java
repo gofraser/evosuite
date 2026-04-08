@@ -237,10 +237,12 @@ public class TestClusterSummarizer {
                                      Set<GenericAccessibleObject<?>> generators,
                                      Set<GenericAccessibleObject<?>> modifiers) {
         StringBuilder sb = new StringBuilder();
+        // Type header so the LLM knows which class these members belong to
+        sb.append("// ").append(rawClass.getSimpleName());
         if (rawClass.isEnum()) {
             Object[] constants = rawClass.getEnumConstants();
             if (constants != null && constants.length > 0) {
-                sb.append("  ").append(rawClass.getSimpleName()).append(" { ");
+                sb.append(" { ");
                 for (int i = 0; i < constants.length; i++) {
                     if (i > 0) {
                         sb.append(", ");
@@ -250,12 +252,13 @@ public class TestClusterSummarizer {
                 sb.append(" }");
             }
         } else {
-            // Constructors from reflection
-            Constructor<?>[] constructors = rawClass.getConstructors();
-            for (Constructor<?> ctor : constructors) {
-                if (sb.length() > 0) {
-                    sb.append('\n');
+            // Constructors from reflection (include package-private for same-package access)
+            for (Constructor<?> ctor : rawClass.getDeclaredConstructors()) {
+                if (Modifier.isPrivate(ctor.getModifiers())
+                        || Modifier.isProtected(ctor.getModifiers())) {
+                    continue;
                 }
+                sb.append('\n');
                 sb.append("  ").append(rawClass.getSimpleName())
                         .append('(').append(genericParameterList(ctor.getGenericParameterTypes())).append(')');
             }
@@ -268,9 +271,7 @@ public class TestClusterSummarizer {
                                 instanceof Method
                                 ? (Method) gen.getAccessibleObject() : null;
                         if (method != null) {
-                            if (sb.length() > 0) {
-                                sb.append('\n');
-                            }
+                            sb.append('\n');
                             sb.append("  static ").append(rawClass.getSimpleName())
                                     .append(' ').append(method.getName())
                                     .append('(').append(genericParameterList(method.getGenericParameterTypes()))
@@ -291,9 +292,7 @@ public class TestClusterSummarizer {
                             String sig = method.getName() + "("
                                     + genericParameterList(method.getGenericParameterTypes()) + ")";
                             if (seen.add(sig)) {
-                                if (sb.length() > 0) {
-                                    sb.append('\n');
-                                }
+                                sb.append('\n');
                                 sb.append("  ").append(genericTypeName(method.getGenericReturnType()))
                                         .append(' ').append(sig);
                             }
@@ -401,15 +400,22 @@ public class TestClusterSummarizer {
             }
         }
 
-        // Interfaces
-        Type[] ifaces = raw.getGenericInterfaces();
-        if (ifaces.length > 0) {
+        // Interfaces (filter out EvoSuite instrumentation interfaces)
+        List<Type> userIfaces = new ArrayList<>();
+        for (Type iface : raw.getGenericInterfaces()) {
+            String ifaceName = genericTypeName(iface);
+            if (ifaceName.contains("evosuite") || ifaceName.contains("EvoSuite")) {
+                continue;
+            }
+            userIfaces.add(iface);
+        }
+        if (!userIfaces.isEmpty()) {
             b.append(raw.isInterface() ? " extends " : " implements ");
-            for (int i = 0; i < ifaces.length; i++) {
+            for (int i = 0; i < userIfaces.size(); i++) {
                 if (i > 0) {
                     b.append(", ");
                 }
-                b.append(genericTypeName(ifaces[i]));
+                b.append(genericTypeName(userIfaces.get(i)));
             }
         }
 
@@ -465,16 +471,24 @@ public class TestClusterSummarizer {
             b.append(System.lineSeparator());
         }
 
-        // Constructors
-        Constructor<?>[] constructors = raw.getConstructors();
-        if (constructors.length > 0) {
-            b.append(System.lineSeparator()).append("  // Constructors").append(System.lineSeparator());
-            for (Constructor<?> ctor : constructors) {
-                b.append("  ").append(raw.getSimpleName())
-                        .append('(').append(genericParameterList(ctor.getGenericParameterTypes())).append(')');
-                b.append(throwsClause(ctor.getGenericExceptionTypes()));
-                b.append(System.lineSeparator());
+        // Constructors (include public and package-private for same-package test access)
+        boolean hasConstructorHeader = false;
+        for (Constructor<?> ctor : raw.getDeclaredConstructors()) {
+            int cm = ctor.getModifiers();
+            if (Modifier.isPrivate(cm) || Modifier.isProtected(cm)) {
+                continue;
             }
+            if (ctor.isSynthetic()) {
+                continue;
+            }
+            if (!hasConstructorHeader) {
+                b.append(System.lineSeparator()).append("  // Constructors").append(System.lineSeparator());
+                hasConstructorHeader = true;
+            }
+            b.append("  ").append(raw.getSimpleName())
+                    .append('(').append(genericParameterList(ctor.getGenericParameterTypes())).append(')');
+            b.append(throwsClause(ctor.getGenericExceptionTypes()));
+            b.append(System.lineSeparator());
         }
 
         // Public methods
@@ -637,9 +651,18 @@ public class TestClusterSummarizer {
         }
     }
 
-    /** Returns true if the class name belongs to a JDK package (java.* or javax.*). */
+    /** Returns true if the class name belongs to a JDK package (java.* or javax.*) or is a primitive array. */
     static boolean isJdkType(String className) {
-        return className.startsWith("java.") || className.startsWith("javax.");
+        if (className.startsWith("java.") || className.startsWith("javax.")) {
+            return true;
+        }
+        // Primitive array types (e.g. "[C" for char[], "[I" for int[]) and their
+        // component types are well-known to LLMs; their generators (e.g.
+        // Character.toChars) just add noise to the dependency context.
+        if (className.startsWith("[") || className.endsWith("[]")) {
+            return true;
+        }
+        return false;
     }
 
     /**
