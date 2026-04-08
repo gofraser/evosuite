@@ -479,7 +479,7 @@ public class TestFactory {
 
     private VariableReference addPrimitive(TestCase test, PrimitiveStatement<?> old,
                                            int position, GenerationContext context) throws ConstructionFailedException {
-        logger.debug("Adding primitive");
+        logger.trace("Adding primitive");
         Statement st = old.clone(test);
         return test.addStatement(st, position);
     }
@@ -600,7 +600,7 @@ public class TestFactory {
             }
 
         }
-        logger.debug("Reusable objects: {}", objects);
+        logger.trace("Reusable objects: {}", objects);
         assignArray(test, array, arrayIndex, position, objects);
     }
 
@@ -626,7 +626,7 @@ public class TestFactory {
             // TODO:
             // Do we need a special "[Array]AssignmentStatement"?
             VariableReference choice = Randomness.choice(objects);
-            logger.debug("Reusing value: {}", choice);
+            logger.trace("Reusing value: {}", choice);
 
             ArrayIndex index = new ArrayIndex(test, arrRef, arrayIndex);
             Statement st = new AssignmentStatement(test, index, choice);
@@ -641,7 +641,7 @@ public class TestFactory {
             // OR: Create a new variablereference and then assign it to array
             // (better!)
             int oldLength = test.size();
-            logger.debug("Attempting generation of object of type {}", array.getComponentType());
+            logger.trace("Attempting generation of object of type {}", array.getComponentType());
             VariableReference var = attemptGeneration(test, array.getComponentType(),
                     position);
             // Generics instantiation may lead to invalid types, so better double check
@@ -800,21 +800,21 @@ public class TestFactory {
     VariableReference createArray(TestCase test, GenericClass<?> arrayClass,
                                           int position, GenerationContext context) throws ConstructionFailedException {
 
-        logger.debug("Creating array of type {}", arrayClass.getTypeName());
+        logger.trace("Creating array of type {}", arrayClass.getTypeName());
         if (arrayClass.hasWildcardOrTypeVariables()) {
             // if (arrayClass.getComponentClass().isClass()) {
             //    arrayClass = arrayClass.getWithWildcardTypes();
             // } else {
             arrayClass = arrayClass.getGenericInstantiation();
-            logger.debug("Setting generic array to type {}", arrayClass.getTypeName());
+            logger.trace("Setting generic array to type {}", arrayClass.getTypeName());
             // }
         }
         // Create array with random size
         ArrayStatement statement = new ArrayStatement(test, arrayClass.getType());
         VariableReference reference = test.addStatement(statement, position);
         position++;
-        logger.debug("Array length: {}", statement.size());
-        logger.debug("Array component type: {}", reference.getComponentType());
+        logger.trace("Array length: {}", statement.size());
+        logger.trace("Array component type: {}", reference.getComponentType());
 
         // For each value of array, call attemptGeneration
         List<VariableReference> objects = test.getObjects(reference.getComponentType(),
@@ -840,10 +840,10 @@ public class TestFactory {
         }
 
         objects.remove(statement.getReturnValue());
-        logger.debug("Found assignable objects: {}", objects.size());
+        logger.trace("Found assignable objects: {}", objects.size());
 
         for (int i = 0; i < statement.size(); i++) {
-            logger.debug("Assigning array index {}", i);
+            logger.trace("Assigning array index {}", i);
             int oldLength = test.size();
             assignArray(test, reference, i, position, objects);
             position += test.size() - oldLength;
@@ -887,9 +887,9 @@ public class TestFactory {
         // Special case: we cannot instantiate Class<Class<?>>
         if (clazz.isClass()) {
             if (clazz.hasWildcardOrTypeVariables()) {
-                logger.debug("Getting generic instantiation of class");
+                logger.trace("Getting generic instantiation of class");
                 clazz = clazz.getGenericInstantiation();
-                logger.debug("Chosen: {}", clazz);
+                logger.trace("Chosen: {}", clazz);
             }
             Type parameterType = clazz.getParameterTypes().get(0);
             if (!(parameterType instanceof WildcardType)
@@ -1211,7 +1211,7 @@ public class TestFactory {
         while (iter.hasNext()) {
             VariableReference ref = iter.next();
             if (!ref.isAssignableTo(parameterType)) {
-                logger.debug("Removing incompatible reuse candidate {} for type {}", ref, parameterType);
+                logger.trace("Removing incompatible reuse candidate {} for type {}", ref, parameterType);
                 iter.remove();
             }
         }
@@ -1307,9 +1307,9 @@ public class TestFactory {
     boolean insertRandomReflectionCall(TestCase test, int position, GenerationContext context)
             throws ConstructionFailedException {
 
-        logger.debug("Recursion depth: {}", context.getDepth());
+        logger.trace("Recursion depth: {}", context.getDepth());
         if (context.getDepth() > Properties.MAX_RECURSION) {
-            logger.debug("Max recursion depth reached");
+            logger.trace("Max recursion depth reached");
             throw new ConstructionFailedException("Max recursion depth reached");
         }
 
@@ -1374,15 +1374,15 @@ public class TestFactory {
                                                        int position, GenerationContext context)
             throws ConstructionFailedException {
 
-        logger.debug("Recursion depth: {}", context.getDepth());
+        logger.trace("Recursion depth: {}", context.getDepth());
         if (context.getDepth() > Properties.MAX_RECURSION) {
-            logger.debug("Max recursion depth reached");
+            logger.trace("Max recursion depth reached");
             throw new ConstructionFailedException("Max recursion depth reached");
         }
 
         ReflectionFactory rf = getReflectionFactory();
         if (!rf.getReflectedClass().isAssignableFrom(callee.getVariableClass())) {
-            logger.debug("Reflection not performed on class {}", callee.getVariableClass());
+            logger.trace("Reflection not performed on class {}", callee.getVariableClass());
             return false;
         }
 
@@ -1608,7 +1608,7 @@ public class TestFactory {
         }
 
         List<VariableReference> parameters = new ArrayList<>();
-        logger.debug("Trying to satisfy {} parameters at position {}", parameterTypes.size(), position);
+        logger.trace("Trying to satisfy {} parameters at position {}", parameterTypes.size(), position);
 
         for (int i = 0; i < parameterTypes.size(); i++) {
             Type parameterType = parameterTypes.get(i);
@@ -1619,7 +1619,7 @@ public class TestFactory {
                 parameter = parameterList.get(i);
             }
 
-            logger.debug("Current parameter type: {}", parameterType);
+            logger.trace("Current parameter type: {}", parameterType);
 
             if (parameterType instanceof CaptureType) {
                 // TODO: This should not really happen in the first place
@@ -1628,7 +1628,7 @@ public class TestFactory {
 
             GenericClass<?> parameterClass = GenericClassFactory.get(parameterType);
             if (parameterClass.hasTypeVariables()) {
-                logger.debug("Parameter has type variables, replacing with wildcard");
+                logger.trace("Parameter has type variables, replacing with wildcard");
                 parameterType = parameterClass.getWithWildcardTypes().getType();
             }
             int previousLength = test.size();
@@ -1645,10 +1645,10 @@ public class TestFactory {
             VariableResolutionConfig paramConfig = paramConfigBuilder.build();
 
             if (paramConfig.isCanReuseExistingVariables()) {
-                logger.debug("Can re-use variables");
+                logger.trace("Can re-use variables");
                 var = createOrReuseVariable(test, parameterType, position, context, paramConfig);
             } else {
-                logger.debug("Cannot re-use variables: attempt at creating new one");
+                logger.trace("Cannot re-use variables: attempt at creating new one");
                 var = createVariable(test, parameterType, position, context, paramConfig);
                 if (var == null) {
                     throw new ConstructionFailedException(
@@ -1668,7 +1668,7 @@ public class TestFactory {
             int currentLength = test.size();
             position += currentLength - previousLength;
         }
-        logger.debug("Satisfied {} parameters", parameterTypes.size());
+        logger.trace("Satisfied {} parameters", parameterTypes.size());
         return parameters;
     }
 
