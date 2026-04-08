@@ -124,14 +124,13 @@ public final class DmonPromotionOperator {
         if (individual == null || result == null) {
             return result;
         }
+        if (!result.hasUnconsumedDmonPromotionPlan()) {
+            return result;
+        }
         logger.debug("DMoN promotion: evaluate [hasPlan={}, consumed={}, contaminated={}]",
                 result.getDmonPromotionPlan() != null,
                 result.isDmonPromotionConsumed(),
                 result.isDmonContaminated());
-        if (!result.hasUnconsumedDmonPromotionPlan()) {
-            logger.trace("DMoN promotion: skip [reason=NO_UNCONSUMED_PLAN]");
-            return result;
-        }
         if (result.isDmonContaminated()) {
             DmonPromotionPlan contaminatedPlan = result.getDmonPromotionPlan();
             if (contaminatedPlan != null && contaminatedPlan.getFailureSite() != null) {

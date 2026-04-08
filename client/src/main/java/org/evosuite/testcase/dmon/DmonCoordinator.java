@@ -63,6 +63,21 @@ public class DmonCoordinator {
         return analysisCache.computeIfAbsent(key, k -> analyzer.analyzeConstructorNpe(statement, throwable));
     }
 
+    /**
+     * Analyzes a constructor failure for ephemeral assist without the target-class restriction.
+     * Results are not cached since ephemeral injections are transient.
+     *
+     * @param statement the constructor statement
+     * @param throwable the throwable that occurred
+     * @return an optional promotion plan
+     */
+    public Optional<DmonPromotionPlan> analyzeForEphemeralAssist(ConstructorStatement statement, Throwable throwable) {
+        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+            return Optional.empty();
+        }
+        return analyzer.analyzeConstructorNpe(statement, throwable, false);
+    }
+
     private static final class CacheKey {
         private final String owner;
         private final String message;

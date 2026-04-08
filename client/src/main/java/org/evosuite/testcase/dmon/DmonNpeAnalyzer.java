@@ -58,20 +58,29 @@ public class DmonNpeAnalyzer {
      * @return an optional promotion plan
      */
     public Optional<DmonPromotionPlan> analyzeConstructorNpe(ConstructorStatement statement, Throwable throwable) {
+        return analyzeConstructorNpe(statement, throwable, true);
+    }
+
+    /**
+     * Analyzes a constructor NullPointerException with optional target-class enforcement.
+     *
+     * @param statement the constructor statement
+     * @param throwable the NullPointerException that occurred
+     * @param enforceTargetClassRestriction if true, only analyze constructors of the target class
+     * @return an optional promotion plan
+     */
+    public Optional<DmonPromotionPlan> analyzeConstructorNpe(ConstructorStatement statement, Throwable throwable,
+                                                              boolean enforceTargetClassRestriction) {
         if (statement == null || throwable == null) {
-            logger.debug("DMoN analyzer: skip [reason=NULL_INPUT]");
             return Optional.empty();
         }
 
         if (!(throwable instanceof NullPointerException)) {
-            logger.debug("DMoN analyzer: skip [reason=NOT_NPE, type={}]", throwable.getClass().getName());
             return Optional.empty();
         }
 
-        if (Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR
+        if (enforceTargetClassRestriction && Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR
                 && !Properties.TARGET_CLASS.equals(statement.getDeclaringClassName())) {
-            logger.debug("DMoN analyzer: skip [reason=NOT_TARGET_CTOR, targetClass={}, statementClass={}]",
-                    Properties.TARGET_CLASS, statement.getDeclaringClassName());
             return Optional.empty();
         }
 
@@ -377,8 +386,13 @@ public class DmonNpeAnalyzer {
             return Optional.empty();
         }
         if (token.contains("(")) {
-            // "a.b.Type.method()" -> "a.b.Type"
-            return Optional.of(token.substring(0, lastDot));
+            // "a.b.Type.method(args)" -> "a.b.Type"
+            int parenIdx = token.indexOf('(');
+            int lastDotBeforeParen = token.lastIndexOf('.', parenIdx);
+            if (lastDotBeforeParen <= 0) {
+                return Optional.empty();
+            }
+            return Optional.of(token.substring(0, lastDotBeforeParen));
         }
         return Optional.of(token);
     }
