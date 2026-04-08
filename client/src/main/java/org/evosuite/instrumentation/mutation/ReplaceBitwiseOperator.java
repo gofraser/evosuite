@@ -322,7 +322,7 @@ public class ReplaceBitwiseOperator implements MutationOperator {
                 return x & y;
             case Opcodes.LOR:
                 return x | y;
-            case Opcodes.IXOR:
+            case Opcodes.LXOR:
                 return x ^ y;
             case Opcodes.LSHL:
                 return x << y;
