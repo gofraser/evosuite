@@ -132,6 +132,10 @@ public class MockFileInputStream extends FileInputStream implements LeakingResou
 
         throwExceptionIfClosed();
 
+        if (Thread.currentThread().isInterrupted()) {
+            throw new MockIOException("Thread interrupted during read");
+        }
+
         return NativeMockedIO.read(path, position);
     }
 
