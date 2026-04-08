@@ -67,7 +67,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             visitInsn(Opcodes.DUP);
             visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
                     "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLT, origTarget);
+            super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
             super.visitTypeInsn(Opcodes.NEW,
                     PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class));
             super.visitInsn(Opcodes.DUP);
@@ -96,7 +96,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             visitInsn(Opcodes.DUP);
             visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
                     "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLT, origTarget);
+            super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
             super.visitTypeInsn(Opcodes.NEW,
                     PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class));
             super.visitInsn(Opcodes.DUP);
@@ -124,8 +124,8 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             visitInsn(Opcodes.DUP);
             visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
                     "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLT, ok);
-            // size >= ARRAY_LIMIT → throw TimeoutExceeded
+            super.visitJumpInsn(Opcodes.IF_ICMPLE, ok);
+            // size > ARRAY_LIMIT → throw TimeoutExceeded
             super.visitTypeInsn(Opcodes.NEW,
                     PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class));
             super.visitInsn(Opcodes.DUP);
@@ -173,7 +173,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             push(dims);
             visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
                     "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPGE, errorTarget);
+            super.visitJumpInsn(Opcodes.IF_ICMPGT, errorTarget);
         }
 
         // Check each of the dimensions
@@ -187,7 +187,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             loadLocal(to.get(i));
             visitFieldInsn(Opcodes.GETSTATIC, "org/evosuite/Properties",
                     "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPGE, errorTarget);
+            super.visitJumpInsn(Opcodes.IF_ICMPGT, errorTarget);
         }
 
         // Check the product of all dimensions against ARRAY_LIMIT.
@@ -208,7 +208,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             visitInsn(Opcodes.I2L);
             visitInsn(Opcodes.LCMP);
             // LCMP pushes 1 if product > limit, 0 if equal, -1 if less
-            super.visitJumpInsn(Opcodes.IFGE, errorTarget);
+            super.visitJumpInsn(Opcodes.IFGT, errorTarget);
         }
 
         goTo(origTarget);

@@ -229,18 +229,22 @@ public class TestSuiteWriter implements Opcodes {
 
         List<ExecutionResult> results = new ArrayList<>();
         for (TestCase test : testCases) {
-            boolean added = false;
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                logger.info("Using cached result");
+                // Try to use a cached result; if none exists, skip the test
+                boolean added = false;
                 for (ExecutionResult result : cachedResults) {
                     if (result != null && result.test == test) {
+                        logger.info("Using cached result");
                         results.add(result);
                         added = true;
                         break;
                     }
                 }
-            }
-            if (!added) {
+                if (!added) {
+                    logger.info("No time left and no cached result; skipping test execution");
+                    continue;
+                }
+            } else {
                 ExecutionResult result = runTest(test);
                 results.add(result);
             }

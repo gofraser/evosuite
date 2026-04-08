@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.fm;
 
+import org.evosuite.Properties;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -50,15 +51,6 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
     private static final Logger logger = LoggerFactory.getLogger(EvoInvocationListener.class);
 
     private final Map<String, MethodDescriptor> map = new LinkedHashMap<>();
-
-    /**
-     * Maximum total mock invocations per test execution before we throw
-     * {@link TooManyResourcesException}.  This catches cases where SUT code
-     * calls a mocked method in a tight loop (e.g., {@code iterable.forEach(mockedConsumer)})
-     * that the {@link org.evosuite.runtime.LoopCounter} cannot reach because
-     * the loop is in uninstrumented JDK code.
-     */
-    private static final int MAX_INVOCATIONS_PER_TEST = 10_000;
 
     /**
      * Counts total invocations since last {@link #activate()}.
@@ -131,9 +123,10 @@ public class EvoInvocationListener implements InvocationListener, Serializable {
         // Guard against tight loops in uninstrumented code that call a mock
         // method repeatedly (e.g., Iterable.forEach(mockedConsumer)).  The
         // LoopCounter can't help because the loop back-edge is in JDK code.
-        if (++invocationCount > MAX_INVOCATIONS_PER_TEST) {
+        int maxInvocationsPerTest = Math.max(1, Properties.MAX_MOCK_INVOCATIONS_PER_TEST);
+        if (++invocationCount > maxInvocationsPerTest) {
             throw new TooManyResourcesException(
-                    "Mock invocation limit exceeded (" + MAX_INVOCATIONS_PER_TEST
+                    "Mock invocation limit exceeded (" + maxInvocationsPerTest
                             + ") — likely an infinite loop calling a mocked method");
         }
 

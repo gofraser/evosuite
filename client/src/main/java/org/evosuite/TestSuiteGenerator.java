@@ -423,14 +423,21 @@ public class TestSuiteGenerator {
 
         if (Properties.COVERAGE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
-            Criterion[] originalCriteria = Properties.CRITERION;
-            if (requestedCriteria != null) {
-                Properties.CRITERION = requestedCriteria;
-            }
-            try {
-                CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
-            } finally {
-                Properties.CRITERION = originalCriteria;
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping coverage analysis because not enough time is left");
+            } else if (isMemoryTooLowForPhase("coverage analysis")) {
+                // skip — message already logged by the check
+            } else {
+                Criterion[] originalCriteria = Properties.CRITERION;
+                if (requestedCriteria != null) {
+                    Properties.CRITERION = requestedCriteria;
+                }
+                try {
+                    CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
+                } finally {
+                    Properties.CRITERION = originalCriteria;
+                }
             }
         }
 
@@ -490,18 +497,25 @@ public class TestSuiteGenerator {
         }
 
         if (Properties.FILTER_SANDBOX_TESTS) {
-            for (TestChromosome test : testSuite.getTestChromosomes()) {
-                // delete all statements leading to security exceptions
-                ExecutionResult result = test.getLastExecutionResult();
-                if (result == null) {
-                    result = TestCaseExecutor.runTest(test.getTestCase());
-                }
-                if (result.hasSecurityException()) {
-                    int position = result.getFirstPositionOfThrownException();
-                    if (position > 0) {
-                        test.getTestCase().chop(position);
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping sandbox test filtering because not enough time is left");
+            } else if (isMemoryTooLowForPhase("sandbox test filtering")) {
+                // skip — message already logged by the check
+            } else {
+                for (TestChromosome test : testSuite.getTestChromosomes()) {
+                    // delete all statements leading to security exceptions
+                    ExecutionResult result = test.getLastExecutionResult();
+                    if (result == null) {
                         result = TestCaseExecutor.runTest(test.getTestCase());
-                        test.setLastExecutionResult(result);
+                    }
+                    if (result.hasSecurityException()) {
+                        int position = result.getFirstPositionOfThrownException();
+                        if (position > 0) {
+                            test.getTestCase().chop(position);
+                            result = TestCaseExecutor.runTest(test.getTestCase());
+                            test.setLastExecutionResult(result);
+                        }
                     }
                 }
             }

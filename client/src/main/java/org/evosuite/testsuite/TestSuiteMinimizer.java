@@ -60,7 +60,6 @@ public class TestSuiteMinimizer {
      * Logger.
      */
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteMinimizer.class);
-
     private final List<TestFitnessFactory<?>> testFitnessFactories = new ArrayList<>();
 
     /**
@@ -350,7 +349,7 @@ public class TestSuiteMinimizer {
             suite.addTest(test);
         }
 
-        if (Properties.MINIMIZE_SECOND_PASS) {
+        if (Properties.MINIMIZE_SECOND_PASS && !timeout) {
             removeRedundantTestCases(suite, goals);
         }
 

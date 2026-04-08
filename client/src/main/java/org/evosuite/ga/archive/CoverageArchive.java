@@ -120,6 +120,20 @@ public class CoverageArchive extends Archive {
             AtMostOnceLogger.warn(logger,
                     "A solution with a timeout/exception result has been added to the archive. The covered goal was "
                             + target.toString());
+            if (result.getAllThrownExceptions().isEmpty()) {
+                logger.info("ExecutionResult flagged timeout/exception but has no recorded thrown exceptions.");
+            } else {
+                int index = 0;
+                for (Throwable thrown : result.getAllThrownExceptions()) {
+                    logger.info("Recorded thrown exception[{}]: {}: {}", index,
+                            thrown.getClass().getName(), thrown.getMessage());
+                    for (StackTraceElement elem : thrown.getStackTrace()) {
+                        logger.info("  at {}", elem);
+                    }
+                    index++;
+                }
+            }
+            logger.info(solution.toString());
         }
     }
 

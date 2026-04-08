@@ -509,7 +509,7 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
         Set<ExceptionCoverageTestFitness> coveredExceptions = new LinkedHashSet<>();
         ExecutionResult result = t.getLastExecutionResult();
 
-        if (result.calledReflection()) {
+        if (result == null || result.calledReflection()) {
             return coveredExceptions;
         }
 

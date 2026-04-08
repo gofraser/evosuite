@@ -468,7 +468,7 @@ public class TestClusterGenerator {
                     Sandbox.goingToExecuteUnsafeCodeOnSameThread();
                     clazz = TestClusterUtils.getClass(className);
                 } catch (ExceptionInInitializerError ex) {
-                    logger.debug("Class class init caused exception " + className);
+                    logger.debug("Class class init caused exception " + className + ex.getException());
                     continue;
                 } finally {
                     Sandbox.doneWithExecutingUnsafeCodeOnSameThread();

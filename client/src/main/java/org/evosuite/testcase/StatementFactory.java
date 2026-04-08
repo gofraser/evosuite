@@ -208,7 +208,20 @@ public class StatementFactory {
             // ArrayAllocationLimitMethodAdapter, but not when called via
             // reflection from ConstructorStatement
             "java.lang.StringBuilder",
-            "java.lang.StringBuffer"
+            "java.lang.StringBuffer",
+            // BigInteger — the probable-prime constructor BigInteger(int, int, Random)
+            // runs Lucas-Lehmer primality testing that is extremely CPU-intensive
+            // for large bitLength values. Even moderate values (>10000 bits) can
+            // stall the executor thread.
+            "java.math.BigInteger",
+            // NIO buffers — allocate(int) creates a backing array of that size
+            "java.nio.ByteBuffer",
+            "java.nio.CharBuffer",
+            "java.nio.ShortBuffer",
+            "java.nio.IntBuffer",
+            "java.nio.LongBuffer",
+            "java.nio.FloatBuffer",
+            "java.nio.DoubleBuffer"
     ));
 
     /**

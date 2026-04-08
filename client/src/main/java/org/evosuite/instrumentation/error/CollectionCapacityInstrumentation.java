@@ -140,7 +140,7 @@ public class CollectionCapacityInstrumentation extends ErrorBranchInstrumenter {
                 "COLLECTION_CAPACITY_LIMIT", "I");
 
         Label ok = new Label();
-        mv.visitJumpInsn(Opcodes.IF_ICMPLT, ok);
+        mv.visitJumpInsn(Opcodes.IF_ICMPLE, ok);
         mv.visitTypeInsn(Opcodes.NEW, TIMEOUT_EXCEEDED_INTERNAL_NAME);
         mv.visitInsn(Opcodes.DUP);
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, TIMEOUT_EXCEEDED_INTERNAL_NAME,
@@ -169,7 +169,7 @@ public class CollectionCapacityInstrumentation extends ErrorBranchInstrumenter {
                 limitField, "I");
 
         Label ok = new Label();
-        mv.visitJumpInsn(Opcodes.IF_ICMPLT, ok);
+        mv.visitJumpInsn(Opcodes.IF_ICMPLE, ok);
         mv.visitTypeInsn(Opcodes.NEW, TIMEOUT_EXCEEDED_INTERNAL_NAME);
         mv.visitInsn(Opcodes.DUP);
         mv.visitMethodInsn(Opcodes.INVOKESPECIAL, TIMEOUT_EXCEEDED_INTERNAL_NAME,

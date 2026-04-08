@@ -1045,14 +1045,21 @@ public class TestRunnable implements InterfaceTestRunnable {
             for (StackTraceElement elem : exceptionThrown.getStackTrace()) {
                 logger.debug(elem.toString());
             }
-            if (exceptionThrown.getCause() != null) {
-                logger.debug("Cause: "
-                        + exceptionThrown.getCause().getClass().getName()
-                        + " - " + exceptionThrown.getCause().getMessage());
-                for (StackTraceElement elem : exceptionThrown.getCause().getStackTrace()) {
+            Throwable current = exceptionThrown.getCause();
+            int depth = 0;
+            while (current != null && depth < 20) {
+                logger.debug("Cause[{}]: {} - {}", depth, current.getClass().getName(), current.getMessage());
+                for (StackTraceElement elem : current.getStackTrace()) {
                     logger.debug(elem.toString());
                 }
-            } else {
+                Throwable next = current.getCause();
+                if (next == current) {
+                    break;
+                }
+                current = next;
+                depth++;
+            }
+            if (exceptionThrown.getCause() == null) {
                 logger.debug("Cause is null");
             }
         }

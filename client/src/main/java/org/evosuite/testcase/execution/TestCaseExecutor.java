@@ -210,6 +210,33 @@ public class TestCaseExecutor implements ThreadFactory {
 
     public static class TimeoutExceeded extends RuntimeException {
         private static final long serialVersionUID = -5314228165430676893L;
+
+        public TimeoutExceeded() {
+            super();
+        }
+
+        /**
+         * Build a timeout marker exception whose stack trace reflects the worker
+         * thread that was executing the test when the timeout fired.
+         */
+        public TimeoutExceeded(Thread workerThread) {
+            super(workerThread == null
+                    ? "Test execution timed out"
+                    : "Test execution timed out in worker thread " + workerThread.getName());
+            if (workerThread != null) {
+                StackTraceElement[] workerStack = workerThread.getStackTrace();
+                if (workerStack != null && workerStack.length > 0) {
+                    setStackTrace(workerStack);
+                }
+            }
+        }
+
+        public TimeoutExceeded(String message, StackTraceElement[] stackTrace) {
+            super(message);
+            if (stackTrace != null && stackTrace.length > 0) {
+                setStackTrace(stackTrace);
+            }
+        }
     }
 
     /**
@@ -535,6 +562,14 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             return result; // FIXME: is this reachable?
         } catch (TimeoutException e1) {
+            // Snapshot immediately on timeout catch, before any interrupt/wait/cleanup
+            // can move the worker back to the executor idle loop.
+            StackTraceElement[] timeoutStackSnapshot = currentThread != null
+                    ? currentThread.getStackTrace()
+                    : null;
+            String timeoutThreadName = currentThread != null ? currentThread.getName() : "<null>";
+            Thread.State timeoutThreadState = currentThread != null ? currentThread.getState() : null;
+
             if (Properties.LOG_TIMEOUT) {
                 logger.warn("Timeout occurred for " + Properties.TARGET_CLASS);
             }
@@ -548,11 +583,14 @@ public class TestCaseExecutor implements ThreadFactory {
                 logger.info("Timeout happened inside <clinit>; entering grace handling before kill switch.");
             }
 
-            // Interrupt immediately — the kill switch only works at instrumented
-            // checkpoints, but the thread may be blocked in JDK code (e.g.,
-            // DelayQueue.take, Thread.sleep) that only responds to interrupt.
-            if (currentThread != null) {
+            // Interrupt immediately only when not in <clinit>. If we interrupt
+            // during static initialization, LoopCounter.checkLoop() can convert
+            // the interrupt into TooManyResourcesException, which then poisons
+            // class initialization (NoClassDefFoundError on subsequent access).
+            if (currentThread != null && !initialInStaticInit) {
                 currentThread.interrupt();
+            } else if (initialInStaticInit) {
+                logger.info("Deferring thread interrupt while <clinit> grace handling is active.");
             }
             waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
 
@@ -688,7 +726,12 @@ public class TestCaseExecutor implements ThreadFactory {
             ExecutionResult result = new ExecutionResult(tc, null);
             try {
                 result.setThrownExceptions(callable.getExceptionsThrown());
-                result.reportNewThrownException(tc.size(), new TestCaseExecutor.TimeoutExceeded());
+                String timeoutMessage = timeoutThreadState == null
+                        ? "Test execution timed out in worker thread " + timeoutThreadName
+                        : "Test execution timed out in worker thread " + timeoutThreadName
+                        + " [state=" + timeoutThreadState + "]";
+                result.reportNewThrownException(tc.size(),
+                        new TestCaseExecutor.TimeoutExceeded(timeoutMessage, timeoutStackSnapshot));
                 result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
                 ExecutionTracer.getExecutionTracer().clear();
             } finally {

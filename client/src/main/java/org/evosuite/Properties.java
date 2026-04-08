@@ -2395,6 +2395,12 @@ public class Properties {
             description = "Max number of iterations allowed per loop. A negative value means no check is done.")
     public static long MAX_LOOP_ITERATIONS = RuntimeSettings.maxNumberOfIterationsPerLoop;
 
+    @Parameter(key = "max_mock_invocations_per_test", group = "Test Execution",
+            description = "Maximum total invocations observed by functional mocks per test execution "
+                    + "before aborting with TooManyResourcesException")
+    @IntValue(min = 1)
+    public static int MAX_MOCK_INVOCATIONS_PER_TEST = 10_000;
+
     // ---------------------------------------------------------------
     // Debugging
 

@@ -305,13 +305,21 @@ public class BytecodeInstrumentation {
     private boolean isAsmFrameMergeFailure(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
-            if (current instanceof ArrayIndexOutOfBoundsException || current instanceof IndexOutOfBoundsException) {
+            if (current instanceof ArrayIndexOutOfBoundsException
+                    || current instanceof IndexOutOfBoundsException
+                    || current instanceof NegativeArraySizeException) {
                 for (StackTraceElement element : current.getStackTrace()) {
                     String className = element.getClassName();
                     if (className.endsWith(".Frame") && "merge".equals(element.getMethodName())) {
                         return true;
                     }
                     if (className.endsWith(".MethodWriter") && "computeAllFrames".equals(element.getMethodName())) {
+                        return true;
+                    }
+                    // AnalyzerAdapter.pop() underflow: the testability transformation
+                    // produced bytecode whose operand stack is inconsistent with what
+                    // the AnalyzerAdapter expects.
+                    if (className.endsWith(".AnalyzerAdapter") && "pop".equals(element.getMethodName())) {
                         return true;
                     }
                 }

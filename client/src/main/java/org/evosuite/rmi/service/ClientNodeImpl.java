@@ -313,8 +313,7 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             }
             masterNode.evosuite_collectStatistics(clientRmiIdentifier, individual);
         } catch (RemoteException e) {
-            logger.error("Cannot inform master of change of state", e);
-            throw new IllegalStateException(e);
+            logger.warn("Could not send statistics to master (connection lost)", e);
         }
     }
 
