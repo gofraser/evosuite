@@ -52,17 +52,17 @@ public class MockWindow extends Window implements OverrideMock {
     // getDefaultScreenDevice() (which returns null on headless servers).
 
     public MockWindow(Frame owner) {
-        super(prepareWindow(owner), GuiSupport.getStubGraphicsConfiguration());
+        super(prepareWindow(owner), GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockWindow(Window owner) {
-        super(prepareWindow(owner), GuiSupport.getStubGraphicsConfiguration());
+        super(prepareWindow(owner), GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockWindow(Window owner, GraphicsConfiguration gc) {
-        super(prepareWindow(owner), gc != null ? gc : GuiSupport.getStubGraphicsConfiguration());
+        super(prepareWindow(owner), gc != null ? gc : GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 

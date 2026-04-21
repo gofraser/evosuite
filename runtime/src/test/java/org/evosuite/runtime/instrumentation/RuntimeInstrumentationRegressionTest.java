@@ -19,7 +19,9 @@
  */
 package org.evosuite.runtime.instrumentation;
 
+import org.evosuite.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -29,6 +31,14 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 
 public class RuntimeInstrumentationRegressionTest {
+
+    @AfterEach
+    public void resetMockingFlags() {
+        RuntimeSettings.mockJVMNonDeterminism = false;
+        RuntimeSettings.mockGUI = false;
+        RuntimeSettings.useVFS = false;
+        RuntimeSettings.useVNET = false;
+    }
 
     @Test
     public void testInstrumentationFailureThrowsInsteadOfReturningPartialBytecode() {
@@ -41,6 +51,17 @@ public class RuntimeInstrumentationRegressionTest {
         Assertions.assertNotNull(ex.getCause());
     }
 
+    @Test
+    public void testConstructorReplacementDoesNotApplyToPendingSuperCall() {
+        RuntimeSettings.mockJVMNonDeterminism = true;
+        RuntimeSettings.mockGUI = true;
+        RuntimeInstrumentation instrumentation = new RuntimeInstrumentation();
+        ClassReader reader = new ClassReader(createSubclassCallingPopupMenuSuper("sample/PopupSubclass"));
+
+        Assertions.assertDoesNotThrow(
+                () -> instrumentation.transformBytes(getClass().getClassLoader(), "sample/PopupSubclass", reader, false));
+    }
+
     private static byte[] createSimpleClassBytes(String internalName) {
         ClassWriter writer = new ClassWriter(0);
         writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
@@ -49,6 +70,22 @@ public class RuntimeInstrumentationRegressionTest {
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        constructor.visitInsn(Opcodes.RETURN);
+        constructor.visitMaxs(1, 1);
+        constructor.visitEnd();
+
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] createSubclassCallingPopupMenuSuper(String internalName) {
+        ClassWriter writer = new ClassWriter(0);
+        writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, internalName, null, "java/awt/PopupMenu", null);
+
+        MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        constructor.visitCode();
+        constructor.visitVarInsn(Opcodes.ALOAD, 0);
+        constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/awt/PopupMenu", "<init>", "()V", false);
         constructor.visitInsn(Opcodes.RETURN);
         constructor.visitMaxs(1, 1);
         constructor.visitEnd();

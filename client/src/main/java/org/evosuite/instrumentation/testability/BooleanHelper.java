@@ -130,7 +130,7 @@ public class BooleanHelper {
      */
     public static int doubleSubG(double d1, double d2) {
         if (d1 == d2) {
-            ConstantPoolManager.getInstance().addDynamicConstant(d1);
+            ConstantPoolManager.addDynamicConstantIfTracing(d1);
             return 0;
         } else {
             // Bytecode spec: If either number is NaN, the integer 1 is pushed onto the stack
@@ -151,7 +151,7 @@ public class BooleanHelper {
      */
     public static int doubleSubL(double d1, double d2) {
         if (d1 == d2) {
-            ConstantPoolManager.getInstance().addDynamicConstant(d1);
+            ConstantPoolManager.addDynamicConstantIfTracing(d1);
             return 0;
         } else {
             // Bytecode spec: If either number is NaN, the integer -1 is pushed onto the stack
@@ -178,8 +178,8 @@ public class BooleanHelper {
             d3 = (int) Math.signum(diff);
         }
 
-        ConstantPoolManager.getInstance().addDynamicConstant(d1);
-        ConstantPoolManager.getInstance().addDynamicConstant(d2);
+        ConstantPoolManager.addDynamicConstantIfTracing(d1);
+        ConstantPoolManager.addDynamicConstantIfTracing(d2);
         return d3;
     }
 
@@ -192,7 +192,7 @@ public class BooleanHelper {
      */
     public static int floatSubG(float f1, float f2) {
         if (f1 == f2) {
-            ConstantPoolManager.getInstance().addDynamicConstant(f1);
+            ConstantPoolManager.addDynamicConstantIfTracing(f1);
             return 0;
         } else {
             // Bytecode spec: If either number is NaN, the integer 1 is pushed onto the stack
@@ -213,7 +213,7 @@ public class BooleanHelper {
      */
     public static int floatSubL(float f1, float f2) {
         if (f1 == f2) {
-            ConstantPoolManager.getInstance().addDynamicConstant(f1);
+            ConstantPoolManager.addDynamicConstantIfTracing(f1);
             return 0;
         } else {
             // Bytecode spec: If either number is NaN, the integer -1 is pushed onto the stack
@@ -235,8 +235,8 @@ public class BooleanHelper {
         if (d3 == 0) {
             d3 = (int) Math.signum(diff);
         }
-        ConstantPoolManager.getInstance().addDynamicConstant(f1);
-        ConstantPoolManager.getInstance().addDynamicConstant(f2);
+        ConstantPoolManager.addDynamicConstantIfTracing(f1);
+        ConstantPoolManager.addDynamicConstantIfTracing(f2);
         return d3;
     }
 
@@ -269,14 +269,14 @@ public class BooleanHelper {
      */
     public static int longSub(long l1, long l2) {
         if (l1 == l2) {
-            ConstantPoolManager.getInstance().addDynamicConstant(l1);
+            ConstantPoolManager.addDynamicConstantIfTracing(l1);
             return 0;
         } else {
             double diff = (double) l1 - (double) l2;
             double diff2 = Math.signum(diff) * Math.abs(diff) / (1.0 + Math.abs(diff));
             int d3 = (int) Math.ceil(Integer.MAX_VALUE * diff2);
-            ConstantPoolManager.getInstance().addDynamicConstant(l1);
-            ConstantPoolManager.getInstance().addDynamicConstant(l2);
+            ConstantPoolManager.addDynamicConstantIfTracing(l1);
+            ConstantPoolManager.addDynamicConstantIfTracing(l2);
             return d3;
         }
     }

@@ -370,6 +370,7 @@ public class TestRunnable implements InterfaceTestRunnable {
         result.setExecutionTime(System.currentTimeMillis() - threadStopper.getStartTime());
         result.setExecutedStatements(num.get());
         result.setThrownExceptions(exceptionsThrown);
+        result.setFinalScope(scope);
         result.setReadProperties(org.evosuite.runtime.System.getAllPropertiesReadSoFar());
         result.setWasAnyPropertyWritten(org.evosuite.runtime.System.wasAnyPropertyWritten());
 

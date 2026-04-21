@@ -20,6 +20,7 @@
 package org.evosuite.seeding;
 
 import org.evosuite.Properties;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.utils.Randomness;
 
 /**
@@ -121,6 +122,19 @@ public class ConstantPoolManager {
      */
     public void addDynamicConstant(Object value) {
         pools[DYNAMIC_POOL_INDEX].add(value);
+    }
+
+    /**
+     * Feeds the dynamic pool only while the execution tracer is enabled —
+     * i.e. during test-generation execution, not JUnit-check / coverage reruns
+     * where SUT classes may still carry testability instrumentation but the
+     * collected constants would be wasted work and create synchronized-queue
+     * contention on hot inner loops.
+     */
+    public static void addDynamicConstantIfTracing(Object value) {
+        if (ExecutionTracer.isEnabled()) {
+            getInstance().addDynamicConstant(value);
+        }
     }
 
     /**

@@ -70,24 +70,149 @@ public class MethodCallReplacementCacheTest {
 
         Method jTableDrag = javax.swing.JTable.class.getMethod("setDragEnabled", boolean.class);
         String jTableKey = jTableDrag.getName() + Type.getMethodDescriptor(jTableDrag);
+        Method jFileChooserDrag = javax.swing.JFileChooser.class.getMethod("setDragEnabled", boolean.class);
+        String jFileChooserKey = jFileChooserDrag.getName() + Type.getMethodDescriptor(jFileChooserDrag);
 
         Method setDropTarget = javax.swing.JComponent.class.getMethod(
                 "setDropTarget", java.awt.dnd.DropTarget.class);
         String dropTargetKey = setDropTarget.getName() + Type.getMethodDescriptor(setDropTarget);
+        Method comboSetSelectedItem = javax.swing.JComboBox.class.getMethod("setSelectedItem", Object.class);
+        String comboSetSelectedItemKey =
+                comboSetSelectedItem.getName() + Type.getMethodDescriptor(comboSetSelectedItem);
+        Method showColorDialog = javax.swing.JColorChooser.class.getMethod(
+                "showDialog", java.awt.Component.class, String.class, java.awt.Color.class);
+        String showColorDialogKey = showColorDialog.getName() + Type.getMethodDescriptor(showColorDialog);
+        Method isDesktopSupported = java.awt.Desktop.class.getMethod("isDesktopSupported");
+        String isDesktopSupportedKey = isDesktopSupported.getName() + Type.getMethodDescriptor(isDesktopSupported);
+        Method getDesktop = java.awt.Desktop.class.getMethod("getDesktop");
+        String getDesktopKey = getDesktop.getName() + Type.getMethodDescriptor(getDesktop);
+        Method desktopOpen = java.awt.Desktop.class.getMethod("open", java.io.File.class);
+        String desktopOpenKey = desktopOpen.getName() + Type.getMethodDescriptor(desktopOpen);
+        Method desktopEdit = java.awt.Desktop.class.getMethod("edit", java.io.File.class);
+        String desktopEditKey = desktopEdit.getName() + Type.getMethodDescriptor(desktopEdit);
+        Method desktopPrint = java.awt.Desktop.class.getMethod("print", java.io.File.class);
+        String desktopPrintKey = desktopPrint.getName() + Type.getMethodDescriptor(desktopPrint);
+        Method desktopBrowse = java.awt.Desktop.class.getMethod("browse", java.net.URI.class);
+        String desktopBrowseKey = desktopBrowse.getName() + Type.getMethodDescriptor(desktopBrowse);
+        Method desktopMail = java.awt.Desktop.class.getMethod("mail");
+        String desktopMailKey = desktopMail.getName() + Type.getMethodDescriptor(desktopMail);
+        Method desktopMailUri = java.awt.Desktop.class.getMethod("mail", java.net.URI.class);
+        String desktopMailUriKey = desktopMailUri.getName() + Type.getMethodDescriptor(desktopMailUri);
+        Method systemTraySupported = java.awt.SystemTray.class.getMethod("isSupported");
+        String systemTraySupportedKey = systemTraySupported.getName() + Type.getMethodDescriptor(systemTraySupported);
+        Method getSystemTray = java.awt.SystemTray.class.getMethod("getSystemTray");
+        String getSystemTrayKey = getSystemTray.getName() + Type.getMethodDescriptor(getSystemTray);
+        Method systemTrayAdd = java.awt.SystemTray.class.getMethod("add", java.awt.TrayIcon.class);
+        String systemTrayAddKey = systemTrayAdd.getName() + Type.getMethodDescriptor(systemTrayAdd);
+        Method systemTrayRemove = java.awt.SystemTray.class.getMethod("remove", java.awt.TrayIcon.class);
+        String systemTrayRemoveKey = systemTrayRemove.getName() + Type.getMethodDescriptor(systemTrayRemove);
+        String newRobotDefaultKey = "<init>()V";
+        String newRobotDeviceKey = "<init>(Ljava/awt/GraphicsDevice;)V";
+        Method robotCreateCapture = java.awt.Robot.class.getMethod("createScreenCapture", java.awt.Rectangle.class);
+        String robotCreateCaptureKey = robotCreateCapture.getName() + Type.getMethodDescriptor(robotCreateCapture);
+        Method mouseInfoPointer = java.awt.MouseInfo.class.getMethod("getPointerInfo");
+        String mouseInfoPointerKey = mouseInfoPointer.getName() + Type.getMethodDescriptor(mouseInfoPointer);
 
         Method setMixingCutoutShape = java.awt.Component.class.getMethod(
                 "setMixingCutoutShape", java.awt.Shape.class);
         String mixingCutoutKey = setMixingCutoutShape.getName() + Type.getMethodDescriptor(setMixingCutoutShape);
+        Method setCursor = java.awt.Component.class.getMethod(
+                "setCursor", java.awt.Cursor.class);
+        String setCursorKey = setCursor.getName() + Type.getMethodDescriptor(setCursor);
         Method getScreenSize = java.awt.Toolkit.class.getMethod("getScreenSize");
         String getScreenSizeKey = getScreenSize.getName() + Type.getMethodDescriptor(getScreenSize);
+        Method getDefaultCursor = java.awt.Cursor.class.getMethod("getDefaultCursor");
+        String getDefaultCursorKey = getDefaultCursor.getName() + Type.getMethodDescriptor(getDefaultCursor);
+        Method getPredefinedCursor = java.awt.Cursor.class.getMethod("getPredefinedCursor", int.class);
+        String getPredefinedCursorKey = getPredefinedCursor.getName() + Type.getMethodDescriptor(getPredefinedCursor);
+        Method getSystemCustomCursor = java.awt.Cursor.class.getMethod("getSystemCustomCursor", String.class);
+        String getSystemCustomCursorKey =
+                getSystemCustomCursor.getName() + Type.getMethodDescriptor(getSystemCustomCursor);
+        String newCursorKey = "<init>(I)V";
+        String newButtonDefaultKey = "<init>()V";
+        String newButtonLabelKey = "<init>(Ljava/lang/String;)V";
+        String newLabelDefaultKey = "<init>()V";
+        String newLabelTextKey = "<init>(Ljava/lang/String;)V";
+        String newLabelTextAlignKey = "<init>(Ljava/lang/String;I)V";
+        String newMenuBarKey = "<init>()V";
+        String newWindowFrameOwnerKey = "<init>(Ljava/awt/Frame;)V";
+        String newWindowWindowOwnerKey = "<init>(Ljava/awt/Window;)V";
+        String newWindowWithGcKey = "<init>(Ljava/awt/Window;Ljava/awt/GraphicsConfiguration;)V";
+        String newFrameDefaultKey = "<init>()V";
+        String newFrameTitleKey = "<init>(Ljava/lang/String;)V";
+        String newDialogFrameOwnerKey = "<init>(Ljava/awt/Frame;)V";
+        String newDialogFrameModalKey = "<init>(Ljava/awt/Frame;Z)V";
+        String newDialogFrameTitleKey = "<init>(Ljava/awt/Frame;Ljava/lang/String;)V";
+        String newDialogFrameTitleModalKey = "<init>(Ljava/awt/Frame;Ljava/lang/String;Z)V";
+        String newPopupMenuDefaultKey = "<init>()V";
+        String newPopupMenuLabelKey = "<init>(Ljava/lang/String;)V";
+        String newCheckboxMenuItemDefaultKey = "<init>()V";
+        String newCheckboxMenuItemLabelKey = "<init>(Ljava/lang/String;)V";
+        String newCheckboxMenuItemLabelStateKey = "<init>(Ljava/lang/String;Z)V";
+        String newInsetsKey = "<init>(IIII)V";
+        String newDefaultKfmKey = "<init>()V";
+        Method getCurrentKfm = java.awt.KeyboardFocusManager.class.getMethod("getCurrentKeyboardFocusManager");
+        String getCurrentKfmKey = getCurrentKfm.getName() + Type.getMethodDescriptor(getCurrentKfm);
+        Method setCurrentKfm = java.awt.KeyboardFocusManager.class.getMethod(
+                "setCurrentKeyboardFocusManager", java.awt.KeyboardFocusManager.class);
+        String setCurrentKfmKey = setCurrentKfm.getName() + Type.getMethodDescriptor(setCurrentKfm);
 
         MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JList", jListKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTree", jTreeKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTable", jTableKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JFileChooser", jFileChooserKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComponent", dropTargetKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComboBox", comboSetSelectedItemKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JColorChooser", showColorDialogKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", isDesktopSupportedKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", getDesktopKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", desktopOpenKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", desktopEditKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", desktopPrintKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", desktopBrowseKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", desktopMailKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", desktopMailUriKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/SystemTray", systemTraySupportedKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/SystemTray", getSystemTrayKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/SystemTray", systemTrayAddKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/SystemTray", systemTrayRemoveKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Robot", newRobotDefaultKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Robot", newRobotDeviceKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Robot", robotCreateCaptureKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/MouseInfo", mouseInfoPointerKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", mixingCutoutKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", setCursorKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Toolkit", getScreenSizeKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getDefaultCursorKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getPredefinedCursorKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getSystemCustomCursorKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", newCursorKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Button", newButtonDefaultKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Button", newButtonLabelKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Label", newLabelDefaultKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Label", newLabelTextKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Label", newLabelTextAlignKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/MenuBar", newMenuBarKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", newWindowFrameOwnerKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", newWindowWindowOwnerKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", newWindowWithGcKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Frame", newFrameDefaultKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Frame", newFrameTitleKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Dialog", newDialogFrameOwnerKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Dialog", newDialogFrameModalKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Dialog", newDialogFrameTitleKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Dialog", newDialogFrameTitleModalKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/PopupMenu", newPopupMenuDefaultKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/PopupMenu", newPopupMenuLabelKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/CheckboxMenuItem", newCheckboxMenuItemDefaultKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/CheckboxMenuItem", newCheckboxMenuItemLabelKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/CheckboxMenuItem",
+                newCheckboxMenuItemLabelStateKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Insets", newInsetsKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/KeyboardFocusManager", getCurrentKfmKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/KeyboardFocusManager", setCurrentKfmKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/DefaultKeyboardFocusManager", newDefaultKfmKey));
     }
 
     @Test

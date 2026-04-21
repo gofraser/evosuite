@@ -45,6 +45,11 @@ public class SystemPromptProvider {
                 + "Do NOT access private or protected members directly — they are not accessible from test code. "
                 + "Prefer real objects and constructors over mocking. Only use Mockito as a last resort "
                 + "when a dependency cannot be instantiated directly. "
+                + "Do NOT perform real file I/O, network I/O, or database operations in tests. "
+                + "Tests run in a sandboxed environment where filesystem writes, network connections, "
+                + "and process execution are blocked. If the class under test requires file or stream "
+                + "input, pass in-memory objects (e.g., StringReader, ByteArrayInputStream) instead "
+                + "of real files. "
                 + "Return raw Java code only. Do NOT wrap code in markdown fences (```). "
                 + "Do NOT include any prose or explanation.";
 

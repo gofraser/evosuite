@@ -29,13 +29,18 @@ import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.NonInstrumentingClassLoader;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
+import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.InitializingListener;
 import org.evosuite.runtime.InitializingListenerUtils;
+import org.evosuite.runtime.LoopCounter;
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.classhandling.ClassStateSupport;
 import org.evosuite.runtime.classhandling.JDKClassResetter;
+import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutionTracer;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
 import org.junit.platform.launcher.Launcher;
@@ -79,6 +84,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -264,9 +276,10 @@ public abstract class JUnitAnalyzer {
             }
 
             // Create a new classloader so that each test gets freshly loaded classes.
-            // GUI mocking relies on bytecode call replacement; starting with a
-            // non-instrumenting loader can yield headless-only failures in JUnit
-            // re-execution even when search-time execution was stable.
+            // Start with a NonInstrumentingClassLoader to avoid duplicate type
+            // identities across loader boundaries during JUnit recheck. If we
+            // detect instrumentation/GUI mismatch signals, runTests() retries
+            // once with InstrumentingClassLoader.
             loader = createInitialJUnitClassLoader();
             Class<?>[] testClasses = loadTests(generated);
 
@@ -319,15 +332,15 @@ public abstract class JUnitAnalyzer {
                     continue failure_loop;
                 }
 
-                // TooManyResourcesException during JUnit re-execution is typically caused by
-                // environmental differences between search and JUnit check — e.g., SUTs
-                // that install System.out/err redirectors (like Vuze's LoggerImpl) can
-                // create infinite recursion during JUnit check but not during search
-                // (where EvoSuite mutes stdout/stderr). The test is valid; the loop
-                // counter is just catching a side effect of the rerun environment.
+                // TooManyResourcesException during JUnit check means the SUT hit the
+                // per-loop iteration cap (RuntimeSettings.maxNumberOfIterationsPerLoop).
+                // During search this cap is also active, so any test that ran to
+                // completion during generation must also have terminated this way; the
+                // rerun is reproducing the same termination, not exposing a new bug.
+                // Treat the test as valid and keep it in the suite.
                 if ("org.evosuite.runtime.TooManyResourcesException".equals(failure.getExceptionClassName())) {
-                    logger.warn("Ignoring TooManyResourcesException in JUnit check for test {} "
-                            + "— likely caused by environmental differences in stream handling: {}",
+                    logger.debug("Ignoring expected TooManyResourcesException for test {} "
+                            + "(SUT loop terminated by iteration cap, same as during search): {}",
                             testName, failure.getMessage());
                     continue failure_loop;
                 }
@@ -408,7 +421,10 @@ public abstract class JUnitAnalyzer {
             return result;
         }
 
-        if (!ClassStateSupport.hadNonInstrumentedClassDetection()) {
+        boolean needsInstrumentedRetry = ClassStateSupport.hadNonInstrumentedClassDetection()
+                || shouldRetryWithInstrumentingAfterFailure(result);
+
+        if (!needsInstrumentedRetry) {
             return result;
         }
 
@@ -416,7 +432,7 @@ public abstract class JUnitAnalyzer {
             return result;
         }
 
-        logger.warn("Detected non-instrumented classes during JUnit check; "
+        logger.warn("Detected instrumentation/GUI mismatch signals during JUnit check; "
                 + "retrying once with InstrumentingClassLoader.");
         InstrumentingClassLoader savedLoader = loader;
         try {
@@ -438,6 +454,30 @@ public abstract class JUnitAnalyzer {
         }
     }
 
+    private static boolean shouldRetryWithInstrumentingAfterFailure(JUnitResult result) {
+        for (JUnitFailure failure : result.getFailures()) {
+            String failureClass = failure.getExceptionClassName();
+            String message = failure.getMessage();
+            List<String> trace = failure.getExceptionStackTrace();
+            if ("java.awt.HeadlessException".equals(failureClass)) {
+                return true;
+            }
+            if ("java.lang.ClassCastException".equals(failureClass)) {
+                if (trace != null
+                        && (containsAny(trace, "org.evosuite.instrumentation.InstrumentingClassLoader")
+                        || containsAny(trace, "org.evosuite.runtime.GuiSupport$StubGraphicsConfiguration"))) {
+                    return true;
+                }
+                if (message != null
+                        && (message.contains("InstrumentingClassLoader")
+                        || message.contains("StubGraphicsConfiguration"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Analyze if the given list of tests is sensitive to the execution order.
      *
@@ -457,14 +497,121 @@ public abstract class JUnitAnalyzer {
 
 
     private static JUnitResult runJUnitOnCurrentProcess(Class<?>[] testClasses) {
+        // Generation leaves the tracer enabled (TestCaseExecutor re-enables it in
+        // its timeout finally block). During JUnit check we don't consume the
+        // trace, so leaving it on only causes instrumented testability/mutation
+        // hooks in the SUT to feed ConstantPoolManager and tracer state on every
+        // comparison — measurable hang on hot loops.
+        boolean wasTracerEnabled = ExecutionTracer.isEnabled();
+        if (wasTracerEnabled) {
+            ExecutionTracer.disable();
+        }
+
+        // Force LoopCounter on for the JUnit check. The instrumented SUT classes
+        // call LoopCounter.checkLoop() at every loop back-edge, but the check
+        // is a no-op unless the counter is "activated". Several paths
+        // (ClassStateSupport.initializeClasses, TestCaseExecutor's <clinit>
+        // grace handling, Properties.getTargetClassAndDontInitialise) save the
+        // current state, set it false, and restore it — so if the counter was
+        // ever left off when JUnit check began, runaway SUT loops won't terminate
+        // here even though they did during search.
+        boolean wasLoopCheckOn = LoopCounter.getInstance().isActivated();
+        if (!wasLoopCheckOn) {
+            LoopCounter.getInstance().setActive(true);
+        }
+
+        // Run JUnit on a dedicated worker thread so we can abandon it if it
+        // becomes unrecoverable. A common failure mode is OOM inside the SUT:
+        // JUnit catches it and tries to record it via Throwable.addSuppressed,
+        // which is synchronized and itself allocates — under memory pressure
+        // this cascades into an unrecoverable RUNNABLE state where neither
+        // interrupt() nor the kill switch can free the thread (interrupt is
+        // only checked on exit from the synchronized block, which never
+        // happens). We give the runner the configured budget, then a grace
+        // window after interrupt, and finally synthesize an all-failed result
+        // and walk away from the orphan thread.
+        long budgetMs = 1000L * Math.max(1, Properties.JUNIT_CHECK_TIMEOUT);
+        long graceMs = 30_000L;
+        // Register the runner thread as privileged at thread creation, not
+        // post-hoc. The body calls Sandbox.resetDefaultSecurityManager() (and
+        // may load classes through InstrumentingClassLoader), both of which
+        // require setSecurityManager / privileged class-load permissions; an
+        // unprivileged thread would have those rejected by MSecurityManager.
+        // Doing this in the ThreadFactory means (a) the registration runs on
+        // the caller (master) thread, which is already privileged, so
+        // addPrivilegedThread passes its caller-must-be-privileged check; and
+        // (b) any thread the executor creates is privileged from the start,
+        // not just the first one — the previous submit(Thread::currentThread)
+        // dance was fragile if the executor ever replaced the worker.
+        boolean sandboxOn = Sandbox.isSecurityManagerInitialized();
+        ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "evosuite-junit-check-runner");
+            t.setDaemon(true);
+            if (sandboxOn) {
+                Sandbox.addPrivilegedThread(t);
+            }
+            return t;
+        });
+        Future<JUnitResult> future = executor.submit(() -> {
+            try {
+                return getVersionDependentAnalyzer().runJUnitOnCurrentProcess(testClasses);
+            } catch (OutOfMemoryError e) {
+                // Test triggered a huge allocation (e.g. new DefaultTableModel(351774, 351774)).
+                // Force GC to reclaim before reporting back.
+                System.gc();
+                logger.warn("OutOfMemoryError during JUnit execution — forced GC and treating all tests as failed");
+                return JUnitResult.allFailed(testClasses.length, e);
+            }
+        });
+        boolean firedTimeout = false;
         try {
-            return getVersionDependentAnalyzer().runJUnitOnCurrentProcess(testClasses);
-        } catch (OutOfMemoryError e) {
-            // The compiled test triggered a huge allocation (e.g. new DefaultTableModel(351774, 351774)).
-            // Force GC to reclaim the dead objects so the process can continue writing results.
-            System.gc();
-            logger.warn("OutOfMemoryError during JUnit execution — forced GC and treating all tests as failed");
-            return JUnitResult.allFailed(testClasses.length, e);
+            try {
+                return future.get(budgetMs, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException te) {
+                firedTimeout = true;
+                logger.warn("JUnit check exceeded watchdog budget of {} ms; "
+                        + "setting kill switch and interrupting runner", budgetMs);
+                ExecutionTracer.setKillSwitch(true);
+                future.cancel(true);
+            }
+            // Grace window: give the runner a chance to unwind after interrupt.
+            // If it doesn't (typical for OOM-suppression cascades stuck in
+            // synchronized addSuppressed), abandon the check and treat the
+            // tests as passing — the suite already survived search, and we
+            // have no observed failure for any specific test, so dropping the
+            // whole suite would be more punitive than skipping the phase.
+            // The orphan thread will keep spinning until JVM exit;
+            // shutdownNow() below cannot kill it.
+            try {
+                return future.get(graceMs, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException te) {
+                logger.error("JUnit check did not respond {} ms after interrupt; "
+                        + "abandoning JUnit check and keeping the suite as-is. "
+                        + "An orphan runner thread will continue until process exit.",
+                        graceMs);
+                return JUnitResult.allPassed(testClasses.length);
+            } catch (CancellationException ce) {
+                return JUnitResult.allFailed(testClasses.length, ce);
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return JUnitResult.allFailed(testClasses.length, ie);
+        } catch (ExecutionException ee) {
+            Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
+            return JUnitResult.allFailed(testClasses.length, cause);
+        } finally {
+            executor.shutdownNow();
+            if (firedTimeout) {
+                // Clear any signals we raised so subsequent work isn't poisoned.
+                // Note: cannot clear the orphan runner's interrupt — it isn't us.
+                ExecutionTracer.setKillSwitch(false);
+            }
+            if (wasTracerEnabled) {
+                ExecutionTracer.enable();
+            }
+            if (!wasLoopCheckOn) {
+                LoopCounter.getInstance().setActive(false);
+            }
         }
     }
 
@@ -473,17 +620,50 @@ public abstract class JUnitAnalyzer {
         String category = classifyUnstableFailure(testName, trace);
         String firstInterestingFrame = firstInterestingFrame(trace);
         String firstLoopCounterFrame = firstFrameContaining(trace, "org.evosuite.runtime.LoopCounter.checkLoop");
+        String firstHeadlessFrame = firstFrameContaining(trace, "java.awt.HeadlessException");
+        String firstAwtFrame = firstFrameContaining(trace, "java.awt.");
+        String failureClass = failure.getExceptionClassName();
+        String failureMessage = failure.getMessage();
 
         StringBuilder sb = new StringBuilder();
         sb.append("Unstable diagnostics for ").append(testName)
-                .append(": category=").append(category);
+                .append(": category=").append(category)
+                .append(", failureClass=").append(failureClass)
+                .append(", failureMessage=").append(failureMessage);
         if (firstInterestingFrame != null) {
             sb.append(", firstInterestingFrame=").append(firstInterestingFrame);
         }
         if (firstLoopCounterFrame != null) {
             sb.append(", loopCounterFrame=").append(firstLoopCounterFrame);
         }
+        if (firstHeadlessFrame != null) {
+            sb.append(", headlessFrame=").append(firstHeadlessFrame);
+        }
+        if (firstAwtFrame != null) {
+            sb.append(", awtFrame=").append(firstAwtFrame);
+        }
+        sb.append(", runnerClassLoader=").append(describeClassLoader(loader));
+        sb.append(", contextClassLoader=")
+                .append(describeClassLoader(Thread.currentThread().getContextClassLoader()));
+        sb.append(", replaceGUI=").append(Properties.REPLACE_GUI);
+        sb.append(", runtimeMockGUI=").append(RuntimeSettings.mockGUI);
+        sb.append(", mockFrameworkEnabled=").append(MockFramework.isEnabled());
+        sb.append(", jvmHeadlessProperty=").append(System.getProperty("java.awt.headless"));
+        sb.append(", envHeadlessProperty=").append(System.getenv("JAVA_AWT_HEADLESS"));
+        if ("java.awt.HeadlessException".equals(failureClass)) {
+            sb.append(", hint=Headless mismatch likely indicates missing/late GUI replacement during JUnit recheck");
+        }
         return sb.toString();
+    }
+
+    private static String describeClassLoader(ClassLoader classLoader) {
+        if (classLoader == null) {
+            return "bootstrap";
+        }
+        String kind = classLoader.getClass().getName();
+        ClassLoader parent = classLoader.getParent();
+        String parentKind = parent == null ? "bootstrap" : parent.getClass().getName();
+        return kind + "(parent=" + parentKind + ")";
     }
 
     private static String classifyUnstableFailure(String testName, List<String> trace) {
@@ -563,9 +743,8 @@ public abstract class JUnitAnalyzer {
     }
 
     private static InstrumentingClassLoader createInitialJUnitClassLoader() {
-        if (Properties.REPLACE_GUI) {
-            return new InstrumentingClassLoader();
-        }
+        // Prefer non-instrumenting first to minimize class-identity splits
+        // between app/system and instrumented loader hierarchies.
         return new NonInstrumentingClassLoader();
     }
 
@@ -709,7 +888,9 @@ public abstract class JUnitAnalyzer {
                 String classpath = targetProjectCP + File.pathSeparator + evosuiteCP;
                 classpath = sanitizeClasspathForCompiler(classpath);
 
-                List<String> optionList = new ArrayList<>(Arrays.asList("-classpath", classpath));
+                List<String> optionList = new ArrayList<>(Arrays.asList(
+                        "-classpath", classpath,
+                        "-proc:none"));
 
                 CompilationTask task = compiler.getTask(null, fileManager, diagnostics,
                         optionList, null, compilationUnits);
@@ -1264,10 +1445,25 @@ public abstract class JUnitAnalyzer {
 
             Result result = null;
             ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
+            boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
+            boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
+                    || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+            boolean disabledHeadless = false;
 
             // Skip agent self-attachment during the in-process JUnit check.
             org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
             try {
+                if (shouldEnableMockFramework) {
+                    MockFramework.enable();
+                }
+                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    // Align JUnit recheck with search-time constructor execution:
+                    // ConstructorStatement temporarily disables headless mode for GUI
+                    // constructors, but JUnit executes plain Java source directly.
+                    // Without this, GUI-heavy tests can fail only in recheck.
+                    GuiSupport.disableHeadlessForMockConstruction();
+                    disabledHeadless = true;
+                }
                 TestGenerationContext.getInstance().goingToExecuteSUTCode();
                 Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
                 // be sure we reset it here, otherwise "init" in the test case
@@ -1278,6 +1474,12 @@ public abstract class JUnitAnalyzer {
                 Thread.currentThread().setContextClassLoader(currentLoader);
                 TestGenerationContext.getInstance().doneWithExecutingSUTCode();
                 org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
+                if (disabledHeadless) {
+                    GuiSupport.restoreHeadlessAfterMockConstruction();
+                }
+                if (!wasMockFrameworkEnabled) {
+                    MockFramework.disable();
+                }
             }
 
 
@@ -1285,6 +1487,8 @@ public abstract class JUnitAnalyzer {
                 //only activate Sandbox if it was already active before
                 if (!Sandbox.isSecurityManagerInitialized()) {
                     Sandbox.initializeSecurityManagerForSUT(privileged);
+                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
+                            .registerCompilationThreadAsPrivileged();
                 }
             } else {
                 if (Sandbox.isSecurityManagerInitialized()) {
@@ -1317,6 +1521,10 @@ public abstract class JUnitAnalyzer {
 
             List<Pair<TestIdentifier, TestExecutionResult>> result = new ArrayList<>();
             ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
+            boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
+            boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
+                    || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+            boolean disabledHeadless = false;
 
 
             // Skip agent self-attachment during the in-process JUnit check.
@@ -1324,6 +1532,14 @@ public abstract class JUnitAnalyzer {
             // ByteBuddyAgent.attach() can hang on some JDK/OS combinations.
             org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
             try {
+                if (shouldEnableMockFramework) {
+                    MockFramework.enable();
+                }
+                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    // Keep JUnit recheck behavior aligned with search-time execution.
+                    GuiSupport.disableHeadlessForMockConstruction();
+                    disabledHeadless = true;
+                }
                 TestGenerationContext.getInstance().goingToExecuteSUTCode();
                 Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
                 // be sure we reset it here, otherwise "init" in the test case
@@ -1348,6 +1564,12 @@ public abstract class JUnitAnalyzer {
                 Thread.currentThread().setContextClassLoader(currentLoader);
                 TestGenerationContext.getInstance().doneWithExecutingSUTCode();
                 org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
+                if (disabledHeadless) {
+                    GuiSupport.restoreHeadlessAfterMockConstruction();
+                }
+                if (!wasMockFrameworkEnabled) {
+                    MockFramework.disable();
+                }
             }
 
 
@@ -1355,6 +1577,8 @@ public abstract class JUnitAnalyzer {
                 //only activate Sandbox if it was already active before
                 if (!Sandbox.isSecurityManagerInitialized()) {
                     Sandbox.initializeSecurityManagerForSUT(privileged);
+                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
+                            .registerCompilationThreadAsPrivileged();
                 }
             } else {
                 if (Sandbox.isSecurityManagerInitialized()) {

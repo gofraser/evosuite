@@ -284,17 +284,23 @@ public final class ExecutionModeUtils {
         addOpen(cmdLine, "java.base/java.lang=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.lang.invoke=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.lang.reflect=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.lang.ref=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.io=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.nio=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.nio.channels.spi=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.net=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.security=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.text=ALL-UNNAMED");
+        addOpen(cmdLine, "java.base/java.util.random=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.regex=ALL-UNNAMED");
         addOpen(cmdLine, "java.base/java.util.concurrent=ALL-UNNAMED");
         addOpen(cmdLine, "java.logging/java.util.logging=ALL-UNNAMED");
         addOpen(cmdLine, "java.prefs/java.util.prefs=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/java.awt.font=ALL-UNNAMED");
+        addOpen(cmdLine, "java.desktop/javax.imageio.metadata=ALL-UNNAMED");
+        addOpen(cmdLine, "java.desktop/javax.swing.border=ALL-UNNAMED");
+        addOpen(cmdLine, "java.desktop/javax.swing=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/sun.java2d=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/sun.awt=ALL-UNNAMED");
         // Internal JDK packages sometimes used by legacy dependencies

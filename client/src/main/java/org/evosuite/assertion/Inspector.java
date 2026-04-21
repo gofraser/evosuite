@@ -51,7 +51,24 @@ public class Inspector implements Serializable {
     public Inspector(Class<?> clazz, Method m) {
         this.clazz = clazz;
         method = m;
-        method.setAccessible(true);
+        trySetAccessible(method);
+    }
+
+    /**
+     * Best-effort setAccessible(true). Swallows RuntimeException so both
+     * Java-8 SecurityException and Java-9+ JPMS InaccessibleObjectException
+     * (a RuntimeException subclass, thrown for methods in non-exported
+     * packages like java.awt.peer) are tolerated. The method is still
+     * usable if it was already public; otherwise the eventual
+     * getValue()/invoke() call will surface the access error and the
+     * caller will handle it.
+     */
+    private static void trySetAccessible(Method method) {
+        try {
+            method.setAccessible(true);
+        } catch (RuntimeException ignored) {
+            // See javadoc.
+        }
     }
 
     /**
@@ -230,7 +247,7 @@ public class Inspector implements Serializable {
             if (m.getName().equals(methodName)) {
                 if (Type.getMethodDescriptor(m).equals(methodDesc)) {
                     this.method = m;
-                    this.method.setAccessible(true);
+                    trySetAccessible(this.method);
                     return;
                 }
             }
@@ -272,16 +289,17 @@ public class Inspector implements Serializable {
                     }
                     if (equals) {
                         this.method = newMethod;
-                        this.method.setAccessible(true);
+                        trySetAccessible(this.method);
                         return;
                     }
                 }
             }
             LoggingUtils.getEvoLogger().info("Method not found - keeping old class loader ");
-        } catch (ClassNotFoundException e) {
-            LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ", e);
-        } catch (SecurityException e) {
-            LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ", e);
+        } catch (ClassNotFoundException | SecurityException | LinkageError e) {
+            // LinkageError (e.g., NoClassDefFoundError on a missing transitive
+            // dependency) should fail-soft here — the inspector simply keeps
+            // its old method, and the caller will notice the stale loader.
+            LoggingUtils.getEvoLogger().info("Class not loadable - keeping old class loader ", e);
         }
     }
 }

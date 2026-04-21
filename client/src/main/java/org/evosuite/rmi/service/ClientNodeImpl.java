@@ -29,10 +29,12 @@ import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
+import org.evosuite.result.LightweightTestGenerationResult;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.FileIOUtils;
 import org.evosuite.utils.Listener;
@@ -45,6 +47,7 @@ import java.rmi.RemoteException;
 import java.rmi.registry.Registry;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ClientNodeImpl<T extends Chromosome<T>>
         implements ClientNodeLocal<T>, ClientNodeRemote<T> {
@@ -147,6 +150,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 //Before starting search, let's activate the sandbox
                 if (Properties.SANDBOX) {
                     Sandbox.initializeSecurityManagerForSUT();
+                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
+                            .registerCompilationThreadAsPrivileged();
                 }
                 results = new ArrayList<>();
 
@@ -583,10 +588,12 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         void execute() throws RemoteException;
     }
 
-    private void runRemoteActionBestEffort(String actionName, long timeoutMs, RemoteAction action) {
+    private boolean runRemoteActionBestEffort(String actionName, long timeoutMs, RemoteAction action) {
+        final AtomicBoolean completed = new AtomicBoolean(false);
         Thread remoteActionThread = new Thread(() -> {
             try {
                 action.execute();
+                completed.set(true);
             } catch (RemoteException e) {
                 logger.error("Cannot complete remote action: " + actionName, e);
             } catch (Throwable t) {
@@ -607,14 +614,16 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             remoteActionThread.join(timeoutMs);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return;
+            return false;
         }
 
         if (remoteActionThread.isAlive()) {
             logger.warn("Remote action {} did not finish within {} ms; continuing locally.",
                     actionName, timeoutMs);
             remoteActionThread.interrupt();
+            return false;
         }
+        return completed.get();
     }
 
     private void notifyMasterOfStateChangeBestEffort(ClientState state, ClientStateInformation information) {
@@ -637,8 +646,93 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             return;
         }
 
-        runRemoteActionBestEffort("collectTestGenerationResult", RMI_RESULT_NOTIFY_TIMEOUT_MS,
+        boolean sent = runRemoteActionBestEffort("collectTestGenerationResult", RMI_RESULT_NOTIFY_TIMEOUT_MS,
                 () -> masterNode.evosuite_collectTestGenerationResult(clientRmiIdentifier, results));
+        if (!sent) {
+            List<TestGenerationResult> lightweightResults = toTransferableResults(results);
+            sent = runRemoteActionBestEffort("collectTestGenerationResultLightweight", RMI_RESULT_NOTIFY_TIMEOUT_MS,
+                    () -> masterNode.evosuite_collectTestGenerationResult(clientRmiIdentifier, lightweightResults));
+        }
+        if (!sent) {
+            exportCoverageSummaryBestEffort(results);
+        }
+    }
+
+    private List<TestGenerationResult> toTransferableResults(List<TestGenerationResult> results) {
+        if (results == null || results.isEmpty()) {
+            return results;
+        }
+        List<TestGenerationResult> transferable = new ArrayList<>(results.size());
+        for (TestGenerationResult result : results) {
+            try {
+                transferable.add(LightweightTestGenerationResult.from(result));
+            } catch (Throwable t) {
+                logger.warn("Failed to convert TestGenerationResult to lightweight transfer object; using original", t);
+                transferable.add(result);
+            }
+        }
+        return transferable;
+    }
+
+    private void exportCoverageSummaryBestEffort(List<TestGenerationResult> results) {
+        if (results == null || results.isEmpty()) {
+            return;
+        }
+        try {
+            double coverage = -1.0;
+            int coveredGoals = -1;
+            int totalGoals = -1;
+
+            for (TestGenerationResult<?> result : results) {
+                if (result == null) {
+                    continue;
+                }
+                if (result.getGeneticAlgorithm() != null
+                        && result.getGeneticAlgorithm().getBestIndividual() instanceof TestSuiteChromosome) {
+                    TestSuiteChromosome best = (TestSuiteChromosome) result.getGeneticAlgorithm().getBestIndividual();
+                    double suiteCoverage = best.getCoverage();
+                    if (suiteCoverage > coverage) {
+                        coverage = suiteCoverage;
+                    }
+                }
+
+                int lineCovered = result.getCoveredLines() == null ? -1 : result.getCoveredLines().size();
+                int lineTotal = lineCovered < 0 ? -1
+                        : lineCovered + (result.getUncoveredLines() == null ? 0 : result.getUncoveredLines().size());
+                int branchCovered = result.getCoveredBranches() == null ? -1 : result.getCoveredBranches().size();
+                int branchTotal = branchCovered < 0 ? -1
+                        : branchCovered + (result.getUncoveredBranches() == null ? 0 : result.getUncoveredBranches().size());
+                int mutantCovered = result.getCoveredMutants() == null ? -1 : result.getCoveredMutants().size();
+                int mutantTotal = mutantCovered < 0 ? -1
+                        : mutantCovered + (result.getUncoveredMutants() == null ? 0 : result.getUncoveredMutants().size());
+
+                int candidateCovered = lineCovered;
+                int candidateTotal = lineTotal;
+                if (branchTotal > candidateTotal) {
+                    candidateCovered = branchCovered;
+                    candidateTotal = branchTotal;
+                }
+                if (mutantTotal > candidateTotal) {
+                    candidateCovered = mutantCovered;
+                    candidateTotal = mutantTotal;
+                }
+                if (candidateTotal >= 0 && candidateTotal > totalGoals) {
+                    coveredGoals = Math.max(0, candidateCovered);
+                    totalGoals = candidateTotal;
+                }
+            }
+
+            if (coverage >= 0.0) {
+                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Coverage, coverage);
+            }
+            if (coveredGoals >= 0 && totalGoals >= 0) {
+                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Covered_Goals, coveredGoals);
+                masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Total_Goals, totalGoals);
+            }
+            logger.warn("Full TestGenerationResult export failed; sent lightweight coverage summary instead");
+        } catch (Throwable t) {
+            logger.warn("Failed to export lightweight coverage summary after result export failure", t);
+        }
     }
 
     protected void fallbackSetOutputVariable(RuntimeVariable variable, Object value) {
@@ -701,6 +795,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 //Before starting search, let's activate the sandbox
                 if (Properties.SANDBOX) {
                     Sandbox.initializeSecurityManagerForSUT();
+                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
+                            .registerCompilationThreadAsPrivileged();
                 }
 
                 try {
@@ -791,6 +887,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 changeState(ClientState.STARTED);
                 if (Properties.SANDBOX) {
                     Sandbox.initializeSecurityManagerForSUT();
+                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
+                            .registerCompilationThreadAsPrivileged();
                 }
 
                 try {

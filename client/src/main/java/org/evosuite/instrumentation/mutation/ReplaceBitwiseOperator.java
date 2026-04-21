@@ -274,7 +274,6 @@ public class ReplaceBitwiseOperator implements MutationOperator {
      */
     public static double getInfectionDistanceLong(long x, long y, int opcodeOrig,
                                                   int opcodeNew) {
-
         long origValue = calculate(x, y, opcodeOrig);
         long newValue = calculate(x, y, opcodeNew);
         return origValue == newValue ? 1.0 : 0.0;

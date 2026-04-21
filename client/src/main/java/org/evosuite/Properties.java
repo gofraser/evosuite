@@ -1686,7 +1686,7 @@ public class Properties {
     @Parameter(key = "llm_max_tokens", group = "LLM",
             description = "Maximum output tokens per LLM response")
     @IntValue(min = 1)
-    public static int LLM_MAX_TOKENS = 16384;
+    public static int LLM_MAX_TOKENS = 32768;
 
     @Parameter(key = "llm_timeout_seconds", group = "LLM",
             description = "Timeout in seconds for each LLM request attempt")
@@ -1781,6 +1781,42 @@ public class Properties {
     @IntValue(min = 0)
     public static int LLM_CLUSTER_SUMMARY_MAX_CHARS = 4000;
 
+    @Parameter(key = "llm_cluster_summary_dynamic_scaling", group = "LLM",
+            description = "Scale dependency summary budget with CUT context budget. "
+                    + "If true, uses ratio/min/max settings below.")
+    public static boolean LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING = true;
+
+    @Parameter(key = "llm_cluster_summary_dynamic_ratio", group = "LLM",
+            description = "Fraction of LLM_CONTEXT_MAX_CHARS allocated to dependency summary "
+                    + "when dynamic scaling is enabled")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO = 0.12;
+
+    @Parameter(key = "llm_cluster_summary_dynamic_min_chars", group = "LLM",
+            description = "Lower bound for dynamically scaled dependency summary budget")
+    @IntValue(min = 0)
+    public static int LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS = 4000;
+
+    @Parameter(key = "llm_cluster_summary_dynamic_max_chars", group = "LLM",
+            description = "Upper bound for dynamically scaled dependency summary budget (0 = unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = 32000;
+
+    @Parameter(key = "llm_cluster_summary_absolute_override_chars", group = "LLM",
+            description = "Absolute override for dependency summary budget (0 = no override)")
+    @IntValue(min = 0)
+    public static int LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = 0;
+
+    @Parameter(key = "llm_cluster_summary_per_class_soft_cap_chars", group = "LLM",
+            description = "Soft cap per dependency class in summary output "
+                    + "(0 = auto-compute from effective dependency budget)")
+    @IntValue(min = 0)
+    public static int LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = 0;
+
+    @Parameter(key = "llm_cluster_summary_compact_signatures", group = "LLM",
+            description = "Use compact dependency signatures (strip redundant keywords/type qualifiers)")
+    public static boolean LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = true;
+
     // --- LLM Goal Format ---
     public enum LlmGoalFormat {
         /** Raw goal.toString() output (backward-compatible). */
@@ -1830,6 +1866,21 @@ public class Properties {
     @Parameter(key = "llm_seed_initial_population", group = "LLM",
             description = "Seed the initial population with LLM-generated tests")
     public static boolean LLM_SEED_INITIAL_POPULATION = false;
+
+    /** Controls whether LLM-generated assertions are retained in parsed tests. */
+    public enum LlmGeneratedAssertionsPolicy {
+        /** Keep assertions for LLMSTRATEGY, drop for search/enrichment integrations. */
+        AUTO,
+        /** Always keep LLM-generated assertions in parsed tests. */
+        KEEP,
+        /** Always drop LLM-generated assertions from parsed tests. */
+        DROP
+    }
+
+    @Parameter(key = "llm_generated_assertions_policy", group = "LLM",
+            description = "Retention policy for LLM-generated assertions in parsed tests")
+    public static LlmGeneratedAssertionsPolicy LLM_GENERATED_ASSERTIONS_POLICY =
+            LlmGeneratedAssertionsPolicy.AUTO;
 
     // --- LLM Strategy Mode ---
     public enum LlmStrategyMode {

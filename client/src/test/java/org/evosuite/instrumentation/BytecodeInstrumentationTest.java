@@ -97,17 +97,17 @@ public class BytecodeInstrumentationTest {
     public void testRetriesWithoutLoopCounterOnAsmFrameFailure() {
         Properties.MAX_LOOP_ITERATIONS = 1;
         RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation(1);
-        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug9"));
+        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug9", Opcodes.V1_8));
 
         byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug9", reader);
 
         Assertions.assertArrayEquals(RetryProbeInstrumentation.SUCCESS_BYTES, transformed);
         Assertions.assertEquals(2, instrumentation.invocations);
         Assertions.assertTrue(instrumentation.firstInvocationEnabledLoopCounter);
-        Assertions.assertTrue(instrumentation.secondInvocationEnabledLoopCounter);
-        // First attempt COMPUTE_FRAMES, then retry with COMPUTE_MAXS keeping loop counter.
+        Assertions.assertFalse(instrumentation.secondInvocationEnabledLoopCounter);
+        // For modern class files, skip COMPUTE_MAXS and retry with COMPUTE_FRAMES without loop counter.
         Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[0]);
-        Assertions.assertEquals(ClassWriter.COMPUTE_MAXS, instrumentation.writerFlagsPerInvocation[1]);
+        Assertions.assertEquals(ClassWriter.COMPUTE_FRAMES, instrumentation.writerFlagsPerInvocation[1]);
     }
 
     @Test
@@ -115,7 +115,7 @@ public class BytecodeInstrumentationTest {
         Properties.MAX_LOOP_ITERATIONS = 1;
         // Fail initial COMPUTE_FRAMES and retry COMPUTE_MAXS (both with loop counter)
         RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation(2);
-        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug11"));
+        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug11", Opcodes.V1_6));
 
         byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug11", reader);
 
@@ -131,7 +131,7 @@ public class BytecodeInstrumentationTest {
         Properties.MAX_LOOP_ITERATIONS = -1;
         // Loop counter disabled: skips retry 1, goes straight to COMPUTE_MAXS fallback
         RetryProbeInstrumentation instrumentation = new RetryProbeInstrumentation(1);
-        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug10"));
+        ClassReader reader = new ClassReader(createSimpleClassBytes("sample/Bug10", Opcodes.V1_6));
 
         byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug10", reader);
 
@@ -141,9 +141,21 @@ public class BytecodeInstrumentationTest {
         Assertions.assertEquals(ClassWriter.COMPUTE_MAXS, instrumentation.writerFlagsPerInvocation[1]);
     }
 
-    private static byte[] createSimpleClassBytes(String internalName) {
+    @Test
+    public void testFallsBackToRawPassthroughOnUnsupportedJsrRet() {
+        JsrRetProbeInstrumentation instrumentation = new JsrRetProbeInstrumentation();
+        byte[] original = createSimpleClassBytes("sample/BugJsr", Opcodes.V1_8);
+        ClassReader reader = new ClassReader(original);
+
+        byte[] transformed = instrumentation.transformBytes(getClass().getClassLoader(), "sample/BugJsr", reader);
+
+        Assertions.assertEquals(1, instrumentation.invocations);
+        Assertions.assertArrayEquals(original, transformed);
+    }
+
+    private static byte[] createSimpleClassBytes(String internalName, int classVersion) {
         ClassWriter writer = new ClassWriter(0);
-        writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
+        writer.visit(classVersion, Opcodes.ACC_PUBLIC, internalName, null, "java/lang/Object", null);
 
         MethodVisitor constructor = writer.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         constructor.visitCode();
@@ -196,6 +208,18 @@ public class BytecodeInstrumentationTest {
                     new StackTraceElement("org.evosuite.shaded.org.objectweb.asm.MethodWriter", "computeAllFrames", "MethodWriter.java", 1612)
             });
             return ex;
+        }
+    }
+
+    private static class JsrRetProbeInstrumentation extends BytecodeInstrumentation {
+        private int invocations = 0;
+
+        @Override
+        protected byte[] transformBytesInternal(ClassLoader classLoader, String className, String classNameWithDots,
+                                                ClassReader reader, int readFlags, boolean enableLoopCounter,
+                                                int writerFlags) {
+            invocations++;
+            throw new RuntimeException("JSR/RET are not supported");
         }
     }
 }

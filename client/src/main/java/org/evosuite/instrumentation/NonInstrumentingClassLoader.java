@@ -19,6 +19,8 @@
  */
 package org.evosuite.instrumentation;
 
+import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.instrumentation.LoopCounterClassAdapter;
 import org.evosuite.runtime.util.ComputeClassWriter;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -57,6 +59,21 @@ public class NonInstrumentingClassLoader extends InstrumentingClassLoader {
         ClassWriter writer = new ComputeClassWriter(asmFlags);
 
         ClassVisitor cv = writer;
+        // Bound SUT loops during JUnit check too — without this, a runaway loop
+        // in the SUT terminates at generation time (where InstrumentingClassLoader
+        // adds LoopCounterClassAdapter) but hangs at JUnit check, producing a
+        // spurious "unstable test" verdict for tests that were perfectly stable
+        // during search. JUnitAnalyzer already silently swallows the resulting
+        // TooManyResourcesException (see the failure-loop in runTests).
+        //
+        // LoopCounterClassAdapter MUST sit inside NonTargetClassAdapter (closer to
+        // the writer). Its AnalyzerAdapter cannot handle JSR/RET, so classes with
+        // pre-Java-6 subroutines (e.g. xerces) need the JSRInlinerAdapter inside
+        // NonTargetClassAdapter to run *first* and inline them away before the
+        // bytecode reaches the loop counter.
+        if (RuntimeSettings.maxNumberOfIterationsPerLoop >= 0) {
+            cv = new LoopCounterClassAdapter(cv);
+        }
         cv = new NonTargetClassAdapter(cv, className);
         reader.accept(cv, readFlags);
         return writer.toByteArray();

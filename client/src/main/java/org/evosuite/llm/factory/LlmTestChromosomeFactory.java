@@ -28,6 +28,7 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -102,10 +103,12 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     }
 
     private TestChromosome generateViaLlm() {
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         PromptResult prompt = buildPrompt();
         String response = llmService.query(prompt, LlmFeature.TEST_FACTORY);
-        RepairResult repairResult = TestRepairLoop.createDefault(llmService).attemptParse(
-                response, prompt.getMessages(), LlmFeature.TEST_FACTORY);
+        RepairResult repairResult = TestRepairLoop
+                .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
+                .attemptParse(response, prompt.getMessages(), LlmFeature.TEST_FACTORY);
         if (!repairResult.isSuccess() || repairResult.getTestCases().isEmpty()) {
             return null;
         }
@@ -121,7 +124,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                .withInstruction("Generate one JUnit test that is likely to improve coverage.");
+                .withInstruction("Generate one JUnit test that is likely to improve coverage."
+                        + LlmAssertionPolicyResolver.instructionSuffix(false));
         if (goals != null && !goals.isEmpty()) {
             builder.withUncoveredGoals(goals);
         }

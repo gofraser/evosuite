@@ -20,7 +20,6 @@
 package org.evosuite.testcase.statements;
 
 import org.apache.commons.lang3.ClassUtils;
-import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.dse.VM;
 import org.evosuite.testcase.TestCase;
@@ -35,6 +34,8 @@ import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.objectweb.asm.Type;
+
+import org.evosuite.runtime.GuiSupport;
 
 import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
@@ -170,6 +171,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                         InstantiationException, CodeUnderTestException {
 
                     java.lang.reflect.Type[] parameterTypes = constructor.getParameterTypes();
+                    Class<?>[] rawParameterTypes = constructor.getConstructor().getParameterTypes();
                     for (int i = 0; i < parameters.size(); i++) {
                         VariableReference parameterVar = parameters.get(i);
                         try {
@@ -182,8 +184,10 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                                     + ". Error encountered: " + e);
                             throw new EvosuiteError(e);
                         }
-                        if (inputs[i] != null && !TypeUtils.isAssignable(inputs[i].getClass(),
-                                parameterTypes[i])) {
+                        if (inputs[i] != null && !ClassUtils.isAssignable(
+                                inputs[i].getClass(),
+                                rawParameterTypes[i],
+                                true)) {
                             // TODO: This used to be a check of the declared type, but the problem is that
                             //       Generic types are not updated during execution, so this may fail:
                             //!parameterVar.isAssignableTo(parameterTypes[i])) {
@@ -212,14 +216,33 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                     rejectLargeIntInputs(inputs);
                     rejectDynamicMethodThreshold(inputs);
 
-                    Object ret = constructor.getConstructor().newInstance(inputs);
-
+                    // If the SUT is a GUI component, disable headless mode
+                    // for the entire constructor execution.  This is necessary
+                    // because the SUT's constructor body may create other AWT
+                    // components (e.g. Button, TextField) whose constructors
+                    // also call GraphicsEnvironment.checkHeadless().
+                    // The reference-counted disable/restore in GuiSupport
+                    // ensures this nests correctly with the mock constructor's
+                    // own disable/restore pair (e.g. in MockApplet, MockFrame).
+                    boolean disabledHeadless = false;
+                    if (Properties.REPLACE_GUI && isGuiComponent(constructor.getConstructor().getDeclaringClass())) {
+                        GuiSupport.disableHeadlessForMockConstruction();
+                        disabledHeadless = true;
+                    }
                     try {
-                        retval.setObject(scope, ret);
-                    } catch (CodeUnderTestException e) {
-                        throw e;
-                    } catch (Throwable e) {
-                        throw new EvosuiteError(e);
+                        Object ret = constructor.getConstructor().newInstance(inputs);
+
+                        try {
+                            retval.setObject(scope, ret);
+                        } catch (CodeUnderTestException e) {
+                            throw e;
+                        } catch (Throwable e) {
+                            throw new EvosuiteError(e);
+                        }
+                    } finally {
+                        if (disabledHeadless) {
+                            GuiSupport.restoreHeadlessAfterMockConstruction();
+                        }
                     }
                 }
 
@@ -245,6 +268,19 @@ public class ConstructorStatement extends EntityWithParametersStatement {
             }
         }
         return exceptionThrown;
+    }
+
+    /**
+     * Checks whether the given class is an AWT/Swing GUI component.
+     * Used to determine whether headless mode should be disabled for
+     * the duration of the constructor execution.
+     */
+    private static boolean isGuiComponent(Class<?> clazz) {
+        try {
+            return java.awt.Component.class.isAssignableFrom(clazz);
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     /**

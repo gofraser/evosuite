@@ -379,27 +379,30 @@ public class ExecutionTracer {
      */
     public static void checkTimeout() {
         ExecutionTracer tracer = getExecutionTracer();
-        if (tracer.disabled) {
+        // Intentionally NOT gated on tracer.disabled — that flag exists to skip
+        // tracing work (passedLine, enterMethod, constant-pool collection), but
+        // checkTimeout is a kill-switch probe and must fire regardless of tracing
+        // state, otherwise a runaway SUT loop during JUnit check (where the tracer
+        // is deliberately disabled to avoid pollution) would have no way out.
+        if (!tracer.killSwitch) {
             return;
         }
 
-        if (tracer.killSwitch) {
-            if (!isInStaticInit()) {
-                tracer.clinitKillSwitchCount = 0;
-                throw new TestCaseExecutor.TimeoutExceeded();
-            }
-            // Inside <clinit>: normally we don't throw to avoid breaking the class.
-            // But if the kill switch has been active for too many checks, the static
-            // initializer is likely stuck in an infinite loop — force the timeout
-            // to prevent a permanently stalled thread.
-            tracer.clinitKillSwitchCount++;
-            if (tracer.clinitKillSwitchCount >= MAX_CLINIT_KILL_SWITCH_CHECKS) {
-                tracer.clinitKillSwitchCount = 0;
-                logger.warn("Forcing timeout inside <clinit> after {} kill switch checks "
-                        + "— static initializer appears stuck in an infinite loop",
-                        MAX_CLINIT_KILL_SWITCH_CHECKS);
-                throw new TestCaseExecutor.TimeoutExceeded();
-            }
+        if (!isInStaticInit()) {
+            tracer.clinitKillSwitchCount = 0;
+            throw new TestCaseExecutor.TimeoutExceeded();
+        }
+        // Inside <clinit>: normally we don't throw to avoid breaking the class.
+        // But if the kill switch has been active for too many checks, the static
+        // initializer is likely stuck in an infinite loop — force the timeout
+        // to prevent a permanently stalled thread.
+        tracer.clinitKillSwitchCount++;
+        if (tracer.clinitKillSwitchCount >= MAX_CLINIT_KILL_SWITCH_CHECKS) {
+            tracer.clinitKillSwitchCount = 0;
+            logger.warn("Forcing timeout inside <clinit> after {} kill switch checks "
+                    + "— static initializer appears stuck in an infinite loop",
+                    MAX_CLINIT_KILL_SWITCH_CHECKS);
+            throw new TestCaseExecutor.TimeoutExceeded();
         }
     }
 

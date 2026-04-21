@@ -41,19 +41,15 @@ public class ComputeClassWriter extends ClassWriter {
     @Override
     protected String getCommonSuperClass(final String type1, final String type2) {
         try {
-            ClassReader info1;
-            ClassReader info2;
-            try {
-                info1 = typeInfo(type1);
-            } catch (NullPointerException e) {
-                // May happen if class is not found
-                throw new RuntimeException("Class not found: " + type1 + ": " + e, e);
-            }
-            try {
-                info2 = typeInfo(type2);
-            } catch (NullPointerException e) {
-                // May happen if class is not found
-                throw new RuntimeException("Class not found: " + type2 + ": " + e, e);
+            ClassReader info1 = tryTypeInfo(type1);
+            ClassReader info2 = tryTypeInfo(type2);
+            // If either type can't be resolved on the classpath (common when a SUT
+            // references classes from dependencies that aren't available), fall back
+            // to Object. Throwing here would abort the entire instrumentation and
+            // propagate up through RMI (breaking test-case deserialization on the
+            // master), whereas Object produces a valid — if conservative — frame.
+            if (info1 == null || info2 == null) {
+                return "java/lang/Object";
             }
 
             if ((info1.getAccess() & Opcodes.ACC_INTERFACE) != 0) {
@@ -97,11 +93,18 @@ public class ComputeClassWriter extends ClassWriter {
                     return result;
                 }
             }
-        } catch (IOException e) {
-            throw new RuntimeException(e.toString());
+        } catch (IOException | NullPointerException e) {
+            // Missing transitive ancestor during typeAncestors/typeImplements —
+            // fall back conservatively rather than aborting instrumentation.
+            return "java/lang/Object";
+        }
+    }
+
+    private ClassReader tryTypeInfo(final String type) throws IOException {
+        try {
+            return typeInfo(type);
         } catch (NullPointerException e) {
-            // May happen if class is not found
-            throw new RuntimeException(e.toString());
+            return null;
         }
     }
 

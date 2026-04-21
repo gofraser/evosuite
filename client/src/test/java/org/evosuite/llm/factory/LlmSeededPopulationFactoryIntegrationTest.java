@@ -102,6 +102,34 @@ class LlmSeededPopulationFactoryIntegrationTest {
         }
     }
 
+    @Test
+    void recoverableLinkageErrorsDuringSeedingFallBackToDefaultFactory() {
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            throw new VerifyError("simulated frame verification failure");
+        };
+        LlmService service = createService(model, 4);
+
+        TestChromosome fallbackChromosome = new TestChromosome();
+        fallbackChromosome.setTestCase(new DefaultTestCase());
+        ChromosomeFactory<TestChromosome> fallback = () -> fallbackChromosome;
+
+        try {
+            LlmSeededPopulationFactory factory = new LlmSeededPopulationFactory(
+                    fallback,
+                    service,
+                    Collections::emptyList,
+                    Runnable::run);
+
+            TestChromosome produced = factory.getChromosome();
+            assertSame(fallbackChromosome, produced,
+                    "Recoverable linkage errors should not abort factory use");
+            assertTrue(factory.awaitAndDrainSeeds(1000L).isEmpty(),
+                    "No seeds should be produced after recoverable linkage error");
+        } finally {
+            service.close();
+        }
+    }
+
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {
         LlmConfiguration configuration = new LlmConfiguration(
                 Properties.LlmProvider.NONE,

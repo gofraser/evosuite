@@ -47,7 +47,7 @@ public class MockJFrame extends JFrame implements OverrideMock {
 
     private static GraphicsConfiguration prepareGc(GraphicsConfiguration gc) {
         GuiSupport.disableHeadlessForMockConstruction();
-        return gc != null ? gc : GuiSupport.getStubGraphicsConfiguration();
+        return gc != null ? gc : GuiSupport.getDefaultOrStubGraphicsConfiguration();
     }
 
     // ── constructors (mirror every public JFrame constructor) ───────
@@ -56,22 +56,22 @@ public class MockJFrame extends JFrame implements OverrideMock {
     // getDefaultScreenDevice() (which returns null on headless servers).
 
     public MockJFrame() throws HeadlessException {
-        super(prepareTitle(""), GuiSupport.getStubGraphicsConfiguration());
+        super(prepareTitle(""), GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJFrame(String title) throws HeadlessException {
-        super(prepareTitle(title), GuiSupport.getStubGraphicsConfiguration());
+        super(prepareTitle(title), GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJFrame(GraphicsConfiguration gc) {
-        super(prepareTitle(""), gc != null ? gc : GuiSupport.getStubGraphicsConfiguration());
+        super(prepareTitle(""), gc != null ? gc : GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJFrame(String title, GraphicsConfiguration gc) {
-        super(prepareTitle(title), gc != null ? gc : GuiSupport.getStubGraphicsConfiguration());
+        super(prepareTitle(title), gc != null ? gc : GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
@@ -101,5 +101,17 @@ public class MockJFrame extends JFrame implements OverrideMock {
     @Override
     public void toBack() {
         // no-op
+    }
+
+    @Override
+    public void setDefaultCloseOperation(int operation) {
+        // JFrame.setDefaultCloseOperation invokes SecurityManager.checkExit(0)
+        // when given EXIT_ON_CLOSE, which MSecurityManager rejects and aborts
+        // the test. Downgrade EXIT_ON_CLOSE to DISPOSE_ON_CLOSE so no exitVM
+        // permission is ever checked.
+        if (operation == EXIT_ON_CLOSE) {
+            operation = DISPOSE_ON_CLOSE;
+        }
+        super.setDefaultCloseOperation(operation);
     }
 }

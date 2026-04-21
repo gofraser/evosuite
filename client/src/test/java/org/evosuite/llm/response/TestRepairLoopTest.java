@@ -25,14 +25,20 @@ import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.Scope;
+import org.evosuite.assertion.PrimitiveAssertion;
+import org.evosuite.testcase.statements.UninterpretedStatement;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -318,6 +324,373 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void assertionFailuresCanBeIgnoredByPolicy() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase testCase = new DefaultTestCase();
+                testCase.addStatement(new IntPrimitiveStatement(testCase, 1));
+                return Collections.singletonList(new ParseResult(testCase, "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    result.reportNewThrownException(0, new AssertionError("boom"));
+                    return result;
+                },
+                0,
+                null,
+                null,
+                new TestRepairLoop.RepairOptions(false, false, true));
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void semanticAssertionFailureTriggersRepairWhenEnabled() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        AtomicInteger parseCalls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase testCase = new DefaultTestCase();
+                IntPrimitiveStatement stmt = new IntPrimitiveStatement(testCase, 1);
+                testCase.addStatement(stmt);
+                PrimitiveAssertion assertion = new PrimitiveAssertion();
+                assertion.setSource(stmt.getReturnValue());
+                assertion.setValue(parseCalls.getAndIncrement() == 0 ? 2 : 1);
+                stmt.addAssertion(assertion);
+                return Collections.singletonList(new ParseResult(testCase, "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    Scope scope = new Scope();
+                    IntPrimitiveStatement stmt = (IntPrimitiveStatement) testCase.getStatement(0);
+                    scope.setObject(stmt.getReturnValue(), stmt.getValue());
+                    result.setFinalScope(scope);
+                    return result;
+                },
+                1,
+                null,
+                null,
+                TestRepairLoop.RepairOptions.forAssertionPolicy(true));
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        assertTrue(result.getDiagnostics().stream().anyMatch(d -> d.contains("Assertion failed")));
+        verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void semanticAssertionFailureCanBeIgnoredByRepairPolicy() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase testCase = new DefaultTestCase();
+                IntPrimitiveStatement stmt = new IntPrimitiveStatement(testCase, 1);
+                testCase.addStatement(stmt);
+                PrimitiveAssertion assertion = new PrimitiveAssertion();
+                assertion.setSource(stmt.getReturnValue());
+                assertion.setValue(2);
+                stmt.addAssertion(assertion);
+                return Collections.singletonList(new ParseResult(testCase, "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    Scope scope = new Scope();
+                    IntPrimitiveStatement stmt = (IntPrimitiveStatement) testCase.getStatement(0);
+                    scope.setObject(stmt.getReturnValue(), stmt.getValue());
+                    result.setFinalScope(scope);
+                    return result;
+                },
+                0,
+                null,
+                null,
+                new TestRepairLoop.RepairOptions(true, false, false));
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void sanitizerRemovesAssertionUninterpretedStatements() {
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new UninterpretedStatement(testCase, "assertEquals(1, 1);"));
+        assertEquals(1, testCase.size());
+
+        int removed = LlmAssertionSanitizer.sanitize(testCase);
+
+        assertTrue(removed > 0);
+        assertEquals(0, testCase.size());
+    }
+
+    @Test
+    void sanitizerKeepsNonAssertionCallsThatStartWithAssertPrefix() {
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new UninterpretedStatement(testCase, "validator.assertState();"));
+        assertEquals(1, testCase.size());
+
+        int removed = LlmAssertionSanitizer.sanitize(testCase);
+
+        assertEquals(0, removed);
+        assertEquals(1, testCase.size());
+    }
+
+    @Test
+    void repairPromptUsesConfiguredDropPolicyToAvoidAssertions() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1,
+                null,
+                null,
+                TestRepairLoop.RepairOptions.forAssertionPolicy(false));
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Do NOT include assertions"));
+    }
+
+    @Test
+    void repairPromptIncludesActionableHintsFromParseDiagnostics() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "Unresolved variable: missingVar LLM_REPAIR_ACTION_REQUIRED: declare the variable earlier",
+                        3, "int x = missingVar;"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Repair hints:"));
+        assertTrue(userRepairMessage.contains("declare the variable earlier"));
+    }
+
+    @Test
+    void dependencyMissingErrorsAreRepairableAndPromptGetsTargetedInstructions() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    result.reportNewThrownException(0, new NoClassDefFoundError("com/example/MissingFramework"));
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Dependency-missing repair instructions"));
+        assertTrue(userRepairMessage.contains("Do NOT reference or instantiate missing external/framework classes"));
+    }
+
+    @Test
+    void repeatedDependencyMissingErrorUsesDedicatedStopDiagnostic() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    result.reportNewThrownException(0, new NoClassDefFoundError("com/example/MissingFramework"));
+                    return result;
+                },
+                3);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getDiagnostics().stream()
+                .anyMatch(d -> d.contains("dependency-missing error persisted")));
+        assertFalse(result.getDiagnostics().stream()
+                .anyMatch(d -> d.contains("identical error repeated")));
+        verify(llmService, atMost(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void repairPromptUsesConfiguredKeepPolicy() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1,
+                null,
+                null,
+                TestRepairLoop.RepairOptions.forAssertionPolicy(true));
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertFalse(userRepairMessage.contains("Do NOT include assertions"));
+    }
+
+    @Test
     void normalizeErrorReplacesLineNumbers() {
         assertEquals(
                 "ERROR (line N): Failed at position N",
@@ -328,4 +701,72 @@ class TestRepairLoopTest {
         assertEquals("", TestRepairLoop.normalizeError(null));
         assertEquals("no numbers here", TestRepairLoop.normalizeError("no numbers here"));
     }
+
+    @Test
+    void unfixableErrorClassifierAllowsDependencyMissingForRepair() {
+        assertFalse(TestRepairLoop.isUnfixableError(
+                "Execution error in test 'x': java.lang.NoClassDefFoundError - com/example/Missing"));
+        assertTrue(TestRepairLoop.isUnfixableError(
+                "Execution error in test 'x': java.lang.UnsatisfiedLinkError - native"));
+    }
+
+    @Test
+    void partialSuccessKeepsExecutableTestsWhileRepairingFailingOnes() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        AtomicInteger parseCalls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase passing = new DefaultTestCase();
+                passing.addStatement(new IntPrimitiveStatement(passing, 1));
+                ParseResult passResult = new ParseResult(passing, "testPassing");
+
+                DefaultTestCase failing = new DefaultTestCase();
+                failing.addStatement(new IntPrimitiveStatement(failing, 2));
+                ParseResult failResult = new ParseResult(failing, "testFailing");
+
+                if (parseCalls.getAndIncrement() == 0) {
+                    return Arrays.asList(passResult, failResult);
+                }
+
+                DefaultTestCase repaired = new DefaultTestCase();
+                repaired.addStatement(new IntPrimitiveStatement(repaired, 3));
+                ParseResult repairedResult = new ParseResult(repaired, "testRepaired");
+                return Collections.singletonList(repairedResult);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    if (testCase.size() > 0 && testCase.getStatement(0) instanceof IntPrimitiveStatement) {
+                        IntPrimitiveStatement stmt = (IntPrimitiveStatement) testCase.getStatement(0);
+                        if (stmt.getValue() == 2) {
+                            result.reportNewThrownException(0, new IllegalStateException("boom"));
+                        }
+                    }
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        assertEquals(2, result.getTestCases().size());
+        assertTrue(result.getParseResults().stream().anyMatch(r -> "testPassing".equals(r.getOriginalMethodName())));
+        assertTrue(result.getParseResults().stream().anyMatch(r -> "testRepaired".equals(r.getOriginalMethodName())));
+        assertTrue(result.getDiagnostics().stream().anyMatch(d -> d.contains("Partial success: kept")));
+    }
+
 }

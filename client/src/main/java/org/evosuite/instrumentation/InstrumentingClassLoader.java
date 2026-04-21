@@ -297,6 +297,12 @@ public class InstrumentingClassLoader extends ClassLoader {
             if (current instanceof ClassNotFoundException || current instanceof NoClassDefFoundError) {
                 return true;
             }
+            // LinkageError includes loader constraint violations that occur when a class
+            // dependency was already loaded by a different classloader. This is a normal
+            // classloading issue in multi-classloader setups, not a fatal error.
+            if (current instanceof LinkageError) {
+                return true;
+            }
             String message = current.getMessage();
             if (message != null
                     && (message.startsWith("Class not found: ")

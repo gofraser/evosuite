@@ -68,7 +68,7 @@ public class LoopCounterMethodAdapter extends MethodVisitor {
 
     @Override
     public void visitJumpInsn(int opcode, Label label) {
-        if (!hasUninitializedValue(opcode == Opcodes.GOTO)) {
+        if (!hasUninitializedValue()) {
             addInstrumentation();
         }
         super.visitJumpInsn(opcode, label);
@@ -76,28 +76,29 @@ public class LoopCounterMethodAdapter extends MethodVisitor {
 
     /**
      * Checks whether injecting a {@code checkLoop()} call at the current
-     * position could cause a JVM verifier error due to uninitialized
-     * references in the frame.
+     * position could leave a {@code Label} (uninitialized reference) or
+     * {@code UNINITIALIZED_THIS} value on the stack/locals at a frame
+     * boundary, which the JVM verifier rejects.
      *
-     * <p>When {@code isGoto} is true, null frames (unknown state from the
-     * {@link AnalyzerAdapter}) are treated as safe.  GOTO is the opcode
-     * used for loop back-edges, where the JVM verifier requires matching
-     * frame states at the merge target — so the stack is empty and all
-     * locals are initialized.  Skipping injection on null frames in
-     * try/catch regions would leave loops unprotected.
+     * <p>The injected sequence is {@code INVOKESTATIC + LDC + INVOKEVIRTUAL}
+     * — it never reads any local or any pre-existing stack value, and its
+     * net stack effect is zero. The only verifier concern is the presence
+     * of uninitialized markers in the surrounding frame, which would
+     * already fail verification at the next merge point regardless of our
+     * injection. We therefore treat null frames (unreachable / unknown
+     * frame state) as safe for every jump opcode: skipping conditional
+     * back-edges here is what previously left tight loops uninstrumented
+     * (e.g. {@code IFLE} as a loop back-edge would not be guarded), so
+     * a runaway SUT loop could not be terminated by {@code LoopCounter}.
      */
-    private boolean hasUninitializedValue(boolean isGoto) {
-        return containsUninitialized(analyzer.locals, isGoto)
-                || containsUninitialized(analyzer.stack, isGoto);
+    private boolean hasUninitializedValue() {
+        return containsUninitialized(analyzer.locals)
+                || containsUninitialized(analyzer.stack);
     }
 
-    private boolean containsUninitialized(List<Object> values, boolean nullIsSafe) {
+    private boolean containsUninitialized(List<Object> values) {
         if (values == null) {
-            // Unknown frame state (eg, inside try/catch or unreachable code).
-            // For GOTO (loop back-edges) this is safe — the verifier guarantees
-            // a clean frame at the merge target.  For conditional jumps we
-            // conservatively skip injection.
-            return !nullIsSafe;
+            return false;
         }
         for (Object value : values) {
             if (value instanceof Label || value == Opcodes.UNINITIALIZED_THIS) {

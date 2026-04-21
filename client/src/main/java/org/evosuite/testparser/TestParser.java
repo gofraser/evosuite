@@ -21,6 +21,7 @@ package org.evosuite.testparser;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.stmt.ReturnStmt;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -28,9 +29,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Parses JUnit test source code into EvoSuite TestCase objects.
@@ -109,10 +115,27 @@ public class TestParser {
         CompilationUnit cu = methodParser.parseSource(sourceCode);
         List<String> imports = methodParser.extractImports(cu);
         List<MethodDeclaration> testMethods = methodParser.findTestMethods(cu);
+        List<MethodDeclaration> nonTestMethods = markParsedFromLlm
+                ? methodParser.findNonTestMethods(cu)
+                : Collections.emptyList();
+        List<com.github.javaparser.ast.stmt.Statement> llmFieldInitializers = markParsedFromLlm
+                ? methodParser.extractFieldInitializerStatements(cu)
+                : Collections.emptyList();
+        Map<String, MethodDeclaration> inlineHelperMethods = markParsedFromLlm
+                ? extractInlineableHelperMethods(nonTestMethods)
+                : Collections.emptyMap();
 
         List<ParseResult> results = new ArrayList<>();
         for (MethodDeclaration method : testMethods) {
-            ParseResult result = parseMethod(method, imports);
+            ParseResult result = parseMethod(method, imports, inlineHelperMethods, llmFieldInitializers);
+            if (markParsedFromLlm && !nonTestMethods.isEmpty()) {
+                addLlmHelperMethodDiagnostic(result, nonTestMethods, ParseDiagnostic.Severity.WARNING);
+            }
+            results.add(result);
+        }
+        if (results.isEmpty() && markParsedFromLlm && !nonTestMethods.isEmpty()) {
+            ParseResult result = new ParseResult(new DefaultTestCase(), "__class__");
+            addLlmHelperMethodDiagnostic(result, nonTestMethods, ParseDiagnostic.Severity.WARNING);
             results.add(result);
         }
         return results;
@@ -128,6 +151,15 @@ public class TestParser {
     public ParseResult parseTestMethod(String sourceCode, String methodName) {
         CompilationUnit cu = methodParser.parseSource(sourceCode);
         List<String> imports = methodParser.extractImports(cu);
+        List<MethodDeclaration> nonTestMethods = markParsedFromLlm
+                ? methodParser.findNonTestMethods(cu)
+                : Collections.emptyList();
+        List<com.github.javaparser.ast.stmt.Statement> llmFieldInitializers = markParsedFromLlm
+                ? methodParser.extractFieldInitializerStatements(cu)
+                : Collections.emptyList();
+        Map<String, MethodDeclaration> inlineHelperMethods = markParsedFromLlm
+                ? extractInlineableHelperMethods(nonTestMethods)
+                : Collections.emptyMap();
 
         Optional<MethodDeclaration> method = methodParser.findTestMethod(cu, methodName);
         if (!method.isPresent()) {
@@ -139,7 +171,11 @@ public class TestParser {
             return result;
         }
 
-        return parseMethod(method.get(), imports);
+        ParseResult parsed = parseMethod(method.get(), imports, inlineHelperMethods, llmFieldInitializers);
+        if (markParsedFromLlm && !nonTestMethods.isEmpty()) {
+            addLlmHelperMethodDiagnostic(parsed, nonTestMethods, ParseDiagnostic.Severity.WARNING);
+        }
+        return parsed;
     }
 
     /**
@@ -173,6 +209,13 @@ public class TestParser {
      * Parse a single MethodDeclaration into a ParseResult.
      */
     private ParseResult parseMethod(MethodDeclaration method, List<String> imports) {
+        return parseMethod(method, imports, Collections.emptyMap(), Collections.emptyList());
+    }
+
+    private ParseResult parseMethod(MethodDeclaration method,
+                                    List<String> imports,
+                                    Map<String, MethodDeclaration> inlineHelperMethods,
+                                    List<com.github.javaparser.ast.stmt.Statement> llmFieldInitializers) {
         String methodName = method.getNameAsString();
         DefaultTestCase testCase = new DefaultTestCase();
         ParseResult result = new ParseResult(testCase, methodName);
@@ -187,6 +230,17 @@ public class TestParser {
         VariableScope scope = new VariableScope();
         StatementParser stmtParser = new StatementParser(testCase, typeResolver, scope, result);
         stmtParser.setMarkParsedFromLlm(this.markParsedFromLlm);
+        stmtParser.setInlineHelperMethods(inlineHelperMethods);
+
+        if (this.markParsedFromLlm && llmFieldInitializers != null && !llmFieldInitializers.isEmpty()) {
+            for (com.github.javaparser.ast.stmt.Statement fieldStmt : llmFieldInitializers) {
+                try {
+                    stmtParser.parseStatement(fieldStmt);
+                } catch (Exception e) {
+                    logger.debug("Failed to parse lifted LLM field initializer: {}", fieldStmt, e);
+                }
+            }
+        }
 
         int statementsBeforeParse = testCase.size();
         List<com.github.javaparser.ast.stmt.Statement> astStatements = methodParser.extractBody(method);
@@ -195,16 +249,27 @@ public class TestParser {
             try {
                 int consumed = stmtParser.parseStatement(astStmt, astStatements, i);
                 i += consumed;
-            } catch (Exception e) {
-                logger.warn("Failed to parse statement: {}", astStmt, e);
+            } catch (Throwable t) {
+                logger.warn("Failed to parse statement: {}", astStmt, t);
                 int line = astStmt.getBegin().map(p -> p.line).orElse(0);
                 result.addDiagnostic(new ParseDiagnostic(
                         ParseDiagnostic.Severity.ERROR,
-                        "Failed to parse statement: " + e.getMessage(),
+                        "Failed to parse statement: " + formatThrowable(t),
                         line,
                         astStmt.toString()));
-                // Preserve as UninterpretedStatement so the source is not lost
-                testCase.addStatement(stmtParser.createUninterpretedStatementFromAst(astStmt));
+                // Preserve as UninterpretedStatement so the source is not lost. If that
+                // also fails validation, skip this statement and continue with the rest.
+                try {
+                    testCase.addStatement(stmtParser.createUninterpretedStatementFromAst(astStmt));
+                } catch (Throwable fallbackFailure) {
+                    logger.warn("Failed to preserve unparsable statement as UninterpretedStatement: {}",
+                            astStmt, fallbackFailure);
+                    result.addDiagnostic(new ParseDiagnostic(
+                            ParseDiagnostic.Severity.ERROR,
+                            "Failed to preserve unparsable statement: " + formatThrowable(fallbackFailure),
+                            line,
+                            astStmt.toString()));
+                }
                 i++;
             }
         }
@@ -225,31 +290,107 @@ public class TestParser {
 
     /**
      * Validate that every VariableReference used in the test case points to a valid
-     * statement index. Orphaned references (pointing beyond the test case size or
-     * to a position after the referencing statement) indicate a parse error and
-     * the test should be rejected.
+     * statement index. Orphaned references (pos &lt; 0 or pos &gt;= testCase.size())
+     * indicate a parse error and the test should be rejected by the caller.
+     *
+     * <p>All orphans are reported — the loop does not short-circuit on the first
+     * one — so the diagnostic list faithfully reflects the full extent of the
+     * breakage. Callers are expected to check {@link ParseResult#hasErrors()}
+     * before using the returned {@code TestCase}; this method does not mutate
+     * the test case itself.
      */
     private void validateVariableReferences(DefaultTestCase testCase, ParseResult result) {
-        for (int i = 0; i < testCase.size(); i++) {
+        int size = testCase.size();
+        int orphanCount = 0;
+        for (int i = 0; i < size; i++) {
             Statement stmt = testCase.getStatement(i);
             Set<VariableReference> refs = stmt.getVariableReferences();
             for (VariableReference ref : refs) {
                 int pos = ref.getStPosition();
-                // The return value reference for this statement will have pos == i, which is valid.
-                // References to prior statements should have pos < i.
-                // Any reference with pos < 0 or pos >= testCase.size() is orphaned.
-                if (pos < 0 || pos >= testCase.size()) {
+                if (pos < 0 || pos >= size) {
+                    orphanCount++;
                     result.addDiagnostic(new ParseDiagnostic(
                             ParseDiagnostic.Severity.ERROR,
                             "Orphaned variable reference at statement " + i
                                     + ": refers to statement " + pos
-                                    + " but test case has " + testCase.size() + " statements",
+                                    + " but test case has " + size + " statements",
                             0, stmt.getCode()));
-                    logger.warn("Orphaned variable reference in parsed test: statement {} "
-                            + "references position {} (test size: {})", i, pos, testCase.size());
-                    return;
                 }
             }
         }
+        if (orphanCount > 0) {
+            logger.warn("Parsed test case has {} orphaned variable reference(s) across {} statements",
+                    orphanCount, size);
+        }
+    }
+
+    private void addLlmHelperMethodDiagnostic(ParseResult result,
+                                              List<MethodDeclaration> nonTestMethods,
+                                              ParseDiagnostic.Severity severity) {
+        MethodDeclaration first = nonTestMethods.get(0);
+        int line = first.getBegin().map(p -> p.line).orElse(0);
+        String helperNames = nonTestMethods.stream()
+                .map(MethodDeclaration::getNameAsString)
+                .distinct()
+                .collect(Collectors.joining(", "));
+        String msg = "LLM pre-check: helper/lifecycle methods are not allowed. "
+                + "Found non-@Test method(s): " + helperNames
+                + ". Continuing parse in best-effort mode; inline these helpers to improve reliability.";
+        result.addDiagnostic(new ParseDiagnostic(
+                severity,
+                msg,
+                line,
+                first.getDeclarationAsString(false, false, false)));
+    }
+
+    private static String formatThrowable(Throwable t) {
+        if (t == null) {
+            return "Unknown error";
+        }
+        String message = t.getMessage();
+        if (message == null || message.trim().isEmpty()) {
+            return t.getClass().getSimpleName();
+        }
+        return t.getClass().getSimpleName() + ": " + message;
+    }
+
+    private static String inlineHelperKey(String methodName, int arity) {
+        return methodName + "#" + arity;
+    }
+
+    /**
+     * Extract helper methods that can be safely inlined by simple substitution:
+     * arity 0 or 1, body of exactly one statement, and that statement is
+     * {@code return <expr>;}. Overloaded duplicates for the same name/arity are
+     * considered ambiguous and skipped.
+     */
+    private Map<String, MethodDeclaration> extractInlineableHelperMethods(List<MethodDeclaration> nonTestMethods) {
+        Map<String, MethodDeclaration> inlineable = new LinkedHashMap<>();
+        Set<String> ambiguousKeys = new HashSet<>();
+        for (MethodDeclaration method : nonTestMethods) {
+            int arity = method.getParameters().size();
+            if (arity > 1 || !method.getBody().isPresent()) {
+                continue;
+            }
+            List<com.github.javaparser.ast.stmt.Statement> statements = method.getBody().get().getStatements();
+            if (statements.size() != 1 || !(statements.get(0) instanceof ReturnStmt)) {
+                continue;
+            }
+            ReturnStmt returnStmt = (ReturnStmt) statements.get(0);
+            if (!returnStmt.getExpression().isPresent()) {
+                continue;
+            }
+            String key = inlineHelperKey(method.getNameAsString(), arity);
+            if (ambiguousKeys.contains(key)) {
+                continue;
+            }
+            if (inlineable.containsKey(key)) {
+                inlineable.remove(key);
+                ambiguousKeys.add(key);
+                continue;
+            }
+            inlineable.put(key, method.clone());
+        }
+        return inlineable;
     }
 }

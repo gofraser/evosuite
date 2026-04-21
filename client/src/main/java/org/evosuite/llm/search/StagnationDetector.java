@@ -29,6 +29,7 @@ import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -150,13 +151,15 @@ public class StagnationDetector {
         if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {
             return Collections.emptyList();
         }
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
 
         PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation,
                 totalGoals, coveredGoalCount, bestFitnessPerGoal);
         try {
             String response = llmService.query(prompt, LlmFeature.STAGNATION);
-            RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
-                    response, prompt.getMessages(), LlmFeature.STAGNATION);
+            RepairResult result = TestRepairLoop
+                    .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION);
             if (!result.isSuccess()) {
                 return Collections.emptyList();
             }
@@ -224,7 +227,8 @@ public class StagnationDetector {
         }
         sb.append(" Goals marked [almost covered] were close to being reached — focus on those first.");
         sb.append(" Generate ").append(testsPerRequest)
-                .append(" JUnit tests targeting the uncovered goals.");
+                .append(" JUnit tests targeting the uncovered goals.")
+                .append(LlmAssertionPolicyResolver.instructionSuffix(false));
         return sb.toString();
     }
 

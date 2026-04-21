@@ -63,7 +63,13 @@ public final class StringValueFilter {
             return false;
         }
 
-        int length = value.length();
+        int length;
+        try {
+            length = value.length();
+        } catch (NullPointerException e) {
+            // Corrupted String with null internal value array (e.g. from unsafe deserialization).
+            return true;
+        }
 
         // Maximum length of strings we look at
         if (length > Properties.MAX_STRING) {

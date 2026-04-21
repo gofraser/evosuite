@@ -35,8 +35,6 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.lang.reflect.*;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.*;
 
 public class GenericClassImpl implements Serializable, GenericClass<GenericClassImpl> {
@@ -60,6 +58,9 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                     Void.class));
 
     protected static Type addTypeParameters(Class<?> clazz) {
+        if (clazz == null) {
+            return Object.class;
+        }
         if (clazz.isArray()) {
             return GenericArrayTypeImpl.createArrayType(addTypeParameters(clazz.getComponentType()));
         } else if (GenericClassUtils.isMissingTypeParameters(clazz)) {
@@ -220,6 +221,9 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @param clazz a {@link java.lang.Class} object.
      */
     public GenericClassImpl(Class<?> clazz) {
+        if (clazz == null) {
+            throw new IllegalArgumentException("Cannot create GenericClassImpl for null class");
+        }
         this.type = addTypeParameters(clazz); //GenericTypeReflector.addWildcardParameters(clazz);
         this.rawClass = clazz;
     }
@@ -1641,7 +1645,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return true if it is a generic array
      */
     public boolean isGenericArray() {
-        GenericClassImpl componentClass = new GenericClassImpl(rawClass.getComponentType());
+        Class<?> componentType = rawClass.getComponentType();
+        if (componentType == null) {
+            return false;
+        }
+        GenericClassImpl componentClass = new GenericClassImpl(componentType);
         return componentClass.hasWildcardOrTypeVariables();
     }
 
@@ -2113,25 +2121,13 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      */
     private void readObject(ObjectInputStream ois) throws ClassNotFoundException,
             IOException {
-        /*
-        // ProjectCP is added to ClassLoader to ensure Dependencies of the class can be loaded.
-        */
-        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
-
-        String[] classPaths = Properties.CP.split(File.pathSeparator);
-        ArrayList<URL> cpURLs = new ArrayList<>();
-        for (String classPath : classPaths) {
-            cpURLs.add(new File(classPath).toURI().toURL());
-        }
-
-        // If the ContextClassLoader contains already the project cp, we don't add another one
-        // We assume, that if the contextClassLoader is no URLClassLoader, it does not contain the projectCP
-        if (!(contextClassLoader instanceof URLClassLoader)
-                || !Arrays.asList(((URLClassLoader) contextClassLoader).getURLs()).containsAll(cpURLs)) {
-            URLClassLoader urlClassLoader = new URLClassLoader(cpURLs.toArray(new URL[0]), contextClassLoader);
-            Thread.currentThread().setContextClassLoader(urlClassLoader);
-        }
-
+        // Class resolution is delegated to getClass(name), which tries the SUT
+        // classloader first and then falls back through TCCL and the system loader.
+        // Installing an ad-hoc URLClassLoader as the thread's context classloader
+        // here (as earlier versions did) leaks a fresh loader onto whatever thread
+        // happens to be deserializing -- notably the master's RMI connection
+        // threads -- and causes LinkageError when sibling loaders each end up
+        // defining the same CUT dependency (e.g. javax.jms.Destination).
         String name = (String) ois.readObject();
         if (name == null) {
             this.rawClass = null;

@@ -63,6 +63,12 @@ public class ExecutionResult implements Cloneable {
     protected ExecutionTrace trace;
 
     /**
+     * Final runtime scope after statement execution. This is used for in-process
+     * assertion evaluation during LLM repair loops and is intentionally transient.
+     */
+    protected transient Scope finalScope;
+
+    /**
      * Duration of execution.
      */
     protected long executionTime = 0L;
@@ -277,6 +283,20 @@ public class ExecutionResult implements Cloneable {
      */
     public ExecutionTrace getTrace() {
         return trace;
+    }
+
+    /**
+     * Sets the final runtime scope captured at the end of execution.
+     */
+    public void setFinalScope(Scope finalScope) {
+        this.finalScope = finalScope;
+    }
+
+    /**
+     * Returns the final runtime scope captured at the end of execution.
+     */
+    public Scope getFinalScope() {
+        return finalScope;
     }
 
     /**

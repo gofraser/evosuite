@@ -21,6 +21,7 @@ package org.evosuite.llm;
 
 import com.google.gson.Gson;
 import org.evosuite.Properties;
+import org.evosuite.llm.prompt.PromptResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,6 +38,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Writes reproducibility traces for LLM interactions in JSONL format.
@@ -56,152 +58,228 @@ public class LlmTraceRecorder {
         this.traceFile = configuration.getTraceDir().resolve("llm-trace.jsonl");
     }
 
-    /** Records a single LLM call with full context, token usage, and outcome metadata. */
-    public void recordCall(LlmFeature feature,
-                           List<LlmMessage> messages,
-                           String responseText,
-                           int inputTokens,
-                           int outputTokens,
-                           long latencyMs,
-                           String parseStatus,
-                           int repairAttempt,
-                           boolean expansionAttempted,
-                           List<String> expandedClasses,
-                           String errorType) {
-        recordCall(feature, messages, responseText, inputTokens, outputTokens, latencyMs,
-                parseStatus, repairAttempt, expansionAttempted, expandedClasses, errorType,
-                null, false);
+    public static final class CallRecord {
+        private final LlmFeature feature;
+        private final List<LlmMessage> messages;
+        private final String responseText;
+        private final int inputTokens;
+        private final int outputTokens;
+        private final long latencyMs;
+        private final String parseStatus;
+        private final int repairAttempt;
+        private final boolean expansionAttempted;
+        private final List<String> expandedClasses;
+        private final String errorType;
+        private final org.evosuite.Properties.LlmSutContextMode sutContextMode;
+        private final boolean contextUnavailable;
+        private final boolean contextTruncated;
+        private final boolean contextCommentsStripped;
+        private final boolean contextSelectivelyTruncated;
+        private final boolean clusterSummaryTruncated;
+        private final int clusterSummaryChars;
+        private final PromptResult.DependencySummaryMetadata dependencySummaryMetadata;
+
+        public static final class Builder {
+            private LlmFeature feature;
+            private List<LlmMessage> messages = Collections.emptyList();
+            private String responseText;
+            private int inputTokens;
+            private int outputTokens;
+            private long latencyMs;
+            private String parseStatus;
+            private int repairAttempt;
+            private boolean expansionAttempted;
+            private List<String> expandedClasses = Collections.emptyList();
+            private String errorType = "";
+            private org.evosuite.Properties.LlmSutContextMode sutContextMode;
+            private boolean contextUnavailable;
+            private boolean contextTruncated;
+            private boolean contextCommentsStripped;
+            private boolean contextSelectivelyTruncated;
+            private boolean clusterSummaryTruncated;
+            private int clusterSummaryChars;
+            private PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
+                    PromptResult.DependencySummaryMetadata.empty();
+
+            public Builder feature(LlmFeature feature) {
+                this.feature = feature;
+                return this;
+            }
+
+            public Builder messages(List<LlmMessage> messages) {
+                this.messages = messages;
+                return this;
+            }
+
+            public Builder responseText(String responseText) {
+                this.responseText = responseText;
+                return this;
+            }
+
+            public Builder inputTokens(int inputTokens) {
+                this.inputTokens = inputTokens;
+                return this;
+            }
+
+            public Builder outputTokens(int outputTokens) {
+                this.outputTokens = outputTokens;
+                return this;
+            }
+
+            public Builder latencyMs(long latencyMs) {
+                this.latencyMs = latencyMs;
+                return this;
+            }
+
+            public Builder parseStatus(String parseStatus) {
+                this.parseStatus = parseStatus;
+                return this;
+            }
+
+            public Builder repairAttempt(int repairAttempt) {
+                this.repairAttempt = repairAttempt;
+                return this;
+            }
+
+            public Builder expansionAttempted(boolean expansionAttempted) {
+                this.expansionAttempted = expansionAttempted;
+                return this;
+            }
+
+            public Builder expandedClasses(List<String> expandedClasses) {
+                this.expandedClasses = expandedClasses;
+                return this;
+            }
+
+            public Builder errorType(String errorType) {
+                this.errorType = errorType;
+                return this;
+            }
+
+            public Builder sutContextMode(org.evosuite.Properties.LlmSutContextMode sutContextMode) {
+                this.sutContextMode = sutContextMode;
+                return this;
+            }
+
+            public Builder contextUnavailable(boolean contextUnavailable) {
+                this.contextUnavailable = contextUnavailable;
+                return this;
+            }
+
+            public Builder contextTruncated(boolean contextTruncated) {
+                this.contextTruncated = contextTruncated;
+                return this;
+            }
+
+            public Builder contextCommentsStripped(boolean contextCommentsStripped) {
+                this.contextCommentsStripped = contextCommentsStripped;
+                return this;
+            }
+
+            public Builder contextSelectivelyTruncated(boolean contextSelectivelyTruncated) {
+                this.contextSelectivelyTruncated = contextSelectivelyTruncated;
+                return this;
+            }
+
+            public Builder clusterSummaryTruncated(boolean clusterSummaryTruncated) {
+                this.clusterSummaryTruncated = clusterSummaryTruncated;
+                return this;
+            }
+
+            public Builder clusterSummaryChars(int clusterSummaryChars) {
+                this.clusterSummaryChars = clusterSummaryChars;
+                return this;
+            }
+
+            public Builder dependencySummaryMetadata(PromptResult.DependencySummaryMetadata dependencySummaryMetadata) {
+                this.dependencySummaryMetadata = dependencySummaryMetadata;
+                return this;
+            }
+
+            public CallRecord build() {
+                return new CallRecord(this);
+            }
+        }
+
+        private CallRecord(Builder builder) {
+            this.feature = Objects.requireNonNull(builder.feature, "feature");
+            this.messages = builder.messages == null ? Collections.<LlmMessage>emptyList() : builder.messages;
+            this.responseText = builder.responseText;
+            this.inputTokens = builder.inputTokens;
+            this.outputTokens = builder.outputTokens;
+            this.latencyMs = builder.latencyMs;
+            this.parseStatus = builder.parseStatus;
+            this.repairAttempt = builder.repairAttempt;
+            this.expansionAttempted = builder.expansionAttempted;
+            this.expandedClasses = builder.expandedClasses == null
+                    ? Collections.<String>emptyList() : builder.expandedClasses;
+            this.errorType = builder.errorType == null ? "" : builder.errorType;
+            this.sutContextMode = builder.sutContextMode;
+            this.contextUnavailable = builder.contextUnavailable;
+            this.contextTruncated = builder.contextTruncated;
+            this.contextCommentsStripped = builder.contextCommentsStripped;
+            this.contextSelectivelyTruncated = builder.contextSelectivelyTruncated;
+            this.clusterSummaryTruncated = builder.clusterSummaryTruncated;
+            this.clusterSummaryChars = builder.clusterSummaryChars;
+            this.dependencySummaryMetadata = builder.dependencySummaryMetadata == null
+                    ? PromptResult.DependencySummaryMetadata.empty() : builder.dependencySummaryMetadata;
+        }
     }
 
-    /** Records a call with SUT context mode and availability metadata for trace recording. */
-    public void recordCall(LlmFeature feature,
-                           List<LlmMessage> messages,
-                           String responseText,
-                           int inputTokens,
-                           int outputTokens,
-                           long latencyMs,
-                           String parseStatus,
-                           int repairAttempt,
-                           boolean expansionAttempted,
-                           List<String> expandedClasses,
-                           String errorType,
-                           org.evosuite.Properties.LlmSutContextMode sutContextMode,
-                           boolean contextUnavailable) {
-        recordCall(feature, messages, responseText, inputTokens, outputTokens, latencyMs,
-                parseStatus, repairAttempt, expansionAttempted, expandedClasses, errorType,
-                sutContextMode, contextUnavailable, false);
-    }
-
-    /** Records a call with SUT context mode, availability, and truncation metadata. */
-    public void recordCall(LlmFeature feature,
-                           List<LlmMessage> messages,
-                           String responseText,
-                           int inputTokens,
-                           int outputTokens,
-                           long latencyMs,
-                           String parseStatus,
-                           int repairAttempt,
-                           boolean expansionAttempted,
-                           List<String> expandedClasses,
-                           String errorType,
-                           org.evosuite.Properties.LlmSutContextMode sutContextMode,
-                           boolean contextUnavailable,
-                           boolean contextTruncated) {
-        recordCall(feature, messages, responseText, inputTokens, outputTokens, latencyMs,
-                parseStatus, repairAttempt, expansionAttempted, expandedClasses, errorType,
-                sutContextMode, contextUnavailable, contextTruncated, false, false, 0);
-    }
-
-    /** Records a call with full context, comment-stripping, cluster summary, and truncation metadata. */
-    public void recordCall(LlmFeature feature,
-                           List<LlmMessage> messages,
-                           String responseText,
-                           int inputTokens,
-                           int outputTokens,
-                           long latencyMs,
-                           String parseStatus,
-                           int repairAttempt,
-                           boolean expansionAttempted,
-                           List<String> expandedClasses,
-                           String errorType,
-                           org.evosuite.Properties.LlmSutContextMode sutContextMode,
-                           boolean contextUnavailable,
-                           boolean contextTruncated,
-                           boolean contextCommentsStripped,
-                           boolean clusterSummaryTruncated,
-                           int clusterSummaryChars) {
-        recordCall(feature, messages, responseText, inputTokens, outputTokens, latencyMs,
-                parseStatus, repairAttempt, expansionAttempted, expandedClasses, errorType,
-                sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
-                false, clusterSummaryTruncated, clusterSummaryChars);
-    }
-
-    /** Records a call with all metadata including selective truncation. */
-    public void recordCall(LlmFeature feature,
-                           List<LlmMessage> messages,
-                           String responseText,
-                           int inputTokens,
-                           int outputTokens,
-                           long latencyMs,
-                           String parseStatus,
-                           int repairAttempt,
-                           boolean expansionAttempted,
-                           List<String> expandedClasses,
-                           String errorType,
-                           org.evosuite.Properties.LlmSutContextMode sutContextMode,
-                           boolean contextUnavailable,
-                           boolean contextTruncated,
-                           boolean contextCommentsStripped,
-                           boolean contextSelectivelyTruncated,
-                           boolean clusterSummaryTruncated,
-                           int clusterSummaryChars) {
+    /** Records a call with all metadata including dependency summary telemetry. */
+    public void recordCall(CallRecord record) {
         if (!configuration.isTraceEnabled()) {
             return;
         }
 
-        List<LlmMessage> safeMessages = messages == null ? Collections.<LlmMessage>emptyList() : messages;
-        List<String> expanded = expandedClasses == null ? Collections.<String>emptyList() : expandedClasses;
+        List<LlmMessage> safeMessages = record.messages;
+        List<String> expanded = record.expandedClasses;
         Map<String, Object> traceRecord = new LinkedHashMap<>();
         traceRecord.put("run_id", configuration.getRunId());
         traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
         traceRecord.put("timestamp", Instant.now().toString());
-        traceRecord.put("feature", feature.name());
+        traceRecord.put("feature", record.feature.name());
         traceRecord.put("provider", configuration.getProvider().name());
         traceRecord.put("model", configuration.getModel());
         traceRecord.put("prompt_hash", deterministicPromptHash(safeMessages));
         traceRecord.put("messages", toSerializableMessages(safeMessages));
-        traceRecord.put("response_text", responseText);
-        traceRecord.put("parse_status", parseStatus);
-        traceRecord.put("repair_attempt", repairAttempt);
-        traceRecord.put("expansion_attempted", expansionAttempted);
+        traceRecord.put("response_text", record.responseText);
+        traceRecord.put("parse_status", record.parseStatus);
+        traceRecord.put("repair_attempt", record.repairAttempt);
+        traceRecord.put("expansion_attempted", record.expansionAttempted);
         traceRecord.put("expanded_classes", expanded);
-        traceRecord.put("input_tokens", inputTokens);
-        traceRecord.put("output_tokens", outputTokens);
-        traceRecord.put("latency_ms", latencyMs);
-        traceRecord.put("error_type", errorType == null ? "" : errorType);
-        traceRecord.put("sut_context_mode", sutContextMode == null ? "" : sutContextMode.name());
-        traceRecord.put("context_unavailable", contextUnavailable);
-        traceRecord.put("context_truncated", contextTruncated);
-        traceRecord.put("context_comments_stripped", contextCommentsStripped);
-        traceRecord.put("context_selectively_truncated", contextSelectivelyTruncated);
-        traceRecord.put("cluster_summary_truncated", clusterSummaryTruncated);
-        traceRecord.put("cluster_summary_chars", clusterSummaryChars);
+        traceRecord.put("input_tokens", record.inputTokens);
+        traceRecord.put("output_tokens", record.outputTokens);
+        traceRecord.put("latency_ms", record.latencyMs);
+        traceRecord.put("error_type", record.errorType);
+        traceRecord.put("sut_context_mode", record.sutContextMode == null ? "" : record.sutContextMode.name());
+        traceRecord.put("context_unavailable", record.contextUnavailable);
+        traceRecord.put("context_truncated", record.contextTruncated);
+        traceRecord.put("context_comments_stripped", record.contextCommentsStripped);
+        traceRecord.put("context_selectively_truncated", record.contextSelectivelyTruncated);
+        traceRecord.put("cluster_summary_truncated", record.clusterSummaryTruncated);
+        traceRecord.put("cluster_summary_chars", record.clusterSummaryChars);
+        PromptResult.DependencySummaryMetadata dep = record.dependencySummaryMetadata;
+        traceRecord.put("cluster_summary_budget_chars", dep.getBudgetChars());
+        traceRecord.put("cluster_summary_per_class_cap_chars", dep.getPerClassSoftCapChars());
+        traceRecord.put("cluster_summary_per_class_cap_auto", dep.isPerClassSoftCapAuto());
+        traceRecord.put("cluster_summary_compact_signatures", dep.isCompactSignatures());
+        traceRecord.put("cluster_summary_budget_mode", dep.getBudgetMode());
+        traceRecord.put("cluster_summary_candidate_classes", dep.getCandidateClasses());
+        traceRecord.put("cluster_summary_emitted_classes", dep.getEmittedClasses());
+        traceRecord.put("cluster_summary_emitted_tier1_classes", dep.getEmittedTier1Classes());
+        traceRecord.put("cluster_summary_emitted_tier2_classes", dep.getEmittedTier2Classes());
+        traceRecord.put("cluster_summary_emitted_tier3_classes", dep.getEmittedTier3Classes());
+        traceRecord.put("cluster_summary_emitted_instantiators", dep.getEmittedInstantiators());
+        traceRecord.put("cluster_summary_emitted_modifiers", dep.getEmittedModifiers());
+        traceRecord.put("cluster_summary_dropped_per_class_cap", dep.getDroppedByPerClassCap());
+        traceRecord.put("cluster_summary_dropped_global_budget", dep.getDroppedByGlobalBudget());
         String json = GSON.toJson(traceRecord);
-
-        synchronized (this) {
-            try {
-                if (!directoryCreated) {
-                    Files.createDirectories(traceFile.getParent());
-                    directoryCreated = true;
-                }
-                Files.write(traceFile,
-                        Collections.singleton(json + System.lineSeparator()),
-                        StandardCharsets.UTF_8,
-                        StandardOpenOption.CREATE,
-                        StandardOpenOption.APPEND);
-            } catch (IOException e) {
-                logger.warn("Failed writing LLM trace: {}", e.getMessage());
-            }
+        try {
+            writeJsonLine(json);
+        } catch (Throwable writeFailure) {
+            logger.warn("Failed writing LLM trace: {}", writeFailure.getMessage());
+            logger.debug("LLM trace write failure details", writeFailure);
         }
     }
 
@@ -247,5 +325,23 @@ public class LlmTraceRecorder {
             builder.append(String.format("%02x", datum));
         }
         return builder.toString();
+    }
+
+    private void writeJsonLine(String json) throws IOException {
+        synchronized (this) {
+            if (!directoryCreated) {
+                Files.createDirectories(traceFile.getParent());
+                directoryCreated = true;
+            }
+            Files.write(traceFile,
+                    Collections.singleton(json + System.lineSeparator()),
+                    StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
+        }
+    }
+
+    public void close() {
+        // No-op: writes are synchronous.
     }
 }

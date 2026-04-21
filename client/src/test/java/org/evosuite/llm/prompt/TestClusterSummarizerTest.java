@@ -23,6 +23,9 @@ import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
+import org.evosuite.Properties;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -40,6 +43,21 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 class TestClusterSummarizerTest {
+
+    private int originalPerClassSoftCap;
+    private boolean originalCompactSignatures;
+
+    @BeforeEach
+    void saveProperties() {
+        originalPerClassSoftCap = Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS;
+        originalCompactSignatures = Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES;
+    }
+
+    @AfterEach
+    void restoreProperties() {
+        Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = originalPerClassSoftCap;
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = originalCompactSignatures;
+    }
 
     @Test
     void summarizeUsesClusterSurfacesBeyondAnalyzedClasses() {
@@ -415,5 +433,250 @@ class TestClusterSummarizerTest {
 
         // Should show the modifier method
         assertTrue(result.getText().contains("isTruncated"), "Should show modifier method: " + result.getText());
+    }
+
+    @Test
+    void summarizeDependenciesUsesBreadthFirstEmission() throws Exception {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = 1000;
+
+        TestCluster cluster = mock(TestCluster.class);
+
+        GenericClass<?> classA = GenericClassFactory.get(BreadthDepA.class);
+        GenericClass<?> classB = GenericClassFactory.get(BreadthDepB.class);
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(classA, Collections.emptySet());
+        generators.put(classB, Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+
+        GenericAccessibleObject<?> modA = mock(GenericAccessibleObject.class);
+        when(modA.isMethod()).thenReturn(true);
+        doReturn(GenericClassFactory.get(BreadthDepA.class)).when(modA).getOwnerClass();
+        doReturn(BreadthDepA.class.getMethod("setA", String.class)).when(modA).getAccessibleObject();
+
+        GenericAccessibleObject<?> modB = mock(GenericAccessibleObject.class);
+        when(modB.isMethod()).thenReturn(true);
+        doReturn(GenericClassFactory.get(BreadthDepB.class)).when(modB).getOwnerClass();
+        doReturn(BreadthDepB.class.getMethod("setB", String.class)).when(modB).getAccessibleObject();
+
+        Set<GenericAccessibleObject<?>> modifierSet = new HashSet<>();
+        modifierSet.add(modA);
+        modifierSet.add(modB);
+        when(cluster.getModifiers()).thenReturn(modifierSet);
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertTrue(text.contains("BreadthDepA("), text);
+        assertTrue(text.contains("BreadthDepB("), text);
+        assertTrue(text.contains("setA"), text);
+        assertTrue(text.contains("setB"), text);
+
+        int bCtorIndex = text.indexOf("BreadthDepB(");
+        int aModifierIndex = text.indexOf("setA(");
+        assertTrue(bCtorIndex >= 0 && aModifierIndex >= 0 && bCtorIndex < aModifierIndex,
+                "Constructors for all high-priority classes should come before modifiers: " + text);
+    }
+
+    @Test
+    void summarizeDependenciesAppliesPerClassSoftCap() throws Exception {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = 80;
+
+        TestCluster cluster = mock(TestCluster.class);
+
+        GenericClass<?> heavyClass = GenericClassFactory.get(HeavyDep.class);
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(heavyClass, Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+
+        Set<GenericAccessibleObject<?>> modifierSet = new HashSet<>();
+        modifierSet.add(buildModifier(HeavyDep.class, "setValueOne"));
+        modifierSet.add(buildModifier(HeavyDep.class, "setValueTwo"));
+        modifierSet.add(buildModifier(HeavyDep.class, "setValueThree"));
+        modifierSet.add(buildModifier(HeavyDep.class, "setValueFour"));
+        when(cluster.getModifiers()).thenReturn(modifierSet);
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertTrue(text.contains("HeavyDep"), text);
+        assertTrue(text.contains("setValueOne"), text);
+        int emittedSetters = 0;
+        for (String line : text.split("\\R")) {
+            if (line.contains("setValue")) {
+                emittedSetters++;
+            }
+        }
+        assertTrue(emittedSetters < 4,
+                "Soft cap should limit number of methods emitted for one class: " + text);
+        assertTrue(result.getDroppedByPerClassCap() > 0,
+                "Soft cap should report dropped members: " + text);
+    }
+
+    @Test
+    void summarizeDependenciesCompactsSignatures() throws Exception {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = true;
+        Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = 1000;
+
+        TestCluster cluster = mock(TestCluster.class);
+
+        GenericClass<?> depClass = GenericClassFactory.get(CompactDep.class);
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(depClass, Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+
+        Set<GenericAccessibleObject<?>> modifierSet = new HashSet<>();
+        modifierSet.add(buildModifier(CompactDep.class, "setData", java.util.List.class));
+        modifierSet.add(buildModifier(CompactDep.class, "mapOfNames"));
+        when(cluster.getModifiers()).thenReturn(modifierSet);
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertTrue(text.contains("setData("), text);
+        assertTrue(text.contains("Map<String, List<Integer>>"), text);
+        assertFalse(text.contains("java.util."),
+                "Compact mode should remove package qualifiers in signatures: " + text);
+        assertFalse(text.contains("void setData"),
+                "Compact mode should omit redundant void return type in setters: " + text);
+    }
+
+    @Test
+    void summarizeDependenciesDoesNotEmitDanglingHeaderWhenFirstMemberCannotFit() throws Exception {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = 10;
+
+        TestCluster cluster = mock(TestCluster.class);
+        GenericClass<?> depClass = GenericClassFactory.get(HeaderOnlyDep.class);
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(depClass, Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+
+        Set<GenericAccessibleObject<?>> modifierSet = new HashSet<>();
+        modifierSet.add(buildModifier(HeaderOnlyDep.class, "setValue", String.class));
+        when(cluster.getModifiers()).thenReturn(modifierSet);
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertFalse(text.contains("// HeaderOnlyDep"),
+                "Header should not be emitted without at least one member line: " + text);
+        assertTrue(result.getDroppedByPerClassCap() > 0, "Expected cap-driven drops");
+    }
+
+    @Test
+    void summarizeDependenciesRanksHighSignalModifiersFirst() throws Exception {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = 1000;
+
+        TestCluster cluster = mock(TestCluster.class);
+        GenericClass<?> depClass = GenericClassFactory.get(RankedDep.class);
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(depClass, Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+
+        GenericAccessibleObject<?> lowSignal = buildModifier(RankedDep.class, "transformVerbose",
+                java.util.Map.class);
+        GenericAccessibleObject<?> highSignalA = buildModifier(RankedDep.class, "setX");
+        GenericAccessibleObject<?> highSignalB = buildModifier(RankedDep.class, "setX");
+
+        Set<GenericAccessibleObject<?>> modifierSet = new HashSet<>();
+        modifierSet.add(lowSignal);
+        modifierSet.add(highSignalA);
+        modifierSet.add(highSignalB);
+        when(cluster.getModifiers()).thenReturn(modifierSet);
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result =
+                summarizer.summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        int setXIndex = text.indexOf("setX(");
+        int transformIndex = text.indexOf("transformVerbose(");
+        assertTrue(setXIndex >= 0 && transformIndex >= 0 && setXIndex < transformIndex,
+                "High-signal modifiers should be ordered first: " + text);
+    }
+
+    private GenericAccessibleObject<?> buildModifier(Class<?> owner, String methodName, Class<?>... parameterTypes)
+            throws Exception {
+        GenericAccessibleObject<?> modifier = mock(GenericAccessibleObject.class);
+        when(modifier.isMethod()).thenReturn(true);
+        doReturn(GenericClassFactory.get(owner)).when(modifier).getOwnerClass();
+        doReturn(owner.getMethod(methodName, parameterTypes)).when(modifier).getAccessibleObject();
+        return modifier;
+    }
+
+    public static class BreadthCut {
+        public BreadthCut(BreadthDepA a, BreadthDepB b) {
+        }
+    }
+
+    public static class BreadthDepA {
+        public BreadthDepA() {
+        }
+
+        public void setA(String value) {
+        }
+    }
+
+    public static class BreadthDepB {
+        public BreadthDepB() {
+        }
+
+        public void setB(String value) {
+        }
+    }
+
+    public static class HeavyDep {
+        public HeavyDep() {
+        }
+
+        public void setValueOne() {
+        }
+
+        public void setValueTwo() {
+        }
+
+        public void setValueThree() {
+        }
+
+        public void setValueFour() {
+        }
+    }
+
+    public static class CompactDep {
+        public CompactDep() {
+        }
+
+        public void setData(java.util.List<String> values) {
+        }
+
+        public java.util.Map<String, java.util.List<Integer>> mapOfNames() {
+            return java.util.Collections.emptyMap();
+        }
+    }
+
+    public static class HeaderOnlyDep {
+        public void setValue(String value) {
+        }
+    }
+
+    public static class RankedDep {
+        public void setX() {
+        }
+
+        public java.util.Map<String, java.util.List<Integer>> transformVerbose(
+                java.util.Map<String, java.util.List<Integer>> values) {
+            return values;
+        }
     }
 }

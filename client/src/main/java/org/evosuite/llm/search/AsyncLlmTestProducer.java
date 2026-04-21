@@ -28,6 +28,7 @@ import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -125,7 +126,9 @@ public class AsyncLlmTestProducer {
     }
 
     private void produceLoop() {
-        TestRepairLoop repairLoop = TestRepairLoop.createDefault(llmService);
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
+        TestRepairLoop repairLoop = TestRepairLoop.createDefault(
+                llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions));
         int generatedSinceRefresh = refreshInterval;
         Collection<TestFitnessFunction> currentGoals = Collections.emptyList();
         List<TestCase> currentTests = Collections.emptyList();
@@ -150,7 +153,8 @@ public class AsyncLlmTestProducer {
                     .withUncoveredGoals(currentGoals)
                     .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(currentGoals, null))
                     .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                    .withInstruction("Generate one JUnit test that targets one uncovered goal.");
+                    .withInstruction("Generate one JUnit test that targets one uncovered goal."
+                            + LlmAssertionPolicyResolver.instructionSuffix(false));
 
             if (Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS && !currentTests.isEmpty()) {
                 builder.withExistingTests(currentTests);

@@ -25,6 +25,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Result of parsing a single test method.
+ *
+ * <p><b>Caller contract:</b> the returned {@link TestCase} is only guaranteed to be
+ * well-formed when {@link #hasErrors()} returns {@code false}. When errors are
+ * present, the parser records them as ERROR diagnostics but still returns a
+ * best-effort test case (possibly containing {@code UninterpretedStatement}s or
+ * orphaned variable references) rather than throwing. Consumers that plan to
+ * compile, execute, or mutate the test case <b>must</b> gate on
+ * {@code hasErrors()}; passing an error-tainted test case to downstream
+ * components is a bug.
+ */
 public class ParseResult {
 
     private final TestCase testCase;
@@ -75,6 +87,13 @@ public class ParseResult {
         diagnostics.add(diagnostic);
     }
 
+    /**
+     * Returns {@code true} if any ERROR-severity diagnostic was recorded during parsing.
+     *
+     * <p>Callers <b>must</b> check this before using the returned {@link TestCase} —
+     * when it is {@code true}, the test case is only a best-effort reconstruction
+     * and is not guaranteed to compile, execute, or round-trip cleanly.
+     */
     public boolean hasErrors() {
         return diagnostics.stream().anyMatch(d -> d.getSeverity() == ParseDiagnostic.Severity.ERROR);
     }

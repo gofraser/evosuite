@@ -196,6 +196,13 @@ public class ArrayStatement extends AbstractStatement {
         // Add array variable to pool
         try {
             Class<?> componentType = retval.getComponentClass();
+            if (componentType == null) {
+                // retval type is not an array — this ArrayStatement is in an
+                // invalid state (e.g. after a type change during mutation).
+                throw new CodeUnderTestException(
+                        new IllegalStateException("ArrayStatement retval is not an array type: "
+                                + retval.getType()));
+            }
             while (componentType.isArray()) {
                 componentType = componentType.getComponentType();
             }

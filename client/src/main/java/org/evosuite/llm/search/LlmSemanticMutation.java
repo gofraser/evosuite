@@ -27,6 +27,7 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -68,6 +69,7 @@ public class LlmSemanticMutation {
             return null;
         }
 
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         for (int attempt = 0; attempt < Properties.LLM_OPERATOR_MAX_ATTEMPTS; attempt++) {
             try {
                 PromptResult prompt = new PromptBuilder()
@@ -81,12 +83,14 @@ public class LlmSemanticMutation {
                                 "Produce a semantically mutated version of this test. "
                                 + "Make a meaningful behaviour or state change (not just renaming or "
                                 + "minor edits). Target the uncovered goals if possible. "
-                                + "Return exactly one complete JUnit test method.")
+                                + "Return exactly one complete JUnit test method."
+                                + LlmAssertionPolicyResolver.instructionSuffix(false))
                         .buildWithMetadata();
 
                 String response = llmService.query(prompt, LlmFeature.SEMANTIC_MUTATION);
-                RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
-                        response, prompt.getMessages(), LlmFeature.SEMANTIC_MUTATION);
+                RepairResult result = TestRepairLoop
+                        .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
+                        .attemptParse(response, prompt.getMessages(), LlmFeature.SEMANTIC_MUTATION);
                 if (result.isSuccess() && !result.getTestCases().isEmpty()) {
                     TestChromosome mutant = new TestChromosome();
                     mutant.setTestCase(result.getTestCases().get(0));

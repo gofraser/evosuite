@@ -19,16 +19,17 @@
  */
 package org.evosuite.testparser;
 
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.FieldDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.BlockStmt;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -41,24 +42,23 @@ import java.util.Optional;
  */
 public class TestMethodParser {
 
-    private static final Logger logger = LoggerFactory.getLogger(TestMethodParser.class);
-
     /**
      * Parse a complete test class source string into a CompilationUnit AST.
-     * Comment attribution is disabled to avoid a JavaParser bug
+     *
+     * <p>Uses a fresh {@link JavaParser} per call instead of {@code StaticJavaParser}
+     * so concurrent parsers (e.g. {@code AsyncLlmTestProducer}) cannot race on the
+     * global {@link ParserConfiguration}.
+     *
+     * <p>Comment attribution is disabled to avoid a JavaParser bug
      * ({@code ParseProblemException: Cannot compare the positions of nodes if
      * container node does not have a range}) that triggers when programmatically
      * constructed AST nodes lack position information.
      */
     public CompilationUnit parseSource(String sourceCode) {
-        ParserConfiguration config = StaticJavaParser.getParserConfiguration();
-        boolean previous = config.isAttributeComments();
-        try {
-            config.setAttributeComments(false);
-            return StaticJavaParser.parse(sourceCode);
-        } finally {
-            config.setAttributeComments(previous);
-        }
+        ParserConfiguration config = new ParserConfiguration().setAttributeComments(false);
+        com.github.javaparser.ParseResult<CompilationUnit> parsed = new JavaParser(config).parse(sourceCode);
+        return parsed.getResult()
+                .orElseThrow(() -> new ParseProblemException(parsed.getProblems()));
     }
 
     /**
@@ -101,6 +101,44 @@ public class TestMethodParser {
             }
         }
         return testMethods;
+    }
+
+    /**
+     * Find all non-{@code @Test} methods in the compilation unit.
+     */
+    public List<MethodDeclaration> findNonTestMethods(CompilationUnit cu) {
+        List<MethodDeclaration> nonTestMethods = new ArrayList<>();
+        for (ClassOrInterfaceDeclaration clazz : cu.findAll(ClassOrInterfaceDeclaration.class)) {
+            for (MethodDeclaration method : clazz.getMethods()) {
+                if (!isTestMethod(method)) {
+                    nonTestMethods.add(method);
+                }
+            }
+        }
+        return nonTestMethods;
+    }
+
+    /**
+     * Extract field initializers as synthetic local variable declaration statements.
+     *
+     * <p>This is used in LLM best-effort mode so tests that incorrectly rely on
+     * class-level fields (disallowed by prompt constraints) can still be parsed
+     * by materializing those declarations at the start of each test method.
+     */
+    public List<com.github.javaparser.ast.stmt.Statement> extractFieldInitializerStatements(CompilationUnit cu) {
+        List<com.github.javaparser.ast.stmt.Statement> statements = new ArrayList<>();
+        for (ClassOrInterfaceDeclaration clazz : cu.findAll(ClassOrInterfaceDeclaration.class)) {
+            for (FieldDeclaration field : clazz.getFields()) {
+                for (com.github.javaparser.ast.body.VariableDeclarator variable : field.getVariables()) {
+                    if (!variable.getInitializer().isPresent()) {
+                        continue;
+                    }
+                    VariableDeclarationExpr declaration = new VariableDeclarationExpr(variable.clone());
+                    statements.add(new ExpressionStmt(declaration));
+                }
+            }
+        }
+        return statements;
     }
 
     /**

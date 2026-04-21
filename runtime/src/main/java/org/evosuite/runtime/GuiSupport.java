@@ -27,6 +27,7 @@ import java.awt.geom.AffineTransform;
 import java.awt.image.ColorModel;
 import java.lang.reflect.Field;
 import java.nio.file.FileSystems;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Class used to handle some particular behaviors of GUI components in the
@@ -63,6 +64,57 @@ public class GuiSupport {
     // Saved HeadlessGraphicsEnvironment and HeadlessToolkit to restore.
     private static GraphicsEnvironment savedHeadlessGe;
     private static Toolkit savedHeadlessToolkit;
+
+    // Reference counter for nested disableHeadlessForMockConstruction() calls.
+    // Only the outermost disable actually changes state; only the outermost
+    // restore reverts it.  This allows mock constructors (e.g. MockApplet) to
+    // pair disable/restore internally while an outer caller (e.g.
+    // ConstructorStatement) keeps headless disabled for the entire SUT
+    // constructor — including its body, which may create other AWT components.
+    private static int mockConstructionNestingDepth = 0;
+
+    // One-shot guard for preloadHeadlessGuardedAwtClasses().
+    private static final AtomicBoolean awtClassesPreloaded = new AtomicBoolean(false);
+
+    // On macOS the real GraphicsEnvironment (CGraphicsEnvironment) and Toolkit
+    // (LWCToolkit) call into AppKit, which aborts the JVM (SIGABRT) when touched
+    // off the main thread.  The EvoSuite test-execution thread is never the
+    // main thread, so swapping in the real GE/Toolkit and letting a mock
+    // Window/Frame super-constructor run its native path crashes the client.
+    // On macOS we therefore treat disableHeadlessForMockConstruction() as a
+    // no-op -- mock constructors will throw HeadlessException, which is caught
+    // as a regular test exception rather than killing the process.
+    private static final boolean IS_MACOS =
+            java.lang.System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT).contains("mac");
+
+    // AWT/Swing classes whose <clinit> calls a native initIDs() (or similar) only when
+    // GraphicsEnvironment.isHeadless() returns false.  If we let any of these
+    // load for the first time *after* setHeadless(false), the native call
+    // happens and may fail with UnsatisfiedLinkError when the JVM was started
+    // headless and libawt has no display-side bindings — leaving the class in
+    // failed-init state forever.  We force their <clinit> to run while headless
+    // is still true so the decision is permanently "skip initIDs()".
+    private static final String[] HEADLESS_GUARDED_AWT_CLASSES = {
+            "java.awt.Insets",
+            "java.awt.Rectangle",
+            "java.awt.Cursor",
+            "java.awt.MenuComponent",
+            "java.awt.Menu",
+            "java.awt.MenuBar",
+            "java.awt.Button",
+            "java.awt.Window",
+            "java.awt.Frame",
+            "java.awt.Dialog",
+            "java.awt.TextField",
+            "java.awt.MenuItem",
+            "java.awt.TextArea",
+            "java.awt.KeyboardFocusManager",
+            "javax.swing.RepaintManager",
+            "java.awt.AWTEvent",
+            "java.awt.event.MouseEvent",
+            "java.awt.event.KeyEvent",
+            "java.awt.event.WindowEvent",
+    };
 
     static {
         Field tmpHeadless = null;
@@ -164,6 +216,13 @@ public class GuiSupport {
             return;
         }
 
+        // Inoculate headless-guarded AWT classes before we touch JButton/Font.
+        // The eager font preload below transitively loads several AWT classes
+        // whose static initializers branch on isHeadless(); if scaffolding has
+        // not yet called setHeadless() they would otherwise trigger native
+        // initIDs() calls that fail on JVMs started headless.
+        preloadHeadlessGuardedAwtClasses();
+
         /*
          * Force the loading of fonts.
          * This is needed because font loading in the JVM can take several seconds (done only once),
@@ -175,6 +234,49 @@ public class GuiSupport {
             logger.warn("Failed to eagerly initialize Swing fonts; continuing without GUI pre-initialization: {}",
                     t.getMessage());
         }
+    }
+
+    /**
+     * Force the {@code <clinit>} of headless-guarded AWT classes (e.g.
+     * {@link java.awt.Insets}) to run <em>now</em>, while the JVM is still in
+     * headless mode.  The static initializers of these classes follow the
+     * pattern
+     * <pre>{@code
+     * static {
+     *     Toolkit.loadLibraries();
+     *     if (!GraphicsEnvironment.isHeadless()) {
+     *         initIDs();   // native — may be unbound on a JVM started headless
+     *     }
+     * }
+     * }</pre>
+     * The {@code isHeadless()} branch is only evaluated once, so loading the
+     * class while headless is true permanently freezes the decision as "skip
+     * the native call".  Any subsequent {@link #disableHeadlessForMockConstruction()}
+     * window is then safe to enter without poisoning the class to
+     * {@code <initializer-failed>} state.
+     *
+     * <p>Idempotent — runs at most once per JVM.  Failures are logged and
+     * swallowed so that an unloadable class does not break unrelated tests.
+     */
+    public static synchronized void preloadHeadlessGuardedAwtClasses() {
+        if (awtClassesPreloaded.get()) {
+            return;
+        }
+        if (!GraphicsEnvironment.isHeadless()) {
+            // Not in headless mode right now — preloading would not skip the
+            // native call, so it offers no protection.  Leave the flag false so
+            // a later call has another chance once scaffolding forces headless.
+            return;
+        }
+        ClassLoader loader = GuiSupport.class.getClassLoader();
+        for (String name : HEADLESS_GUARDED_AWT_CLASSES) {
+            try {
+                Class.forName(name, true, loader);
+            } catch (Throwable t) {
+                logger.debug("Could not preload {}: {}", name, t.toString());
+            }
+        }
+        awtClassesPreloaded.set(true);
     }
 
 
@@ -217,6 +319,26 @@ public class GuiSupport {
      * <p>Must be paired with {@link #restoreHeadlessAfterMockConstruction()}.
      */
     public static void disableHeadlessForMockConstruction() {
+        mockConstructionNestingDepth++;
+        if (mockConstructionNestingDepth > 1) {
+            // Already disabled by an outer caller — nothing to do.
+            return;
+        }
+        if (IS_MACOS) {
+            // On macOS, swapping in the real CGraphicsEnvironment/LWCToolkit
+            // would let the JDK's non-headless Window/Frame path run, which
+            // calls AppKit from the test thread and aborts the process.
+            // Skip the swap and leave headless=true; MockJFrame/MockFrame
+            // super-constructors will throw HeadlessException instead, which
+            // the test case handles as a normal exception.
+            return;
+        }
+        // Force the <clinit> of Insets/Rectangle/Cursor/... to run while
+        // headless is still true.  Otherwise the upcoming setHeadless(false)
+        // would expose them to a native initIDs() call that may be unbound
+        // on a JVM started with -Djava.awt.headless=true, leaving the class
+        // in failed-init state for the rest of the run.
+        preloadHeadlessGuardedAwtClasses();
         setHeadless(false);
         if (canSwapGe) {
             try {
@@ -273,6 +395,13 @@ public class GuiSupport {
      * @see #disableHeadlessForMockConstruction()
      */
     public static void restoreHeadlessAfterMockConstruction() {
+        if (mockConstructionNestingDepth > 0) {
+            mockConstructionNestingDepth--;
+        }
+        if (mockConstructionNestingDepth > 0) {
+            // Still inside an outer disable — don't actually restore yet.
+            return;
+        }
         if (canSwapToolkit && savedHeadlessToolkit != null) {
             try {
                 toolkitField.set(null, savedHeadlessToolkit);
@@ -365,8 +494,38 @@ public class GuiSupport {
         return StubGraphicsConfiguration.INSTANCE;
     }
 
+    /**
+     * Returns the current default screen {@link GraphicsConfiguration} when available,
+     * otherwise falls back to EvoSuite's stub configuration.
+     *
+     * <p>This is used by GUI OverrideMocks to reduce platform-specific failures
+     * (for example, casts to platform-internal graphics config types on macOS)
+     * while still remaining safe on headless servers.
+     */
+    public static GraphicsConfiguration getDefaultOrStubGraphicsConfiguration() {
+        try {
+            GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+            if (ge != null) {
+                GraphicsDevice dev = ge.getDefaultScreenDevice();
+                if (dev != null) {
+                    GraphicsConfiguration gc = dev.getDefaultConfiguration();
+                    if (gc != null) {
+                        return gc;
+                    }
+                }
+            }
+        } catch (Throwable ignored) {
+            // fall back to stub below
+        }
+        return StubGraphicsConfiguration.INSTANCE;
+    }
+
     static boolean canForceHeadlessForTests() {
         return canForceHeadless;
+    }
+
+    static boolean isMacOsForTests() {
+        return IS_MACOS;
     }
 
     static boolean canSwapGeForTests() {

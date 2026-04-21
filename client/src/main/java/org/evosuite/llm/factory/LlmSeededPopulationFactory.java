@@ -28,6 +28,7 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -65,13 +66,21 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private final ChromosomeFactory<TestChromosome> fallback;
     private final LlmService llmService;
     private final Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
+    private final boolean llmStrategyContext;
     private final Queue<TestChromosome> llmSeeds = new ConcurrentLinkedQueue<>();
     private final CompletableFuture<List<TestChromosome>> pendingSeeds;
     private final AtomicBoolean seedsMerged = new AtomicBoolean(false);
 
     /** Creates a factory using the singleton LLM service and an empty goals supplier. */
     public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback) {
-        this(fallback, LlmService.getInstance(), Collections::emptyList, ForkJoinPool.commonPool());
+        this(fallback, false);
+    }
+
+    /** Creates a factory with strategy-context awareness for assertion policy AUTO resolution. */
+    public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback,
+                                      boolean llmStrategyContext) {
+        this(fallback, LlmService.getInstance(), Collections::emptyList, ForkJoinPool.commonPool(),
+                llmStrategyContext);
     }
 
     /** Creates a factory with explicit dependencies and an async executor. */
@@ -79,9 +88,19 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                                       LlmService llmService,
                                       Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
                                       Executor executor) {
+        this(fallback, llmService, uncoveredGoalsSupplier, executor, false);
+    }
+
+    /** Creates a factory with explicit dependencies, async executor, and assertion-policy context. */
+    public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback,
+                                      LlmService llmService,
+                                      Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+                                      Executor executor,
+                                      boolean llmStrategyContext) {
         this.fallback = fallback;
         this.llmService = llmService;
         this.uncoveredGoalsSupplier = uncoveredGoalsSupplier == null ? Collections::emptyList : uncoveredGoalsSupplier;
+        this.llmStrategyContext = llmStrategyContext;
         this.pendingSeeds = CompletableFuture.supplyAsync(this::generateSeeds, executor);
     }
 
@@ -170,11 +189,10 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                 LoggingUtils.getEvoLogger().info("* LLM seeding interrupted after LLM query");
                 return Collections.emptyList();
             }
-            RepairResult repairResult = new org.evosuite.llm.response.TestRepairLoop(
-                    llmService,
-                    org.evosuite.testparser.TestParser.forSUTWithLlmProvenance(),
-                    new org.evosuite.llm.response.LlmResponseParser(),
-                    new org.evosuite.llm.response.ClusterExpansionManager())
+            RepairResult repairResult = org.evosuite.llm.response.TestRepairLoop
+                    .createDefault(llmService,
+                            TestRepairLoop.RepairOptions.forAssertionPolicy(
+                                    LlmAssertionPolicyResolver.keepAssertions(llmStrategyContext)))
                     .attemptParse(response, prompt.getMessages(), LlmFeature.SEEDING);
             if (!repairResult.isSuccess()) {
                 LoggingUtils.getEvoLogger().info(
@@ -205,6 +223,13 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             LoggingUtils.getEvoLogger().info("* LLM seeding unavailable: {}", e.getMessage());
             logger.warn("LLM seeding unavailable: {}", e.getMessage());
             return Collections.emptyList();
+        } catch (Error e) {
+            if (isRecoverableSeedingError(e)) {
+                LoggingUtils.getEvoLogger().info("* LLM seeding unavailable: {}", e.getMessage());
+                logger.warn("LLM seeding unavailable due to recoverable linkage/runtime error: {}", e.getMessage());
+                return Collections.emptyList();
+            }
+            throw e;
         } catch (RuntimeException e) {
             LoggingUtils.getEvoLogger().info("* LLM seeding failed: {}", e.getMessage());
             logger.warn("LLM seeding failed: {}", e.getMessage(), e);
@@ -221,11 +246,18 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("Generate as many JUnit test methods for the target class as necessary. "
-                        + "Focus on diverse paths, edge cases, and branch coverage.");
+                        + "Focus on diverse paths, edge cases, and branch coverage."
+                        + LlmAssertionPolicyResolver.instructionSuffix(llmStrategyContext));
         if (goals != null && !goals.isEmpty()) {
             builder.withUncoveredGoals(goals);
         }
         return builder.buildWithMetadata();
+    }
+
+    private static boolean isRecoverableSeedingError(Throwable throwable) {
+        // LinkageError already covers VerifyError, NoClassDefFoundError,
+        // ClassFormatError, UnsupportedClassVersionError, and friends.
+        return throwable instanceof LinkageError || throwable instanceof TypeNotPresentException;
     }
 
 }

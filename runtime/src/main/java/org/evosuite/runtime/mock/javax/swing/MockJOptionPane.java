@@ -156,7 +156,10 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
     }
 
     private static int showConfirmDialog(int optionType) {
-
+        // Do not short-circuit on headless here: the inner getInput* helpers
+        // must still call JOptionPaneInputs.addDialog so the SUT's dialog
+        // invocation is visible to EvoSuite coverage/fitness. Each helper
+        // already has a safe fallback (CLOSED_OPTION) when no input is queued.
         switch (optionType) {
             case javax.swing.JOptionPane.DEFAULT_OPTION:
             case javax.swing.JOptionPane.YES_NO_CANCEL_OPTION: {
@@ -228,7 +231,8 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
 
     private static String getStringInput() {
         // first, we record that the SUT issued a call to
-        // JOptionPane.showInputDialog()
+        // JOptionPane.showInputDialog() (also in headless mode — EvoSuite
+        // needs the stimulus to be visible to coverage/fitness)
         JOptionPaneInputs.getInstance().addDialog(GUIAction.STRING_INPUT);
 
         // second, we check if an input is specified for that GUI stimulus
@@ -338,7 +342,8 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
      */
     private static int getOptionSelectionInt(final boolean optionsIsNull, final int optionsLength) {
         // first, we record that the SUT has issued a call
-        // to JOptionPane.showOptionDialog()
+        // to JOptionPane.showOptionDialog() (also in headless mode — EvoSuite
+        // needs the stimulus to be visible to coverage/fitness)
         JOptionPaneInputs.getInstance().addDialog(GUIAction.OPTION_SELECTION);
 
         // second, we check if an input is specified for that GUI stimulus
@@ -367,7 +372,8 @@ public abstract class MockJOptionPane extends JOptionPane implements OverrideMoc
 
     private static Object getOptionSelectionInt(final Object[] options) {
         // first, we record that the SUT has issued a call
-        // to JOptionPane.showOptionDialog()
+        // to JOptionPane.showOptionDialog() (also in headless mode — EvoSuite
+        // needs the stimulus to be visible to coverage/fitness)
         JOptionPaneInputs.getInstance().addDialog(GUIAction.OPTION_SELECTION);
 
         // second, we check if an input is specified for that GUI stimulus

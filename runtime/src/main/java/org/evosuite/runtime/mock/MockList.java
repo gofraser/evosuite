@@ -218,8 +218,11 @@ public class MockList {
             list.add(MockImageIcon.class);
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.awt.MockWindow");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.awt.MockFrame");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.awt.MockFileDialog");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.applet.MockApplet");
             addMockIfPresent(list, "org.evosuite.runtime.mock.javax.swing.MockJFrame");
             addMockIfPresent(list, "org.evosuite.runtime.mock.javax.swing.MockJDialog");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.javax.swing.MockJWindow");
         }
 
         return list;
@@ -229,10 +232,19 @@ public class MockList {
     private static void addMockIfPresent(List<Class<? extends EvoSuiteMock>> list, String className) {
         try {
             Class<?> klass = Class.forName(className);
-            if (EvoSuiteMock.class.isAssignableFrom(klass)) {
-                list.add((Class<? extends EvoSuiteMock>) klass);
+            if (!EvoSuiteMock.class.isAssignableFrom(klass)) {
+                return;
             }
-        } catch (ClassNotFoundException | LinkageError e) {
+            // StaticReplacementMock classes can load successfully even when the
+            // JDK class they target is missing, because the JVM resolves field
+            // and signature types lazily. Probe getMockedClassName() up-front
+            // so NoClassDefFoundError surfaces here (once) rather than on every
+            // subsequent getMockClass() call.
+            if (StaticReplacementMock.class.isAssignableFrom(klass)) {
+                ((StaticReplacementMock) klass.newInstance()).getMockedClassName();
+            }
+            list.add((Class<? extends EvoSuiteMock>) klass);
+        } catch (ReflectiveOperationException | LinkageError e) {
             // Optional mocks for newer JDK APIs can fail to load on older runtimes
             // (eg missing JDK classes or unsupported class file versions).
         }

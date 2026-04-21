@@ -51,6 +51,9 @@ public class PromptBuilder {
     private boolean sutContextSelectivelyTruncated;
     private boolean clusterSummaryTruncated;
     private int clusterSummaryChars;
+    private String clusterSummaryBudgetMode = "none";
+    private PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
+            PromptResult.DependencySummaryMetadata.empty();
     private boolean dependencyContextAdded;
 
     private List<TestCase> fewShotExamples;
@@ -150,16 +153,72 @@ public class PromptBuilder {
             return;
         }
         String targetClassName = className == null ? "" : className;
+        BudgetDecision budgetDecision = resolveDependencySummaryBudget();
+        int dependencyBudget = budgetDecision.budgetChars;
+        this.clusterSummaryBudgetMode = budgetDecision.mode;
         TestClusterSummarizer.DependencySummaryResult result =
                 testClusterSummarizer.summarizeDependencies(
-                        cluster, targetClassName, Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS);
+                        cluster, targetClassName, dependencyBudget);
         this.clusterSummaryTruncated = result.isTruncated();
         this.clusterSummaryChars = result.getTotalCharsBeforeTruncation();
+        this.dependencySummaryMetadata = new PromptResult.DependencySummaryMetadata(
+                result.getBudgetCharsUsed(),
+                result.getPerClassSoftCapUsed(),
+                result.isPerClassSoftCapAuto(),
+                result.isCompactSignaturesUsed(),
+                clusterSummaryBudgetMode,
+                result.getCandidateClasses(),
+                result.getEmittedClasses(),
+                result.getEmittedTier1Classes(),
+                result.getEmittedTier2Classes(),
+                result.getEmittedTier3Classes(),
+                result.getEmittedInstantiators(),
+                result.getEmittedModifiers(),
+                result.getDroppedByPerClassCap(),
+                result.getDroppedByGlobalBudget());
         String summary = result.getText();
         if (summary != null && !summary.trim().isEmpty()) {
             userSections.add("Available dependency types (standard Java library "
                     + "classes may also be used freely):\n" + summary);
             dependencyContextAdded = true;
+        }
+    }
+
+    private BudgetDecision resolveDependencySummaryBudget() {
+        int absoluteOverride = Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS;
+        if (absoluteOverride > 0) {
+            return new BudgetDecision(absoluteOverride, "absolute_override");
+        }
+
+        if (!Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING) {
+            return new BudgetDecision(Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS, "legacy_static");
+        }
+
+        int contextMaxChars = Properties.LLM_CONTEXT_MAX_CHARS;
+        int dynamicMax = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS;
+        if (contextMaxChars <= 0) {
+            // Context is unlimited/unknown: use conservative dynamic guardrail if configured.
+            if (dynamicMax > 0) {
+                return new BudgetDecision(dynamicMax, "dynamic_max_for_unbounded_context");
+            }
+            return new BudgetDecision(Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS, "legacy_static_for_unbounded_context");
+        }
+
+        int scaled = (int) Math.round(contextMaxChars * Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO);
+        int bounded = Math.max(scaled, Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS);
+        if (dynamicMax > 0) {
+            bounded = Math.min(bounded, dynamicMax);
+        }
+        return new BudgetDecision(bounded, "dynamic_scaled");
+    }
+
+    private static class BudgetDecision {
+        final int budgetChars;
+        final String mode;
+
+        BudgetDecision(int budgetChars, String mode) {
+            this.budgetChars = budgetChars;
+            this.mode = mode;
         }
     }
 
@@ -356,9 +415,17 @@ public class PromptBuilder {
         List<LlmMessage> messages = new ArrayList<>();
         messages.add(LlmMessage.system(resolvedSystem));
         messages.add(LlmMessage.user(userPrompt));
-        return new PromptResult(messages, sutContextModeUsed, sutContextUnavailable, sutContextTruncated,
-                sutContextCommentsStripped, sutContextSelectivelyTruncated,
-                clusterSummaryTruncated, clusterSummaryChars);
+        return new PromptResult.Builder()
+                .messages(messages)
+                .sutContextMode(sutContextModeUsed)
+                .contextUnavailable(sutContextUnavailable)
+                .contextTruncated(sutContextTruncated)
+                .contextCommentsStripped(sutContextCommentsStripped)
+                .contextSelectivelyTruncated(sutContextSelectivelyTruncated)
+                .clusterSummaryTruncated(clusterSummaryTruncated)
+                .clusterSummaryChars(clusterSummaryChars)
+                .dependencySummaryMetadata(dependencySummaryMetadata)
+                .build();
     }
 
     /**

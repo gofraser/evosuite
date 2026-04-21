@@ -51,18 +51,19 @@ class LlmTraceRecorderTest {
                 "run-abc");
 
         LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
-        recorder.recordCall(
-                LlmFeature.TEST_REPAIR,
-                Arrays.asList(LlmMessage.system("system"), LlmMessage.user("user")),
-                "response",
-                12,
-                34,
-                56,
-                "SUCCESS",
-                1,
-                true,
-                Arrays.asList("java.util.ArrayList"),
-                "");
+        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
+                .feature(LlmFeature.TEST_REPAIR)
+                .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("user")))
+                .responseText("response")
+                .inputTokens(12)
+                .outputTokens(34)
+                .latencyMs(56)
+                .parseStatus("SUCCESS")
+                .repairAttempt(1)
+                .expansionAttempted(true)
+                .expandedClasses(Arrays.asList("java.util.ArrayList"))
+                .errorType("")
+                .build());
 
         Path traceFile = recorder.getTraceFile();
         assertTrue(Files.exists(traceFile));

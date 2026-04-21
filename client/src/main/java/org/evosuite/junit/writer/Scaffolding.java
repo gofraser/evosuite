@@ -727,6 +727,16 @@ public class Scaffolding {
         bd.append(RuntimeSettings.class.getName()).append(".className = \"")
                 .append(Properties.TARGET_CLASS).append("\"; \n");
 
+        // Force headless mode before initialize() touches AWT.  The eager
+        // font preload inside initialize() loads JButton/Font/Insets and we
+        // need their <clinit> to see isHeadless()==true; otherwise a later
+        // disableHeadlessForMockConstruction() can poison Insets to
+        // <initializer-failed> state for the rest of the JVM.
+        if (Properties.HEADLESS_MODE) {
+            bd.append(BLOCK_SPACE);
+            bd.append(GuiSupport.class.getName()).append(".setHeadless(); \n");
+        }
+
         bd.append(BLOCK_SPACE);
         bd.append(GuiSupport.class.getName()).append(".initialize(); \n");
 

@@ -24,8 +24,15 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import java.awt.*;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 
 public class GuiSupportTest {
+
+    private static final class TestComponent extends JComponent {
+        private static final long serialVersionUID = 1L;
+    }
 
     //only one of the 2 tests can be actually executed, as dependent on JVM options
 
@@ -56,6 +63,11 @@ public class GuiSupportTest {
     @Test
     public void testMockConstructionCycleWhenNotHeadless() {
         Assumptions.assumeTrue(!GraphicsEnvironment.isHeadless());
+        // On macOS disableHeadlessForMockConstruction() is a deliberate no-op:
+        // swapping in the real CGraphicsEnvironment/LWCToolkit aborts the JVM
+        // when touched off the main thread.  The flip-and-swap behavior this
+        // test exercises therefore does not apply on macOS.
+        Assumptions.assumeFalse(GuiSupport.isMacOsForTests());
 
         // Simulate: set headless, then disable for mock construction, then restore.
         GuiSupport.setHeadless();
@@ -63,21 +75,41 @@ public class GuiSupportTest {
             Assertions.assertTrue(GraphicsEnvironment.isHeadless());
         }
 
+        try {
+            GuiSupport.disableHeadlessForMockConstruction();
+            Assertions.assertFalse(GraphicsEnvironment.isHeadless());
+
+            // The cached GE should now be the real (non-headless) one, so
+            // getDefaultScreenDevice() should not throw HeadlessException.
+            if (GuiSupport.canSwapGeForTests()) {
+                Assertions.assertDoesNotThrow(() ->
+                        GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice());
+            }
+
+            GuiSupport.restoreHeadlessAfterMockConstruction();
+            if (GuiSupport.canForceHeadlessForTests()) {
+                Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+            }
+        } finally {
+            GuiSupport.restoreHeadlessMode();
+        }
+    }
+
+    @Test
+    public void testSwingComponentConstructionDuringMockWindowInHeadlessMode() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+
         GuiSupport.disableHeadlessForMockConstruction();
-        Assertions.assertFalse(GraphicsEnvironment.isHeadless());
-
-        // The cached GE should now be the real (non-headless) one, so
-        // getDefaultScreenDevice() should not throw HeadlessException.
-        if (GuiSupport.canSwapGeForTests()) {
-            Assertions.assertDoesNotThrow(() ->
-                    GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice());
+        try {
+            Assertions.assertDoesNotThrow(() -> {
+                new TestComponent();
+            });
+            Assertions.assertDoesNotThrow(() -> {
+                new JPanel();
+            });
+            Assertions.assertDoesNotThrow(() -> new JLabel("x"));
+        } finally {
+            GuiSupport.restoreHeadlessAfterMockConstruction();
         }
-
-        GuiSupport.restoreHeadlessAfterMockConstruction();
-        if (GuiSupport.canForceHeadlessForTests()) {
-            Assertions.assertTrue(GraphicsEnvironment.isHeadless());
-        }
-
-        GuiSupport.restoreHeadlessMode();
     }
 }

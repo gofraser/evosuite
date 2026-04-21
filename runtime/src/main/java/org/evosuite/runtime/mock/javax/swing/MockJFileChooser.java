@@ -20,6 +20,7 @@
 package org.evosuite.runtime.mock.javax.swing;
 
 import org.evosuite.runtime.GuiSupport;
+import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.runtime.mock.javax.swing.filechooser.MockFileSystemView;
 import javax.accessibility.AccessibleContext;
@@ -59,10 +60,13 @@ import java.lang.ref.WeakReference;
 import java.lang.reflect.Method;
 import java.util.Objects;
 import java.util.Vector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class MockJFileChooser extends javax.swing.JFileChooser implements OverrideMock {
 
     private static final long serialVersionUID = 1062809726268959728L;
+    private static final Logger logger = LoggerFactory.getLogger(MockJFileChooser.class);
 
     private static final String uiClassID = "FileChooserUI";
 
@@ -102,6 +106,19 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
     public static final String CHOOSABLE_FILE_FILTER_CHANGED_PROPERTY = "ChoosableFileFilterChangedProperty";
 
     private static final String SHOW_HIDDEN_PROP = "awt.file.showHiddenFiles";
+    private static final FileView STUB_FILE_VIEW = new FileView() {
+    };
+    private static final FileFilter ACCEPT_ALL_FILE_FILTER = new FileFilter() {
+        @Override
+        public boolean accept(File f) {
+            return true;
+        }
+
+        @Override
+        public String getDescription() {
+            return "All Files";
+        }
+    };
 
     //--------------------------------------------
     // private fields redefined from superclass
@@ -299,7 +316,7 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
      * @throws HeadlessException if b is true and GraphicsEnvironment.isHeadless() returns true
      */
     public void setDragEnabled(boolean b) {
-        if (b && GraphicsEnvironment.isHeadless()) {
+        if (b && GraphicsEnvironment.isHeadless() && !MockFramework.isEnabled()) {
             throw new HeadlessException();
         }
         dragEnabled = b;
@@ -445,6 +462,15 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
      */
     public int showDialog(Component parent, String approveButtonText)
             throws HeadlessException {
+        if (GraphicsEnvironment.isHeadless() && MockFramework.isEnabled()) {
+            if (approveButtonText != null) {
+                setApproveButtonText(approveButtonText);
+                setDialogType(CUSTOM_DIALOG);
+            }
+            returnValue = CANCEL_OPTION;
+            return returnValue;
+        }
+
         if (dialog != null) {
             // Prevent to show second instance of dialog if the previous one still exists
             return JFileChooser.ERROR_OPTION;
@@ -1222,7 +1248,17 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
             removeChoosableFileFilter(getAcceptAllFileFilter());
         }
 
-        FileChooserUI ui = ((FileChooserUI)UIManager.getUI(this));
+        FileChooserUI ui;
+        try {
+            ui = (FileChooserUI) UIManager.getUI(this);
+        } catch (Throwable t) {
+            logger.warn("Falling back to stub FileChooserUI due to UI initialization failure: {}",
+                    t.getMessage());
+            ui = new StubFileChooserUI();
+        }
+        if (ui == null) {
+            ui = new StubFileChooserUI();
+        }
 
         if (fileSystemView == null) {
             // We were probably deserialized
@@ -1240,7 +1276,51 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
     }
 
     public FileChooserUI getUI() {
-        return (FileChooserUI) ui;
+        FileChooserUI current = (FileChooserUI) ui;
+        if (current == null) {
+            current = new StubFileChooserUI();
+            setUI(current);
+        }
+        return current;
+    }
+
+    /**
+     * Headless-safe fallback UI used when the platform LAF cannot initialize
+     * a real FileChooserUI.
+     */
+    private static final class StubFileChooserUI extends FileChooserUI {
+
+        @Override
+        public FileFilter getAcceptAllFileFilter(JFileChooser fc) {
+            return ACCEPT_ALL_FILE_FILTER;
+        }
+
+        @Override
+        public FileView getFileView(JFileChooser fc) {
+            return STUB_FILE_VIEW;
+        }
+
+        @Override
+        public String getApproveButtonText(JFileChooser fc) {
+            String text = fc == null ? null : fc.getApproveButtonText();
+            return text != null ? text : "Approve";
+        }
+
+        @Override
+        public String getDialogTitle(JFileChooser fc) {
+            String title = fc == null ? null : fc.getDialogTitle();
+            return title != null ? title : "";
+        }
+
+        @Override
+        public void rescanCurrentDirectory(JFileChooser fc) {
+            // No-op in headless fallback mode.
+        }
+
+        @Override
+        public void ensureFileIsVisible(JFileChooser fc, File f) {
+            // No-op in headless fallback mode.
+        }
     }
 
     private void readObject(java.io.ObjectInputStream in)

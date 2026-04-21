@@ -21,10 +21,12 @@ package org.evosuite.runtime.mock.javax.swing;
 
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.java.io.MockFile;
 import org.junit.jupiter.api.*;
 
 import javax.swing.*;
+import java.lang.reflect.Field;
 import java.io.File;
 
 public class MockJFileChooserTest {
@@ -41,6 +43,7 @@ public class MockJFileChooserTest {
     @AfterEach
     public void restoreProperties() {
         RuntimeSettings.useVFS = VFS;
+        MockFramework.disable();
     }
 
     @Test
@@ -53,6 +56,29 @@ public class MockJFileChooserTest {
         Assertions.assertTrue(dir instanceof MockFile);
     }
 
+    @Test
+    public void testUiIsAvailableForHeadlessSafeOperations() {
+        JFileChooser chooser = new MockJFileChooser();
+        Assertions.assertNotNull(chooser.getUI());
+        Assertions.assertNotNull(chooser.getUI().getFileView(chooser));
+        Assertions.assertDoesNotThrow(chooser::rescanCurrentDirectory);
+        Assertions.assertDoesNotThrow(() -> chooser.ensureFileIsVisible(new File("dummy.txt")));
+    }
+
+    @Test
+    public void testUiRecoversWhenCleared() {
+        MockJFileChooser chooser = new MockJFileChooser();
+        try {
+            Field uiField = JComponent.class.getDeclaredField("ui");
+            uiField.setAccessible(true);
+            uiField.set(chooser, null);
+        } catch (Exception e) {
+            Assertions.fail("Could not clear JFileChooser UI reflectively: " + e.getMessage());
+        }
+        Assertions.assertNotNull(chooser.getUI());
+        Assertions.assertNotNull(chooser.getUI().getFileView(chooser));
+    }
+
     private static boolean isJava24OrNewer() {
         String specVersion = java.lang.System.getProperty("java.specification.version", "0");
         try {
@@ -60,6 +86,24 @@ public class MockJFileChooserTest {
         } catch (NumberFormatException ignored) {
             return false;
         }
+    }
+
+    @Test
+    public void testHeadlessMockingShowDialogReturnsCancelWithoutCreatingWindow() {
+        Assumptions.assumeTrue(java.awt.GraphicsEnvironment.isHeadless());
+        MockFramework.enable();
+        MockJFileChooser chooser = new MockJFileChooser();
+        int result = chooser.showOpenDialog(null);
+        Assertions.assertEquals(JFileChooser.CANCEL_OPTION, result);
+    }
+
+    @Test
+    public void testHeadlessMockingSetDragEnabledDoesNotThrow() {
+        Assumptions.assumeTrue(java.awt.GraphicsEnvironment.isHeadless());
+        MockFramework.enable();
+        MockJFileChooser chooser = new MockJFileChooser();
+        Assertions.assertDoesNotThrow(() -> chooser.setDragEnabled(true));
+        Assertions.assertTrue(chooser.getDragEnabled());
     }
 
 }

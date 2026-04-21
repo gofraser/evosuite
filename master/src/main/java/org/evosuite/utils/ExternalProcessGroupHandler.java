@@ -1165,13 +1165,48 @@ public class ExternalProcessGroupHandler {
 
         logger.error("Client {} terminated unexpectedly. lastKnownState={}, exitCode={}",
                 clientId, lastKnownState,
-                exitCode == Integer.MIN_VALUE ? "<unknown>" : String.valueOf(exitCode));
+                exitCode == Integer.MIN_VALUE ? "<unknown>" : describeExitCode(exitCode));
 
         if (didClientJVMCrash(processIndex)) {
             String err = getAndDeleteHsErrFile(processIndex);
             if (err != null && !err.isEmpty()) {
                 logger.error("Detected client JVM crash dump header:\n{}", err);
             }
+        } else if (isNativeAbortSignal(exitCode)) {
+            logger.error("No JVM crash dump was produced, which is typical of a native abort "
+                    + "(eg {} in a JNI library or, on macOS, an AppKit assertion from Swing/AWT "
+                    + "code running off the main thread). Inspect the last \"Executing statement\" "
+                    + "line above to identify the test statement that killed the client.",
+                    signalName(exitCode - 128));
+        }
+    }
+
+    private static String describeExitCode(int exitCode) {
+        if (isNativeAbortSignal(exitCode)) {
+            return exitCode + " (terminated by signal " + (exitCode - 128) + " / " + signalName(exitCode - 128) + ")";
+        }
+        return String.valueOf(exitCode);
+    }
+
+    private static boolean isNativeAbortSignal(int exitCode) {
+        return exitCode > 128 && exitCode < 160;
+    }
+
+    private static String signalName(int signal) {
+        switch (signal) {
+            case 1:  return "SIGHUP";
+            case 2:  return "SIGINT";
+            case 3:  return "SIGQUIT";
+            case 4:  return "SIGILL";
+            case 6:  return "SIGABRT";
+            case 7:  return "SIGBUS";
+            case 8:  return "SIGFPE";
+            case 9:  return "SIGKILL";
+            case 11: return "SIGSEGV";
+            case 13: return "SIGPIPE";
+            case 14: return "SIGALRM";
+            case 15: return "SIGTERM";
+            default: return "signal " + signal;
         }
     }
 

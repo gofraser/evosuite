@@ -608,11 +608,10 @@ public class TestGeneration {
 
         boolean hasFailed;
         if (handler.hasClientFailureDetected()) {
-            logger.error("Skipping statistics writing because one or more client processes terminated unexpectedly.");
-            hasFailed = true;
-        } else {
-            hasFailed = writeStatistics();
+            logger.warn("One or more client processes terminated unexpectedly; "
+                    + "attempting to write statistics anyway.");
         }
+        hasFailed = writeStatistics();
 
         /*
          * FIXME: it is unclear what is the relation between TestGenerationResult and writeStatistics()

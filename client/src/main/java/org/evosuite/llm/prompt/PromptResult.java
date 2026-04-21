@@ -32,6 +32,110 @@ import java.util.List;
  */
 public final class PromptResult {
 
+    /** Dependency-summary telemetry for trace analysis. */
+    public static final class DependencySummaryMetadata {
+        private static final DependencySummaryMetadata EMPTY = new DependencySummaryMetadata(
+                0, 0, true, false, "none", 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        private final int budgetChars;
+        private final int perClassSoftCapChars;
+        private final boolean perClassSoftCapAuto;
+        private final boolean compactSignatures;
+        private final String budgetMode;
+        private final int candidateClasses;
+        private final int emittedClasses;
+        private final int emittedTier1Classes;
+        private final int emittedTier2Classes;
+        private final int emittedTier3Classes;
+        private final int emittedInstantiators;
+        private final int emittedModifiers;
+        private final int droppedByPerClassCap;
+        private final int droppedByGlobalBudget;
+
+        public DependencySummaryMetadata(int budgetChars, int perClassSoftCapChars,
+                                         boolean perClassSoftCapAuto, boolean compactSignatures,
+                                         String budgetMode,
+                                         int candidateClasses, int emittedClasses,
+                                         int emittedTier1Classes, int emittedTier2Classes, int emittedTier3Classes,
+                                         int emittedInstantiators, int emittedModifiers,
+                                         int droppedByPerClassCap, int droppedByGlobalBudget) {
+            this.budgetChars = budgetChars;
+            this.perClassSoftCapChars = perClassSoftCapChars;
+            this.perClassSoftCapAuto = perClassSoftCapAuto;
+            this.compactSignatures = compactSignatures;
+            this.budgetMode = budgetMode == null ? "" : budgetMode;
+            this.candidateClasses = candidateClasses;
+            this.emittedClasses = emittedClasses;
+            this.emittedTier1Classes = emittedTier1Classes;
+            this.emittedTier2Classes = emittedTier2Classes;
+            this.emittedTier3Classes = emittedTier3Classes;
+            this.emittedInstantiators = emittedInstantiators;
+            this.emittedModifiers = emittedModifiers;
+            this.droppedByPerClassCap = droppedByPerClassCap;
+            this.droppedByGlobalBudget = droppedByGlobalBudget;
+        }
+
+        public static DependencySummaryMetadata empty() {
+            return EMPTY;
+        }
+
+        public int getBudgetChars() {
+            return budgetChars;
+        }
+
+        public int getPerClassSoftCapChars() {
+            return perClassSoftCapChars;
+        }
+
+        public boolean isPerClassSoftCapAuto() {
+            return perClassSoftCapAuto;
+        }
+
+        public boolean isCompactSignatures() {
+            return compactSignatures;
+        }
+
+        public String getBudgetMode() {
+            return budgetMode;
+        }
+
+        public int getCandidateClasses() {
+            return candidateClasses;
+        }
+
+        public int getEmittedClasses() {
+            return emittedClasses;
+        }
+
+        public int getEmittedTier1Classes() {
+            return emittedTier1Classes;
+        }
+
+        public int getEmittedTier2Classes() {
+            return emittedTier2Classes;
+        }
+
+        public int getEmittedTier3Classes() {
+            return emittedTier3Classes;
+        }
+
+        public int getEmittedInstantiators() {
+            return emittedInstantiators;
+        }
+
+        public int getEmittedModifiers() {
+            return emittedModifiers;
+        }
+
+        public int getDroppedByPerClassCap() {
+            return droppedByPerClassCap;
+        }
+
+        public int getDroppedByGlobalBudget() {
+            return droppedByGlobalBudget;
+        }
+    }
+
     private final List<LlmMessage> messages;
     private final Properties.LlmSutContextMode sutContextMode;
     private final boolean contextUnavailable;
@@ -40,63 +144,82 @@ public final class PromptResult {
     private final boolean contextSelectivelyTruncated;
     private final boolean clusterSummaryTruncated;
     private final int clusterSummaryChars;
+    private final DependencySummaryMetadata dependencySummaryMetadata;
 
-    public PromptResult(List<LlmMessage> messages,
-                        Properties.LlmSutContextMode sutContextMode,
-                        boolean contextUnavailable) {
-        this(messages, sutContextMode, contextUnavailable, false, false, false, false, 0);
+    public static final class Builder {
+        private List<LlmMessage> messages = Collections.emptyList();
+        private Properties.LlmSutContextMode sutContextMode;
+        private boolean contextUnavailable;
+        private boolean contextTruncated;
+        private boolean contextCommentsStripped;
+        private boolean contextSelectivelyTruncated;
+        private boolean clusterSummaryTruncated;
+        private int clusterSummaryChars;
+        private DependencySummaryMetadata dependencySummaryMetadata = DependencySummaryMetadata.empty();
+
+        public Builder messages(List<LlmMessage> messages) {
+            this.messages = messages;
+            return this;
+        }
+
+        public Builder sutContextMode(Properties.LlmSutContextMode sutContextMode) {
+            this.sutContextMode = sutContextMode;
+            return this;
+        }
+
+        public Builder contextUnavailable(boolean contextUnavailable) {
+            this.contextUnavailable = contextUnavailable;
+            return this;
+        }
+
+        public Builder contextTruncated(boolean contextTruncated) {
+            this.contextTruncated = contextTruncated;
+            return this;
+        }
+
+        public Builder contextCommentsStripped(boolean contextCommentsStripped) {
+            this.contextCommentsStripped = contextCommentsStripped;
+            return this;
+        }
+
+        public Builder contextSelectivelyTruncated(boolean contextSelectivelyTruncated) {
+            this.contextSelectivelyTruncated = contextSelectivelyTruncated;
+            return this;
+        }
+
+        public Builder clusterSummaryTruncated(boolean clusterSummaryTruncated) {
+            this.clusterSummaryTruncated = clusterSummaryTruncated;
+            return this;
+        }
+
+        public Builder clusterSummaryChars(int clusterSummaryChars) {
+            this.clusterSummaryChars = clusterSummaryChars;
+            return this;
+        }
+
+        public Builder dependencySummaryMetadata(DependencySummaryMetadata dependencySummaryMetadata) {
+            this.dependencySummaryMetadata = dependencySummaryMetadata;
+            return this;
+        }
+
+        public PromptResult build() {
+            return new PromptResult(this);
+        }
     }
 
-    /** Constructs an immutable prompt result with associated context metadata. */
-    public PromptResult(List<LlmMessage> messages,
-                        Properties.LlmSutContextMode sutContextMode,
-                        boolean contextUnavailable,
-                        boolean contextTruncated) {
-        this(messages, sutContextMode, contextUnavailable, contextTruncated, false, false, false, 0);
-    }
-
-    /** Constructs an immutable prompt result with full context and cluster summary metadata. */
-    public PromptResult(List<LlmMessage> messages,
-                        Properties.LlmSutContextMode sutContextMode,
-                        boolean contextUnavailable,
-                        boolean contextTruncated,
-                        boolean clusterSummaryTruncated,
-                        int clusterSummaryChars) {
-        this(messages, sutContextMode, contextUnavailable, contextTruncated, false, false,
-                clusterSummaryTruncated, clusterSummaryChars);
-    }
-
-    /** Constructs an immutable prompt result with full context, comment-stripping, and cluster summary metadata. */
-    public PromptResult(List<LlmMessage> messages,
-                        Properties.LlmSutContextMode sutContextMode,
-                        boolean contextUnavailable,
-                        boolean contextTruncated,
-                        boolean contextCommentsStripped,
-                        boolean clusterSummaryTruncated,
-                        int clusterSummaryChars) {
-        this(messages, sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
-                false, clusterSummaryTruncated, clusterSummaryChars);
-    }
-
-    /** Constructs an immutable prompt result with all metadata including selective truncation. */
-    public PromptResult(List<LlmMessage> messages,
-                        Properties.LlmSutContextMode sutContextMode,
-                        boolean contextUnavailable,
-                        boolean contextTruncated,
-                        boolean contextCommentsStripped,
-                        boolean contextSelectivelyTruncated,
-                        boolean clusterSummaryTruncated,
-                        int clusterSummaryChars) {
-        this.messages = messages == null
+    private PromptResult(Builder builder) {
+        this.messages = builder.messages == null
                 ? Collections.emptyList()
-                : Collections.unmodifiableList(new ArrayList<>(messages));
-        this.sutContextMode = sutContextMode;
-        this.contextUnavailable = contextUnavailable;
-        this.contextTruncated = contextTruncated;
-        this.contextCommentsStripped = contextCommentsStripped;
-        this.contextSelectivelyTruncated = contextSelectivelyTruncated;
-        this.clusterSummaryTruncated = clusterSummaryTruncated;
-        this.clusterSummaryChars = clusterSummaryChars;
+                : Collections.unmodifiableList(new ArrayList<>(builder.messages));
+        this.sutContextMode = builder.sutContextMode;
+        this.contextUnavailable = builder.contextUnavailable;
+        this.contextTruncated = builder.contextTruncated;
+        this.contextCommentsStripped = builder.contextCommentsStripped;
+        this.contextSelectivelyTruncated = builder.contextSelectivelyTruncated;
+        this.clusterSummaryTruncated = builder.clusterSummaryTruncated;
+        this.clusterSummaryChars = builder.clusterSummaryChars;
+        this.dependencySummaryMetadata = builder.dependencySummaryMetadata == null
+                ? DependencySummaryMetadata.empty() : builder.dependencySummaryMetadata;
     }
 
     public List<LlmMessage> getMessages() {
@@ -141,5 +264,9 @@ public final class PromptResult {
     /** Total characters of the cluster summary before truncation (0 if not computed). */
     public int getClusterSummaryChars() {
         return clusterSummaryChars;
+    }
+
+    public DependencySummaryMetadata getDependencySummaryMetadata() {
+        return dependencySummaryMetadata;
     }
 }

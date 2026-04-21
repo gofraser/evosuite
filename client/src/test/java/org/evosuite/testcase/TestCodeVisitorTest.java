@@ -31,7 +31,9 @@ import org.evosuite.testcase.statements.ClassPrimitiveStatement;
 import org.evosuite.testcase.statements.EnumPrimitiveStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
@@ -44,7 +46,12 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+import java.nio.charset.StandardCharsets;
+import java.awt.HeadlessException;
+import javax.swing.JMenuItem;
 import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Set;
 
@@ -248,6 +255,89 @@ public class TestCodeVisitorTest {
         assertEquals("com.examples.with.different.packagename.subpackage.ExampleWithInnerClass", visitor.getClassName(com.examples.with.different.packagename.subpackage.ExampleWithInnerClass.class));
         assertEquals("ExampleWithInnerClass.Foo", visitor.getClassName(com.examples.with.different.packagename.otherpackage.ExampleWithInnerClass.Foo.class));
         assertEquals("com.examples.with.different.packagename.subpackage.ExampleWithInnerClass.Bar", visitor.getClassName(com.examples.with.different.packagename.subpackage.ExampleWithInnerClass.Bar.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsStandardCharsetsImport() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc, "String s = StandardCharsets.UTF_8.name();"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(StandardCharsets.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementReturnExpressionAddsStandardCharsetsImport() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(
+                tc,
+                byte[].class,
+                "byte[] __llm_fallback0 = null;",
+                Collections.emptyMap(),
+                "\"hello\".getBytes(StandardCharsets.UTF_8)"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(StandardCharsets.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementReturnExpressionAddsGeneralClassImport() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(
+                tc,
+                byte[].class,
+                "byte[] __llm_fallback0 = null;",
+                Collections.emptyMap(),
+                "Base64.getDecoder().decode(\"aGVsbG8=\")"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(Base64.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForClassLiteralAndCastType() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "java.lang.reflect.Method m = MainMenu.class.getDeclaredMethod(\"addShortcutAndIcon\", JMenuItem.class, String.class);\n"
+                        + "m.invoke(null, (JMenuItem) null, \"any\");"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(JMenuItem.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForConstructorUseInLoop() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "for (int i = 0; i < 2; i++) {\n"
+                        + "  Object item = new JMenuItem();\n"
+                        + "}"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(JMenuItem.class));
+    }
+
+    @Test
+    public void testDetachedVoidNullReferenceRendersAsNullLiteral() {
+        TestCase tc = new DefaultTestCase();
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        NullReference nullRef = new NullReference(tc, Void.class);
+        assertEquals("null", visitor.getVariableName(nullRef));
     }
 
     @Test
@@ -474,6 +564,20 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testPrimitiveClassLiteralDeclarationUsesWildcardClassType() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new ClassPrimitiveStatement(tc, boolean.class));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("Class<?> "));
+        assertTrue(code.contains("boolean.class"));
+        assertFalse(code.contains("Class<boolean>"));
+    }
+
+    @Test
     public void testSafeErasureSupportsWildcardTypeImpl() throws Exception {
         TestCodeVisitor visitor = new TestCodeVisitor();
         Method safeErasure = TestCodeVisitor.class.getDeclaredMethod("safeErasure", Type.class);
@@ -483,5 +587,19 @@ public class TestCodeVisitorTest {
         Class<?> erased = (Class<?>) safeErasure.invoke(visitor, wildcard);
 
         assertEquals(Number.class, erased);
+    }
+
+    @Test
+    public void testGenerateFailAssertionSkipsHeadlessException() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        String fail = visitor.generateFailAssertion(null, new HeadlessException());
+        assertEquals("", fail);
+    }
+
+    @Test
+    public void testGenerateFailAssertionKeepsNonHeadlessException() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        String fail = visitor.generateFailAssertion(null, new IllegalArgumentException("boom"));
+        assertTrue(fail.contains("Expecting exception: IllegalArgumentException"));
     }
 }

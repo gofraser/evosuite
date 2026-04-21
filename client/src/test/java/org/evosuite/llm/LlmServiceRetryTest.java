@@ -169,4 +169,53 @@ class LlmServiceRetryTest {
         RuntimeException wrapped = new RuntimeException("wrapper", new IllegalArgumentException("bad request"));
         assertFalse(LlmService.isRetryable(wrapped));
     }
+
+    @Test
+    void retryClassificationTreatsTextCannotBeNullAsRetryable() {
+        IllegalArgumentException error = new IllegalArgumentException("text cannot be null");
+        assertTrue(LlmService.isRetryable(error));
+    }
+
+    @Test
+    void retriesTextCannotBeNullThenSucceeds() {
+        AtomicInteger calls = new AtomicInteger();
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            if (calls.incrementAndGet() == 1) {
+                throw new IllegalArgumentException("text cannot be null");
+            }
+            return new LlmService.LlmResponse("ok", 9, 4);
+        };
+
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock",
+                "",
+                "",
+                0.0,
+                1024,
+                2,
+                2,
+                1,
+                false,
+                Paths.get("target/llm-test-traces"),
+                "run-4");
+
+        LlmStatistics statistics = new LlmStatistics();
+        LlmService service = new LlmService(model,
+                new LlmBudgetCoordinator.Local(2),
+                configuration,
+                statistics,
+                new LlmTraceRecorder(configuration));
+
+        try {
+            String output = service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
+
+            assertEquals("ok", output);
+            assertEquals(2, calls.get());
+            assertEquals(1, statistics.getSuccessfulCalls());
+            assertEquals(0, statistics.getFailedCalls());
+        } finally {
+            service.close();
+        }
+    }
 }

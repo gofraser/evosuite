@@ -92,7 +92,7 @@ public class TestErrorInstrumentation {
 
         verify(mv).visitFieldInsn(Opcodes.GETSTATIC, "org/evosuite/Properties",
                 "COLLECTION_CAPACITY_LIMIT", "I");
-        verify(mv).visitJumpInsn(eq(Opcodes.IF_ICMPLT), any());
+        verify(mv).visitJumpInsn(eq(Opcodes.IF_ICMPLE), any());
         verify(mv).visitTypeInsn(Opcodes.NEW,
                 "org/evosuite/testcase/execution/TestCaseExecutor$TimeoutExceeded");
     }
@@ -104,7 +104,7 @@ public class TestErrorInstrumentation {
 
         verify(mv).visitFieldInsn(Opcodes.GETSTATIC, "org/evosuite/Properties",
                 "MAP_CAPACITY_LIMIT", "I");
-        verify(mv).visitJumpInsn(eq(Opcodes.IF_ICMPLT), any());
+        verify(mv).visitJumpInsn(eq(Opcodes.IF_ICMPLE), any());
     }
 
     @Test

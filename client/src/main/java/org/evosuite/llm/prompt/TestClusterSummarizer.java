@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.prompt;
 
+import org.evosuite.Properties;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
@@ -34,12 +35,14 @@ import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Locale;
 
 /**
  * Produces concise prompt context from the current test cluster.
@@ -96,11 +99,140 @@ public class TestClusterSummarizer {
         private final String text;
         private final boolean truncated;
         private final int totalCharsBeforeTruncation;
+        private final int budgetCharsUsed;
+        private final int perClassSoftCapUsed;
+        private final boolean perClassSoftCapAuto;
+        private final boolean compactSignaturesUsed;
+        private final int candidateClasses;
+        private final int emittedClasses;
+        private final int emittedTier1Classes;
+        private final int emittedTier2Classes;
+        private final int emittedTier3Classes;
+        private final int emittedInstantiators;
+        private final int emittedModifiers;
+        private final int droppedByPerClassCap;
+        private final int droppedByGlobalBudget;
 
-        DependencySummaryResult(String text, boolean truncated, int totalCharsBeforeTruncation) {
-            this.text = text;
-            this.truncated = truncated;
-            this.totalCharsBeforeTruncation = totalCharsBeforeTruncation;
+        public static final class Builder {
+            private String text = "";
+            private boolean truncated;
+            private int totalCharsBeforeTruncation;
+            private int budgetCharsUsed;
+            private int perClassSoftCapUsed;
+            private boolean perClassSoftCapAuto;
+            private boolean compactSignaturesUsed;
+            private int candidateClasses;
+            private int emittedClasses;
+            private int emittedTier1Classes;
+            private int emittedTier2Classes;
+            private int emittedTier3Classes;
+            private int emittedInstantiators;
+            private int emittedModifiers;
+            private int droppedByPerClassCap;
+            private int droppedByGlobalBudget;
+
+            public Builder text(String text) {
+                this.text = text;
+                return this;
+            }
+
+            public Builder truncated(boolean truncated) {
+                this.truncated = truncated;
+                return this;
+            }
+
+            public Builder totalCharsBeforeTruncation(int totalCharsBeforeTruncation) {
+                this.totalCharsBeforeTruncation = totalCharsBeforeTruncation;
+                return this;
+            }
+
+            public Builder budgetCharsUsed(int budgetCharsUsed) {
+                this.budgetCharsUsed = budgetCharsUsed;
+                return this;
+            }
+
+            public Builder perClassSoftCapUsed(int perClassSoftCapUsed) {
+                this.perClassSoftCapUsed = perClassSoftCapUsed;
+                return this;
+            }
+
+            public Builder perClassSoftCapAuto(boolean perClassSoftCapAuto) {
+                this.perClassSoftCapAuto = perClassSoftCapAuto;
+                return this;
+            }
+
+            public Builder compactSignaturesUsed(boolean compactSignaturesUsed) {
+                this.compactSignaturesUsed = compactSignaturesUsed;
+                return this;
+            }
+
+            public Builder candidateClasses(int candidateClasses) {
+                this.candidateClasses = candidateClasses;
+                return this;
+            }
+
+            public Builder emittedClasses(int emittedClasses) {
+                this.emittedClasses = emittedClasses;
+                return this;
+            }
+
+            public Builder emittedTier1Classes(int emittedTier1Classes) {
+                this.emittedTier1Classes = emittedTier1Classes;
+                return this;
+            }
+
+            public Builder emittedTier2Classes(int emittedTier2Classes) {
+                this.emittedTier2Classes = emittedTier2Classes;
+                return this;
+            }
+
+            public Builder emittedTier3Classes(int emittedTier3Classes) {
+                this.emittedTier3Classes = emittedTier3Classes;
+                return this;
+            }
+
+            public Builder emittedInstantiators(int emittedInstantiators) {
+                this.emittedInstantiators = emittedInstantiators;
+                return this;
+            }
+
+            public Builder emittedModifiers(int emittedModifiers) {
+                this.emittedModifiers = emittedModifiers;
+                return this;
+            }
+
+            public Builder droppedByPerClassCap(int droppedByPerClassCap) {
+                this.droppedByPerClassCap = droppedByPerClassCap;
+                return this;
+            }
+
+            public Builder droppedByGlobalBudget(int droppedByGlobalBudget) {
+                this.droppedByGlobalBudget = droppedByGlobalBudget;
+                return this;
+            }
+
+            public DependencySummaryResult build() {
+                return new DependencySummaryResult(this);
+            }
+        }
+
+        private DependencySummaryResult(Builder builder) {
+            this.text = builder.text;
+            this.truncated = builder.truncated;
+            this.totalCharsBeforeTruncation = builder.totalCharsBeforeTruncation;
+            this.budgetCharsUsed = builder.budgetCharsUsed;
+            this.perClassSoftCapUsed = builder.perClassSoftCapUsed;
+            this.perClassSoftCapAuto = builder.perClassSoftCapAuto;
+            this.compactSignaturesUsed = builder.compactSignaturesUsed;
+            this.candidateClasses = builder.candidateClasses;
+            this.emittedClasses = builder.emittedClasses;
+            this.emittedTier1Classes = builder.emittedTier1Classes;
+            this.emittedTier2Classes = builder.emittedTier2Classes;
+            this.emittedTier3Classes = builder.emittedTier3Classes;
+            this.emittedInstantiators = builder.emittedInstantiators;
+            this.emittedModifiers = builder.emittedModifiers;
+            this.droppedByPerClassCap = builder.droppedByPerClassCap;
+            this.droppedByGlobalBudget = builder.droppedByGlobalBudget;
         }
 
         public String getText() {
@@ -113,6 +245,58 @@ public class TestClusterSummarizer {
 
         public int getTotalCharsBeforeTruncation() {
             return totalCharsBeforeTruncation;
+        }
+
+        public int getBudgetCharsUsed() {
+            return budgetCharsUsed;
+        }
+
+        public int getPerClassSoftCapUsed() {
+            return perClassSoftCapUsed;
+        }
+
+        public boolean isPerClassSoftCapAuto() {
+            return perClassSoftCapAuto;
+        }
+
+        public boolean isCompactSignaturesUsed() {
+            return compactSignaturesUsed;
+        }
+
+        public int getCandidateClasses() {
+            return candidateClasses;
+        }
+
+        public int getEmittedClasses() {
+            return emittedClasses;
+        }
+
+        public int getEmittedTier1Classes() {
+            return emittedTier1Classes;
+        }
+
+        public int getEmittedTier2Classes() {
+            return emittedTier2Classes;
+        }
+
+        public int getEmittedTier3Classes() {
+            return emittedTier3Classes;
+        }
+
+        public int getEmittedInstantiators() {
+            return emittedInstantiators;
+        }
+
+        public int getEmittedModifiers() {
+            return emittedModifiers;
+        }
+
+        public int getDroppedByPerClassCap() {
+            return droppedByPerClassCap;
+        }
+
+        public int getDroppedByGlobalBudget() {
+            return droppedByGlobalBudget;
         }
     }
 
@@ -129,8 +313,13 @@ public class TestClusterSummarizer {
      */
     public DependencySummaryResult summarizeDependencies(TestCluster cluster, String targetClassName, int maxChars) {
         if (cluster == null) {
-            return new DependencySummaryResult("", false, 0);
+            return new DependencySummaryResult.Builder()
+                    .text("")
+                    .truncated(false)
+                    .totalCharsBeforeTruncation(0)
+                    .build();
         }
+        boolean compactSignatures = Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES;
 
         // Collect direct dependency type names from CUT constructors and methods
         Set<String> directDependencyNames = collectDirectDependencies(cluster, targetClassName);
@@ -143,6 +332,7 @@ public class TestClusterSummarizer {
 
         // Build a modifier lookup: class name -> set of modifier methods from the cluster
         Map<String, Set<GenericAccessibleObject<?>>> modifiersByClassName = buildModifierLookup(cluster);
+        Map<String, Map<String, Integer>> modifierFrequencyByClass = buildModifierFrequencyLookup(cluster);
 
         // Build per-type summaries, partitioned into 3 tiers
         List<TypeSummary> tier1DirectDeps = new ArrayList<>();
@@ -172,13 +362,15 @@ public class TestClusterSummarizer {
             Set<GenericAccessibleObject<?>> generators = entry.getValue();
             Set<GenericAccessibleObject<?>> modifiers = modifiersByClassName.getOrDefault(className,
                     Collections.emptySet());
-            String line = formatTypeSummary(rawClass, generators, modifiers);
-            if (line == null || line.isEmpty()) {
+            Map<String, Integer> methodFrequency = modifierFrequencyByClass.getOrDefault(className,
+                    Collections.<String, Integer>emptyMap());
+            TypeSummary summary = buildTypeSummary(rawClass, generators, modifiers, compactSignatures, methodFrequency);
+            if (summary == null || summary.isEmpty()) {
                 continue;
             }
 
-            TypeSummary summary = new TypeSummary(rawClass.getSimpleName(), line);
             int tier = classifyTier(className, directDependencyNames, sutPrefix);
+            summary.tier = tier;
             switch (tier) {
                 case 1:
                     tier1DirectDeps.add(summary);
@@ -201,30 +393,49 @@ public class TestClusterSummarizer {
         List<TypeSummary> allDeps = new ArrayList<>(tier1DirectDeps);
         allDeps.addAll(tier2SutTypes);
         allDeps.addAll(tier3ThirdParty);
+        boolean perClassSoftCapAuto = Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS <= 0;
+        int perClassSoftCap = resolvePerClassSoftCap(maxChars, allDeps.size());
 
         // Compute total chars without budget for metadata
         int totalChars = 0;
         for (TypeSummary ts : allDeps) {
-            totalChars += ts.line.length() + 1; // +1 for newline
+            totalChars += ts.fullLength();
         }
 
-        // Build output respecting char budget
+        // Build output respecting global budget and soft per-class caps:
+        // 1) breadth-first instantiators, then 2) breadth-first modifiers.
         StringBuilder sb = new StringBuilder();
         boolean budgetExceeded = false;
+        DependencySummaryStats stats = new DependencySummaryStats();
 
-        for (TypeSummary ts : allDeps) {
-            if (maxChars > 0 && sb.length() + ts.line.length() + 1 > maxChars) {
-                budgetExceeded = true;
-                break;
-            }
-            sb.append(ts.line).append('\n');
+        budgetExceeded = emitPhaseByTier(sb, allDeps, maxChars, perClassSoftCap, stats, true);
+
+        if (!budgetExceeded) {
+            budgetExceeded = emitPhaseByTier(sb, allDeps, maxChars, perClassSoftCap, stats, false);
         }
 
         if (budgetExceeded) {
             sb.append("  ... (truncated)\n");
         }
 
-        return new DependencySummaryResult(sb.toString().trim(), budgetExceeded, totalChars);
+        return new DependencySummaryResult.Builder()
+                .text(sb.toString().trim())
+                .truncated(budgetExceeded)
+                .totalCharsBeforeTruncation(totalChars)
+                .budgetCharsUsed(maxChars)
+                .perClassSoftCapUsed(perClassSoftCap)
+                .perClassSoftCapAuto(perClassSoftCapAuto)
+                .compactSignaturesUsed(compactSignatures)
+                .candidateClasses(allDeps.size())
+                .emittedClasses(stats.emittedClasses)
+                .emittedTier1Classes(stats.emittedTier1Classes)
+                .emittedTier2Classes(stats.emittedTier2Classes)
+                .emittedTier3Classes(stats.emittedTier3Classes)
+                .emittedInstantiators(stats.emittedInstantiators)
+                .emittedModifiers(stats.emittedModifiers)
+                .droppedByPerClassCap(stats.droppedByPerClassCap)
+                .droppedByGlobalBudget(stats.droppedByGlobalBudget)
+                .build();
     }
 
     /**
@@ -233,75 +444,107 @@ public class TestClusterSummarizer {
      * For classes: constructors, static factory methods from generators,
      * and public modifier methods from the cluster.
      */
-    private String formatTypeSummary(Class<?> rawClass,
-                                     Set<GenericAccessibleObject<?>> generators,
-                                     Set<GenericAccessibleObject<?>> modifiers) {
-        StringBuilder sb = new StringBuilder();
-        // Type header so the LLM knows which class these members belong to
-        sb.append("// ").append(rawClass.getSimpleName());
+    private TypeSummary buildTypeSummary(Class<?> rawClass,
+                                         Set<GenericAccessibleObject<?>> generators,
+                                         Set<GenericAccessibleObject<?>> modifiers,
+                                         boolean compactSignatures,
+                                         Map<String, Integer> modifierFrequency) {
+        TypeSummary summary = new TypeSummary(rawClass.getSimpleName(), "// " + rawClass.getSimpleName());
         if (rawClass.isEnum()) {
             Object[] constants = rawClass.getEnumConstants();
             if (constants != null && constants.length > 0) {
-                sb.append(" { ");
+                StringBuilder enumBlock = new StringBuilder(summary.header).append(" { ");
                 for (int i = 0; i < constants.length; i++) {
                     if (i > 0) {
-                        sb.append(", ");
+                        enumBlock.append(", ");
                     }
-                    sb.append(((Enum<?>) constants[i]).name());
+                    enumBlock.append(((Enum<?>) constants[i]).name());
                 }
-                sb.append(" }");
+                enumBlock.append(" }");
+                summary.header = enumBlock.toString();
             }
+            return summary;
         } else {
             // Constructors from reflection (include package-private for same-package access)
+            List<Constructor<?>> constructors = new ArrayList<>();
             for (Constructor<?> ctor : rawClass.getDeclaredConstructors()) {
                 if (Modifier.isPrivate(ctor.getModifiers())
                         || Modifier.isProtected(ctor.getModifiers())) {
                     continue;
                 }
-                sb.append('\n');
-                sb.append("  ").append(rawClass.getSimpleName())
-                        .append('(').append(genericParameterList(ctor.getGenericParameterTypes())).append(')');
+                constructors.add(ctor);
+            }
+            constructors.sort(Comparator.comparing(Constructor::toGenericString));
+            for (Constructor<?> ctor : constructors) {
+                summary.instantiators.add("  " + rawClass.getSimpleName()
+                        + '(' + formatParameterList(ctor.getGenericParameterTypes(), compactSignatures) + ')');
             }
 
             // Static factory methods from generators (methods that aren't constructors)
             if (generators != null) {
+                List<Method> factoryMethods = new ArrayList<>();
                 for (GenericAccessibleObject<?> gen : generators) {
                     if (gen.isMethod() && gen.isStatic()) {
                         Method method = ((java.lang.reflect.AccessibleObject) gen.getAccessibleObject())
                                 instanceof Method
                                 ? (Method) gen.getAccessibleObject() : null;
                         if (method != null) {
-                            sb.append('\n');
-                            sb.append("  static ").append(rawClass.getSimpleName())
-                                    .append(' ').append(method.getName())
-                                    .append('(').append(genericParameterList(method.getGenericParameterTypes()))
-                                    .append(')');
+                            factoryMethods.add(method);
                         }
                     }
+                }
+                factoryMethods.sort(Comparator.comparing(Method::toGenericString));
+                for (Method method : factoryMethods) {
+                    summary.instantiators.add("  static " + rawClass.getSimpleName()
+                            + ' ' + method.getName()
+                            + '(' + formatParameterList(method.getGenericParameterTypes(), compactSignatures) + ')');
                 }
             }
 
             // Public modifier methods from the cluster
             if (modifiers != null) {
                 Set<String> seen = new HashSet<>();
+                List<ModifierCandidate> modifierMethods = new ArrayList<>();
                 for (GenericAccessibleObject<?> mod : modifiers) {
                     if (mod.isMethod()) {
                         Method method = mod.getAccessibleObject() instanceof Method
                                 ? (Method) mod.getAccessibleObject() : null;
                         if (method != null && Modifier.isPublic(method.getModifiers())) {
                             String sig = method.getName() + "("
-                                    + genericParameterList(method.getGenericParameterTypes()) + ")";
+                                    + formatParameterList(method.getGenericParameterTypes(), compactSignatures) + ")";
                             if (seen.add(sig)) {
-                                sb.append('\n');
-                                sb.append("  ").append(genericTypeName(method.getGenericReturnType()))
-                                        .append(' ').append(sig);
+                                int frequency = modifierFrequency.getOrDefault(methodFrequencyKey(method), 1);
+                                int score = scoreModifierMethod(method, frequency);
+                                modifierMethods.add(new ModifierCandidate(method, score));
                             }
                         }
                     }
                 }
+                modifierMethods.sort((a, b) -> {
+                    int byScore = Integer.compare(b.score, a.score);
+                    if (byScore != 0) {
+                        return byScore;
+                    }
+                    int byName = a.method.getName().compareToIgnoreCase(b.method.getName());
+                    if (byName != 0) {
+                        return byName;
+                    }
+                    return a.method.toGenericString().compareTo(b.method.toGenericString());
+                });
+                for (ModifierCandidate candidate : modifierMethods) {
+                    Method method = candidate.method;
+                    String sig = method.getName() + "("
+                            + formatParameterList(method.getGenericParameterTypes(), compactSignatures) + ")";
+                    String returnType = formatTypeName(method.getGenericReturnType(), compactSignatures);
+                    if (compactSignatures && "void".equals(returnType)) {
+                        summary.modifiers.add("  " + sig);
+                    } else {
+                        summary.modifiers.add("  " + returnType + " " + sig);
+                    }
+                }
             }
         }
-        return sb.toString();
+        return summary;
     }
 
     /**
@@ -591,6 +834,16 @@ public class TestClusterSummarizer {
         return name.replaceAll("\\bjava\\.lang\\.(?![a-z])", "");
     }
 
+    private static String compactTypeName(Type type) {
+        String name = genericTypeName(type);
+        // Drop package qualifiers to preserve more API surface in constrained budgets.
+        return name.replaceAll("\\b(?:[a-z_]\\w*\\.)+([A-Za-z_$][\\w$]*)\\b", "$1");
+    }
+
+    private static String formatTypeName(Type type, boolean compactSignatures) {
+        return compactSignatures ? compactTypeName(type) : genericTypeName(type);
+    }
+
     /** Joins generic type names into a comma-separated parameter list. */
     static String genericParameterList(Type[] types) {
         if (types == null || types.length == 0) {
@@ -599,6 +852,20 @@ public class TestClusterSummarizer {
         List<String> names = new ArrayList<>();
         for (Type t : types) {
             names.add(genericTypeName(t));
+        }
+        return String.join(", ", names);
+    }
+
+    private static String formatParameterList(Type[] types, boolean compactSignatures) {
+        if (!compactSignatures) {
+            return genericParameterList(types);
+        }
+        if (types == null || types.length == 0) {
+            return "";
+        }
+        List<String> names = new ArrayList<>();
+        for (Type t : types) {
+            names.add(compactTypeName(t));
         }
         return String.join(", ", names);
     }
@@ -724,13 +991,251 @@ public class TestClusterSummarizer {
         return lookup;
     }
 
+    private Map<String, Map<String, Integer>> buildModifierFrequencyLookup(TestCluster cluster) {
+        Map<String, Map<String, Integer>> lookup = new HashMap<>();
+        Set<GenericAccessibleObject<?>> allModifiers = cluster.getModifiers();
+        if (allModifiers == null) {
+            return lookup;
+        }
+        for (GenericAccessibleObject<?> mod : allModifiers) {
+            if (mod == null || !mod.isMethod()) {
+                continue;
+            }
+            try {
+                GenericClass<?> owner = mod.getOwnerClass();
+                if (owner == null || owner.getRawClass() == null) {
+                    continue;
+                }
+                Method method = mod.getAccessibleObject() instanceof Method
+                        ? (Method) mod.getAccessibleObject() : null;
+                if (method == null) {
+                    continue;
+                }
+                String className = owner.getRawClass().getName();
+                String key = methodFrequencyKey(method);
+                lookup.computeIfAbsent(className, k -> new HashMap<>());
+                Map<String, Integer> byMethod = lookup.get(className);
+                byMethod.put(key, byMethod.getOrDefault(key, 0) + 1);
+            } catch (Exception e) {
+                logger.debug("Failed to compute modifier frequency for {}", mod, e);
+            }
+        }
+        return lookup;
+    }
+
+    private String methodFrequencyKey(Method method) {
+        return method.getName() + "(" + genericParameterList(method.getGenericParameterTypes()) + ")";
+    }
+
+    private int scoreModifierMethod(Method method, int frequency) {
+        int score = 0;
+        String lower = method.getName().toLowerCase(Locale.ROOT);
+        if (lower.startsWith("set") || lower.startsWith("add")
+                || lower.startsWith("with") || lower.startsWith("put")) {
+            score += 10;
+        }
+        if (method.getName().length() <= 8) {
+            score += 5;
+        }
+        score -= 5 * complexGenericParameterCount(method);
+        // Best-effort frequency signal from available cluster data.
+        score += Math.min(5, Math.max(0, frequency - 1));
+        return score;
+    }
+
+    private int complexGenericParameterCount(Method method) {
+        int count = 0;
+        for (Type param : method.getGenericParameterTypes()) {
+            String t = param.getTypeName();
+            if (t.contains("<") || t.contains("?") || t.contains("&")) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private boolean emitPhaseByTier(StringBuilder sb, List<TypeSummary> allDeps,
+                                    int maxChars, int perClassSoftCap,
+                                    DependencySummaryStats stats, boolean instantiatorPhase) {
+        for (int tier = 1; tier <= 3; tier++) {
+            for (TypeSummary ts : allDeps) {
+                if (ts.tier != tier) {
+                    continue;
+                }
+                List<String> members = instantiatorPhase ? ts.instantiators : ts.modifiers;
+                if (!emitMembersForPhase(sb, ts, members, maxChars, perClassSoftCap, stats, instantiatorPhase)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean emitMembersForPhase(StringBuilder sb, TypeSummary ts, List<String> members,
+                                        int maxChars, int perClassSoftCap,
+                                        DependencySummaryStats stats, boolean instantiatorPhase) {
+        if (members == null || members.isEmpty()) {
+            if (!ts.headerEmitted && ts.hasNoMembers()) {
+                AppendOutcome headerOutcome =
+                        appendWithCaps(sb, ts, ts.header, maxChars, perClassSoftCap, false);
+                if (headerOutcome == AppendOutcome.GLOBAL_BUDGET_EXCEEDED) {
+                    stats.droppedByGlobalBudget++;
+                    return false;
+                }
+                if (headerOutcome == AppendOutcome.APPENDED) {
+                    markClassEmitted(ts, stats);
+                }
+            }
+            return true;
+        }
+        for (String member : members) {
+            AppendOutcome memberOutcome =
+                    appendLine(sb, ts, member, maxChars, perClassSoftCap, stats);
+            if (memberOutcome == AppendOutcome.GLOBAL_BUDGET_EXCEEDED) {
+                stats.droppedByGlobalBudget++;
+                return false;
+            }
+            if (memberOutcome == AppendOutcome.PER_CLASS_CAP_SKIPPED) {
+                stats.droppedByPerClassCap++;
+                continue;
+            }
+            if (instantiatorPhase) {
+                stats.emittedInstantiators++;
+            } else {
+                stats.emittedModifiers++;
+            }
+        }
+        return true;
+    }
+
+    private AppendOutcome appendLine(StringBuilder sb, TypeSummary ts, String memberLine,
+                                     int maxChars, int perClassSoftCap,
+                                     DependencySummaryStats stats) {
+        if (!ts.headerEmitted) {
+            int headerCost = ts.header.length() + 1;
+            int memberCost = memberLine.length() + 1;
+            if (maxChars > 0 && sb.length() + headerCost + memberCost > maxChars) {
+                return AppendOutcome.GLOBAL_BUDGET_EXCEEDED;
+            }
+            if (perClassSoftCap > 0 && ts.classChars + headerCost + memberCost > perClassSoftCap) {
+                return AppendOutcome.PER_CLASS_CAP_SKIPPED;
+            }
+            sb.append(ts.header).append('\n');
+            ts.classChars += headerCost;
+            ts.headerEmitted = true;
+            markClassEmitted(ts, stats);
+            sb.append(memberLine).append('\n');
+            ts.classChars += memberCost;
+            return AppendOutcome.APPENDED;
+        }
+        return appendWithCaps(sb, ts, memberLine, maxChars, perClassSoftCap, true);
+    }
+
+    private AppendOutcome appendWithCaps(StringBuilder sb, TypeSummary ts, String line, int maxChars,
+                                         int perClassSoftCap, boolean enforceClassCap) {
+        int lineCost = line.length() + 1;
+        if (maxChars > 0 && sb.length() + lineCost > maxChars) {
+            return AppendOutcome.GLOBAL_BUDGET_EXCEEDED;
+        }
+        if (enforceClassCap && perClassSoftCap > 0 && ts.classChars + lineCost > perClassSoftCap) {
+            return AppendOutcome.PER_CLASS_CAP_SKIPPED;
+        }
+        sb.append(line).append('\n');
+        ts.classChars += lineCost;
+        if (!ts.headerEmitted && line.equals(ts.header)) {
+            ts.headerEmitted = true;
+        }
+        return AppendOutcome.APPENDED;
+    }
+
+    private void markClassEmitted(TypeSummary ts, DependencySummaryStats stats) {
+        if (ts.classEmitted) {
+            return;
+        }
+        ts.classEmitted = true;
+        stats.emittedClasses++;
+        if (ts.tier == 1) {
+            stats.emittedTier1Classes++;
+        } else if (ts.tier == 2) {
+            stats.emittedTier2Classes++;
+        } else {
+            stats.emittedTier3Classes++;
+        }
+    }
+
+    private int resolvePerClassSoftCap(int maxChars, int dependencyCount) {
+        int configured = Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS;
+        if (configured > 0) {
+            return configured;
+        }
+        if (maxChars <= 0 || dependencyCount <= 0) {
+            return 0;
+        }
+        // Auto-cap aims for broad coverage first: reserve room for up to ~10 classes.
+        int divisor = Math.min(Math.max(dependencyCount, 1), 10);
+        int autoCap = maxChars / divisor;
+        return Math.max(240, Math.min(1200, autoCap));
+    }
+
     private static class TypeSummary {
         final String simpleName;
-        final String line;
+        String header;
+        int tier;
+        final List<String> instantiators = new ArrayList<>();
+        final List<String> modifiers = new ArrayList<>();
+        int classChars;
+        boolean headerEmitted;
+        boolean classEmitted;
 
-        TypeSummary(String simpleName, String line) {
+        TypeSummary(String simpleName, String header) {
             this.simpleName = simpleName;
-            this.line = line;
+            this.header = header;
+        }
+
+        boolean hasNoMembers() {
+            return instantiators.isEmpty() && modifiers.isEmpty();
+        }
+
+        boolean isEmpty() {
+            return header == null || header.isEmpty();
+        }
+
+        int fullLength() {
+            int total = header.length() + 1;
+            for (String line : instantiators) {
+                total += line.length() + 1;
+            }
+            for (String line : modifiers) {
+                total += line.length() + 1;
+            }
+            return total;
+        }
+    }
+
+    private static class DependencySummaryStats {
+        int emittedClasses;
+        int emittedTier1Classes;
+        int emittedTier2Classes;
+        int emittedTier3Classes;
+        int emittedInstantiators;
+        int emittedModifiers;
+        int droppedByPerClassCap;
+        int droppedByGlobalBudget;
+    }
+
+    private enum AppendOutcome {
+        APPENDED,
+        PER_CLASS_CAP_SKIPPED,
+        GLOBAL_BUDGET_EXCEEDED
+    }
+
+    private static class ModifierCandidate {
+        final Method method;
+        final int score;
+
+        ModifierCandidate(Method method, int score) {
+            this.method = method;
+            this.score = score;
         }
     }
 }

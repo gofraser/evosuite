@@ -46,6 +46,12 @@ class PromptBuilderSutContextTest {
     private LlmSutContextMode originalMode;
     private boolean originalFallback;
     private int originalMaxChars;
+    private int originalClusterMaxChars;
+    private boolean originalClusterDynamicScaling;
+    private double originalClusterDynamicRatio;
+    private int originalClusterDynamicMinChars;
+    private int originalClusterDynamicMaxChars;
+    private int originalClusterAbsoluteOverride;
     private String originalTargetClass;
 
     @BeforeEach
@@ -53,6 +59,12 @@ class PromptBuilderSutContextTest {
         originalMode = Properties.LLM_SUT_CONTEXT_MODE;
         originalFallback = Properties.LLM_CONTEXT_FALLBACK_ENABLED;
         originalMaxChars = Properties.LLM_CONTEXT_MAX_CHARS;
+        originalClusterMaxChars = Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS;
+        originalClusterDynamicScaling = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING;
+        originalClusterDynamicRatio = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO;
+        originalClusterDynamicMinChars = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS;
+        originalClusterDynamicMaxChars = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS;
+        originalClusterAbsoluteOverride = Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS;
         originalTargetClass = Properties.TARGET_CLASS;
     }
 
@@ -61,6 +73,12 @@ class PromptBuilderSutContextTest {
         Properties.LLM_SUT_CONTEXT_MODE = originalMode;
         Properties.LLM_CONTEXT_FALLBACK_ENABLED = originalFallback;
         Properties.LLM_CONTEXT_MAX_CHARS = originalMaxChars;
+        Properties.LLM_CLUSTER_SUMMARY_MAX_CHARS = originalClusterMaxChars;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING = originalClusterDynamicScaling;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO = originalClusterDynamicRatio;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS = originalClusterDynamicMinChars;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = originalClusterDynamicMaxChars;
+        Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = originalClusterAbsoluteOverride;
         Properties.TARGET_CLASS = originalTargetClass;
     }
 
@@ -235,6 +253,88 @@ class PromptBuilderSutContextTest {
         assertEquals(-1, second, "Dependency section should not be duplicated");
     }
 
+    @Test
+    void dependencyBudgetScalesWithContextBudget() {
+        Properties.LLM_CONTEXT_MAX_CHARS = 100_000;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING = true;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO = 0.10;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS = 4_000;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = 20_000;
+        Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = 0;
+
+        RecordingSummarizer summarizer = new RecordingSummarizer();
+
+        PromptBuilder builder = new PromptBuilder(
+                new SystemPromptProvider(),
+                summarizer,
+                new SourceCodeProvider(),
+                new CoverageGoalFormatter(),
+                new TestCaseFormatter(),
+                SutContextProviderFactory.getInstance());
+
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(java.util.Collections.emptyMap());
+
+        builder.withTestClusterContext("com.example.Foo", cluster).build();
+
+        assertEquals(10_000, summarizer.lastMaxChars);
+    }
+
+    @Test
+    void dependencyBudgetAbsoluteOverrideWins() {
+        Properties.LLM_CONTEXT_MAX_CHARS = 100_000;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING = true;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_RATIO = 0.10;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MIN_CHARS = 4_000;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = 20_000;
+        Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = 7_777;
+
+        RecordingSummarizer summarizer = new RecordingSummarizer();
+
+        PromptBuilder builder = new PromptBuilder(
+                new SystemPromptProvider(),
+                summarizer,
+                new SourceCodeProvider(),
+                new CoverageGoalFormatter(),
+                new TestCaseFormatter(),
+                SutContextProviderFactory.getInstance());
+
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(java.util.Collections.emptyMap());
+
+        builder.withTestClusterContext("com.example.Foo", cluster).build();
+
+        assertEquals(7_777, summarizer.lastMaxChars);
+    }
+
+    @Test
+    void dependencyBudgetUsesDynamicMaxWhenContextUnlimited() {
+        Properties.LLM_CONTEXT_MAX_CHARS = 0;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_SCALING = true;
+        Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = 12_345;
+        Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = 0;
+
+        RecordingSummarizer summarizer = new RecordingSummarizer();
+
+        PromptBuilder builder = new PromptBuilder(
+                new SystemPromptProvider(),
+                summarizer,
+                new SourceCodeProvider(),
+                new CoverageGoalFormatter(),
+                new TestCaseFormatter(),
+                SutContextProviderFactory.getInstance());
+
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(java.util.Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(java.util.Collections.emptyMap());
+
+        builder.withTestClusterContext("com.example.Foo", cluster).build();
+
+        assertEquals(12_345, summarizer.lastMaxChars);
+    }
+
     // --- Test helpers ---
 
     private static class StubSutContextProvider implements SutContextProvider {
@@ -255,5 +355,19 @@ class PromptBuilderSutContextTest {
         }
         @Override
         public String modeLabel() { return "failing"; }
+    }
+
+    private static class RecordingSummarizer extends TestClusterSummarizer {
+        private int lastMaxChars = -1;
+
+        @Override
+        public DependencySummaryResult summarizeDependencies(TestCluster cluster, String targetClassName, int maxChars) {
+            this.lastMaxChars = maxChars;
+            return new DependencySummaryResult.Builder()
+                    .text("")
+                    .truncated(false)
+                    .totalCharsBeforeTruncation(0)
+                    .build();
+        }
     }
 }

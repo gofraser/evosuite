@@ -126,6 +126,19 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
             isReplaced = true;
         }
 
+        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+                && "setCursor".equals(name)
+                && "(Ljava/awt/Cursor;)V".equals(desc)
+                && isSwingAwtOrAppOwner(owner)) {
+            super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
+                    "replacement_setCursorGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/Cursor;)V",
+                    false);
+            hasBeenInstrumented = true;
+            isReplaced = true;
+        }
+
         // Generic socket connect fallback for Socket subclasses (eg SSLSocket).
         // Cache-based replacements are owner-exact (java/net/Socket), so subclass
         // owners may otherwise bypass VNET and attempt real network connects.
@@ -179,7 +192,8 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         // of the actual object. E.g. Throwable -> Exception -> RuntimeException
         // A MockRuntimeException is not a subclass of MockException and MockThrowable
         if (MethodCallReplacementCache.getInstance().hasReplacementCall(owner, name + desc)
-                && (opcode != Opcodes.INVOKESPECIAL || name.equals("<init>"))) {
+                && (opcode != Opcodes.INVOKESPECIAL || name.equals("<init>"))
+                && !isPendingSuperOrThisConstructorCall(opcode, owner, name)) {
             MethodCallReplacement replacement = MethodCallReplacementCache.getInstance().getReplacementCall(owner,
                     name + desc);
             isReplaced = true;
@@ -266,5 +280,18 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
 
     private boolean isCurrentClassThreadSubclass() {
         return "java.lang.Thread".equals(superClassName);
+    }
+
+    /**
+     * During constructor prologue, calls to {@code super(...)} / {@code this(...)} do not have
+     * the NEW+DUP stack shape. Replacing those constructor calls with static factories would
+     * corrupt stack bookkeeping and can crash ASM advice visitors.
+     */
+    private boolean isPendingSuperOrThisConstructorCall(int opcode, String owner, String name) {
+        if (opcode != Opcodes.INVOKESPECIAL || !"<init>".equals(name) || !needToWaitForSuperConstructor) {
+            return false;
+        }
+        String ownerWithDots = owner.replace('/', '.');
+        return ownerWithDots.equals(superClassName) || ownerWithDots.equals(className);
     }
 }

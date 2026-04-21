@@ -268,10 +268,15 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
 
             try {
                 Class<?> fieldClass = GenericClassImpl.getClass(className, loader);
-                field = fieldClass.getDeclaredField(fieldName);
-                reflectionAccessible = makeFieldAccessible(field);
-                return;
-            } catch (ClassNotFoundException | LinkageError | SecurityException | NoSuchFieldException e) {
+                // Try the declaring class first, then walk up the hierarchy.
+                // The instrumenting classloader may have added synthetic fields
+                // (e.g. serialVersionUID) that don't exist on the uninstrumented class.
+                field = findField(fieldClass, fieldName);
+                if (field != null) {
+                    reflectionAccessible = makeFieldAccessible(field);
+                    return;
+                }
+            } catch (ClassNotFoundException | LinkageError | SecurityException e) {
                 lastError = e;
             }
         }
@@ -284,6 +289,38 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         throw exception;
     }
 
+    /**
+     * Find a field by name, first trying {@code getDeclaredField} on the given class,
+     * then walking up superclasses and interfaces.  Returns {@code null} if not found.
+     * This handles cases where the instrumenting classloader added a synthetic field
+     * (e.g. {@code serialVersionUID}) to a class/interface that doesn't have it in
+     * the uninstrumented version.
+     */
+    private static Field findField(Class<?> clazz, String fieldName) {
+        // Try the exact class first
+        try {
+            return clazz.getDeclaredField(fieldName);
+        } catch (NoSuchFieldException e) {
+            // fall through
+        }
+        // Walk superclass chain
+        Class<?> superClass = clazz.getSuperclass();
+        if (superClass != null) {
+            Field f = findField(superClass, fieldName);
+            if (f != null) {
+                return f;
+            }
+        }
+        // Walk interfaces
+        for (Class<?> iface : clazz.getInterfaces()) {
+            Field f = findField(iface, fieldName);
+            if (f != null) {
+                return f;
+            }
+        }
+        return null;
+    }
+
     @Override
     public void changeClassLoader(ClassLoader loader) {
         super.changeClassLoader(loader);
@@ -291,18 +328,21 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         try {
             Class<?> oldClass = field.getDeclaringClass();
             Class<?> newClass = loader.loadClass(oldClass.getName());
-            this.field = newClass.getDeclaredField(field.getName());
-            this.reflectionAccessible = makeFieldAccessible(this.field);
-        } catch (ClassNotFoundException e) {
-            LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ",
+            Field found = findField(newClass, field.getName());
+            if (found != null) {
+                this.field = found;
+                this.reflectionAccessible = makeFieldAccessible(this.field);
+            } else {
+                LoggingUtils.getEvoLogger().info("Field " + field.getName()
+                        + " not found in class " + oldClass.getName());
+            }
+        } catch (ClassNotFoundException | SecurityException | LinkageError e) {
+            // LinkageError (e.g., NoClassDefFoundError on a missing transitive
+            // dependency in the SUT classpath) must fail-soft so dependency
+            // analysis can keep going — mirrors MemberAnalyzer /
+            // LlmSeededPopulationFactory / Inspector.changeClassLoader.
+            LoggingUtils.getEvoLogger().info("Class not loadable - keeping old class loader ",
                     e);
-        } catch (SecurityException e) {
-            LoggingUtils.getEvoLogger().info("Class not found - keeping old class loader ",
-                    e);
-        } catch (NoSuchFieldException e) {
-            LoggingUtils.getEvoLogger().info("Field " + field.getName()
-                    + " not found in class "
-                    + field.getDeclaringClass());
         }
     }
 

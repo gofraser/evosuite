@@ -19,6 +19,9 @@
  */
 package org.evosuite.testcase.statements;
 
+import org.evosuite.symbolic.TestCaseBuilder;
+import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -37,11 +40,41 @@ public class MethodStatementCompatibilityTest {
         // no-op
     }
 
+    private static class PrimitiveTarget {
+        private final boolean value;
+
+        private PrimitiveTarget(boolean value) {
+            this.value = value;
+        }
+
+        private boolean negate(boolean input) {
+            return value && !input;
+        }
+    }
+
     @Test
     public void testIncompatibleCalleeRejectedEvenWithBroadOwnerType() throws Exception {
         Method method = DeclaringType.class.getDeclaredMethod("ping");
         GenericMethod genericMethod = new GenericMethod(method, Object.class);
 
         Assertions.assertFalse(MethodStatement.isCompatibleCalleeType(genericMethod, UnrelatedType.class));
+    }
+
+    @Test
+    public void testPrimitiveBooleanParameterAcceptedAtExecution() throws Exception {
+        TestCaseBuilder builder = new TestCaseBuilder();
+        VariableReference arg = builder.appendBooleanPrimitive(true);
+        VariableReference target = builder.appendConstructor(
+                PrimitiveTarget.class.getDeclaredConstructor(boolean.class), arg);
+        VariableReference ret = builder.appendMethod(
+                target, PrimitiveTarget.class.getDeclaredMethod("negate", boolean.class), arg);
+
+        Scope scope = new Scope();
+        for (Statement statement : builder.getDefaultTestCase()) {
+            Throwable thrown = statement.execute(scope, System.out);
+            Assertions.assertNull(thrown);
+        }
+
+        Assertions.assertEquals(Boolean.FALSE, ret.getObject(scope));
     }
 }

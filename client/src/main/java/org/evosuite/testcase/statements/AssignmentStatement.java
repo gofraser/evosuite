@@ -292,14 +292,26 @@ public class AssignmentStatement extends AbstractStatement {
 
             List<Integer> lengths = arrayRef.getStructuralLengths();
             List<Integer> indices = arrayIndex.getArrayIndices();
-            if (indices.size() != 1 || lengths.isEmpty()) {
+            if (indices.isEmpty() || lengths.isEmpty()) {
                 return false;
             }
 
-            int index = indices.get(0);
-            int length = lengths.get(0);
-            if (index < 0 || index >= length) {
-                return false;
+            // Validate each indexed dimension against known structural lengths.
+            // For jagged arrays we may not have complete nested lengths; in that case
+            // we still enforce non-negative indices and only check upper bounds for
+            // dimensions with known lengths.
+            int comparableDims = Math.min(indices.size(), lengths.size());
+            for (int dim = 0; dim < indices.size(); dim++) {
+                int index = indices.get(dim);
+                if (index < 0) {
+                    return false;
+                }
+                if (dim < comparableDims) {
+                    int length = lengths.get(dim);
+                    if (index >= length) {
+                        return false;
+                    }
+                }
             }
         }
         return true;

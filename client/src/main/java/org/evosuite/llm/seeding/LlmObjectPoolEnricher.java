@@ -26,6 +26,7 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.seeding.ObjectPoolManager;
@@ -67,7 +68,10 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
      * Creates an enricher with default repair loop configuration.
      */
     public LlmObjectPoolEnricher(LlmService llmService) {
-        this(llmService, TestRepairLoop.createDefault(llmService));
+        this(llmService, TestRepairLoop.createDefault(
+                llmService,
+                TestRepairLoop.RepairOptions.forAssertionPolicy(
+                        LlmAssertionPolicyResolver.keepAssertions(false))));
     }
 
     @Override
@@ -349,7 +353,8 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
                         + "3. Creates edge-case configurations (empty, null fields, boundary values)\n\n"
                         + "Format as a complete JUnit test class with imports.\n"
                         + "Each method should set up one interesting object state.\n"
-                        + "Do NOT include assertions - focus on object construction only.")
+                        + "Focus on object construction only."
+                        + LlmAssertionPolicyResolver.instructionSuffix(false))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();
     }

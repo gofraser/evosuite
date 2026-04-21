@@ -27,6 +27,7 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -71,6 +72,7 @@ public class LlmSemanticCrossover {
             return null;
         }
 
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         for (int attempt = 0; attempt < Properties.LLM_OPERATOR_MAX_ATTEMPTS; attempt++) {
             try {
                 PromptResult prompt = new PromptBuilder()
@@ -86,12 +88,14 @@ public class LlmSemanticCrossover {
                                 + "the two given tests. Combine useful setup, method calls, "
                                 + "and behaviours from both parents into one coherent test. "
                                 + "Target the uncovered goals if possible. "
-                                + "Return exactly one complete JUnit test method.")
+                                + "Return exactly one complete JUnit test method."
+                                + LlmAssertionPolicyResolver.instructionSuffix(false))
                         .buildWithMetadata();
 
                 String response = llmService.query(prompt, LlmFeature.SEMANTIC_CROSSOVER);
-                RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
-                        response, prompt.getMessages(), LlmFeature.SEMANTIC_CROSSOVER);
+                RepairResult result = TestRepairLoop
+                        .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
+                        .attemptParse(response, prompt.getMessages(), LlmFeature.SEMANTIC_CROSSOVER);
                 if (result.isSuccess() && !result.getTestCases().isEmpty()) {
                     TestChromosome child = new TestChromosome();
                     child.setTestCase(result.getTestCases().get(0));

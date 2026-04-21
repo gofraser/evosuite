@@ -126,6 +126,13 @@ public class MemberAnalyzer {
                         + " at recursion level " + recursionLevel);
                 cluster.getAnalyzedClasses().add(rawClass);
             } catch (Throwable t) {
+                if (isRecoverableDependencyAnalysisFailure(t)) {
+                    logger.warn("Problem for {}. Skipping problematic dependency class {} due to recoverable failure: {}",
+                            Properties.TARGET_CLASS, clazz.getClassName(), t.toString());
+                    logger.debug("Recoverable dependency analysis failure stack trace", t);
+                    cluster.getAnalyzedClasses().add(rawClass);
+                    return true;
+                }
                 logger.error("Problem for " + Properties.TARGET_CLASS
                         + ". Failed to add dependencies for class "
                         + clazz.getClassName() + ": " + t + "\n"
@@ -138,6 +145,23 @@ public class MemberAnalyzer {
             analyzeFields(clazz, rawClass, mode, recursionLevel);
         }
         return true;
+    }
+
+    /**
+     * Dependency analysis should fail-soft for linkage/verification problems
+     * in third-party bytecode so the target class analysis can proceed.
+     */
+    private boolean isRecoverableDependencyAnalysisFailure(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof LinkageError || current instanceof TypeNotPresentException) {
+                // LinkageError already covers VerifyError, NoClassDefFoundError,
+                // ClassFormatError, UnsupportedClassVersionError, and friends.
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     // -----------------------------------------------------------------------

@@ -31,6 +31,8 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
@@ -46,6 +48,8 @@ import java.util.*;
  */
 public class StatisticsSender {
 
+    private static final Logger logger = LoggerFactory.getLogger(StatisticsSender.class);
+
     /**
      * Send the given individual to the Client, plus any other needed info.
      *
@@ -59,7 +63,18 @@ public class StatisticsSender {
             return;
         }
 
-        ClientServices.<T>getInstance().getClientNode().updateStatistics(individual);
+        try {
+            ClientServices.<T>getInstance().getClientNode().updateStatistics(individual);
+        } catch (RuntimeException t) {
+            // Statistics export must never abort test generation. In some environments
+            // the master cannot deserialize certain generic members from the client
+            // classpath (e.g., missing SUT constructor metadata), which should degrade
+            // to a warning instead of failing the whole run. We deliberately do NOT
+            // catch Error/Throwable here — OOM, ThreadDeath, and similar must
+            // propagate so shutdown logic runs.
+            logger.warn("Could not export individual statistics to master; continuing generation: {}",
+                    t.getMessage(), t);
+        }
     }
 
 

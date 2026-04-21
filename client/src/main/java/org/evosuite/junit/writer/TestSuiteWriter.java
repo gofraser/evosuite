@@ -38,6 +38,7 @@ import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.utils.FileIOUtils;
 import org.junit.jupiter.api.extension.RegisterExtension;
@@ -241,8 +242,14 @@ public class TestSuiteWriter implements Opcodes {
                     }
                 }
                 if (!added) {
-                    logger.info("No time left and no cached result; skipping test execution");
-                    continue;
+                    logger.info("No time left and no cached result; using empty result");
+                    // Keep results parallel-indexed to testCases for downstream
+                    // strategies (e.g. NumberedTestNameGenerationStrategy).
+                    // Set a non-null empty trace so goal.isCovered(result) and
+                    // other consumers don't NPE on result.getTrace().
+                    ExecutionResult placeholder = new ExecutionResult(test, null);
+                    placeholder.setTrace(new ExecutionTraceImpl());
+                    results.add(placeholder);
                 }
             } else {
                 ExecutionResult result = runTest(test);

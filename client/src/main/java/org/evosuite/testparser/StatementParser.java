@@ -20,15 +20,22 @@
 package org.evosuite.testparser;
 
 import com.github.javaparser.ast.ArrayCreationLevel;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.stmt.AssertStmt;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
+import com.github.javaparser.ast.stmt.ReturnStmt;
+import com.github.javaparser.ast.visitor.ModifierVisitor;
+import com.github.javaparser.ast.visitor.Visitable;
 import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.assertion.NullAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.assertion.SameAssertion;
+import org.evosuite.runtime.mock.MockList;
+import org.evosuite.runtime.mock.OverrideMock;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.DefaultTestCase;
@@ -58,6 +65,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Converts JavaParser AST statement/expression nodes into EvoSuite Statement objects
@@ -69,11 +78,13 @@ import java.util.Map;
 public class StatementParser {
 
     private static final Logger logger = LoggerFactory.getLogger(StatementParser.class);
+    private static final Pattern MOCK_TYPE_TOKEN = Pattern.compile("\\bMock([A-Z][A-Za-z0-9_$]*)\\b");
 
     private final DefaultTestCase testCase;
     private final TypeResolver typeResolver;
     private final VariableScope scope;
     private final ParseResult result;
+    private final Map<String, MethodDeclaration> inlineHelperMethods = new LinkedHashMap<>();
 
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
@@ -107,6 +118,17 @@ public class StatementParser {
 
     public boolean isMarkParsedFromLlm() {
         return markParsedFromLlm;
+    }
+
+    /**
+     * Registers helper methods (arity 0/1) that can be inlined as a plain
+     * return expression.
+     */
+    public void setInlineHelperMethods(Map<String, MethodDeclaration> helpers) {
+        inlineHelperMethods.clear();
+        if (helpers != null) {
+            inlineHelperMethods.putAll(helpers);
+        }
     }
 
     // ========================================================================
@@ -212,16 +234,37 @@ public class StatementParser {
             try {
                 declaredType = typeResolver.resolveType(declarator.getType());
             } catch (ClassNotFoundException e) {
-                int line = declarator.getBegin().map(p -> p.line).orElse(0);
-                result.addDiagnostic(new ParseDiagnostic(
-                        ParseDiagnostic.Severity.ERROR,
-                        "Cannot resolve type: " + declarator.getType() + " — " + e.getMessage(),
-                        line,
-                        declarator.toString()));
-                continue;
+                if (markParsedFromLlm) {
+                    declaredType = tryResolveDemockedDeclaredType(declarator.getType());
+                    if (declaredType != null) {
+                        addWarning(initializer, "Resolved inferred mock-prefixed type '"
+                                + declarator.getType() + "' as '" + declaredType.getTypeName() + "'");
+                    } else {
+                        // LLM best-effort mode: keep parsing by downgrading unknown declared
+                        // types to Object so later statements can still be repaired/mutated.
+                        declaredType = Object.class;
+                        addWarning(initializer,
+                                "Cannot resolve type: " + declarator.getType() + " — " + e.getMessage()
+                                        + " — downgraded to Object for LLM best-effort parsing. "
+                                        + "LLM_REPAIR_ACTION_REQUIRED: replace invented/unknown type '"
+                                        + declarator.getType()
+                                        + "' with an existing SUT or JDK type.");
+                    }
+                } else {
+                    int line = declarator.getBegin().map(p -> p.line).orElse(0);
+                    result.addDiagnostic(new ParseDiagnostic(
+                            ParseDiagnostic.Severity.ERROR,
+                            "Cannot resolve type: " + declarator.getType() + " — " + e.getMessage(),
+                            line,
+                            declarator.toString()));
+                    continue;
+                }
             }
 
             VariableReference varRef = handleExpression(varName, initializer, declaredType);
+            if (varRef != null) {
+                varRef = coerceIncompatibleAliasDeclaration(varName, initializer, declaredType, varRef);
+            }
             if (varRef != null) {
                 GenericClass<?> genericType = null;
                 if (declaredType instanceof java.lang.reflect.ParameterizedType) {
@@ -230,6 +273,47 @@ public class StatementParser {
                 scope.register(varName, varRef, genericType);
             }
         }
+    }
+
+    /**
+     * When an LLM declaration aliases an already-defined variable with an incompatible declared type
+     * (eg, {@code Integer x = __arg;} where {@code __arg} was parsed as {@code Object}),
+     * synthesize a typed cast assignment so generated code remains compilable.
+     */
+    private VariableReference coerceIncompatibleAliasDeclaration(String varName,
+                                                                 Expression initializer,
+                                                                 Type declaredType,
+                                                                 VariableReference resolvedRef) {
+        if (!(initializer instanceof NameExpr) || declaredType == null || resolvedRef == null) {
+            return resolvedRef;
+        }
+        Class<?> formal = getRawClass(declaredType);
+        Class<?> actual = resolvedRef.getVariableClass();
+        if (formal == null || actual == null || isAssignableFrom(formal, actual)) {
+            return resolvedRef;
+        }
+
+        String rhsName = ((NameExpr) initializer).getNameAsString();
+        String lhsType = getFallbackTypeName(declaredType);
+        String castType = formal.isPrimitive()
+                ? getFallbackTypeName(box(formal) != null ? box(formal) : formal)
+                : lhsType;
+        String castExpr = "(" + castType + ") " + rhsName;
+        String code = lhsType + " " + varName + " = " + castExpr + ";";
+
+        if (!markParsedFromLlm) {
+            addError(initializer, "Incompatible declaration alias: cannot assign " + actual.getTypeName()
+                    + " to " + formal.getTypeName());
+            return null;
+        }
+
+        addWarning(initializer, "Inserted typed cast to preserve compilability for incompatible alias declaration: "
+                + code);
+        return testCase.addStatement(createUninterpretedStatement(
+                declaredType,
+                code,
+                varName,
+                initializer));
     }
 
     // ========================================================================
@@ -693,17 +777,17 @@ public class StatementParser {
 
         // Constructor: new Type(args)
         if (expr instanceof ObjectCreationExpr) {
-            return handleObjectCreation((ObjectCreationExpr) expr, declaredType);
+            return handleObjectCreation((ObjectCreationExpr) expr, declaredType, varName);
         }
 
         // Method call: obj.method(args) or Class.staticMethod(args)
         if (expr instanceof MethodCallExpr) {
-            return handleMethodCall((MethodCallExpr) expr, declaredType);
+            return handleMethodCall((MethodCallExpr) expr, declaredType, varName);
         }
 
         // Field access: obj.field or Class.FIELD
         if (expr instanceof FieldAccessExpr) {
-            return handleFieldAccess((FieldAccessExpr) expr, declaredType);
+            return handleFieldAccess((FieldAccessExpr) expr, declaredType, varName);
         }
 
         // Class literal: Foo.class
@@ -738,13 +822,23 @@ public class StatementParser {
             if (ref != null) {
                 return ref;
             }
-            // Check if it's a class name — fall through to unsupported if not
+            // Not in scope. Emit a clear diagnostic whether or not the token happens
+            // to also be a class name — a bare class reference is not a valid
+            // value-producing expression and previously silently fell through to
+            // the generic "unsupported expression" branch below.
+            boolean isClassName;
             try {
                 typeResolver.resolveClass(name);
+                isClassName = true;
             } catch (ClassNotFoundException e) {
-                addError(expr, "Unresolved variable: " + name);
-                return null;
+                isClassName = false;
             }
+            String msg = isClassName
+                    ? "Bare class name used as value expression: " + name
+                            + " (did you mean " + name + ".class?)"
+                    : "Unresolved variable: " + name;
+            addError(expr, msg);
+            return null;
         }
 
         // Unary expression: -5, +3, !flag
@@ -800,7 +894,14 @@ public class StatementParser {
     private VariableReference handleDoubleLiteral(DoubleLiteralExpr expr, Type declaredType) {
         double value = expr.asDouble();
         seedConstantPool(value);
-        if (declaredType == float.class || declaredType == Float.class) {
+        // JavaParser uses DoubleLiteralExpr for both double and float literals.
+        // Keep explicit float suffixes (e.g. "1.0f") as float even when the
+        // surrounding declared type is still unknown (Object.class).
+        String token = expr.getValue();
+        boolean hasFloatSuffix = token != null
+                && !token.isEmpty()
+                && (token.endsWith("f") || token.endsWith("F"));
+        if (declaredType == float.class || declaredType == Float.class || hasFloatSuffix) {
             FloatPrimitiveStatement stmt = new FloatPrimitiveStatement(testCase, (float) value);
             return testCase.addStatement(stmt);
         }
@@ -883,9 +984,8 @@ public class StatementParser {
         // When the declared type is Object (i.e., unknown — no type hint from
         // a resolved parameter), use Void.class as the null sentinel so that
         // isAssignableFrom matches any reference type during constructor/method
-        // resolution.  The NullStatement will be re-typed once the target
-        // method/constructor is resolved and arguments are re-resolved with
-        // proper parameter types.
+        // resolution.  retypeNullArguments() fixes these up to the actual
+        // parameter type once the target method/constructor is resolved.
         Type nullType = (rawClass == Object.class) ? Void.class : declaredType;
         NullStatement stmt = new NullStatement(testCase, nullType);
         return testCase.addStatement(stmt);
@@ -895,40 +995,69 @@ public class StatementParser {
     // Constructor: new Type(args)
     // ========================================================================
 
-    private VariableReference handleObjectCreation(ObjectCreationExpr expr, Type declaredType) {
+    private VariableReference handleObjectCreation(ObjectCreationExpr expr, Type declaredType, String targetVarName) {
+        Class<?> rawClass = null;
         try {
             // Resolve the class being constructed
-            String typeName = expr.getType().getNameAsString();
-            Class<?> rawClass = typeResolver.resolveClass(typeName);
+            // Keep package qualifiers but strip generic arguments (e.g., new java.io.File(...),
+            // new ArrayList<>() -> "ArrayList").
+            String typeName = expr.getType().getNameWithScope();
+            rawClass = resolveClassWithLlmMockFallback(typeName);
 
             // Pre-resolve arguments without type hints to find the constructor
             List<VariableReference> argRefs = resolveArguments(expr.getArguments(), null, null);
 
             // Find matching constructor
             Class<?>[] argTypes = getArgTypes(argRefs);
-            Constructor<?> constructor = resolveConstructor(rawClass, argTypes);
+            Constructor<?> constructor;
+            Class<?> constructorTargetClass = chooseOverrideMockConstructorTarget(rawClass);
+            try {
+                constructor = resolveConstructor(constructorTargetClass, argTypes);
+            } catch (NoSuchMethodException e) {
+                if (constructorTargetClass != rawClass) {
+                    try {
+                        constructor = resolveConstructor(rawClass, argTypes);
+                    } catch (NoSuchMethodException originalCtorError) {
+                        return failOrFallback(expr, declaredType, rawClass,
+                                "No matching constructor: " + originalCtorError.getMessage());
+                    }
+                } else {
+                    return failOrFallback(expr, declaredType, rawClass,
+                            "No matching constructor: " + e.getMessage());
+                }
+            }
 
             if (!isAccessibleMember(constructor)) {
-                addError(expr, rawClass.getSimpleName() + " constructor has private access");
-                return null;
+                return failOrTypedFallback(expr, declaredType, rawClass, targetVarName,
+                        rawClass.getSimpleName() + " constructor has private access");
             }
+
+            // Re-type Void-typed null arguments now that we know the parameter types
+            retypeNullArguments(argRefs, constructor.getParameterTypes(), constructor.isVarArgs());
 
             // Validate argument types against constructor parameter types
             String mismatch = validateArgumentTypes(argRefs, constructor.getParameterTypes(),
-                    constructor.getGenericParameterTypes(), expr);
+                    constructor.getGenericParameterTypes(), expr, constructor.isVarArgs());
             if (mismatch != null) {
-                addError(expr, mismatch);
-                return null;
+                return failOrFallback(expr, declaredType, rawClass,
+                        "Constructor argument mismatch: " + mismatch);
             }
+            argRefs = normalizeVarArgsArguments(argRefs, constructor.getParameterTypes(), constructor.isVarArgs());
 
             // Handle diamond type inference
             Type constructedType;
-            if (expr.getType().getTypeArguments().isPresent()
-                    && expr.getType().getTypeArguments().get().isEmpty()) {
-                // Diamond: new HashMap<>() — infer from LHS
-                constructedType = typeResolver.inferDiamondType(rawClass, declaredType);
+            if (constructor.getDeclaringClass() != rawClass) {
+                // Constructor was rewritten to a compatible OverrideMock subclass.
+                // Keep the mock type in the model so generated code dispatches mocked behavior.
+                constructedType = constructor.getDeclaringClass();
             } else {
-                constructedType = typeResolver.resolveType(expr.getType());
+                if (expr.getType().getTypeArguments().isPresent()
+                        && expr.getType().getTypeArguments().get().isEmpty()) {
+                    // Diamond: new HashMap<>() — infer from LHS
+                    constructedType = typeResolver.inferDiamondType(rawClass, declaredType);
+                } else {
+                    constructedType = typeResolver.resolveType(expr.getType());
+                }
             }
 
             GenericClass<?> ownerClass = GenericClassFactory.get(constructedType);
@@ -939,20 +1068,99 @@ public class StatementParser {
             return testCase.addStatement(stmt);
 
         } catch (Exception e) {
-            addError(expr, "Failed to parse constructor: " + e.getMessage());
+            return failOrFallback(expr, declaredType, rawClass,
+                    "Failed to parse constructor: " + e.getMessage());
+        }
+    }
+
+    /**
+     * In LLM best-effort parsing, prefer a drop-in OverrideMock constructor target
+     * when available and assignable to the declared raw class.
+     */
+    private Class<?> chooseOverrideMockConstructorTarget(Class<?> rawClass) {
+        if (!markParsedFromLlm || rawClass == null) {
+            return rawClass;
+        }
+        String canonicalName = rawClass.getCanonicalName();
+        if (canonicalName == null || canonicalName.isEmpty()) {
+            return rawClass;
+        }
+        Class<?> mockClass;
+        try {
+            mockClass = MockList.getMockClass(canonicalName);
+        } catch (Throwable ignored) {
+            return rawClass;
+        }
+        if (mockClass == null) {
+            return rawClass;
+        }
+        if (!OverrideMock.class.isAssignableFrom(mockClass)) {
+            return rawClass;
+        }
+        if (!rawClass.isAssignableFrom(mockClass)) {
+            return rawClass;
+        }
+        return mockClass;
+    }
+
+    private Class<?> resolveClassWithLlmMockFallback(String typeName) throws ClassNotFoundException {
+        try {
+            return typeResolver.resolveClass(typeName);
+        } catch (ClassNotFoundException e) {
+            if (!markParsedFromLlm) {
+                throw e;
+            }
+            String democked = demockTypeTokens(typeName);
+            if (!democked.equals(typeName)) {
+                return typeResolver.resolveClass(democked);
+            }
+            throw e;
+        }
+    }
+
+    private Type tryResolveDemockedDeclaredType(com.github.javaparser.ast.type.Type originalType) {
+        try {
+            String typeText = originalType.toString();
+            String democked = demockTypeTokens(typeText);
+            if (democked.equals(typeText)) {
+                return null;
+            }
+            // Use a local JavaParser so we don't touch StaticJavaParser's shared config.
+            com.github.javaparser.ParseResult<com.github.javaparser.ast.type.Type> parsed =
+                    new com.github.javaparser.JavaParser().parseType(democked);
+            com.github.javaparser.ast.type.Type demockedType = parsed.getResult().orElse(null);
+            if (demockedType == null) {
+                return null;
+            }
+            return typeResolver.resolveType(demockedType);
+        } catch (Exception ignored) {
             return null;
         }
+    }
+
+    private static String demockTypeTokens(String typeText) {
+        Matcher matcher = MOCK_TYPE_TOKEN.matcher(typeText);
+        if (!matcher.find()) {
+            return typeText;
+        }
+        StringBuffer out = new StringBuffer(typeText.length());
+        do {
+            matcher.appendReplacement(out, matcher.group(1));
+        } while (matcher.find());
+        matcher.appendTail(out);
+        return out.toString();
     }
 
     // ========================================================================
     // Method call: obj.method(args) or Class.staticMethod(args)
     // ========================================================================
 
-    private VariableReference handleMethodCall(MethodCallExpr expr, Type declaredType) {
+    private VariableReference handleMethodCall(MethodCallExpr expr, Type declaredType, String targetVarName) {
         try {
             String methodName = expr.getNameAsString();
             VariableReference callee = null;
             Class<?> targetClass;
+            boolean staticCall = false;
 
             if (expr.getScope().isPresent()) {
                 Expression scopeExpr = expr.getScope().get();
@@ -963,20 +1171,46 @@ public class StatementParser {
                     targetClass = getRawClass(callee.getType());
                 } else {
                     // Static method: Class.method(args) — scopeExpr is a class name
+                    staticCall = true;
                     targetClass = resolveClassFromExpression(scopeExpr);
                     if (targetClass == null) {
-                        addError(expr, "Cannot resolve method scope: " + scopeExpr);
-                        return null;
+                        return failOrFallback(expr, declaredType, null,
+                                "Cannot resolve method scope: " + scopeExpr);
                     }
                 }
             } else {
                 // Unscoped method call — could be static import
                 String staticClass = typeResolver.resolveStaticImportClass(methodName);
                 if (staticClass != null) {
+                    staticCall = true;
                     targetClass = typeResolver.resolveClass(staticClass);
                 } else {
-                    addError(expr, "Cannot resolve unscoped method call: " + methodName);
-                    return null;
+                    if (markParsedFromLlm) {
+                        MethodDeclaration inlineHelper = inlineHelperMethods.get(
+                                inlineHelperKey(methodName, expr.getArguments().size()));
+                        if (inlineHelper != null) {
+                            Expression inlinedReturn = instantiateInlineHelperReturn(inlineHelper, expr.getArguments());
+                            if (inlinedReturn != null) {
+                                Type helperType = (declaredType == null) ? Object.class : declaredType;
+                                return handleExpression("__inlinedHelper" + syntheticVarCounter++,
+                                        inlinedReturn, helperType);
+                            }
+                        }
+                    }
+                    return failOrFallback(expr, declaredType, null,
+                            "Cannot resolve unscoped method call: " + methodName);
+                }
+            }
+
+            if (staticCall) {
+                if (!hasMethodNamed(targetClass, methodName, true)) {
+                    return failOrTypedFallback(expr, declaredType, null, targetVarName,
+                            "No static method named " + methodName + " in " + targetClass.getSimpleName());
+                }
+            } else {
+                if (!hasMethodNamed(targetClass, methodName, false)) {
+                    return failOrTypedFallback(expr, declaredType, null, targetVarName,
+                            "No method named " + methodName + " in " + targetClass.getSimpleName());
                 }
             }
 
@@ -985,21 +1219,32 @@ public class StatementParser {
 
             // Find matching method
             Class<?>[] argTypes = getArgTypes(argRefs);
-            Method method = resolveMethod(targetClass, methodName, argTypes);
+            Method method;
+            try {
+                method = resolveMethod(targetClass, methodName, argTypes);
+            } catch (NoSuchMethodException e) {
+                return failOrTypedFallback(expr, declaredType,
+                        inferFallbackMethodReturnType(targetClass, methodName, declaredType),
+                        targetVarName,
+                        "No matching method: " + e.getMessage());
+            }
 
             if (!isAccessibleMember(method)) {
-                addError(expr, method.getName() + "() has private access in "
-                        + targetClass.getSimpleName());
-                return null;
+                return failOrTypedFallback(expr, declaredType, method.getGenericReturnType(), targetVarName,
+                        method.getName() + "() has private access in " + targetClass.getSimpleName());
             }
+
+            // Re-type Void-typed null arguments now that we know the parameter types
+            retypeNullArguments(argRefs, method.getParameterTypes(), method.isVarArgs());
 
             // Validate argument types against method parameter types (generics + casts)
             String mismatch = validateArgumentTypes(argRefs, method.getParameterTypes(),
-                    method.getGenericParameterTypes(), expr);
+                    method.getGenericParameterTypes(), expr, method.isVarArgs());
             if (mismatch != null) {
-                addError(expr, mismatch);
-                return null;
+                return failOrFallback(expr, declaredType, method.getGenericReturnType(),
+                        "Method argument mismatch: " + mismatch);
             }
+            argRefs = normalizeVarArgsArguments(argRefs, method.getParameterTypes(), method.isVarArgs());
 
             GenericClass<?> ownerClass = GenericClassFactory.get(targetClass);
             TestClusterUtils.makeAccessible(method);
@@ -1009,9 +1254,48 @@ public class StatementParser {
             return testCase.addStatement(stmt);
 
         } catch (Exception e) {
-            addError(expr, "Failed to parse method call: " + e.getMessage());
+            return failOrFallback(expr, declaredType, null,
+                    "Failed to parse method call: " + e.getMessage());
+        }
+    }
+
+    private static String inlineHelperKey(String methodName, int arity) {
+        return methodName + "#" + arity;
+    }
+
+    private Expression instantiateInlineHelperReturn(MethodDeclaration helper,
+                                                     List<Expression> callArgs) {
+        if (!helper.getBody().isPresent()) {
             return null;
         }
+        List<com.github.javaparser.ast.stmt.Statement> statements = helper.getBody().get().getStatements();
+        if (statements.size() != 1 || !(statements.get(0) instanceof ReturnStmt)) {
+            return null;
+        }
+        ReturnStmt returnStmt = (ReturnStmt) statements.get(0);
+        if (!returnStmt.getExpression().isPresent()) {
+            return null;
+        }
+        Expression returnExpr = returnStmt.getExpression().get().clone();
+        if (helper.getParameters().isEmpty()) {
+            return returnExpr;
+        }
+        if (helper.getParameters().size() != 1 || callArgs.size() != 1) {
+            return null;
+        }
+        Parameter param = helper.getParameter(0);
+        final String paramName = param.getNameAsString();
+        final Expression actualArg = callArgs.get(0);
+        ModifierVisitor<Void> substituter = new ModifierVisitor<Void>() {
+            @Override
+            public Visitable visit(NameExpr n, Void arg) {
+                if (n.getNameAsString().equals(paramName)) {
+                    return actualArg.clone();
+                }
+                return super.visit(n, arg);
+            }
+        };
+        return (Expression) returnExpr.accept(substituter, null);
     }
 
     private void handleAssertStatement(AssertStmt assertStmt) {
@@ -1042,7 +1326,7 @@ public class StatementParser {
         } else if (tryHandleStandaloneStubbingCall(methodCall)) {
             // Handled as standalone Mockito stubbing (when/thenReturn or doReturn/when)
         } else {
-            handleMethodCall(methodCall, void.class);
+            handleMethodCall(methodCall, void.class, null);
         }
     }
 
@@ -1316,6 +1600,16 @@ public class StatementParser {
 
         Object expectedValue = extractLiteralValue(expectedExpr);
         if (expectedValue != null) {
+            Class<?> sourceClass = sourceRef.getVariableClass();
+            if (sourceClass == boolean.class || sourceClass == Boolean.class) {
+                Object coerced = coerceBooleanExpectedValue(expectedValue);
+                if (coerced == null) {
+                    // Unsupported literal for boolean expected/actual pair.
+                    // Keep robust fallback path instead of creating an invalid PrimitiveAssertion.
+                    return;
+                }
+                expectedValue = coerced;
+            }
             PrimitiveAssertion assertion = new PrimitiveAssertion();
             assertion.setSource(sourceRef);
             assertion.setValue(expectedValue);
@@ -1427,7 +1721,7 @@ public class StatementParser {
         // Materialize any inline method call arguments so they become real statements
         for (Expression arg : args) {
             if (arg instanceof MethodCallExpr) {
-                handleMethodCall((MethodCallExpr) arg, null);
+                handleMethodCall((MethodCallExpr) arg, null, null);
             }
         }
         testCase.addStatement(createUninterpretedStatement(assertCall, assertCall.toString() + ";"));
@@ -1435,13 +1729,27 @@ public class StatementParser {
 
     /**
      * assertThrows(ExceptionClass.class, () -> { ... }) — extract the lambda body
-     * as regular statements. The exception class is noted but not modeled as an
-     * assertion since EvoSuite doesn't have a direct exception-assertion type.
+     * as regular statements. The exception class is recorded on the
+     * {@link ParseResult} (mirroring JUnit 4 {@code @Test(expected=...)}) so
+     * downstream code can treat the test as exception-expected.
      * Handles both block lambdas and expression lambdas.
      */
     private void handleAssertThrows(List<Expression> args) {
         if (args.size() < 2) {
             return;
+        }
+
+        // Record the expected exception class if we can find one. First argument
+        // is conventionally the ExceptionClass.class literal; scan all args to be
+        // robust to message-first/message-last variants. Only the first
+        // assertThrows in a test wins (matches the single-slot ParseResult API).
+        if (result.getExpectedExceptionClass() == null) {
+            for (Expression arg : args) {
+                if (arg instanceof ClassExpr) {
+                    result.setExpectedExceptionClass(((ClassExpr) arg).getTypeAsString());
+                    break;
+                }
+            }
         }
 
         // Find the lambda argument (could be arg 1 in 2-arg form, or arg 2 in 3-arg with message)
@@ -1533,7 +1841,7 @@ public class StatementParser {
             return scope.resolve(((NameExpr) expr).getNameAsString());
         }
         if (expr instanceof MethodCallExpr) {
-            return handleMethodCall((MethodCallExpr) expr, null);
+            return handleMethodCall((MethodCallExpr) expr, null, null);
         }
         return null;
     }
@@ -1586,6 +1894,22 @@ public class StatementParser {
         return null;
     }
 
+    private Object coerceBooleanExpectedValue(Object expectedValue) {
+        if (expectedValue instanceof Boolean) {
+            return expectedValue;
+        }
+        if (expectedValue instanceof Number) {
+            int v = ((Number) expectedValue).intValue();
+            if (v == 0) {
+                return Boolean.FALSE;
+            }
+            if (v == 1) {
+                return Boolean.TRUE;
+            }
+        }
+        return null;
+    }
+
     /**
      * Attach an assertion to the statement that defined the source variable.
      */
@@ -1600,7 +1924,7 @@ public class StatementParser {
     // Field access: obj.field or Class.FIELD
     // ========================================================================
 
-    private VariableReference handleFieldAccess(FieldAccessExpr expr, Type declaredType) {
+    private VariableReference handleFieldAccess(FieldAccessExpr expr, Type declaredType, String targetVarName) {
         try {
             String fieldName = expr.getNameAsString();
             Expression scopeExpr = expr.getScope();
@@ -1615,8 +1939,8 @@ public class StatementParser {
                 // Static field: Class.FIELD
                 targetClass = resolveClassFromExpression(scopeExpr);
                 if (targetClass == null) {
-                    addError(expr, "Cannot resolve field scope: " + scopeExpr);
-                    return null;
+                    return failOrTypedFallback(expr, declaredType, null, targetVarName,
+                            "Cannot resolve field scope: " + scopeExpr);
                 }
             }
 
@@ -1629,12 +1953,16 @@ public class StatementParser {
             try {
                 field = targetClass.getField(fieldName);
             } catch (NoSuchFieldException nsfe) {
-                field = targetClass.getDeclaredField(fieldName);
+                try {
+                    field = targetClass.getDeclaredField(fieldName);
+                } catch (NoSuchFieldException missingField) {
+                    return failOrTypedFallback(expr, declaredType, null, targetVarName,
+                            "Unknown field " + fieldName + " in " + targetClass.getSimpleName());
+                }
             }
             if (!isAccessibleMember(field)) {
-                addError(expr, field.getName() + " has private access in "
-                        + targetClass.getSimpleName());
-                return null;
+                return failOrTypedFallback(expr, declaredType, field.getGenericType(), targetVarName,
+                        field.getName() + " has private access in " + targetClass.getSimpleName());
             }
             TestClusterUtils.makeAccessible(field);
             GenericClass<?> ownerClass = GenericClassFactory.get(targetClass);
@@ -1666,13 +1994,31 @@ public class StatementParser {
     // ========================================================================
 
     /**
+     * Thrown by {@link #resolveArguments} when at least one argument cannot be
+     * resolved. Callers catch this (via their generic {@code catch (Exception)})
+     * and fall back to an uninterpreted statement or an ERROR diagnostic,
+     * rather than silently continuing with dummy null arguments that would
+     * cascade into misleading "no matching method" errors downstream.
+     */
+    private static final class UnresolvedArgumentException extends RuntimeException {
+        UnresolvedArgumentException(String message) {
+            super(message);
+        }
+    }
+
+    /**
      * Resolve a list of argument expressions into VariableReferences.
      * Inline literals and null are materialized as auto-created statements.
+     *
+     * <p>If any argument cannot be resolved, an ERROR diagnostic has already been
+     * recorded by {@link #resolveArgument} and this method throws
+     * {@link UnresolvedArgumentException} so the calling handler aborts the
+     * enclosing call instead of papering over the failure with a dummy null.
      *
      * @param args         the argument expression list
      * @param paramTypes   parameter types from the resolved method/constructor (for null typing), or null
      * @param resolvedExec the resolved method/constructor (for parameter types), or null
-     * @return list of VariableReferences
+     * @return list of VariableReferences (same size as {@code args})
      */
     List<VariableReference> resolveArguments(List<Expression> args,
                                              Class<?>[] paramTypes,
@@ -1684,19 +2030,19 @@ public class StatementParser {
                     ? paramTypes[i] : Object.class;
 
             VariableReference ref = resolveArgument(arg, paramType);
-            if (ref != null) {
-                refs.add(ref);
-            } else {
-                // Create a dummy NullStatement to keep argument count consistent
-                NullStatement nullStmt = new NullStatement(testCase, paramType);
-                refs.add(testCase.addStatement(nullStmt));
+            if (ref == null) {
+                throw new UnresolvedArgumentException(
+                        "Unresolved argument " + i + ": " + arg);
             }
+            refs.add(ref);
         }
         return refs;
     }
 
     /**
      * Resolve a single argument expression to a VariableReference.
+     * Returns {@code null} if the expression could not be resolved; in that case
+     * an ERROR diagnostic has already been added.
      */
     private VariableReference resolveArgument(Expression arg, Type paramType) {
         // Direct variable reference
@@ -1706,18 +2052,139 @@ public class StatementParser {
             if (ref != null) {
                 return ref;
             }
-            // NameExpr that is not in scope and not a class name → unresolved variable
+            // Not in scope. Emit a clear diagnostic whether or not the token happens
+            // to also be a class name — a bare class reference is not a valid
+            // argument expression.
+            boolean isClassName;
             try {
                 typeResolver.resolveClass(name);
+                isClassName = true;
             } catch (ClassNotFoundException e) {
-                addError(arg, "Unresolved variable: " + name);
-                return null;
+                isClassName = false;
             }
+            String msg = isClassName
+                    ? "Bare class name used as argument: " + name
+                            + " (did you mean " + name + ".class?)"
+                    : "Unresolved variable: " + name;
+            addError(arg, msg);
+            return null;
         }
 
         // Inline literal or complex expression — create a synthetic statement
         String syntheticName = "__arg" + syntheticVarCounter++;
-        return handleExpression(syntheticName, arg, paramType);
+        Type effectiveType = paramType;
+        if (paramType == null || paramType == Object.class) {
+            effectiveType = inferTypeForUntypedArgument(arg);
+        }
+        return handleExpression(syntheticName, arg, effectiveType);
+    }
+
+    /**
+     * Best-effort type inference for arguments resolved before method/constructor signature
+     * resolution. This avoids degrading common numeric expressions (e.g. {@code 48 + 1})
+     * to {@code Object}, which later causes avoidable signature mismatches and uncompilable
+     * synthetic assignments.
+     */
+    private Type inferTypeForUntypedArgument(Expression arg) {
+        if (arg instanceof EnclosedExpr) {
+            return inferTypeForUntypedArgument(((EnclosedExpr) arg).getInner());
+        }
+        if (arg instanceof CastExpr) {
+            try {
+                return typeResolver.resolveType(((CastExpr) arg).getType());
+            } catch (Exception ignored) {
+                return Object.class;
+            }
+        }
+        if (arg instanceof NameExpr) {
+            VariableReference ref = scope.resolve(((NameExpr) arg).getNameAsString());
+            return ref != null ? ref.getType() : Object.class;
+        }
+        if (arg instanceof NullLiteralExpr) {
+            return Void.class;
+        }
+        if (arg instanceof BooleanLiteralExpr) {
+            return boolean.class;
+        }
+        if (arg instanceof CharLiteralExpr) {
+            return char.class;
+        }
+        if (arg instanceof StringLiteralExpr || arg instanceof TextBlockLiteralExpr) {
+            return String.class;
+        }
+        if (arg instanceof IntegerLiteralExpr) {
+            String lit = ((IntegerLiteralExpr) arg).getValue();
+            String normalized = lit == null ? "" : lit.replace("_", "");
+            if (normalized.endsWith("L") || normalized.endsWith("l")) {
+                return long.class;
+            }
+            return int.class;
+        }
+        if (arg instanceof DoubleLiteralExpr) {
+            String lit = ((DoubleLiteralExpr) arg).getValue();
+            String normalized = lit == null ? "" : lit.replace("_", "");
+            if (normalized.endsWith("F") || normalized.endsWith("f")) {
+                return float.class;
+            }
+            return double.class;
+        }
+        if (arg instanceof UnaryExpr) {
+            return inferTypeForUntypedArgument(((UnaryExpr) arg).getExpression());
+        }
+        if (arg instanceof BinaryExpr) {
+            BinaryExpr bin = (BinaryExpr) arg;
+            BinaryExpr.Operator op = bin.getOperator();
+            if (isStringConcat(bin, Object.class)) {
+                return String.class;
+            }
+            switch (op) {
+                case OR:
+                case AND:
+                case EQUALS:
+                case NOT_EQUALS:
+                case LESS:
+                case GREATER:
+                case LESS_EQUALS:
+                case GREATER_EQUALS:
+                    return boolean.class;
+                case BINARY_AND:
+                case BINARY_OR:
+                case XOR: {
+                    Type left = inferTypeForUntypedArgument(bin.getLeft());
+                    Type right = inferTypeForUntypedArgument(bin.getRight());
+                    Class<?> leftRaw = getRawClass(left);
+                    Class<?> rightRaw = getRawClass(right);
+                    if ((leftRaw == boolean.class || leftRaw == Boolean.class)
+                            && (rightRaw == boolean.class || rightRaw == Boolean.class)) {
+                        return boolean.class;
+                    }
+                    if (leftRaw == long.class || leftRaw == Long.class
+                            || rightRaw == long.class || rightRaw == Long.class) {
+                        return long.class;
+                    }
+                    return int.class;
+                }
+                default:
+                    Type left = inferTypeForUntypedArgument(bin.getLeft());
+                    Type right = inferTypeForUntypedArgument(bin.getRight());
+                    Class<?> leftRaw = getRawClass(left);
+                    Class<?> rightRaw = getRawClass(right);
+                    if (leftRaw == double.class || leftRaw == Double.class
+                            || rightRaw == double.class || rightRaw == Double.class) {
+                        return double.class;
+                    }
+                    if (leftRaw == float.class || leftRaw == Float.class
+                            || rightRaw == float.class || rightRaw == Float.class) {
+                        return float.class;
+                    }
+                    if (leftRaw == long.class || leftRaw == Long.class
+                            || rightRaw == long.class || rightRaw == Long.class) {
+                        return long.class;
+                    }
+                    return int.class;
+            }
+        }
+        return Object.class;
     }
 
     /**
@@ -1730,22 +2197,54 @@ public class StatementParser {
      *
      * @return an error message if a mismatch is found, or null if all arguments are compatible
      */
+    /**
+     * Re-type any Void-typed NullStatement arguments to match the actual parameter types
+     * of the resolved method or constructor.  During initial argument resolution the
+     * parameter types are unknown, so null literals are given the sentinel type Void.
+     * Once the executable is resolved we can fix them up to avoid generating
+     * uncompilable casts like {@code (String) void0}.
+     */
+    private void retypeNullArguments(List<VariableReference> argRefs, Class<?>[] paramTypes, boolean isVarArgs) {
+        Class<?>[] argTypes = getArgTypes(argRefs);
+        boolean explicitVarArgArray = usesExplicitVarArgsArray(paramTypes, isVarArgs, argTypes);
+        for (int i = 0; i < argRefs.size(); i++) {
+            VariableReference ref = argRefs.get(i);
+            if (ref.getVariableClass() != Void.class) {
+                continue;
+            }
+            Class<?> formalType = getFormalTypeForArgument(paramTypes, isVarArgs, i, argRefs.size(), explicitVarArgArray);
+            if (formalType != null && !formalType.isPrimitive()) {
+                ref.setType(formalType);
+            }
+        }
+    }
+
     private String validateArgumentTypes(List<VariableReference> argRefs,
                                          Class<?>[] paramTypes,
                                          Type[] genericParamTypes,
-                                         Expression expr) {
-        for (int i = 0; i < argRefs.size() && i < paramTypes.length; i++) {
+                                         Expression expr,
+                                         boolean isVarArgs) {
+        Class<?>[] argTypes = getArgTypes(argRefs);
+        boolean explicitVarArgArray = usesExplicitVarArgsArray(paramTypes, isVarArgs, argTypes);
+        for (int i = 0; i < argRefs.size(); i++) {
             VariableReference argRef = argRefs.get(i);
             Class<?> argClass = argRef.getVariableClass();
-            Class<?> paramClass = paramTypes[i];
+            Class<?> paramClass = getFormalTypeForArgument(paramTypes, isVarArgs, i, argRefs.size(), explicitVarArgArray);
+            if (paramClass == null) {
+                continue;
+            }
 
             // Skip if directly assignable (including primitives, autoboxing handled elsewhere)
             if (isAssignableFrom(paramClass, argClass)) {
                 // Check generic type arguments for collection types
-                if (genericParamTypes != null && i < genericParamTypes.length
-                        && genericParamTypes[i] instanceof java.lang.reflect.ParameterizedType) {
+                int genericParamIndex = i;
+                if (isVarArgs && !explicitVarArgArray && i >= paramTypes.length - 1) {
+                    genericParamIndex = paramTypes.length - 1;
+                }
+                if (genericParamTypes != null && genericParamIndex < genericParamTypes.length
+                        && genericParamTypes[genericParamIndex] instanceof java.lang.reflect.ParameterizedType) {
                     String genericError = checkGenericCompatibility(
-                            argRef, (java.lang.reflect.ParameterizedType) genericParamTypes[i], i);
+                            argRef, (java.lang.reflect.ParameterizedType) genericParamTypes[genericParamIndex], i);
                     if (genericError != null) {
                         return genericError;
                     }
@@ -1767,6 +2266,52 @@ public class StatementParser {
             }
         }
         return null;
+    }
+
+    /**
+     * For varargs calls parsed in expanded form (e.g. {@code m("a", "b")}),
+     * materialize the trailing arguments into an explicit array variable so the
+     * resulting Statement has one argument per declared parameter.
+     */
+    private List<VariableReference> normalizeVarArgsArguments(List<VariableReference> argRefs,
+                                                              Class<?>[] paramTypes,
+                                                              boolean isVarArgs) {
+        if (!isVarArgs || paramTypes.length == 0) {
+            return argRefs;
+        }
+        Class<?>[] argTypes = getArgTypes(argRefs);
+        boolean explicitVarArgArray = usesExplicitVarArgsArray(paramTypes, true, argTypes);
+        if (explicitVarArgArray) {
+            return argRefs;
+        }
+
+        int fixedCount = paramTypes.length - 1;
+        int varArgCount = argRefs.size() - fixedCount;
+        if (varArgCount < 0) {
+            return argRefs;
+        }
+
+        Class<?> varArgArrayType = paramTypes[paramTypes.length - 1];
+        ArrayStatement arrayStatement = new ArrayStatement(testCase, varArgArrayType, new int[]{varArgCount});
+        VariableReference varArgArrayRef = testCase.addStatement(arrayStatement);
+
+        if (!(varArgArrayRef instanceof ArrayReference)) {
+            return argRefs;
+        }
+
+        ArrayReference arrayReference = (ArrayReference) varArgArrayRef;
+        for (int i = 0; i < varArgCount; i++) {
+            VariableReference valueRef = argRefs.get(fixedCount + i);
+            ArrayIndex arrayIndex = new ArrayIndex(testCase, arrayReference, i);
+            testCase.addStatement(new AssignmentStatement(testCase, arrayIndex, valueRef));
+        }
+
+        List<VariableReference> normalized = new ArrayList<>(paramTypes.length);
+        for (int i = 0; i < fixedCount; i++) {
+            normalized.add(argRefs.get(i));
+        }
+        normalized.add(varArgArrayRef);
+        return normalized;
     }
 
     /**
@@ -1849,12 +2394,20 @@ public class StatementParser {
             // Resolve the component type
             Type componentType = typeResolver.resolveType(expr.getElementType());
 
-            // Check for initializer: new int[]{1, 2, 3}
+            // Check for initializer: new int[]{1, 2, 3} or new double[][]{{1.0}}
             if (expr.getInitializer().isPresent()) {
                 ArrayInitializerExpr init = expr.getInitializer().get();
-                Type arrayType = java.lang.reflect.Array.newInstance(
-                        getRawClass(componentType), 0).getClass();
-                return createArrayWithInitializer(init, arrayType, componentType);
+                // Build the full array type by wrapping for each dimension level.
+                // For "new double[][]{{1.0}}", elementType=double and levels=2,
+                // so arrayType must be double[][] (not just double[]).
+                Type arrayType = componentType;
+                for (int i = 0; i < expr.getLevels().size(); i++) {
+                    arrayType = java.lang.reflect.Array.newInstance(
+                            getRawClass(arrayType), 0).getClass();
+                }
+                // The component type of the outermost array (e.g. double[] for double[][])
+                Type outerComponentType = ((Class<?>) arrayType).getComponentType();
+                return createArrayWithInitializer(init, arrayType, outerComponentType);
             }
 
             // Get dimensions
@@ -1913,39 +2466,105 @@ public class StatementParser {
      */
     private VariableReference handleArrayAccessRead(ArrayAccessExpr expr) {
         try {
-            String arrayName = expr.getName().toString();
-            VariableReference arrayRef = scope.resolve(arrayName);
-            if (arrayRef == null) {
-                addError(expr, "Unknown array variable: " + arrayName);
-                return null;
-            }
-
-            int index = 0;
-            Expression indexExpr = expr.getIndex();
-            if (indexExpr instanceof IntegerLiteralExpr) {
-                index = ((IntegerLiteralExpr) indexExpr).asNumber().intValue();
-            } else if (indexExpr instanceof NameExpr) {
-                // Variable index — resolve its value if it's a known constant
-                VariableReference indexRef = scope.resolve(((NameExpr) indexExpr).getNameAsString());
-                if (indexRef != null) {
-                    int pos = indexRef.getStPosition();
-                    if (pos >= 0 && pos < testCase.size()) {
-                        Statement s = testCase.getStatement(pos);
-                        if (s instanceof PrimitiveStatement) {
-                            Object val = ((PrimitiveStatement<?>) s).getValue();
-                            if (val instanceof Number) {
-                                index = ((Number) val).intValue();
-                            }
-                        }
-                    }
-                }
-            }
-
-            return new ArrayIndex(testCase, (ArrayReference) arrayRef, index);
+            return resolveArrayAccess(expr, expr);
         } catch (Exception e) {
             addError(expr, "Failed to parse array access: " + e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Resolve nested array access expressions such as arr[i] and arr[i][j]
+     * to an {@link ArrayIndex} with one or more indices.
+     */
+    private ArrayIndex resolveArrayAccess(ArrayAccessExpr expr, Expression diagnosticExpr) {
+        List<Integer> indices = new ArrayList<>();
+        Expression current = expr;
+
+        while (current instanceof ArrayAccessExpr) {
+            ArrayAccessExpr level = (ArrayAccessExpr) current;
+            indices.add(0, resolveArrayIndex(level.getIndex()));
+            current = level.getName();
+        }
+
+        VariableReference arrayRef = resolveArrayRootReference(current);
+        if (arrayRef == null) {
+            String description = (current instanceof NameExpr)
+                    ? ((NameExpr) current).getNameAsString()
+                    : current.toString();
+            if (markParsedFromLlm) {
+                addWarning(diagnosticExpr, "Unknown array variable: " + description);
+            } else {
+                addError(diagnosticExpr, "Unknown array variable: " + description);
+            }
+            return null;
+        }
+        if (!(arrayRef instanceof ArrayReference)) {
+            String description = (current instanceof NameExpr)
+                    ? ((NameExpr) current).getNameAsString()
+                    : current.toString();
+            if (markParsedFromLlm) {
+                addWarning(diagnosticExpr, "Variable is not an array: " + description);
+            } else {
+                addError(diagnosticExpr, "Variable is not an array: " + description);
+            }
+            return null;
+        }
+
+        return new ArrayIndex(testCase, (ArrayReference) arrayRef, indices);
+    }
+
+    /**
+     * Resolve the root expression of an array access chain.
+     * Supports regular local names and LLM salvage for {@code this.field} access
+     * when field initializers have been lifted into method scope.
+     */
+    private VariableReference resolveArrayRootReference(Expression root) {
+        if (root instanceof NameExpr) {
+            return scope.resolve(((NameExpr) root).getNameAsString());
+        }
+        if (root instanceof FieldAccessExpr) {
+            FieldAccessExpr fieldAccess = (FieldAccessExpr) root;
+            if (fieldAccess.getScope() instanceof ThisExpr) {
+                return scope.resolve(fieldAccess.getNameAsString());
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Resolve an array index expression to an integer.
+     * Supports integer literals and variable references to numeric primitives.
+     */
+    private int resolveArrayIndex(Expression indexExpr) {
+        if (indexExpr instanceof IntegerLiteralExpr) {
+            return ((IntegerLiteralExpr) indexExpr).asNumber().intValue();
+        }
+        if (indexExpr instanceof UnaryExpr
+                && ((UnaryExpr) indexExpr).getOperator() == UnaryExpr.Operator.MINUS
+                && ((UnaryExpr) indexExpr).getExpression() instanceof IntegerLiteralExpr) {
+            return -((IntegerLiteralExpr) ((UnaryExpr) indexExpr).getExpression()).asNumber().intValue();
+        }
+        if (indexExpr instanceof NameExpr) {
+            VariableReference indexRef = scope.resolve(((NameExpr) indexExpr).getNameAsString());
+            if (indexRef != null) {
+                int pos = indexRef.getStPosition();
+                if (pos >= 0 && pos < testCase.size()) {
+                    Statement s = testCase.getStatement(pos);
+                    if (s instanceof PrimitiveStatement) {
+                        Object val = ((PrimitiveStatement<?>) s).getValue();
+                        if (val instanceof Number) {
+                            return ((Number) val).intValue();
+                        }
+                    }
+                }
+            }
+            addWarning(indexExpr, "Unresolved array index variable, defaulting to 0: " + indexExpr);
+            return 0;
+        }
+
+        addWarning(indexExpr, "Non-literal array index, defaulting to 0: " + indexExpr);
+        return 0;
     }
 
     /**
@@ -1971,7 +2590,7 @@ public class StatementParser {
     private VariableReference createArrayWithInitializer(ArrayInitializerExpr init,
                                                          Type arrayType, Type componentType) {
         List<Expression> values = init.getValues();
-        int[] lengths = new int[]{values.size()};
+        int[] lengths = inferArrayLengthsFromInitializer(init, arrayType);
         ArrayStatement arrayStmt = new ArrayStatement(testCase, arrayType, lengths);
         VariableReference arrayRef = testCase.addStatement(arrayStmt);
 
@@ -1987,6 +2606,70 @@ public class StatementParser {
             }
         }
         return arrayRef;
+    }
+
+    /**
+     * Infer array dimensions for {@code new T[][] { ... }} style initializers.
+     * This is needed so ArrayStatement allocates the correct runtime array rank.
+     */
+    private int[] inferArrayLengthsFromInitializer(ArrayInitializerExpr init, Type arrayType) {
+        Class<?> rawArray = getRawClass(arrayType);
+        int dimensions = getArrayDimensions(rawArray);
+        if (dimensions <= 1) {
+            return new int[]{init.getValues().size()};
+        }
+
+        int[] lengths = new int[dimensions];
+        lengths[0] = init.getValues().size();
+        if (!init.getValues().isEmpty()) {
+            int[] nested = inferNestedArrayLengths(init.getValues().get(0), dimensions - 1);
+            System.arraycopy(nested, 0, lengths, 1, Math.min(nested.length, dimensions - 1));
+        }
+        return lengths;
+    }
+
+    private int[] inferNestedArrayLengths(Expression expr, int remainingDimensions) {
+        int[] lengths = new int[Math.max(remainingDimensions, 0)];
+        if (remainingDimensions <= 0) {
+            return lengths;
+        }
+
+        if (expr instanceof ArrayInitializerExpr) {
+            ArrayInitializerExpr nestedInit = (ArrayInitializerExpr) expr;
+            lengths[0] = nestedInit.getValues().size();
+            if (remainingDimensions > 1 && !nestedInit.getValues().isEmpty()) {
+                int[] deeper = inferNestedArrayLengths(nestedInit.getValues().get(0), remainingDimensions - 1);
+                System.arraycopy(deeper, 0, lengths, 1, Math.min(deeper.length, remainingDimensions - 1));
+            }
+            return lengths;
+        }
+
+        if (expr instanceof ArrayCreationExpr) {
+            ArrayCreationExpr creationExpr = (ArrayCreationExpr) expr;
+            if (creationExpr.getInitializer().isPresent()) {
+                return inferNestedArrayLengths(creationExpr.getInitializer().get(), remainingDimensions);
+            }
+            List<ArrayCreationLevel> levels = creationExpr.getLevels();
+            for (int i = 0; i < remainingDimensions && i < levels.size(); i++) {
+                if (levels.get(i).getDimension().isPresent()
+                        && levels.get(i).getDimension().get() instanceof IntegerLiteralExpr) {
+                    lengths[i] = ((IntegerLiteralExpr) levels.get(i).getDimension().get()).asNumber().intValue();
+                }
+            }
+            return lengths;
+        }
+
+        return lengths;
+    }
+
+    private int getArrayDimensions(Class<?> rawClass) {
+        int dimensions = 0;
+        Class<?> cursor = rawClass;
+        while (cursor != null && cursor.isArray()) {
+            dimensions++;
+            cursor = cursor.getComponentType();
+        }
+        return dimensions;
     }
 
     // ========================================================================
@@ -2140,32 +2823,26 @@ public class StatementParser {
             if (target instanceof ArrayAccessExpr) {
                 // array[i] = value
                 ArrayAccessExpr arrayAccess = (ArrayAccessExpr) target;
-                String arrayName = arrayAccess.getName().toString();
-                VariableReference arrayRef = scope.resolve(arrayName);
-                if (arrayRef == null) {
-                    addError(assignExpr, "Unknown array variable: " + arrayName);
+                ArrayIndex arrayIndex = resolveArrayAccess(arrayAccess, assignExpr);
+                if (arrayIndex == null) {
+                    if (markParsedFromLlm) {
+                        addWarning(assignExpr, "Preserved unresolved array assignment as uninterpreted: "
+                                + assignExpr);
+                        testCase.addStatement(createUninterpretedStatement(assignExpr,
+                                assignExpr.toString() + ";"));
+                    }
                     return;
                 }
 
-                // Resolve the index
-                Expression indexExpr = arrayAccess.getIndex();
-                int index = 0;
-                if (indexExpr instanceof IntegerLiteralExpr) {
-                    index = ((IntegerLiteralExpr) indexExpr).asNumber().intValue();
-                }
-
                 // Resolve the value
-                Type componentType = arrayRef.getComponentType();
                 VariableReference valueRef = handleExpression(
                         "__val" + syntheticVarCounter++, value,
-                        componentType != null ? componentType : Object.class);
+                        arrayIndex.getType() != null ? arrayIndex.getType() : Object.class);
                 if (valueRef == null) {
                     return;
                 }
 
                 // Create ArrayIndex and AssignmentStatement
-                ArrayIndex arrayIndex = new ArrayIndex(testCase,
-                        (ArrayReference) arrayRef, index);
                 AssignmentStatement stmt = new AssignmentStatement(testCase, arrayIndex, valueRef);
                 testCase.addStatement(stmt);
             } else if (target instanceof FieldAccessExpr) {
@@ -2177,13 +2854,18 @@ public class StatementParser {
 
                 // Resolve the object that owns the field
                 VariableReference sourceRef = scope.resolve(scopeName);
-                if (sourceRef == null) {
-                    addError(assignExpr, "Unknown variable for field access: " + scopeName);
-                    return;
+                Class<?> ownerClass;
+                if (sourceRef != null) {
+                    ownerClass = sourceRef.getVariableClass();
+                } else {
+                    ownerClass = resolveClassFromExpression(scopeExpr);
+                    if (ownerClass == null) {
+                        addError(assignExpr, "Unknown variable for field access: " + scopeName);
+                        return;
+                    }
                 }
 
                 // Look up the field via reflection
-                Class<?> ownerClass = sourceRef.getVariableClass();
                 java.lang.reflect.Field field;
                 try {
                     field = ownerClass.getField(fieldName);
@@ -2199,6 +2881,11 @@ public class StatementParser {
                 if (!isAccessibleMember(field)) {
                     addError(assignExpr, field.getName() + " has private access in "
                             + ownerClass.getSimpleName());
+                    return;
+                }
+                if (sourceRef == null && !java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    addError(assignExpr, "Non-static field " + ownerClass.getSimpleName() + "."
+                            + field.getName() + " requires an instance");
                     return;
                 }
 
@@ -2239,10 +2926,18 @@ public class StatementParser {
         }
 
         // Try compatibility match with autoboxing/widening
+        Constructor<?> best = null;
         for (Constructor<?> c : clazz.getDeclaredConstructors()) {
-            if (isCompatible(c.getParameterTypes(), argTypes)) {
-                return c;
+            if (!isCompatible(c.getParameterTypes(), c.isVarArgs(), argTypes)) {
+                continue;
             }
+            if (best == null || isBetterExecutableMatch(c.getParameterTypes(), c.isVarArgs(),
+                    best.getParameterTypes(), best.isVarArgs(), argTypes)) {
+                best = c;
+            }
+        }
+        if (best != null) {
+            return best;
         }
 
         StringBuilder msg = new StringBuilder();
@@ -2256,6 +2951,9 @@ public class StatementParser {
                     msg.append("; ");
                 }
                 msg.append(clazz.getSimpleName()).append(formatTypes(declared[i].getParameterTypes()));
+                if (declared[i].isVarArgs()) {
+                    msg.append(" varargs");
+                }
             }
         }
         throw new NoSuchMethodException(msg.toString());
@@ -2273,38 +2971,228 @@ public class StatementParser {
             // Ignore and try compatibility match
         }
 
-        // Try compatibility match with autoboxing/widening on public methods
-        for (Method m : clazz.getMethods()) {
-            if (m.getName().equals(name) && isCompatible(m.getParameterTypes(), argTypes)) {
-                return m;
-            }
+        // Try compatibility match with autoboxing/widening on public methods.
+        // Skip bridge methods and prefer the most specific overload so that the
+        // code visitor does not emit incorrect casts (e.g. (Object) on a
+        // Comparable.compareTo bridge instead of the real compareTo(Argument)).
+        Method bestPublic = findMostSpecificMethod(clazz.getMethods(), name, argTypes);
+        if (bestPublic != null) {
+            return bestPublic;
         }
 
         // Also try declared methods (including private/protected) for the class itself
-        for (Method m : clazz.getDeclaredMethods()) {
-            if (m.getName().equals(name) && isCompatible(m.getParameterTypes(), argTypes)) {
-                return m;
-            }
+        Method bestDeclared = findMostSpecificMethod(clazz.getDeclaredMethods(), name, argTypes);
+        if (bestDeclared != null) {
+            return bestDeclared;
         }
 
         throw new NoSuchMethodException("No matching method found: " + clazz.getName()
                 + "." + name + " with args " + formatTypes(argTypes));
     }
 
+    private boolean hasMethodNamed(Class<?> clazz, String name, boolean requireStatic) {
+        for (Method method : clazz.getMethods()) {
+            if (!method.getName().equals(name)) {
+                continue;
+            }
+            if (requireStatic && !java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
+            return true;
+        }
+        for (Method method : clazz.getDeclaredMethods()) {
+            if (!method.getName().equals(name)) {
+                continue;
+            }
+            if (requireStatic && !java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
     /**
-     * Check if actual argument types are compatible with formal parameter types,
-     * considering autoboxing and widening.
+     * Among the given methods, find the most specific one matching the name and arg types.
+     * Bridge methods are skipped so that we resolve to the real typed method rather than
+     * the erased bridge (e.g. {@code compareTo(Argument)} instead of {@code compareTo(Object)}).
+     * When multiple non-bridge methods match, the one with the most specific parameter types wins.
      */
-    private boolean isCompatible(Class<?>[] formalTypes, Class<?>[] actualTypes) {
-        if (formalTypes.length != actualTypes.length) {
+    private Method findMostSpecificMethod(Method[] methods, String name, Class<?>[] argTypes) {
+        Method best = null;
+        for (Method m : methods) {
+            if (m.isBridge() || !m.getName().equals(name)
+                    || !isCompatible(m.getParameterTypes(), m.isVarArgs(), argTypes)) {
+                continue;
+            }
+            if (best == null || isBetterExecutableMatch(m.getParameterTypes(), m.isVarArgs(),
+                    best.getParameterTypes(), best.isVarArgs(), argTypes)) {
+                best = m;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Returns true if {@code a} is more specific than {@code b}, i.e. every parameter
+     * type in {@code a} is assignable to the corresponding parameter type in {@code b}.
+     */
+    private boolean isMoreSpecific(Class<?>[] a, Class<?>[] b) {
+        if (a.length != b.length) {
             return false;
         }
-        for (int i = 0; i < formalTypes.length; i++) {
-            if (!isAssignableFrom(formalTypes[i], actualTypes[i])) {
+        for (int i = 0; i < a.length; i++) {
+            if (!b[i].isAssignableFrom(a[i])) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * Check if actual argument types are compatible with formal parameter types,
+     * considering autoboxing and widening.
+     */
+    private boolean isCompatible(Class<?>[] formalTypes, boolean isVarArgs, Class<?>[] actualTypes) {
+        if (!isVarArgs) {
+            if (formalTypes.length != actualTypes.length) {
+                return false;
+            }
+            for (int i = 0; i < formalTypes.length; i++) {
+                if (!isAssignableFrom(formalTypes[i], actualTypes[i])) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (formalTypes.length == 0) {
+            return actualTypes.length == 0;
+        }
+
+        int fixedCount = formalTypes.length - 1;
+        if (actualTypes.length < fixedCount) {
+            return false;
+        }
+
+        for (int i = 0; i < fixedCount; i++) {
+            if (!isAssignableFrom(formalTypes[i], actualTypes[i])) {
+                return false;
+            }
+        }
+
+        Class<?> varArgArrayType = formalTypes[formalTypes.length - 1];
+        Class<?> componentType = varArgArrayType.getComponentType();
+        if (componentType == null) {
+            return false;
+        }
+
+        // Explicit array form: method(..., String[])
+        if (usesExplicitVarArgsArray(formalTypes, true, actualTypes)) {
+            return true;
+        }
+
+        // Expanded varargs: method(..., "a", "b")
+        for (int i = fixedCount; i < actualTypes.length; i++) {
+            if (!isAssignableFrom(componentType, actualTypes[i])) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean usesExplicitVarArgsArray(Class<?>[] formalTypes, boolean isVarArgs, Class<?>[] actualTypes) {
+        if (!isVarArgs || formalTypes.length == 0 || actualTypes.length != formalTypes.length) {
+            return false;
+        }
+        Class<?> varArgArrayType = formalTypes[formalTypes.length - 1];
+        Class<?> lastActual = actualTypes[actualTypes.length - 1];
+        return isAssignableFrom(varArgArrayType, lastActual);
+    }
+
+    private Class<?> getFormalTypeForArgument(Class<?>[] formalTypes,
+                                              boolean isVarArgs,
+                                              int argIndex,
+                                              int actualCount,
+                                              boolean explicitVarArgArray) {
+        if (formalTypes == null || formalTypes.length == 0) {
+            return null;
+        }
+        if (!isVarArgs) {
+            return argIndex < formalTypes.length ? formalTypes[argIndex] : null;
+        }
+
+        int fixedCount = formalTypes.length - 1;
+        if (argIndex < fixedCount) {
+            return formalTypes[argIndex];
+        }
+        if (argIndex >= actualCount) {
+            return null;
+        }
+        Class<?> varArgArrayType = formalTypes[formalTypes.length - 1];
+        if (explicitVarArgArray && argIndex == formalTypes.length - 1) {
+            return varArgArrayType;
+        }
+        Class<?> componentType = varArgArrayType.getComponentType();
+        return componentType != null ? componentType : varArgArrayType;
+    }
+
+    private boolean isBetterExecutableMatch(Class<?>[] candidateFormalTypes,
+                                            boolean candidateVarArgs,
+                                            Class<?>[] bestFormalTypes,
+                                            boolean bestVarArgs,
+                                            Class<?>[] actualTypes) {
+        if (candidateVarArgs != bestVarArgs) {
+            return !candidateVarArgs;
+        }
+        int candidateScore = compatibilityScore(candidateFormalTypes, candidateVarArgs, actualTypes);
+        int bestScore = compatibilityScore(bestFormalTypes, bestVarArgs, actualTypes);
+        if (candidateScore != bestScore) {
+            return candidateScore < bestScore;
+        }
+        if (candidateFormalTypes.length == bestFormalTypes.length
+                && isMoreSpecific(candidateFormalTypes, bestFormalTypes)) {
+            return true;
+        }
+        return false;
+    }
+
+    private int compatibilityScore(Class<?>[] formalTypes, boolean isVarArgs, Class<?>[] actualTypes) {
+        if (!isCompatible(formalTypes, isVarArgs, actualTypes)) {
+            return Integer.MAX_VALUE;
+        }
+
+        boolean explicitVarArgArray = usesExplicitVarArgsArray(formalTypes, isVarArgs, actualTypes);
+        int score = isVarArgs ? 10 : 0;
+        for (int i = 0; i < actualTypes.length; i++) {
+            Class<?> formal = getFormalTypeForArgument(formalTypes, isVarArgs, i, actualTypes.length, explicitVarArgArray);
+            if (formal == null) {
+                score += 100;
+                continue;
+            }
+            Class<?> actual = actualTypes[i];
+            if (formal.equals(actual)) {
+                continue;
+            }
+            if (actual == Void.class && !formal.isPrimitive()) {
+                score += 1;
+                continue;
+            }
+            if (formal.isPrimitive() && box(formal) == actual) {
+                score += 1;
+                continue;
+            }
+            if (actual.isPrimitive() && box(actual) == formal) {
+                score += 1;
+                continue;
+            }
+            if (formal.isAssignableFrom(actual)) {
+                score += 2;
+                continue;
+            }
+            score += 3;
+        }
+        return score;
     }
 
     /**
@@ -2435,6 +3323,207 @@ public class StatementParser {
     }
 
     // ========================================================================
+    // Failure handling — centralized so the five+ resolution sites stay consistent.
+    // ========================================================================
+
+    /**
+     * Pick the best available type to hang a fallback statement on:
+     * the declared (LHS) type if informative, otherwise the known type from
+     * resolution (e.g. a raw class, method return, field type), else Object.
+     */
+    private static Type chooseFallbackType(Type declaredType, Type knownType) {
+        if (declaredType != null && declaredType != Object.class) {
+            return declaredType;
+        }
+        if (knownType != null && knownType != Object.class) {
+            return knownType;
+        }
+        if (declaredType != null) {
+            return declaredType;
+        }
+        return knownType != null ? knownType : Object.class;
+    }
+
+    /**
+     * Unified "resolution failed" path for LLM-best-effort vs strict modes.
+     * In LLM mode, preserves the original source as a typed UninterpretedStatement;
+     * in strict mode records an ERROR and returns {@code null}.
+     */
+    private VariableReference failOrFallback(Expression expr,
+                                             Type declaredType,
+                                             Type knownType,
+                                             String errorMsg) {
+        if (markParsedFromLlm) {
+            return fallbackForUnresolvedExpression(expr, chooseFallbackType(declaredType, knownType), errorMsg);
+        }
+        addError(expr, errorMsg);
+        return null;
+    }
+
+    /**
+     * Unified "member-inaccessible" path: emits a typed default value in LLM mode
+     * (e.g. 0, false, null) so the enclosing expression still has a well-typed
+     * argument; in strict mode records an ERROR and returns {@code null}.
+     */
+    private VariableReference failOrTypedFallback(Expression expr,
+                                                  Type declaredType,
+                                                  Type knownType,
+                                                  String targetVarName,
+                                                  String errorMsg) {
+        if (markParsedFromLlm) {
+            if (!isSyntheticArgumentTarget(targetVarName)) {
+                addWarning(expr, errorMsg + " — unresolved declaration value skipped "
+                        + "(no synthetic null/0 fallback in LLM mode)");
+                return null;
+            }
+            return fallbackForInaccessibleMember(expr, errorMsg, chooseFallbackType(declaredType, knownType));
+        }
+        addError(expr, errorMsg);
+        return null;
+    }
+
+    private boolean isSyntheticArgumentTarget(String targetVarName) {
+        return targetVarName != null && targetVarName.startsWith("__arg");
+    }
+
+    private VariableReference fallbackForInaccessibleMember(Expression expr,
+                                                            String message,
+                                                            Type expectedType) {
+        addWarning(expr, message + " — using typed fallback value");
+        Class<?> raw = getRawClass(expectedType);
+        if (raw == void.class || raw == Void.class) {
+            return testCase.addStatement(createUninterpretedStatement(expr, ";"));
+        }
+        if (raw == boolean.class || raw == Boolean.class) {
+            return testCase.addStatement(new BooleanPrimitiveStatement(testCase, false));
+        }
+        if (raw == byte.class || raw == Byte.class) {
+            return testCase.addStatement(new BytePrimitiveStatement(testCase, (byte) 0));
+        }
+        if (raw == short.class || raw == Short.class) {
+            return testCase.addStatement(new ShortPrimitiveStatement(testCase, (short) 0));
+        }
+        if (raw == int.class || raw == Integer.class) {
+            return testCase.addStatement(new IntPrimitiveStatement(testCase, 0));
+        }
+        if (raw == long.class || raw == Long.class) {
+            return testCase.addStatement(new LongPrimitiveStatement(testCase, 0L));
+        }
+        if (raw == float.class || raw == Float.class) {
+            return testCase.addStatement(new FloatPrimitiveStatement(testCase, 0.0f));
+        }
+        if (raw == double.class || raw == Double.class) {
+            return testCase.addStatement(new DoublePrimitiveStatement(testCase, 0.0d));
+        }
+        if (raw == char.class || raw == Character.class) {
+            return testCase.addStatement(new CharPrimitiveStatement(testCase, '\0'));
+        }
+        if (raw == String.class) {
+            return testCase.addStatement(new StringPrimitiveStatement(testCase, null));
+        }
+        return testCase.addStatement(new NullStatement(testCase,
+                expectedType == null ? Object.class : expectedType));
+    }
+
+    private VariableReference fallbackForUnresolvedExpression(Expression expr,
+                                                              Type expectedType,
+                                                              String message) {
+        Type fallbackType = expectedType == null ? Object.class : expectedType;
+        addWarning(expr, message + " — preserved as UninterpretedStatement");
+        Class<?> raw = getRawClass(fallbackType);
+        if (raw == void.class || raw == Void.TYPE) {
+            return testCase.addStatement(createUninterpretedStatement(expr, expr.toString() + ";"));
+        }
+        String fallbackVarName = "__llm_fallback" + syntheticVarCounter++;
+        String fallbackValue = getDefaultFallbackLiteral(fallbackType);
+        String fallbackCode = getFallbackTypeName(fallbackType) + " " + fallbackVarName
+                + " = " + fallbackValue + ";";
+        return testCase.addStatement(createUninterpretedStatement(
+                fallbackType,
+                fallbackCode,
+                fallbackVarName,
+                expr));
+    }
+
+    private String getFallbackTypeName(Type type) {
+        if (type instanceof Class<?>) {
+            Class<?> raw = (Class<?>) type;
+            if (raw.isPrimitive()) {
+                return raw.getSimpleName();
+            }
+            if (raw.isArray()) {
+                Class<?> component = raw;
+                int dims = 0;
+                while (component.isArray()) {
+                    component = component.getComponentType();
+                    dims++;
+                }
+                StringBuilder sb = new StringBuilder();
+                String componentName = component.getCanonicalName();
+                if (componentName == null) {
+                    componentName = component.getName();
+                }
+                sb.append(componentName);
+                for (int i = 0; i < dims; i++) {
+                    sb.append("[]");
+                }
+                return sb.toString();
+            }
+            String canonical = raw.getCanonicalName();
+            return canonical != null ? canonical : raw.getName();
+        }
+        return getSimpleTypeName(type);
+    }
+
+    private String getDefaultFallbackLiteral(Type type) {
+        Class<?> raw = getRawClass(type);
+        if (raw == boolean.class || raw == Boolean.class) {
+            return "false";
+        }
+        if (raw == byte.class || raw == Byte.class) {
+            return "(byte)0";
+        }
+        if (raw == short.class || raw == Short.class) {
+            return "(short)0";
+        }
+        if (raw == int.class || raw == Integer.class) {
+            return "0";
+        }
+        if (raw == long.class || raw == Long.class) {
+            return "0L";
+        }
+        if (raw == float.class || raw == Float.class) {
+            return "0.0f";
+        }
+        if (raw == double.class || raw == Double.class) {
+            return "0.0d";
+        }
+        if (raw == char.class || raw == Character.class) {
+            return "'\\0'";
+        }
+        return "null";
+    }
+
+    private Type inferFallbackMethodReturnType(Class<?> targetClass,
+                                               String methodName,
+                                               Type declaredType) {
+        if (declaredType != null && declaredType != Object.class) {
+            return declaredType;
+        }
+        for (Method method : targetClass.getMethods()) {
+            if (method.getName().equals(methodName)) {
+                return method.getGenericReturnType();
+            }
+        }
+        for (Method method : targetClass.getDeclaredMethods()) {
+            if (method.getName().equals(methodName)) {
+                return method.getGenericReturnType();
+            }
+        }
+        return Object.class;
+    }
+
+    // ========================================================================
     // Callee / class resolution helpers
     // ========================================================================
 
@@ -2444,17 +3533,29 @@ public class StatementParser {
      * Handles chained method calls by decomposing into intermediate statements.
      */
     private VariableReference resolveCalleeOrClass(Expression scopeExpr) {
+        if (scopeExpr instanceof ClassExpr) {
+            return handleClassExpression((ClassExpr) scopeExpr);
+        }
         if (scopeExpr instanceof NameExpr) {
             String name = ((NameExpr) scopeExpr).getNameAsString();
             return scope.resolve(name);
         }
         // Chained method call: obj.getX().method() → decompose obj.getX() first
         if (scopeExpr instanceof MethodCallExpr) {
-            return handleMethodCall((MethodCallExpr) scopeExpr, Object.class);
+            return handleMethodCall((MethodCallExpr) scopeExpr, Object.class, null);
         }
         // Chained field access used as callee: obj.field.method()
         // But first check if it's a fully-qualified class name (e.g. java.util.Arrays)
         if (scopeExpr instanceof FieldAccessExpr) {
+            FieldAccessExpr fieldAccess = (FieldAccessExpr) scopeExpr;
+            if ("class".equals(fieldAccess.getNameAsString())) {
+                Class<?> classLiteral = resolveClassFromExpression(scopeExpr);
+                if (classLiteral != null) {
+                    ClassPrimitiveStatement stmt = new ClassPrimitiveStatement(testCase, classLiteral);
+                    return testCase.addStatement(stmt);
+                }
+                return null;
+            }
             // Try as class name first — if it resolves, return null so caller uses static path
             String fullName = scopeExpr.toString();
             try {
@@ -2463,7 +3564,7 @@ public class StatementParser {
             } catch (ClassNotFoundException ignored) {
                 // Not a class name — treat as field access chain
             }
-            return handleFieldAccess((FieldAccessExpr) scopeExpr, Object.class);
+            return handleFieldAccess((FieldAccessExpr) scopeExpr, Object.class, null);
         }
         // Enclosed expression used as callee: (expr).method()
         if (scopeExpr instanceof EnclosedExpr) {
@@ -2477,6 +3578,13 @@ public class StatementParser {
      * Try to resolve an expression as a class name (for static method/field access).
      */
     private Class<?> resolveClassFromExpression(Expression scopeExpr) {
+        if (scopeExpr instanceof ClassExpr) {
+            try {
+                return typeResolver.resolveClass(((ClassExpr) scopeExpr).getTypeAsString());
+            } catch (ClassNotFoundException e) {
+                return null;
+            }
+        }
         if (scopeExpr instanceof NameExpr) {
             String name = ((NameExpr) scopeExpr).getNameAsString();
             // Only resolve as class if it's NOT a known variable
@@ -2489,6 +3597,10 @@ public class StatementParser {
             }
         }
         if (scopeExpr instanceof FieldAccessExpr) {
+            FieldAccessExpr fieldAccess = (FieldAccessExpr) scopeExpr;
+            if ("class".equals(fieldAccess.getNameAsString())) {
+                return resolveClassFromExpression(fieldAccess.getScope());
+            }
             // Could be a qualified class name like java.util.Collections
             String fullName = scopeExpr.toString();
             try {
@@ -2555,18 +3667,54 @@ public class StatementParser {
     }
 
     private void addError(com.github.javaparser.ast.Node node, String message) {
+        String enriched = enrichDiagnosticForLlmRepair(message);
         int line = node.getBegin().map(p -> p.line).orElse(0);
         result.addDiagnostic(new ParseDiagnostic(
                 ParseDiagnostic.Severity.ERROR,
-                message,
+                enriched,
                 line,
                 node.toString()));
     }
 
     private void addWarning(Expression expr, String message) {
+        String enriched = enrichDiagnosticForLlmRepair(message);
         int line = expr.getBegin().map(p -> p.line).orElse(0);
         result.addDiagnostic(new ParseDiagnostic(
-                ParseDiagnostic.Severity.WARNING, message, line, expr.toString()));
+                ParseDiagnostic.Severity.WARNING, enriched, line, expr.toString()));
+    }
+
+    private String enrichDiagnosticForLlmRepair(String message) {
+        if (!markParsedFromLlm || message == null || message.isEmpty()
+                || message.contains("LLM_REPAIR_ACTION_REQUIRED:")) {
+            return message;
+        }
+
+        String lower = message.toLowerCase();
+        String action = null;
+        if (lower.contains("cannot resolve method scope")) {
+            action = "declare the receiver variable before this call, or use an existing static call "
+                    + "in ClassName.method(...) form.";
+        } else if (lower.contains("cannot resolve unscoped method call")) {
+            action = "avoid bare helper calls; either inline the helper logic or call through a declared "
+                    + "instance/class method that exists in SUT/JDK.";
+        } else if (lower.contains("unknown array variable")) {
+            action = "declare the array variable before indexing it (including dimensions), e.g. "
+                    + "double[][] data = new double[1][1];";
+        } else if (lower.contains("variable is not an array")) {
+            action = "remove [] indexing for this variable or change its declaration to an array type.";
+        } else if (lower.contains("unknown variable for field access")
+                || lower.contains("cannot resolve field scope")) {
+            action = "declare the instance variable before field access, or use ClassName.FIELD for static fields.";
+        } else if (lower.contains("unresolved variable")) {
+            action = "declare the variable earlier in the test and ensure the name matches exactly.";
+        } else if (lower.contains("cannot resolve class literal")) {
+            action = "use ExistingType.class where ExistingType is a real SUT/JDK class and imported.";
+        }
+
+        if (action == null) {
+            return message;
+        }
+        return message + " LLM_REPAIR_ACTION_REQUIRED: " + action;
     }
 
     UninterpretedStatement createUninterpretedStatementFromAst(com.github.javaparser.ast.stmt.Statement astStmt) {

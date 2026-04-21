@@ -137,8 +137,8 @@ public class StringHelper {
         if (first.equals(second)) {
             return BooleanHelper.K; // Identical
         } else {
-            ConstantPoolManager.getInstance().addDynamicConstant(first);
-            ConstantPoolManager.getInstance().addDynamicConstant(second);
+            ConstantPoolManager.addDynamicConstantIfTracing(first);
+            ConstantPoolManager.addDynamicConstantIfTracing(second);
             // return -getDistanceBasedOnLeftAlignment(first, second.toString());
             double distance = -getDistanceBasedOnLeftAlignmentCharacterDistance(first, second.toString());
             double d2 = distance / (1.0 + Math.abs(distance));
@@ -192,10 +192,10 @@ public class StringHelper {
         if (Properties.DYNAMIC_POOL > 0.0) {
             if (distance > 0) {
                 String instance = RegexDistance.getRegexInstance(regex);
-                ConstantPoolManager.getInstance().addDynamicConstant(instance);
+                ConstantPoolManager.addDynamicConstantIfTracing(instance);
             } else {
                 String instance = RegexDistance.getNonMatchingRegexInstance(regex);
-                ConstantPoolManager.getInstance().addDynamicConstant(instance);
+                ConstantPoolManager.addDynamicConstantIfTracing(instance);
             }
         }
 
@@ -220,10 +220,10 @@ public class StringHelper {
         if (Properties.DYNAMIC_POOL > 0.0) {
             if (distance > 0) {
                 String instance = RegexDistance.getRegexInstance(regex);
-                ConstantPoolManager.getInstance().addDynamicConstant(instance);
+                ConstantPoolManager.addDynamicConstantIfTracing(instance);
             } else {
                 String instance = RegexDistance.getNonMatchingRegexInstance(regex);
-                ConstantPoolManager.getInstance().addDynamicConstant(instance);
+                ConstantPoolManager.addDynamicConstantIfTracing(instance);
             }
         }
 
@@ -254,10 +254,10 @@ public class StringHelper {
             if (Properties.DYNAMIC_POOL > 0.0) {
                 if (distance > 0) {
                     String instance = RegexDistance.getRegexInstance(regex);
-                    ConstantPoolManager.getInstance().addDynamicConstant(instance);
+                    ConstantPoolManager.addDynamicConstantIfTracing(instance);
                 } else {
                     String instance = RegexDistance.getNonMatchingRegexInstance(regex);
-                    ConstantPoolManager.getInstance().addDynamicConstant(instance);
+                    ConstantPoolManager.addDynamicConstantIfTracing(instance);
                 }
             }
 
@@ -375,7 +375,7 @@ public class StringHelper {
     @SuppressWarnings("checkstyle:methodname")
     public static int StringStartsWith(String value, String prefix, int start) {
         int len = Math.min(prefix.length(), value.length());
-        ConstantPoolManager.getInstance().addDynamicConstant(prefix + value);
+        ConstantPoolManager.addDynamicConstantIfTracing(prefix + value);
         return StringEquals(value.substring(start, Math.min(start + len, value.length())), prefix);
     }
 
@@ -392,7 +392,7 @@ public class StringHelper {
     public static int StringEndsWith(String value, String suffix) {
         int len = Math.min(suffix.length(), value.length());
         String val1 = value.substring(value.length() - len);
-        ConstantPoolManager.getInstance().addDynamicConstant(value + suffix);
+        ConstantPoolManager.addDynamicConstantIfTracing(value + suffix);
         return StringEquals(val1, suffix);
     }
 
@@ -463,8 +463,8 @@ public class StringHelper {
             String sn1 = s1.substring(0, thisStart) + sub2
                     + s1.substring(thisStart + length);
             String sn2 = s2.substring(0, start) + sub1 + s2.substring(start + length);
-            ConstantPoolManager.getInstance().addDynamicConstant(sn1);
-            ConstantPoolManager.getInstance().addDynamicConstant(sn2);
+            ConstantPoolManager.addDynamicConstantIfTracing(sn1);
+            ConstantPoolManager.addDynamicConstantIfTracing(sn2);
         }
 
         return StringEquals(s1.substring(thisStart, Math.min(length + thisStart, s1.length())),

@@ -40,6 +40,7 @@ import org.evosuite.testcase.statements.environment.EnvironmentDataStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.FieldReference;
+import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.name.VariableNameStrategy;
 import org.evosuite.testcase.variable.name.VariableNameStrategyFactory;
@@ -239,7 +240,22 @@ public class TestCodeVisitor extends TestVisitor {
      */
     public String getTypeParameterName(Type type) {
         if (type instanceof Class<?>) {
-            return getClassName((Class<?>) type);
+            Class<?> clazz = (Class<?>) type;
+            String name = getClassName(clazz);
+            // A raw generic class used as a type argument needs wildcards to avoid
+            // compile errors (e.g. TypeVariable<Class> must be TypeVariable<Class<?>>).
+            TypeVariable<?>[] typeParams = clazz.getTypeParameters();
+            if (typeParams.length > 0) {
+                name += "<";
+                for (int i = 0; i < typeParams.length; i++) {
+                    if (i > 0) {
+                        name += ", ";
+                    }
+                    name += "?";
+                }
+                name += ">";
+            }
+            return name;
         } else if (type instanceof ParameterizedType) {
             return getTypeName((ParameterizedType) type);
         } else if (type instanceof WildcardType) {
@@ -388,6 +404,11 @@ public class TestCodeVisitor extends TestVisitor {
      * @return a {@link java.lang.String} object.
      */
     public String getVariableName(VariableReference var) {
+        if (var instanceof NullReference
+                || var.getVariableClass().equals(Void.class)
+                || var.getVariableClass().equals(Void.TYPE)) {
+            return "null";
+        }
         if (var instanceof ConstantValue) {
             ConstantValue cval = (ConstantValue) var;
             if (cval.getValue() != null && cval.getVariableClass().equals(Class.class)) {
@@ -578,7 +599,27 @@ public class TestCodeVisitor extends TestVisitor {
             // Make sure the enum is imported in the JUnit test
             getClassName(value.getClass());
         } else if (source.getVariableClass().equals(boolean.class) || source.getVariableClass().equals(Boolean.class)) {
-            Boolean flag = (Boolean) value;
+            Boolean flag;
+            if (value instanceof Boolean) {
+                flag = (Boolean) value;
+            } else if (value instanceof Number) {
+                int n = ((Number) value).intValue();
+                if (n == 0) {
+                    flag = Boolean.FALSE;
+                } else if (n == 1) {
+                    flag = Boolean.TRUE;
+                } else {
+                    stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                            + getVariableName(source) + ");";
+                    testCode.append(stmt);
+                    return;
+                }
+            } else {
+                stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
+                        + getVariableName(source) + ");";
+                testCode.append(stmt);
+                return;
+            }
             if (flag) {
                 stmt += "assertTrue(";
             } else {
@@ -1137,9 +1178,9 @@ public class TestCodeVisitor extends TestVisitor {
             testCode.append(((EnvironmentDataStatement<?>) statement).getTestCode(getVariableName(retval)));
         } else if (statement instanceof ClassPrimitiveStatement) {
             StringBuilder builder = new StringBuilder();
-            String className = getClassName(retval);
-            className = className.replaceAll("Class<(.*)(<.*>)>", "Class<$1>");
-            builder.append(className);
+            // The declaration side must stay legal for primitive class literals
+            // (e.g., boolean.class cannot be represented as Class<boolean>).
+            builder.append("Class<?>");
             builder.append(" ");
             builder.append(getVariableName(retval));
             builder.append(" = ");
@@ -1288,6 +1329,14 @@ public class TestCodeVisitor extends TestVisitor {
                         // GenericTypeReflector.getArrayComponentType(actualParamType))) {
                         parameterString += "(" + getTypeName(declaredParamType) + ") ";
                     }
+                } else if (isUnresolvedTypeVariableOrWildcard(declaredParamType)
+                        && rawParamClass != null
+                        && rawParamClass.isAssignableFrom(safeErasure(actualParamType))) {
+                    // Declared type is a TypeVariable/Wildcard whose erasure (eg, Object
+                    // for `E` in HashSet.add(E)) already accepts the actual argument.
+                    // An `(Object)` cast here would defeat generic method resolution on
+                    // a parameterized receiver (eg, HashSet<String>.add resolves to
+                    // add(String), which then rejects an Object argument). Emit no cast.
                 } else {
                     parameterString += "(" + getCastTypeName(declaredParamType, actualParamType) + ") ";
                 }
@@ -1346,6 +1395,16 @@ public class TestCodeVisitor extends TestVisitor {
         return false;
     }
 
+    private boolean isUnresolvedTypeVariableOrWildcard(Type type) {
+        if (type instanceof TypeVariable || type instanceof WildcardType) {
+            return true;
+        }
+        if (type instanceof CaptureType) {
+            return ((CaptureType) type).getLowerBounds().length == 0;
+        }
+        return false;
+    }
+
     private Class<?> safeErasure(Type type) {
         if (type instanceof CaptureType) {
             CaptureType captureType = (CaptureType) type;
@@ -1383,6 +1442,8 @@ public class TestCodeVisitor extends TestVisitor {
     @Override
     public void visitUninterpretedStatement(UninterpretedStatement statement) {
         String code = statement.getSourceCode();
+        String returnExpression = statement.getReturnExpression();
+        ensureSnippetImports(code, returnExpression, statement.getBindings());
 
         // Substitute original LLM variable names with EvoSuite-generated names
         Map<String, VariableReference> bindings = statement.getBindings();
@@ -1404,7 +1465,6 @@ public class TestCodeVisitor extends TestVisitor {
         if (!code.endsWith("\n")) {
             testCode.append(NEWLINE);
         }
-        String returnExpression = statement.getReturnExpression();
         if (returnExpression != null && !returnExpression.trim().isEmpty()
                 && !statement.getReturnValue().isVoid()) {
             String generatedName = getVariableName(statement.getReturnValue());
@@ -1419,6 +1479,112 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
         addAssertions(statement);
+    }
+
+    private void ensureSnippetImports(String code,
+                                      String returnExpression,
+                                      Map<String, VariableReference> bindings) {
+        String combined = ((code == null) ? "" : code) + "\n"
+                + ((returnExpression == null) ? "" : returnExpression);
+        if (combined.trim().isEmpty()) {
+            return;
+        }
+
+        Set<String> boundNames = new HashSet<>();
+        if (bindings != null) {
+            boundNames.addAll(bindings.keySet());
+        }
+
+        Set<String> seen = new HashSet<>();
+        registerSnippetImports(combined, "\\b([A-Z][A-Za-z0-9_]*)\\s*\\.", boundNames, seen);
+        registerSnippetImports(combined, "\\b([A-Z][A-Za-z0-9_]*)\\s*\\.class\\b", boundNames, seen);
+        registerSnippetImports(combined, "\\(\\s*([A-Z][A-Za-z0-9_]*)\\s*\\)", boundNames, seen);
+        registerSnippetImports(combined,
+                "\\bnew\\s+([A-Z][A-Za-z0-9_]*)\\s*(?:<[^>]*>)?\\s*\\(",
+                boundNames,
+                seen);
+    }
+
+    private void registerSnippetImports(String text,
+                                        String regex,
+                                        Set<String> boundNames,
+                                        Set<String> seen) {
+        java.util.regex.Matcher matcher = java.util.regex.Pattern.compile(regex).matcher(text);
+        while (matcher.find()) {
+            String simpleName = matcher.group(1);
+            if (!seen.add(simpleName)) {
+                continue;
+            }
+            if (boundNames.contains(simpleName)) {
+                continue;
+            }
+            Class<?> resolved = resolveSimpleClassName(simpleName);
+            if (resolved != null) {
+                getClassName(resolved);
+            }
+        }
+    }
+
+    private Class<?> resolveSimpleClassName(String simpleName) {
+        for (Map.Entry<Class<?>, String> entry : classNames.entrySet()) {
+            if (simpleName.equals(entry.getValue())) {
+                return entry.getKey();
+            }
+        }
+
+        ClassLoader sut = null;
+        try {
+            sut = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        } catch (Throwable ignored) {
+            // Best effort only.
+        }
+
+        String[] commonPackages = new String[]{
+                "java.lang",
+                "java.util",
+                "java.util.concurrent",
+                "java.util.regex",
+                "java.util.stream",
+                "java.nio",
+                "java.nio.charset",
+                "java.nio.file",
+                "java.io",
+                "java.net",
+                "java.time",
+                "java.math",
+                "java.awt",
+                "javax.swing"
+        };
+
+        for (String pkg : commonPackages) {
+            Class<?> resolved = tryLoadClass(pkg + "." + simpleName, sut);
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+
+        if (Properties.CLASS_PREFIX != null && !Properties.CLASS_PREFIX.trim().isEmpty()) {
+            return tryLoadClass(Properties.CLASS_PREFIX + "." + simpleName, sut);
+        }
+        return null;
+    }
+
+    private Class<?> tryLoadClass(String fqcn, ClassLoader preferred) {
+        try {
+            if (preferred != null) {
+                return Class.forName(fqcn, false, preferred);
+            }
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            // Try fallback loader below.
+        }
+        try {
+            // initialize=false: we only need the Class object for name resolution
+            // during code generation. Running <clinit> outside the sandboxed
+            // executor thread has caused non-determinism in the past.
+            return Class.forName(fqcn, false, ClassLoader.getSystemClassLoader());
+        } catch (ClassNotFoundException | LinkageError ignored) {
+            return null;
+        }
     }
 
     @Override
@@ -1670,7 +1836,8 @@ public class TestCodeVisitor extends TestVisitor {
         }
         boolean lastStatement = statement.getPosition() == statement.getTestCase().size() - 1;
         boolean referenced = test != null && (test.hasReferences(retval)
-                || assertionReferencesReturnValue(statement, retval));
+                || assertionReferencesReturnValue(statement, retval)
+                || assertionReferencesReturnValueInTest(retval));
         boolean unused = !Properties.ASSERTIONS ? exception != null : !referenced;
 
         if (!retval.isVoid() && retval.getAdditionalVariableReference() == null
@@ -1866,6 +2033,29 @@ public class TestCodeVisitor extends TestVisitor {
         return false;
     }
 
+    private boolean assertionReferencesReturnValueInTest(VariableReference returnValue) {
+        if (test == null || returnValue == null) {
+            return false;
+        }
+        for (int i = 0; i < test.size(); i++) {
+            Statement stmt = test.getStatement(i);
+            if (stmt == null) {
+                continue;
+            }
+            for (Assertion assertion : stmt.getAssertions()) {
+                if (assertion == null) {
+                    continue;
+                }
+                for (VariableReference referenced : assertion.getReferencedVariables()) {
+                    if (sameVariableDefinition(referenced, returnValue)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Returns a catch block for an exception that can be thrown by this
      * statement. The caught exception type is the actual class of the exception
@@ -2041,8 +2231,15 @@ public class TestCodeVisitor extends TestVisitor {
                 constructor.isOverloaded(parameters),
                 startPos);
 
+        // Use the constructor's owner type for the LHS declaration so that it
+        // always matches the RHS "new OwnerType(...)".  The retval's variable class
+        // can diverge from the constructor owner (e.g. java.sql.Date retval with a
+        // java.util.Date constructor), and when both simple names collide the import
+        // picks one while the other is fully qualified, producing uncompilable code.
+        String constructorTypeName = getTypeName(constructor.getOwnerType());
+
         if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            String className = getClassName(retval);
+            String className = constructorTypeName;
 
             // FIXXME: Workaround for primitives:
             // But really, this can't really add any coverage, so we shouldn't be printing this in the first place!
@@ -2053,7 +2250,7 @@ public class TestCodeVisitor extends TestVisitor {
             result = className + " " + getVariableName(retval) + " = null;" + NEWLINE;
             result += "try {" + NEWLINE + "    ";
         } else {
-            result += getClassName(retval) + " ";
+            result += constructorTypeName + " ";
         }
 
         if (isNonStaticMemberClass) {
@@ -2115,6 +2312,9 @@ public class TestCodeVisitor extends TestVisitor {
 
         // boolean isExpected = getDeclaredExceptions().contains(ex);
         // if (isExpected)
+        if (isHeadlessExceptionType(ex)) {
+            return "";
+        }
 
         String stmt = "fail(\"Expecting exception: " + getClassName(ex) + "\");" + NEWLINE;
 
@@ -2126,6 +2326,10 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return NEWLINE + "    " + stmt;
+    }
+
+    private boolean isHeadlessExceptionType(Class<?> ex) {
+        return ex != null && "java.awt.HeadlessException".equals(ex.getName());
     }
 
     /*

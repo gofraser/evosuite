@@ -1283,6 +1283,19 @@ public class TestCluster {
             return false;
         }
 
+        // Filter any generator declared on a JDK Swing/AWT Component subclass
+        // (eg JPopupMenu.Separator, JSeparator, JPanel).  Even when their
+        // constructors do not declare HeadlessException, constructing such a
+        // component can transitively load the platform Look-and-Feel (Aqua on
+        // macOS) or touch the real GraphicsEnvironment.  On macOS that calls
+        // into AppKit, which aborts the JVM (SIGABRT / signal 6) when touched
+        // off the main thread.  Mock classes (org.evosuite.runtime.mock.*)
+        // live outside java./javax. so are not affected.
+        Class<?> declaringClass = generator.getDeclaringClass();
+        if (isJdkGuiComponent(declaringClass)) {
+            return true;
+        }
+
         // Filter constructors that declare HeadlessException — these call
         // GraphicsEnvironment.checkHeadless() and will always fail in headless
         // mode.  This covers Window/Frame/Dialog as well as heavyweight AWT
@@ -1297,7 +1310,6 @@ public class TestCluster {
                 }
             }
             if (declaresHeadless) {
-                Class<?> declaringClass = gc.getDeclaringClass();
                 String declaringName = declaringClass.getCanonicalName();
                 // If this IS a JDK class that we mock (e.g. JFrame itself),
                 // keep filtering — reflection bypasses the mock.
@@ -1349,6 +1361,28 @@ public class TestCluster {
         return name.equals("java.awt.GraphicsConfiguration")
                 || name.equals("java.awt.GraphicsDevice")
                 || name.equals("java.awt.GraphicsEnvironment");
+    }
+
+    /**
+     * Returns true if the given class is a JDK Swing/AWT {@link java.awt.Component}
+     * subclass, ie declared in {@code java.awt.*} or {@code javax.swing.*} (including
+     * nested classes like {@code javax.swing.JPopupMenu$Separator}).  EvoSuite's
+     * own mock classes live in {@code org.evosuite.runtime.mock.*} and are not
+     * matched.
+     */
+    private static boolean isJdkGuiComponent(Class<?> clazz) {
+        if (clazz == null) {
+            return false;
+        }
+        try {
+            if (!java.awt.Component.class.isAssignableFrom(clazz)) {
+                return false;
+            }
+        } catch (Throwable t) {
+            return false;
+        }
+        String name = clazz.getName();
+        return name.startsWith("java.awt.") || name.startsWith("javax.swing.");
     }
 
     /**

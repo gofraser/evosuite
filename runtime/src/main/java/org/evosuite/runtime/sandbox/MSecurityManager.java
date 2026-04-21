@@ -1509,6 +1509,13 @@ public class MSecurityManager extends SecurityManager {
                         return true;
                     }
                 }
+            } else if (isLlmTraceRecorderWrite()) {
+                /*
+                 * Allow EvoSuite LLM trace persistence even when the generation logic runs on
+                 * non-privileged worker threads (e.g., async pools in cluster experiments).
+                 * The write call must originate from LlmTraceRecorder internals.
+                 */
+                return true;
             }
         } else if (action.equals("delete")) {
             if (fp.getName().contains("clover.db.liverec")) {
@@ -1552,6 +1559,22 @@ public class MSecurityManager extends SecurityManager {
             }
         }
 
+        return false;
+    }
+
+    private boolean isLlmTraceRecorderWrite() {
+        for (StackTraceElement e : Thread.currentThread().getStackTrace()) {
+            String className = e.getClassName();
+            if (className == null) {
+                continue;
+            }
+            if (className.endsWith("org.evosuite.llm.LlmTraceRecorder")) {
+                String method = e.getMethodName();
+                if ("recordCall".equals(method) || "writeJsonLine".equals(method)) {
+                    return true;
+                }
+            }
+        }
         return false;
     }
 

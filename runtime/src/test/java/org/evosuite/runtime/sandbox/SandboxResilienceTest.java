@@ -35,8 +35,9 @@ public class SandboxResilienceTest {
         setManager(null);
         try {
             System.setSecurityManager(null);
-        } catch (SecurityException ignored) {
-            // If a foreign manager denies changes, tests should still leave Sandbox static state clean.
+        } catch (SecurityException | UnsupportedOperationException ignored) {
+            // If a foreign manager denies changes or SecurityManager is not supported
+            // (Java 24+), tests should still leave Sandbox static state clean.
         }
     }
 
@@ -67,6 +68,22 @@ public class SandboxResilienceTest {
 
         Sandbox.resetDefaultSecurityManager();
         Assertions.assertFalse(Sandbox.isSecurityManagerInitialized());
+    }
+
+    @Test
+    public void privilegedThreadShouldBeSandboxedDuringSutExecution() {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+
+        Sandbox.initializeSecurityManagerForSUT();
+        try {
+            Sandbox.goingToExecuteSUTCode();
+            Assertions.assertThrows(SecurityException.class,
+                    () -> System.setSecurityManager(null),
+                    "SUT execution on privileged thread must still deny setSecurityManager");
+        } finally {
+            Sandbox.doneWithExecutingSUTCode();
+            Sandbox.resetDefaultSecurityManager();
+        }
     }
 
     private static MSecurityManager getManager() throws Exception {

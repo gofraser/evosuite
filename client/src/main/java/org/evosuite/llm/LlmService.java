@@ -150,6 +150,8 @@ public class LlmService implements AutoCloseable {
         LlmBudgetCoordinator budget = LlmBudgetCoordinator.fromProperties();
         LlmStatistics stats = new LlmStatistics();
         LlmTraceRecorder recorder = new LlmTraceRecorder(config);
+        logger.info("LLM trace configuration: enabled={}, dir={}",
+                config.isTraceEnabled(), recorder.getTraceFile());
 
         if (config.getProvider() == Properties.LlmProvider.NONE) {
             return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(),
@@ -225,12 +227,27 @@ public class LlmService implements AutoCloseable {
                 .modelName(modelName)
                 .apiKey(apiKey)
                 .temperature(config.getTemperature())
-                .maxTokens(config.getMaxTokens())
                 .timeout(Duration.ofSeconds(Math.max(1, config.getTimeoutSeconds())));
+        if (usesMaxCompletionTokens(modelName)) {
+            builder.maxCompletionTokens(config.getMaxTokens());
+        } else {
+            builder.maxTokens(config.getMaxTokens());
+        }
         if (!isBlank(config.getBaseUrl())) {
             builder.baseUrl(config.getBaseUrl().trim());
         }
         return new LangChain4jChatLanguageModel(builder.build());
+    }
+
+    static boolean usesMaxCompletionTokens(String modelName) {
+        if (isBlank(modelName)) {
+            return false;
+        }
+        String name = modelName.trim().toLowerCase();
+        return name.startsWith("gpt-5")
+                || name.startsWith("o1")
+                || name.startsWith("o3")
+                || name.startsWith("o4");
     }
 
     private static ChatLanguageModel createOllamaModel(LlmConfiguration config) {
@@ -290,7 +307,7 @@ public class LlmService implements AutoCloseable {
     }
 
     public String query(List<LlmMessage> messages, LlmFeature feature) {
-        return queryInternal(messages, feature, null, false, false);
+        return queryInternal(messages, feature, new QueryOptions());
     }
 
     /**
@@ -301,8 +318,7 @@ public class LlmService implements AutoCloseable {
      * @param repairAttempt the 1-based repair attempt number (1 = initial, 2+ = repair)
      */
     public String query(List<LlmMessage> messages, LlmFeature feature, int repairAttempt) {
-        return queryInternal(messages, feature, null, false, false,
-                false, false, false, 0, repairAttempt);
+        return queryInternal(messages, feature, new QueryOptions().withRepairAttempt(repairAttempt));
     }
 
     /**
@@ -315,9 +331,9 @@ public class LlmService implements AutoCloseable {
     public String query(List<LlmMessage> messages, LlmFeature feature,
                         int repairAttempt, boolean expansionAttempted,
                         List<String> expandedClasses) {
-        return queryInternal(messages, feature, null, false, false,
-                false, false, false, 0, repairAttempt,
-                expansionAttempted, expandedClasses);
+        return queryInternal(messages, feature, new QueryOptions()
+                .withRepairAttempt(repairAttempt)
+                .withExpansion(expansionAttempted, expandedClasses));
     }
 
     /**
@@ -329,64 +345,61 @@ public class LlmService implements AutoCloseable {
             throw new IllegalArgumentException("promptResult must not be null");
         }
         return queryInternal(promptResult.getMessages(), feature,
-                promptResult.getSutContextMode(), promptResult.isContextUnavailable(),
-                promptResult.isContextTruncated(), promptResult.isContextCommentsStripped(),
-                promptResult.isContextSelectivelyTruncated(),
-                promptResult.isClusterSummaryTruncated(), promptResult.getClusterSummaryChars());
+                QueryOptions.fromPromptResult(promptResult));
     }
 
-    private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
-                                 Properties.LlmSutContextMode sutContextMode,
-                                 boolean contextUnavailable,
-                                 boolean contextTruncated) {
-        return queryInternal(messages, feature, sutContextMode, contextUnavailable, contextTruncated,
-                false, false, false, 0, 1);
+    /**
+     * Mutable option bag threaded through {@link #queryInternal}. Replaces the
+     * former chain of overloaded private {@code queryInternal} methods with a
+     * single entry point that consumes a typed options object. All fields have
+     * safe defaults, so callers only set the values they care about.
+     */
+    private static final class QueryOptions {
+        Properties.LlmSutContextMode sutContextMode = null;
+        boolean contextUnavailable = false;
+        boolean contextTruncated = false;
+        boolean contextCommentsStripped = false;
+        boolean contextSelectivelyTruncated = false;
+        boolean clusterSummaryTruncated = false;
+        int clusterSummaryChars = 0;
+        PromptResult.DependencySummaryMetadata dependencySummaryMetadata =
+                PromptResult.DependencySummaryMetadata.empty();
+        int repairAttempt = 1;
+        boolean expansionAttempted = false;
+        List<String> expandedClasses = Collections.emptyList();
+
+        QueryOptions withRepairAttempt(int attempt) {
+            this.repairAttempt = attempt;
+            return this;
+        }
+
+        QueryOptions withExpansion(boolean attempted, List<String> classes) {
+            this.expansionAttempted = attempted;
+            this.expandedClasses = classes == null ? Collections.<String>emptyList() : classes;
+            return this;
+        }
+
+        static QueryOptions fromPromptResult(PromptResult promptResult) {
+            QueryOptions options = new QueryOptions();
+            options.sutContextMode = promptResult.getSutContextMode();
+            options.contextUnavailable = promptResult.isContextUnavailable();
+            options.contextTruncated = promptResult.isContextTruncated();
+            options.contextCommentsStripped = promptResult.isContextCommentsStripped();
+            options.contextSelectivelyTruncated = promptResult.isContextSelectivelyTruncated();
+            options.clusterSummaryTruncated = promptResult.isClusterSummaryTruncated();
+            options.clusterSummaryChars = promptResult.getClusterSummaryChars();
+            options.dependencySummaryMetadata = promptResult.getDependencySummaryMetadata();
+            return options;
+        }
     }
 
-    private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
-                                 Properties.LlmSutContextMode sutContextMode,
-                                 boolean contextUnavailable,
-                                 boolean contextTruncated,
-                                 boolean contextCommentsStripped,
-                                 boolean contextSelectivelyTruncated,
-                                 boolean clusterSummaryTruncated,
-                                 int clusterSummaryChars) {
-        return queryInternal(messages, feature, sutContextMode, contextUnavailable, contextTruncated,
-                contextCommentsStripped, contextSelectivelyTruncated, clusterSummaryTruncated,
-                clusterSummaryChars, 1);
-    }
-
-    private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
-                                 Properties.LlmSutContextMode sutContextMode,
-                                 boolean contextUnavailable,
-                                 boolean contextTruncated,
-                                 boolean contextCommentsStripped,
-                                 boolean contextSelectivelyTruncated,
-                                 boolean clusterSummaryTruncated,
-                                 int clusterSummaryChars,
-                                 int repairAttempt) {
-        return queryInternal(messages, feature, sutContextMode, contextUnavailable, contextTruncated,
-                contextCommentsStripped, contextSelectivelyTruncated, clusterSummaryTruncated,
-                clusterSummaryChars, repairAttempt, false, Collections.<String>emptyList());
-    }
-
-    private String queryInternal(List<LlmMessage> messages, LlmFeature feature,
-                                 Properties.LlmSutContextMode sutContextMode,
-                                 boolean contextUnavailable,
-                                 boolean contextTruncated,
-                                 boolean contextCommentsStripped,
-                                 boolean contextSelectivelyTruncated,
-                                 boolean clusterSummaryTruncated,
-                                 int clusterSummaryChars,
-                                 int repairAttempt,
-                                 boolean expansionAttempted,
-                                 List<String> expandedClasses) {
+    private String queryInternal(List<LlmMessage> messages, LlmFeature feature, QueryOptions options) {
         if (!available) {
             throw new LlmCallFailedException("LLM service is unavailable",
                     new IllegalStateException("LLM provider is not configured"), false);
         }
-        List<String> safeExpandedClasses = expandedClasses == null
-                ? Collections.<String>emptyList() : expandedClasses;
+        List<String> safeExpandedClasses = options.expandedClasses == null
+                ? Collections.<String>emptyList() : options.expandedClasses;
         int maxTries = Math.max(1, configuration.getRetryMaxAttempts() + 1);
         Throwable lastError = null;
 
@@ -407,11 +420,9 @@ public class LlmService implements AutoCloseable {
                 }
                 String status = truncated ? "TRUNCATED" : "SUCCESS";
                 statistics.recordCall(feature, response.getInputTokens(), response.getOutputTokens(), latency);
-                traceRecorder.recordCall(feature, messages, response.getText(), response.getInputTokens(),
-                        response.getOutputTokens(), latency, status, repairAttempt, expansionAttempted,
-                        safeExpandedClasses, "",
-                        sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
-                        contextSelectivelyTruncated, clusterSummaryTruncated, clusterSummaryChars);
+                safeRecordTrace(feature, messages, response.getText(), response.getInputTokens(),
+                        response.getOutputTokens(), latency, status, options.repairAttempt,
+                        options.expansionAttempted, safeExpandedClasses, "", options);
                 return response.getText();
             } catch (Exception e) {
                 lastError = unwrap(e);
@@ -443,15 +454,14 @@ public class LlmService implements AutoCloseable {
                     } else {
                         statistics.recordFailure(feature);
                     }
-                    traceRecorder.recordCall(feature, messages, "", 0, 0,
-                            System.currentTimeMillis() - start, "FAILED", repairAttempt,
-                            expansionAttempted, safeExpandedClasses, lastError.getClass().getSimpleName(),
-                            sutContextMode, contextUnavailable, contextTruncated, contextCommentsStripped,
-                            contextSelectivelyTruncated, clusterSummaryTruncated, clusterSummaryChars);
+                    safeRecordTrace(feature, messages, "", 0, 0,
+                            System.currentTimeMillis() - start, "FAILED", options.repairAttempt,
+                            options.expansionAttempted, safeExpandedClasses,
+                            lastError.getClass().getSimpleName(), options);
                     throw new LlmCallFailedException(
                             "LLM query failed after " + attempt + " attempt(s): " + friendly, lastError, retryable);
                 }
-                logger.debug("LLM call failed (attempt {}/{}): {}; retrying...", 
+                logger.debug("LLM call failed (attempt {}/{}): {}; retrying...",
                         attempt, maxTries, friendlyMessage(lastError));
                 sleepBackoff(attempt);
             }
@@ -492,9 +502,51 @@ public class LlmService implements AutoCloseable {
         }
     }
 
+    private void safeRecordTrace(LlmFeature feature,
+                                 List<LlmMessage> messages,
+                                 String responseText,
+                                 int inputTokens,
+                                 int outputTokens,
+                                 long latencyMs,
+                                 String parseStatus,
+                                 int repairAttempt,
+                                 boolean expansionAttempted,
+                                 List<String> expandedClasses,
+                                 String errorType,
+                                 QueryOptions options) {
+        try {
+            traceRecorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
+                    .feature(feature)
+                    .messages(messages)
+                    .responseText(responseText)
+                    .inputTokens(inputTokens)
+                    .outputTokens(outputTokens)
+                    .latencyMs(latencyMs)
+                    .parseStatus(parseStatus)
+                    .repairAttempt(repairAttempt)
+                    .expansionAttempted(expansionAttempted)
+                    .expandedClasses(expandedClasses)
+                    .errorType(errorType)
+                    .sutContextMode(options.sutContextMode)
+                    .contextUnavailable(options.contextUnavailable)
+                    .contextTruncated(options.contextTruncated)
+                    .contextCommentsStripped(options.contextCommentsStripped)
+                    .contextSelectivelyTruncated(options.contextSelectivelyTruncated)
+                    .clusterSummaryTruncated(options.clusterSummaryTruncated)
+                    .clusterSummaryChars(options.clusterSummaryChars)
+                    .dependencySummaryMetadata(options.dependencySummaryMetadata)
+                    .build());
+        } catch (Throwable traceFailure) {
+            logger.warn("LLM trace recording failed; continuing without trace for this call: {}",
+                    traceFailure.getClass().getSimpleName());
+            logger.debug("LLM trace recording failure details", traceFailure);
+        }
+    }
+
     @Override
     public void close() {
         executorService.shutdownNow();
+        traceRecorder.close();
     }
 
     private Throwable unwrap(Throwable error) {
@@ -532,6 +584,10 @@ public class LlmService implements AutoCloseable {
             return true;
         }
 
+        if (isLangChainNullTextFailure(cause)) {
+            return true;
+        }
+
         String text = combinedText(cause);
         return containsHttpCode(text, 429)
                 || containsHttpCode(text, 500)
@@ -563,6 +619,21 @@ public class LlmService implements AutoCloseable {
                 || text.contains("bad request")
                 || text.contains("invalid request")
                 || text.contains("malformed");
+    }
+
+    /**
+     * Detects the LangChain4j {@code ValidationUtils.ensureNotNull(text, "text")}
+     * failure that surfaces when a provider returns a response whose content text
+     * is null. Pairing the message check with the exception type avoids false
+     * positives from unrelated {@code IllegalArgumentException}s whose text
+     * happens to include the phrase.
+     */
+    private static boolean isLangChainNullTextFailure(Throwable cause) {
+        if (!(cause instanceof IllegalArgumentException) && !(cause instanceof NullPointerException)) {
+            return false;
+        }
+        String message = cause.getMessage();
+        return message != null && message.toLowerCase().contains("text cannot be null");
     }
 
     private static String combinedText(Throwable throwable) {

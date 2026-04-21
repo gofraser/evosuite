@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.statements;
 
+import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.runtime.mock.MockList;
@@ -373,6 +374,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     Object calleeObject;
                     try {
                         java.lang.reflect.Type[] exactParameterTypes = method.getParameterTypes();
+                        Class<?>[] rawParameterTypes = method.getMethod().getParameterTypes();
                         for (int i = 0; i < parameters.size(); i++) {
                             VariableReference parameterVar = parameters.get(i);
                             inputs[i] = parameterVar.getObject(scope);
@@ -380,15 +382,10 @@ public class MethodStatement extends EntityWithParametersStatement {
                                 throw new CodeUnderTestException(new NullPointerException());
                             }
                             if (inputs[i] != null) {
-                                boolean assignable;
-                                try {
-                                    assignable = TypeUtils.isAssignable(inputs[i].getClass(),
-                                            exactParameterTypes[i]);
-                                } catch (IllegalStateException e) {
-                                    // Fallback for wildcard captures that TypeUtils cannot handle.
-                                    assignable = method.getMethod().getParameterTypes()[i]
-                                            .isAssignableFrom(inputs[i].getClass());
-                                }
+                                boolean assignable = ClassUtils.isAssignable(
+                                        inputs[i].getClass(),
+                                        rawParameterTypes[i],
+                                        true);
                                 if (!assignable) {
                                     // TODO: This used to be a check of the declared type, but the
                                     // problem is that Generic types are not updated during

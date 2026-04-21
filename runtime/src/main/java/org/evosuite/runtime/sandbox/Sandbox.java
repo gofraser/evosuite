@@ -86,6 +86,13 @@ public class Sandbox {
     private static volatile int counter;
 
     private static boolean checkForInitialization = false;
+    /**
+     * Tracks per-thread temporary privilege downgrades while executing SUT code.
+     * A value > 0 means the current thread was privileged and has been switched to
+     * sandboxed checks via {@link MSecurityManager#goingToExecuteUnsafeCodeOnSameThread()}.
+     */
+    private static final ThreadLocal<Integer> privilegedDowngradeDepth =
+            ThreadLocal.withInitial(() -> 0);
 
     public static void setCheckForInitialization(boolean checkForInitialization) {
         Sandbox.checkForInitialization = checkForInitialization;
@@ -216,7 +223,29 @@ public class Sandbox {
             }
             return;
         }
-        manager.goingToExecuteTestCase();
+        boolean downgraded = false;
+        try {
+            /*
+             * If the current thread is privileged (eg JUnit check runner),
+             * temporarily downgrade it so SUT calls are still sandboxed.
+             * Otherwise SUT code could bypass checks like setSecurityManager.
+             */
+            manager.goingToExecuteUnsafeCodeOnSameThread();
+            downgraded = true;
+            privilegedDowngradeDepth.set(privilegedDowngradeDepth.get() + 1);
+        } catch (SecurityException ignored) {
+            // Non-privileged threads are already sandboxed.
+        } catch (IllegalStateException e) {
+            logger.debug("Ignoring sandbox privilege downgrade race: {}", e.getMessage());
+        }
+        try {
+            manager.goingToExecuteTestCase();
+        } catch (RuntimeException e) {
+            if (downgraded) {
+                restorePrivilegedThreadIfDowngraded();
+            }
+            throw e;
+        }
         PermissionStatistics.getInstance().getAndResetExceptionInfo();
     }
 
@@ -230,15 +259,40 @@ public class Sandbox {
             }
             return;
         }
-        if (!manager.isExecutingTestCase()) {
-            logger.debug("Ignoring sandbox cleanup request because no test case is marked as executing");
-            return;
-        }
         try {
+            if (!manager.isExecutingTestCase()) {
+                logger.debug("Ignoring sandbox cleanup request because no test case is marked as executing");
+                return;
+            }
             manager.goingToEndTestCase();
         } catch (IllegalStateException e) {
             // Teardown can race with timeout recovery when stale execution threads are replaced.
             logger.debug("Ignoring sandbox cleanup race while ending test case: {}", e.getMessage());
+        } finally {
+            restorePrivilegedThreadIfDowngraded();
+        }
+    }
+
+    private static void restorePrivilegedThreadIfDowngraded() {
+        int depth = privilegedDowngradeDepth.get();
+        if (depth <= 0) {
+            return;
+        }
+        if (manager == null) {
+            privilegedDowngradeDepth.remove();
+            return;
+        }
+        try {
+            manager.doneWithExecutingUnsafeCodeOnSameThread();
+        } catch (SecurityException | IllegalStateException e) {
+            logger.debug("Ignoring sandbox privilege restore race: {}", e.getMessage());
+        } finally {
+            int updated = depth - 1;
+            if (updated <= 0) {
+                privilegedDowngradeDepth.remove();
+            } else {
+                privilegedDowngradeDepth.set(updated);
+            }
         }
     }
 

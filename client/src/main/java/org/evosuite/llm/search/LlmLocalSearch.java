@@ -30,6 +30,7 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
@@ -79,6 +80,7 @@ public class LlmLocalSearch extends TestCaseLocalSearch<TestChromosome> {
         if (!llmService.isAvailable() || !llmService.hasBudget()) {
             return false;
         }
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
 
         // Collect uncovered goals for prompt context
         Collection<TestFitnessFunction> goalsForPrompt = selectGoalsForPrompt(test);
@@ -93,17 +95,20 @@ public class LlmLocalSearch extends TestCaseLocalSearch<TestChromosome> {
         if (goalsForPrompt != null && !goalsForPrompt.isEmpty()) {
             builder.withUncoveredGoals(goalsForPrompt);
             builder.withInstruction("Modify this test to improve target coverage, "
-                    + "focusing on the uncovered goals listed above. Keep it valid JUnit.");
+                    + "focusing on the uncovered goals listed above. Keep it valid JUnit."
+                    + LlmAssertionPolicyResolver.instructionSuffix(false));
         } else {
             builder.withInstruction(
-                    "Modify this test to improve target coverage while keeping it valid JUnit.");
+                    "Modify this test to improve target coverage while keeping it valid JUnit."
+                            + LlmAssertionPolicyResolver.instructionSuffix(false));
         }
 
         PromptResult prompt = builder.buildWithMetadata();
         try {
             String response = llmService.query(prompt, LlmFeature.LOCAL_SEARCH);
-            RepairResult result = TestRepairLoop.createDefault(llmService).attemptParse(
-                    response, prompt.getMessages(), LlmFeature.LOCAL_SEARCH);
+            RepairResult result = TestRepairLoop
+                    .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.LOCAL_SEARCH);
             if (!result.isSuccess()) {
                 LocalSearchBudget.getInstance().countLocalSearchOnTest();
                 return false;

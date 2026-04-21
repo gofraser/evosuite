@@ -34,6 +34,7 @@ import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.ClusterExpansionManager;
+import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
@@ -274,7 +275,8 @@ public class LlmStrategy extends TestGenerationStrategy {
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(null, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("Generate JUnit test methods that maximize code coverage of the target class. "
-                        + "Cover all reachable methods, branches, boundary values, and exception paths.")
+                        + "Cover all reachable methods, branches, boundary values, and exception paths."
+                        + LlmAssertionPolicyResolver.instructionSuffix(true))
                 .buildWithMetadata();
 
         return queryAndParse(llmService, prompt,
@@ -299,7 +301,8 @@ public class LlmStrategy extends TestGenerationStrategy {
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(uncoveredGoals, null))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction("The following coverage goals are still uncovered. "
-                        + "Generate JUnit test methods specifically targeting these uncovered goals.");
+                        + "Generate JUnit test methods specifically targeting these uncovered goals."
+                        + LlmAssertionPolicyResolver.instructionSuffix(true));
 
         if (currentTests != null && !currentTests.isEmpty()) {
             List<org.evosuite.testcase.TestCase> existing =
@@ -319,7 +322,10 @@ public class LlmStrategy extends TestGenerationStrategy {
             LlmFeature feature) {
         try {
             String response = llmService.query(prompt, feature);
-            RepairResult result = createRepairLoop(llmService)
+            RepairResult result = createRepairLoop(
+                    llmService,
+                    TestRepairLoop.RepairOptions.forAssertionPolicy(
+                            LlmAssertionPolicyResolver.keepAssertions(true)))
                     .attemptParse(response, prompt.getMessages(), feature);
             if (!result.isSuccess()) {
                 return Collections.emptyList();
@@ -353,11 +359,12 @@ public class LlmStrategy extends TestGenerationStrategy {
     }
 
     protected TestRepairLoop createRepairLoop(LlmService llmService) {
-        return new TestRepairLoop(
-                llmService,
-                TestParser.forSUTWithLlmProvenance(),
-                new LlmResponseParser(),
-                new ClusterExpansionManager());
+        return createRepairLoop(llmService, TestRepairLoop.RepairOptions.defaults());
+    }
+
+    protected TestRepairLoop createRepairLoop(LlmService llmService,
+                                              TestRepairLoop.RepairOptions options) {
+        return TestRepairLoop.createDefault(llmService, options);
     }
 
     protected List<TestFitnessFactory<? extends TestFitnessFunction>> getConfiguredGoalFactories() {
@@ -365,7 +372,7 @@ public class LlmStrategy extends TestGenerationStrategy {
     }
 
     protected LlmSeededPopulationFactory createSeededFactory() {
-        return new LlmSeededPopulationFactory(new RandomLengthTestFactory());
+        return new LlmSeededPopulationFactory(new RandomLengthTestFactory(), true);
     }
 
     protected LlmService getLlmService() {

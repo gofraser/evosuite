@@ -26,8 +26,11 @@ import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.assertion.SameAssertion;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
+import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.*;
+import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.FieldReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -43,6 +46,10 @@ import static org.junit.jupiter.api.Assertions.*;
  * Tests for StatementParser — the core AST → EvoSuite statement conversion logic.
  */
 class StatementParserTest {
+
+    public static class StaticFieldTarget {
+        public static int VALUE = 0;
+    }
 
     private TestParser parser;
 
@@ -60,6 +67,19 @@ class StatementParserTest {
 
     private ParseResult parse(String body, List<String> imports) {
         return parser.parseTestMethodBody(body, imports);
+    }
+
+    private ParseResult parseLlm(String body, List<String> imports) {
+        parser.setMarkParsedFromLlm(true);
+        return parser.parseTestMethodBody(body, imports);
+    }
+
+    private void executeAllStatements(TestCase tc) throws Exception {
+        Scope scope = new Scope();
+        for (int i = 0; i < tc.size(); i++) {
+            Throwable thrown = tc.getStatement(i).execute(scope, System.out);
+            assertNull(thrown, "Statement " + i + " failed: " + tc.getStatement(i).getCode());
+        }
     }
 
     // ========================================================================
@@ -247,6 +267,25 @@ class StatementParserTest {
         }
 
         @Test
+        void parseConstructorWithFloatLiteralSuffix() {
+            ParseResult r = parse("Float x = new Float(0f);");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+            assertEquals(2, tc.size());
+            assertInstanceOf(FloatPrimitiveStatement.class, tc.getStatement(0));
+            assertInstanceOf(ConstructorStatement.class, tc.getStatement(1));
+        }
+
+        @Test
+        void parseConstructorWithStringConcatArgument() {
+            ParseResult r = parse("java.io.File f = new java.io.File(\"nonexistent-\" + 1 + \".tmp\");");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 2, "Expected synthesized string + constructor");
+            assertInstanceOf(ConstructorStatement.class, tc.getStatement(tc.size() - 1));
+        }
+
+        @Test
         void parseGenericConstructorWithDiamond() {
             ParseResult r = parse("HashMap<String, Integer> map = new HashMap<>();");
             TestCase tc = r.getTestCase();
@@ -261,6 +300,18 @@ class StatementParserTest {
             assertEquals(1, tc.size());
             assertInstanceOf(ConstructorStatement.class, tc.getStatement(0));
             assertEquals(Stack.class, tc.getStatement(0).getReturnClass());
+        }
+
+        @Test
+        void executeConstructorWithMultiDimPrimitiveArrayInitializer() throws Exception {
+            ParseResult r = parse(
+                    "double[][] data = {{1.0}};\n" +
+                    "org.evosuite.testparser.fixtures.MultiDimArrayTarget target = " +
+                    "new org.evosuite.testparser.fixtures.MultiDimArrayTarget(data);",
+                    List.of("import org.evosuite.testparser.fixtures.MultiDimArrayTarget;"));
+            assertFalse(r.hasErrors(), "Parser errors: " + r.getDiagnostics());
+
+            executeAllStatements(r.getTestCase());
         }
     }
 
@@ -316,6 +367,40 @@ class StatementParserTest {
         }
 
         @Test
+        void parseMethodCallWithUntypedNumericArgumentDoesNotDegradeToObject() {
+            ParseResult r = parseLlm("Integer boxed = Integer.valueOf(48 + 1);",
+                    List.of("import java.lang.Integer;"));
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 2, "Expected synthetic numeric arg + method call");
+            assertInstanceOf(MethodStatement.class, tc.getStatement(tc.size() - 1));
+            assertEquals("valueOf", ((MethodStatement) tc.getStatement(tc.size() - 1)).getMethodName());
+
+            String code = tc.toCode();
+            assertFalse(code.contains("Object __arg"),
+                    "Numeric argument should not be materialized as Object:\n" + code);
+            assertTrue(code.contains("48 + 1"),
+                    "Expected synthetic argument to preserve arithmetic expression:\n" + code);
+        }
+
+        @Test
+        void parseIncompatibleAliasDeclarationInsertsTypedCastFallbackInLlmMode() {
+            ParseResult r = parseLlm(
+                    "Object __arg7 = 48 + 1;\n" +
+                            "Integer integer0 = __arg7;",
+                    List.of("import java.lang.Integer;"));
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            String code = tc.toCode();
+            assertTrue(code.contains("Object __arg7 = 48 + 1;"),
+                    "Expected original temporary declaration to be preserved:\n" + code);
+            assertTrue(code.contains("Integer integer0 = (Integer) __arg7;"),
+                    "Expected typed cast fallback for incompatible alias declaration:\n" + code);
+        }
+
+        @Test
         void parseMethodWithInlineLiteralArgs() {
             ParseResult r = parse(
                     "ArrayList list = new ArrayList();\n" +
@@ -349,6 +434,72 @@ class StatementParserTest {
             MethodStatement ms = (MethodStatement) tc.getStatement(1);
             // void return type
             assertEquals(void.class, ms.getReturnType());
+        }
+
+        @Test
+        void executeMethodWithMultiDimPrimitiveArrayArg() throws Exception {
+            ParseResult r = parse(
+                    "org.evosuite.testparser.fixtures.MultiDimArrayTarget target = " +
+                    "new org.evosuite.testparser.fixtures.MultiDimArrayTarget(new double[][]{{1.0}});\n" +
+                    "double[][] data = {{2.0}};\n" +
+                    "target.setValues(data);",
+                    List.of("import org.evosuite.testparser.fixtures.MultiDimArrayTarget;"));
+            assertFalse(r.hasErrors(), "Parser errors: " + r.getDiagnostics());
+
+            executeAllStatements(r.getTestCase());
+        }
+
+        @Test
+        void parseLlmInvalidReceiverMethodCallUsesTypedFallback() {
+            ParseResult r = parseLlm(
+                    "Object object0 = new Object();\n" +
+                            "String string0 = object0.setText(\"x\");",
+                    List.of("import java.lang.Object;"));
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "LLM best-effort should avoid hard parse errors: " + r.getDiagnostics());
+
+            boolean hasInvalidCallSnippet = false;
+            for (int i = 0; i < tc.size(); i++) {
+                Statement statement = tc.getStatement(i);
+                if (statement instanceof UninterpretedStatement
+                        && statement.getCode().contains("object0.setText")) {
+                    hasInvalidCallSnippet = true;
+                    break;
+                }
+            }
+            assertFalse(hasInvalidCallSnippet, "Invalid receiver method call should not be preserved as code");
+        }
+
+        @Test
+        void parseLlmUnknownDeclaredTypeDowngradesToObject() {
+            ParseResult r = parseLlm(
+                    "Child child = new Child();\n" +
+                            "Object value = child;",
+                    List.of("import java.lang.Object;"));
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "LLM best-effort should avoid hard errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 1, "Expected at least one salvaged statement");
+
+            boolean unresolvedTypeError = r.getDiagnostics().stream()
+                    .anyMatch(d -> d.getSeverity() == ParseDiagnostic.Severity.ERROR
+                            && d.getMessage().contains("Cannot resolve type"));
+            assertFalse(unresolvedTypeError, "Unknown declared type should be downgraded to Object, not hard error");
+        }
+
+        @Test
+        void parseLlmUnresolvedVariableIncludesRepairActionHint() {
+            ParseResult r = parseLlm(
+                    "int x = missingVar;",
+                    List.of("import java.lang.Integer;"));
+
+            assertTrue(r.hasErrors(), "Expected unresolved variable parse error");
+            assertTrue(r.getDiagnostics().stream().anyMatch(d ->
+                            d.getSeverity() == ParseDiagnostic.Severity.ERROR
+                                    && d.getMessage().contains("Unresolved variable: missingVar")
+                                    && d.getMessage().contains("LLM_REPAIR_ACTION_REQUIRED")
+                                    && d.getMessage().contains("declare the variable earlier")),
+                    "Expected actionable LLM repair hint for unresolved variable diagnostics: " + r.getDiagnostics());
         }
     }
 
@@ -388,6 +539,21 @@ class StatementParserTest {
             // Point() + IntPrimitiveStatement(42) + AssignmentStatement
             assertTrue(tc.size() >= 3, "Expected at least 3 statements, got " + tc.size());
             assertInstanceOf(AssignmentStatement.class, tc.getStatement(tc.size() - 1));
+        }
+
+        @Test
+        void parseStaticFieldWrite() {
+            ParseResult r = parse("StaticFieldTarget.VALUE = 7;",
+                    List.of("import org.evosuite.testparser.StatementParserTest.StaticFieldTarget;"));
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 2, "Expected value + assignment, got " + tc.size());
+            assertInstanceOf(AssignmentStatement.class, tc.getStatement(tc.size() - 1));
+            AssignmentStatement assignment = (AssignmentStatement) tc.getStatement(tc.size() - 1);
+            assertInstanceOf(FieldReference.class, assignment.getReturnValue());
+            FieldReference fieldReference = (FieldReference) assignment.getReturnValue();
+            assertNull(fieldReference.getSource(), "Static field assignment should not require an instance source");
+            assertTrue(fieldReference.getField().isStatic());
         }
     }
 
@@ -463,6 +629,15 @@ class StatementParserTest {
             assertEquals(1, tc.size());
             assertInstanceOf(ClassPrimitiveStatement.class, tc.getStatement(0));
         }
+
+        @Test
+        void parseMethodCallOnClassLiteralScope() {
+            ParseResult r = parse("java.lang.reflect.Method m = String.class.getDeclaredMethod(\"length\");");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 3, "Expected class literal + string arg + method call");
+            assertInstanceOf(MethodStatement.class, tc.getStatement(tc.size() - 1));
+        }
     }
 
     // ========================================================================
@@ -514,6 +689,32 @@ class StatementParserTest {
         }
 
         @Test
+        void parseMultiDimArrayAssignment() {
+            ParseResult r = parse(
+                    "double[][] data = new double[1][1];\n" +
+                    "data[0][0] = 1.0;");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 3, "Got: " + tc.toCode());
+            assertInstanceOf(AssignmentStatement.class, tc.getStatement(tc.size() - 1));
+            AssignmentStatement stmt = (AssignmentStatement) tc.getStatement(tc.size() - 1);
+            assertInstanceOf(ArrayIndex.class, stmt.getReturnValue());
+            ArrayIndex index = (ArrayIndex) stmt.getReturnValue();
+            assertEquals(List.of(0, 0), index.getArrayIndices());
+        }
+
+        @Test
+        void parseMultiDimArrayRead() {
+            ParseResult r = parse(
+                    "double[][] data = new double[1][1];\n" +
+                    "data[0][0] = 1.0;\n" +
+                    "double x = data[0][0];");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 3, "Got: " + tc.toCode());
+        }
+
+        @Test
         void parseArrayInitializer() {
             ParseResult r = parse("int[] arr = new int[]{1, 2, 3};");
             TestCase tc = r.getTestCase();
@@ -561,6 +762,21 @@ class StatementParserTest {
             assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
             assertEquals(1, tc.size());
             assertInstanceOf(ArrayStatement.class, tc.getStatement(0));
+        }
+
+        @Test
+        void parseMultiDimArrayWithInitializer() {
+            ParseResult r = parse("double[][] data = new double[][]{{1.0}};");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+            // Outer ArrayStatement for double[][] plus inner array + assignments
+            assertTrue(tc.size() >= 1, "Should have at least one statement");
+            assertInstanceOf(ArrayStatement.class, tc.getStatement(0));
+            ArrayStatement arrStmt = (ArrayStatement) tc.getStatement(0);
+            assertTrue(arrStmt.getReturnValue().getVariableClass().isArray(),
+                    "Return type should be an array: " + arrStmt.getReturnValue().getType());
+            assertEquals(double[][].class, arrStmt.getReturnValue().getVariableClass(),
+                    "Return type should be double[][]");
         }
 
         @Test
@@ -798,6 +1014,26 @@ class StatementParserTest {
         }
 
         @Test
+        void parseAssertEqualsCoercesNumericExpectedForBooleanActual() {
+            ParseResult r = parseWithAssertImports(
+                    "ArrayList list = new ArrayList();\n" +
+                    "assertEquals(1, list.isEmpty());");
+            TestCase tc = r.getTestCase();
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 2,
+                    "Expected constructor + isEmpty(), got " + tc.size() + ": " + tc.toCode());
+
+            Statement isEmptyStmt = tc.getStatement(tc.size() - 1);
+            assertInstanceOf(MethodStatement.class, isEmptyStmt);
+            assertEquals("isEmpty", ((MethodStatement) isEmptyStmt).getMethodName());
+            assertFalse(isEmptyStmt.getAssertions().isEmpty(), "isEmpty() should have assertion");
+            Assertion assertion = isEmptyStmt.getAssertions().iterator().next();
+            assertInstanceOf(PrimitiveAssertion.class, assertion);
+            assertEquals(Boolean.TRUE, assertion.getValue(),
+                    "Expected numeric literal 1 to be coerced to boolean true");
+        }
+
+        @Test
         void parseAssertTrueWithInlineMethodCall() {
             // assertTrue(obj.method(arg)) — method call as condition
             ParseResult r = parseWithAssertImports(
@@ -871,6 +1107,30 @@ class StatementParserTest {
             // Should not crash; the assertNotEquals is preserved as UninterpretedStatement
             // since there's no negated PrimitiveAssertion
             assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+        }
+
+        @Test
+        void parseAssertNotEqualsWithInlineMethodCallsKeepsBothComparedTempsInCode() {
+            ParseResult r = parseWithAssertImports(
+                    "ArrayList a = new ArrayList();\n" +
+                    "ArrayList b = new ArrayList();\n" +
+                    "assertNotEquals(a.hashCode(), b.hashCode());");
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            String generated = r.getTestCase().toCode();
+            assertTrue(generated.contains("hashCode()"),
+                    "Expected hashCode calls in generated code:\n" + generated);
+            java.util.regex.Matcher matcher = java.util.regex.Pattern
+                    .compile("assertFalse\\((int\\d+) == (int\\d+)\\);")
+                    .matcher(generated);
+            if (matcher.find()) {
+                String left = matcher.group(1);
+                String right = matcher.group(2);
+                assertTrue(generated.contains("int " + left + " ="),
+                        "Expected declaration for assertion LHS variable " + left + ":\n" + generated);
+                assertTrue(generated.contains("int " + right + " ="),
+                        "Expected declaration for assertion RHS variable " + right + ":\n" + generated);
+            }
         }
 
         @Test
@@ -1408,6 +1668,75 @@ class StatementParserTest {
                 if (tc.getStatement(i) instanceof MethodStatement) methodCount++;
             }
             assertEquals(3, methodCount, "Should have put(), add(), get():\n" + tc.toCode());
+        }
+    }
+
+    // ========================================================================
+    // Bug fix: Varargs resolution for constructors/methods
+    // ========================================================================
+
+    @Nested
+    class VarArgsResolution {
+
+        @Test
+        void parseConstructorWithExpandedVarArgsAndSubtypeFirstArg() {
+            ParseResult r = parse(
+                    "JPanel panel = new JPanel();\n" +
+                    "VarArgsTarget eng = new VarArgsTarget(panel, \"x\", \"y\");\n" +
+                    "eng.link(\"x\");",
+                    List.of(
+                            "import javax.swing.JPanel;",
+                            "import org.evosuite.testparser.fixtures.VarArgsTarget;"
+                    ));
+
+            assertFalse(r.hasErrors(), "Should parse constructor/method varargs: " + r.getDiagnostics());
+            assertFalse(r.getDiagnostics().stream().anyMatch(d -> d.getMessage().contains("Cannot resolve method scope")),
+                    "No cascading scope errors expected: " + r.getDiagnostics());
+        }
+
+        @Test
+        void parseConstructorAndMethodWithExplicitVarArgArray() {
+            ParseResult r = parse(
+                    "JPanel panel = new JPanel();\n" +
+                    "String[] names = new String[]{\"x\", \"y\"};\n" +
+                    "VarArgsTarget eng = new VarArgsTarget(panel, names);\n" +
+                    "eng.link(names);",
+                    List.of(
+                            "import javax.swing.JPanel;",
+                            "import org.evosuite.testparser.fixtures.VarArgsTarget;"
+                    ));
+
+            assertFalse(r.hasErrors(), "Explicit array varargs form should parse: " + r.getDiagnostics());
+        }
+
+        @Test
+        void parseVarArgsMethodWithFixedPrefixArgument() {
+            ParseResult r = parse(
+                    "JPanel panel = new JPanel();\n" +
+                    "VarArgsTarget eng = new VarArgsTarget(panel, \"a\");\n" +
+                    "eng.linkWithPrefix(1, \"b\", \"c\");",
+                    List.of(
+                            "import javax.swing.JPanel;",
+                            "import org.evosuite.testparser.fixtures.VarArgsTarget;"
+                    ));
+
+            assertFalse(r.hasErrors(), "Fixed+varargs method should parse: " + r.getDiagnostics());
+        }
+    }
+
+    @Nested
+    class MultiDimArrayInitializer {
+
+        @Test
+        void parseAndExecuteDouble2DInitializerWithoutRankCollapse() throws Exception {
+            ParseResult r = parse(
+                    "double[][] x = new double[][] { { 0.0, 1.0 }, { 2.0, 3.0 } };\n" +
+                    "MultiDimArrayTarget t = new MultiDimArrayTarget(x);\n" +
+                    "t.setValues(x);",
+                    List.of("import org.evosuite.testparser.fixtures.MultiDimArrayTarget;"));
+
+            assertFalse(r.hasErrors(), "2D array initializer should parse: " + r.getDiagnostics());
+            executeAllStatements(r.getTestCase());
         }
     }
 
