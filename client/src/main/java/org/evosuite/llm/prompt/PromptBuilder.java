@@ -180,6 +180,8 @@ public class PromptBuilder {
         if (summary != null && !summary.trim().isEmpty()) {
             userSections.add("Available dependency types (standard Java library "
                     + "classes may also be used freely):\n" + summary);
+            userSections.add("IMPORTANT: Instantiate only concrete classes. "
+                    + "Do NOT use new on abstract classes or interfaces; use concrete subtypes listed in dependency context.");
             dependencyContextAdded = true;
         }
     }

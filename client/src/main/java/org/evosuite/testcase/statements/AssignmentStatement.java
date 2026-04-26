@@ -296,6 +296,13 @@ public class AssignmentStatement extends AbstractStatement {
                 return false;
             }
 
+            // Upper-bound checks are only reliable when the array comes from an
+            // explicit ArrayStatement declaration in the test model. Arrays returned
+            // by method calls/fields do not carry trustworthy structural lengths and
+            // default to 0, which would incorrectly invalidate legitimate assignments
+            // such as enum values()[0] = ....
+            boolean hasKnownStructuralBounds = hasArrayStatementDefinition(arrayRef);
+
             // Validate each indexed dimension against known structural lengths.
             // For jagged arrays we may not have complete nested lengths; in that case
             // we still enforce non-negative indices and only check upper bounds for
@@ -306,7 +313,7 @@ public class AssignmentStatement extends AbstractStatement {
                 if (index < 0) {
                     return false;
                 }
-                if (dim < comparableDims) {
+                if (hasKnownStructuralBounds && dim < comparableDims) {
                     int length = lengths.get(dim);
                     if (index >= length) {
                         return false;
@@ -315,6 +322,15 @@ public class AssignmentStatement extends AbstractStatement {
             }
         }
         return true;
+    }
+
+    private boolean hasArrayStatementDefinition(ArrayReference arrayRef) {
+        for (Statement statement : tc) {
+            if (statement.getReturnValue().equals(arrayRef)) {
+                return statement instanceof ArrayStatement;
+            }
+        }
+        return false;
     }
 
     private static boolean isAssignable(VariableReference target, VariableReference value) {

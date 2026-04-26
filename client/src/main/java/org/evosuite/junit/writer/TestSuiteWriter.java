@@ -891,10 +891,8 @@ public class TestSuiteWriter implements Opcodes {
             builder.append("});"); //closing submit
             builder.append(NEWLINE);
 
-            // we add one second just to be sure, that to avoid issues with test cases taking exactly TIMEOUT ms
-            long time = Properties.TIMEOUT + 1000;
             builder.append(BLOCK_SPACE);
-            builder.append("future.get(" + time + ", TimeUnit.MILLISECONDS);");
+            builder.append("future.get(" + Properties.TIMEOUT + ", TimeUnit.MILLISECONDS);");
             builder.append(NEWLINE);
             if (!Properties.TEST_SCAFFOLDING) {
                 builder.append(BLOCK_SPACE);

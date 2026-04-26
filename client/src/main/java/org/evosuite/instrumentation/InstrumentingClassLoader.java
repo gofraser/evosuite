@@ -25,6 +25,7 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.util.AtMostOnceLogger;
+import org.evosuite.utils.MasterClassLoaderBridge;
 import org.objectweb.asm.ClassReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,9 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.jar.JarEntry;
@@ -64,7 +68,13 @@ public class InstrumentingClassLoader extends ClassLoader {
      * </p>
      */
     public InstrumentingClassLoader() {
-        this(new BytecodeInstrumentation());
+        this(new BytecodeInstrumentation(), getDefaultParentClassLoader());
+        setClassAssertionStatus(Properties.TARGET_CLASS, true);
+        logger.debug("STANDARD classloader running now");
+    }
+
+    public InstrumentingClassLoader(ClassLoader parent) {
+        this(new BytecodeInstrumentation(), parent);
         setClassAssertionStatus(Properties.TARGET_CLASS, true);
         logger.debug("STANDARD classloader running now");
     }
@@ -78,7 +88,11 @@ public class InstrumentingClassLoader extends ClassLoader {
      *                        object.
      */
     public InstrumentingClassLoader(BytecodeInstrumentation instrumentation) {
-        super(InstrumentingClassLoader.class.getClassLoader());
+        this(instrumentation, getDefaultParentClassLoader());
+    }
+
+    public InstrumentingClassLoader(BytecodeInstrumentation instrumentation, ClassLoader parent) {
+        super(parent);
         this.instrumentation = instrumentation;
     }
 
@@ -135,6 +149,20 @@ public class InstrumentingClassLoader extends ClassLoader {
                 throw new ClassNotFoundException();
             }
 
+            // In the master process we only resolve classes for RMI deserialization.
+            // Never instrument there, as that can create duplicate class identities.
+            if (MasterClassLoaderBridge.isMasterProcess()) {
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded != null) {
+                    return loaded;
+                }
+                ClassLoader masterLoader = MasterClassLoaderBridge.getMasterClassLoaderIfInitialized();
+                if (masterLoader == null) {
+                    throw new ClassNotFoundException(name + " (master classloader is not initialized)");
+                }
+                return masterLoader.loadClass(name);
+            }
+
             if (!RuntimeInstrumentation.checkIfCanInstrument(name)) {
                 Class<?> result = findLoadedClass(name);
                 if (result != null) {
@@ -163,6 +191,11 @@ public class InstrumentingClassLoader extends ClassLoader {
                 return instrumentClass(name);
             }
         }
+    }
+
+    private static ClassLoader getDefaultParentClassLoader() {
+        ClassLoader masterLoader = MasterClassLoaderBridge.getMasterClassLoaderIfInitialized();
+        return masterLoader != null ? masterLoader : InstrumentingClassLoader.class.getClassLoader();
     }
 
     @Override
@@ -398,9 +431,27 @@ public class InstrumentingClassLoader extends ClassLoader {
         }
 
         createPackageDefinition(fullyQualifiedTargetClass);
-        Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length);
+        String classResourceName = fullyQualifiedTargetClass.replace('.', '/') + ".class";
+        URL sourceUrl = getResourceFromTargetClasspath(classResourceName);
+        ProtectionDomain protectionDomain = createProtectionDomain(sourceUrl);
+
+        Class<?> result = protectionDomain == null
+                ? defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length)
+                : defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length, protectionDomain);
         classes.put(fullyQualifiedTargetClass, result);
         return result;
+    }
+
+    private ProtectionDomain createProtectionDomain(URL sourceUrl) {
+        if (sourceUrl == null) {
+            return null;
+        }
+        try {
+            CodeSource codeSource = new CodeSource(sourceUrl, (Certificate[]) null);
+            return new ProtectionDomain(codeSource, null, this, null);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     /**

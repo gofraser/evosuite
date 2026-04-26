@@ -354,6 +354,7 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         String constructorDesc = (String) ois.readObject();
 
         ClassLoader[] candidateLoaders = new ClassLoader[]{
+                GenericClassImpl.getMasterSideClassLoaderIfInitialized(),
                 TestGenerationContext.getInstance().getClassLoaderForSUT(),
                 Thread.currentThread().getContextClassLoader(),
                 GenericConstructor.class.getClassLoader(),

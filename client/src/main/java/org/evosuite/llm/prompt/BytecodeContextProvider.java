@@ -55,7 +55,7 @@ public class BytecodeContextProvider implements SutContextProvider {
                 StringWriter sw = new StringWriter();
                 PrintWriter pw = new PrintWriter(sw);
                 reader.accept(new TraceClassVisitor(pw), ClassReader.SKIP_DEBUG);
-                return Optional.of(sw.toString());
+                return Optional.of(filterInaccessibleMembers(sw.toString()));
             } finally {
                 is.close();
             }
@@ -76,5 +76,64 @@ public class BytecodeContextProvider implements SutContextProvider {
     ClassLoader getClassLoader() {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         return cl != null ? cl : getClass().getClassLoader();
+    }
+
+    /**
+     * Remove private/protected member declarations (and private/protected method bodies)
+     * from bytecode context to avoid nudging the LLM toward inaccessible members.
+     */
+    static String filterInaccessibleMembers(String disassembly) {
+        if (disassembly == null || disassembly.isEmpty()) {
+            return disassembly;
+        }
+        String[] lines = disassembly.split("\\R", -1);
+        StringBuilder out = new StringBuilder(disassembly.length());
+        int i = 0;
+        while (i < lines.length) {
+            String line = lines[i];
+            String trimmed = line.trim();
+
+            if (trimmed.startsWith("private ") || trimmed.startsWith("protected ")) {
+                boolean isMethod = trimmed.contains("(") && !trimmed.endsWith(";");
+                i++;
+                if (isMethod) {
+                    while (i < lines.length) {
+                        String t = lines[i].trim();
+                        if (t.startsWith("// access flags")) {
+                            break;
+                        }
+                        i++;
+                    }
+                }
+                continue;
+            }
+
+            if (trimmed.startsWith("// access flags") && i + 1 < lines.length) {
+                String declLine = lines[i + 1];
+                String declTrim = declLine.trim();
+                boolean inaccessible = declTrim.startsWith("private ") || declTrim.startsWith("protected ");
+                if (inaccessible) {
+                    boolean isMethod = declTrim.contains("(") && !declTrim.endsWith(";");
+                    i += 2; // skip access flags + declaration
+                    if (isMethod) {
+                        while (i < lines.length) {
+                            String t = lines[i].trim();
+                            if (t.startsWith("// access flags")) {
+                                break;
+                            }
+                            i++;
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            out.append(line);
+            if (i < lines.length - 1) {
+                out.append(System.lineSeparator());
+            }
+            i++;
+        }
+        return out.toString();
     }
 }

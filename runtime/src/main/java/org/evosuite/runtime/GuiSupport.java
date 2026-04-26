@@ -221,6 +221,7 @@ public class GuiSupport {
         // whose static initializers branch on isHeadless(); if scaffolding has
         // not yet called setHeadless() they would otherwise trigger native
         // initIDs() calls that fail on JVMs started headless.
+        ensureGraphicsEnvironmentAvailable();
         preloadHeadlessGuardedAwtClasses();
 
         /*
@@ -262,7 +263,7 @@ public class GuiSupport {
         if (awtClassesPreloaded.get()) {
             return;
         }
-        if (!GraphicsEnvironment.isHeadless()) {
+        if (!isHeadlessSafely()) {
             // Not in headless mode right now — preloading would not skip the
             // native call, so it offers no protection.  Leave the flag false so
             // a later call has another chance once scaffolding forces headless.
@@ -287,7 +288,7 @@ public class GuiSupport {
      */
     public static void restoreHeadlessMode() {
         if (canForceHeadless) {
-            if (GraphicsEnvironment.isHeadless() && !isDefaultHeadless) {
+            if (isHeadlessSafely() && !isDefaultHeadless) {
                 setHeadless(false);
             }
             return;
@@ -322,6 +323,14 @@ public class GuiSupport {
         mockConstructionNestingDepth++;
         if (mockConstructionNestingDepth > 1) {
             // Already disabled by an outer caller — nothing to do.
+            return;
+        }
+        if (isDefaultHeadless) {
+            // JVM started in headless mode. Flipping to non-headless can trigger
+            // toolkit native initialization (e.g., sun.awt.UNIXToolkit.check_gtk)
+            // and fail with UnsatisfiedLinkError in CI/minimal Linux runtimes.
+            // Keep headless=true and let mock constructors follow the regular
+            // headless-safe paths.
             return;
         }
         if (IS_MACOS) {
@@ -516,8 +525,51 @@ public class GuiSupport {
             }
         } catch (Throwable ignored) {
             // fall back to stub below
+            ensureGraphicsEnvironmentAvailable();
+            try {
+                GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+                if (ge != null) {
+                    GraphicsDevice dev = ge.getDefaultScreenDevice();
+                    if (dev != null) {
+                        GraphicsConfiguration gc = dev.getDefaultConfiguration();
+                        if (gc != null) {
+                            return gc;
+                        }
+                    }
+                }
+            } catch (Throwable ignoredAgain) {
+                // use stub below
+            }
         }
         return StubGraphicsConfiguration.INSTANCE;
+    }
+
+    private static boolean isHeadlessSafely() {
+        try {
+            return GraphicsEnvironment.isHeadless();
+        } catch (Throwable ignored) {
+            // If GE lookup is broken, assume headless-safe behavior.
+            return true;
+        }
+    }
+
+    /**
+     * Ensures the cached GraphicsEnvironment singleton is non-null.
+     * Some CI/JDK combinations can leave it null, which triggers:
+     * "Local GraphicsEnvironment must not be null".
+     */
+    private static void ensureGraphicsEnvironmentAvailable() {
+        if (!canSwapGe || geInstanceField == null) {
+            return;
+        }
+        try {
+            Object current = geInstanceField.get(null);
+            if (current == null) {
+                setStaticField(geInstanceField, new StubGraphicsEnvironment(null));
+            }
+        } catch (Throwable t) {
+            logger.debug("Could not ensure cached GraphicsEnvironment singleton: {}", t.getMessage());
+        }
     }
 
     static boolean canForceHeadlessForTests() {
@@ -571,13 +623,16 @@ public class GuiSupport {
 
         @Override
         public Graphics2D createGraphics(java.awt.image.BufferedImage img) {
-            return delegate.createGraphics(img);
+            if (delegate != null) {
+                return delegate.createGraphics(img);
+            }
+            return img.createGraphics();
         }
 
         @Override
         public Font[] getAllFonts() {
             try {
-                return delegate.getAllFonts();
+                return delegate != null ? delegate.getAllFonts() : new Font[0];
             } catch (Throwable ignored) {
                 return new Font[0];
             }
@@ -586,7 +641,7 @@ public class GuiSupport {
         @Override
         public String[] getAvailableFontFamilyNames() {
             try {
-                return delegate.getAvailableFontFamilyNames();
+                return delegate != null ? delegate.getAvailableFontFamilyNames() : new String[0];
             } catch (Throwable ignored) {
                 return new String[0];
             }
@@ -595,7 +650,7 @@ public class GuiSupport {
         @Override
         public String[] getAvailableFontFamilyNames(java.util.Locale l) {
             try {
-                return delegate.getAvailableFontFamilyNames(l);
+                return delegate != null ? delegate.getAvailableFontFamilyNames(l) : new String[0];
             } catch (Throwable ignored) {
                 return new String[0];
             }

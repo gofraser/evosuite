@@ -38,6 +38,20 @@ public interface InterfaceTestRunnable extends Callable<ExecutionResult> {
     Map<Integer, Throwable> getExceptionsThrown();
 
     /**
+     * Returns the index of the statement that was executing most recently.
+     *
+     * @return the current statement index, or -1 if no statement is active
+     */
+    int getCurrentStatementIndex();
+
+    /**
+     * Returns the code of the statement that was executing most recently.
+     *
+     * @return the current statement code, or {@code null} if unavailable
+     */
+    String getCurrentStatementCode();
+
+    /**
      * <p>isRunFinished.</p>
      *
      * @return a boolean.

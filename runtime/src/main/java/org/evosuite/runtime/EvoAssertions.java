@@ -105,11 +105,22 @@ public class EvoAssertions {
         // Exception was not thrown in java.lang.AbstractStringBuilder but in java.lang.System.arraycopy(Native Method):
         // java.lang.ArrayIndexOutOfBoundsException
         // Until we know what exactly is happening here, let's ignore this case
-        if (name.equals("java.lang.System")) {
+        if (isSystemFrameToIgnore(name)) {
             return;
         }
 
 
         throw new AssertionError("Exception was not thrown in " + sourceClass + " but in " + el + ": " + t);
+    }
+
+    private static boolean isSystemFrameToIgnore(String className) {
+        if (className == null) {
+            return false;
+        }
+        if (className.equals("java.lang.System")) {
+            return true;
+        }
+        String runtimeSystemName = org.evosuite.runtime.System.class.getName();
+        return className.equals(runtimeSystemName) || className.endsWith("." + runtimeSystemName);
     }
 }

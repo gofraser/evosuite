@@ -46,6 +46,17 @@ public class InstrumentingClassLoaderTest {
                 true, instrumentingClassLoader);
     }
 
+    @Test
+    public void testInstrumentedClassHasNonNullCodeSourceLocation() throws Exception {
+        InstrumentingClassLoader instrumentingClassLoader = new InstrumentingClassLoader();
+        Class<?> stat = Class.forName("com.examples.with.different.packagename.StatInitIssue",
+                true, instrumentingClassLoader);
+
+        Assertions.assertNotNull(stat.getProtectionDomain());
+        Assertions.assertNotNull(stat.getProtectionDomain().getCodeSource());
+        Assertions.assertNotNull(stat.getProtectionDomain().getCodeSource().getLocation());
+    }
+
     /*
      * Tests the child-first/parent-last property of the classloader.
      */

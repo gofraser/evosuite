@@ -24,6 +24,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
+import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -301,9 +302,13 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         Class<?> declaringClass = method.getDeclaringClass();
         Class<?>[] parameterTypes = method.getParameterTypes();
         boolean isExact = true;
+        boolean hasNullReference = false;
         Class<?>[] parameterClasses = new Class<?>[parameters.size()];
         for (int num = 0; num < parameters.size(); num++) {
             VariableReference parameter = parameters.get(num);
+            if (parameter instanceof NullReference) {
+                hasNullReference = true;
+            }
             parameterClasses[num] = parameter.getVariableClass();
             if (!parameterClasses[num].equals(parameterTypes[num])) {
                 isExact = false;
@@ -312,7 +317,9 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
         }
 
-        if (isExact) {
+        // A null literal is typeless in source code. Even if the tracked variable type
+        // exactly matches this method, we still need overload disambiguation casts.
+        if (isExact && !hasNullReference) {
             return false;
         }
         try {

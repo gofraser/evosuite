@@ -41,6 +41,10 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.jar.Attributes;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 
 public class JUnitAnalyzerTest {
 
@@ -238,6 +242,61 @@ public class JUnitAnalyzerTest {
         } finally {
             FileUtils.deleteDirectory(dir);
         }
+    }
+
+    @Test
+    public void testMalformedManifestClassPathJarIsSanitizedForCompiler() throws Exception {
+        File malformedJar = Files.createTempFile("evosuite-malformed-manifest", ".jar").toFile();
+        malformedJar.deleteOnExit();
+
+        Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        manifest.getMainAttributes().put(Attributes.Name.CLASS_PATH, "\\");
+        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(malformedJar.toPath()), manifest)) {
+            out.putNextEntry(new JarEntry("sample.txt"));
+            out.write("sample".getBytes(StandardCharsets.UTF_8));
+            out.closeEntry();
+        }
+
+        Method sanitizeEntry = JUnitAnalyzer.class.getDeclaredMethod("sanitizeClasspathEntryForCompiler", String.class);
+        sanitizeEntry.setAccessible(true);
+        String sanitized = (String) sanitizeEntry.invoke(null, malformedJar.getAbsolutePath());
+
+        Assertions.assertNotNull(sanitized);
+        Assertions.assertNotEquals(malformedJar.getAbsolutePath(), sanitized);
+        File sanitizedEntry = new File(sanitized);
+        Assertions.assertTrue(sanitizedEntry.exists());
+        Assertions.assertTrue(sanitizedEntry.isDirectory());
+    }
+
+    @Test
+    public void testReflectiveAssertThrowsMismatchDetection() throws Exception {
+        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+                "isReflectiveAssertThrowsMismatch", JUnitFailure.class);
+        detector.setAccessible(true);
+
+        JUnitFailure reflectiveMismatch = new JUnitFailure(
+                "Unexpected exception type thrown, expected: <x.E> but was: <java.lang.reflect.InvocationTargetException>",
+                "org.opentest4j.AssertionFailedError",
+                "test0",
+                true,
+                "");
+        reflectiveMismatch.addToExceptionStackTrace("java.lang.reflect.Method.invoke(Method.java:566)");
+        reflectiveMismatch.addToExceptionStackTrace("x.Test.test0(Test.java:42)");
+
+        JUnitFailure nonReflective = new JUnitFailure(
+                "Unexpected exception type thrown, expected: <x.E> but was: <java.lang.RuntimeException>",
+                "org.opentest4j.AssertionFailedError",
+                "test0",
+                true,
+                "");
+        nonReflective.addToExceptionStackTrace("x.Test.test0(Test.java:42)");
+
+        boolean detected = (boolean) detector.invoke(null, reflectiveMismatch);
+        boolean notDetected = (boolean) detector.invoke(null, nonReflective);
+
+        Assertions.assertTrue(detected);
+        Assertions.assertFalse(notDetected);
     }
 
 

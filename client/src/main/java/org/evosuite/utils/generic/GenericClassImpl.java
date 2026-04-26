@@ -29,6 +29,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.RecursiveConstructionFailedException;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.utils.LoggingUtils;
+import org.evosuite.utils.MasterClassLoaderBridge;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -152,6 +153,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         LinkageError linkageError = null;
 
         ClassLoader[] loaders = new ClassLoader[]{
+                getMasterSideClassLoaderIfInitialized(),
                 preferredLoader,
                 Thread.currentThread().getContextClassLoader(),
                 GenericClassImpl.class.getClassLoader(),
@@ -195,6 +197,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             wrapped.initCause(linkageError);
         }
         throw wrapped;
+    }
+
+    static ClassLoader getMasterSideClassLoaderIfInitialized() {
+        return MasterClassLoaderBridge.getMasterClassLoaderIfInitialized();
     }
 
     /**

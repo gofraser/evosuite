@@ -53,6 +53,7 @@ import org.evosuite.testcarver.extraction.CarvingManager;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.utils.MasterClassLoaderBridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,7 +93,7 @@ public class TestGenerationContext {
      */
     private TestGenerationContext() {
         originalClassLoader = this.getClass().getClassLoader();
-        classLoader = new InstrumentingClassLoader();
+        classLoader = new InstrumentingClassLoader(getPreferredParentClassLoader());
     }
 
     public static TestGenerationContext getInstance() {
@@ -126,6 +127,21 @@ public class TestGenerationContext {
      */
     public InstrumentingClassLoader getClassLoaderForSUT() {
         return classLoader;
+    }
+
+    private ClassLoader getPreferredParentClassLoader() {
+        ClassLoader loader = MasterClassLoaderBridge.getMasterClassLoaderIfInitialized();
+        if (loader != null) {
+            return loader;
+        }
+        return this.getClass().getClassLoader();
+    }
+
+    public synchronized void rebindToPreferredParentClassLoader() {
+        ClassLoader preferred = getPreferredParentClassLoader();
+        if (classLoader == null || classLoader.getParent() != preferred) {
+            classLoader = new InstrumentingClassLoader(preferred);
+        }
     }
 
     /**
@@ -170,7 +186,7 @@ public class TestGenerationContext {
 
         // A fresh context needs a fresh class loader to make sure we can
         // re-instrument classes
-        classLoader = new InstrumentingClassLoader();
+        classLoader = new InstrumentingClassLoader(getPreferredParentClassLoader());
 
         TestCaseExecutor.pullDown();
         TestCaseExecutor.resetAdaptiveTimeoutStateIfPresent();

@@ -1323,6 +1323,14 @@ public class Properties {
             description = "Use experimental JUnit5 extension output mode (legacy scaffolding remains available)")
     public static boolean TEST_EXTENSION_MODE = true;
 
+    @Parameter(key = "test_extension_preload_initialized_classes", group = "Output",
+            description = "In JUnit5 extension mode, preload classes observed during generation before tests run")
+    public static boolean TEST_EXTENSION_PRELOAD_INITIALIZED_CLASSES = false;
+
+    @Parameter(key = "test_extension_preload_max_classes", group = "Output",
+            description = "Maximum number of classes to preload in JUnit5 extension mode when preloading is enabled")
+    public static int TEST_EXTENSION_PRELOAD_MAX_CLASSES = 64;
+
     @Parameter(key = "print_to_system", group = "Output",
             description = "Allow test output on console")
     public static boolean PRINT_TO_SYSTEM = false;

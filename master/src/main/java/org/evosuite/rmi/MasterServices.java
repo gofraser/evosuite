@@ -19,6 +19,7 @@
  */
 package org.evosuite.rmi;
 
+import org.evosuite.Properties;
 import org.evosuite.rmi.service.MasterNodeImpl;
 import org.evosuite.rmi.service.MasterNodeLocal;
 import org.evosuite.rmi.service.MasterNodeRemote;
@@ -57,6 +58,7 @@ public class MasterServices {
     private Registry registry;
 
     private MasterNodeImpl masterNode;
+    private static final String RMI_SPI_PROPERTY = "java.rmi.server.RMIClassLoaderSpi";
 
 
     protected MasterServices() {
@@ -80,6 +82,7 @@ public class MasterServices {
      * @throws IllegalStateException if already running
      */
     public boolean startRegistry() throws IllegalStateException {
+        installMasterClassLoadingContext();
 
         if (registry != null) {
             logger.warn("RMI registry already running on port {}", registryPort);
@@ -157,6 +160,29 @@ public class MasterServices {
         masterNode = new MasterNodeImpl(registry);
         MasterNodeRemote stub = (MasterNodeRemote) UtilsRMI.exportObject(masterNode);
         registry.rebind(MasterNodeRemote.RMI_SERVICE_NAME, stub);
+    }
+
+    private static void installMasterClassLoadingContext() {
+        configureRmiClassLoaderSpi();
+        if (Properties.CLIENT_ON_THREAD) {
+            return;
+        }
+        MasterClassLoader.markMasterProcess();
+        Thread.currentThread().setContextClassLoader(MasterClassLoader.get());
+        try {
+            Class<?> tgc = Class.forName("org.evosuite.TestGenerationContext");
+            Object singleton = tgc.getMethod("getInstance").invoke(null);
+            tgc.getMethod("rebindToPreferredParentClassLoader").invoke(singleton);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            // Older client module on classpath or no rebind support yet.
+        }
+    }
+
+    private static void configureRmiClassLoaderSpi() {
+        String configured = System.getProperty(RMI_SPI_PROPERTY);
+        if (configured == null || configured.trim().isEmpty()) {
+            System.setProperty(RMI_SPI_PROPERTY, EvoSuiteRMIClassLoaderSpi.class.getName());
+        }
     }
 
 

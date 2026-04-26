@@ -84,6 +84,10 @@ public class TestRunnable implements InterfaceTestRunnable {
 
     protected final ThreadStopper threadStopper;
 
+    private volatile int currentStatementIndex = -1;
+
+    private volatile String currentStatementCode;
+
     private final Deque<DmonRollbackAction> dmonRollbackLog = new ArrayDeque<>();
 
     private interface DmonRollbackAction {
@@ -418,6 +422,8 @@ public class TestRunnable implements InterfaceTestRunnable {
             InstantiationException, VMError, EvosuiteError {
 
         for (Statement s : test) {
+            currentStatementIndex = num.get();
+            currentStatementCode = s.getCode();
 
             if (Thread.currentThread().isInterrupted() || Thread.interrupted()) {
                 logger.info("Thread interrupted at statement " + num + ": " + s.getCode());
@@ -515,6 +521,8 @@ public class TestRunnable implements InterfaceTestRunnable {
                     timeoutCandidate = timeoutCandidate.getCause();
                 }
                 if (timeoutCandidate instanceof TestCaseExecutor.TimeoutExceeded) {
+                    timeoutCandidate = enrichTimeoutDiagnostic((TestCaseExecutor.TimeoutExceeded) timeoutCandidate,
+                            num.get(), s.getCode());
                     logger.debug("Test timed out!");
                     exceptionsThrown.put(test.size(), timeoutCandidate);
                     result.setThrownExceptions(exceptionsThrown);
@@ -558,8 +566,28 @@ public class TestRunnable implements InterfaceTestRunnable {
 
             num.incrementAndGet();
         } // end of loop
+        currentStatementIndex = -1;
+        currentStatementCode = null;
         informObservers_finished(result);
         //TODO
+    }
+
+    private TestCaseExecutor.TimeoutExceeded enrichTimeoutDiagnostic(TestCaseExecutor.TimeoutExceeded timeout,
+                                                                     int statementIndex,
+                                                                     String statementCode) {
+        if (timeout == null) {
+            return null;
+        }
+        if (timeout.getStatementPosition() != null
+                && timeout.getStatementCode() != null
+                && !timeout.getStatementCode().trim().isEmpty()) {
+            return timeout;
+        }
+        return new TestCaseExecutor.TimeoutExceeded(
+                timeout.getMessage(),
+                timeout.getStackTrace(),
+                statementIndex,
+                statementCode);
     }
 
     /**
@@ -1072,6 +1100,16 @@ public class TestRunnable implements InterfaceTestRunnable {
     @Override
     public Map<Integer, Throwable> getExceptionsThrown() {
         return new HashMap<>(exceptionsThrown);
+    }
+
+    @Override
+    public int getCurrentStatementIndex() {
+        return currentStatementIndex;
+    }
+
+    @Override
+    public String getCurrentStatementCode() {
+        return currentStatementCode;
     }
 
     /**

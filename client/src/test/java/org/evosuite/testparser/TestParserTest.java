@@ -21,8 +21,10 @@ package org.evosuite.testparser;
 
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -289,6 +291,41 @@ class TestParserTest {
     }
 
     @Test
+    void llmBestEffortInlinesVoidOneArgHelperInsideUnsupportedForLoop() {
+        parser.setMarkParsedFromLlm(true);
+
+        String source = "import org.junit.jupiter.api.Test;\n"
+                + "import java.util.concurrent.atomic.AtomicInteger;\n"
+                + "public class MyTest {\n"
+                + "  private void forceIncrement(AtomicInteger value) { value.incrementAndGet(); }\n"
+                + "  @Test\n"
+                + "  public void testUsesVoidHelperInLoop() {\n"
+                + "    AtomicInteger value = new AtomicInteger(0);\n"
+                + "    for (int i = 0; i < 2; i++) {\n"
+                + "      forceIncrement(value);\n"
+                + "    }\n"
+                + "  }\n"
+                + "}\n";
+
+        ParseResult result = parser.parseTestMethod(source, "testUsesVoidHelperInLoop");
+        assertFalse(result.hasErrors(), "Void helper in unsupported for-loop should be inlined");
+        assertTrue(result.getTestCase().size() >= 2);
+
+        UninterpretedStatement loop = null;
+        for (int i = 0; i < result.getTestCase().size(); i++) {
+            if (result.getTestCase().getStatement(i) instanceof UninterpretedStatement) {
+                loop = (UninterpretedStatement) result.getTestCase().getStatement(i);
+                break;
+            }
+        }
+        assertNotNull(loop, "Expected for-loop to be preserved as uninterpreted");
+        assertFalse(loop.getSourceCode().contains("forceIncrement("),
+                "Helper call should be inlined inside preserved loop:\n" + loop.getSourceCode());
+        assertTrue(loop.getSourceCode().contains("value.incrementAndGet()"),
+                "Expected inlined helper body in preserved loop:\n" + loop.getSourceCode());
+    }
+
+    @Test
     void llmBestEffortFallsBackForPrivateConstructorAccess() {
         parser.setMarkParsedFromLlm(true);
 
@@ -518,14 +555,48 @@ class TestParserTest {
                     + "  }\n"
                     + "}\n";
 
-            ParseResult result = parser.parseTestMethod(source, "testFileCtor");
-            assertFalse(result.hasErrors(), "File constructor should remain parsable in LLM mode");
-            assertEquals(1, result.getTestCase().size());
-            assertInstanceOf(ConstructorStatement.class, result.getTestCase().getStatement(0));
-            ConstructorStatement ctor = (ConstructorStatement) result.getTestCase().getStatement(0);
+        ParseResult result = parser.parseTestMethod(source, "testFileCtor");
+        assertFalse(result.hasErrors(), "File constructor should remain parsable in LLM mode");
+        assertEquals(2, result.getTestCase().size());
+        assertInstanceOf(ConstructorStatement.class, result.getTestCase().getStatement(1));
+        ConstructorStatement ctor = (ConstructorStatement) result.getTestCase().getStatement(1);
+        assertEquals("org.evosuite.runtime.mock.java.io.MockFile",
+                ctor.getConstructor().getConstructor().getDeclaringClass().getName(),
+                "Expected File construction to be rewritten to OverrideMock MockFile");
+        } finally {
+            RuntimeSettings.useVFS = oldUseVfs;
+        }
+    }
+
+    @Test
+    void llmBestEffortRewritesStaticFileFactoryToOverrideMockWhenAvailable() {
+        boolean oldUseVfs = RuntimeSettings.useVFS;
+        try {
+            RuntimeSettings.useVFS = true;
+            parser.setMarkParsedFromLlm(true);
+
+            String source = "import org.junit.jupiter.api.Test;\n"
+                    + "import java.io.File;\n"
+                    + "public class MyTest {\n"
+                    + "  @Test\n"
+                    + "  public void testTempFileFactory() throws Exception {\n"
+                    + "    File tmp = File.createTempFile(\"aa\", \".tmp\");\n"
+                    + "  }\n"
+                    + "}\n";
+
+            ParseResult result = parser.parseTestMethod(source, "testTempFileFactory");
+            assertFalse(result.hasErrors(), "File static factory should remain parsable in LLM mode");
+
+            MethodStatement staticCall = null;
+            for (int i = 0; i < result.getTestCase().size(); i++) {
+                if (result.getTestCase().getStatement(i) instanceof MethodStatement) {
+                    staticCall = (MethodStatement) result.getTestCase().getStatement(i);
+                }
+            }
+            assertNotNull(staticCall, "Expected a parsed method call statement");
             assertEquals("org.evosuite.runtime.mock.java.io.MockFile",
-                    ctor.getConstructor().getConstructor().getDeclaringClass().getName(),
-                    "Expected File construction to be rewritten to OverrideMock MockFile");
+                    staticCall.getMethod().getMethod().getDeclaringClass().getName(),
+                    "Expected File static factory to be rewritten to OverrideMock MockFile");
         } finally {
             RuntimeSettings.useVFS = oldUseVfs;
         }

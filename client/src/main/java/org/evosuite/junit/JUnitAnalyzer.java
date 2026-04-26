@@ -40,6 +40,7 @@ import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.junit.platform.engine.TestExecutionResult;
 import org.junit.platform.engine.discovery.DiscoverySelectors;
@@ -66,6 +67,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -91,6 +94,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.stream.Collectors;
@@ -348,6 +352,11 @@ public abstract class JUnitAnalyzer {
 
                 logger.warn("Found unstable test named " + testName + " -> "
                         + failure.getExceptionClassName() + ": " + failure.getMessage());
+                if (isReflectiveAssertThrowsMismatch(failure)) {
+                    logger.warn("Likely reflective assertThrows mismatch in {}: Method.invoke wraps user "
+                            + "exceptions in InvocationTargetException. Prefer direct invocation for accessible methods, "
+                            + "or assert InvocationTargetException and then assert on getCause().", testName);
+                }
 
                 if (Properties.JUNIT_UNSTABLE_DIAGNOSTICS) {
                     logger.warn(buildUnstableDiagnostics(testName, failure));
@@ -703,6 +712,19 @@ public abstract class JUnitAnalyzer {
         return false;
     }
 
+    private static boolean isReflectiveAssertThrowsMismatch(JUnitFailure failure) {
+        if (failure == null || !failure.isAssertionError()) {
+            return false;
+        }
+        String message = failure.getMessage();
+        if (message == null || !message.contains("Unexpected exception type thrown")
+                || !message.contains("InvocationTargetException")) {
+            return false;
+        }
+        List<String> trace = failure.getExceptionStackTrace();
+        return trace != null && containsAny(trace, "java.lang.reflect.Method.invoke");
+    }
+
     private static String firstInterestingFrame(List<String> trace) {
         for (String frame : trace) {
             if (frame == null) {
@@ -837,10 +859,8 @@ public abstract class JUnitAnalyzer {
         suite.insertAllTests(tests);
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
                 && Properties.TEST_EXTENSION_MODE
-                && Properties.RESET_STATIC_FIELDS
-                && Properties.TARGET_CLASS != null
-                && !Properties.TARGET_CLASS.trim().isEmpty()) {
-            suite.setExtensionInitializationOrder(Collections.singletonList(Properties.TARGET_CLASS));
+                && Properties.RESET_STATIC_FIELDS) {
+            suite.setExtensionInitializationOrder(resolveExtensionInitializationOrderForCompileCheck());
         }
 
         //to get name, remove all package before last '.'
@@ -932,6 +952,44 @@ public abstract class JUnitAnalyzer {
         }
     }
 
+    private static List<String> resolveExtensionInitializationOrderForCompileCheck() {
+        if (Properties.TEST_EXTENSION_PRELOAD_INITIALIZED_CLASSES) {
+            return buildExtensionInitializationOrder(ClassReInitializer.getInstance().getInitializedClasses());
+        }
+        if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.trim().isEmpty()) {
+            return Collections.singletonList(Properties.TARGET_CLASS.trim());
+        }
+        return Collections.emptyList();
+    }
+
+    private static List<String> buildExtensionInitializationOrder(List<String> observedInitializationOrder) {
+        LinkedHashSet<String> ordered = new LinkedHashSet<>();
+        if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.trim().isEmpty()) {
+            ordered.add(Properties.TARGET_CLASS.trim());
+        }
+        if (observedInitializationOrder != null) {
+            for (String className : observedInitializationOrder) {
+                if (className == null) {
+                    continue;
+                }
+                String trimmed = className.trim();
+                if (!trimmed.isEmpty()) {
+                    ordered.add(trimmed);
+                }
+            }
+        }
+
+        int maxClasses = Math.max(1, Properties.TEST_EXTENSION_PRELOAD_MAX_CLASSES);
+        List<String> limited = new ArrayList<>(Math.min(maxClasses, ordered.size()));
+        for (String className : ordered) {
+            limited.add(className);
+            if (limited.size() >= maxClasses) {
+                break;
+            }
+        }
+        return limited;
+    }
+
     private static void logGeneratedSourceExcerptsOnCompilationFailure(List<File> generated) {
         int remainingChars = MAX_LOGGED_SOURCE_EXCERPT_CHARS_TOTAL;
         for (File source : generated) {
@@ -1010,7 +1068,9 @@ public abstract class JUnitAnalyzer {
             }
         }
 
-        if (!containsDotSegmentEntry(jarFile)) {
+        boolean hasDotSegmentEntries = containsDotSegmentEntry(jarFile);
+        boolean hasMalformedManifestClassPath = containsMalformedManifestClassPathEntry(jarFile);
+        if (!hasDotSegmentEntries && !hasMalformedManifestClassPath) {
             synchronized (SANITIZED_COMPILER_CLASSPATH_ENTRIES) {
                 SANITIZED_COMPILER_CLASSPATH_ENTRIES.put(jarFile.getAbsolutePath(), jarFile.getAbsolutePath());
             }
@@ -1039,6 +1099,43 @@ public abstract class JUnitAnalyzer {
             }
         } catch (IOException e) {
             logger.debug("Could not inspect jar {} for compiler sanitization: {}", jarFile, e.getMessage());
+        }
+        return false;
+    }
+
+    private static boolean containsMalformedManifestClassPathEntry(File jarFile) {
+        try (JarFile jar = new JarFile(jarFile)) {
+            java.util.jar.Manifest manifest = jar.getManifest();
+            if (manifest == null) {
+                return false;
+            }
+            Attributes mainAttributes = manifest.getMainAttributes();
+            if (mainAttributes == null) {
+                return false;
+            }
+            String classPath = mainAttributes.getValue(Attributes.Name.CLASS_PATH);
+            if (classPath == null || classPath.trim().isEmpty()) {
+                return false;
+            }
+
+            String[] entries = classPath.trim().split("\\s+");
+            for (String manifestEntry : entries) {
+                if (manifestEntry == null || manifestEntry.isEmpty()) {
+                    continue;
+                }
+                if (manifestEntry.indexOf('\\') >= 0) {
+                    return true;
+                }
+                try {
+                    new URI(manifestEntry);
+                } catch (URISyntaxException e) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            logger.debug("Could not inspect jar manifest {} for compiler sanitization: {}",
+                    jarFile,
+                    e.getMessage());
         }
         return false;
     }

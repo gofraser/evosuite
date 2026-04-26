@@ -45,6 +45,10 @@ class BytecodeContextProviderTest {
         Optional<String> result = provider.getContext("java.util.ArrayList", null);
         assertTrue(result.isPresent(), "Should disassemble ArrayList");
         assertTrue(result.get().contains("ArrayList"), "Output should mention ArrayList");
+        assertFalse(result.get().contains("\n  private "),
+                "Disassembly context should not expose private members");
+        assertFalse(result.get().contains("\n  protected "),
+                "Disassembly context should not expose protected members");
     }
 
     @Test
@@ -58,5 +62,24 @@ class BytecodeContextProviderTest {
     void modeLabelIsCorrect() {
         BytecodeContextProvider provider = new BytecodeContextProvider();
         assertEquals("Disassembled bytecode", provider.modeLabel());
+    }
+
+    @Test
+    void filterInaccessibleMembersRemovesPrivateMethodBlock() {
+        String src = ""
+                + "// access flags 0x1\n"
+                + "public class Foo {\n"
+                + "  // access flags 0x2\n"
+                + "  private secret()V\n"
+                + "    ALOAD 0\n"
+                + "    RETURN\n"
+                + "  // access flags 0x1\n"
+                + "  public ping()V\n"
+                + "    RETURN\n"
+                + "}\n";
+        String filtered = BytecodeContextProvider.filterInaccessibleMembers(src);
+        assertFalse(filtered.contains("private secret()V"));
+        assertFalse(filtered.contains("ALOAD 0"));
+        assertTrue(filtered.contains("public ping()V"));
     }
 }

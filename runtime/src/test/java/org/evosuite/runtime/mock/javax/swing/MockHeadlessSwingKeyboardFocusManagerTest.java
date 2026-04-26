@@ -27,7 +27,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.awt.GraphicsEnvironment;
+import java.awt.Toolkit;
 import javax.swing.JComboBox;
+import javax.swing.ComboBoxEditor;
+import javax.swing.JTextField;
 import java.awt.Color;
 
 public class MockHeadlessSwingKeyboardFocusManagerTest {
@@ -50,14 +53,78 @@ public class MockHeadlessSwingKeyboardFocusManagerTest {
     }
 
     @Test
-    public void comboBoxSelectionIsHeadlessSafeWhenEditorIsMissing() {
+    public void comboBoxSelectionIsSafeWhenEditorIsMissing() {
         Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
-        JComboBox<String> combo = new JComboBox<>(new String[]{"a", "b"});
-        combo.setEditable(true);
-        combo.setEditor(null);
+        TestEditorComboBox combo = new TestEditorComboBox();
+        combo.mode = EditorMode.RETURN_NULL;
 
         Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_setSelectedItem(combo, "b"));
         Assertions.assertEquals("b", combo.getSelectedItem());
+    }
+
+    @Test
+    public void comboBoxGetEditorReturnsNonNullWhenEditorIsMissing() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        TestEditorComboBox combo = new TestEditorComboBox();
+        combo.mode = EditorMode.RETURN_NULL;
+
+        ComboBoxEditor editor = Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_getEditor(combo));
+        Assertions.assertNotNull(editor);
+    }
+
+    @Test
+    public void comboBoxGetEditorReturnsFallbackWhenComboEditorAccessThrows() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        TestEditorComboBox combo = new TestEditorComboBox();
+        combo.mode = EditorMode.THROW;
+
+        ComboBoxEditor editor = Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_getEditor(combo));
+        Assertions.assertNotNull(editor);
+        Assertions.assertDoesNotThrow(() -> editor.setItem("x"));
+    }
+
+    @Test
+    public void comboBoxSetSelectedItemIsSafeWhenComboEditorAccessThrows() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        TestEditorComboBox combo = new TestEditorComboBox();
+        combo.mode = EditorMode.THROW;
+
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_setSelectedItem(combo, "x"));
+    }
+
+    @Test
+    public void comboBoxSetEditableRecoversMissingEditor() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        TestEditorComboBox combo = new TestEditorComboBox();
+        combo.mode = EditorMode.RETURN_NULL;
+
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_setEditable(combo, true));
+        ComboBoxEditor editor = Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_getEditor(combo));
+        Assertions.assertNotNull(editor);
+    }
+
+    @Test
+    public void textComponentCaretIsRecoveredWhenMissing() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        JTextField textField = new JTextField("abc");
+        textField.setCaret(null);
+
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_getCaret(textField));
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_setCaretPosition(textField, 2));
+    }
+
+    @Test
+    public void textComponentSelectionApisAreRecoveredWhenCaretIsMissing() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        JTextField textField = new JTextField("abcdef");
+        textField.setCaret(null);
+
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_moveCaretPosition(textField, 1));
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_setSelectionStart(textField, 0));
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_setSelectionEnd(textField, 3));
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_select(textField, 2, 5));
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_selectAll(textField));
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_getCaret(textField));
     }
 
     @Test
@@ -71,5 +138,65 @@ public class MockHeadlessSwingKeyboardFocusManagerTest {
         Assertions.assertNull(MockHeadlessSwing.replacement_showColorDialog(null, "t", Color.RED));
         Assertions.assertNull(MockHeadlessSwing.replacement_newRobot());
         Assertions.assertNull(MockHeadlessSwing.replacement_newRobot(null));
+    }
+
+    @Test
+    public void graphicsEnvironmentReplacementIsNonNullWhenHeadlessAndMockingEnabled() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_getLocalGraphicsEnvironment());
+        Assertions.assertNotNull(
+                MockHeadlessSwing.replacement_getLocalGraphicsEnvironment().getDefaultScreenDevice());
+    }
+
+    @Test
+    public void toolkitReplacementDoesNotThrowWhenHeadlessAndMockingEnabled() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        Toolkit toolkit = Assertions.assertDoesNotThrow(MockHeadlessSwing::replacement_getDefaultToolkit);
+        // Depending on JVM internals this may still be null, but replacement must stay non-throwing.
+        if (toolkit != null) {
+            Assertions.assertDoesNotThrow(toolkit::toString);
+        }
+    }
+
+    private enum EditorMode {
+        NORMAL,
+        RETURN_NULL,
+        THROW
+    }
+
+    private static final class TestEditorComboBox extends JComboBox<String> {
+        private EditorMode mode = EditorMode.NORMAL;
+
+        private TestEditorComboBox() {
+            super(new String[]{"a", "b"});
+        }
+
+        @Override
+        public boolean isEditable() {
+            return true;
+        }
+
+        @Override
+        public ComboBoxEditor getEditor() {
+            if (mode == EditorMode.THROW) {
+                throw new RuntimeException("simulated getEditor failure");
+            }
+            if (mode == EditorMode.RETURN_NULL) {
+                return null;
+            }
+            return super.getEditor();
+        }
+
+        @Override
+        public void setEditor(ComboBoxEditor anEditor) {
+            if (mode == EditorMode.THROW) {
+                throw new RuntimeException("simulated setEditor failure");
+            }
+            if (mode == EditorMode.RETURN_NULL) {
+                return;
+            }
+            super.setEditor(anEditor);
+        }
+
     }
 }

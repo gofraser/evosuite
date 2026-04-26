@@ -24,14 +24,20 @@ import com.examples.with.different.packagename.AbstractEnumUser;
 import com.examples.with.different.packagename.EnumInInnerClass;
 import com.examples.with.different.packagename.EnumUser;
 import org.evosuite.Properties;
+import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ClassPrimitiveStatement;
+import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.EnumPrimitiveStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.NullStatement;
+import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
+import org.evosuite.testcase.statements.numeric.CharPrimitiveStatement;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
@@ -54,6 +60,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Set;
+import java.util.Vector;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -107,6 +114,38 @@ public class TestCodeVisitorTest {
 
         public static class CountryNameCode {
             public String foo = "foo";
+        }
+    }
+
+    public static class SnippetNestedOwner {
+        public enum ChangeEventType {
+            USER
+        }
+    }
+
+    public static class SnippetRelatedOwner {
+        public SnippetRelatedOwner(SnippetDeepType deepType, java.sql.Timestamp timestamp) {
+            // no-op
+        }
+    }
+
+    public static class SnippetDeepType {
+        public SnippetDeepType(java.security.CodeSource codeSource) {
+            // no-op
+        }
+    }
+
+    public static class SnippetPackageKnownType {
+        // no-op
+    }
+
+    public static class SnippetPackageSiblingType {
+        // no-op
+    }
+
+    public static class PublicTypeWithPackagePrivateCtor {
+        PublicTypeWithPackagePrivateCtor(String value) {
+            // no-op
         }
     }
 
@@ -333,11 +372,207 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testUninterpretedStatementAddsImportForPlainGenericDeclaration() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "try {\n"
+                        + "  List results = luceneSearcher0.search(\"description:x\");\n"
+                        + "  assertNotNull(results);\n"
+                        + "} catch (LuceneException ex) {\n"
+                        + "  assertNotNull(ex);\n"
+                        + "}"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(java.util.List.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementNormalizesBinaryInnerClassLiteral() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "assertThrows(org.evosuite.runtime.System$SystemExitException.class, () -> framework.MainClass.main(new String[] { \"-unknown\" }));"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("org.evosuite.runtime.System.SystemExitException.class"));
+        assertFalse(code.contains("System$SystemExitException.class"));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForQualifiedJunitAssertions() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "Assertions.assertArrayEquals(new String[] {}, new String[] {});"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(Assertions.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForNestedEnumSimpleName() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new ClassPrimitiveStatement(tc, SnippetNestedOwner.class));
+        tc.addStatement(new UninterpretedStatement(tc,
+                "assertEquals(ChangeEventType.USER, ChangeEventType.USER);"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(SnippetNestedOwner.ChangeEventType.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForRelatedApiTypeSimpleName() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new ClassPrimitiveStatement(tc, SnippetRelatedOwner.class));
+        tc.addStatement(new UninterpretedStatement(tc, "Timestamp ts = null;"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(java.sql.Timestamp.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForTransitivelyRelatedTypeSimpleName() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new ClassPrimitiveStatement(tc, SnippetRelatedOwner.class));
+        tc.addStatement(new UninterpretedStatement(tc, "CodeSource cs = null;"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(java.security.CodeSource.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForInstanceofType() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "for (java.awt.Component c : panel.getComponents()) {\n"
+                        + "  if (c instanceof JScrollPane) {\n"
+                        + "    // no-op\n"
+                        + "  }\n"
+                        + "}"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(javax.swing.JScrollPane.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForQualifiedMockitoUsage() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "Mockito.when(flag).thenReturn(true);"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.stream().anyMatch(c ->
+                        "Mockito".equals(c.getSimpleName())
+                                && c.getName().endsWith(".mockito.Mockito")),
+                "Expected Mockito class import for qualified Mockito usage");
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForJndiSearchControlsSimpleName() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "doThrow(new NamingException(\"fail\")).when(ldapContext0)"
+                        + ".search(anyString(), anyString(), any(SearchControls.class));"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(javax.naming.directory.SearchControls.class),
+                "Expected SearchControls import for simple-name class literal usage");
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForJavaLangReflectFieldSimpleName() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "Field f = object0.getClass().getDeclaredField(\"x\");"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(java.lang.reflect.Field.class),
+                "Expected Field import for simple-name declaration usage");
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForSiblingTypeInKnownPackage() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new ClassPrimitiveStatement(tc, javax.xml.parsers.DocumentBuilder.class));
+        tc.addStatement(new UninterpretedStatement(tc, "DocumentBuilderFactory x = null;"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(javax.xml.parsers.DocumentBuilderFactory.class),
+                "Expected sibling type import resolved from known package");
+    }
+
+    @Test
+    public void testLlmUninterpretedStatementPromotesUndeclaredNewAssignment() {
+        TestCase tc = new DefaultTestCase();
+        UninterpretedStatement stmt = new UninterpretedStatement(tc,
+                "try {\n"
+                        + "  s = new Scanner(\"x\");\n"
+                        + "} catch (Exception e) {\n"
+                        + "  fail(e.getMessage());\n"
+                        + "}");
+        stmt.setParsedFromLlm(true);
+        tc.addStatement(stmt);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("Scanner s = new Scanner(\"x\");"),
+                "Undeclared constructor assignment should be promoted to declaration:\n" + code);
+    }
+
+    @Test
     public void testDetachedVoidNullReferenceRendersAsNullLiteral() {
         TestCase tc = new DefaultTestCase();
         TestCodeVisitor visitor = new TestCodeVisitor();
         NullReference nullRef = new NullReference(tc, Void.class);
         assertEquals("null", visitor.getVariableName(nullRef));
+    }
+
+    @Test
+    public void testAssignmentDeclarationDoesNotUseNullKeywordAsVariableName() {
+        TestCase tc = new DefaultTestCase();
+        NullReference target = new NullReference(tc, Object.class);
+        NullReference value = new NullReference(tc, Object.class);
+        tc.addStatement(new AssignmentStatement(tc, target, value));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertFalse(code.contains("Object null = null;"));
+        assertTrue(code.contains("Object nullRef"));
     }
 
     @Test
@@ -590,6 +825,153 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testUnresolvedTypeVariableParameterWithPrimitiveAvoidsObjectCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference charVar = tc.addStatement(new CharPrimitiveStatement(tc, 'a'));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
+                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
+        getParameterString.setAccessible(true);
+
+        TypeVariable<?> e = Vector.class.getTypeParameters()[0];
+        String parameterString = (String) getParameterString.invoke(
+                visitor,
+                new Type[]{e},
+                Arrays.asList(charVar),
+                false,
+                false,
+                0);
+
+        assertTrue(parameterString.contains("char0"));
+        assertFalse(parameterString.contains("(Object)"));
+    }
+
+    @Test
+    public void testNullParameterWithoutOverloadDoesNotAddReferenceCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference nullVar = tc.addStatement(new NullStatement(tc, Object.class));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
+                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
+        getParameterString.setAccessible(true);
+
+        String parameterString = (String) getParameterString.invoke(
+                visitor,
+                new Type[]{CharSequence.class},
+                Arrays.asList(nullVar),
+                false,
+                false,
+                0);
+
+        assertEquals("null", parameterString);
+    }
+
+    @Test
+    public void testNullParameterWithOverloadKeepsReferenceCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference nullVar = tc.addStatement(new NullStatement(tc, Object.class));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
+                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
+        getParameterString.setAccessible(true);
+
+        String parameterString = (String) getParameterString.invoke(
+                visitor,
+                new Type[]{CharSequence.class},
+                Arrays.asList(nullVar),
+                false,
+                true,
+                0);
+
+        assertEquals("(CharSequence) null", parameterString);
+    }
+
+    @Test
+    public void testNullParameterWithOverloadAndTypeVariableAvoidsObjectCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference nullVar = tc.addStatement(new NullStatement(tc, Object.class));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
+                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
+        getParameterString.setAccessible(true);
+
+        TypeVariable<?> e = Vector.class.getTypeParameters()[0];
+        String parameterString = (String) getParameterString.invoke(
+                visitor,
+                new Type[]{e},
+                Arrays.asList(nullVar),
+                false,
+                true,
+                0);
+
+        assertEquals("null", parameterString);
+        assertFalse(parameterString.contains("(Object)"));
+    }
+
+    @Test
+    public void testUninterpretedNullVariableWithTypeVariableRendersAsNullLiteral() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference nullObjectVar = tc.addStatement(
+                new UninterpretedStatement(tc, Object.class, "Object object0 = null;"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Method getParameterString = TestCodeVisitor.class.getDeclaredMethod(
+                "getParameterString", Type[].class, java.util.List.class, boolean.class, boolean.class, int.class);
+        getParameterString.setAccessible(true);
+
+        TypeVariable<?> e = Vector.class.getTypeParameters()[0];
+        String parameterString = (String) getParameterString.invoke(
+                visitor,
+                new Type[]{e},
+                Arrays.asList(nullObjectVar),
+                false,
+                false,
+                0);
+
+        assertEquals("null", parameterString);
+        assertFalse(parameterString.contains("object0"));
+        assertFalse(parameterString.contains("(Object)"));
+    }
+
+    @Test
+    public void testAssertionReferencingFutureVariableIsDeferredUntilVariableIsDeclared() {
+        TestCase tc = new DefaultTestCase();
+        VariableReference int0 = tc.addStatement(new IntPrimitiveStatement(tc, 1));
+        VariableReference int1 = tc.addStatement(new IntPrimitiveStatement(tc, 2));
+
+        EqualsAssertion assertion = new EqualsAssertion();
+        assertion.setSource(int0);
+        assertion.setDest(int1);
+        assertion.setValue(Boolean.FALSE);
+        tc.getStatement(int0.getStPosition()).addAssertion(assertion);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        String int0Name = visitor.getVariableName(int0);
+        String int1Name = visitor.getVariableName(int1);
+        String assertionCode = "assertFalse(" + int0Name + " == " + int1Name + ");";
+
+        assertTrue(code.contains(assertionCode));
+        assertTrue(code.indexOf(int1Name + " = ") < code.indexOf(assertionCode));
+    }
+
+    @Test
     public void testGenerateFailAssertionSkipsHeadlessException() {
         TestCodeVisitor visitor = new TestCodeVisitor();
         String fail = visitor.generateFailAssertion(null, new HeadlessException());
@@ -601,5 +983,50 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         String fail = visitor.generateFailAssertion(null, new IllegalArgumentException("boom"));
         assertTrue(fail.contains("Expecting exception: IllegalArgumentException"));
+    }
+
+    @Test
+    public void testGenerateFailAssertionSkipsPrivateAccessIllegalArgumentException() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        IllegalArgumentException ex = new IllegalArgumentException("boom");
+        ex.setStackTrace(new StackTraceElement[]{
+                new StackTraceElement("org.evosuite.runtime.PrivateAccess",
+                        "setVariable",
+                        "PrivateAccess.java",
+                        101)
+        });
+
+        String fail = visitor.generateFailAssertion(null, ex);
+        assertEquals("", fail);
+    }
+
+    @Test
+    public void testPackagePrivateConstructorInDifferentGeneratedPackageUsesReflection() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = "different.generated.package";
+        try {
+            TestCase tc = new DefaultTestCase();
+            StringPrimitiveStatement arg = new StringPrimitiveStatement(tc, "x");
+            tc.addStatement(arg);
+
+            GenericConstructor constructor = new GenericConstructor(
+                    PublicTypeWithPackagePrivateCtor.class.getDeclaredConstructor(String.class),
+                    PublicTypeWithPackagePrivateCtor.class);
+            ConstructorStatement ctorStmt = new ConstructorStatement(
+                    tc,
+                    constructor,
+                    Collections.singletonList(arg.getReturnValue()));
+            tc.addStatement(ctorStmt);
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("getDeclaredConstructor("));
+            assertTrue(code.contains(".setAccessible(true);"));
+            assertTrue(code.contains(".newInstance("));
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
     }
 }

@@ -50,6 +50,14 @@ class SystemPromptProviderTest {
                 "System prompt must require straight-line tests");
         assertTrue(prompt.contains("Do NOT define anonymous classes"),
                 "System prompt must forbid anonymous classes for parser compatibility");
+        assertTrue(prompt.contains("Prefer direct method/constructor/field access over reflection"),
+                "System prompt should discourage unnecessary reflection");
+        assertTrue(prompt.contains("Method.invoke wraps user exceptions in InvocationTargetException"),
+                "System prompt should explain reflective exception wrapping");
+        assertTrue(prompt.contains("Do NOT install, replace, reset, or restore a SecurityManager"),
+                "System prompt must forbid SecurityManager mutation in sandboxed tests");
+        assertTrue(prompt.contains("System.setSecurityManager(...)"),
+                "System prompt must explicitly forbid System.setSecurityManager");
     }
 
     @Test
@@ -66,5 +74,13 @@ class SystemPromptProviderTest {
                 "System prompt must require straight-line tests");
         assertTrue(prompt.contains("Do NOT define anonymous classes"),
                 "System prompt must forbid anonymous classes for parser compatibility");
+        assertTrue(prompt.contains("Prefer direct method/constructor/field access over reflection"),
+                "System prompt should discourage unnecessary reflection");
+        assertTrue(prompt.contains("Method.invoke wraps user exceptions in InvocationTargetException"),
+                "System prompt should explain reflective exception wrapping");
+        assertTrue(prompt.contains("Do NOT install, replace, reset, or restore a SecurityManager"),
+                "System prompt must forbid SecurityManager mutation in sandboxed tests");
+        assertTrue(prompt.contains("System.setSecurityManager(...)"),
+                "System prompt must explicitly forbid System.setSecurityManager");
     }
 }

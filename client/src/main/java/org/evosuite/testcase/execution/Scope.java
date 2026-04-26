@@ -20,6 +20,8 @@
 package org.evosuite.testcase.execution;
 
 import org.evosuite.setup.TestUsageChecker;
+import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
 
@@ -98,6 +100,10 @@ public class Scope {
                 && !reference.isPrimitive() // && !reference.getGenericClass().isClass()
                 && !o.getClass().isArray()) { // && !(reference instanceof ArrayReference)) {
             if (TestUsageChecker.canUse(o.getClass())) {
+                if (shouldKeepDeclaredType(reference)) {
+                    pool.put(reference, o);
+                    return;
+                }
                 /*
                  * Keep inferred runtime types only when they are assignment-compatible
                  * with the variable's declared/static type. Otherwise we can corrupt the
@@ -141,6 +147,23 @@ public class Scope {
             }
         }
         pool.put(reference, o);
+    }
+
+    private boolean shouldKeepDeclaredType(VariableReference reference) {
+        if (reference == null || reference.getTestCase() == null) {
+            return false;
+        }
+        int position;
+        try {
+            position = reference.getStPosition();
+        } catch (AssertionError e) {
+            return false;
+        }
+        if (position < 0 || position >= reference.getTestCase().size()) {
+            return false;
+        }
+        Statement statement = reference.getTestCase().getStatement(position);
+        return statement instanceof UninterpretedStatement && statement.isParsedFromLlm();
     }
 
     /**

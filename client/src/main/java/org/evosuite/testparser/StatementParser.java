@@ -19,7 +19,9 @@
  */
 package org.evosuite.testparser;
 
+import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.ArrayCreationLevel;
+import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.body.VariableDeclarator;
@@ -28,6 +30,7 @@ import com.github.javaparser.ast.stmt.AssertStmt;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
+import com.github.javaparser.ast.stmt.TryStmt;
 import com.github.javaparser.ast.visitor.ModifierVisitor;
 import com.github.javaparser.ast.visitor.Visitable;
 import org.evosuite.assertion.EqualsAssertion;
@@ -44,6 +47,8 @@ import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.FunctionalMockForAbstractClassStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.numeric.*;
+import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
+import org.evosuite.testcase.statements.reflection.PrivateMethodStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.FieldReference;
@@ -62,9 +67,11 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -85,6 +92,10 @@ public class StatementParser {
     private final VariableScope scope;
     private final ParseResult result;
     private final Map<String, MethodDeclaration> inlineHelperMethods = new LinkedHashMap<>();
+    /** LLM-mode declarations without initializer; consumed by subsequent NameExpr assignments. */
+    private final Map<String, Type> pendingLlmDeclarations = new LinkedHashMap<>();
+    /** Captured Mockito when(...) aliases waiting for a later thenReturn/thenThrow terminal call. */
+    private final Map<String, CapturedWhenStubbingContext> capturedWhenStubbings = new LinkedHashMap<>();
 
     /** Counter for generating unique names for synthetic variables (inline literals, etc.) */
     private int syntheticVarCounter = 0;
@@ -161,16 +172,25 @@ public class StatementParser {
         } else if (astStmt instanceof AssertStmt) {
             handleAssertStatement((AssertStmt) astStmt);
             return 1;
+        } else if (markParsedFromLlm && astStmt instanceof TryStmt) {
+            // Best-effort: flatten try-body statements instead of preserving raw source,
+            // which often leaks undeclared local assignments from LLM snippets.
+            handleTryStatement((TryStmt) astStmt);
+            return 1;
         } else {
             // Fallback: preserve as UninterpretedStatement
             int line = astStmt.getBegin().map(p -> p.line).orElse(0);
+            com.github.javaparser.ast.stmt.Statement preserved = astStmt;
+            if (markParsedFromLlm) {
+                preserved = inlineHelperCallsInUnsupportedStatement(astStmt);
+            }
             result.addDiagnostic(new ParseDiagnostic(
                     ParseDiagnostic.Severity.WARNING,
                     "Unsupported statement type, preserved as UninterpretedStatement: "
-                            + astStmt.getClass().getSimpleName(),
+                            + preserved.getClass().getSimpleName(),
                     line,
-                    astStmt.toString()));
-            testCase.addStatement(createUninterpretedStatement(astStmt, astStmt.toString()));
+                    preserved.toString()));
+            testCase.addStatement(createUninterpretedStatement(preserved, preserved.toString()));
             return 1;
         }
     }
@@ -193,11 +213,28 @@ public class StatementParser {
         } else if (expr instanceof MethodCallExpr) {
             handleTopLevelMethodCall((MethodCallExpr) expr);
             return 1;
+        } else if (expr instanceof ObjectCreationExpr) {
+            // Standalone constructor call used as statement (e.g. "new Foo(...);").
+            // Parse it through the regular constructor path instead of preserving raw
+            // source as uninterpreted code, which can leak unresolved symbols.
+            handleObjectCreation((ObjectCreationExpr) expr, Object.class, null);
+            return 1;
         } else if (expr instanceof AssignExpr) {
             handleAssignment((AssignExpr) expr);
             return 1;
         } else {
-            // Fallback: preserve as UninterpretedStatement
+            // Fallback: preserve as UninterpretedStatement in strict mode.
+            // In LLM best-effort mode, avoid emitting raw unsupported expression
+            // statements (e.g., ternary expressions) because they can be
+            // non-compilable as standalone statements.
+            if (markParsedFromLlm) {
+                fallbackForUnresolvedExpression(
+                        expr,
+                        Object.class,
+                        "Unsupported expression statement in LLM mode");
+                return 1;
+            }
+            // Strict mode fallback: preserve raw source.
             int line = expr.getBegin().map(p -> p.line).orElse(0);
             result.addDiagnostic(new ParseDiagnostic(
                     ParseDiagnostic.Severity.WARNING,
@@ -217,9 +254,46 @@ public class StatementParser {
     private void handleVariableDeclaration(VariableDeclarationExpr varDeclExpr) {
         for (VariableDeclarator declarator : varDeclExpr.getVariables()) {
             String varName = declarator.getNameAsString();
+            String emittedVarName = chooseDeclarationName(varName, declarator);
 
             if (!declarator.getInitializer().isPresent()) {
-                // Declaration without initializer — skip
+                Type declaredType;
+                try {
+                    declaredType = typeResolver.resolveType(declarator.getType());
+                } catch (ClassNotFoundException e) {
+                    if (markParsedFromLlm) {
+                        declaredType = tryResolveDemockedDeclaredType(declarator.getType());
+                        if (declaredType == null) {
+                            declaredType = Object.class;
+                            int line = declarator.getBegin().map(p -> p.line).orElse(0);
+                            result.addDiagnostic(new ParseDiagnostic(
+                                    ParseDiagnostic.Severity.WARNING,
+                                    "Cannot resolve type for declaration without initializer: "
+                                            + declarator.getType() + " — " + e.getMessage()
+                                            + " — downgraded to Object for LLM best-effort parsing. "
+                                            + "LLM_REPAIR_ACTION_REQUIRED: replace invented/unknown type '"
+                                            + declarator.getType() + "' with an existing SUT or JDK type.",
+                                    line,
+                                    declarator.toString()));
+                        }
+                    } else {
+                        int line = declarator.getBegin().map(p -> p.line).orElse(0);
+                        result.addDiagnostic(new ParseDiagnostic(
+                                ParseDiagnostic.Severity.WARNING,
+                                "Variable declaration without initializer: " + varName,
+                                line,
+                                declarator.toString()));
+                        continue;
+                    }
+                }
+
+                if (markParsedFromLlm) {
+                    // Defer emission until first assignment to avoid uncompilable declarations
+                    // with inaccessible type arguments (e.g., Constructor<Outer.Inner>).
+                    pendingLlmDeclarations.put(varName, declaredType);
+                    continue;
+                }
+
                 int line = declarator.getBegin().map(p -> p.line).orElse(0);
                 result.addDiagnostic(new ParseDiagnostic(
                         ParseDiagnostic.Severity.WARNING,
@@ -261,9 +335,65 @@ public class StatementParser {
                 }
             }
 
-            VariableReference varRef = handleExpression(varName, initializer, declaredType);
+            if (markParsedFromLlm && shouldPreserveAssertionReturningDeclaration(initializer)) {
+                Expression preservedInitializer = normalizeAssertionExpressionForPreservation(initializer);
+                String code = getFallbackTypeName(declaredType) + " " + emittedVarName
+                        + " = " + preservedInitializer + ";";
+                VariableReference preserved = testCase.addStatement(
+                        createUninterpretedStatement(declaredType, code, emittedVarName, declarator));
+                GenericClass<?> genericType = null;
+                if (declaredType instanceof java.lang.reflect.ParameterizedType) {
+                    genericType = GenericClassFactory.get(declaredType);
+                }
+                scope.register(varName, preserved, genericType);
+                continue;
+            }
+
+            // Preserve declared variable identity for "Type var = null;".
+            // If we model this as a NullReference constant, later references/assignments
+            // render as literal "null", producing invalid code such as "null = value;"
+            // or "null.method()".
+            if (initializer instanceof NullLiteralExpr) {
+                if (!markParsedFromLlm) {
+                    VariableReference strictNull = handleNullLiteral(declaredType);
+                    if (strictNull != null) {
+                        scope.register(varName, strictNull, null);
+                    }
+                    continue;
+                }
+                Class<?> rawDeclared = getRawClass(declaredType);
+                if (rawDeclared != null && rawDeclared.isPrimitive()) {
+                    if (markParsedFromLlm) {
+                        addWarning(initializer,
+                                "Primitive declaration initialized with null; using typed default value");
+                        VariableReference primitiveFallback = fallbackForInaccessibleMember(
+                                initializer,
+                                "Primitive declaration cannot be initialized with null",
+                                declaredType);
+                        if (primitiveFallback != null) {
+                            scope.register(varName, primitiveFallback, null);
+                        }
+                    } else {
+                        addError(initializer, "Primitive declaration cannot be initialized with null: "
+                                + declarator.getType() + " " + varName);
+                    }
+                    continue;
+                }
+
+                String code = getFallbackTypeName(declaredType) + " " + emittedVarName + " = null;";
+                VariableReference declaredNullVar = testCase.addStatement(
+                        createUninterpretedStatement(declaredType, code, emittedVarName, declarator));
+                GenericClass<?> genericType = null;
+                if (declaredType instanceof java.lang.reflect.ParameterizedType) {
+                    genericType = GenericClassFactory.get(declaredType);
+                }
+                scope.register(varName, declaredNullVar, genericType);
+                continue;
+            }
+
+            VariableReference varRef = handleExpression(emittedVarName, initializer, declaredType);
             if (varRef != null) {
-                varRef = coerceIncompatibleAliasDeclaration(varName, initializer, declaredType, varRef);
+                varRef = coerceIncompatibleAliasDeclaration(emittedVarName, initializer, declaredType, varRef);
             }
             if (varRef != null) {
                 GenericClass<?> genericType = null;
@@ -273,6 +403,33 @@ public class StatementParser {
                 scope.register(varName, varRef, genericType);
             }
         }
+    }
+
+    private boolean shouldPreserveAssertionReturningDeclaration(Expression initializer) {
+        if (!(initializer instanceof MethodCallExpr)) {
+            return false;
+        }
+        String methodName = ((MethodCallExpr) initializer).getNameAsString();
+        return "assertThrows".equals(methodName);
+    }
+
+    private String chooseDeclarationName(String requestedName, com.github.javaparser.ast.Node declarationNode) {
+        if (!markParsedFromLlm || requestedName == null || requestedName.isEmpty() || !scope.isDefined(requestedName)) {
+            return requestedName;
+        }
+        String candidate;
+        do {
+            candidate = requestedName + "_" + syntheticVarCounter++;
+        } while (scope.isDefined(candidate));
+        int line = declarationNode.getBegin().map(p -> p.line).orElse(0);
+        result.addDiagnostic(new ParseDiagnostic(
+                ParseDiagnostic.Severity.WARNING,
+                "Duplicate local variable name '" + requestedName
+                        + "' renamed to '" + candidate
+                        + "' to keep generated test compilable.",
+                line,
+                declarationNode.toString()));
+        return candidate;
     }
 
     /**
@@ -343,6 +500,11 @@ public class StatementParser {
         }
 
         Expression initializer = declarator.getInitializer().get();
+        int capturedWhenStubbing = handleCapturedWhenStubbingDeclaration(
+                declarator, initializer, allStatements, currentIndex);
+        if (capturedWhenStubbing > 0) {
+            return capturedWhenStubbing;
+        }
         if (!isMockCreation(initializer)) {
             return 0;
         }
@@ -406,6 +568,159 @@ public class StatementParser {
         return 1 + stubbingsConsumed;
     }
 
+    private int handleCapturedWhenStubbingDeclaration(
+            VariableDeclarator declarator,
+            Expression initializer,
+            List<com.github.javaparser.ast.stmt.Statement> allStatements,
+            int currentIndex) {
+        if (!(initializer instanceof MethodCallExpr)) {
+            return 0;
+        }
+
+        MethodCallExpr whenCall = (MethodCallExpr) initializer;
+        CapturedWhenStubbingContext context = resolveCapturedWhenStubbingContext(whenCall);
+        if (context == null) {
+            return 0;
+        }
+
+        String aliasName = declarator.getNameAsString();
+        if (!hasCapturedWhenTerminalCallAhead(aliasName, allStatements, currentIndex + 1)) {
+            return 0;
+        }
+
+        capturedWhenStubbings.put(aliasName, context.withAlias(aliasName));
+        return 1;
+    }
+
+    private CapturedWhenStubbingContext resolveCapturedWhenStubbingContext(MethodCallExpr whenCall) {
+        if (!isMockitoWhenCall(whenCall) || whenCall.getArguments().size() != 1) {
+            return null;
+        }
+
+        Expression whenArgument = whenCall.getArgument(0);
+        if (!(whenArgument instanceof MethodCallExpr)) {
+            return null;
+        }
+
+        MethodCallExpr innerMethodCall = (MethodCallExpr) whenArgument;
+        if (!innerMethodCall.getScope().isPresent() || !(innerMethodCall.getScope().get() instanceof NameExpr)) {
+            return null;
+        }
+
+        String mockVarName = ((NameExpr) innerMethodCall.getScope().get()).getNameAsString();
+        VariableReference mockRef = scope.resolve(mockVarName);
+        if (mockRef == null || mockRef.getStPosition() < 0 || mockRef.getStPosition() >= testCase.size()) {
+            return null;
+        }
+
+        Statement mockSource = testCase.getStatement(mockRef.getStPosition());
+        if (!(mockSource instanceof FunctionalMockStatement)) {
+            return null;
+        }
+
+        FunctionalMockStatement mockStatement = (FunctionalMockStatement) mockSource;
+        Class<?> targetClass = mockStatement.getTargetClass();
+        GenericClass<?> targetGenericClass = scope.resolveGenericType(mockVarName);
+        if (targetGenericClass == null) {
+            targetGenericClass = GenericClassFactory.get(targetClass);
+        }
+        return new CapturedWhenStubbingContext(
+                mockVarName,
+                null,
+                mockRef,
+                mockStatement,
+                targetClass,
+                targetGenericClass,
+                whenCall.clone());
+    }
+
+    private boolean isMockitoWhenCall(MethodCallExpr whenCall) {
+        if (whenCall == null || !"when".equals(whenCall.getNameAsString())) {
+            return false;
+        }
+        if (!whenCall.getScope().isPresent()) {
+            return true;
+        }
+        Class<?> scopeClass = resolveClassFromExpression(whenCall.getScope().get());
+        return isMockitoClass(scopeClass);
+    }
+
+    private boolean hasCapturedWhenTerminalCallAhead(String aliasName,
+                                                     List<com.github.javaparser.ast.stmt.Statement> allStatements,
+                                                     int startIndex) {
+        if (aliasName == null || allStatements == null) {
+            return false;
+        }
+        for (int i = startIndex; i < allStatements.size(); i++) {
+            com.github.javaparser.ast.stmt.Statement stmt = allStatements.get(i);
+            if (!(stmt instanceof ExpressionStmt)) {
+                continue;
+            }
+            Expression expression = ((ExpressionStmt) stmt).getExpression();
+            if (!(expression instanceof MethodCallExpr)) {
+                continue;
+            }
+            MethodCallExpr methodCall = (MethodCallExpr) expression;
+            if (!methodCall.getScope().isPresent() || !(methodCall.getScope().get() instanceof NameExpr)) {
+                continue;
+            }
+            if (!aliasName.equals(((NameExpr) methodCall.getScope().get()).getNameAsString())) {
+                continue;
+            }
+            String methodName = methodCall.getNameAsString();
+            if ("thenReturn".equals(methodName)) {
+                return true;
+            }
+            return markParsedFromLlm && "thenThrow".equals(methodName);
+        }
+        return false;
+    }
+
+    private NodeList<Expression> cloneArguments(MethodCallExpr methodCallExpr) {
+        NodeList<Expression> clonedArguments = new NodeList<>();
+        for (Expression argument : methodCallExpr.getArguments()) {
+            clonedArguments.add(argument.clone());
+        }
+        return clonedArguments;
+    }
+
+    private static final class CapturedWhenStubbingContext {
+        private final String mockVarName;
+        private final String aliasName;
+        private final VariableReference mockRef;
+        private final FunctionalMockStatement mockStatement;
+        private final Class<?> targetClass;
+        private final GenericClass<?> targetGenericClass;
+        private final MethodCallExpr whenCall;
+
+        private CapturedWhenStubbingContext(String mockVarName,
+                                            String aliasName,
+                                            VariableReference mockRef,
+                                            FunctionalMockStatement mockStatement,
+                                            Class<?> targetClass,
+                                            GenericClass<?> targetGenericClass,
+                                            MethodCallExpr whenCall) {
+            this.mockVarName = mockVarName;
+            this.aliasName = aliasName;
+            this.mockRef = mockRef;
+            this.mockStatement = mockStatement;
+            this.targetClass = targetClass;
+            this.targetGenericClass = targetGenericClass;
+            this.whenCall = whenCall;
+        }
+
+        private CapturedWhenStubbingContext withAlias(String aliasName) {
+            return new CapturedWhenStubbingContext(
+                    mockVarName,
+                    aliasName,
+                    mockRef,
+                    mockStatement,
+                    targetClass,
+                    targetGenericClass,
+                    whenCall.clone());
+        }
+    }
+
     private enum MockVariant {
         VIOLATED_ASSUMPTION_ANSWER,
         CALLS_REAL_METHODS,
@@ -437,16 +752,7 @@ public class StatementParser {
      * Extract the target class from a mock(Foo.class, ...) call.
      */
     private Class<?> extractMockTargetClass(MethodCallExpr mockCall) {
-        Expression firstArg = mockCall.getArgument(0);
-        if (!(firstArg instanceof ClassExpr)) {
-            return null;
-        }
-        try {
-            return typeResolver.resolveClass(((ClassExpr) firstArg).getTypeAsString());
-        } catch (ClassNotFoundException e) {
-            logger.debug("Cannot resolve mock target class: {}", firstArg);
-            return null;
-        }
+        return extractMockTargetClass(mockCall.getArgument(0));
     }
 
     /**
@@ -465,6 +771,109 @@ public class StatementParser {
             return MockVariant.CALLS_REAL_METHODS;
         }
         return MockVariant.PLAIN;
+    }
+
+    private VariableReference tryHandleLlmMockitoMockCall(MethodCallExpr expr,
+                                                          String methodName,
+                                                          Class<?> targetClass,
+                                                          boolean staticCall,
+                                                          List<VariableReference> argRefs) {
+        if (!markParsedFromLlm || !staticCall || !"mock".equals(methodName) || !isMockitoClass(targetClass)) {
+            return null;
+        }
+        if (expr.getArguments().isEmpty()) {
+            return null;
+        }
+
+        Class<?> mockTargetClass = resolveMockitoMockTargetClass(expr.getArgument(0), argRefs);
+        if (mockTargetClass == null) {
+            return null;
+        }
+
+        MockVariant variant = detectMockVariant(expr);
+        GenericClass<?> targetGenericClass = GenericClassFactory.get(mockTargetClass);
+        try {
+            if (variant == MockVariant.CALLS_REAL_METHODS) {
+                if (!FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(mockTargetClass)) {
+                    return null;
+                }
+                return testCase.addStatement(new FunctionalMockForAbstractClassStatement(
+                        testCase, mockTargetClass, targetGenericClass));
+            }
+
+            if (!FunctionalMockStatement.canBeFunctionalMocked(mockTargetClass)) {
+                return null;
+            }
+            return testCase.addStatement(new FunctionalMockStatement(
+                    testCase, mockTargetClass, targetGenericClass));
+        } catch (IllegalArgumentException e) {
+            logger.debug("Cannot normalize Mockito.mock({}) into FunctionalMockStatement: {}",
+                    mockTargetClass.getName(), e.getMessage());
+            return null;
+        }
+    }
+
+    private boolean isMockitoClass(Class<?> targetClass) {
+        if (targetClass == null) {
+            return false;
+        }
+        String name = targetClass.getName();
+        return "org.mockito.Mockito".equals(name)
+                || "shaded.org.evosuite.shaded.org.mockito.Mockito".equals(name);
+    }
+
+    private Class<?> resolveMockitoMockTargetClass(Expression firstArgument, List<VariableReference> argRefs) {
+        Class<?> classLiteralTarget = extractMockTargetClass(firstArgument);
+        if (classLiteralTarget != null) {
+            return classLiteralTarget;
+        }
+        if (argRefs == null || argRefs.isEmpty()) {
+            return null;
+        }
+        return resolveClassLiteralValue(argRefs.get(0));
+    }
+
+    private Class<?> extractMockTargetClass(Expression firstArgument) {
+        if (firstArgument == null) {
+            return null;
+        }
+
+        Expression unwrapped = unwrapMockClassArgument(firstArgument);
+        if (!(unwrapped instanceof ClassExpr)) {
+            return null;
+        }
+        try {
+            return typeResolver.resolveClass(((ClassExpr) unwrapped).getTypeAsString());
+        } catch (ClassNotFoundException e) {
+            logger.debug("Cannot resolve mock target class: {}", firstArgument);
+            return null;
+        }
+    }
+
+    private Expression unwrapMockClassArgument(Expression expression) {
+        Expression current = expression;
+        while (current instanceof CastExpr || current instanceof EnclosedExpr) {
+            if (current instanceof CastExpr) {
+                current = ((CastExpr) current).getExpression();
+            } else {
+                current = ((EnclosedExpr) current).getInner();
+            }
+        }
+        return current;
+    }
+
+    private Class<?> resolveClassLiteralValue(VariableReference reference) {
+        if (reference == null || reference.getStPosition() < 0 || reference.getStPosition() >= testCase.size()) {
+            return null;
+        }
+
+        Statement sourceStatement = testCase.getStatement(reference.getStPosition());
+        if (!(sourceStatement instanceof PrimitiveStatement<?>)) {
+            return null;
+        }
+
+        Object value = ((PrimitiveStatement<?>) sourceStatement).getValue();
+        return value instanceof Class<?> ? (Class<?>) value : null;
     }
 
     /**
@@ -591,14 +1000,14 @@ public class StatementParser {
             return null;
         }
 
-        // Extract the return values from doReturn() arguments
-        List<VariableReference> returnValues = resolveReturnValueArguments(doReturnCall.getArguments());
-
         // Resolve the method on the target class
         Method method = resolveMethodByNameLoose(targetClass, stubbedMethodName);
         if (method == null) {
             return null;
         }
+        // Extract the return values from doReturn() arguments
+        List<VariableReference> returnValues = resolveReturnValueArguments(
+                doReturnCall.getArguments(), method.getGenericReturnType());
 
         MethodDescriptor descriptor = new MethodDescriptor(method, targetGenericClass);
         // Set the counter to the number of return values
@@ -659,14 +1068,14 @@ public class StatementParser {
 
         String stubbedMethodName = innerMethodCall.getNameAsString();
 
-        // Extract return values from thenReturn arguments
-        List<VariableReference> returnValues = resolveReturnValueArguments(outerCall.getArguments());
-
         // Resolve the method on the target class
         Method method = resolveMethodByNameLoose(targetClass, stubbedMethodName);
         if (method == null) {
             return null;
         }
+        // Extract return values from thenReturn arguments
+        List<VariableReference> returnValues = resolveReturnValueArguments(
+                outerCall.getArguments(), method.getGenericReturnType());
 
         MethodDescriptor descriptor = new MethodDescriptor(method, targetGenericClass);
         for (int i = 0; i < returnValues.size(); i++) {
@@ -680,10 +1089,16 @@ public class StatementParser {
      * Resolve return value arguments from a doReturn() or thenReturn() call.
      * Each argument is parsed as a regular expression to create the appropriate statement.
      */
-    private List<VariableReference> resolveReturnValueArguments(List<Expression> args) {
+    private List<VariableReference> resolveReturnValueArguments(List<Expression> args, Type returnType) {
         List<VariableReference> refs = new ArrayList<>();
         for (Expression arg : args) {
-            VariableReference ref = resolveArgument(arg, Object.class);
+            VariableReference ref = resolveArgument(arg, returnType != null ? returnType : Object.class);
+            if (ref == null && markParsedFromLlm) {
+                ref = fallbackForInaccessibleMember(
+                        arg,
+                        "Unresolved stubbing return value: " + arg,
+                        returnType != null ? returnType : Object.class);
+            }
             if (ref != null) {
                 refs.add(ref);
             }
@@ -740,10 +1155,26 @@ public class StatementParser {
         // Unwrap cast: (Type) expr → handle inner expression with cast type
         if (expr instanceof CastExpr) {
             CastExpr castExpr = (CastExpr) expr;
+            if (markParsedFromLlm && castExpr.getExpression() instanceof NullLiteralExpr) {
+                // LLM output frequently over-casts null literals (e.g. (Object) null),
+                // which can force false argument mismatches for generic APIs and leak
+                // uncompilable casts into emitted tests. Keep only the null literal and
+                // let method/constructor resolution retype it to the formal parameter.
+                addWarning(expr, "Ignoring cast on null literal in LLM mode: " + castExpr.getType());
+                return handleExpression(varName, castExpr.getExpression(), declaredType);
+            }
             try {
                 Type castType = typeResolver.resolveType(castExpr.getType());
                 return handleExpression(varName, castExpr.getExpression(), castType);
             } catch (ClassNotFoundException e) {
+                if (markParsedFromLlm && castExpr.getExpression() instanceof NullLiteralExpr) {
+                    // LLMs sometimes cast null to invented/unresolvable helper types
+                    // (eg "(OutputDestination[]) null"). Keep the null literal and let
+                    // method/constructor resolution retype it to the actual formal type.
+                    addWarning(expr, "Cannot resolve cast type for null literal; ignoring cast in LLM mode: "
+                            + e.getMessage());
+                    return handleExpression(varName, castExpr.getExpression(), declaredType);
+                }
                 addError(expr, "Cannot resolve cast type: " + e.getMessage());
                 return null;
             }
@@ -851,10 +1282,18 @@ public class StatementParser {
             return handleExpression(varName, ((EnclosedExpr) expr).getInner(), declaredType);
         }
 
-        // Lambda expression: preserve as UninterpretedStatement
+        // Lambda expression: preserve as UninterpretedStatement.
+        // If it appears in a declaration/assignment value position, keep the typed
+        // declaration shape so later emitted JUnit remains compilable.
         if (expr instanceof LambdaExpr) {
             addWarning(expr, "Lambda expression preserved as UninterpretedStatement");
-            UninterpretedStatement stmt = createUninterpretedStatement(expr, expr.toString());
+            if (varName != null && !varName.trim().isEmpty()) {
+                Type effectiveType = declaredType == null ? Object.class : declaredType;
+                String code = getFallbackTypeName(effectiveType) + " " + varName + " = " + expr + ";";
+                UninterpretedStatement stmt = createUninterpretedStatement(effectiveType, code, varName, expr);
+                return testCase.addStatement(stmt);
+            }
+            UninterpretedStatement stmt = createUninterpretedStatement(expr, expr.toString() + ";");
             return testCase.addStatement(stmt);
         }
 
@@ -966,9 +1405,16 @@ public class StatementParser {
         if (expr.getOperator() == UnaryExpr.Operator.PLUS) {
             return handleExpression(varName, expr.getExpression(), declaredType);
         }
-        // Other unary operators (!, ~, ++, --): preserve as UninterpretedStatement
+        // Other unary operators (!, ~, ++, --): preserve as uninterpreted, but
+        // keep value-producing context compilable by materializing a typed assignment.
         addWarning(expr, "Unsupported unary operator preserved as UninterpretedStatement: " + expr.getOperator());
-        UninterpretedStatement stmt = createUninterpretedStatement(expr, expr.toString());
+        if (varName != null && !varName.trim().isEmpty()) {
+            Type effectiveType = declaredType == null ? Object.class : declaredType;
+            String code = getFallbackTypeName(effectiveType) + " " + varName + " = " + expr.toString() + ";";
+            UninterpretedStatement stmt = createUninterpretedStatement(effectiveType, code, varName, expr);
+            return testCase.addStatement(stmt);
+        }
+        UninterpretedStatement stmt = createUninterpretedStatement(expr, expr.toString() + ";");
         return testCase.addStatement(stmt);
     }
 
@@ -998,6 +1444,14 @@ public class StatementParser {
     private VariableReference handleObjectCreation(ObjectCreationExpr expr, Type declaredType, String targetVarName) {
         Class<?> rawClass = null;
         try {
+            if (markParsedFromLlm && expr.getAnonymousClassBody().isPresent()) {
+                VariableReference normalizedAnonymousMock =
+                        tryNormalizeAnonymousInterfaceCreationToMock(expr, declaredType);
+                if (normalizedAnonymousMock != null) {
+                    return normalizedAnonymousMock;
+                }
+                return preserveAnonymousObjectCreation(expr, declaredType, targetVarName);
+            }
             // Resolve the class being constructed
             // Keep package qualifiers but strip generic arguments (e.g., new java.io.File(...),
             // new ArrayList<>() -> "ArrayList").
@@ -1005,6 +1459,7 @@ public class StatementParser {
             rawClass = resolveClassWithLlmMockFallback(typeName);
 
             // Pre-resolve arguments without type hints to find the constructor
+            int argumentCheckpoint = testCase.size();
             List<VariableReference> argRefs = resolveArguments(expr.getArguments(), null, null);
 
             // Find matching constructor
@@ -1018,17 +1473,20 @@ public class StatementParser {
                     try {
                         constructor = resolveConstructor(rawClass, argTypes);
                     } catch (NoSuchMethodException originalCtorError) {
-                        return failOrFallback(expr, declaredType, rawClass,
+                        return failOrFallbackWithRollback(expr, declaredType, rawClass,
+                                argumentCheckpoint,
                                 "No matching constructor: " + originalCtorError.getMessage());
                     }
                 } else {
-                    return failOrFallback(expr, declaredType, rawClass,
+                    return failOrFallbackWithRollback(expr, declaredType, rawClass,
+                            argumentCheckpoint,
                             "No matching constructor: " + e.getMessage());
                 }
             }
 
             if (!isAccessibleMember(constructor)) {
-                return failOrTypedFallback(expr, declaredType, rawClass, targetVarName,
+                return failOrTypedFallbackWithRollback(expr, declaredType, rawClass, targetVarName,
+                        argumentCheckpoint,
                         rawClass.getSimpleName() + " constructor has private access");
             }
 
@@ -1039,7 +1497,8 @@ public class StatementParser {
             String mismatch = validateArgumentTypes(argRefs, constructor.getParameterTypes(),
                     constructor.getGenericParameterTypes(), expr, constructor.isVarArgs());
             if (mismatch != null) {
-                return failOrFallback(expr, declaredType, rawClass,
+                return failOrFallbackWithRollback(expr, declaredType, rawClass,
+                        argumentCheckpoint,
                         "Constructor argument mismatch: " + mismatch);
             }
             argRefs = normalizeVarArgsArguments(argRefs, constructor.getParameterTypes(), constructor.isVarArgs());
@@ -1068,9 +1527,64 @@ public class StatementParser {
             return testCase.addStatement(stmt);
 
         } catch (Exception e) {
-            return failOrFallback(expr, declaredType, rawClass,
+            return failOrFallbackWithRollback(expr, declaredType, rawClass,
+                    testCase.size(),
                     "Failed to parse constructor: " + e.getMessage());
         }
+    }
+
+    private VariableReference tryNormalizeAnonymousInterfaceCreationToMock(ObjectCreationExpr expr, Type declaredType) {
+        Type targetType = declaredType;
+        if (targetType == null || targetType == Object.class) {
+            try {
+                targetType = typeResolver.resolveType(expr.getType());
+            } catch (ClassNotFoundException e) {
+                Type democked = tryResolveDemockedDeclaredType(expr.getType());
+                targetType = democked != null ? democked : Object.class;
+            }
+        }
+
+        Class<?> rawTargetClass = getRawClass(targetType);
+        if (rawTargetClass == null || !rawTargetClass.isInterface()) {
+            return null;
+        }
+        if (!FunctionalMockStatement.canBeFunctionalMocked(rawTargetClass)) {
+            return null;
+        }
+
+        GenericClass<?> targetGenericClass = targetType instanceof java.lang.reflect.ParameterizedType
+                ? GenericClassFactory.get(targetType)
+                : GenericClassFactory.get(rawTargetClass);
+        addWarning(expr, "Normalized anonymous interface implementation to FunctionalMockStatement; discarded anonymous body");
+        return testCase.addStatement(new FunctionalMockStatement(
+                testCase, rawTargetClass, targetGenericClass));
+    }
+
+    private VariableReference preserveAnonymousObjectCreation(ObjectCreationExpr expr,
+                                                              Type declaredType,
+                                                              String targetVarName) {
+        Type preservedType = declaredType;
+        if (preservedType == null || preservedType == Object.class) {
+            try {
+                preservedType = typeResolver.resolveType(expr.getType());
+            } catch (ClassNotFoundException e) {
+                Type democked = tryResolveDemockedDeclaredType(expr.getType());
+                preservedType = democked != null ? democked : Object.class;
+            }
+        }
+
+        String preservedTypeName = getFallbackTypeName(preservedType);
+        ObjectCreationExpr preservedExpr = expr.clone();
+        preservedExpr.setType(StaticJavaParser.parseClassOrInterfaceType(preservedTypeName));
+
+        addWarning(expr, "Preserved anonymous class implementation as raw Java source");
+        if (targetVarName != null && !targetVarName.trim().isEmpty()) {
+            String code = preservedTypeName + " " + targetVarName + " = " + preservedExpr + ";";
+            return testCase.addStatement(
+                    createUninterpretedStatement(preservedType, code, targetVarName, expr));
+        }
+
+        return testCase.addStatement(createUninterpretedStatement(expr, preservedExpr + ";"));
     }
 
     /**
@@ -1078,27 +1592,58 @@ public class StatementParser {
      * when available and assignable to the declared raw class.
      */
     private Class<?> chooseOverrideMockConstructorTarget(Class<?> rawClass) {
+        Class<?> mockClass = getCompatibleOverrideMockClass(rawClass);
+        return mockClass != null ? mockClass : rawClass;
+    }
+
+    /**
+     * In LLM best-effort parsing, prefer a drop-in OverrideMock class for static
+     * helper/factory methods (e.g., File.createTempFile -> MockFile.createTempFile)
+     * when the mock provides a compatible overload.
+     */
+    private Class<?> chooseOverrideMockStaticMethodTarget(Class<?> rawClass,
+                                                          String methodName,
+                                                          Class<?>[] argTypes) {
         if (!markParsedFromLlm || rawClass == null) {
             return rawClass;
         }
+        Class<?> mockClass = getCompatibleOverrideMockClass(rawClass);
+        if (mockClass == null) {
+            return rawClass;
+        }
+        try {
+            Method method = resolveMethod(mockClass, methodName, argTypes);
+            if (!Modifier.isStatic(method.getModifiers())) {
+                return rawClass;
+            }
+            return mockClass;
+        } catch (NoSuchMethodException ignored) {
+            return rawClass;
+        }
+    }
+
+    private Class<?> getCompatibleOverrideMockClass(Class<?> rawClass) {
+        if (!markParsedFromLlm || rawClass == null) {
+            return null;
+        }
         String canonicalName = rawClass.getCanonicalName();
         if (canonicalName == null || canonicalName.isEmpty()) {
-            return rawClass;
+            return null;
         }
         Class<?> mockClass;
         try {
             mockClass = MockList.getMockClass(canonicalName);
         } catch (Throwable ignored) {
-            return rawClass;
+            return null;
         }
         if (mockClass == null) {
-            return rawClass;
+            return null;
         }
         if (!OverrideMock.class.isAssignableFrom(mockClass)) {
-            return rawClass;
+            return null;
         }
         if (!rawClass.isAssignableFrom(mockClass)) {
-            return rawClass;
+            return null;
         }
         return mockClass;
     }
@@ -1164,6 +1709,11 @@ public class StatementParser {
 
             if (expr.getScope().isPresent()) {
                 Expression scopeExpr = expr.getScope().get();
+                if (markParsedFromLlm
+                        && scopeExpr instanceof ObjectCreationExpr
+                        && tryHandleLegacyScopedInvokeHelperCall(expr, (ObjectCreationExpr) scopeExpr)) {
+                    return null; // helper wrapper call handled as reflective private method call
+                }
                 callee = resolveCalleeOrClass(scopeExpr);
 
                 if (callee != null) {
@@ -1179,6 +1729,12 @@ public class StatementParser {
                     }
                 }
             } else {
+                if (markParsedFromLlm && tryHandleLegacyFieldHelperCall(expr)) {
+                    return null; // void helper call handled as reflective statement
+                }
+                if (markParsedFromLlm && tryHandleLegacyInvokeHelperCall(expr)) {
+                    return null; // helper wrapper call handled as reflective private method call
+                }
                 // Unscoped method call — could be static import
                 String staticClass = typeResolver.resolveStaticImportClass(methodName);
                 if (staticClass != null) {
@@ -1195,10 +1751,16 @@ public class StatementParser {
                                 return handleExpression("__inlinedHelper" + syntheticVarCounter++,
                                         inlinedReturn, helperType);
                             }
+                            Expression inlinedSideEffect = instantiateInlineHelperExpression(inlineHelper,
+                                    expr.getArguments());
+                            if (inlinedSideEffect != null && isVoidContext(declaredType, targetVarName)) {
+                                handleExpressionStatement(inlinedSideEffect);
+                                return null;
+                            }
                         }
                     }
                     return failOrFallback(expr, declaredType, null,
-                            "Cannot resolve unscoped method call: " + methodName);
+            "Cannot resolve unscoped method call: " + methodName);
                 }
             }
 
@@ -1215,23 +1777,35 @@ public class StatementParser {
             }
 
             // Resolve arguments
+            int argumentCheckpoint = testCase.size();
             List<VariableReference> argRefs = resolveArguments(expr.getArguments(), null, null);
+
+            VariableReference normalizedMockitoMock = tryHandleLlmMockitoMockCall(
+                    expr, methodName, targetClass, staticCall, argRefs);
+            if (normalizedMockitoMock != null) {
+                return normalizedMockitoMock;
+            }
 
             // Find matching method
             Class<?>[] argTypes = getArgTypes(argRefs);
+            Class<?> methodTargetClass = staticCall
+                    ? chooseOverrideMockStaticMethodTarget(targetClass, methodName, argTypes)
+                    : targetClass;
             Method method;
             try {
-                method = resolveMethod(targetClass, methodName, argTypes);
+                method = resolveMethod(methodTargetClass, methodName, argTypes);
             } catch (NoSuchMethodException e) {
-                return failOrTypedFallback(expr, declaredType,
-                        inferFallbackMethodReturnType(targetClass, methodName, declaredType),
+                return failOrTypedFallbackWithRollback(expr, declaredType,
+                        inferFallbackMethodReturnType(methodTargetClass, methodName, declaredType),
                         targetVarName,
+                        argumentCheckpoint,
                         "No matching method: " + e.getMessage());
             }
 
             if (!isAccessibleMember(method)) {
-                return failOrTypedFallback(expr, declaredType, method.getGenericReturnType(), targetVarName,
-                        method.getName() + "() has private access in " + targetClass.getSimpleName());
+                return failOrTypedFallbackWithRollback(expr, declaredType, method.getGenericReturnType(), targetVarName,
+                        argumentCheckpoint,
+                        method.getName() + "() has private access in " + methodTargetClass.getSimpleName());
             }
 
             // Re-type Void-typed null arguments now that we know the parameter types
@@ -1241,12 +1815,19 @@ public class StatementParser {
             String mismatch = validateArgumentTypes(argRefs, method.getParameterTypes(),
                     method.getGenericParameterTypes(), expr, method.isVarArgs());
             if (mismatch != null) {
-                return failOrFallback(expr, declaredType, method.getGenericReturnType(),
+                return failOrTypedFallbackWithRollback(expr, declaredType, method.getGenericReturnType(), targetVarName,
+                        argumentCheckpoint,
                         "Method argument mismatch: " + mismatch);
             }
             argRefs = normalizeVarArgsArguments(argRefs, method.getParameterTypes(), method.isVarArgs());
 
-            GenericClass<?> ownerClass = GenericClassFactory.get(targetClass);
+            GenericClass<?> ownerClass;
+            if (!staticCall && callee != null) {
+                GenericClass<?> calleeGeneric = findGenericTypeForRef(callee);
+                ownerClass = calleeGeneric != null ? calleeGeneric : GenericClassFactory.get(methodTargetClass);
+            } else {
+                ownerClass = GenericClassFactory.get(methodTargetClass);
+            }
             TestClusterUtils.makeAccessible(method);
             GenericMethod genericMethod = new GenericMethod(method, ownerClass);
 
@@ -1259,8 +1840,271 @@ public class StatementParser {
         }
     }
 
+    /**
+     * LLMs sometimes emit helper-wrapper objects that are not present in the final
+     * parsed class body, e.g. {@code new MethodAccess(target).invokeGetBuilder(arg)}.
+     * Treat these like legacy invoke helpers by rewriting to reflective private-method
+     * invocation on the wrapped target object.
+     */
+    private boolean tryHandleLegacyScopedInvokeHelperCall(MethodCallExpr expr, ObjectCreationExpr scopeCtor) {
+        String helperName = expr.getNameAsString();
+        if (!helperName.startsWith("invoke") || helperName.length() <= "invoke".length()) {
+            return false;
+        }
+        if (scopeCtor.getArguments().isEmpty()) {
+            return false;
+        }
+
+        // Only rewrite when the helper type cannot be resolved; if it is a real SUT/JDK type,
+        // let normal method-call handling proceed.
+        try {
+            typeResolver.resolveType(scopeCtor.getType());
+            return false;
+        } catch (Exception ignored) {
+            // Unresolved helper type: proceed with legacy rewrite path.
+        }
+
+        NodeList<Expression> syntheticArgs = new NodeList<>();
+        syntheticArgs.add(scopeCtor.getArgument(0));
+        syntheticArgs.addAll(expr.getArguments());
+        MethodCallExpr syntheticInvokeHelperCall = new MethodCallExpr(null, helperName, syntheticArgs);
+        return tryHandleLegacyInvokeHelperCall(syntheticInvokeHelperCall);
+    }
+
+    /**
+     * LLMs sometimes emit local helper methods like setField()/setStaticField() and call them
+     * from tests. EvoSuite parses test bodies only, so helper method declarations are dropped.
+     * Convert these helper calls directly into PrivateFieldStatement so generated tests compile.
+     */
+    private boolean tryHandleLegacyFieldHelperCall(MethodCallExpr expr) {
+        String name = expr.getNameAsString();
+        if (!"setField".equals(name) && !"setStaticField".equals(name)) {
+            return false;
+        }
+        if (expr.getArguments().size() != 3) {
+            return false;
+        }
+
+        String fieldName = resolveFieldNameLiteral(expr.getArguments().get(1));
+        if (fieldName == null || fieldName.isEmpty()) {
+            addWarning(expr, "Could not resolve legacy helper field name literal for call: " + expr);
+            return false;
+        }
+
+        try {
+            if ("setField".equals(name)) {
+                VariableReference owner = handleExpression(
+                        "__legacy_owner" + syntheticVarCounter++, expr.getArguments().get(0), Object.class);
+                if (owner == null) {
+                    addWarning(expr, "Could not resolve receiver for legacy setField call: " + expr);
+                    return false;
+                }
+                Class<?> ownerClass = owner.getVariableClass();
+                Type fieldType = resolveFieldType(ownerClass, fieldName);
+                VariableReference value = handleExpression(
+                        "__legacy_value" + syntheticVarCounter++, expr.getArguments().get(2),
+                        fieldType != null ? fieldType : Object.class);
+                if (value == null) {
+                    addWarning(expr, "Could not resolve value for legacy setField call: " + expr);
+                    return false;
+                }
+                testCase.addStatement(new PrivateFieldStatement(testCase, ownerClass, fieldName, owner, value));
+                addWarning(expr, "Rewrote legacy helper call setField(...) to reflective field write");
+                return true;
+            }
+
+            Class<?> ownerClass = resolveOwnerClassForLegacyStaticField(expr.getArguments().get(0));
+            if (ownerClass == null) {
+                addWarning(expr, "Could not resolve class for legacy setStaticField call: " + expr);
+                return false;
+            }
+            Type fieldType = resolveFieldType(ownerClass, fieldName);
+            VariableReference value = handleExpression(
+                    "__legacy_value" + syntheticVarCounter++, expr.getArguments().get(2),
+                    fieldType != null ? fieldType : Object.class);
+            if (value == null) {
+                addWarning(expr, "Could not resolve value for legacy setStaticField call: " + expr);
+                return false;
+            }
+            VariableReference nullOwner = testCase.addStatement(new NullStatement(testCase, ownerClass));
+            testCase.addStatement(new PrivateFieldStatement(testCase, ownerClass, fieldName, nullOwner, value));
+            addWarning(expr, "Rewrote legacy helper call setStaticField(...) to reflective field write");
+            return true;
+        } catch (Exception e) {
+            addWarning(expr, "Failed to rewrite legacy helper call '" + name + "': " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * LLMs sometimes emit helper wrappers such as invokeGetBuilder(target, arg),
+     * where the helper itself is dropped because only method bodies are parsed.
+     * Rewrite the call directly to a reflective private-method invocation.
+     */
+    private boolean tryHandleLegacyInvokeHelperCall(MethodCallExpr expr) {
+        String helperName = expr.getNameAsString();
+        if (!helperName.startsWith("invoke") || helperName.length() <= "invoke".length()) {
+            return false;
+        }
+        if (expr.getArguments().isEmpty()) {
+            return false;
+        }
+
+        String reflectedMethodName = helperName.substring("invoke".length());
+        if (reflectedMethodName.isEmpty() || !Character.isUpperCase(reflectedMethodName.charAt(0))) {
+            return false;
+        }
+        reflectedMethodName = Character.toLowerCase(reflectedMethodName.charAt(0))
+                + reflectedMethodName.substring(1);
+
+        try {
+            VariableReference callee = null;
+            Class<?> ownerClass = null;
+            Expression firstArg = expr.getArguments().get(0);
+
+            // Support invokeX(Target.class, ...) static wrappers too.
+            if (firstArg instanceof ClassExpr) {
+                Type ownerType = typeResolver.resolveType(((ClassExpr) firstArg).getType());
+                ownerClass = getRawClass(ownerType);
+            } else {
+                callee = handleExpression("__legacy_invoke_owner" + syntheticVarCounter++, firstArg, Object.class);
+                if (callee == null) {
+                    addWarning(expr, "Could not resolve receiver for legacy helper call: " + expr);
+                    return false;
+                }
+                ownerClass = callee.getVariableClass();
+            }
+
+            if (ownerClass == null) {
+                addWarning(expr, "Could not resolve owner class for legacy helper call: " + expr);
+                return false;
+            }
+
+            List<Expression> helperArgs = expr.getArguments().subList(1, expr.getArguments().size());
+            List<VariableReference> argRefs = resolveArguments(helperArgs, null, null);
+            Class<?>[] argTypes = getArgTypes(argRefs);
+
+            Method reflectedMethod = resolveMethod(ownerClass, reflectedMethodName, argTypes);
+            retypeNullArguments(argRefs, reflectedMethod.getParameterTypes(), reflectedMethod.isVarArgs());
+            String mismatch = validateArgumentTypes(argRefs, reflectedMethod.getParameterTypes(),
+                    reflectedMethod.getGenericParameterTypes(), expr, reflectedMethod.isVarArgs());
+            if (mismatch != null) {
+                addWarning(expr, "Could not rewrite legacy helper call " + helperName
+                        + " due to argument mismatch: " + mismatch);
+                return false;
+            }
+            argRefs = normalizeVarArgsArguments(argRefs, reflectedMethod.getParameterTypes(), reflectedMethod.isVarArgs());
+
+            Class<?> reflectedOwner = reflectedMethod.getDeclaringClass();
+            boolean isStatic = Modifier.isStatic(reflectedMethod.getModifiers());
+            if (isStatic) {
+                callee = null;
+            }
+            testCase.addStatement(new PrivateMethodStatement(
+                    testCase,
+                    reflectedOwner,
+                    reflectedMethod,
+                    callee,
+                    argRefs,
+                    isStatic));
+            addWarning(expr, "Rewrote legacy helper call " + helperName + "(...) to reflective method call "
+                    + reflectedMethodName + "(...)");
+            return true;
+        } catch (Exception e) {
+            addWarning(expr, "Failed to rewrite legacy helper call '" + helperName + "': " + e.getMessage());
+            return false;
+        }
+    }
+
+    private String resolveFieldNameLiteral(Expression expr) {
+        if (expr instanceof StringLiteralExpr) {
+            return ((StringLiteralExpr) expr).getValue();
+        }
+        if (expr instanceof NameExpr) {
+            VariableReference ref = scope.resolve(((NameExpr) expr).getNameAsString());
+            Statement st = getStatementForReference(ref);
+            if (st instanceof StringPrimitiveStatement) {
+                return ((StringPrimitiveStatement) st).getValue();
+            }
+        }
+        return null;
+    }
+
+    private Class<?> resolveOwnerClassForLegacyStaticField(Expression classExpr) {
+        try {
+            if (classExpr instanceof ClassExpr) {
+                Type t = typeResolver.resolveType(((ClassExpr) classExpr).getType());
+                return getRawClass(t);
+            }
+            if (classExpr instanceof NameExpr) {
+                VariableReference ref = scope.resolve(((NameExpr) classExpr).getNameAsString());
+                Statement st = getStatementForReference(ref);
+                if (st instanceof ClassPrimitiveStatement) {
+                    return ((ClassPrimitiveStatement) st).getValue();
+                }
+            }
+        } catch (Exception ignored) {
+            // best-effort only
+        }
+        return null;
+    }
+
+    private Type resolveFieldType(Class<?> ownerClass, String fieldName) {
+        if (ownerClass == null || fieldName == null) {
+            return null;
+        }
+        try {
+            try {
+                return ownerClass.getField(fieldName).getGenericType();
+            } catch (NoSuchFieldException e) {
+                return ownerClass.getDeclaredField(fieldName).getGenericType();
+            }
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private VariableReference failOrTypedFallbackWithRollback(Expression expr,
+                                                              Type declaredType,
+                                                              Type knownType,
+                                                              String targetVarName,
+                                                              int checkpointSize,
+                                                              String errorMsg) {
+        rollbackTemporaryStatements(checkpointSize);
+        return failOrTypedFallback(expr, declaredType, knownType, targetVarName, errorMsg);
+    }
+
+    private VariableReference failOrFallbackWithRollback(Expression expr,
+                                                         Type declaredType,
+                                                         Type knownType,
+                                                         int checkpointSize,
+                                                         String errorMsg) {
+        rollbackTemporaryStatements(checkpointSize);
+        return failOrFallback(expr, declaredType, knownType, errorMsg);
+    }
+
+    private void rollbackTemporaryStatements(int checkpointSize) {
+        if (checkpointSize < 0) {
+            return;
+        }
+        if (testCase.size() > checkpointSize) {
+            testCase.chop(checkpointSize);
+        }
+    }
+
     private static String inlineHelperKey(String methodName, int arity) {
         return methodName + "#" + arity;
+    }
+
+    private boolean isVoidContext(Type declaredType, String targetVarName) {
+        if (targetVarName == null) {
+            return true;
+        }
+        if (!(declaredType instanceof Class<?>)) {
+            return false;
+        }
+        Class<?> raw = (Class<?>) declaredType;
+        return raw == void.class || raw == Void.class || raw == Void.TYPE;
     }
 
     private Expression instantiateInlineHelperReturn(MethodDeclaration helper,
@@ -1277,8 +2121,27 @@ public class StatementParser {
             return null;
         }
         Expression returnExpr = returnStmt.getExpression().get().clone();
+        return substituteInlineHelperParams(helper, callArgs, returnExpr);
+    }
+
+    private Expression instantiateInlineHelperExpression(MethodDeclaration helper,
+                                                         List<Expression> callArgs) {
+        if (!helper.getBody().isPresent()) {
+            return null;
+        }
+        List<com.github.javaparser.ast.stmt.Statement> statements = helper.getBody().get().getStatements();
+        if (statements.size() != 1 || !(statements.get(0) instanceof ExpressionStmt)) {
+            return null;
+        }
+        Expression expr = ((ExpressionStmt) statements.get(0)).getExpression().clone();
+        return substituteInlineHelperParams(helper, callArgs, expr);
+    }
+
+    private Expression substituteInlineHelperParams(MethodDeclaration helper,
+                                                    List<Expression> callArgs,
+                                                    Expression template) {
         if (helper.getParameters().isEmpty()) {
-            return returnExpr;
+            return template;
         }
         if (helper.getParameters().size() != 1 || callArgs.size() != 1) {
             return null;
@@ -1295,7 +2158,40 @@ public class StatementParser {
                 return super.visit(n, arg);
             }
         };
-        return (Expression) returnExpr.accept(substituter, null);
+        return (Expression) template.accept(substituter, null);
+    }
+
+    private com.github.javaparser.ast.stmt.Statement inlineHelperCallsInUnsupportedStatement(
+            com.github.javaparser.ast.stmt.Statement astStmt) {
+        com.github.javaparser.ast.stmt.Statement cloned = astStmt.clone();
+        ModifierVisitor<Void> visitor = new ModifierVisitor<Void>() {
+            @Override
+            public Visitable visit(ExpressionStmt n, Void arg) {
+                Expression expr = n.getExpression();
+                if (expr instanceof MethodCallExpr) {
+                    MethodCallExpr call = (MethodCallExpr) expr;
+                    if (!call.getScope().isPresent()) {
+                        MethodDeclaration helper = inlineHelperMethods.get(
+                                inlineHelperKey(call.getNameAsString(), call.getArguments().size()));
+                        if (helper != null) {
+                            Expression replacement = instantiateInlineHelperExpression(helper, call.getArguments());
+                            if (replacement == null) {
+                                replacement = instantiateInlineHelperReturn(helper, call.getArguments());
+                            }
+                            if (replacement != null) {
+                                return new ExpressionStmt(replacement);
+                            }
+                        }
+                    }
+                }
+                return (ExpressionStmt) super.visit(n, arg);
+            }
+        };
+        Visitable rewritten = cloned.accept(visitor, null);
+        if (rewritten instanceof com.github.javaparser.ast.stmt.Statement) {
+            return (com.github.javaparser.ast.stmt.Statement) rewritten;
+        }
+        return cloned;
     }
 
     private void handleAssertStatement(AssertStmt assertStmt) {
@@ -1323,11 +2219,60 @@ public class StatementParser {
         String name = methodCall.getNameAsString();
         if (isAssertionMethodName(name)) {
             handleAssertionCall(methodCall);
+        } else if (tryHandleCapturedWhenStubbingTerminalCall(methodCall)) {
+            // Handled as a delayed terminal call for a previously captured OngoingStubbing alias
         } else if (tryHandleStandaloneStubbingCall(methodCall)) {
             // Handled as standalone Mockito stubbing (when/thenReturn or doReturn/when)
+        } else if (tryPreserveStandaloneThrowStubbingCall(methodCall)) {
+            // Preserve Mockito throw-stubbing chains that cannot be represented as FunctionalMockStatement
         } else {
             handleMethodCall(methodCall, void.class, null);
         }
+    }
+
+    private boolean tryHandleCapturedWhenStubbingTerminalCall(MethodCallExpr methodCall) {
+        if (!methodCall.getScope().isPresent() || !(methodCall.getScope().get() instanceof NameExpr)) {
+            return false;
+        }
+
+        String aliasName = ((NameExpr) methodCall.getScope().get()).getNameAsString();
+        CapturedWhenStubbingContext context = capturedWhenStubbings.get(aliasName);
+        if (context == null) {
+            return false;
+        }
+
+        String methodName = methodCall.getNameAsString();
+        if ("thenReturn".equals(methodName)) {
+            MethodCallExpr reconstructed = new MethodCallExpr(
+                    context.whenCall.clone(),
+                    "thenReturn",
+                    cloneArguments(methodCall));
+            StubbingInfo info = parseWhenThenReturnPattern(
+                    reconstructed,
+                    context.mockVarName,
+                    context.targetClass,
+                    context.targetGenericClass);
+            if (info == null) {
+                return false;
+            }
+            List<VariableReference> orderedReturnValues =
+                    ensureStubbingValuesAvailableBeforeMock(context.mockRef, info.returnValues);
+            context.mockStatement.addMethodStubbing(info.descriptor, orderedReturnValues);
+            capturedWhenStubbings.remove(aliasName);
+            return true;
+        }
+
+        if (markParsedFromLlm && "thenThrow".equals(methodName)) {
+            MethodCallExpr reconstructed = new MethodCallExpr(
+                    context.whenCall.clone(),
+                    "thenThrow",
+                    cloneArguments(methodCall));
+            testCase.addStatement(createUninterpretedStatement(reconstructed, reconstructed.toString() + ";"));
+            capturedWhenStubbings.remove(aliasName);
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -1375,8 +2320,151 @@ public class StatementParser {
             return false;
         }
 
-        mockStmt.addMethodStubbing(info.descriptor, info.returnValues);
+        List<VariableReference> orderedReturnValues =
+                ensureStubbingValuesAvailableBeforeMock(mockRef, info.returnValues);
+        mockStmt.addMethodStubbing(info.descriptor, orderedReturnValues);
         return true;
+    }
+
+    private boolean tryPreserveStandaloneThrowStubbingCall(MethodCallExpr methodCall) {
+        if (!markParsedFromLlm || !isUnsupportedMockitoThrowStubbing(methodCall)) {
+            return false;
+        }
+        addWarning(methodCall,
+                "Preserved Mockito throw-stubbing as UninterpretedStatement");
+        testCase.addStatement(createUninterpretedStatement(methodCall, methodCall.toString() + ";"));
+        return true;
+    }
+
+    private boolean isUnsupportedMockitoThrowStubbing(MethodCallExpr methodCall) {
+        if ("thenThrow".equals(methodCall.getNameAsString())) {
+            if (!methodCall.getScope().isPresent()
+                    || !(methodCall.getScope().get() instanceof MethodCallExpr)) {
+                return false;
+            }
+            MethodCallExpr whenCall = (MethodCallExpr) methodCall.getScope().get();
+            if (!"when".equals(whenCall.getNameAsString()) || whenCall.getArguments().size() != 1) {
+                return false;
+            }
+            return whenCall.getArgument(0) instanceof MethodCallExpr;
+        }
+
+        if (!methodCall.getScope().isPresent()
+                || !(methodCall.getScope().get() instanceof MethodCallExpr)) {
+            return false;
+        }
+        MethodCallExpr whenCall = (MethodCallExpr) methodCall.getScope().get();
+        if (!"when".equals(whenCall.getNameAsString())
+                || whenCall.getArguments().size() != 1
+                || !(whenCall.getArgument(0) instanceof NameExpr)
+                || !whenCall.getScope().isPresent()
+                || !(whenCall.getScope().get() instanceof MethodCallExpr)) {
+            return false;
+        }
+        MethodCallExpr doThrowCall = (MethodCallExpr) whenCall.getScope().get();
+        return "doThrow".equals(doThrowCall.getNameAsString());
+    }
+
+    /**
+     * Standalone stubbing calls are parsed at their lexical position, but stubbings are
+     * emitted from the original FunctionalMockStatement position. If a stubbing return value
+     * is declared later in the test, emitted code can reference it before declaration.
+     *
+     * <p>To preserve compilability, hoist safe value-producing statements before the mock
+     * statement and rewrite stubbing values to the hoisted variables.
+     */
+    private List<VariableReference> ensureStubbingValuesAvailableBeforeMock(VariableReference mockRef,
+                                                                            List<VariableReference> values) {
+        int mockPos = mockRef.getStPosition();
+        List<VariableReference> adjusted = new ArrayList<>(values.size());
+        Map<VariableReference, VariableReference> hoisted = new IdentityHashMap<>();
+
+        for (VariableReference valueRef : values) {
+            if (valueRef == null || valueRef.getStPosition() < 0 || valueRef.getStPosition() < mockPos) {
+                adjusted.add(valueRef);
+                continue;
+            }
+            VariableReference alreadyHoisted = hoisted.get(valueRef);
+            if (alreadyHoisted != null) {
+                adjusted.add(alreadyHoisted);
+                continue;
+            }
+
+            Statement definingStmt = testCase.getStatement(valueRef.getStPosition());
+            if (canSafelyHoist(definingStmt, valueRef, mockPos)) {
+                Statement cloned = definingStmt.clone(testCase);
+                VariableReference hoistedRef = testCase.addStatement(cloned, mockPos);
+                hoisted.put(valueRef, hoistedRef);
+                mockPos++;
+                adjusted.add(hoistedRef);
+                continue;
+            }
+
+            if (markParsedFromLlm) {
+                logger.debug("Could not hoist stubbing value '{}' before mock; using typed fallback value",
+                        valueRef.getName());
+                adjusted.add(createTypedFallbackValue(valueRef.getType()));
+            } else {
+                adjusted.add(valueRef);
+            }
+        }
+        return adjusted;
+    }
+
+    private boolean canSafelyHoist(Statement stmt, VariableReference valueRef, int mockPos) {
+        if (stmt == null) {
+            return false;
+        }
+        if (!(stmt instanceof PrimitiveStatement
+                || stmt instanceof NullStatement
+                || stmt instanceof ConstructorStatement
+                || stmt instanceof EnumPrimitiveStatement
+                || stmt instanceof ArrayStatement)) {
+            return false;
+        }
+        Set<VariableReference> deps = testCase.getDependencies(valueRef);
+        for (VariableReference dep : deps) {
+            int depPos = dep.getStPosition();
+            if (depPos >= mockPos && depPos != valueRef.getStPosition()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private VariableReference createTypedFallbackValue(Type expectedType) {
+        Class<?> raw = getRawClass(expectedType);
+        if (raw == void.class || raw == Void.class) {
+            return testCase.addStatement(createUninterpretedStatement(new NameExpr("fallback"), ";"));
+        }
+        if (raw == boolean.class || raw == Boolean.class) {
+            return testCase.addStatement(new BooleanPrimitiveStatement(testCase, false));
+        }
+        if (raw == byte.class || raw == Byte.class) {
+            return testCase.addStatement(new BytePrimitiveStatement(testCase, (byte) 0));
+        }
+        if (raw == short.class || raw == Short.class) {
+            return testCase.addStatement(new ShortPrimitiveStatement(testCase, (short) 0));
+        }
+        if (raw == int.class || raw == Integer.class) {
+            return testCase.addStatement(new IntPrimitiveStatement(testCase, 0));
+        }
+        if (raw == long.class || raw == Long.class) {
+            return testCase.addStatement(new LongPrimitiveStatement(testCase, 0L));
+        }
+        if (raw == float.class || raw == Float.class) {
+            return testCase.addStatement(new FloatPrimitiveStatement(testCase, 0.0f));
+        }
+        if (raw == double.class || raw == Double.class) {
+            return testCase.addStatement(new DoublePrimitiveStatement(testCase, 0.0d));
+        }
+        if (raw == char.class || raw == Character.class) {
+            return testCase.addStatement(new CharPrimitiveStatement(testCase, '\0'));
+        }
+        if (raw == String.class) {
+            return testCase.addStatement(new StringPrimitiveStatement(testCase, null));
+        }
+        return testCase.addStatement(new NullStatement(testCase, expectedType == null ? Object.class : expectedType));
     }
 
     /**
@@ -1488,11 +2576,15 @@ public class StatementParser {
                     handleAssertArrayEquals(assertCall, args);
                     return;
                 case "assertThrows":
-                    handleAssertThrows(args);
-                    return;
+                    if (handleAssertThrows(args)) {
+                        return;
+                    }
+                    break;
                 case "assertDoesNotThrow":
-                    handleAssertDoesNotThrow(args);
-                    return;
+                    if (handleAssertDoesNotThrow(args)) {
+                        return;
+                    }
+                    break;
                 default:
                     break;
             }
@@ -1501,7 +2593,8 @@ public class StatementParser {
         }
 
         // Fallback: preserve as UninterpretedStatement
-        testCase.addStatement(createUninterpretedStatement(assertCall, assertCall.toString() + ";"));
+        Expression preservedAssertion = normalizeAssertionExpressionForPreservation(assertCall);
+        testCase.addStatement(createUninterpretedStatement(assertCall, preservedAssertion.toString() + ";"));
     }
 
     /**
@@ -1724,7 +2817,55 @@ public class StatementParser {
                 handleMethodCall((MethodCallExpr) arg, null, null);
             }
         }
+        // Avoid emitting uncompilable uninterpreted assertions with unresolved identifiers.
+        if (!validateAssertionArgumentNames(assertCall, args)) {
+            return;
+        }
         testCase.addStatement(createUninterpretedStatement(assertCall, assertCall.toString() + ";"));
+    }
+
+    private boolean validateAssertionArgumentNames(MethodCallExpr assertCall, List<Expression> args) {
+        for (Expression arg : args) {
+            for (String token : collectReferencedSimpleNames(arg)) {
+                if (scope.resolve(token) != null) {
+                    continue;
+                }
+                boolean packageQualifier = false;
+                for (NameExpr nameExpr : arg.findAll(NameExpr.class)) {
+                    if (token.equals(nameExpr.getNameAsString()) && isLikelyPackageQualifier(nameExpr)) {
+                        packageQualifier = true;
+                        break;
+                    }
+                }
+                if (packageQualifier) {
+                    continue;
+                }
+                try {
+                    typeResolver.resolveClass(token);
+                    continue;
+                } catch (ClassNotFoundException ignored) {
+                    // fall through
+                }
+                addError(assertCall, "Unresolved variable in assertion argument: " + token);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isLikelyPackageQualifier(NameExpr nameExpr) {
+        if (nameExpr == null) {
+            return false;
+        }
+        if (nameExpr.getNameAsString().isEmpty()
+                || !Character.isLowerCase(nameExpr.getNameAsString().charAt(0))) {
+            return false;
+        }
+        if (!nameExpr.getParentNode().isPresent()) {
+            return false;
+        }
+        com.github.javaparser.ast.Node parent = nameExpr.getParentNode().get();
+        return parent instanceof FieldAccessExpr && ((FieldAccessExpr) parent).getScope() == nameExpr;
     }
 
     /**
@@ -1734,9 +2875,9 @@ public class StatementParser {
      * downstream code can treat the test as exception-expected.
      * Handles both block lambdas and expression lambdas.
      */
-    private void handleAssertThrows(List<Expression> args) {
+    private boolean handleAssertThrows(List<Expression> args) {
         if (args.size() < 2) {
-            return;
+            return false;
         }
 
         // Record the expected exception class if we can find one. First argument
@@ -1746,7 +2887,7 @@ public class StatementParser {
         if (result.getExpectedExceptionClass() == null) {
             for (Expression arg : args) {
                 if (arg instanceof ClassExpr) {
-                    result.setExpectedExceptionClass(((ClassExpr) arg).getTypeAsString());
+                    result.setExpectedExceptionClass(resolveAssertionExceptionClassName((ClassExpr) arg));
                     break;
                 }
             }
@@ -1762,8 +2903,10 @@ public class StatementParser {
         }
 
         if (lambda == null) {
-            // No lambda found — maybe it's a method reference or variable; preserve as interpreted
-            return;
+            // No inline lambda found — maybe it's a method reference or an Executable variable.
+            // Let the caller preserve the raw assertThrows(...) statement so generated
+            // JUnit remains compilable instead of flattening it incorrectly.
+            return false;
         }
 
         // Parse the lambda body as regular statements
@@ -1779,6 +2922,58 @@ public class StatementParser {
             // The body is an ExpressionStmt wrapping the expression
             parseStatement(body);
         }
+        return true;
+    }
+
+    private Expression normalizeAssertionExpressionForPreservation(Expression expression) {
+        if (!(expression instanceof MethodCallExpr)) {
+            return expression;
+        }
+        MethodCallExpr preserved = ((MethodCallExpr) expression).clone();
+        if ("assertThrows".equals(preserved.getNameAsString())) {
+            normalizeAssertThrowsClassLiteral(preserved);
+        }
+        return preserved;
+    }
+
+    private void normalizeAssertThrowsClassLiteral(MethodCallExpr assertThrowsCall) {
+        if (assertThrowsCall == null) {
+            return;
+        }
+        for (Expression arg : assertThrowsCall.getArguments()) {
+            if (!(arg instanceof ClassExpr)) {
+                continue;
+            }
+            String resolvedTypeName = resolveAssertionExceptionClassName((ClassExpr) arg);
+            if (resolvedTypeName == null || resolvedTypeName.isEmpty()) {
+                return;
+            }
+            ((ClassExpr) arg).setType(StaticJavaParser.parseType(resolvedTypeName));
+            return;
+        }
+    }
+
+    private String resolveAssertionExceptionClassName(ClassExpr classExpr) {
+        if (classExpr == null) {
+            return null;
+        }
+        String originalTypeName = classExpr.getTypeAsString();
+        try {
+            Class<?> resolvedClass = typeResolver.resolveClass(originalTypeName);
+            if (resolvedClass == null || resolvedClass.isPrimitive()) {
+                return originalTypeName;
+            }
+            String canonicalName = resolvedClass.getCanonicalName();
+            if (canonicalName == null || canonicalName.isEmpty()) {
+                return originalTypeName;
+            }
+            if (canonicalName.startsWith("java.lang.")) {
+                return originalTypeName;
+            }
+            return canonicalName;
+        } catch (ClassNotFoundException e) {
+            return originalTypeName;
+        }
     }
 
     /**
@@ -1786,9 +2981,9 @@ public class StatementParser {
      * statements, identical to assertThrows handling but without an expected
      * exception class argument.
      */
-    private void handleAssertDoesNotThrow(List<Expression> args) {
+    private boolean handleAssertDoesNotThrow(List<Expression> args) {
         if (args.isEmpty()) {
-            return;
+            return false;
         }
 
         LambdaExpr lambda = null;
@@ -1800,7 +2995,7 @@ public class StatementParser {
         }
 
         if (lambda == null) {
-            return;
+            return false;
         }
 
         com.github.javaparser.ast.stmt.Statement body = lambda.getBody();
@@ -1813,6 +3008,7 @@ public class StatementParser {
         } else {
             parseStatement(body);
         }
+        return true;
     }
 
     /**
@@ -2089,6 +3285,9 @@ public class StatementParser {
         if (arg instanceof EnclosedExpr) {
             return inferTypeForUntypedArgument(((EnclosedExpr) arg).getInner());
         }
+        if (arg instanceof ClassExpr) {
+            return Class.class;
+        }
         if (arg instanceof CastExpr) {
             try {
                 return typeResolver.resolveType(((CastExpr) arg).getType());
@@ -2099,6 +3298,9 @@ public class StatementParser {
         if (arg instanceof NameExpr) {
             VariableReference ref = scope.resolve(((NameExpr) arg).getNameAsString());
             return ref != null ? ref.getType() : Object.class;
+        }
+        if (arg instanceof MethodCallExpr) {
+            return inferMethodCallReturnType((MethodCallExpr) arg);
         }
         if (arg instanceof NullLiteralExpr) {
             return Void.class;
@@ -2134,7 +3336,7 @@ public class StatementParser {
         if (arg instanceof BinaryExpr) {
             BinaryExpr bin = (BinaryExpr) arg;
             BinaryExpr.Operator op = bin.getOperator();
-            if (isStringConcat(bin, Object.class)) {
+            if (isStringConcat(bin, Object.class) || containsStringOperand(bin)) {
                 return String.class;
             }
             switch (op) {
@@ -2183,6 +3385,53 @@ public class StatementParser {
                     }
                     return int.class;
             }
+        }
+        return Object.class;
+    }
+
+    private Type inferMethodCallReturnType(MethodCallExpr expr) {
+        try {
+            String methodName = expr.getNameAsString();
+            Class<?> targetClass;
+
+            if (expr.getScope().isPresent()) {
+                Expression scopeExpr = expr.getScope().get();
+                if (scopeExpr instanceof NameExpr) {
+                    VariableReference scopeVar = scope.resolve(((NameExpr) scopeExpr).getNameAsString());
+                    if (scopeVar == null) {
+                        return Object.class;
+                    }
+                    targetClass = getRawClass(scopeVar.getType());
+                } else {
+                    targetClass = resolveClassFromExpression(scopeExpr);
+                    if (targetClass == null) {
+                        return Object.class;
+                    }
+                }
+            } else {
+                String staticClass = typeResolver.resolveStaticImportClass(methodName);
+                if (staticClass == null) {
+                    return Object.class;
+                }
+                targetClass = typeResolver.resolveClass(staticClass);
+            }
+
+            Class<?>[] argTypes = new Class<?>[expr.getArguments().size()];
+            for (int i = 0; i < expr.getArguments().size(); i++) {
+                argTypes[i] = getRawClass(inferTypeForUntypedArgument(expr.getArgument(i)));
+            }
+
+            try {
+                Method method = resolveMethod(targetClass, methodName, argTypes);
+                return method.getGenericReturnType();
+            } catch (NoSuchMethodException e) {
+                Method loose = resolveMethodByNameLoose(targetClass, methodName);
+                if (loose != null) {
+                    return loose.getGenericReturnType();
+                }
+            }
+        } catch (Exception ignored) {
+            // best-effort only
         }
         return Object.class;
     }
@@ -2380,6 +3629,12 @@ public class StatementParser {
             ClassPrimitiveStatement stmt = new ClassPrimitiveStatement(testCase, clazz);
             return testCase.addStatement(stmt);
         } catch (ClassNotFoundException e) {
+            if (markParsedFromLlm) {
+                return fallbackForUnresolvedExpression(
+                        expr,
+                        Class.class,
+                        "Cannot resolve class literal: " + e.getMessage());
+            }
             addError(expr, "Cannot resolve class literal: " + e.getMessage());
             return null;
         }
@@ -2416,29 +3671,9 @@ public class StatementParser {
             for (int i = 0; i < levels.size(); i++) {
                 if (levels.get(i).getDimension().isPresent()) {
                     Expression dimExpr = levels.get(i).getDimension().get();
-                    if (dimExpr instanceof IntegerLiteralExpr) {
-                        lengths[i] = ((IntegerLiteralExpr) dimExpr).asNumber().intValue();
-                    } else if (dimExpr instanceof NameExpr) {
-                        // Try to resolve variable dimension from scope
-                        VariableReference dimRef = scope.resolve(((NameExpr) dimExpr).getNameAsString());
-                        if (dimRef != null) {
-                            Statement dimStmt = testCase.getStatement(dimRef.getStPosition());
-                            if (dimStmt instanceof PrimitiveStatement) {
-                                Object val = ((PrimitiveStatement<?>) dimStmt).getValue();
-                                if (val instanceof Number) {
-                                    lengths[i] = ((Number) val).intValue();
-                                } else {
-                                    addWarning(dimExpr, "Non-numeric array dimension variable, defaulting to 0");
-                                    lengths[i] = 0;
-                                }
-                            } else {
-                                addWarning(dimExpr, "Non-literal array dimension, defaulting to 0: " + dimExpr);
-                                lengths[i] = 0;
-                            }
-                        } else {
-                            addWarning(dimExpr, "Unresolved array dimension variable, defaulting to 0: " + dimExpr);
-                            lengths[i] = 0;
-                        }
+                    Integer resolvedLength = evaluateIntExpression(dimExpr);
+                    if (resolvedLength != null) {
+                        lengths[i] = resolvedLength;
                     } else {
                         addWarning(dimExpr, "Non-literal array dimension, defaulting to 0: " + dimExpr);
                         lengths[i] = 0;
@@ -2537,34 +3772,128 @@ public class StatementParser {
      * Supports integer literals and variable references to numeric primitives.
      */
     private int resolveArrayIndex(Expression indexExpr) {
-        if (indexExpr instanceof IntegerLiteralExpr) {
-            return ((IntegerLiteralExpr) indexExpr).asNumber().intValue();
+        Integer resolved = evaluateIntExpression(indexExpr);
+        if (resolved != null) {
+            return resolved;
         }
-        if (indexExpr instanceof UnaryExpr
-                && ((UnaryExpr) indexExpr).getOperator() == UnaryExpr.Operator.MINUS
-                && ((UnaryExpr) indexExpr).getExpression() instanceof IntegerLiteralExpr) {
-            return -((IntegerLiteralExpr) ((UnaryExpr) indexExpr).getExpression()).asNumber().intValue();
-        }
-        if (indexExpr instanceof NameExpr) {
-            VariableReference indexRef = scope.resolve(((NameExpr) indexExpr).getNameAsString());
-            if (indexRef != null) {
-                int pos = indexRef.getStPosition();
-                if (pos >= 0 && pos < testCase.size()) {
-                    Statement s = testCase.getStatement(pos);
-                    if (s instanceof PrimitiveStatement) {
-                        Object val = ((PrimitiveStatement<?>) s).getValue();
-                        if (val instanceof Number) {
-                            return ((Number) val).intValue();
-                        }
-                    }
-                }
-            }
-            addWarning(indexExpr, "Unresolved array index variable, defaulting to 0: " + indexExpr);
-            return 0;
-        }
-
         addWarning(indexExpr, "Non-literal array index, defaulting to 0: " + indexExpr);
         return 0;
+    }
+
+    /**
+     * Evaluate an expression as an integer using parser-known constants/variables only.
+     * Returns null when the expression cannot be resolved without executing code.
+     */
+    private Integer evaluateIntExpression(Expression expr) {
+        if (expr instanceof IntegerLiteralExpr) {
+            return ((IntegerLiteralExpr) expr).asNumber().intValue();
+        }
+        if (expr instanceof EnclosedExpr) {
+            return evaluateIntExpression(((EnclosedExpr) expr).getInner());
+        }
+        if (expr instanceof UnaryExpr) {
+            UnaryExpr unaryExpr = (UnaryExpr) expr;
+            Integer inner = evaluateIntExpression(unaryExpr.getExpression());
+            if (inner == null) {
+                return null;
+            }
+            if (unaryExpr.getOperator() == UnaryExpr.Operator.MINUS) {
+                return -inner;
+            }
+            if (unaryExpr.getOperator() == UnaryExpr.Operator.PLUS) {
+                return inner;
+            }
+            return null;
+        }
+        if (expr instanceof NameExpr) {
+            VariableReference ref = scope.resolve(((NameExpr) expr).getNameAsString());
+            return readNumericVariableValue(ref);
+        }
+        if (expr instanceof BinaryExpr) {
+            BinaryExpr binaryExpr = (BinaryExpr) expr;
+            Integer left = evaluateIntExpression(binaryExpr.getLeft());
+            Integer right = evaluateIntExpression(binaryExpr.getRight());
+            if (left == null || right == null) {
+                return null;
+            }
+            switch (binaryExpr.getOperator()) {
+                case PLUS:
+                    return left + right;
+                case MINUS:
+                    return left - right;
+                case MULTIPLY:
+                    return left * right;
+                case DIVIDE:
+                    if (right == 0) {
+                        return null;
+                    }
+                    return left / right;
+                case REMAINDER:
+                    if (right == 0) {
+                        return null;
+                    }
+                    return left % right;
+                default:
+                    return null;
+            }
+        }
+        if (expr instanceof MethodCallExpr) {
+            MethodCallExpr methodCallExpr = (MethodCallExpr) expr;
+            if ("length".equals(methodCallExpr.getNameAsString())
+                    && methodCallExpr.getArguments().isEmpty()
+                    && methodCallExpr.getScope().isPresent()) {
+                Expression scopeExpr = methodCallExpr.getScope().get();
+                VariableReference ref = resolveArrayRootReference(scopeExpr);
+                if (ref == null && scopeExpr instanceof NameExpr) {
+                    ref = scope.resolve(((NameExpr) scopeExpr).getNameAsString());
+                }
+                if (ref instanceof ArrayReference) {
+                    return ((ArrayReference) ref).getStructuralArrayLength();
+                }
+                Statement valueStmt = getStatementForReference(ref);
+                if (valueStmt instanceof StringPrimitiveStatement) {
+                    String value = ((StringPrimitiveStatement) valueStmt).getValue();
+                    return value == null ? null : value.length();
+                }
+            }
+            return null;
+        }
+        if (expr instanceof FieldAccessExpr) {
+            FieldAccessExpr fieldAccessExpr = (FieldAccessExpr) expr;
+            if ("length".equals(fieldAccessExpr.getNameAsString())) {
+                VariableReference ref = resolveArrayRootReference(fieldAccessExpr.getScope());
+                if (ref instanceof ArrayReference) {
+                    return ((ArrayReference) ref).getStructuralArrayLength();
+                }
+            }
+            return null;
+        }
+        return null;
+    }
+
+    private Integer readNumericVariableValue(VariableReference ref) {
+        Statement valueStmt = getStatementForReference(ref);
+        if (valueStmt instanceof PrimitiveStatement) {
+            Object val = ((PrimitiveStatement<?>) valueStmt).getValue();
+            if (val instanceof Number) {
+                return ((Number) val).intValue();
+            }
+            if (val instanceof Character) {
+                return (int) ((Character) val);
+            }
+        }
+        return null;
+    }
+
+    private Statement getStatementForReference(VariableReference ref) {
+        if (ref == null) {
+            return null;
+        }
+        int pos = ref.getStPosition();
+        if (pos >= 0 && pos < testCase.size()) {
+            return testCase.getStatement(pos);
+        }
+        return null;
     }
 
     /**
@@ -2682,8 +4011,7 @@ public class StatementParser {
      */
     private VariableReference handleBinaryExpression(String varName, BinaryExpr expr, Type declaredType) {
         // Validate all variable references in the expression are resolvable
-        for (NameExpr nameExpr : expr.findAll(NameExpr.class)) {
-            String name = nameExpr.getNameAsString();
+        for (String name : collectReferencedSimpleNames(expr)) {
             if (!scope.isDefined(name)) {
                 // Check if it's a class name rather than a variable
                 try {
@@ -2696,7 +4024,9 @@ public class StatementParser {
         }
 
         // String concatenation: try to evaluate "a" + b + c into a single String literal
-        if (expr.getOperator() == BinaryExpr.Operator.PLUS && isStringConcat(expr, declaredType)) {
+        if (!markParsedFromLlm
+                && expr.getOperator() == BinaryExpr.Operator.PLUS
+                && isStringConcat(expr, declaredType)) {
             String result = evaluateStringConcat(expr);
             if (result != null) {
                 StringPrimitiveStatement stmt = new StringPrimitiveStatement(testCase, result);
@@ -2719,16 +4049,54 @@ public class StatementParser {
         if (declaredType == String.class) {
             return true;
         }
-        return containsStringLiteral(expr);
+        return containsStringOperand(expr);
     }
 
-    private boolean containsStringLiteral(Expression expr) {
-        if (expr instanceof StringLiteralExpr) {
+    private boolean containsStringOperand(Expression expr) {
+        if (expr instanceof StringLiteralExpr || expr instanceof TextBlockLiteralExpr) {
             return true;
+        }
+        if (expr instanceof EnclosedExpr) {
+            return containsStringOperand(((EnclosedExpr) expr).getInner());
+        }
+        if (expr instanceof CastExpr) {
+            try {
+                Type castType = typeResolver.resolveType(((CastExpr) expr).getType());
+                if (getRawClass(castType) == String.class) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+                // best-effort only
+            }
+            return containsStringOperand(((CastExpr) expr).getExpression());
+        }
+        if (expr instanceof NameExpr) {
+            VariableReference ref = scope.resolve(((NameExpr) expr).getNameAsString());
+            return ref != null && getRawClass(ref.getType()) == String.class;
+        }
+        if (expr instanceof MethodCallExpr) {
+            return getRawClass(inferMethodCallReturnType((MethodCallExpr) expr)) == String.class;
+        }
+        if (expr instanceof FieldAccessExpr) {
+            FieldAccessExpr fieldAccessExpr = (FieldAccessExpr) expr;
+            try {
+                Class<?> owner = resolveClassFromExpression(fieldAccessExpr.getScope());
+                if (owner != null) {
+                    Field field;
+                    try {
+                        field = owner.getField(fieldAccessExpr.getNameAsString());
+                    } catch (NoSuchFieldException e) {
+                        field = owner.getDeclaredField(fieldAccessExpr.getNameAsString());
+                    }
+                    return field.getType() == String.class;
+                }
+            } catch (Exception ignored) {
+                // best-effort only
+            }
         }
         if (expr instanceof BinaryExpr) {
             BinaryExpr bin = (BinaryExpr) expr;
-            return containsStringLiteral(bin.getLeft()) || containsStringLiteral(bin.getRight());
+            return containsStringOperand(bin.getLeft()) || containsStringOperand(bin.getRight());
         }
         return false;
     }
@@ -2820,7 +4188,49 @@ public class StatementParser {
             Expression target = assignExpr.getTarget();
             Expression value = assignExpr.getValue();
 
-            if (target instanceof ArrayAccessExpr) {
+            if (target instanceof NameExpr) {
+                String targetName = ((NameExpr) target).getNameAsString();
+                if (pendingLlmDeclarations.containsKey(targetName)) {
+                    Type declaredType = pendingLlmDeclarations.remove(targetName);
+                    VariableReference valueRef = handleExpression(targetName, value, declaredType);
+                    if (valueRef != null) {
+                        valueRef = coerceIncompatibleAliasDeclaration(targetName, value, declaredType, valueRef);
+                    }
+                    if (valueRef == null) {
+                        return;
+                    }
+                    GenericClass<?> genericType = null;
+                    if (declaredType instanceof java.lang.reflect.ParameterizedType) {
+                        genericType = GenericClassFactory.get(declaredType);
+                    }
+                    scope.register(targetName, valueRef, genericType);
+                    return;
+                }
+
+                VariableReference lhs = scope.resolve(targetName);
+                if (lhs == null) {
+                    addError(assignExpr, "Unknown variable for assignment: " + targetName);
+                    return;
+                }
+                VariableReference rhs = handleExpression(
+                        "__val" + syntheticVarCounter++, value, lhs.getType());
+                if (rhs == null) {
+                    return;
+                }
+                AssignmentStatement stmt = new AssignmentStatement(testCase, lhs, rhs);
+                if (!stmt.isValid()) {
+                    if (markParsedFromLlm) {
+                        addWarning(assignExpr, "Invalid variable assignment; preserved as uninterpreted: "
+                                + assignExpr);
+                        testCase.addStatement(createUninterpretedStatement(assignExpr,
+                                assignExpr.toString() + ";"));
+                    } else {
+                        addError(assignExpr, "Invalid assignment: " + assignExpr);
+                    }
+                    return;
+                }
+                testCase.addStatement(stmt);
+            } else if (target instanceof ArrayAccessExpr) {
                 // array[i] = value
                 ArrayAccessExpr arrayAccess = (ArrayAccessExpr) target;
                 ArrayIndex arrayIndex = resolveArrayAccess(arrayAccess, assignExpr);
@@ -2844,6 +4254,17 @@ public class StatementParser {
 
                 // Create ArrayIndex and AssignmentStatement
                 AssignmentStatement stmt = new AssignmentStatement(testCase, arrayIndex, valueRef);
+                if (!stmt.isValid()) {
+                    if (markParsedFromLlm) {
+                        addWarning(assignExpr, "Invalid array assignment for modeled bounds; preserved as "
+                                + "uninterpreted: " + assignExpr);
+                        testCase.addStatement(createUninterpretedStatement(assignExpr,
+                                assignExpr.toString() + ";"));
+                    } else {
+                        addError(assignExpr, "Invalid assignment: " + assignExpr);
+                    }
+                    return;
+                }
                 testCase.addStatement(stmt);
             } else if (target instanceof FieldAccessExpr) {
                 // obj.field = value
@@ -2883,7 +4304,8 @@ public class StatementParser {
                             + ownerClass.getSimpleName());
                     return;
                 }
-                if (sourceRef == null && !java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                boolean isStaticField = java.lang.reflect.Modifier.isStatic(field.getModifiers());
+                if (sourceRef == null && !isStaticField) {
                     addError(assignExpr, "Non-static field " + ownerClass.getSimpleName() + "."
                             + field.getName() + " requires an instance");
                     return;
@@ -2896,15 +4318,37 @@ public class StatementParser {
                     return;
                 }
 
+                // Class-qualified static writes (e.g. ClassName.FIELD = value) do not have
+                // an owning instance variable in scope. Modeling them via AssignmentStatement
+                // + FieldReference(source=null) can fail position checks during insertion.
+                // Use reflective field-write statement, which is also robust for non-public fields.
+                if (sourceRef == null && isStaticField) {
+                    VariableReference nullOwner = testCase.addStatement(new NullStatement(testCase, ownerClass));
+                    testCase.addStatement(new PrivateFieldStatement(
+                            testCase, ownerClass, field.getName(), nullOwner, valueRef));
+                    return;
+                }
+
                 // Create FieldReference + AssignmentStatement
                 GenericField genericField = new GenericField(field, ownerClass);
                 FieldReference fieldRef = new FieldReference(testCase, genericField, sourceRef);
                 AssignmentStatement stmt = new AssignmentStatement(testCase, fieldRef, valueRef);
+                if (!stmt.isValid()) {
+                    if (markParsedFromLlm) {
+                        addWarning(assignExpr, "Invalid field assignment; preserved as uninterpreted: "
+                                + assignExpr);
+                        testCase.addStatement(createUninterpretedStatement(assignExpr,
+                                assignExpr.toString() + ";"));
+                    } else {
+                        addError(assignExpr, "Invalid assignment: " + assignExpr);
+                    }
+                    return;
+                }
                 testCase.addStatement(stmt);
             } else {
                 addWarning(assignExpr, "Unsupported assignment target: " + target.getClass().getSimpleName());
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             addError(assignExpr, "Failed to parse assignment: " + e.getMessage());
         }
     }
@@ -3371,7 +4815,8 @@ public class StatementParser {
                                                   String targetVarName,
                                                   String errorMsg) {
         if (markParsedFromLlm) {
-            if (!isSyntheticArgumentTarget(targetVarName)) {
+            if (!isSyntheticArgumentTarget(targetVarName)
+                    && shouldSkipTypedFallbackForDeclaration(errorMsg)) {
                 addWarning(expr, errorMsg + " — unresolved declaration value skipped "
                         + "(no synthetic null/0 fallback in LLM mode)");
                 return null;
@@ -3384,6 +4829,16 @@ public class StatementParser {
 
     private boolean isSyntheticArgumentTarget(String targetVarName) {
         return targetVarName != null && targetVarName.startsWith("__arg");
+    }
+
+    private boolean shouldSkipTypedFallbackForDeclaration(String errorMsg) {
+        if (errorMsg == null) {
+            return false;
+        }
+        return errorMsg.startsWith("No matching method:")
+                || errorMsg.startsWith("No method named ")
+                || errorMsg.startsWith("No static method named ")
+                || errorMsg.startsWith("Method argument mismatch:");
     }
 
     private VariableReference fallbackForInaccessibleMember(Expression expr,
@@ -3429,20 +4884,25 @@ public class StatementParser {
                                                               Type expectedType,
                                                               String message) {
         Type fallbackType = expectedType == null ? Object.class : expectedType;
-        addWarning(expr, message + " — preserved as UninterpretedStatement");
+        addWarning(expr, message + " — replaced with compilable fallback");
         Class<?> raw = getRawClass(fallbackType);
         if (raw == void.class || raw == Void.TYPE) {
-            return testCase.addStatement(createUninterpretedStatement(expr, expr.toString() + ";"));
+            // Do not preserve unresolved void expressions as raw source (eg. helper calls
+            // with invented types), because that can produce uncompilable output.
+            return testCase.addStatement(createUninterpretedStatement(expr, ";"));
         }
         String fallbackVarName = "__llm_fallback" + syntheticVarCounter++;
         String fallbackValue = getDefaultFallbackLiteral(fallbackType);
         String fallbackCode = getFallbackTypeName(fallbackType) + " " + fallbackVarName
                 + " = " + fallbackValue + ";";
+        // Do not attach expression bindings to synthetic fallback declarations.
+        // They don't reference source variables, and carrying bindings can corrupt
+        // fully-qualified type names during later variable-name substitution.
         return testCase.addStatement(createUninterpretedStatement(
                 fallbackType,
                 fallbackCode,
                 fallbackVarName,
-                expr));
+                null));
     }
 
     private String getFallbackTypeName(Type type) {
@@ -3472,7 +4932,41 @@ public class StatementParser {
             String canonical = raw.getCanonicalName();
             return canonical != null ? canonical : raw.getName();
         }
+        if (type instanceof java.lang.reflect.ParameterizedType) {
+            return getSafeParameterizedFallbackTypeName((java.lang.reflect.ParameterizedType) type);
+        }
         return getSimpleTypeName(type);
+    }
+
+    private String getSafeParameterizedFallbackTypeName(java.lang.reflect.ParameterizedType type) {
+        Type rawType = type.getRawType();
+        if (!(rawType instanceof Class<?>)) {
+            return type.getTypeName();
+        }
+        Class<?> rawClass = (Class<?>) rawType;
+        String rawName = rawClass.getCanonicalName();
+        if (rawName == null) {
+            rawName = rawClass.getName();
+        }
+        Type[] typeParameters = rawClass.getTypeParameters();
+        if (typeParameters == null || typeParameters.length == 0) {
+            // Raw class is not generic; erase invalid parameterization to keep fallback compilable.
+            return rawName;
+        }
+        Type[] actualArgs = type.getActualTypeArguments();
+        if (actualArgs == null || actualArgs.length == 0) {
+            return rawName;
+        }
+        int argCount = Math.min(typeParameters.length, actualArgs.length);
+        StringBuilder builder = new StringBuilder(rawName).append("<");
+        for (int i = 0; i < argCount; i++) {
+            if (i > 0) {
+                builder.append(", ");
+            }
+            builder.append(getFallbackTypeName(actualArgs[i]));
+        }
+        builder.append(">");
+        return builder.toString();
     }
 
     private String getDefaultFallbackLiteral(Type type) {
@@ -3571,7 +5065,10 @@ public class StatementParser {
             return handleExpression("__chain" + syntheticVarCounter++,
                     ((EnclosedExpr) scopeExpr).getInner(), Object.class);
         }
-        return null;
+        // Value-producing receiver expressions such as string literals and constructor
+        // calls are legal Java method scopes (eg, "x".getBytes(...), new Foo().bar()).
+        // Materialize them into synthetic variables so normal instance-call parsing applies.
+        return handleExpression("__chain" + syntheticVarCounter++, scopeExpr, Object.class);
     }
 
     /**
@@ -3705,6 +5202,15 @@ public class StatementParser {
         } else if (lower.contains("unknown variable for field access")
                 || lower.contains("cannot resolve field scope")) {
             action = "declare the instance variable before field access, or use ClassName.FIELD for static fields.";
+        } else if (lower.contains("has private access") || lower.contains("has protected access")) {
+            action = "do not access private/protected members directly; use public/package-private API "
+                    + "(constructors, setters, methods) or assertions on observable behavior.";
+        } else if (lower.contains("cannot resolve class")
+                || (lower.contains("cannot resolve type") && !lower.contains("class literal"))
+                || (lower.contains("failed to parse constructor") && lower.contains("class"))) {
+            action = "do not invent local/helper types (e.g., Target, Input, Helper) in test code; "
+                    + "instantiate only real SUT/JDK/dependency types from context, or pass null/Object "
+                    + "when the API accepts it.";
         } else if (lower.contains("unresolved variable")) {
             action = "declare the variable earlier in the test and ensure the name matches exactly.";
         } else if (lower.contains("cannot resolve class literal")) {
@@ -3714,7 +5220,24 @@ public class StatementParser {
         if (action == null) {
             return message;
         }
-        return message + " LLM_REPAIR_ACTION_REQUIRED: " + action;
+        String enriched = message + " LLM_REPAIR_ACTION_REQUIRED: " + action;
+        if ((lower.contains("cannot resolve class")
+                || lower.contains("cannot resolve type")
+                || (lower.contains("failed to parse constructor") && lower.contains("class")))
+                && !enriched.contains("cannot resolve class")) {
+            enriched += " (cannot resolve class)";
+        }
+        return enriched;
+    }
+
+    private void handleTryStatement(TryStmt tryStmt) {
+        if (tryStmt == null) {
+            return;
+        }
+        NodeList<com.github.javaparser.ast.stmt.Statement> stmts = tryStmt.getTryBlock().getStatements();
+        for (int i = 0; i < stmts.size(); i++) {
+            parseStatement(stmts.get(i), stmts, i);
+        }
     }
 
     UninterpretedStatement createUninterpretedStatementFromAst(com.github.javaparser.ast.stmt.Statement astStmt) {
@@ -3735,14 +5258,44 @@ public class StatementParser {
 
     private Map<String, VariableReference> collectBindings(com.github.javaparser.ast.Node node) {
         Map<String, VariableReference> bindings = new LinkedHashMap<>();
-        for (NameExpr nameExpr : node.findAll(NameExpr.class)) {
-            String token = nameExpr.getNameAsString();
+        if (node == null) {
+            return bindings;
+        }
+        for (String token : collectReferencedSimpleNames(node)) {
             VariableReference ref = scope.resolve(token);
             if (ref != null) {
                 bindings.put(token, ref);
             }
         }
         return bindings;
+    }
+
+    private java.util.LinkedHashSet<String> collectReferencedSimpleNames(com.github.javaparser.ast.Node node) {
+        java.util.LinkedHashSet<String> names = new java.util.LinkedHashSet<>();
+        if (node == null) {
+            return names;
+        }
+        for (NameExpr nameExpr : node.findAll(NameExpr.class)) {
+            names.add(nameExpr.getNameAsString());
+        }
+        for (MethodReferenceExpr methodReferenceExpr : node.findAll(MethodReferenceExpr.class)) {
+            Expression scopeExpr = methodReferenceExpr.getScope();
+            if (scopeExpr == null) {
+                continue;
+            }
+            String scopeText = scopeExpr.toString().trim();
+            if (scopeText.matches("[A-Za-z_$][A-Za-z0-9_$]*")) {
+                names.add(scopeText);
+            }
+            if (scopeExpr instanceof NameExpr) {
+                names.add(((NameExpr) scopeExpr).getNameAsString());
+                continue;
+            }
+            for (NameExpr scopeNameExpr : scopeExpr.findAll(NameExpr.class)) {
+                names.add(scopeNameExpr.getNameAsString());
+            }
+        }
+        return names;
     }
 
     /**

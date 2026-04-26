@@ -21,6 +21,7 @@ package org.evosuite.coverage.line;
 
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.MethodNameMatcher;
+import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.instrumentation.LinePool;
@@ -93,6 +94,13 @@ public class LineCoverageFactory extends
                 }
                 if (!matcher.methodMatches(methodName)) {
                     logger.info("Method {} does not match criteria. ", methodName);
+                    continue;
+                }
+                if (GraphPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                        .getActualCFG(className, methodName) == null) {
+                    logger.debug("Skipping line goals for method {}.{} because no CFG is available "
+                                    + "(likely instrumentation analysis failure).",
+                            className, methodName);
                     continue;
                 }
                 Set<Integer> lines = LinePool.getLines(className, methodName);

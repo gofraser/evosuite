@@ -22,13 +22,22 @@ package org.evosuite.testcase.execution;
 import org.evosuite.Properties;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.Attributes;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -205,6 +214,30 @@ class ExecutableSnippetEngineImportFilterTest {
     }
 
     @Test
+    void buildStatementClassSourceRemovesUnmatchedTopLevelClosingBracesFromBody() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method build = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "buildStatementClassSource", String.class, String.class, Map.class, String.class);
+        build.setAccessible(true);
+        Class<?> bindingClass = Class.forName("org.evosuite.testcase.execution.ExecutableSnippetEngine$Binding");
+        java.lang.reflect.Constructor<?> bindingCtor =
+                bindingClass.getDeclaredConstructor(Type.class, Object.class);
+        bindingCtor.setAccessible(true);
+        Map<String, Object> bindings = new LinkedHashMap<>();
+        bindings.put("tracked", bindingCtor.newInstance(Object.class, null));
+
+        String body = "int x = 1;\n"
+                + "}\n"
+                + "int y = 2;";
+        String generated = (String) build.invoke(engine, "k_unmatched_brace", body, bindings, null);
+
+        assertNotNull(generated);
+        assertTrue(generated.contains("removed unmatched top-level closing brace"));
+        assertTrue(generated.contains("__vars.put("),
+                "Variable writeback should remain inside run(...) after sanitization");
+    }
+
+    @Test
     void sanitizeSourceReturnsNullForUnrelatedDiagnostics() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
         Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
@@ -216,6 +249,181 @@ class ExecutableSnippetEngineImportFilterTest {
 
         String sanitized = (String) sanitize.invoke(engine, source, diagnostics);
         assertNull(sanitized);
+    }
+
+    @Test
+    void normalizeClasspathEntryStripsTrailingBackslashAndFilePrefix() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method normalize = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "normalizeClasspathEntry", String.class);
+        normalize.setAccessible(true);
+
+        String normalized = (String) normalize.invoke(engine, "file:/tmp/lib/\\");
+
+        assertNotNull(normalized);
+        assertFalse(normalized.endsWith("\\"));
+        assertFalse(normalized.startsWith("file:"));
+        assertTrue(normalized.contains("/tmp/lib"));
+    }
+
+    @Test
+    void sanitizeClasspathSanitizesUnreadableJarFromDiagnostics() throws Exception {
+        File tempDir = Files.createTempDirectory("evosuite-snippet-diagnostics-").toFile();
+        tempDir.deleteOnExit();
+        File safeJar = new File(tempDir, "a.jar");
+        File malformedJar = new File(tempDir, "batik-squiggle.jar");
+        createJarWithManifestClassPath(safeJar, null);
+        createJarWithManifestClassPath(malformedJar, "\\");
+
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method sanitizeClasspath = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "sanitizeClasspathForKnownCompileIssues", String.class, String.class);
+        sanitizeClasspath.setAccessible(true);
+
+        String cp = safeJar.getAbsolutePath() + File.pathSeparator + malformedJar.getAbsolutePath();
+        String diagnostics = "error: error reading " + malformedJar.getAbsolutePath() + "; "
+                + "java.net.URISyntaxException: Illegal character in path at index 29: file:/sut/lib/\\";
+
+        String sanitized = (String) sanitizeClasspath.invoke(engine, cp, diagnostics);
+
+        assertNotNull(sanitized);
+        assertFalse(sanitized.contains(malformedJar.getAbsolutePath()));
+        assertTrue(sanitized.contains(safeJar.getAbsolutePath()));
+        assertTrue(sanitized.contains("evosuite-snippet-compiler-cp-"));
+    }
+
+    @Test
+    void sanitizeClasspathEntryReplacesJarWithMalformedManifestClasspath() throws Exception {
+        File malformedJar = File.createTempFile("evosuite-malformed-manifest-", ".jar");
+        malformedJar.deleteOnExit();
+        createJarWithManifestClassPath(malformedJar, "lib/\\ batik-squiggle.jar");
+
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method sanitizeEntry = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "sanitizeClasspathEntryForCompiler", String.class);
+        sanitizeEntry.setAccessible(true);
+
+        String sanitized = (String) sanitizeEntry.invoke(engine, malformedJar.getAbsolutePath());
+
+        assertNotNull(sanitized);
+        assertFalse(sanitized.endsWith(".jar"),
+                "Malformed manifest jar should be replaced with extracted directory");
+        assertTrue(new File(sanitized).isDirectory(),
+                "Sanitized snippet classpath entry should be an existing directory");
+    }
+
+    @Test
+    void buildCompilationClasspathSanitizesMalformedJarFromUrlClassLoader() throws Exception {
+        File malformedJar = File.createTempFile("evosuite-malformed-loader-", ".jar");
+        malformedJar.deleteOnExit();
+        createJarWithManifestClassPath(malformedJar, "lib/\\ batik-squiggle.jar");
+
+        String previousCp = Properties.CP;
+        try (URLClassLoader loader = new URLClassLoader(
+                new java.net.URL[]{malformedJar.toURI().toURL()}, null)) {
+            Properties.CP = "";
+
+            ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+            Method buildClasspath = ExecutableSnippetEngine.class.getDeclaredMethod(
+                    "buildCompilationClasspath", ClassLoader.class);
+            buildClasspath.setAccessible(true);
+
+            String classpath = (String) buildClasspath.invoke(engine, loader);
+
+            assertNotNull(classpath);
+            assertFalse(classpath.contains(malformedJar.getAbsolutePath()),
+                    "Malformed jar from URLClassLoader should be replaced before reaching javac");
+            assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"),
+                    "Expected sanitized extracted directory in snippet compiler classpath");
+        } finally {
+            Properties.CP = previousCp;
+        }
+    }
+
+    @Test
+    void buildCompilationClasspathSanitizesJarsReferencingMalformedManifestJar() throws Exception {
+        File tempDir = Files.createTempDirectory("evosuite-malformed-loader-ref-").toFile();
+        tempDir.deleteOnExit();
+        File malformedJar = new File(tempDir, "batik-squiggle.jar");
+        File referencingJar = new File(tempDir, "batik-script.jar");
+        createJarWithManifestClassPath(malformedJar, "\\");
+        createJarWithManifestClassPath(referencingJar, malformedJar.getName());
+
+        String previousCp = Properties.CP;
+        try (URLClassLoader loader = new URLClassLoader(
+                new java.net.URL[]{referencingJar.toURI().toURL(), malformedJar.toURI().toURL()}, null)) {
+            Properties.CP = "";
+
+            ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+            Method buildClasspath = ExecutableSnippetEngine.class.getDeclaredMethod(
+                    "buildCompilationClasspath", ClassLoader.class);
+            buildClasspath.setAccessible(true);
+
+            String classpath = (String) buildClasspath.invoke(engine, loader);
+
+            assertNotNull(classpath);
+            assertFalse(classpath.contains(referencingJar.getAbsolutePath()),
+                    "Jar that still points at a malformed dependency must also be sanitized");
+            assertFalse(classpath.contains(malformedJar.getAbsolutePath()),
+                    "Malformed manifest jar should be replaced before reaching javac");
+            assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"),
+                    "Expected sanitized extracted directories in snippet compiler classpath");
+        } finally {
+            Properties.CP = previousCp;
+        }
+    }
+
+    @Test
+    void buildCompilationClasspathExpandsManifestOnlyPathingJarAndPreservesSafeEntries() throws Exception {
+        File tempDir = Files.createTempDirectory("evosuite-pathing-jar-").toFile();
+        tempDir.deleteOnExit();
+        File safeJar = new File(tempDir, "junit-jupiter-api.jar");
+        File malformedJar = new File(tempDir, "batik-squiggle.jar");
+        File pathingJar = new File(tempDir, "EvoSuite_pathingJar123.jar");
+        createJarWithManifestClassPath(safeJar, null);
+        createJarWithManifestClassPath(malformedJar, "\\");
+        createJarWithManifestClassPath(pathingJar, safeJar.getName() + " " + malformedJar.getName());
+
+        String previousCp = Properties.CP;
+        try (URLClassLoader loader = new URLClassLoader(
+                new java.net.URL[]{pathingJar.toURI().toURL()}, null)) {
+            Properties.CP = "";
+
+            ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+            Method buildClasspath = ExecutableSnippetEngine.class.getDeclaredMethod(
+                    "buildCompilationClasspath", ClassLoader.class);
+            buildClasspath.setAccessible(true);
+
+            String classpath = (String) buildClasspath.invoke(engine, loader);
+
+            assertNotNull(classpath);
+            assertFalse(classpath.contains(pathingJar.getAbsolutePath()),
+                    "Manifest-only pathing jars should be expanded instead of passed to javac");
+            assertTrue(classpath.contains(safeJar.getAbsolutePath()),
+                    "Safe manifest entries from the pathing jar must be preserved");
+            assertFalse(classpath.contains(malformedJar.getAbsolutePath()),
+                    "Malformed manifest dependency should still be sanitized after expansion");
+            assertTrue(classpath.contains("evosuite-snippet-compiler-cp-"),
+                    "Expanded malformed dependency should still be replaced with a sanitized directory");
+        } finally {
+            Properties.CP = previousCp;
+        }
+    }
+
+    @Test
+    void buildCompilerArgumentsDisablesAnnotationProcessing() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method buildCompilerArguments = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "buildCompilerArguments", String.class, Path.class);
+        buildCompilerArguments.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<String> args = (List<String>) buildCompilerArguments.invoke(
+                engine, "/tmp/a.jar", new File("/tmp/Snippet.java").toPath());
+
+        assertNotNull(args);
+        assertTrue(args.contains("-proc:none"),
+                "Snippet compiler arguments should disable annotation processing");
     }
 
     @Test
@@ -414,6 +622,40 @@ class ExecutableSnippetEngineImportFilterTest {
     }
 
     @Test
+    void sanitizeForbiddenPackageUsageRemovesMultilineSetSecurityManagerAnonymousClass() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "sanitizeForbiddenPackageUsageInSource", String.class);
+        sanitize.setAccessible(true);
+
+        String source = "class X {\n"
+                + "  void m() {\n"
+                + "    try {\n"
+                + "      System.setSecurityManager(new SecurityManager() {\n"
+                + "        @Override\n"
+                + "        public void checkPermission(java.security.Permission perm) {\n"
+                + "        }\n"
+                + "        @Override\n"
+                + "        public void checkExit(int status) {\n"
+                + "          throw new SecurityException(\"exit:\" + status);\n"
+                + "        }\n"
+                + "      });\n"
+                + "    } finally {\n"
+                + "      int x = 1;\n"
+                + "    }\n"
+                + "  }\n"
+                + "}\n";
+        String sanitized = (String) sanitize.invoke(engine, source);
+
+        assertNotNull(sanitized);
+        assertTrue(sanitized.contains("removed forbidden security-manager mutation"));
+        assertFalse(sanitized.contains("System.setSecurityManager(new SecurityManager()"));
+        assertFalse(sanitized.contains("checkPermission"));
+        assertFalse(sanitized.contains("checkExit"));
+        assertTrue(sanitized.contains("int x = 1;"));
+    }
+
+    @Test
     void sanitizeForbiddenPackageUsageRemovesHeavyweightGuiConstructionSimpleNames() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
         Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
@@ -506,6 +748,62 @@ class ExecutableSnippetEngineImportFilterTest {
     }
 
     @Test
+    void sanitizeForbiddenPackageUsageRewritesFileRandomAccessAndFileOutputStreamWhenVfsEnabled() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "sanitizeForbiddenPackageUsageInSource", String.class);
+        sanitize.setAccessible(true);
+
+        boolean previousVirtualFs = Properties.VIRTUAL_FS;
+        try {
+            Properties.VIRTUAL_FS = true;
+            String source = "class X {\n"
+                    + "  void m() throws Exception {\n"
+                    + "    java.io.File f = new java.io.File(\"x.bin\");\n"
+                    + "    java.io.RandomAccessFile raf = new java.io.RandomAccessFile(f, \"rw\");\n"
+                    + "    java.io.FileOutputStream out = new java.io.FileOutputStream(f);\n"
+                    + "  }\n"
+                    + "}\n";
+            String sanitized = (String) sanitize.invoke(engine, source);
+
+            assertNotNull(sanitized);
+            assertFalse(sanitized.contains("new java.io.File("));
+            assertFalse(sanitized.contains("new java.io.RandomAccessFile("));
+            assertFalse(sanitized.contains("new java.io.FileOutputStream("));
+            assertTrue(sanitized.contains("new org.evosuite.runtime.mock.java.io.MockFile("));
+            assertTrue(sanitized.contains("new org.evosuite.runtime.mock.java.io.MockRandomAccessFile("));
+            assertTrue(sanitized.contains("new org.evosuite.runtime.mock.java.io.MockFileOutputStream("));
+        } finally {
+            Properties.VIRTUAL_FS = previousVirtualFs;
+        }
+    }
+
+    @Test
+    void sanitizeForbiddenPackageUsageDoesNotRewriteFileWhenVfsDisabled() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "sanitizeForbiddenPackageUsageInSource", String.class);
+        sanitize.setAccessible(true);
+
+        boolean previousVirtualFs = Properties.VIRTUAL_FS;
+        try {
+            Properties.VIRTUAL_FS = false;
+            String source = "class X {\n"
+                    + "  void m() {\n"
+                    + "    java.io.File f = new java.io.File(\"x.bin\");\n"
+                    + "  }\n"
+                    + "}\n";
+            String sanitized = (String) sanitize.invoke(engine, source);
+
+            assertNotNull(sanitized);
+            assertTrue(sanitized.contains("new java.io.File(\"x.bin\")"));
+            assertFalse(sanitized.contains("MockFile("));
+        } finally {
+            Properties.VIRTUAL_FS = previousVirtualFs;
+        }
+    }
+
+    @Test
     void classLoaderKeyUsesIdentity() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
         Method keyMethod = ExecutableSnippetEngine.class.getDeclaredMethod(
@@ -525,5 +823,17 @@ class ExecutableSnippetEngineImportFilterTest {
         assertNotNull(keyB);
         assertFalse(keyA.equals(keyB), "Different classloader instances must have distinct keys");
         assertTrue("null".equals(keyANull));
+    }
+
+    private static void createJarWithManifestClassPath(File jarFile, String classPath) throws Exception {
+        Manifest manifest = new Manifest();
+        manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
+        if (classPath != null) {
+            manifest.getMainAttributes().put(Attributes.Name.CLASS_PATH, classPath);
+        }
+        try (JarOutputStream out = new JarOutputStream(new FileOutputStream(jarFile), manifest)) {
+            // Empty jar is enough; snippet classpath sanitization only inspects metadata.
+        }
+        jarFile.deleteOnExit();
     }
 }

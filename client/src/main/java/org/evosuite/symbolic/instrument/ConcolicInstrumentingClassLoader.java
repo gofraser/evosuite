@@ -28,6 +28,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.lang.reflect.Array;
+import java.net.URL;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -102,9 +106,11 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
         try {
             String className = fullyQualifiedTargetClass.replace('.', '/');
             InputStream is = ClassLoader.getSystemResourceAsStream(className + ".class");
+            URL sourceUrl = ClassLoader.getSystemResource(className + ".class");
             if (is == null) {
                 try {
                     is = findTargetResource(className + ".class");
+                    sourceUrl = findTargetResourceUrl(className + ".class");
                 } catch (FileNotFoundException e) {
                     throw new ClassNotFoundException("Class '" + className + ".class"
                             + "' should be in target project, but could not be found!");
@@ -112,7 +118,10 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
             }
 
             byte[] byteBuffer = instrumentation.transformBytes(className, new ClassReader(is));
-            Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length);
+            ProtectionDomain protectionDomain = createProtectionDomain(sourceUrl);
+            Class<?> result = protectionDomain == null
+                    ? defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length)
+                    : defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length, protectionDomain);
             classes.put(fullyQualifiedTargetClass, result);
             //logger.info("Keeping class: " + fullyQualifiedTargetClass);
             return result;
@@ -128,6 +137,30 @@ public class ConcolicInstrumentingClassLoader extends ClassLoader {
         } else {
             String fileName = resources.iterator().next();
             return new FileInputStream(fileName);
+        }
+    }
+
+    private URL findTargetResourceUrl(String name) {
+        Collection<String> resources = ResourceList.findResourceInClassPath(name);
+        if (resources.isEmpty()) {
+            return null;
+        }
+        try {
+            return new java.io.File(resources.iterator().next()).toURI().toURL();
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private ProtectionDomain createProtectionDomain(URL sourceUrl) {
+        if (sourceUrl == null) {
+            return null;
+        }
+        try {
+            CodeSource codeSource = new CodeSource(sourceUrl, (Certificate[]) null);
+            return new ProtectionDomain(codeSource, null, this, null);
+        } catch (Throwable ignored) {
+            return null;
         }
     }
 

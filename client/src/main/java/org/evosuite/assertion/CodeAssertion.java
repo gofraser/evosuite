@@ -146,7 +146,11 @@ public class CodeAssertion extends Assertion {
 
         TestCase tc = statement.getTestCase();
         TestCodeVisitor visitor = new TestCodeVisitor();
-        tc.accept(visitor);
+        visitor.setEmitAssertions(false);
+        visitor.visitTestCase(tc);
+        for (int i = 0; i < tc.size(); i++) {
+            visitor.visitStatement(tc.getStatement(i));
+        }
 
         for (int i = 0; i < tc.size(); i++) {
             VariableReference ref = tc.getStatement(i).getReturnValue();

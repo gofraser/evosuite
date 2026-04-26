@@ -101,6 +101,9 @@ public class GuiSupportTest {
 
         GuiSupport.disableHeadlessForMockConstruction();
         try {
+            if (GuiSupport.canForceHeadlessForTests()) {
+                Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+            }
             Assertions.assertDoesNotThrow(() -> {
                 new TestComponent();
             });

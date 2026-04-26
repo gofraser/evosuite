@@ -102,9 +102,45 @@ public class MethodCallReplacementCache {
                     headlessSwing, "replacement_setDropTarget",
                     "(Ljavax/swing/JComponent;Ljava/awt/dnd/DropTarget;)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JComboBox", "setSelectedItem",
-                    "(Ljava/lang/Object;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/lang/Object;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setSelectedItem",
                     "(Ljavax/swing/JComboBox;Ljava/lang/Object;)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JComboBox", "setEditable",
+                    "(Z)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_setEditable",
+                    "(Ljavax/swing/JComboBox;Z)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JComboBox", "getEditor",
+                    "()Ljavax/swing/ComboBoxEditor;", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_getEditor",
+                    "(Ljavax/swing/JComboBox;)Ljavax/swing/ComboBoxEditor;", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "getCaret",
+                    "()Ljavax/swing/text/Caret;", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_getCaret",
+                    "(Ljavax/swing/text/JTextComponent;)Ljavax/swing/text/Caret;", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "setCaretPosition",
+                    "(I)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_setCaretPosition",
+                    "(Ljavax/swing/text/JTextComponent;I)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "moveCaretPosition",
+                    "(I)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_moveCaretPosition",
+                    "(Ljavax/swing/text/JTextComponent;I)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "setSelectionStart",
+                    "(I)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_setSelectionStart",
+                    "(Ljavax/swing/text/JTextComponent;I)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "setSelectionEnd",
+                    "(I)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_setSelectionEnd",
+                    "(Ljavax/swing/text/JTextComponent;I)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "select",
+                    "(II)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_select",
+                    "(Ljavax/swing/text/JTextComponent;II)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/text/JTextComponent", "selectAll",
+                    "()V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_selectAll",
+                    "(Ljavax/swing/text/JTextComponent;)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JColorChooser", "showDialog",
                     "(Ljava/awt/Component;Ljava/lang/String;Ljava/awt/Color;)Ljava/awt/Color;",
                     Opcodes.INVOKESTATIC,
@@ -183,6 +219,20 @@ public class MethodCallReplacementCache {
                     "()Ljava/awt/Dimension;", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_getScreenSize",
                     "(Ljava/awt/Toolkit;)Ljava/awt/Dimension;", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Toolkit", "getDefaultToolkit",
+                    "()Ljava/awt/Toolkit;", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_getDefaultToolkit",
+                    "()Ljava/awt/Toolkit;", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/GraphicsEnvironment",
+                    "getLocalGraphicsEnvironment",
+                    "()Ljava/awt/GraphicsEnvironment;", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_getLocalGraphicsEnvironment",
+                    "()Ljava/awt/GraphicsEnvironment;", false, false));
+            addReplacementCall(new MethodCallReplacement("java/security/CodeSource", "getLocation",
+                    "()Ljava/net/URL;", Opcodes.INVOKEVIRTUAL,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.java.security.MockCodeSource.class),
+                    "replacement_getLocation",
+                    "(Ljava/security/CodeSource;)Ljava/net/URL;", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Component", "setCursor",
                     "(Ljava/awt/Cursor;)V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_setCursor",

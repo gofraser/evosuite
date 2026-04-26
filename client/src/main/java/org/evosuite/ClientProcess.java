@@ -32,6 +32,7 @@ import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.MSecurityManager;
 import org.evosuite.runtime.sandbox.Sandbox;
+import org.evosuite.testcase.execution.MockitoWarmUp;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.SpawnProcessKeepAliveChecker;
@@ -76,6 +77,7 @@ public class ClientProcess {
         JDKClassResetter.init();
         Sandbox.setCheckForInitialization(Properties.SANDBOX);
         MockFramework.enable();
+        MockitoWarmUp.warmUp();
 
         if (TestSuiteWriterUtils.needToUseAgent() && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
                 || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {

@@ -211,8 +211,12 @@ public class TestCaseExecutor implements ThreadFactory {
     public static class TimeoutExceeded extends RuntimeException {
         private static final long serialVersionUID = -5314228165430676893L;
 
+        private final Integer statementPosition;
+
+        private final String statementCode;
+
         public TimeoutExceeded() {
-            super();
+            this(null, null, null, null);
         }
 
         /**
@@ -220,22 +224,36 @@ public class TestCaseExecutor implements ThreadFactory {
          * thread that was executing the test when the timeout fired.
          */
         public TimeoutExceeded(Thread workerThread) {
-            super(workerThread == null
-                    ? "Test execution timed out"
-                    : "Test execution timed out in worker thread " + workerThread.getName());
-            if (workerThread != null) {
-                StackTraceElement[] workerStack = workerThread.getStackTrace();
-                if (workerStack != null && workerStack.length > 0) {
-                    setStackTrace(workerStack);
-                }
-            }
+            this(workerThread == null
+                            ? "Test execution timed out"
+                            : "Test execution timed out in worker thread " + workerThread.getName(),
+                    workerThread == null ? null : workerThread.getStackTrace(),
+                    null,
+                    null);
         }
 
         public TimeoutExceeded(String message, StackTraceElement[] stackTrace) {
+            this(message, stackTrace, null, null);
+        }
+
+        public TimeoutExceeded(String message,
+                               StackTraceElement[] stackTrace,
+                               Integer statementPosition,
+                               String statementCode) {
             super(message);
+            this.statementPosition = statementPosition;
+            this.statementCode = statementCode;
             if (stackTrace != null && stackTrace.length > 0) {
                 setStackTrace(stackTrace);
             }
+        }
+
+        public Integer getStatementPosition() {
+            return statementPosition;
+        }
+
+        public String getStatementCode() {
+            return statementCode;
         }
     }
 
@@ -730,8 +748,16 @@ public class TestCaseExecutor implements ThreadFactory {
                         ? "Test execution timed out in worker thread " + timeoutThreadName
                         : "Test execution timed out in worker thread " + timeoutThreadName
                         + " [state=" + timeoutThreadState + "]";
+                Integer timeoutStatementPosition = callable.getCurrentStatementIndex();
+                if (timeoutStatementPosition != null && timeoutStatementPosition < 0) {
+                    timeoutStatementPosition = null;
+                }
                 result.reportNewThrownException(tc.size(),
-                        new TestCaseExecutor.TimeoutExceeded(timeoutMessage, timeoutStackSnapshot));
+                        new TestCaseExecutor.TimeoutExceeded(
+                                timeoutMessage,
+                                timeoutStackSnapshot,
+                                timeoutStatementPosition,
+                                callable.getCurrentStatementCode()));
                 result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
                 ExecutionTracer.getExecutionTracer().clear();
             } finally {

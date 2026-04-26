@@ -698,13 +698,27 @@ public class TestSuiteGenerator {
             return Collections.emptyList();
         }
 
+        List<String> observedInitializationOrder = ClassReInitializer.getInstance().getInitializedClasses();
+        if (Properties.TEST_EXTENSION_PRELOAD_INITIALIZED_CLASSES) {
+            List<String> preloadOrder = buildExtensionInitializationOrder(observedInitializationOrder);
+            if (!preloadOrder.isEmpty()) {
+                logger.info("Extension preloading enabled. Emitting explicit initialization order with {} classes.",
+                        preloadOrder.size());
+            }
+            return preloadOrder;
+        }
+
         JUnitAnalyzer.OrderSensitivityAnalysis analysis = JUnitAnalyzer.analyzeOrderSensitivity(testCases);
         if (!analysis.isOrderSensitive()) {
             return Collections.emptyList();
         }
 
-        List<String> observedInitializationOrder = ClassReInitializer.getInstance().getInitializedClasses();
         if (observedInitializationOrder.size() < 2) {
+            return Collections.emptyList();
+        }
+
+        List<String> explicitOrder = buildExtensionInitializationOrder(observedInitializationOrder);
+        if (explicitOrder.size() < 2) {
             return Collections.emptyList();
         }
 
@@ -713,8 +727,36 @@ public class TestSuiteGenerator {
                         + "Emitting explicit initialization order with {} classes.",
                 analysis.getForwardFailures(),
                 analysis.getReverseFailures(),
-                observedInitializationOrder.size());
-        return observedInitializationOrder;
+                explicitOrder.size());
+        return explicitOrder;
+    }
+
+    private static List<String> buildExtensionInitializationOrder(List<String> observedInitializationOrder) {
+        LinkedHashSet<String> ordered = new LinkedHashSet<>();
+        if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.trim().isEmpty()) {
+            ordered.add(Properties.TARGET_CLASS.trim());
+        }
+        if (observedInitializationOrder != null) {
+            for (String className : observedInitializationOrder) {
+                if (className == null) {
+                    continue;
+                }
+                String trimmed = className.trim();
+                if (!trimmed.isEmpty()) {
+                    ordered.add(trimmed);
+                }
+            }
+        }
+
+        int maxClasses = Math.max(1, Properties.TEST_EXTENSION_PRELOAD_MAX_CLASSES);
+        List<String> limited = new ArrayList<>(Math.min(maxClasses, ordered.size()));
+        for (String className : ordered) {
+            limited.add(className);
+            if (limited.size() >= maxClasses) {
+                break;
+            }
+        }
+        return limited;
     }
 
     /**

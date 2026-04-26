@@ -32,6 +32,8 @@ import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.fm.EvoInvocationListener;
+import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.numeric.BooleanPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
@@ -695,6 +697,27 @@ public class FunctionalMockStatementTest {
         Assertions.assertNotNull(copy);
         Assertions.assertTrue(copy instanceof FunctionalMockStatement);
         Assertions.assertEquals(PdfFileParam.class, copy.getReturnClass());
+    }
+
+    @Test
+    public void testUpdateMockedMethodsRecoversFromInconsistentMetadata() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference ref = new VariableReferenceImpl(tc, Foo.class);
+        FunctionalMockStatement mockStmt = new FunctionalMockStatement(tc, ref, GenericClassFactory.get(Foo.class));
+
+        MethodDescriptor md = new MethodDescriptor(Foo.class.getMethod("getInt"),
+                GenericClassFactory.get(Foo.class));
+        mockStmt.mockedMethods.add(md);
+        // Intentionally keep methodParameters empty to emulate parser/fallback inconsistency.
+        assertTrue(mockStmt.methodParameters.isEmpty());
+
+        EvoInvocationListener listener = mock(EvoInvocationListener.class);
+        when(listener.getCopyOfMethodDescriptors()).thenReturn(Arrays.asList(md));
+        mockStmt.listener = listener;
+
+        List<Type> missing = mockStmt.updateMockedMethods();
+        assertNotNull(missing);
+        assertTrue(mockStmt.methodParameters.containsKey(md.getID()));
     }
 
 }

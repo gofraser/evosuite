@@ -21,6 +21,7 @@ package org.evosuite.graphs.cfg;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.branch.BranchPool;
+import org.evosuite.graphs.GraphPool;
 import org.evosuite.instrumentation.InstrumentationSelector;
 import org.evosuite.instrumentation.coverage.MethodInstrumentation;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
@@ -232,6 +233,13 @@ public class CFGMethodAdapter extends MethodVisitor {
                 logger.error("Analyzer exception while analyzing " + className + "."
                         + methodName + ": " + e);
                 e.printStackTrace();
+                // CFGGenerator registers method instructions before ASM analysis starts.
+                // If analysis fails, we may end up with stale BytecodeInstructions but
+                // no corresponding CFG in GraphPool, which later crashes coverage-goal
+                // setup (eg LineCoverageTestFitness.getControlDependencies()).
+                BytecodeInstructionPool.getInstance(classLoader).clear(className, methodName);
+                GraphPool.getInstance(classLoader).clear(className, methodName);
+                BranchPool.getInstance(classLoader).clear(className, methodName);
             }
 
         } else {

@@ -52,31 +52,46 @@ public class MockImageIcon extends ImageIcon implements OverrideMock {
     }
 
     public MockImageIcon(String filename) {
-        super(filename);
+        super();
+        setDescription(filename);
     }
 
     public MockImageIcon(String filename, String description) {
-        super(filename, description);
+        super();
+        setDescription(description != null ? description : filename);
     }
 
     public MockImageIcon(byte[] imageData) {
-        super(imageData);
+        super();
     }
 
     public MockImageIcon(byte[] imageData, String description) {
-        super(imageData, description);
+        super();
+        setDescription(description);
     }
 
     public MockImageIcon(Image image) {
-        super(image);
+        super();
+        if (image != null) {
+            setImage(image);
+        }
     }
 
     public MockImageIcon(Image image, String description) {
-        super(image, description);
+        this(image);
+        setDescription(description);
     }
 
     public MockImageIcon(URL location, String description) {
         this(location);
         setDescription(description);
+    }
+
+    /**
+     * Prevent AWT MediaTracker interactions in headless/mock-GUI mode.
+     */
+    @Override
+    protected void loadImage(Image image) {
+        // Intentionally no-op.
     }
 }

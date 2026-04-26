@@ -24,6 +24,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 import java.lang.reflect.Method;
@@ -79,6 +80,18 @@ public class MethodCallReplacementCacheTest {
         Method comboSetSelectedItem = javax.swing.JComboBox.class.getMethod("setSelectedItem", Object.class);
         String comboSetSelectedItemKey =
                 comboSetSelectedItem.getName() + Type.getMethodDescriptor(comboSetSelectedItem);
+        Method comboSetEditable = javax.swing.JComboBox.class.getMethod("setEditable", boolean.class);
+        String comboSetEditableKey =
+                comboSetEditable.getName() + Type.getMethodDescriptor(comboSetEditable);
+        Method comboGetEditor = javax.swing.JComboBox.class.getMethod("getEditor");
+        String comboGetEditorKey =
+                comboGetEditor.getName() + Type.getMethodDescriptor(comboGetEditor);
+        Method textGetCaret = javax.swing.text.JTextComponent.class.getMethod("getCaret");
+        String textGetCaretKey =
+                textGetCaret.getName() + Type.getMethodDescriptor(textGetCaret);
+        Method textSetCaretPosition = javax.swing.text.JTextComponent.class.getMethod("setCaretPosition", int.class);
+        String textSetCaretPositionKey =
+                textSetCaretPosition.getName() + Type.getMethodDescriptor(textSetCaretPosition);
         Method showColorDialog = javax.swing.JColorChooser.class.getMethod(
                 "showDialog", java.awt.Component.class, String.class, java.awt.Color.class);
         String showColorDialogKey = showColorDialog.getName() + Type.getMethodDescriptor(showColorDialog);
@@ -121,6 +134,15 @@ public class MethodCallReplacementCacheTest {
         String setCursorKey = setCursor.getName() + Type.getMethodDescriptor(setCursor);
         Method getScreenSize = java.awt.Toolkit.class.getMethod("getScreenSize");
         String getScreenSizeKey = getScreenSize.getName() + Type.getMethodDescriptor(getScreenSize);
+        Method getDefaultToolkit = java.awt.Toolkit.class.getMethod("getDefaultToolkit");
+        String getDefaultToolkitKey = getDefaultToolkit.getName() + Type.getMethodDescriptor(getDefaultToolkit);
+        Method getLocalGraphicsEnvironment = java.awt.GraphicsEnvironment.class.getMethod(
+                "getLocalGraphicsEnvironment");
+        String getLocalGraphicsEnvironmentKey =
+                getLocalGraphicsEnvironment.getName() + Type.getMethodDescriptor(getLocalGraphicsEnvironment);
+        Method codeSourceGetLocation = java.security.CodeSource.class.getMethod("getLocation");
+        String codeSourceGetLocationKey =
+                codeSourceGetLocation.getName() + Type.getMethodDescriptor(codeSourceGetLocation);
         Method getDefaultCursor = java.awt.Cursor.class.getMethod("getDefaultCursor");
         String getDefaultCursorKey = getDefaultCursor.getName() + Type.getMethodDescriptor(getDefaultCursor);
         Method getPredefinedCursor = java.awt.Cursor.class.getMethod("getPredefinedCursor", int.class);
@@ -164,6 +186,17 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JFileChooser", jFileChooserKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComponent", dropTargetKey));
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComboBox", comboSetSelectedItemKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComboBox", comboSetEditableKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JComboBox", comboGetEditorKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/text/JTextComponent", textGetCaretKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/text/JTextComponent", textSetCaretPositionKey));
+        MethodCallReplacement comboReplacement = cache.getReplacementCall(
+                "javax/swing/JComboBox", comboSetSelectedItemKey);
+        java.lang.reflect.Field origOpcodeField = MethodCallReplacement.class.getDeclaredField("origOpcode");
+        origOpcodeField.setAccessible(true);
+        int comboOrigOpcode = origOpcodeField.getInt(comboReplacement);
+        Assertions.assertEquals(Opcodes.INVOKEVIRTUAL, comboOrigOpcode,
+                "Fallback opcode for JComboBox#setSelectedItem must remain INVOKEVIRTUAL");
         Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JColorChooser", showColorDialogKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", isDesktopSupportedKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Desktop", getDesktopKey));
@@ -184,6 +217,10 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", mixingCutoutKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", setCursorKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Toolkit", getScreenSizeKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Toolkit", getDefaultToolkitKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/GraphicsEnvironment",
+                getLocalGraphicsEnvironmentKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/security/CodeSource", codeSourceGetLocationKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getDefaultCursorKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getPredefinedCursorKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Cursor", getSystemCustomCursorKey));

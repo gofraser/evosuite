@@ -660,7 +660,12 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         List<Type> list = new ArrayList<>();
 
         assert !super.parameters.contains(null);
-        assert mockedMethods.size() == methodParameters.size();
+        if (mockedMethods.size() != methodParameters.size()) {
+            logger.debug("Functional mock metadata mismatch before update: mockedMethods={}, methodParameters={}. "
+                            + "Normalizing metadata for resilience.",
+                    mockedMethods.size(), methodParameters.size());
+            normalizeMethodParameterMetadata();
+        }
 
         List<VariableReference> copy = new ArrayList<>(super.parameters);
         assert copy.size() == super.parameters.size();
@@ -695,12 +700,23 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 minMax = new int[]{-1, -1};
                 existingParameters = 0;
             } else {
-                assert minMax[1] >= minMax[0] && minMax[0] >= 0;
-                assert minMax[1] < copy.size() : "Max=" + minMax[1] + " but n=" + copy.size();
-                existingParameters = 1 + (minMax[1] - minMax[0]);
+                // Parser/fallback reconstruction can leave stale ranges; recover gracefully.
+                if (minMax[0] < 0 || minMax[1] < minMax[0] || minMax[1] >= copy.size()) {
+                    logger.debug("Ignoring stale parameter bounds {} for method {} with parameter size {}",
+                            Arrays.toString(minMax), md.getID(), copy.size());
+                    minMax = new int[]{-1, -1};
+                    existingParameters = 0;
+                } else {
+                    existingParameters = 1 + (minMax[1] - minMax[0]);
+                }
             }
 
-            assert existingParameters <= Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT;
+            if (existingParameters > Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT) {
+                logger.debug("Clamping existing parameter count {} to limit {} for method {}",
+                        existingParameters, Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT, md.getID());
+                existingParameters = Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT;
+                minMax[1] = minMax[0] + existingParameters - 1;
+            }
 
             //check if less calls
             if (existingParameters > md.getCounter()) {
@@ -754,6 +770,37 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         }
 
         return list;
+    }
+
+    /**
+     * Rebuild method-parameter metadata to a consistent, bounded state.
+     * Parser-originated mocks can contain duplicate method IDs or stale map entries.
+     */
+    private void normalizeMethodParameterMetadata() {
+        Map<String, int[]> normalized = new LinkedHashMap<>();
+        for (MethodDescriptor md : mockedMethods) {
+            if (md == null) {
+                continue;
+            }
+            String id = md.getID();
+            if (id == null || normalized.containsKey(id)) {
+                continue;
+            }
+            int[] range = methodParameters.get(id);
+            if (range == null) {
+                normalized.put(id, null);
+                continue;
+            }
+            int start = range[0];
+            int end = range[1];
+            if (start < 0 || end < start || end >= super.parameters.size()) {
+                normalized.put(id, null);
+            } else {
+                normalized.put(id, new int[]{start, end});
+            }
+        }
+        methodParameters.clear();
+        methodParameters.putAll(normalized);
     }
 
     /**

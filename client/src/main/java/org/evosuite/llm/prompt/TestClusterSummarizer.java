@@ -333,6 +333,8 @@ public class TestClusterSummarizer {
         // Build a modifier lookup: class name -> set of modifier methods from the cluster
         Map<String, Set<GenericAccessibleObject<?>>> modifiersByClassName = buildModifierLookup(cluster);
         Map<String, Map<String, Integer>> modifierFrequencyByClass = buildModifierFrequencyLookup(cluster);
+        Map<String, Class<?>> candidatesByName = collectCandidateTypes(generatorsByType, targetClassName);
+        Map<String, List<Class<?>>> concreteSubtypeLookup = buildConcreteSubtypeLookup(candidatesByName.values());
 
         // Build per-type summaries, partitioned into 3 tiers
         List<TypeSummary> tier1DirectDeps = new ArrayList<>();
@@ -364,7 +366,8 @@ public class TestClusterSummarizer {
                     Collections.emptySet());
             Map<String, Integer> methodFrequency = modifierFrequencyByClass.getOrDefault(className,
                     Collections.<String, Integer>emptyMap());
-            TypeSummary summary = buildTypeSummary(rawClass, generators, modifiers, compactSignatures, methodFrequency);
+            TypeSummary summary = buildTypeSummary(rawClass, generators, modifiers, compactSignatures,
+                    methodFrequency, concreteSubtypeLookup.getOrDefault(className, Collections.<Class<?>>emptyList()));
             if (summary == null || summary.isEmpty()) {
                 continue;
             }
@@ -384,8 +387,16 @@ public class TestClusterSummarizer {
             }
         }
 
-        // Sort each tier alphabetically
-        tier1DirectDeps.sort((a, b) -> a.simpleName.compareToIgnoreCase(b.simpleName));
+        // Sort each tier alphabetically. Within Tier 1, emit abstract/interface
+        // constructor-closure types first so their concrete-subtype hints survive
+        // tight budgets (this is the class of failures that makes the LLM resort
+        // to anonymous instantiation of framework base types).
+        tier1DirectDeps.sort((a, b) -> {
+            if (a.nonInstantiable != b.nonInstantiable) {
+                return a.nonInstantiable ? -1 : 1;
+            }
+            return a.simpleName.compareToIgnoreCase(b.simpleName);
+        });
         tier2SutTypes.sort((a, b) -> a.simpleName.compareToIgnoreCase(b.simpleName));
         tier3ThirdParty.sort((a, b) -> a.simpleName.compareToIgnoreCase(b.simpleName));
 
@@ -448,8 +459,9 @@ public class TestClusterSummarizer {
                                          Set<GenericAccessibleObject<?>> generators,
                                          Set<GenericAccessibleObject<?>> modifiers,
                                          boolean compactSignatures,
-                                         Map<String, Integer> modifierFrequency) {
-        TypeSummary summary = new TypeSummary(rawClass.getSimpleName(), "// " + rawClass.getSimpleName());
+                                         Map<String, Integer> modifierFrequency,
+                                         List<Class<?>> concreteSubtypes) {
+        TypeSummary summary = new TypeSummary(rawClass.getSimpleName(), buildTypeHeader(rawClass));
         if (rawClass.isEnum()) {
             Object[] constants = rawClass.getEnumConstants();
             if (constants != null && constants.length > 0) {
@@ -465,19 +477,26 @@ public class TestClusterSummarizer {
             }
             return summary;
         } else {
+            boolean nonInstantiable = rawClass.isInterface() || Modifier.isAbstract(rawClass.getModifiers());
+            summary.nonInstantiable = nonInstantiable;
             // Constructors from reflection (include package-private for same-package access)
-            List<Constructor<?>> constructors = new ArrayList<>();
-            for (Constructor<?> ctor : rawClass.getDeclaredConstructors()) {
-                if (Modifier.isPrivate(ctor.getModifiers())
-                        || Modifier.isProtected(ctor.getModifiers())) {
-                    continue;
+            if (!nonInstantiable) {
+                List<Constructor<?>> constructors = new ArrayList<>();
+                for (Constructor<?> ctor : rawClass.getDeclaredConstructors()) {
+                    if (Modifier.isPrivate(ctor.getModifiers())
+                            || Modifier.isProtected(ctor.getModifiers())) {
+                        continue;
+                    }
+                    constructors.add(ctor);
                 }
-                constructors.add(ctor);
-            }
-            constructors.sort(Comparator.comparing(Constructor::toGenericString));
-            for (Constructor<?> ctor : constructors) {
-                summary.instantiators.add("  " + rawClass.getSimpleName()
-                        + '(' + formatParameterList(ctor.getGenericParameterTypes(), compactSignatures) + ')');
+                constructors.sort(Comparator.comparing(Constructor::toGenericString));
+                for (Constructor<?> ctor : constructors) {
+                    summary.instantiators.add("  " + rawClass.getSimpleName()
+                            + '(' + formatParameterList(ctor.getGenericParameterTypes(), compactSignatures) + ')');
+                }
+            } else if (concreteSubtypes != null && !concreteSubtypes.isEmpty()) {
+                summary.instantiators.add("  concrete subtypes: "
+                        + formatConcreteSubtypeHints(concreteSubtypes, compactSignatures));
             }
 
             // Static factory methods from generators (methods that aren't constructors)
@@ -545,6 +564,165 @@ public class TestClusterSummarizer {
             }
         }
         return summary;
+    }
+
+    private String buildTypeHeader(Class<?> rawClass) {
+        String kind;
+        if (rawClass.isInterface()) {
+            kind = "interface";
+        } else if (rawClass.isEnum()) {
+            kind = "enum";
+        } else if (Modifier.isAbstract(rawClass.getModifiers())) {
+            kind = "abstract";
+        } else {
+            kind = "class";
+        }
+        StringBuilder header = new StringBuilder("// ")
+                .append(rawClass.getSimpleName())
+                .append(" [").append(kind).append("]");
+        if (rawClass.isInterface() || Modifier.isAbstract(rawClass.getModifiers())) {
+            String relation = formatImmediateRelation(rawClass);
+            if (!relation.isEmpty()) {
+                header.append(' ').append(relation);
+            }
+        }
+        return header.toString();
+    }
+
+    /**
+     * Returns the single-hop inheritance relation of an abstract/interface type
+     * (e.g., {@code "extends Application"} or {@code "extends Base implements Runnable"}).
+     * Used in the header so the LLM sees the constructor-closure anchor without
+     * needing to resolve the full type hierarchy. Limits interfaces to two to
+     * keep the header short; EvoSuite/instrumentation interfaces are skipped.
+     */
+    private String formatImmediateRelation(Class<?> rawClass) {
+        StringBuilder sb = new StringBuilder();
+        if (!rawClass.isInterface()) {
+            Class<?> sup = rawClass.getSuperclass();
+            if (sup != null && sup != Object.class) {
+                sb.append("extends ").append(sup.getSimpleName());
+            }
+        }
+        List<String> ifaceNames = new ArrayList<>();
+        for (Class<?> iface : rawClass.getInterfaces()) {
+            String name = iface.getName();
+            if (name.contains("evosuite") || name.contains("EvoSuite")) {
+                continue;
+            }
+            ifaceNames.add(iface.getSimpleName());
+            if (ifaceNames.size() >= 2) {
+                break;
+            }
+        }
+        if (!ifaceNames.isEmpty()) {
+            if (sb.length() > 0) {
+                sb.append(' ');
+            }
+            sb.append(rawClass.isInterface() ? "extends " : "implements ");
+            sb.append(String.join(", ", ifaceNames));
+        }
+        return sb.toString();
+    }
+
+    private String formatConcreteSubtypeHints(List<Class<?>> concreteSubtypes, boolean compactSignatures) {
+        if (concreteSubtypes == null || concreteSubtypes.isEmpty()) {
+            return "(none known)";
+        }
+        List<String> hints = new ArrayList<>();
+        int limit = Math.min(4, concreteSubtypes.size());
+        for (int i = 0; i < limit; i++) {
+            Class<?> subtype = concreteSubtypes.get(i);
+            hints.add(formatSubtypeInstantiation(subtype, compactSignatures));
+        }
+        if (concreteSubtypes.size() > limit) {
+            hints.add("...");
+        }
+        return String.join(", ", hints);
+    }
+
+    private String formatSubtypeInstantiation(Class<?> subtype, boolean compactSignatures) {
+        List<Constructor<?>> ctors = new ArrayList<>();
+        for (Constructor<?> ctor : subtype.getDeclaredConstructors()) {
+            if (Modifier.isPrivate(ctor.getModifiers()) || Modifier.isProtected(ctor.getModifiers())) {
+                continue;
+            }
+            if (ctor.isSynthetic()) {
+                continue;
+            }
+            ctors.add(ctor);
+        }
+        if (ctors.isEmpty()) {
+            return subtype.getSimpleName();
+        }
+        ctors.sort((a, b) -> {
+            int byArity = Integer.compare(a.getParameterCount(), b.getParameterCount());
+            if (byArity != 0) {
+                return byArity;
+            }
+            return a.toGenericString().compareTo(b.toGenericString());
+        });
+        Constructor<?> ctor = ctors.get(0);
+        return subtype.getSimpleName() + "("
+                + formatParameterList(ctor.getGenericParameterTypes(), compactSignatures) + ")";
+    }
+
+    private Map<String, Class<?>> collectCandidateTypes(
+            Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType, String targetClassName) {
+        Map<String, Class<?>> byName = new HashMap<>();
+        for (Map.Entry<GenericClass<?>, Set<GenericAccessibleObject<?>>> entry : generatorsByType.entrySet()) {
+            GenericClass<?> genClass = entry.getKey();
+            if (genClass == null || genClass.getRawClass() == null) {
+                continue;
+            }
+            Class<?> rawClass = genClass.getRawClass();
+            String className = rawClass.getName();
+            if (className.equals(targetClassName)) {
+                continue;
+            }
+            if (rawClass.isPrimitive() || EXCLUDED_TYPES.contains(className)) {
+                continue;
+            }
+            if (isJdkType(className)) {
+                continue;
+            }
+            byName.put(className, rawClass);
+        }
+        return byName;
+    }
+
+    private Map<String, List<Class<?>>> buildConcreteSubtypeLookup(Collection<Class<?>> candidates) {
+        Map<String, List<Class<?>>> lookup = new HashMap<>();
+        if (candidates == null || candidates.isEmpty()) {
+            return lookup;
+        }
+        List<Class<?>> candidateList = new ArrayList<>(candidates);
+        List<Class<?>> concreteCandidates = new ArrayList<>();
+        for (Class<?> clazz : candidateList) {
+            if (clazz == null) {
+                continue;
+            }
+            if (!clazz.isInterface() && !Modifier.isAbstract(clazz.getModifiers()) && !clazz.isEnum()) {
+                concreteCandidates.add(clazz);
+            }
+        }
+        for (Class<?> base : candidateList) {
+            if (base == null || (!base.isInterface() && !Modifier.isAbstract(base.getModifiers()))) {
+                continue;
+            }
+            List<Class<?>> subtypes = new ArrayList<>();
+            for (Class<?> candidate : concreteCandidates) {
+                if (base == candidate) {
+                    continue;
+                }
+                if (base.isAssignableFrom(candidate)) {
+                    subtypes.add(candidate);
+                }
+            }
+            subtypes.sort(Comparator.comparing(Class::getSimpleName, String.CASE_INSENSITIVE_ORDER));
+            lookup.put(base.getName(), subtypes);
+        }
+        return lookup;
     }
 
     /**
@@ -1088,9 +1266,17 @@ public class TestClusterSummarizer {
             }
             return true;
         }
-        for (String member : members) {
+        for (int i = 0; i < members.size(); i++) {
+            String member = members.get(i);
+            // Reserve the first Tier-1 instantiator line from the per-class soft cap:
+            // for abstract/interface constructor-closure types this is the
+            // "concrete subtypes: ..." hint, which is the only signal that prevents
+            // the LLM from emitting anonymous-class instantiations of framework
+            // base types. Global budget still applies.
+            int effectiveClassCap = (instantiatorPhase && ts.tier == 1 && i == 0)
+                    ? 0 : perClassSoftCap;
             AppendOutcome memberOutcome =
-                    appendLine(sb, ts, member, maxChars, perClassSoftCap, stats);
+                    appendLine(sb, ts, member, maxChars, effectiveClassCap, stats);
             if (memberOutcome == AppendOutcome.GLOBAL_BUDGET_EXCEEDED) {
                 stats.droppedByGlobalBudget++;
                 return false;
@@ -1181,6 +1367,7 @@ public class TestClusterSummarizer {
         final String simpleName;
         String header;
         int tier;
+        boolean nonInstantiable;
         final List<String> instantiators = new ArrayList<>();
         final List<String> modifiers = new ArrayList<>();
         int classChars;

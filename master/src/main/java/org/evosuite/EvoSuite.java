@@ -22,9 +22,12 @@ package org.evosuite;
 import org.apache.commons.cli.*;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.executionmode.*;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
+import org.evosuite.rmi.MasterClassLoader;
+import org.evosuite.rmi.EvoSuiteRMIClassLoaderSpi;
 import org.evosuite.runtime.sandbox.MSecurityManager;
 import org.evosuite.setup.InheritanceTree;
 import org.evosuite.setup.InheritanceTreeGenerator;
@@ -110,6 +113,9 @@ public class EvoSuite {
      * @param args an array of {@link java.lang.String} objects.
      */
     public static void main(String[] args) {
+        if (System.getProperty("java.rmi.server.RMIClassLoaderSpi") == null) {
+            System.setProperty("java.rmi.server.RMIClassLoaderSpi", EvoSuiteRMIClassLoaderSpi.class.getName());
+        }
 
         try {
             EvoSuite evosuite = new EvoSuite();
@@ -248,6 +254,16 @@ public class EvoSuite {
             //            }
 
             CommandLineParameters.handleClassPath(line);
+            try {
+                MasterClassLoader.get();
+            } catch (IllegalStateException e) {
+                String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+                if (cp != null && !cp.trim().isEmpty()) {
+                    logger().warn("MasterClassLoader initialization failed despite non-empty project CP: {}", e.getMessage());
+                } else {
+                    logger().debug("MasterClassLoader not initialized yet: {}", e.getMessage());
+                }
+            }
 
             CommandLineParameters.handleJVMOptions(javaOpts, line);
 

@@ -32,6 +32,10 @@ import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
 import java.lang.reflect.Modifier;
+import java.net.URL;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -92,6 +96,8 @@ public class CarvingClassLoader extends ClassLoader {
                 throw new ClassNotFoundException("Class '" + className + ".class"
                         + "' should be in target project, but could not be found!");
             }
+            URL sourceUrl = TestGenerationContext.getInstance().getClassLoaderForSUT()
+                    .getResource(className + ".class");
 
             ClassReader reader = new ClassReader(is);
             ClassNode classNode = new ClassNode();
@@ -101,8 +107,10 @@ public class CarvingClassLoader extends ClassLoader {
             classNode.accept(new JSRInlinerClassVisitor(writer));
             //classNode.accept(writer);
             byte[] byteBuffer = writer.toByteArray();
-            Class<?> result = defineClass(fullyQualifiedTargetClass, byteBuffer, 0,
-                    byteBuffer.length);
+            ProtectionDomain protectionDomain = createProtectionDomain(sourceUrl);
+            Class<?> result = protectionDomain == null
+                    ? defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length)
+                    : defineClass(fullyQualifiedTargetClass, byteBuffer, 0, byteBuffer.length, protectionDomain);
             if (Modifier.isPrivate(result.getModifiers())) {
                 logger.info("REPLACING PRIVATE CLASS " + fullyQualifiedTargetClass);
                 result = super.loadClass(fullyQualifiedTargetClass);
@@ -116,6 +124,18 @@ public class CarvingClassLoader extends ClassLoader {
                 logger.info(e.toString());
             }
             throw new ClassNotFoundException(t.getMessage(), t);
+        }
+    }
+
+    private ProtectionDomain createProtectionDomain(URL sourceUrl) {
+        if (sourceUrl == null) {
+            return null;
+        }
+        try {
+            CodeSource codeSource = new CodeSource(sourceUrl, (Certificate[]) null);
+            return new ProtectionDomain(codeSource, null, this, null);
+        } catch (Throwable ignored) {
+            return null;
         }
     }
 }

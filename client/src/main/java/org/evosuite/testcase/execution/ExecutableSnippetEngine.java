@@ -33,6 +33,7 @@ import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 
 import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -44,9 +45,12 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -65,6 +69,9 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.jar.Attributes;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 /**
  * Compiles and executes Java snippets used by fallback parser artifacts.
@@ -94,6 +101,9 @@ public final class ExecutableSnippetEngine {
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+.* is not public in .*; cannot be accessed from outside package");
     private static final Pattern INCOMPATIBLE_TYPES_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+incompatible types:.*");
+    private static final Pattern UNREADABLE_CLASSPATH_ENTRY_PATTERN =
+            Pattern.compile("error:\\s+error\\s+reading\\s+([^;\\r\\n]+);\\s+java\\.net\\.URISyntaxException",
+                    Pattern.CASE_INSENSITIVE);
     /**
      * Matches references to internal-access-only JDK FQNs that javac would reject
      * from application code (module export restrictions / dynamically generated
@@ -123,6 +133,8 @@ public final class ExecutableSnippetEngine {
     private static final Pattern HEAVY_GUI_NEW_EXPRESSION_PATTERN =
             Pattern.compile("\\bnew\\s+((?:java\\.awt\\.)?(?:Window|Frame|Dialog|FileDialog)|"
                     + "(?:javax\\.swing\\.)?(?:JFrame|JDialog|JWindow))\\s*\\(");
+    private static final Pattern VFS_IO_NEW_EXPRESSION_PATTERN =
+            Pattern.compile("\\bnew\\s+((?:java\\.io\\.)?(?:File|RandomAccessFile|FileInputStream|FileOutputStream|FileReader|FileWriter|PrintStream|PrintWriter))\\s*\\(");
 
     /** An output stream that silently discards all bytes written to it. */
     private static final OutputStream DISCARD = new OutputStream() {
@@ -212,6 +224,7 @@ public final class ExecutableSnippetEngine {
     private final AtomicInteger runtimeFailures = new AtomicInteger();
     private final AtomicInteger statementExecutionFailures = new AtomicInteger();
     private final AtomicInteger assertionEvaluationFailures = new AtomicInteger();
+    private final Map<String, String> sanitizedCompilerClasspathEntries = new ConcurrentHashMap<>();
 
     /**
      * Single-thread executor used for snippet compilation.  Its thread is
@@ -224,6 +237,8 @@ public final class ExecutableSnippetEngine {
 
     private static final Map<String, String> HEAVY_GUI_MOCK_CONSTRUCTOR_REPLACEMENTS =
             createHeavyGuiMockConstructorReplacements();
+    private static final Map<String, String> VFS_IO_MOCK_CONSTRUCTOR_REPLACEMENTS =
+            createVfsIoMockConstructorReplacements();
 
     private ExecutableSnippetEngine() {
         this.compilationDir = new File(System.getProperty("java.io.tmpdir"), "evosuite-snippets").toPath();
@@ -385,12 +400,21 @@ public final class ExecutableSnippetEngine {
                 if (diagnostics == null) {
                     break;
                 }
+                boolean repaired = false;
+                String repairedClasspath = sanitizeClasspathForKnownCompileIssues(classpath, diagnostics);
+                if (repairedClasspath != null && !repairedClasspath.equals(classpath)) {
+                    classpath = repairedClasspath;
+                    repaired = true;
+                }
                 String repairedSource = sanitizeSourceForKnownCompileIssues(workingSource, diagnostics);
-                if (repairedSource == null || repairedSource.equals(workingSource)) {
+                if (repairedSource != null && !repairedSource.equals(workingSource)) {
+                    workingSource = repairedSource;
+                    Files.write(sourceFile, workingSource.getBytes(StandardCharsets.UTF_8));
+                    repaired = true;
+                }
+                if (!repaired) {
                     break;
                 }
-                workingSource = repairedSource;
-                Files.write(sourceFile, workingSource.getBytes(StandardCharsets.UTF_8));
             }
             if (diagnostics != null) {
                 increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
@@ -417,18 +441,31 @@ public final class ExecutableSnippetEngine {
 
     private String compileSource(JavaCompiler compiler, String classpath, Path sourceFile) throws IOException {
         ByteArrayOutputStream errStream = new ByteArrayOutputStream();
+        List<String> compilerArgs = buildCompilerArguments(classpath, sourceFile);
         int compilationResult = compiler.run(
                 null,
                 DISCARD,
                 errStream,
-                "-classpath", classpath,
-                "-d", compilationDir.toString(),
-                sourceFile.toString()
+                compilerArgs.toArray(new String[0])
         );
         if (compilationResult == 0) {
             return null;
         }
         return errStream.toString(StandardCharsets.UTF_8.name()).trim();
+    }
+
+    private List<String> buildCompilerArguments(String classpath, Path sourceFile) {
+        List<String> args = new ArrayList<>();
+        // Snippet execution does not rely on annotation processing. Disable processors
+        // to avoid classpath-dependent processor crashes (eg lombok on JDK 9+ modules)
+        // and reduce compile latency for fallback snippets.
+        args.add("-proc:none");
+        args.add("-classpath");
+        args.add(classpath);
+        args.add("-d");
+        args.add(compilationDir.toString());
+        args.add(sourceFile.toString());
+        return args;
     }
 
     private String sanitizeSourceForKnownCompileIssues(String source, String diagnostics) {
@@ -657,8 +694,7 @@ public final class ExecutableSnippetEngine {
                 lines[i] = indent + "/* evosuite: removed forbidden jdk internal reference */";
                 changed = true;
             } else if (FORBIDDEN_SECURITY_MANAGER_MUTATION_PATTERN.matcher(line).find()) {
-                String indent = leadingWhitespace(line);
-                lines[i] = indent + "/* evosuite: removed forbidden security-manager mutation */";
+                i = sanitizeSecurityManagerMutation(lines, i);
                 changed = true;
             } else if (FORBIDDEN_HEAVY_GUI_CONSTRUCTION_PATTERN.matcher(line).find()) {
                 String rewritten = rewriteHeavyGuiConstructionToMocks(line);
@@ -669,9 +705,70 @@ public final class ExecutableSnippetEngine {
                     lines[i] = indent + "/* evosuite: removed forbidden heavyweight gui construction */";
                 }
                 changed = true;
+            } else if (isVirtualFsRewriteEnabled() && VFS_IO_NEW_EXPRESSION_PATTERN.matcher(line).find()) {
+                String rewritten = rewriteVfsIoConstructionToMocks(line);
+                if (rewritten != null) {
+                    lines[i] = rewritten;
+                    changed = true;
+                }
             }
         }
         return changed ? String.join("\n", lines) : source;
+    }
+
+    /**
+     * Replaces the entire {@code System.setSecurityManager(...);} statement, including
+     * multiline anonymous-class arguments, with comments. This avoids leaving orphaned
+     * method fragments (eg checkPermission/checkExit) in snippet method scope.
+     *
+     * @return index of the last consumed line
+     */
+    private int sanitizeSecurityManagerMutation(String[] lines, int startLine) {
+        int lineCount = lines.length;
+        int lineIndex = startLine;
+        int parenthesisDepth = 0;
+        int braceDepth = 0;
+        boolean sawTerminator = false;
+        boolean firstLine = true;
+        int scanStart = 0;
+
+        Matcher matcher = FORBIDDEN_SECURITY_MANAGER_MUTATION_PATTERN.matcher(lines[startLine]);
+        if (matcher.find()) {
+            scanStart = matcher.start();
+        }
+
+        while (lineIndex < lineCount) {
+            String original = lines[lineIndex];
+            String segment = firstLine && scanStart < original.length()
+                    ? original.substring(scanStart)
+                    : original;
+            for (int i = 0; i < segment.length(); i++) {
+                char c = segment.charAt(i);
+                if (c == '(') {
+                    parenthesisDepth++;
+                } else if (c == ')') {
+                    parenthesisDepth--;
+                } else if (c == '{') {
+                    braceDepth++;
+                } else if (c == '}') {
+                    braceDepth--;
+                } else if (c == ';') {
+                    sawTerminator = true;
+                }
+            }
+
+            String indent = leadingWhitespace(original);
+            lines[lineIndex] = indent + (lineIndex == startLine
+                    ? "/* evosuite: removed forbidden security-manager mutation */"
+                    : "/* evosuite: removed forbidden security-manager mutation (cont.) */");
+
+            if (sawTerminator && parenthesisDepth <= 0 && braceDepth <= 0) {
+                break;
+            }
+            lineIndex++;
+            firstLine = false;
+        }
+        return Math.min(lineIndex, lineCount - 1);
     }
 
     private String rewriteHeavyGuiConstructionToMocks(String line) {
@@ -696,6 +793,32 @@ public final class ExecutableSnippetEngine {
         return rewritten.toString();
     }
 
+    private String rewriteVfsIoConstructionToMocks(String line) {
+        Matcher matcher = VFS_IO_NEW_EXPRESSION_PATTERN.matcher(line);
+        StringBuffer rewritten = new StringBuffer();
+        boolean anyReplacement = false;
+        boolean unresolvedCtor = false;
+        while (matcher.find()) {
+            String typeToken = matcher.group(1);
+            String replacementType = VFS_IO_MOCK_CONSTRUCTOR_REPLACEMENTS.get(typeToken);
+            if (replacementType == null) {
+                unresolvedCtor = true;
+                continue;
+            }
+            anyReplacement = true;
+            matcher.appendReplacement(rewritten, Matcher.quoteReplacement("new " + replacementType + "("));
+        }
+        if (!anyReplacement || unresolvedCtor) {
+            return null;
+        }
+        matcher.appendTail(rewritten);
+        return rewritten.toString();
+    }
+
+    private boolean isVirtualFsRewriteEnabled() {
+        return Properties.VIRTUAL_FS;
+    }
+
     private static Map<String, String> createHeavyGuiMockConstructorReplacements() {
         Map<String, String> map = new LinkedHashMap<>();
         map.put("Window", "org.evosuite.runtime.mock.java.awt.MockWindow");
@@ -712,6 +835,27 @@ public final class ExecutableSnippetEngine {
         map.put("javax.swing.JDialog", "org.evosuite.runtime.mock.javax.swing.MockJDialog");
         map.put("JWindow", "org.evosuite.runtime.mock.javax.swing.MockJWindow");
         map.put("javax.swing.JWindow", "org.evosuite.runtime.mock.javax.swing.MockJWindow");
+        return map;
+    }
+
+    private static Map<String, String> createVfsIoMockConstructorReplacements() {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("File", "org.evosuite.runtime.mock.java.io.MockFile");
+        map.put("java.io.File", "org.evosuite.runtime.mock.java.io.MockFile");
+        map.put("RandomAccessFile", "org.evosuite.runtime.mock.java.io.MockRandomAccessFile");
+        map.put("java.io.RandomAccessFile", "org.evosuite.runtime.mock.java.io.MockRandomAccessFile");
+        map.put("FileInputStream", "org.evosuite.runtime.mock.java.io.MockFileInputStream");
+        map.put("java.io.FileInputStream", "org.evosuite.runtime.mock.java.io.MockFileInputStream");
+        map.put("FileOutputStream", "org.evosuite.runtime.mock.java.io.MockFileOutputStream");
+        map.put("java.io.FileOutputStream", "org.evosuite.runtime.mock.java.io.MockFileOutputStream");
+        map.put("FileReader", "org.evosuite.runtime.mock.java.io.MockFileReader");
+        map.put("java.io.FileReader", "org.evosuite.runtime.mock.java.io.MockFileReader");
+        map.put("FileWriter", "org.evosuite.runtime.mock.java.io.MockFileWriter");
+        map.put("java.io.FileWriter", "org.evosuite.runtime.mock.java.io.MockFileWriter");
+        map.put("PrintStream", "org.evosuite.runtime.mock.java.io.MockPrintStream");
+        map.put("java.io.PrintStream", "org.evosuite.runtime.mock.java.io.MockPrintStream");
+        map.put("PrintWriter", "org.evosuite.runtime.mock.java.io.MockPrintWriter");
+        map.put("java.io.PrintWriter", "org.evosuite.runtime.mock.java.io.MockPrintWriter");
         return map;
     }
 
@@ -738,6 +882,7 @@ public final class ExecutableSnippetEngine {
                                              Map<String, Binding> bindings,
                                              String returnExpression) {
         String className = classNameFor(key);
+        String normalizedBody = sanitizeUnmatchedTopLevelClosingBraces(sourceCode);
         StringBuilder src = new StringBuilder();
         appendImports(src, bindings);
         src.append("public class ").append(className).append(" {\n");
@@ -748,7 +893,7 @@ public final class ExecutableSnippetEngine {
         // Rewrite bare "return;" → "return null;" so it is compatible with the
         // Object return type of this wrapper method.  The LLM sometimes produces
         // void-style returns inside try/catch or guard blocks.
-        src.append(sourceCode.replaceAll("(?m)^(\\s*)return\\s*;", "$1return null;")).append("\n");
+        src.append(normalizedBody.replaceAll("(?m)^(\\s*)return\\s*;", "$1return null;")).append("\n");
         appendVariableWriteBack(src, bindings);
         if (returnExpression != null && !returnExpression.trim().isEmpty()) {
             src.append("    return ").append(returnExpression).append(";\n");
@@ -758,6 +903,46 @@ public final class ExecutableSnippetEngine {
         src.append("  }\n");
         src.append("}\n");
         return src.toString();
+    }
+
+    /**
+     * Best-effort guard for malformed preserved snippet fragments that contain
+     * unmatched top-level closing braces. Such braces can prematurely close the
+     * generated run(...) method, causing subsequent "__vars.put(...)" lines to be
+     * compiled at class scope ("class, interface, enum, or record expected").
+     */
+    private String sanitizeUnmatchedTopLevelClosingBraces(String sourceCode) {
+        if (sourceCode == null || sourceCode.isEmpty()) {
+            return sourceCode;
+        }
+        String[] lines = sourceCode.split("\\R", -1);
+        int depth = 0;
+        boolean changed = false;
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i];
+            int localDepth = depth;
+            boolean unmatchedClose = false;
+            for (int j = 0; j < line.length(); j++) {
+                char c = line.charAt(j);
+                if (c == '{') {
+                    localDepth++;
+                } else if (c == '}') {
+                    if (localDepth == 0) {
+                        unmatchedClose = true;
+                        break;
+                    }
+                    localDepth--;
+                }
+            }
+            if (unmatchedClose) {
+                String indent = leadingWhitespace(line);
+                lines[i] = indent + "/* evosuite: removed unmatched top-level closing brace */";
+                changed = true;
+                continue;
+            }
+            depth = localDepth;
+        }
+        return changed ? String.join("\n", lines) : sourceCode;
     }
 
     private String buildAssertionClassSource(String key,
@@ -1025,26 +1210,471 @@ public final class ExecutableSnippetEngine {
 
     private String buildCompilationClasspath(ClassLoader parentLoader) {
         Set<String> entries = new LinkedHashSet<>();
-        // Include the SUT classpath so that target classes are visible to javac
-        String sutClassPath = Properties.CP;
-        if (sutClassPath != null && !sutClassPath.trim().isEmpty()) {
-            for (String entry : sutClassPath.split(File.pathSeparator)) {
-                if (!entry.trim().isEmpty()) {
-                    entries.add(entry.trim());
-                }
-            }
-        }
-        String javaClassPath = System.getProperty("java.class.path");
-        if (javaClassPath != null && !javaClassPath.trim().isEmpty()) {
-            for (String entry : javaClassPath.split(File.pathSeparator)) {
-                if (!entry.trim().isEmpty()) {
-                    entries.add(entry.trim());
-                }
-            }
-        }
+        appendNormalizedClasspathEntries(Properties.CP, entries);
+        appendNormalizedClasspathEntries(System.getProperty("java.class.path"), entries);
         appendClassLoaderEntries(parentLoader, entries);
         appendClassLoaderEntries(Thread.currentThread().getContextClassLoader(), entries);
-        return String.join(File.pathSeparator, entries);
+        return String.join(File.pathSeparator,
+                sanitizeClasspathEntriesForCompiler(new ArrayList<>(entries), Collections.emptySet()));
+    }
+
+    private void appendNormalizedClasspathEntries(String classpath, Set<String> entries) {
+        if (classpath == null || classpath.trim().isEmpty()) {
+            return;
+        }
+        for (String entry : classpath.split(Pattern.quote(File.pathSeparator))) {
+            String normalized = normalizeClasspathEntry(entry);
+            if (normalized != null && !normalized.isEmpty()) {
+                entries.add(normalized);
+            }
+        }
+    }
+
+    private String normalizeClasspathEntry(String entry) {
+        if (entry == null) {
+            return null;
+        }
+        String normalized = entry.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.length() >= 2
+                && ((normalized.startsWith("\"") && normalized.endsWith("\""))
+                || (normalized.startsWith("'") && normalized.endsWith("'")))) {
+            normalized = normalized.substring(1, normalized.length() - 1).trim();
+        }
+        while (normalized.endsWith("\\")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        if (normalized.startsWith("file:")) {
+            try {
+                return new File(new URL(normalized).toURI()).getAbsolutePath();
+            } catch (Exception ignored) {
+                // Best effort fallback for malformed file: URL-like entries.
+                if (normalized.startsWith("file:/")) {
+                    normalized = normalized.substring("file:".length());
+                }
+            }
+        }
+        return normalized;
+    }
+
+    private String sanitizeClasspathForKnownCompileIssues(String classpath, String diagnostics) {
+        if (classpath == null || classpath.isEmpty() || diagnostics == null || diagnostics.isEmpty()) {
+            return null;
+        }
+
+        LinkedHashSet<String> badBasenames = new LinkedHashSet<>();
+        Matcher matcher = UNREADABLE_CLASSPATH_ENTRY_PATTERN.matcher(diagnostics);
+        while (matcher.find()) {
+            String entry = normalizeClasspathEntry(matcher.group(1));
+            if (entry == null || entry.isEmpty()) {
+                continue;
+            }
+            String baseName = new File(entry).getName();
+            if (!baseName.isEmpty()) {
+                badBasenames.add(baseName);
+            }
+        }
+        if (badBasenames.isEmpty()) {
+            return null;
+        }
+
+        String repaired = String.join(File.pathSeparator,
+                sanitizeClasspathEntriesForCompiler(
+                        new ArrayList<>(java.util.Arrays.asList(classpath.split(Pattern.quote(File.pathSeparator)))),
+                        badBasenames));
+        if (repaired.equals(classpath)) {
+            return null;
+        }
+        return repaired;
+    }
+
+    private String sanitizeClasspathEntryForCompiler(String entry) {
+        return sanitizeClasspathEntryForCompiler(entry, false);
+    }
+
+    private List<String> sanitizeClasspathEntriesForCompiler(List<String> rawEntries, Set<String> seedBadBasenames) {
+        List<String> normalizedEntries = new ArrayList<>();
+        LinkedHashSet<String> seenEntries = new LinkedHashSet<>();
+        LinkedHashSet<String> problematicBasenames = new LinkedHashSet<>();
+        if (seedBadBasenames != null) {
+            problematicBasenames.addAll(seedBadBasenames);
+        }
+        LinkedHashSet<String> forcedSanitizationEntries = new LinkedHashSet<>();
+
+        for (String rawEntry : rawEntries) {
+            String normalizedEntry = normalizeClasspathEntry(rawEntry);
+            if (normalizedEntry == null || normalizedEntry.isEmpty()) {
+                continue;
+            }
+            File jarFile = asExistingJarFile(normalizedEntry);
+            if (jarFile != null) {
+                List<String> expandedEntries = expandManifestOnlyClasspathJar(jarFile);
+                if (!expandedEntries.isEmpty()) {
+                    for (String expandedEntry : expandedEntries) {
+                        if (expandedEntry != null && !expandedEntry.isEmpty() && seenEntries.add(expandedEntry)) {
+                            normalizedEntries.add(expandedEntry);
+                        }
+                    }
+                    continue;
+                }
+            }
+
+            if (seenEntries.add(normalizedEntry)) {
+                normalizedEntries.add(normalizedEntry);
+            }
+
+            if (jarFile == null) {
+                continue;
+            }
+
+            String baseName = jarFile.getName();
+            boolean seedMatch = !baseName.isEmpty() && problematicBasenames.contains(baseName);
+            if (seedMatch || containsMalformedManifestClassPathEntry(jarFile)) {
+                forcedSanitizationEntries.add(jarFile.getAbsolutePath());
+                if (!baseName.isEmpty()) {
+                    problematicBasenames.add(baseName);
+                }
+            }
+        }
+
+        boolean changed;
+        do {
+            changed = false;
+            for (String normalizedEntry : normalizedEntries) {
+                File jarFile = asExistingJarFile(normalizedEntry);
+                if (jarFile == null) {
+                    continue;
+                }
+
+                String absolutePath = jarFile.getAbsolutePath();
+                if (forcedSanitizationEntries.contains(absolutePath)) {
+                    continue;
+                }
+
+                if (referencesManifestClassPathEntry(jarFile, problematicBasenames)) {
+                    forcedSanitizationEntries.add(absolutePath);
+                    String baseName = jarFile.getName();
+                    if (!baseName.isEmpty()) {
+                        problematicBasenames.add(baseName);
+                    }
+                    changed = true;
+                }
+            }
+        } while (changed);
+
+        List<String> sanitizedEntries = new ArrayList<>(normalizedEntries.size());
+        for (String normalizedEntry : normalizedEntries) {
+            File jarFile = asExistingJarFile(normalizedEntry);
+            boolean forceSanitization = jarFile != null
+                    && forcedSanitizationEntries.contains(jarFile.getAbsolutePath());
+            sanitizedEntries.add(sanitizeClasspathEntryForCompiler(normalizedEntry, forceSanitization));
+        }
+        return sanitizedEntries;
+    }
+
+    private List<String> expandManifestOnlyClasspathJar(File jarFile) {
+        if (jarFile == null
+                || !isManifestOnlyClasspathJar(jarFile)
+                || containsMalformedManifestClassPathEntry(jarFile)) {
+            return Collections.emptyList();
+        }
+
+        List<String> expandedEntries = readManifestClassPathEntries(jarFile);
+        if (expandedEntries.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return expandedEntries;
+    }
+
+    private File asExistingJarFile(String entry) {
+        if (entry == null || entry.isEmpty() || !entry.endsWith(".jar")) {
+            return null;
+        }
+        File jarFile = new File(entry);
+        return jarFile.isFile() ? jarFile : null;
+    }
+
+    private boolean isManifestOnlyClasspathJar(File jarFile) {
+        try (JarFile jar = new JarFile(jarFile)) {
+            java.util.jar.Manifest manifest = jar.getManifest();
+            if (manifest == null) {
+                return false;
+            }
+            Attributes attributes = manifest.getMainAttributes();
+            if (attributes == null) {
+                return false;
+            }
+            String classPath = attributes.getValue(Attributes.Name.CLASS_PATH);
+            if (classPath == null || classPath.trim().isEmpty()) {
+                return false;
+            }
+
+            java.util.Enumeration<JarEntry> entries = jar.entries();
+            while (entries.hasMoreElements()) {
+                JarEntry entry = entries.nextElement();
+                if (entry.isDirectory()) {
+                    continue;
+                }
+                if (!"META-INF/MANIFEST.MF".equalsIgnoreCase(entry.getName())) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (IOException e) {
+            logger.debug("Could not inspect jar {} for manifest-only classpath expansion: {}",
+                    jarFile,
+                    e.getMessage());
+        }
+        return false;
+    }
+
+    private List<String> readManifestClassPathEntries(File jarFile) {
+        try (JarFile jar = new JarFile(jarFile)) {
+            java.util.jar.Manifest manifest = jar.getManifest();
+            if (manifest == null) {
+                return Collections.emptyList();
+            }
+            Attributes attributes = manifest.getMainAttributes();
+            if (attributes == null) {
+                return Collections.emptyList();
+            }
+            String classPath = attributes.getValue(Attributes.Name.CLASS_PATH);
+            if (classPath == null || classPath.trim().isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<String> expandedEntries = new ArrayList<>();
+            LinkedHashSet<String> seen = new LinkedHashSet<>();
+            String[] manifestEntries = classPath.trim().split("\\s+");
+            for (String manifestEntry : manifestEntries) {
+                String resolved = resolveManifestClassPathEntry(jarFile, manifestEntry);
+                if (resolved != null && !resolved.isEmpty() && seen.add(resolved)) {
+                    expandedEntries.add(resolved);
+                }
+            }
+            return expandedEntries;
+        } catch (IOException e) {
+            logger.debug("Could not read manifest classpath entries from {}: {}",
+                    jarFile,
+                    e.getMessage());
+        }
+        return Collections.emptyList();
+    }
+
+    private String resolveManifestClassPathEntry(File jarFile, String manifestEntry) {
+        if (jarFile == null || manifestEntry == null || manifestEntry.trim().isEmpty()) {
+            return null;
+        }
+
+        String normalizedEntry = manifestEntry.trim();
+        File directFile = new File(normalizedEntry);
+        if (directFile.isAbsolute()) {
+            return normalizeClasspathEntry(directFile.getAbsolutePath());
+        }
+
+        try {
+            URI resolved = jarFile.getParentFile().toURI().resolve(normalizedEntry);
+            if (resolved.getScheme() == null || "file".equalsIgnoreCase(resolved.getScheme())) {
+                return normalizeClasspathEntry(new File(resolved).getAbsolutePath());
+            }
+            return normalizeClasspathEntry(resolved.toString());
+        } catch (IllegalArgumentException ignored) {
+            // Fall through to path-style resolution for malformed relative entries.
+        }
+
+        return normalizeClasspathEntry(new File(jarFile.getParentFile(), normalizedEntry).getAbsolutePath());
+    }
+
+    private boolean referencesManifestClassPathEntry(File jarFile, Set<String> badBasenames) {
+        if (jarFile == null || badBasenames == null || badBasenames.isEmpty()) {
+            return false;
+        }
+        try (JarFile jar = new JarFile(jarFile)) {
+            java.util.jar.Manifest manifest = jar.getManifest();
+            if (manifest == null) {
+                return false;
+            }
+            Attributes attributes = manifest.getMainAttributes();
+            if (attributes == null) {
+                return false;
+            }
+            String classPath = attributes.getValue(Attributes.Name.CLASS_PATH);
+            if (classPath == null || classPath.trim().isEmpty()) {
+                return false;
+            }
+
+            String[] entries = classPath.trim().split("\\s+");
+            for (String manifestEntry : entries) {
+                String baseName = manifestEntryBaseName(manifestEntry);
+                if (!baseName.isEmpty() && badBasenames.contains(baseName)) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            logger.debug("Could not inspect jar manifest {} for snippet compiler dependency sanitization: {}",
+                    jarFile,
+                    e.getMessage());
+        }
+        return false;
+    }
+
+    private String manifestEntryBaseName(String manifestEntry) {
+        if (manifestEntry == null) {
+            return "";
+        }
+
+        String normalized = manifestEntry.trim();
+        while (normalized.endsWith("\\") || normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1).trim();
+        }
+        if (normalized.isEmpty()) {
+            return "";
+        }
+
+        try {
+            URI uri = new URI(normalized);
+            if (uri.getPath() != null && !uri.getPath().isEmpty()) {
+                normalized = uri.getPath();
+            }
+        } catch (URISyntaxException ignored) {
+            // Fall back to path-style parsing for malformed or relative manifest entries.
+        }
+
+        int queryIndex = normalized.indexOf('?');
+        if (queryIndex >= 0) {
+            normalized = normalized.substring(0, queryIndex);
+        }
+        int fragmentIndex = normalized.indexOf('#');
+        if (fragmentIndex >= 0) {
+            normalized = normalized.substring(0, fragmentIndex);
+        }
+        normalized = normalized.replace('\\', '/');
+        int slashIndex = normalized.lastIndexOf('/');
+        if (slashIndex >= 0) {
+            normalized = normalized.substring(slashIndex + 1);
+        }
+        return normalized.trim();
+    }
+
+    private String sanitizeClasspathEntryForCompiler(String entry, boolean forceSanitization) {
+        if (entry == null || entry.isEmpty()) {
+            return entry;
+        }
+        File jarFile = asExistingJarFile(entry);
+        if (jarFile == null) {
+            return entry;
+        }
+
+        String absolutePath = jarFile.getAbsolutePath();
+        String cached = sanitizedCompilerClasspathEntries.get(absolutePath);
+        if (cached != null && (!forceSanitization || !absolutePath.equals(cached))) {
+            return cached;
+        }
+
+        if (!forceSanitization && !containsMalformedManifestClassPathEntry(jarFile)) {
+            sanitizedCompilerClasspathEntries.put(absolutePath, absolutePath);
+            return absolutePath;
+        }
+
+        String sanitized = extractJarWithoutManifestClassPath(jarFile);
+        sanitizedCompilerClasspathEntries.put(absolutePath, sanitized);
+        if (!absolutePath.equals(sanitized)) {
+            logger.warn("Using sanitized snippet compiler classpath entry {} -> {}",
+                    absolutePath, sanitized);
+        }
+        return sanitized;
+    }
+
+    private boolean containsMalformedManifestClassPathEntry(File jarFile) {
+        try (JarFile jar = new JarFile(jarFile)) {
+            java.util.jar.Manifest manifest = jar.getManifest();
+            if (manifest == null) {
+                return false;
+            }
+            Attributes attributes = manifest.getMainAttributes();
+            if (attributes == null) {
+                return false;
+            }
+            String classPath = attributes.getValue(Attributes.Name.CLASS_PATH);
+            if (classPath == null || classPath.trim().isEmpty()) {
+                return false;
+            }
+
+            String[] entries = classPath.trim().split("\\s+");
+            for (String manifestEntry : entries) {
+                if (manifestEntry == null || manifestEntry.isEmpty()) {
+                    continue;
+                }
+                if (manifestEntry.indexOf('\\') >= 0) {
+                    return true;
+                }
+                try {
+                    new URI(manifestEntry);
+                } catch (URISyntaxException e) {
+                    return true;
+                }
+            }
+        } catch (IOException e) {
+            logger.debug("Could not inspect jar manifest {} for snippet compiler sanitization: {}",
+                    jarFile,
+                    e.getMessage());
+        }
+        return false;
+    }
+
+    private String extractJarWithoutManifestClassPath(File jarFile) {
+        try {
+            File targetDir = Files.createTempDirectory("evosuite-snippet-compiler-cp-").toFile();
+            targetDir.deleteOnExit();
+
+            try (JarFile jar = new JarFile(jarFile)) {
+                java.util.Enumeration<JarEntry> entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    String name = entry.getName();
+                    if ("META-INF/MANIFEST.MF".equalsIgnoreCase(name)) {
+                        // Avoid javac reading malformed Class-Path from this manifest.
+                        continue;
+                    }
+                    if (name.startsWith("/")) {
+                        name = name.substring(1);
+                    }
+                    if (name.isEmpty()) {
+                        continue;
+                    }
+
+                    File out = new File(targetDir, name);
+                    if (entry.isDirectory()) {
+                        if (!out.exists() && !out.mkdirs()) {
+                            logger.debug("Could not create directory while sanitizing jar: {}", out);
+                        }
+                        continue;
+                    }
+
+                    File parent = out.getParentFile();
+                    if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                        logger.debug("Could not create parent directory while sanitizing jar: {}", parent);
+                        continue;
+                    }
+
+                    try (InputStream in = jar.getInputStream(entry)) {
+                        Files.copy(in, out.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                    }
+                    out.deleteOnExit();
+                }
+            }
+            return targetDir.getAbsolutePath();
+        } catch (IOException e) {
+            logger.warn("Failed to sanitize malformed jar {} for snippet compiler classpath: {}",
+                    jarFile.getAbsolutePath(),
+                    e.getMessage());
+            return jarFile.getAbsolutePath();
+        }
     }
 
     private URLClassLoader getOrCreateSnippetClassLoader(ClassLoader parentLoader) {

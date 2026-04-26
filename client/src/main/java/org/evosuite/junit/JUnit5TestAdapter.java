@@ -107,7 +107,8 @@ public class JUnit5TestAdapter implements UnitTestAdapter {
 
 
     public String getTimeoutAnnotation() {
-        return "@Timeout(value = " + (Properties.TIMEOUT + 1000) + " , unit = TimeUnit.MILLISECONDS)";
+        return "@Timeout(value = " + Properties.TIMEOUT
+                + " , unit = TimeUnit.MILLISECONDS)";
     }
 
     /**

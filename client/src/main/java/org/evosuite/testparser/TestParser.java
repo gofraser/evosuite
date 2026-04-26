@@ -21,6 +21,7 @@ package org.evosuite.testparser;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.Statement;
@@ -360,9 +361,10 @@ public class TestParser {
 
     /**
      * Extract helper methods that can be safely inlined by simple substitution:
-     * arity 0 or 1, body of exactly one statement, and that statement is
-     * {@code return <expr>;}. Overloaded duplicates for the same name/arity are
-     * considered ambiguous and skipped.
+     * arity 0 or 1, body of exactly one statement, and that statement is either
+     * {@code return <expr>;} or a single expression statement
+     * (for side-effect/void helpers). Overloaded duplicates for the same
+     * name/arity are considered ambiguous and skipped.
      */
     private Map<String, MethodDeclaration> extractInlineableHelperMethods(List<MethodDeclaration> nonTestMethods) {
         Map<String, MethodDeclaration> inlineable = new LinkedHashMap<>();
@@ -373,11 +375,16 @@ public class TestParser {
                 continue;
             }
             List<com.github.javaparser.ast.stmt.Statement> statements = method.getBody().get().getStatements();
-            if (statements.size() != 1 || !(statements.get(0) instanceof ReturnStmt)) {
+            if (statements.size() != 1) {
                 continue;
             }
-            ReturnStmt returnStmt = (ReturnStmt) statements.get(0);
-            if (!returnStmt.getExpression().isPresent()) {
+            com.github.javaparser.ast.stmt.Statement only = statements.get(0);
+            if (only instanceof ReturnStmt) {
+                ReturnStmt returnStmt = (ReturnStmt) only;
+                if (!returnStmt.getExpression().isPresent()) {
+                    continue;
+                }
+            } else if (!(only instanceof ExpressionStmt)) {
                 continue;
             }
             String key = inlineHelperKey(method.getNameAsString(), arity);

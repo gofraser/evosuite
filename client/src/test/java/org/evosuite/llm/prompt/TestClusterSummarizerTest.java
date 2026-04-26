@@ -606,6 +606,136 @@ class TestClusterSummarizerTest {
                 "High-signal modifiers should be ordered first: " + text);
     }
 
+    @Test
+    void summarizeDependenciesMarksAbstractTypesAndSuggestsConcreteSubtypes() {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        TestCluster cluster = mock(TestCluster.class);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(GenericClassFactory.get(AbstractPrefs.class), Collections.emptySet());
+        generators.put(GenericClassFactory.get(ConcretePrefs.class), Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer.DependencySummaryResult result =
+                new TestClusterSummarizer().summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertTrue(text.contains("// AbstractPrefs [abstract]"), text);
+        assertTrue(text.contains("concrete subtypes: ConcretePrefs()"), text);
+        assertFalse(text.contains("\n  AbstractPrefs("),
+                "Abstract classes must not be shown as directly instantiable: " + text);
+    }
+
+    @Test
+    void summarizeDependenciesMarksInterfacesAndSuggestsConcreteSubtypes() {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        TestCluster cluster = mock(TestCluster.class);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(GenericClassFactory.get(FilterLike.class), Collections.emptySet());
+        generators.put(GenericClassFactory.get(FilterLikeImpl.class), Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer.DependencySummaryResult result =
+                new TestClusterSummarizer().summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertTrue(text.contains("// FilterLike [interface]"), text);
+        assertTrue(text.contains("concrete subtypes: FilterLikeImpl("), text);
+        assertFalse(text.contains("\n  FilterLike("),
+                "Interfaces must not be shown as directly instantiable: " + text);
+    }
+
+    @Test
+    void summarizeDependenciesAnnotatesAbstractTypeWithImmediateSupertype() {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        TestCluster cluster = mock(TestCluster.class);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(GenericClassFactory.get(AbstractSubApp.class), Collections.emptySet());
+        generators.put(GenericClassFactory.get(ConcreteSubApp.class), Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer.DependencySummaryResult result =
+                new TestClusterSummarizer().summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertTrue(text.contains("// AbstractSubApp [abstract] extends SingleFrameAppLike"), text);
+        assertTrue(text.contains("concrete subtypes: ConcreteSubApp()"), text);
+    }
+
+    @Test
+    void summarizeDependenciesAnnotatesAbstractTypeWithImmediateInterface() {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        TestCluster cluster = mock(TestCluster.class);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(GenericClassFactory.get(AbstractRunnableBase.class), Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer.DependencySummaryResult result =
+                new TestClusterSummarizer().summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertTrue(text.contains("// AbstractRunnableBase [abstract]"), text);
+        assertTrue(text.contains("implements Runnable"), text);
+    }
+
+    @Test
+    void summarizeDependenciesKeepsTier1AbstractConcreteSubtypeHintUnderTightPerClassCap() {
+        // Simulates HttpAnalyzerView-style CUT whose constructor-closure type is
+        // a framework abstract base. Even with a per-class soft cap smaller than
+        // the header, the concrete-subtype hint for the Tier-1 abstract type must
+        // still appear so the LLM does not emit `new SingleFrameApplication() {}`.
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = 20;
+        TestCluster cluster = mock(TestCluster.class);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(GenericClassFactory.get(AbstractPrefs.class), Collections.emptySet());
+        generators.put(GenericClassFactory.get(ConcretePrefs.class), Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer.DependencySummaryResult result =
+                new TestClusterSummarizer().summarizeDependencies(
+                        cluster, CutWithAbstractParam.class.getName(), 10_000);
+
+        String text = result.getText();
+        assertTrue(text.contains("// AbstractPrefs [abstract]"), text);
+        assertTrue(text.contains("concrete subtypes: ConcretePrefs()"), text);
+    }
+
+    @Test
+    void summarizeDependenciesOrdersAbstractTier1TypesBeforeConcreteOnes() {
+        Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;
+        Properties.LLM_CLUSTER_SUMMARY_PER_CLASS_SOFT_CAP_CHARS = 1000;
+        TestCluster cluster = mock(TestCluster.class);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(GenericClassFactory.get(AbstractPrefs.class), Collections.emptySet());
+        generators.put(GenericClassFactory.get(ConcretePrefs.class), Collections.emptySet());
+        generators.put(GenericClassFactory.get(SiblingConcreteDep.class), Collections.emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        TestClusterSummarizer.DependencySummaryResult result =
+                new TestClusterSummarizer().summarizeDependencies(
+                        cluster, CutWithAbstractAndConcreteParams.class.getName(), 10_000);
+
+        String text = result.getText();
+        int abstractIdx = text.indexOf("// AbstractPrefs");
+        int siblingIdx = text.indexOf("// SiblingConcreteDep");
+        assertTrue(abstractIdx >= 0, "Expected AbstractPrefs header: " + text);
+        assertTrue(siblingIdx >= 0, "Expected SiblingConcreteDep header: " + text);
+        assertTrue(abstractIdx < siblingIdx,
+                "Abstract Tier-1 types should precede concrete ones: " + text);
+    }
+
     private GenericAccessibleObject<?> buildModifier(Class<?> owner, String methodName, Class<?>... parameterTypes)
             throws Exception {
         GenericAccessibleObject<?> modifier = mock(GenericAccessibleObject.class);
@@ -677,6 +807,53 @@ class TestClusterSummarizerTest {
         public java.util.Map<String, java.util.List<Integer>> transformVerbose(
                 java.util.Map<String, java.util.List<Integer>> values) {
             return values;
+        }
+    }
+
+    public static abstract class AbstractPrefs {
+        public AbstractPrefs() {
+        }
+    }
+
+    public static class ConcretePrefs extends AbstractPrefs {
+        public ConcretePrefs() {
+        }
+    }
+
+    public interface FilterLike {
+    }
+
+    public static class FilterLikeImpl implements FilterLike {
+        public FilterLikeImpl(String value) {
+        }
+    }
+
+    public static class SingleFrameAppLike {
+    }
+
+    public static abstract class AbstractSubApp extends SingleFrameAppLike {
+    }
+
+    public static class ConcreteSubApp extends AbstractSubApp {
+        public ConcreteSubApp() {
+        }
+    }
+
+    public static abstract class AbstractRunnableBase implements Runnable {
+    }
+
+    public static class CutWithAbstractParam {
+        public CutWithAbstractParam(AbstractPrefs prefs) {
+        }
+    }
+
+    public static class SiblingConcreteDep {
+        public SiblingConcreteDep() {
+        }
+    }
+
+    public static class CutWithAbstractAndConcreteParams {
+        public CutWithAbstractAndConcreteParams(AbstractPrefs prefs, SiblingConcreteDep dep) {
         }
     }
 }

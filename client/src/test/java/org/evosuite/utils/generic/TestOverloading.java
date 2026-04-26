@@ -25,6 +25,7 @@ import com.examples.with.different.packagename.utils.generic.ClassWithoutOverloa
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.variable.ConstantValue;
+import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.junit.jupiter.api.Test;
@@ -41,6 +42,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Created by gordon on 19/04/2017.
  */
 public class TestOverloading {
+
+    public static class NullAmbiguousOverload {
+        public static Object convert(String value, Class<?> clazz) {
+            return null;
+        }
+
+        public static Object convert(String[] value, Class<?> clazz) {
+            return null;
+        }
+    }
 
     @Test
     public void testOverloadedConstructor() {
@@ -144,5 +155,19 @@ public class TestOverloading {
         assertFalse(genericMethod2.isOverloaded(parameters1));
         assertFalse(genericMethod1.isOverloaded(parameters2));
         assertFalse(genericMethod2.isOverloaded(parameters2));
+    }
+
+    @Test
+    public void testOverloadedMethodWithNullExactTypeStillNeedsDisambiguation() throws Exception {
+        Method method = NullAmbiguousOverload.class.getDeclaredMethod("convert", String.class, Class.class);
+        GenericMethod genericMethod = new GenericMethod(method, NullAmbiguousOverload.class);
+
+        TestCase test = new DefaultTestCase();
+        VariableReference nullString = new NullReference(test, String.class);
+        VariableReference classVar = new VariableReferenceImpl(test, Class.class);
+        List<VariableReference> parameters = Arrays.asList(nullString, classVar);
+
+        assertTrue(genericMethod.isOverloaded(parameters),
+                "null argument must trigger overload disambiguation for source-code generation");
     }
 }
