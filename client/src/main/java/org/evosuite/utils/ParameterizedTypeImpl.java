@@ -40,6 +40,7 @@ import com.googlecode.gentyref.GenericTypeReflector;
 
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.util.Arrays;
 
 /**
@@ -79,8 +80,21 @@ public class ParameterizedTypeImpl implements ParameterizedType {
      */
     public ParameterizedTypeImpl(Class<?> rawType, Type[] actualTypeArguments, Type owner) {
         this.rawType = rawType;
-        this.actualTypeArguments = actualTypeArguments;
+        this.actualTypeArguments = normalizeActualTypeArguments(rawType, actualTypeArguments);
         this.ownerType = owner;
+    }
+
+    private static Type[] normalizeActualTypeArguments(Class<?> rawType, Type[] actualTypeArguments) {
+        Type[] provided = actualTypeArguments == null ? new Type[0] : actualTypeArguments.clone();
+        if (rawType == null) {
+            return provided;
+        }
+
+        TypeVariable<?>[] declared = rawType.getTypeParameters();
+        if (declared.length == 0 && provided.length > 0) {
+            return new Type[0];
+        }
+        return provided;
     }
 
     @Override

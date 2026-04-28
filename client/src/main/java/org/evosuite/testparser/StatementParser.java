@@ -1287,14 +1287,26 @@ public class StatementParser {
         // declaration shape so later emitted JUnit remains compilable.
         if (expr instanceof LambdaExpr) {
             addWarning(expr, "Lambda expression preserved as UninterpretedStatement");
+            Type effectiveType = declaredType == null ? Object.class : declaredType;
+            if (!isFunctionalInterfaceType(effectiveType)) {
+                String message = "Lambda expression requires a functional interface target type";
+                if (markParsedFromLlm) {
+                    return fallbackForUnresolvedExpression(expr, effectiveType, message);
+                }
+                addError(expr, message + ": " + effectiveType.getTypeName());
+                return null;
+            }
             if (varName != null && !varName.trim().isEmpty()) {
-                Type effectiveType = declaredType == null ? Object.class : declaredType;
                 String code = getFallbackTypeName(effectiveType) + " " + varName + " = " + expr + ";";
                 UninterpretedStatement stmt = createUninterpretedStatement(effectiveType, code, varName, expr);
                 return testCase.addStatement(stmt);
             }
-            UninterpretedStatement stmt = createUninterpretedStatement(expr, expr.toString() + ";");
-            return testCase.addStatement(stmt);
+            String message = "Standalone lambda expression has no declaration target type";
+            if (markParsedFromLlm) {
+                return fallbackForUnresolvedExpression(expr, effectiveType, message);
+            }
+            addError(expr, message);
+            return null;
         }
 
         // Unsupported
@@ -3389,6 +3401,39 @@ public class StatementParser {
         return Object.class;
     }
 
+    private boolean isFunctionalInterfaceType(Type type) {
+        if (type == null) {
+            return false;
+        }
+        Class<?> raw = getRawClass(type);
+        if (raw == null || !raw.isInterface()) {
+            return false;
+        }
+        int abstractMethodCount = 0;
+        for (Method method : raw.getMethods()) {
+            if (!isFunctionalAbstractMethod(method)) {
+                continue;
+            }
+            abstractMethodCount++;
+            if (abstractMethodCount > 1) {
+                return false;
+            }
+        }
+        return abstractMethodCount == 1;
+    }
+
+    private boolean isFunctionalAbstractMethod(Method method) {
+        if (method == null || method.getDeclaringClass() == Object.class) {
+            return false;
+        }
+        int modifiers = method.getModifiers();
+        if (!Modifier.isAbstract(modifiers) || Modifier.isStatic(modifiers)
+                || method.isBridge() || method.isSynthetic()) {
+            return false;
+        }
+        return !method.isDefault();
+    }
+
     private Type inferMethodCallReturnType(MethodCallExpr expr) {
         try {
             String methodName = expr.getNameAsString();
@@ -4919,18 +4964,14 @@ public class StatementParser {
                     dims++;
                 }
                 StringBuilder sb = new StringBuilder();
-                String componentName = component.getCanonicalName();
-                if (componentName == null) {
-                    componentName = component.getName();
-                }
+                String componentName = getFallbackClassName(component);
                 sb.append(componentName);
                 for (int i = 0; i < dims; i++) {
                     sb.append("[]");
                 }
                 return sb.toString();
             }
-            String canonical = raw.getCanonicalName();
-            return canonical != null ? canonical : raw.getName();
+            return getFallbackClassName(raw);
         }
         if (type instanceof java.lang.reflect.ParameterizedType) {
             return getSafeParameterizedFallbackTypeName((java.lang.reflect.ParameterizedType) type);
@@ -4944,10 +4985,7 @@ public class StatementParser {
             return type.getTypeName();
         }
         Class<?> rawClass = (Class<?>) rawType;
-        String rawName = rawClass.getCanonicalName();
-        if (rawName == null) {
-            rawName = rawClass.getName();
-        }
+        String rawName = getFallbackClassName(rawClass);
         Type[] typeParameters = rawClass.getTypeParameters();
         if (typeParameters == null || typeParameters.length == 0) {
             // Raw class is not generic; erase invalid parameterization to keep fallback compilable.
@@ -4967,6 +5005,25 @@ public class StatementParser {
         }
         builder.append(">");
         return builder.toString();
+    }
+
+    private String getFallbackClassName(Class<?> raw) {
+        String canonical = raw.getCanonicalName();
+        if (canonical == null || canonical.isEmpty()) {
+            return raw.getName();
+        }
+        String simple = raw.getSimpleName();
+        if (simple != null && !simple.isEmpty()) {
+            try {
+                Class<?> resolved = typeResolver.resolveClass(simple);
+                if (raw.equals(resolved)) {
+                    return simple;
+                }
+            } catch (ClassNotFoundException ignored) {
+                // Fall back to the canonical name below.
+            }
+        }
+        return canonical;
     }
 
     private String getDefaultFallbackLiteral(Type type) {

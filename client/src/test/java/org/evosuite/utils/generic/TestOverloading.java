@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 
@@ -49,6 +50,24 @@ public class TestOverloading {
         }
 
         public static Object convert(String[] value, Class<?> clazz) {
+            return null;
+        }
+    }
+
+    public static class NullAmbiguousConstructorOverload {
+        public NullAmbiguousConstructorOverload(String value) {
+        }
+
+        public NullAmbiguousConstructorOverload(URL value) {
+        }
+    }
+
+    public static class ProtectedNullAmbiguousOverload {
+        public static Object convert(String value, Class<?> clazz) {
+            return null;
+        }
+
+        protected static Object convert(URL value, Class<?> clazz) {
             return null;
         }
     }
@@ -169,5 +188,32 @@ public class TestOverloading {
 
         assertTrue(genericMethod.isOverloaded(parameters),
                 "null argument must trigger overload disambiguation for source-code generation");
+    }
+
+    @Test
+    public void testOverloadedConstructorWithNullExactTypeStillNeedsDisambiguation() throws Exception {
+        Constructor<?> constructor = NullAmbiguousConstructorOverload.class.getDeclaredConstructor(String.class);
+        GenericConstructor genericConstructor = new GenericConstructor(constructor, NullAmbiguousConstructorOverload.class);
+
+        TestCase test = new DefaultTestCase();
+        VariableReference nullString = new NullReference(test, String.class);
+        List<VariableReference> parameters = Arrays.asList(nullString);
+
+        assertTrue(genericConstructor.isOverloaded(parameters),
+                "null argument must trigger constructor overload disambiguation for source-code generation");
+    }
+
+    @Test
+    public void testProtectedOverloadAlsoTriggersNullDisambiguation() throws Exception {
+        Method method = ProtectedNullAmbiguousOverload.class.getDeclaredMethod("convert", String.class, Class.class);
+        GenericMethod genericMethod = new GenericMethod(method, ProtectedNullAmbiguousOverload.class);
+
+        TestCase test = new DefaultTestCase();
+        VariableReference nullString = new NullReference(test, String.class);
+        VariableReference classVar = new VariableReferenceImpl(test, Class.class);
+        List<VariableReference> parameters = Arrays.asList(nullString, classVar);
+
+        assertTrue(genericMethod.isOverloaded(parameters),
+                "protected/package-private overloads must also trigger source-code disambiguation casts");
     }
 }

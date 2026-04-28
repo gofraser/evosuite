@@ -82,6 +82,26 @@ class StatementParserTest {
         }
     }
 
+    public static class TypedNullOverloadCtorTarget {
+        public TypedNullOverloadCtorTarget(Class<?> owner, String name) {
+        }
+
+        public TypedNullOverloadCtorTarget(java.io.File directory, String name) {
+        }
+    }
+
+    public static class RawClassSetReturnTarget {
+        public java.util.Set<Class> getCommands() {
+            return new java.util.LinkedHashSet<>();
+        }
+    }
+
+    public static class MethodReferenceNullTarget {
+        public Object getImpl() {
+            return new Object();
+        }
+    }
+
     private TestParser parser;
 
     @BeforeEach
@@ -103,6 +123,11 @@ class StatementParserTest {
     private ParseResult parseLlm(String body, List<String> imports) {
         parser.setMarkParsedFromLlm(true);
         return parser.parseTestMethodBody(body, imports);
+    }
+
+    private ParseResult parseLlm(String body, List<String> imports, String packageName) {
+        parser.setMarkParsedFromLlm(true);
+        return parser.parseTestMethodBody(body, imports, packageName);
     }
 
     private void executeAllStatements(TestCase tc) throws Exception {
@@ -363,6 +388,23 @@ class StatementParserTest {
         }
 
         @Test
+        void parseLlmLambdaReceiverChainDoesNotEmitObjectTypedLambdaTemp() {
+            ParseResult r = parseLlm(
+                    "Object object0 = (() -> new Object()).hashCode();",
+                    List.of());
+            TestCase tc = r.getTestCase();
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("= () ->"),
+                    "Lambda chain lowering should not emit untyped lambda assignments:\n" + code);
+            assertTrue(code.contains("__llm_fallback"),
+                    "Expected compilable fallback for lambda receiver without functional target type:\n" + code);
+        }
+
+        @Test
         void parseLlmFailedConstructorRollsBackTemporaryArgumentStatements() {
             ParseResult r = parseLlm(
                     "StringBuilder stringBuilder0 = new StringBuilder(\"x\", (String) null);",
@@ -502,8 +544,8 @@ class StatementParserTest {
             String code = tc.toCode();
             assertTrue(code.contains("Object __arg7 = 48 + 1;"),
                     "Expected original temporary declaration to be preserved:\n" + code);
-            assertTrue(code.contains("(java.lang.Integer)"),
-                    "Expected typed cast fallback for incompatible alias declaration:\n" + code);
+            assertTrue(code.contains("(Integer)"),
+                    "Expected typed cast fallback to use the resolvable simple name:\n" + code);
         }
 
         @Test
@@ -540,6 +582,69 @@ class StatementParserTest {
             MethodStatement ms = (MethodStatement) tc.getStatement(1);
             // void return type
             assertEquals(void.class, ms.getReturnType());
+        }
+
+        @Test
+        void parseConstructorWithTypedNullArgKeepsOverloadDisambiguatingCast() {
+            ParseResult r = parse(
+                    "String string0 = null;\n" +
+                    "BigInteger bigInteger0 = new BigInteger(string0);",
+                    List.of("import java.math.BigInteger;"));
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("new BigInteger((String) null)"),
+                    "Expected typed null cast to preserve constructor overload selection:\n" + code);
+            assertFalse(code.contains("new BigInteger(null)"),
+                    "Bare null makes the overloaded BigInteger constructor call ambiguous:\n" + code);
+        }
+
+        @Test
+        void parseLlmConstructorWithPreservedTypedNullArgKeepsOverloadDisambiguatingCast() {
+            ParseResult r = parseLlm(
+                    "File file0 = null;\n" +
+                    "String string0 = \"bundle\";\n" +
+                    "TypedNullOverloadCtorTarget typedNullOverloadCtorTarget0 = " +
+                    "new TypedNullOverloadCtorTarget(file0, string0);",
+                    List.of("import java.io.File;",
+                            "import org.evosuite.testparser.StatementParserTest.TypedNullOverloadCtorTarget;"));
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("new StatementParserTest.TypedNullOverloadCtorTarget((File) null, string0)"),
+                    "Expected typed null cast to preserve constructor overload selection:\n" + code);
+            assertFalse(code.contains("new StatementParserTest.TypedNullOverloadCtorTarget(null, string0)"),
+                    "Bare null makes the overloaded constructor call ambiguous:\n" + code);
+        }
+
+        @Test
+        void parseLlmMethodReturningRawClassSetKeepsRawNestedClassType() {
+            ParseResult r = parseLlm(
+                    "RawClassSetReturnTarget rawClassSetReturnTarget0 = new RawClassSetReturnTarget();\n" +
+                    "Set<Class> set0 = rawClassSetReturnTarget0.getCommands();\n" +
+                    "assertNotNull(set0);",
+                    List.of("import java.util.Set;",
+                            "import org.evosuite.testparser.StatementParserTest.RawClassSetReturnTarget;"));
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("Set<Class> set0 = ")
+                            && code.contains(".getCommands();"),
+                    "Expected raw nested Class type to be preserved:\n" + code);
+            assertFalse(code.contains("Set<Class<?>> set0 = "),
+                    "Raw Set<Class> should not be widened to Set<Class<?>>:\n" + code);
         }
 
         @Test
@@ -676,8 +781,8 @@ class StatementParserTest {
             String code = visitor.getCode();
 
             String utilVarName = visitor.getVariableName(tc.getStatement(0).getReturnValue());
-            assertTrue(code.contains("java.util.List __llm_fallback"),
-                    "Fallback declaration should keep canonical type name:\n" + code);
+            assertTrue(code.contains("List __llm_fallback"),
+                    "Fallback declaration should use the resolvable imported simple type name:\n" + code);
             assertFalse(code.contains("java." + utilVarName + ".List"),
                     "Variable renaming must not rewrite package names inside fallback types:\n" + code);
         }
@@ -1876,6 +1981,28 @@ class StatementParserTest {
         }
 
         @Test
+        void parseLlmAssertThrowsWithMethodReferenceToTypedNullKeepsDeclarationName() {
+            ParseResult r = parseLlm(
+                    "org.evosuite.testparser.StatementParserTest.MethodReferenceNullTarget invoker = null;\n"
+                            + "assertThrows(NullPointerException.class, invoker::getImpl);",
+                    List.of(
+                            "import static org.junit.jupiter.api.Assertions.*;"
+                    ));
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("::getImpl"),
+                    "Method reference should be preserved:\n" + code);
+            assertTrue(code.matches("(?s).*\\b[A-Za-z_$][A-Za-z0-9_$]*::getImpl\\b.*"),
+                    "Method reference receiver should remain an identifier, not a literal:\n" + code);
+            assertFalse(code.contains("null::getImpl"),
+                    "Typed null receiver must not be rewritten to literal null in a method reference:\n" + code);
+        }
+
+        @Test
         void parseLlmAssertDoesNotThrowWithMethodReferencePreservesBoundReceiverName() {
             ParseResult r = parseLlm(
                     "java.util.ArrayList ds = new java.util.ArrayList();\n"
@@ -2416,6 +2543,108 @@ class StatementParserTest {
         }
 
         @Test
+        void typedArrayListNullAddDoesNotRenderObjectCast() {
+            ParseResult r = parse(
+                    "ArrayList<String> list = new ArrayList<String>();\n" +
+                    "list.add(null);");
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains(".add("), "Expected add call:\n" + code);
+            assertFalse(code.contains(".add((Object) null);"),
+                    "Parameterized add(null) should not widen null to Object:\n" + code);
+        }
+
+        @Test
+        void typedArrayListNullAddWithUnusedObjectNullDeclarationStillAvoidsObjectCast() {
+            ParseResult r = parse(
+                    "ArrayList<String> list = new ArrayList<String>();\n" +
+                    "Object obj = null;\n" +
+                    "list.add(null);");
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains(".add("), "Expected add call:\n" + code);
+            assertFalse(code.contains(".add((Object) null);"),
+                    "Unused Object null declarations should not force Object casts on parameterized add(null):\n" + code);
+        }
+
+        @Test
+        void typedArrayListIntegerAddDoesNotRenderObjectCast() {
+            ParseResult r = parse(
+                    "ArrayList<Integer> list = new ArrayList<Integer>();\n" +
+                    "int value = 1;\n" +
+                    "list.add(value);");
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains(".add("), "Expected add call:\n" + code);
+            assertFalse(code.contains(".add((Object)"),
+                    "Parameterized add(value) should not widen value to Object:\n" + code);
+        }
+
+        @Test
+        void typedArrayListReferenceAddDoesNotRenderObjectCast() {
+            ParseResult r = parse(
+                    "ArrayList<String> list = new ArrayList<String>();\n" +
+                    "String value = \"x\";\n" +
+                    "list.add(value);");
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains(".add("), "Expected add call:\n" + code);
+            assertFalse(code.contains(".add((Object)"),
+                    "Parameterized add(reference) should not widen reference to Object:\n" + code);
+        }
+
+        @Test
+        void typedArrayListSubtypeReferenceAddDoesNotRenderObjectCast() {
+            ParseResult r = parse(
+                    "ArrayList<CharSequence> list = new ArrayList<CharSequence>();\n" +
+                    "String value = \"x\";\n" +
+                    "list.add(value);");
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains(".add("), "Expected add call:\n" + code);
+            assertFalse(code.contains(".add((Object)"),
+                    "Parameterized add(subtype reference) should not widen reference to Object:\n" + code);
+        }
+
+        @Test
+        void llmTypedNullFallbackUsesSimpleNameWhenCanonicalNameWouldBeShadowed() {
+            ParseResult r = parseLlm(
+                    "TargetType value = null;",
+                    List.of("import shadowpkg.shadowpkg;"),
+                    "shadowpkg");
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("shadowpkg.TargetType"),
+                    "Typed null fallback should not force a same-package canonical name that javac can misread via an imported shadow class:\n" + code);
+            assertTrue(code.contains("TargetType "),
+                    "Expected simple same-package fallback type name:\n" + code);
+        }
+
+        @Test
         void parseDiamondOperator() {
             ParseResult r = parse(
                     "ArrayList<String> list = new ArrayList<>();");
@@ -2476,6 +2705,60 @@ class StatementParserTest {
                 }
             }
             assertTrue(foundSort, "Should have Collections.sort() call:\n" + tc.toCode());
+        }
+
+        @Test
+        void streamCollectWithWildcardCollectorRendersLegalRawCast() {
+            ParseResult r = parse(
+                    "Object[] values = new Object[0];\n" +
+                    "Stream<?> stream = Arrays.stream(values);\n" +
+                    "Collector<?, ?, Set<?>> collector = Collectors.toSet();\n" +
+                    "stream.collect(collector);",
+                    List.of(
+                            "import java.util.*;",
+                            "import java.util.stream.*;"
+                    ));
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("? super ?"),
+                    "Rendered code must not contain invalid nested wildcard bounds:\n" + code);
+            assertFalse(code.contains("(Collector<? super ?, ?, ?>)"),
+                    "Rendered code must not contain illegal wildcard cast syntax:\n" + code);
+            assertFalse(code.contains("Collector<?, ?, Set<?>> collector0 = "),
+                    "Generic method result should not render as an unassignable wildcarded declaration:\n" + code);
+            assertTrue(code.contains("Collector collector0 = Collectors.toSet();"),
+                    "Expected raw Collector declaration for compile-safe collect setup:\n" + code);
+            assertTrue(code.contains(".collect((Collector) "),
+                    "Expected raw Collector cast for compile-safe collect call:\n" + code);
+        }
+
+        @Test
+        void streamCollectWithWildcardListCollectorUsesRawDeclaration() {
+            ParseResult r = parse(
+                    "Object[] values = new Object[0];\n" +
+                    "Stream<?> stream = Arrays.stream(values);\n" +
+                    "Collector<?, ?, List<?>> collector = Collectors.toList();\n" +
+                    "stream.collect(collector);",
+                    List.of(
+                            "import java.util.*;",
+                            "import java.util.stream.*;"
+                    ));
+            assertFalse(r.hasErrors(), "Should have no errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("Collector<?, ?, List<?>> collector0 = "),
+                    "Wildcarded List collector declaration is not assignable from Collectors.toList():\n" + code);
+            assertTrue(code.contains("Collector collector0 = Collectors.toList();"),
+                    "Expected raw Collector declaration for Collectors.toList():\n" + code);
+            assertTrue(code.contains(".collect((Collector) "),
+                    "Expected raw Collector cast for compile-safe collect call:\n" + code);
         }
 
         @Test

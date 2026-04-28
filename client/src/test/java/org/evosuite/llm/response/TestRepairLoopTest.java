@@ -31,17 +31,26 @@ import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.assertion.CodeAssertion;
 import org.evosuite.assertion.PrimitiveAssertion;
+import org.evosuite.testcase.statements.ArrayStatement;
+import org.evosuite.testcase.statements.AssignmentStatement;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.ArrayReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
+import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.awt.AWTError;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -388,6 +397,64 @@ class TestRepairLoopTest {
         assertTrue(result.isSuccess());
         assertTrue(result.getDiagnostics().stream().anyMatch(d -> d.contains("no test methods")));
         verify(llmService, times(1)).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void noTestMethodsRepairExplainsMalformedSlashImports() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                if (sourceCode.contains("import br/com/jnfe/base/service.SimpleSecurityHandlerBean;")) {
+                    return Collections.emptyList();
+                }
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n"
+                        + "import static org.junit.jupiter.api.Assertions.*;\n\n"
+                        + "import br/com/jnfe/base/service.SimpleSecurityHandlerBean;\n"
+                        + "import br/com/jnfe/base/service.SecurityCallBack;\n"
+                        + "import org.junit.jupiter.api.Test;\n\n"
+                        + "public class SimpleSecurityHandlerBeanTest {\n"
+                        + "    @Test\n"
+                        + "    void test0() {\n"
+                        + "        assertDoesNotThrow(SimpleSecurityHandlerBean::new);\n"
+                        + "    }\n"
+                        + "}\n"
+                        + "```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Parser produced no test methods."));
+        assertTrue(userRepairMessage.contains("Detected malformed import statement(s):"));
+        assertTrue(userRepairMessage.contains("import br/com/jnfe/base/service.SimpleSecurityHandlerBean;"));
+        assertTrue(userRepairMessage.contains("Java import declarations must use package dots, not file-path slashes."));
+        assertTrue(userRepairMessage.contains("No-test-method parsing hint:"));
+        assertTrue(userRepairMessage.contains("invalid Java import syntax with file-path separators instead of package dots"));
+        assertTrue(userRepairMessage.contains("import br.com.jnfe.base.service.SimpleSecurityHandlerBean;"));
     }
 
     @Test
@@ -1142,6 +1209,139 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void parsedExcerptPreservesDataflowAcrossRenderedStatements() throws Exception {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                try {
+                    DefaultTestCase tc = new DefaultTestCase();
+
+                    ArrayStatement arrayStatement = new ArrayStatement(tc, Object[].class, 2);
+                    ArrayReference objectArray0 = (ArrayReference) tc.addStatement(arrayStatement);
+
+                    GenericConstructor objectConstructor =
+                            new GenericConstructor(Object.class.getConstructor(), Object.class);
+                    VariableReference object0 = tc.addStatement(new ConstructorStatement(
+                            tc, objectConstructor, Collections.<VariableReference>emptyList()));
+                    tc.addStatement(new AssignmentStatement(tc, new ArrayIndex(tc, objectArray0, 0), object0));
+
+                    VariableReference object1 = tc.addStatement(new ConstructorStatement(
+                            tc, objectConstructor, Collections.<VariableReference>emptyList()));
+                    tc.addStatement(new AssignmentStatement(tc, new ArrayIndex(tc, objectArray0, 1), object1));
+
+                    Method asListMethod = Arrays.class.getMethod("asList", Object[].class);
+                    GenericMethod asList = new GenericMethod(asListMethod, Arrays.class);
+                    VariableReference list0 = tc.addStatement(new MethodStatement(
+                            tc, asList, null, Collections.singletonList(objectArray0)));
+
+                    Method sizeMethod = List.class.getMethod("size");
+                    GenericMethod size = new GenericMethod(sizeMethod, List.class);
+                    tc.addStatement(new MethodStatement(
+                            tc, size, list0, Collections.<VariableReference>emptyList()));
+
+                    return Collections.singletonList(new ParseResult(tc, "testRenderedExcerpt"));
+                } catch (Exception e) {
+                    throw new AssertionError(e);
+                }
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    ClassCastException cast = new ClassCastException(
+                            "class java.lang.Object cannot be cast to class org.eclipse.core.resources.IProject");
+                    cast.setStackTrace(new StackTraceElement[]{
+                            new StackTraceElement(
+                                    "com.atlassw.tools.eclipse.checkstyle.builder.CheckstyleBuilder",
+                                    "buildProjects",
+                                    "CheckstyleBuilder.java",
+                                    134)
+                    });
+                    result.reportNewThrownException(6, cast);
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Arrays.asList("));
+        assertFalse(userRepairMessage.contains("// [5]\nArrays.asList("));
+        assertTrue(userRepairMessage.contains(".size();"));
+    }
+
+    @Test
+    void staticMethodExecutionErrorDoesNotTreatTypeNameAsReceiverVariable() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase tc = new DefaultTestCase();
+                tc.addStatement(new UninterpretedStatement(tc, "java.util.List list0 = null;"));
+                tc.addStatement(new UninterpretedStatement(tc, "CheckstyleBuilder.buildProjects(list0);"));
+                return Collections.singletonList(new ParseResult(tc, "testStaticCallReceiver"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    ClassCastException cast = new ClassCastException("boom");
+                    cast.setStackTrace(new StackTraceElement[]{
+                            new StackTraceElement(
+                                    "com.atlassw.tools.eclipse.checkstyle.builder.CheckstyleBuilder",
+                                    "buildProjects",
+                                    "CheckstyleBuilder.java",
+                                    134)
+                    });
+                    result.reportNewThrownException(1, cast);
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertFalse(userRepairMessage.contains("Receiver setup note: the receiver variable 'CheckstyleBuilder'"));
+    }
+
+    @Test
     void executionContextNotesWhenLaterAssertThrowsWasNeverReached() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
@@ -1241,8 +1441,6 @@ class TestRepairLoopTest {
         assertTrue(userRepairMessage.contains("// [0]"));
         assertTrue(userRepairMessage.contains("// [1]"));
         assertTrue(userRepairMessage.contains("java.util.List __llm_fallback0 = null;"));
-        assertFalse(userRepairMessage.contains("= __llm_fallback0;"),
-                "Excerpt should show raw internal statement code, not extra alias lines from TestCodeVisitor");
     }
 
     @Test
@@ -1578,6 +1776,216 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void namedTypedNullFallbackStillAddsAvailableConstructorGuidance() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase tc = new DefaultTestCase();
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "org.firebirdsql.gds.impl.GDSHelper helper = null;"));
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "FBParameterMetaData nullRef0 = null;"));
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "Class<?> class0 = FBParameterMetaData.class;"));
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "null.unwrap((Class) class0);"));
+                ParseResult parseResult = new ParseResult(tc, "testUnwrapWrapper_ReturnsCastInstance");
+                parseResult.addDiagnostic(new ParseDiagnostic(
+                        ParseDiagnostic.Severity.WARNING,
+                        "No matching constructor: No matching constructor found for "
+                                + "org.firebirdsql.jdbc.FBParameterMetaData with args (). "
+                                + "Available constructors: FBParameterMetaData(XSQLVAR[], GDSHelper)",
+                        1,
+                        "new FBParameterMetaData()"));
+                return Collections.singletonList(parseResult);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    NullPointerException npe = new NullPointerException();
+                    CodeUnderTestException wrapper = new CodeUnderTestException(npe);
+                    wrapper.setStackTrace(new StackTraceElement[]{
+                            new StackTraceElement("shaded.org.evosuite.testcase.statements.MethodStatement$1",
+                                    "execute", "MethodStatement.java", 405),
+                            new StackTraceElement("shaded.org.evosuite.testcase.statements.AbstractStatement",
+                                    "exceptionHandler", "AbstractStatement.java", 180)
+                    });
+                    result.reportNewThrownException(3, wrapper);
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Fallback origin note:"));
+        assertTrue(userRepairMessage.contains("typed null declaration for 'FBParameterMetaData'"));
+        assertTrue(userRepairMessage.contains("Available constructors: FBParameterMetaData(XSQLVAR[], GDSHelper)"));
+        assertTrue(userRepairMessage.contains("Use one of the listed existing constructors exactly"));
+    }
+
+    @Test
+    void fallbackOriginNoteExplainsInventedHelperTypeCauseExplicitly() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase tc = new DefaultTestCase();
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "Newzgrabber.BufferedCustomInputStream __llm_fallback2 = null;"));
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "BufferedCustomInputStream bufferedCustomInputStream0 = __llm_fallback2;"));
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "ByteArrayOutputStream byteArrayOutputStream0 = new ByteArrayOutputStream();"));
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "Base64Decoder base64Decoder0 = new Base64Decoder(null, byteArrayOutputStream0);"));
+                ParseResult parseResult = new ParseResult(tc, "testDecodeStreamThrowsIOExceptionWhenInputStreamFails");
+                parseResult.addDiagnostic(new ParseDiagnostic(
+                        ParseDiagnostic.Severity.WARNING,
+                        "Cannot resolve class: InputStreamThatThrowsOnRead — Cannot resolve type: "
+                                + "InputStreamThatThrowsOnRead LLM_REPAIR_ACTION_REQUIRED: do not invent local/helper "
+                                + "types (e.g., Target, Input, Helper) in test code; instantiate only real "
+                                + "SUT/JDK/dependency types from context, or pass null/Object when the API accepts it.",
+                        1,
+                        "new BufferedCustomInputStream(new InputStreamThatThrowsOnRead())"));
+                return Collections.singletonList(parseResult);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    result.reportNewThrownException(0, new RuntimeException(
+                            "Compilation failed:\n"
+                                    + "Failing statement (index 0):\n"
+                                    + "Newzgrabber.BufferedCustomInputStream __llm_fallback2 = null;\n"
+                                    + "Parsed test code excerpt:\n```java\n"
+                                    + "Newzgrabber.BufferedCustomInputStream __llm_fallback2 = null;\n"
+                                    + "BufferedCustomInputStream bufferedCustomInputStream0 = __llm_fallback2;\n"
+                                    + "ByteArrayOutputStream byteArrayOutputStream0 = new ByteArrayOutputStream();\n"
+                                    + "Base64Decoder base64Decoder0 = new Base64Decoder(null, byteArrayOutputStream0);\n"
+                                    + "assertThrows(java.io.IOException.class, base64Decoder0::decodeStream);\n"
+                                    + "```"));
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Repair action: do not invent local/helper types"),
+                "Expected explicit parser repair action in fallback note: " + userRepairMessage);
+        assertTrue(userRepairMessage.contains("Source expression: new BufferedCustomInputStream(new InputStreamThatThrowsOnRead())"),
+                "Expected original source expression in repair note: " + userRepairMessage);
+        assertTrue(userRepairMessage.contains("The unresolved helper/local type inside that source expression is 'InputStreamThatThrowsOnRead'"),
+                "Expected helper/local type cause to be called out explicitly: " + userRepairMessage);
+        assertTrue(userRepairMessage.contains("do not only rename or re-alias the __llm_fallback placeholder"),
+                "Expected guidance to replace the real cause instead of the fallback alias: " + userRepairMessage);
+    }
+
+    @Test
+    void unresolvedInterfaceInstantiationFallbackAddsInterfaceGuidance() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase tc = new DefaultTestCase();
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "net.sourceforge.squirrel_sql.plugins.dbcopy.SessionInfoProvider __llm_fallback0 = null;"));
+                tc.addStatement(new UninterpretedStatement(tc,
+                        "SessionInfoProvider sessionInfoProvider0 = __llm_fallback0;"));
+                tc.addStatement(new IntPrimitiveStatement(tc, 1));
+                ParseResult parseResult = new ParseResult(tc, "testPasteTableRepair");
+                parseResult.addDiagnostic(new ParseDiagnostic(
+                        ParseDiagnostic.Severity.WARNING,
+                        "No matching constructor: No matching constructor found for "
+                                + "net.sourceforge.squirrel_sql.plugins.dbcopy.SessionInfoProvider with args ()",
+                        1,
+                        "new SessionInfoProvider()"));
+                return Collections.singletonList(parseResult);
+            }
+        };
+
+        String sutSummary = "// SessionInfoProvider [interface]\n"
+                + "  concrete subtypes: DBCopyPlugin()\n"
+                + "// DBCopyPlugin [class]\n";
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    result.reportNewThrownException(2, new NullPointerException(
+                            "Cannot invoke \"net.sourceforge.squirrel_sql.plugins.dbcopy.SessionInfoProvider.getDestSession()\" because \"sessionInfoProvider0\" is null"));
+                    return result;
+                },
+                1,
+                null,
+                sutSummary,
+                TestRepairLoop.RepairOptions.defaults());
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("The type 'SessionInfoProvider' is an interface"));
+        assertTrue(userRepairMessage.contains("DBCopyPlugin()"));
+        assertTrue(userRepairMessage.contains("Mockito.mock(SessionInfoProvider.class)"));
+        assertFalse(userRepairMessage.contains("Use one of the listed existing constructors exactly"));
+    }
+
+    @Test
     void illegalArgumentExecutionErrorAddsArgumentPreconditionRepairInstructions() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
@@ -1788,10 +2196,88 @@ class TestRepairLoopTest {
         List<LlmMessage> sentConversation = conversationCaptor.getValue();
         String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
         assertTrue(userRepairMessage.contains("Anonymous implementation repair hint:"));
-        assertTrue(userRepairMessage.contains("partial anonymous implementation of 'net.sourceforge.squirrel_sql.client.IApplication'"));
+        assertTrue(userRepairMessage.contains("anonymous implementation/subclass of 'net.sourceforge.squirrel_sql.client.IApplication'"));
         assertTrue(userRepairMessage.contains("Do NOT write new IApplication() { ... } just to override one method."));
         assertTrue(userRepairMessage.contains("Mockito.mock(net.sourceforge.squirrel_sql.client.IApplication.class, new ViolatedAssumptionAnswer())"));
         assertTrue(userRepairMessage.contains("verify the method is never invoked instead of calling fail(...) inside an anonymous override"));
+    }
+
+    @Test
+    void malformedAnonymousAbstractClassSnippetAddsRepairInstructions() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase tc = new DefaultTestCase();
+                tc.addStatement(new IntPrimitiveStatement(tc, 1));
+                return Collections.singletonList(new ParseResult(tc, "testHandleReadIOExceptionIsCaughtAndDoesNotThrow"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    result.reportNewThrownException(0, new RuntimeException(
+                            "shaded.org.evosuite.testcase.execution.ExecutableSnippetEngine$SnippetCompilationException "
+                                    + "- Snippet compilation failed for EvosuiteSnippet_8bd0:\n"
+                                    + "/tmp/EvosuiteSnippet_8bd0.java:56: error: illegal start of type\n"
+                                    + "        throw new IOException(\"read-failed\");\n"
+                                    + "        ^\n"
+                                    + "/tmp/EvosuiteSnippet_8bd0.java:59: error: class, interface, enum, or record expected\n"
+                                    + "    return ch;\n"
+                                    + "    ^\n"
+                                    + "/tmp/EvosuiteSnippet_8bd0.java:60: error: class, interface, enum, or record expected\n"
+                                    + "  }\n"
+                                    + "  ^\n"
+                                    + "3 errors\n"
+                                    + "Failing statement (index 0, zero-based):\n"
+                                    + "java.nio.channels.SocketChannel ch = new java.nio.channels.SocketChannel() {\n\n"
+                                    + "    @Override\n"
+                                    + "    public int read(ByteBuffer dst) throws IOException {\n"
+                                    + "        throw new IOException(\"read-failed\");\n"
+                                    + "    }\n"
+                                    + "};\n"
+                                    + "Parsed test code excerpt:\n```java\n"
+                                    + "java.nio.channels.SocketChannel ch = new java.nio.channels.SocketChannel() {\n\n"
+                                    + "    @Override\n"
+                                    + "    public int read(ByteBuffer dst) throws IOException {\n"
+                                    + "        throw new IOException(\"read-failed\");\n"
+                                    + "    }\n"
+                                    + "};\n"
+                                    + "SocketChannel socketChannel0 = ch;\n"
+                                    + "Connection connection0 = new Connection(socketChannel0);\n"
+                                    + "connection0.handleRead(null);\n"
+                                    + "```\n"));
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Anonymous implementation repair hint:"));
+        assertTrue(userRepairMessage.contains("anonymous implementation/subclass of 'java.nio.channels.SocketChannel'"));
+        assertTrue(userRepairMessage.contains("This is not a parser/import issue"));
+        assertTrue(userRepairMessage.contains("'SocketChannel' is abstract and its constructors are not directly public"));
+        assertTrue(userRepairMessage.contains("javac syntax errors"));
+        assertTrue(userRepairMessage.contains("Mockito.mock(java.nio.channels.SocketChannel.class, new ViolatedAssumptionAnswer())"));
     }
 
     @Test
@@ -2168,6 +2654,57 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void indexedFixtureExecutionErrorAddsGenericBoundsRepairInstructions() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase tc = new DefaultTestCase();
+                tc.addStatement(new IntPrimitiveStatement(tc, 1));
+                return Collections.singletonList(new ParseResult(tc, "testIndexedFixture"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    result.reportNewThrownException(0,
+                            new ArrayIndexOutOfBoundsException("Index 2 out of bounds for length 2"));
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+        assertTrue(userRepairMessage.contains("Indexed fixture/bounds hint"),
+                "repair prompt should add a generic bounds/shape hint");
+        assertTrue(userRepairMessage.contains("re-check each constructor size/count argument against every later indexed read/write"),
+                "repair prompt should guide the model to align size/count arguments with later indexed access");
+        assertTrue(userRepairMessage.contains("Do not assume constructor counts map 1:1"),
+                "repair prompt should warn that helper/container constructors may derive internal storage differently");
+        assertTrue(userRepairMessage.contains("assertThrows(...)"),
+                "repair prompt should suggest assertThrows when invalid sizes or indices are intentional");
+    }
+
+    @Test
     void contextSpecificRepairFactsProvideSymbolConsistencyHints() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
@@ -2360,6 +2897,242 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void sharedExecutionAttritionAddsBatchLevelRepairGuidance() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        AtomicInteger parseCalls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                if (parseCalls.getAndIncrement() == 0) {
+                    DefaultTestCase executable = new DefaultTestCase();
+                    executable.addStatement(new IntPrimitiveStatement(executable, 1));
+                    ParseResult keptResult = new ParseResult(executable, "testKept");
+
+                    DefaultTestCase droppedOne = new DefaultTestCase();
+                    droppedOne.addStatement(new IntPrimitiveStatement(droppedOne, 2));
+                    ParseResult failedA = new ParseResult(droppedOne, "testRootRequestA");
+
+                    DefaultTestCase droppedTwo = new DefaultTestCase();
+                    droppedTwo.addStatement(new IntPrimitiveStatement(droppedTwo, 3));
+                    ParseResult failedB = new ParseResult(droppedTwo, "testRootRequestB");
+
+                    return Arrays.asList(keptResult, failedA, failedB);
+                }
+
+                DefaultTestCase repaired = new DefaultTestCase();
+                repaired.addStatement(new IntPrimitiveStatement(repaired, 4));
+                return Collections.singletonList(new ParseResult(repaired, "testRepaired"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    if (testCase.size() > 0 && testCase.getStatement(0) instanceof IntPrimitiveStatement) {
+                        IntPrimitiveStatement stmt = (IntPrimitiveStatement) testCase.getStatement(0);
+                        if (stmt.getValue() == 2 || stmt.getValue() == 3) {
+                            result.reportNewThrownException(0, new NullPointerException(
+                                    "Cannot invoke \"net.sourceforge.ext4j.taglib.bo.CurrentURLBO$RootRequest.isWebRequest()\" "
+                                            + "because \"this.mRoot\" is null"));
+                        }
+                    }
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+
+        ArgumentCaptor<List<LlmMessage>> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+
+        List<LlmMessage> conversation = conversationCaptor.getValue();
+        String repairPrompt = conversation.get(conversation.size() - 1).getContent();
+        assertTrue(repairPrompt.contains("Batch attrition summary:"),
+                "repair prompt should surface the batch-level attrition summary");
+        assertTrue(repairPrompt.contains("Started from 3 parsed candidate test(s); only 1 currently parse and execute cleanly."),
+                "repair prompt should quantify how many tests were lost");
+        assertTrue(repairPrompt.contains("Do not solve this by returning only the surviving test(s)"),
+                "repair prompt should forbid silent shrinkage to only surviving tests");
+        assertTrue(repairPrompt.contains("Multiple dropped tests share the same execution root cause"),
+                "repair prompt should call out the shared execution failure");
+        assertTrue(repairPrompt.contains("this.mRoot"),
+                "repair prompt should preserve the repeated null receiver name");
+        assertTrue(repairPrompt.contains("CurrentURLBO$RootRequest.isWebRequest()"),
+                "repair prompt should preserve the repeated SUT dereference site");
+    }
+
+    @Test
+    void sharedIndexedFixtureAttritionAddsBatchLevelRepairGuidance() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        AtomicInteger parseCalls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                if (parseCalls.getAndIncrement() == 0) {
+                    DefaultTestCase executable = new DefaultTestCase();
+                    executable.addStatement(new IntPrimitiveStatement(executable, 1));
+                    ParseResult keptResult = new ParseResult(executable, "testKept");
+
+                    DefaultTestCase droppedOne = new DefaultTestCase();
+                    droppedOne.addStatement(new IntPrimitiveStatement(droppedOne, 2));
+                    ParseResult failedA = new ParseResult(droppedOne, "testIndexedFixtureA");
+
+                    DefaultTestCase droppedTwo = new DefaultTestCase();
+                    droppedTwo.addStatement(new IntPrimitiveStatement(droppedTwo, 3));
+                    ParseResult failedB = new ParseResult(droppedTwo, "testIndexedFixtureB");
+
+                    return Arrays.asList(keptResult, failedA, failedB);
+                }
+
+                DefaultTestCase repaired = new DefaultTestCase();
+                repaired.addStatement(new IntPrimitiveStatement(repaired, 4));
+                return Collections.singletonList(new ParseResult(repaired, "testRepaired"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    if (testCase.size() > 0 && testCase.getStatement(0) instanceof IntPrimitiveStatement) {
+                        IntPrimitiveStatement stmt = (IntPrimitiveStatement) testCase.getStatement(0);
+                        if (stmt.getValue() == 2 || stmt.getValue() == 3) {
+                            result.reportNewThrownException(0,
+                                    new ArrayIndexOutOfBoundsException("Index 2 out of bounds for length 2"));
+                        }
+                    }
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+
+        ArgumentCaptor<List<LlmMessage>> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+
+        List<LlmMessage> conversation = conversationCaptor.getValue();
+        String repairPrompt = conversation.get(conversation.size() - 1).getContent();
+        assertTrue(repairPrompt.contains("Batch attrition summary:"),
+                "repair prompt should surface the batch-level attrition summary");
+        assertTrue(repairPrompt.contains("Multiple dropped tests share the same bounds/shape failure while constructing or populating indexed fixtures"),
+                "repair prompt should call out the shared indexed-fixture failure");
+        assertTrue(repairPrompt.contains("constructor size/count arguments consistent with every later indexed get/set call"),
+                "repair prompt should steer the model toward repairing the shared size/index pattern");
+    }
+
+    @Test
+    void sharedAnonymousSnippetAttritionAddsBatchLevelRepairGuidance() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\n@org.junit.Test\npublic void repaired(){}\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        AtomicInteger parseCalls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                if (parseCalls.getAndIncrement() == 0) {
+                    DefaultTestCase executable = new DefaultTestCase();
+                    executable.addStatement(new IntPrimitiveStatement(executable, 1));
+                    ParseResult keptResult = new ParseResult(executable, "testKept");
+
+                    DefaultTestCase droppedOne = new DefaultTestCase();
+                    droppedOne.addStatement(new IntPrimitiveStatement(droppedOne, 2));
+                    ParseResult failedA = new ParseResult(droppedOne, "testAnonymousAdminAppA");
+
+                    DefaultTestCase droppedTwo = new DefaultTestCase();
+                    droppedTwo.addStatement(new IntPrimitiveStatement(droppedTwo, 3));
+                    ParseResult failedB = new ParseResult(droppedTwo, "testAnonymousAdminAppB");
+
+                    return Arrays.asList(keptResult, failedA, failedB);
+                }
+
+                DefaultTestCase repaired = new DefaultTestCase();
+                repaired.addStatement(new IntPrimitiveStatement(repaired, 4));
+                return Collections.singletonList(new ParseResult(repaired, "testRepaired"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    if (testCase.size() > 0 && testCase.getStatement(0) instanceof IntPrimitiveStatement) {
+                        IntPrimitiveStatement stmt = (IntPrimitiveStatement) testCase.getStatement(0);
+                        if (stmt.getValue() == 2 || stmt.getValue() == 3) {
+                            result.reportNewThrownException(0, new RuntimeException(
+                                    "Snippet compilation failed for EvosuiteSnippet_abcd.java: error: illegal start of type\n"
+                                            + "        return null;\n"
+                                            + "        ^\n"
+                                            + "Failing statement (index 0, zero-based):\n"
+                                            + "osa.ora.server.admin.AdminApp adminApp = new osa.ora.server.admin.AdminApp() {\n\n"
+                                            + "    @Override\n"
+                                            + "    public java.util.Vector<Group> getGroups() {\n"
+                                            + "        return null;\n"
+                                            + "    }\n"
+                                            + "};\n"));
+                        }
+                    }
+                    return result;
+                },
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+
+        ArgumentCaptor<List<LlmMessage>> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+
+        List<LlmMessage> conversation = conversationCaptor.getValue();
+        String repairPrompt = conversation.get(conversation.size() - 1).getContent();
+        assertTrue(repairPrompt.contains("Batch attrition summary:"),
+                "repair prompt should surface the batch-level attrition summary");
+        assertTrue(repairPrompt.contains("Multiple dropped tests share the same anonymous-class snippet failure around 'AdminApp'"),
+                "repair prompt should call out the repeated anonymous-class failure");
+        assertTrue(repairPrompt.contains("This is not a parser/import issue"),
+                "repair prompt should explain that the anonymous-class failure is not parsing-related");
+        assertTrue(repairPrompt.contains("Do not keep writing `new AdminApp() { ... }`"),
+                "repair prompt should explicitly forbid the repeated anonymous AdminApp pattern");
+        assertTrue(repairPrompt.contains("Mockito.mock(osa.ora.server.admin.AdminApp.class, new ViolatedAssumptionAnswer())"),
+                "repair prompt should steer the model toward a mock-based replacement");
+    }
+
+    @Test
     void allCleanAndExecutableReturnsSuccessWithoutRepair() {
         LlmService llmService = mock(LlmService.class);
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
@@ -2388,6 +3161,79 @@ class TestRepairLoopTest {
 
         assertTrue(result.isSuccess());
         verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void emptyResponseFollowedByContextOnlyDetectsBytecodeFailureAndImprovesDiagnostic() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        // Seed attempt returns bytecode context instead of test code
+        // (simulating LLM hitting token limit or silently failing)
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                // Both seed and repair: return empty (no @Test methods found)
+                return Collections.emptyList();
+            }
+        };
+
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenAnswer(invocation -> {
+                    // Simulate LLM returning actual test code on second attempt
+                    String testResponse = "@org.junit.jupiter.api.Test\n"
+                            + "public void test0() throws Throwable {\n"
+                            + "  ClientGroup cg = new ClientGroup(null);\n"
+                            + "}\n";
+                    return Collections.singletonList(LlmMessage.assistant(testResponse));
+                });
+
+        // Seed LLM response: bytecode context (looks like Java code due to "public class" and "public void")
+        // but is actually disassembly that the parser cannot convert to test methods
+        String seedResponse = "BYTECODE_DISASSEMBLED context:\n```\n"
+                + "// class version 52.0 (52)\n"
+                + "// access flags 0x21\n"
+                + "public class ioproject.server.network.ClientGroup implements java.lang.Iterable {\n"
+                + "  // access flags 0x2\n"
+                + "  private final java.util.Set clients;\n"
+                + "  // access flags 0x0\n"
+                + "  public void notifyMessageSent(Lioproject/server/network/Client;Ljava/lang/Object;)Z\n"
+                + "    ALOAD 0\n"
+                + "    GETFIELD\n"
+                + "    RETURN\n"
+                + "}\n```\n";
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1);
+
+        RepairResult result = loop.attemptParse(
+                seedResponse,
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        // Should fail (cannot generate tests from bytecode-only responses)
+        assertFalse(result.isSuccess());
+
+        ArgumentCaptor<List<LlmMessage>> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+
+        List<LlmMessage> conversation = conversationCaptor.getValue();
+        String repairPrompt = conversation.get(conversation.size() - 1).getContent();
+        
+        assertTrue(repairPrompt.contains("Parser produced no test methods"),
+                "repair prompt should mention parse failure");
+        // The diagnostic should detect that the response was bytecode disassembly or context
+        assertTrue(repairPrompt.contains("bytecode") || repairPrompt.contains("BYTECODE") 
+                   || repairPrompt.contains("context"),
+                "repair prompt should detect bytecode/context-only response. Got: " + repairPrompt);
+        assertTrue(repairPrompt.contains("Do not return") || repairPrompt.contains("Generate actual"),
+                "repair prompt should guide toward actual test generation. Got: " + repairPrompt);
     }
 
 }

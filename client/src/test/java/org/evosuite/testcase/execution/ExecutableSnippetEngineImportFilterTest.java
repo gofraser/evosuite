@@ -151,6 +151,29 @@ class ExecutableSnippetEngineImportFilterTest {
     }
 
     @Test
+    void executeStatementResolvesAnonymousClassMethodTypesFromSnippetContext() throws Throwable {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        String previousTarget = Properties.TARGET_CLASS;
+        try {
+            Properties.TARGET_CLASS = "org.evosuite.Properties";
+            ExecutableSnippetEngine.StatementResult result = engine.executeStatement(
+                    "org.evosuite.testcase.execution.CodeUnderTestException seed = null;\n"
+                            + "Object controller = new Object() {\n"
+                            + "  public EvosuiteError make() {\n"
+                            + "    return null;\n"
+                            + "  }\n"
+                            + "};",
+                    Collections.emptyMap(),
+                    Collections.emptyMap(),
+                    "controller");
+
+            assertNotNull(result.getReturnValue());
+        } finally {
+            Properties.TARGET_CLASS = previousTarget;
+        }
+    }
+
+    @Test
     void generatedSnippetAvoidsAmbiguousDateImportsFromBindings() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
         Method buildStatementClassSource = ExecutableSnippetEngine.class.getDeclaredMethod(

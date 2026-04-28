@@ -19,14 +19,18 @@
  */
 package org.evosuite.runtime;
 
+import org.evosuite.runtime.mock.javax.swing.MockJFrame;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
 import java.awt.*;
 import javax.swing.JComponent;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 
 public class GuiSupportTest {
 
@@ -48,16 +52,54 @@ public class GuiSupportTest {
     }
 
     @Test
+    public void testSetHeadlessRepairsNullGraphicsEnvironmentCacheWhenAlreadyHeadless() throws Exception {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        Assumptions.assumeTrue(GuiSupport.canSwapGeForTests());
+
+        Field geFieldHolder = GuiSupport.class.getDeclaredField("geInstanceField");
+        geFieldHolder.setAccessible(true);
+        Field geField = (Field) geFieldHolder.get(null);
+        Assertions.assertNotNull(geField);
+
+        Object original = geField.get(null);
+        Method setStaticField = GuiSupport.class.getDeclaredMethod("setStaticField", Field.class, Object.class);
+        setStaticField.setAccessible(true);
+        try {
+            setStaticField.invoke(null, geField, null);
+
+            GuiSupport.setHeadless();
+
+            Assertions.assertDoesNotThrow(GraphicsEnvironment::getLocalGraphicsEnvironment);
+            Assertions.assertNotNull(GuiSupport.getDefaultOrStubGraphicsConfiguration());
+        } finally {
+            setStaticField.invoke(null, geField, original);
+        }
+    }
+
+    @Test
     public void testWhenNotHeadless() {
         Assumptions.assumeTrue(!GraphicsEnvironment.isHeadless());
+
+        Toolkit toolkitBefore = Toolkit.getDefaultToolkit();
+        if (GuiSupport.canSwapToolkitForTests()) {
+            Assertions.assertNotEquals("sun.awt.HeadlessToolkit", toolkitBefore.getClass().getName());
+        }
 
         GuiSupport.setHeadless();
         if (GuiSupport.canForceHeadlessForTests()) {
             Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+            if (GuiSupport.canSwapToolkitForTests()) {
+                Assertions.assertEquals("sun.awt.HeadlessToolkit",
+                        Toolkit.getDefaultToolkit().getClass().getName());
+            }
         }
 
         GuiSupport.restoreHeadlessMode(); //should restore headless
         Assertions.assertFalse(GraphicsEnvironment.isHeadless());
+        if (GuiSupport.canSwapToolkitForTests()) {
+            Assertions.assertNotEquals("sun.awt.HeadlessToolkit",
+                    Toolkit.getDefaultToolkit().getClass().getName());
+        }
     }
 
     @Test
@@ -101,7 +143,9 @@ public class GuiSupportTest {
 
         GuiSupport.disableHeadlessForMockConstruction();
         try {
-            if (GuiSupport.canForceHeadlessForTests()) {
+            if (GuiSupport.canForceHeadlessForTests() && !GuiSupport.isMacOsForTests()) {
+                Assertions.assertFalse(GraphicsEnvironment.isHeadless());
+            } else if (GuiSupport.canForceHeadlessForTests()) {
                 Assertions.assertTrue(GraphicsEnvironment.isHeadless());
             }
             Assertions.assertDoesNotThrow(() -> {
@@ -114,5 +158,31 @@ public class GuiSupportTest {
         } finally {
             GuiSupport.restoreHeadlessAfterMockConstruction();
         }
+    }
+
+    @Test
+    public void testMockJFrameConstructionInHeadlessMode() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        Assumptions.assumeTrue(GuiSupport.canForceHeadlessForTests());
+        Assumptions.assumeFalse(GuiSupport.isMacOsForTests());
+
+        Assertions.assertDoesNotThrow(() -> {
+            JFrame frame = new MockJFrame("x");
+            Assertions.assertNotNull(frame.getContentPane());
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        });
+    }
+
+    @Test
+    public void testMockJFrameConstructionInHeadlessModeOnMacOs() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        Assumptions.assumeTrue(GuiSupport.canForceHeadlessForTests());
+        Assumptions.assumeTrue(GuiSupport.isMacOsForTests());
+
+        Assertions.assertDoesNotThrow(() -> {
+            JFrame frame = new MockJFrame("x");
+            Assertions.assertNotNull(frame.getContentPane());
+            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        });
     }
 }

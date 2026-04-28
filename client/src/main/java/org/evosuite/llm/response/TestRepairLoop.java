@@ -51,6 +51,7 @@ import org.evosuite.testparser.TestParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -96,12 +97,24 @@ public class TestRepairLoop {
             "\\b([A-Za-z_][A-Za-z0-9_$.<>]*)\\s+(__llm_fallback\\d+)\\s*=\\s*null\\s*;");
     private static final Pattern PARSED_TEST_CODE_EXCERPT_PATTERN = Pattern.compile(
             "Parsed test code excerpt:\\n```java\\n(.*?)\\n```", Pattern.DOTALL);
+    private static final String EXCERPT_INDEX_MARKER_PREFIX = "__EVOSUITE_REPAIR_INDEX__";
+    private static final Pattern EXCERPT_INDEX_MARKER_PATTERN = Pattern.compile(
+            "^\\s*//\\s*" + Pattern.quote(EXCERPT_INDEX_MARKER_PREFIX) + "(\\d+)\\s*$");
     private static final Pattern NEW_CALL_PATTERN = Pattern.compile(
             "\\bnew\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\(");
+    private static final Pattern CONSTRUCTOR_DIAGNOSTIC_TYPE_PATTERN = Pattern.compile(
+            "No matching constructor found for\\s+([A-Za-z_][A-Za-z0-9_$.]+)");
+    private static final Pattern EXPLICIT_REPAIR_ACTION_PATTERN = Pattern.compile(
+            "LLM_REPAIR_ACTION_REQUIRED:\\s*(.*)$");
+    private static final Pattern INVENTED_UNKNOWN_TYPE_PATTERN = Pattern.compile(
+            "replace invented/unknown type '([A-Za-z_][A-Za-z0-9_$.]*)'",
+            Pattern.CASE_INSENSITIVE);
     private static final Pattern ANONYMOUS_TYPE_CREATION_PATTERN = Pattern.compile(
             "\\bnew\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\([^)]*\\)\\s*\\{");
     private static final Pattern MISSING_SYMBOL_CLASS_PATTERN = Pattern.compile(
             "symbol:\\s+class\\s+([A-Za-z_][A-Za-z0-9_$]*)", Pattern.MULTILINE);
+    private static final Pattern MALFORMED_IMPORT_LINE_PATTERN = Pattern.compile(
+            "(?m)^\\s*import\\s+(?:static\\s+)?[^;]*[/\\\\][^;]*;\\s*$");
 
     /** Error patterns that the LLM cannot fix (native libs, sandbox, etc.). */
     private static final Set<String> UNFIXABLE_ERROR_PATTERNS = new HashSet<>(Arrays.asList(
@@ -138,6 +151,11 @@ public class TestRepairLoop {
             "UnfinishedStubbingException",
             "MissingMethodInvocationException",
             "org.mockito.exceptions.misusing"
+    ));
+    private static final Set<String> INDEXED_FIXTURE_FAILURE_MARKERS = new HashSet<>(Arrays.asList(
+            "ArrayIndexOutOfBoundsException",
+            "IndexOutOfBoundsException",
+            "NegativeArraySizeException"
     ));
 
     private final LlmService llmService;
@@ -311,11 +329,12 @@ public class TestRepairLoop {
         for (int attempt = 0; attempt <= maxAttempts; attempt++) {
             attemptsUsed = attempt + 1;
             List<ParseResult> parseResults;
+            String extractedClass;
             try {
                 String sutPackage = getSutPackage();
                 LlmResponseParser.ExtractionResult extraction = responseParser.extractTestClassWithMetadata(
                         currentResponse, "GeneratedLlmTest", sutPackage);
-                String extractedClass = extraction.getSource();
+                extractedClass = extraction.getSource();
                 if (extraction.isRecoveryApplied()) {
                     diagnostics.add("Applied truncation recovery: " + extraction.getRecoveryReason());
                     validateRecoveredSource(extractedClass);
@@ -342,7 +361,7 @@ public class TestRepairLoop {
             }
 
             if (parseResults == null || parseResults.isEmpty()) {
-                String parseErrorText = "Parser produced no test methods.";
+                String parseErrorText = buildNoTestMethodsParseError(extractedClass);
                 diagnostics.add(parseErrorText);
                 String next = tryRepair(parseErrorText, attempt, previousError, diagnostics,
                         conversation, currentResponse, feature, expandedClasses);
@@ -492,8 +511,12 @@ public class TestRepairLoop {
                                               List<ParseResult> droppedAtExecution,
                                               Map<ParseResult, String> executionErrorByTest) {
         StringBuilder sb = new StringBuilder();
+        appendAttritionSummary(sb, keptExecutable, droppedAtParse, droppedAtExecution, executionErrorByTest);
 
         if (keptExecutable != null && !keptExecutable.isEmpty()) {
+            if (sb.length() > 0) {
+                sb.append(System.lineSeparator()).append(System.lineSeparator());
+            }
             sb.append("The following generated tests already parse and execute cleanly; "
                     + "keep them unchanged in the corrected class:");
             for (ParseResult pr : keptExecutable) {
@@ -551,6 +574,132 @@ public class TestRepairLoop {
         out.append("Return the complete corrected test class. "
                 + "Keep the executable tests verbatim and fix or regenerate only the failing ones.");
         return out.toString();
+    }
+
+    private void appendAttritionSummary(StringBuilder sb,
+                                        List<ParseResult> keptExecutable,
+                                        List<ParseResult> droppedAtParse,
+                                        List<ParseResult> droppedAtExecution,
+                                        Map<ParseResult, String> executionErrorByTest) {
+        int keptCount = keptExecutable == null ? 0 : keptExecutable.size();
+        int droppedAtParseCount = droppedAtParse == null ? 0 : droppedAtParse.size();
+        int droppedAtExecutionCount = droppedAtExecution == null ? 0 : droppedAtExecution.size();
+        int droppedCount = droppedAtParseCount + droppedAtExecutionCount;
+        int totalCount = keptCount + droppedCount;
+        if (droppedCount == 0 || totalCount < 2) {
+            return;
+        }
+
+        sb.append("Batch attrition summary:");
+        sb.append(System.lineSeparator()).append("- Started from ").append(totalCount)
+                .append(" parsed candidate test(s); only ").append(keptCount)
+                .append(" currently parse and execute cleanly.");
+        sb.append(System.lineSeparator()).append("- Dropped ").append(droppedCount)
+                .append(" test(s) so far (").append(droppedAtParseCount)
+                .append(" parse-time, ").append(droppedAtExecutionCount)
+                .append(" execution-time).");
+        sb.append(System.lineSeparator()).append("- Do not solve this by returning only the surviving test(s) or by silently deleting most failing scenarios.");
+        sb.append(System.lineSeparator()).append("- Return a complete corrected class that preserves the kept tests and repairs or regenerates the dropped ones so the batch still exercises the intended behaviors.");
+
+        String sharedExecutionHint = buildSharedExecutionFailureHint(executionErrorByTest);
+        if (sharedExecutionHint != null && !sharedExecutionHint.isEmpty()) {
+            sb.append(System.lineSeparator()).append("- ").append(sharedExecutionHint);
+        }
+    }
+
+    private String buildSharedExecutionFailureHint(Map<ParseResult, String> executionErrorByTest) {
+        if (executionErrorByTest == null || executionErrorByTest.size() < 2) {
+            return null;
+        }
+
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        Map<String, String> hints = new LinkedHashMap<>();
+        for (String executionError : executionErrorByTest.values()) {
+            if (executionError == null || executionError.trim().isEmpty()) {
+                continue;
+            }
+
+            String anonymousConstructedType = extractAnonymousConstructedType(executionError);
+            if (anonymousConstructedType != null
+                    && !anonymousConstructedType.isEmpty()
+                    && isMalformedAnonymousSnippetSyntaxError(executionError)) {
+                String key = "anon:" + anonymousConstructedType;
+                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                hints.putIfAbsent(key, buildSharedAnonymousSnippetFailureHint(anonymousConstructedType));
+                continue;
+            }
+
+            NpeDereferenceInfo dereferenceInfo = extractNpeDereferenceInfo(executionError);
+            if (dereferenceInfo != null) {
+                String key = "npe:" + dereferenceInfo.memberSignature + "::" + dereferenceInfo.nullVariable;
+                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                hints.putIfAbsent(key, buildSharedNpeExecutionFailureHint(dereferenceInfo));
+                continue;
+            }
+
+            String initializationFailureClass = extractInitializationFailureClassName(executionError);
+            if (initializationFailureClass != null && !initializationFailureClass.isEmpty()) {
+                String key = "init:" + initializationFailureClass;
+                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                hints.putIfAbsent(key, "Multiple dropped tests share the same initialization failure in '"
+                        + initializationFailureClass
+                        + "'. Repair the shared environment/setup once or avoid that path instead of deleting those tests individually.");
+                continue;
+            }
+
+            if (isIndexedFixtureShapeError(executionError)) {
+                String key = "shape:indexed-fixture";
+                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                hints.putIfAbsent(key, buildSharedIndexedFixtureFailureHint());
+            }
+        }
+
+        String bestKey = null;
+        int bestCount = 1;
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            if (entry.getValue() > bestCount) {
+                bestKey = entry.getKey();
+                bestCount = entry.getValue();
+            }
+        }
+        if (bestKey == null) {
+            return null;
+        }
+        return hints.get(bestKey) + " (" + bestCount + " tests)";
+    }
+
+    private String buildSharedAnonymousSnippetFailureHint(String constructedType) {
+        String simpleType = simpleName(constructedType);
+        return "Multiple dropped tests share the same anonymous-class snippet failure around '"
+                + simpleType
+                + "'. This is not a parser/import issue. Do not keep writing `new "
+                + simpleType
+                + "() { ... }`; replace it with Mockito.mock("
+                + constructedType
+                + ".class, new ViolatedAssumptionAnswer()) or a real concrete collaborator setup.";
+    }
+
+    private String buildSharedNpeExecutionFailureHint(NpeDereferenceInfo dereferenceInfo) {
+        StringBuilder hint = new StringBuilder();
+        hint.append("Multiple dropped tests share the same execution root cause: null receiver '")
+                .append(dereferenceInfo.nullVariable)
+                .append("' inside SUT call '")
+                .append(dereferenceInfo.memberSignature)
+                .append("'.");
+        if (dereferenceInfo.receiverType != null && !dereferenceInfo.receiverType.isEmpty()) {
+            hint.append(" Repair the shared object/collaborator setup that should initialize this ")
+                    .append(simpleName(dereferenceInfo.receiverType))
+                    .append(" instance before that call, instead of deleting those tests one-by-one.");
+        } else {
+            hint.append(" Repair the shared object/collaborator setup before that call, instead of deleting those tests one-by-one.");
+        }
+        return hint.toString();
+    }
+
+    private String buildSharedIndexedFixtureFailureHint() {
+        return "Multiple dropped tests share the same bounds/shape failure while constructing or populating indexed fixtures. "
+                + "Repair the shared setup pattern once: make constructor size/count arguments consistent with every later indexed get/set call, "
+                + "do not assume every helper/container stores all slots exactly 1:1 with its constructor arguments, and regenerate those fixtures instead of deleting the tests one-by-one.";
     }
 
     private String safeMethodName(ParseResult parseResult) {
@@ -852,8 +1001,10 @@ public class TestRepairLoop {
         appendMockingRepairInstructions(error, repairMessage);
         appendStreamPreconditionRepairInstructions(error, repairMessage);
         appendArgumentPreconditionRepairInstructions(error, repairMessage);
+        appendIndexedFixtureShapeRepairInstructions(error, repairMessage);
         appendReflectiveInvocationRepairInstructions(error, repairMessage);
         appendReflectiveAssertThrowsFallbackRepairInstructions(error, repairMessage);
+        appendNoTestMethodsRepairInstructions(error, previousResponse, repairMessage);
         appendCollaboratorFallbackRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
         appendContextSpecificRepairFacts(error, previousResponse, repairMessage);
@@ -1006,6 +1157,19 @@ public class TestRepairLoop {
         repairMessage.append("\n- If testing validation behavior, use assertThrows(...) for the invalid-input case and add a separate valid-input smoke test.");
     }
 
+    private void appendIndexedFixtureShapeRepairInstructions(String error, StringBuilder repairMessage) {
+        if (!isIndexedFixtureShapeError(error)) {
+            return;
+        }
+        repairMessage.append("\n\nIndexed fixture/bounds hint:");
+        repairMessage.append("\n- The failing test uses inconsistent dimensions, counts, or indices while building an indexed fixture or invoking an indexed API.");
+        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        repairMessage.append("\n- For failing tests only, re-check each constructor size/count argument against every later indexed read/write in that test.");
+        repairMessage.append("\n- Do not assume constructor counts map 1:1 to all later accessible rows/elements/slots; some helpers reserve header or metadata positions, or derive internal storage differently.");
+        repairMessage.append("\n- Rebuild the fixture so every set/get index stays within the actual bounds created by the constructor and setup calls.");
+        repairMessage.append("\n- If the behavior under test is rejection of invalid sizes or indices, stop the test at the offending constructor/mutator with assertThrows(...) instead of continuing with normal-path assertions.");
+    }
+
     private void appendReflectiveInvocationRepairInstructions(String error, StringBuilder repairMessage) {
         if (!isReflectiveInvocationWrapperError(error)) {
             return;
@@ -1040,13 +1204,26 @@ public class TestRepairLoop {
                 && lower.contains("invocationtargetexception");
     }
 
-    static boolean isPartialAnonymousImplementationError(String error) {
-        if (error == null || error.isEmpty()) {
+    static boolean isPartialAnonymousImplementationError(String error, String previousResponse) {
+        if ((error == null || error.isEmpty())
+                && (previousResponse == null || previousResponse.isEmpty())) {
             return false;
         }
-        String lower = error.toLowerCase();
-        return lower.contains("is not abstract and does not override abstract method")
-                && lower.contains("new ");
+        String sourceText = error != null && !error.isEmpty() ? error : previousResponse;
+        if (extractAnonymousConstructedTypeStatic(sourceText) == null) {
+            return false;
+        }
+        String lower = error == null ? "" : error.toLowerCase();
+        if (lower.contains("is not abstract and does not override abstract method")) {
+            return true;
+        }
+        return lower.contains("snippet compilation")
+                && (lower.contains("illegal start of type")
+                || lower.contains("class, interface, enum, or record expected")
+                || lower.contains("';' expected")
+                || lower.contains("is abstract; cannot be instantiated")
+                || lower.contains("has protected access")
+                || (lower.contains("constructor") && lower.contains("cannot be applied to given types")));
     }
 
     private void appendCollaboratorFallbackRepairInstructions(String error, StringBuilder repairMessage) {
@@ -1074,7 +1251,7 @@ public class TestRepairLoop {
     private void appendAnonymousImplementationRepairInstructions(String error,
                                                                  String previousResponse,
                                                                  StringBuilder repairMessage) {
-        if (!isPartialAnonymousImplementationError(error)) {
+        if (!isPartialAnonymousImplementationError(error, previousResponse)) {
             return;
         }
         String constructedType = extractAnonymousConstructedType(error);
@@ -1086,10 +1263,46 @@ public class TestRepairLoop {
         }
 
         String simpleType = simpleName(constructedType);
+        Class<?> resolvedType = tryResolveRepairType(constructedType);
         repairMessage.append("\n\nAnonymous implementation repair hint:");
-        repairMessage.append("\n- The failing test created a partial anonymous implementation of '")
+        repairMessage.append("\n- The failing test created an anonymous implementation/subclass of '")
                 .append(constructedType)
-                .append("', which is non-compilable here because additional abstract/interface methods are still required.");
+                .append("', and that anonymous `new ")
+                .append(simpleType)
+                .append("() { ... }` fragment is non-compilable in EvoSuite snippet execution here.");
+        repairMessage.append("\n- This is not a parser/import issue: the anonymous `new ")
+                .append(simpleType)
+                .append("() { ... }` fragment itself is not a valid repair for this type.");
+        if (resolvedType != null) {
+            if (resolvedType.isInterface()) {
+                repairMessage.append("\n- '")
+                        .append(simpleType)
+                        .append("' is an interface, so the one-off anonymous body still has to implement every required method.");
+            } else if (Modifier.isAbstract(resolvedType.getModifiers()) && hasOnlyNonPublicConstructors(resolvedType)) {
+                repairMessage.append("\n- '")
+                        .append(simpleType)
+                        .append("' is abstract and its constructors are not directly public, so a one-method anonymous subclass is especially brittle here.");
+            } else if (Modifier.isAbstract(resolvedType.getModifiers())) {
+                repairMessage.append("\n- '")
+                        .append(simpleType)
+                        .append("' is abstract, so overriding one visible method is still not enough to make the anonymous subtype valid.");
+            } else if (hasOnlyNonPublicConstructors(resolvedType)) {
+                repairMessage.append("\n- '")
+                        .append(simpleType)
+                        .append("' does not expose a directly public constructor, so `new ")
+                        .append(simpleType)
+                        .append("() { ... }` is not a safe repair strategy.");
+            } else {
+                repairMessage.append("\n- Even though '")
+                        .append(simpleType)
+                        .append("' is concrete, keep avoiding `new ")
+                        .append(simpleType)
+                        .append("() { ... }` here; the anonymous override body is the failing pattern.");
+            }
+        }
+        if (isMalformedAnonymousSnippetSyntaxError(error)) {
+            repairMessage.append("\n- The reported javac syntax errors (for example `illegal start of type`, `';' expected`, or stray `return` lines) are downstream effects of the malformed anonymous class, not evidence that EvoSuite parsed the body incorrectly.");
+        }
         repairMessage.append("\n- Do NOT write new ")
                 .append(simpleType)
                 .append("() { ... } just to override one method.");
@@ -1098,6 +1311,33 @@ public class TestRepairLoop {
                 .append(".class, new ViolatedAssumptionAnswer()) or a concrete existing subtype from context.");
         repairMessage.append("\n- Stub or verify only the minimal method actually relevant to the failing path instead of hand-writing an anonymous class body.");
         repairMessage.append("\n- If the intended assertion is that a callback like showErrorDialog(...) must not be reached, keep the collaborator as a mock and verify the method is never invoked instead of calling fail(...) inside an anonymous override.");
+    }
+
+    private void appendNoTestMethodsRepairInstructions(String error,
+                                                       String previousResponse,
+                                                       StringBuilder repairMessage) {
+        if (error == null || !error.contains("Parser produced no test methods")) {
+            return;
+        }
+        repairMessage.append("\n\nNo-test-method parsing hint:");
+        repairMessage.append("\n- Return a complete compilable Java test class that contains one or more concrete methods annotated with @Test inside the class body.");
+        
+        List<String> malformedImports = extractMalformedImportLines(error + "\n" + (previousResponse == null ? "" : previousResponse));
+        if (!malformedImports.isEmpty()) {
+            repairMessage.append("\n- The previous response used invalid Java import syntax with file-path separators instead of package dots.");
+            for (String importLine : malformedImports.subList(0, Math.min(2, malformedImports.size()))) {
+                repairMessage.append("\n- Invalid import from previous response: ").append(importLine);
+            }
+            repairMessage.append("\n- Java imports must use dotted package names, for example `import br.com.jnfe.base.service.SimpleSecurityHandlerBean;`.");
+        } else if (error.contains("LLM response was empty") || error.contains("hit a token limit") || error.contains("contained only bytecode")) {
+            repairMessage.append("\n- Do not return only context, documentation, or bytecode disassembly.");
+            repairMessage.append("\n- Generate actual test code with concrete @Test methods that instantiate and interact with the target class.");
+            repairMessage.append("\n- If your previous response was cut off or hit a token limit, generate fewer test cases but include actual test code.");
+        } else if (previousResponse != null && previousResponse.contains("@Test")) {
+            repairMessage.append("\n- The previous response already looked like a test class, so malformed Java syntax likely prevented method extraction. Recheck imports, class declaration, braces, and method headers.");
+        } else {
+            repairMessage.append("\n- Do not return prose or helper snippets only; include actual @Test methods in the final class.");
+        }
     }
 
     private String extractTypedFallbackDeclaredType(String error) {
@@ -1118,7 +1358,94 @@ public class TestRepairLoop {
         return null;
     }
 
+    private String buildNoTestMethodsParseError(String extractedClass) {
+        StringBuilder error = new StringBuilder("Parser produced no test methods.");
+        List<String> malformedImports = extractMalformedImportLines(extractedClass);
+        if (!malformedImports.isEmpty()) {
+            error.append("\nDetected malformed import statement(s):");
+            for (String importLine : malformedImports.subList(0, Math.min(2, malformedImports.size()))) {
+                error.append("\n- ").append(importLine);
+            }
+            error.append("\nRepair action: Java import declarations must use package dots, not file-path slashes. ");
+            error.append("Example: import br.com.jnfe.base.service.SimpleSecurityHandlerBean;");
+        } else if (extractedClass == null || extractedClass.trim().isEmpty()) {
+            error.append("\nThe LLM response was empty or contained no Java code. This can happen when:");
+            error.append("\n- The LLM hit a token limit and returned only context/documentation");
+            error.append("\n- The response was formatted as prose or explanation instead of code");
+            error.append("\n- The LLM failed silently or returned only context restatement");
+            error.append("\nRepair action: Return a complete valid Java test class with @Test methods.");
+        } else if (extractedClass.contains("BYTECODE_DISASSEMBLED") || extractedClass.contains("access flags") 
+                   || (extractedClass.contains("public class ") && extractedClass.contains(".java"))) {
+            error.append("\nThe LLM response contained only bytecode disassembly or context, not test code.");
+            error.append("\nRepair action: Generate actual Java test code with @Test methods, not context documentation.");
+        } else if (extractedClass.contains("@Test")) {
+            error.append("\nThe extracted source appears to contain @Test annotations, so malformed Java syntax earlier in the class likely prevented method extraction.");
+        } else {
+            error.append("\nThe extracted source did not contain any detectable @Test methods.");
+        }
+        return error.toString();
+    }
+
+    private List<String> extractMalformedImportLines(String sourceText) {
+        if (sourceText == null || sourceText.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LinkedHashSet<String> malformed = new LinkedHashSet<>();
+        java.util.regex.Matcher matcher = MALFORMED_IMPORT_LINE_PATTERN.matcher(sourceText);
+        while (matcher.find()) {
+            String line = matcher.group();
+            if (line != null) {
+                malformed.add(line.trim());
+            }
+        }
+        return new ArrayList<>(malformed);
+    }
+
+    private List<String> extractTypedNullDeclarationTypes(String text) {
+        if (text == null || text.isEmpty()) {
+            return Collections.emptyList();
+        }
+        LinkedHashSet<String> declaredTypes = new LinkedHashSet<>();
+        java.util.regex.Matcher matcher = NULL_DECLARATION_PATTERN.matcher(text);
+        while (matcher.find()) {
+            String declaredType = stripTypeDecorators(matcher.group(1));
+            String simpleType = simpleName(declaredType);
+            if (declaredType.isEmpty()
+                    || "Object".equals(simpleType)
+                    || "InvocationTargetException".equals(simpleType)) {
+                continue;
+            }
+            declaredTypes.add(declaredType);
+        }
+        return new ArrayList<>(declaredTypes);
+    }
+
+    private String extractFallbackTypeFromDiagnostic(ParseDiagnostic diagnostic) {
+        if (diagnostic == null) {
+            return null;
+        }
+        String message = diagnostic.getMessage() == null ? "" : diagnostic.getMessage();
+        java.util.regex.Matcher constructorMatcher = CONSTRUCTOR_DIAGNOSTIC_TYPE_PATTERN.matcher(message);
+        if (constructorMatcher.find()) {
+            return stripTypeDecorators(constructorMatcher.group(1));
+        }
+
+        String sourceSnippet = diagnostic.getSourceSnippet();
+        if (sourceSnippet == null || sourceSnippet.trim().isEmpty()) {
+            return null;
+        }
+        java.util.regex.Matcher constructorSourceMatcher = NEW_CALL_PATTERN.matcher(sourceSnippet);
+        if (constructorSourceMatcher.find()) {
+            return stripTypeDecorators(constructorSourceMatcher.group(1));
+        }
+        return null;
+    }
+
     private String extractAnonymousConstructedType(String sourceText) {
+        return extractAnonymousConstructedTypeStatic(sourceText);
+    }
+
+    private static String extractAnonymousConstructedTypeStatic(String sourceText) {
         if (sourceText == null || sourceText.isEmpty()) {
             return null;
         }
@@ -1127,6 +1454,33 @@ public class TestRepairLoop {
             return null;
         }
         return stripTypeDecorators(matcher.group(1));
+    }
+
+    private boolean isMalformedAnonymousSnippetSyntaxError(String error) {
+        if (error == null || error.isEmpty()) {
+            return false;
+        }
+        String lower = error.toLowerCase();
+        return lower.contains("snippet compilation")
+                && (lower.contains("illegal start of type")
+                || lower.contains("class, interface, enum, or record expected")
+                || lower.contains("';' expected"));
+    }
+
+    private boolean hasOnlyNonPublicConstructors(Class<?> type) {
+        if (type == null) {
+            return false;
+        }
+        java.lang.reflect.Constructor<?>[] constructors = type.getDeclaredConstructors();
+        if (constructors.length == 0) {
+            return false;
+        }
+        for (java.lang.reflect.Constructor<?> constructor : constructors) {
+            if (Modifier.isPublic(constructor.getModifiers())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private boolean isArgumentPreconditionError(String error) {
@@ -1145,6 +1499,18 @@ public class TestRepairLoop {
                 || lower.contains("required")
                 || lower.contains("cannot be ")
                 || lower.contains("at least");
+    }
+
+    private boolean isIndexedFixtureShapeError(String error) {
+        if (error == null || error.isEmpty()) {
+            return false;
+        }
+        for (String marker : INDEXED_FIXTURE_FAILURE_MARKERS) {
+            if (error.contains(marker)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isReflectiveInvocationWrapperError(String error) {
@@ -1526,7 +1892,7 @@ public class TestRepairLoop {
         }
     }
 
-    private String stripTypeDecorators(String typeName) {
+    private static String stripTypeDecorators(String typeName) {
         if (typeName == null) {
             return "";
         }
@@ -1627,6 +1993,10 @@ public class TestRepairLoop {
             }
             String kind = typeKind.get(simple);
             return "interface".equals(kind) || "abstract".equals(kind);
+        }
+
+        String getKind(String simple) {
+            return typeKind.get(simple);
         }
 
         List<String> getConcreteSubtypes(String simple) {
@@ -2011,11 +2381,12 @@ public class TestRepairLoop {
                 ? parseResult.getTestCase().size()
                 : Math.max(0, Math.min(parseResult.getTestCase().size(), failingPosition + 1));
         String relevantStatements = renderIndexedStatementRange(parseResult, 0, endExclusive);
-        if (relevantStatements.isEmpty() || !relevantStatements.contains("__llm_fallback")) {
+        if (relevantStatements.isEmpty()) {
             return "";
         }
 
-        String fallbackType = extractTypedFallbackDeclaredType(relevantStatements);
+        boolean explicitFallbackMarker = relevantStatements.contains("__llm_fallback");
+        String fallbackType = resolveFallbackTypeForRepairNote(parseResult, relevantStatements);
         List<ParseDiagnostic> relevantDiagnostics = findRelevantFallbackResolutionDiagnostics(parseResult, fallbackType);
         if (relevantDiagnostics.isEmpty()) {
             return "";
@@ -2023,12 +2394,21 @@ public class TestRepairLoop {
 
         boolean constructorDiagnostic = false;
         boolean methodDiagnostic = false;
+        InstantiationGuidance fallbackInstantiationGuidance = resolveInstantiationGuidance(fallbackType);
+        LinkedHashSet<String> explicitRepairActions = new LinkedHashSet<>();
+        LinkedHashSet<String> inventedHelperTypes = new LinkedHashSet<>();
         StringBuilder note = new StringBuilder();
         note.append("\nFallback origin note:");
         if (fallbackType != null && !fallbackType.isEmpty()) {
-            note.append("\n- The earlier '")
-                    .append(simpleName(fallbackType))
-                    .append(" __llm_fallback... = null;' placeholder came from an unresolved constructor/method expression, not intended test logic.");
+            if (explicitFallbackMarker) {
+                note.append("\n- The earlier '")
+                        .append(simpleName(fallbackType))
+                        .append(" __llm_fallback... = null;' placeholder came from an unresolved constructor/method expression, not intended test logic.");
+            } else {
+                note.append("\n- The earlier typed null declaration for '")
+                        .append(simpleName(fallbackType))
+                        .append("' is parser-generated fallback state from an unresolved constructor/method expression, not intended test logic.");
+            }
         }
         for (ParseDiagnostic diagnostic : relevantDiagnostics) {
             if (diagnostic == null || diagnostic.getMessage() == null || diagnostic.getMessage().trim().isEmpty()) {
@@ -2042,20 +2422,194 @@ public class TestRepairLoop {
             if (lower.contains("method")) {
                 methodDiagnostic = true;
             }
+            String explicitRepairAction = extractExplicitRepairAction(message);
+            if (explicitRepairAction != null && !explicitRepairAction.isEmpty()) {
+                explicitRepairActions.add(explicitRepairAction);
+            }
             note.append("\n- Parser detail: ")
                     .append(truncate(message, MAX_FALLBACK_DIAGNOSTIC_CHARS).replace('\n', ' '));
             String sourceSnippet = diagnostic.getSourceSnippet();
             if (sourceSnippet != null && !sourceSnippet.trim().isEmpty()) {
                 note.append("\n- Source expression: ")
                         .append(truncate(sourceSnippet.trim(), MAX_FALLBACK_DIAGNOSTIC_CHARS).replace('\n', ' '));
+                String inventedHelperType = extractInventedHelperTypeForFallback(sourceSnippet, message, fallbackType);
+                if (inventedHelperType != null && !inventedHelperType.isEmpty()) {
+                    inventedHelperTypes.add(inventedHelperType);
+                }
             }
         }
+        for (String explicitRepairAction : explicitRepairActions) {
+            note.append("\n- Repair action: ").append(explicitRepairAction);
+        }
+        for (String inventedHelperType : inventedHelperTypes) {
+            note.append("\n- The unresolved helper/local type inside that source expression is '")
+                    .append(simpleName(inventedHelperType))
+                    .append("'. Replace that invented helper with a real SUT/JDK/dependency value or rewrite the test to avoid it; do not only rename or re-alias the __llm_fallback placeholder.");
+        }
         if (constructorDiagnostic) {
-            note.append("\n- Use one of the listed existing constructors exactly; match owner/package types exactly and include required trailing parameters.");
+            if (fallbackInstantiationGuidance != null && fallbackInstantiationGuidance.isNonInstantiable()) {
+                note.append("\n- ")
+                        .append(buildNonInstantiableConstructionHint(fallbackType, fallbackInstantiationGuidance));
+            } else {
+                note.append("\n- Use one of the listed existing constructors exactly; match owner/package types exactly and include required trailing parameters.");
+            }
         } else if (methodDiagnostic) {
             note.append("\n- Use one of the listed existing methods/overloads exactly; keep receiver and argument types aligned with the resolved signature.");
         }
         return note.toString();
+    }
+
+    private String extractExplicitRepairAction(String diagnosticMessage) {
+        if (diagnosticMessage == null || diagnosticMessage.isEmpty()) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = EXPLICIT_REPAIR_ACTION_PATTERN.matcher(diagnosticMessage);
+        if (!matcher.find()) {
+            return null;
+        }
+        String action = matcher.group(1);
+        if (action == null) {
+            return null;
+        }
+        return action.trim();
+    }
+
+    private String extractInventedHelperTypeForFallback(String sourceSnippet,
+                                                        String diagnosticMessage,
+                                                        String fallbackType) {
+        if (sourceSnippet == null || sourceSnippet.isEmpty()) {
+            return null;
+        }
+        String diagnosticLower = diagnosticMessage == null ? "" : diagnosticMessage.toLowerCase();
+        if (!diagnosticLower.contains("invented/unknown type")
+                && !diagnosticLower.contains("do not invent local/helper types")
+                && !diagnosticLower.contains("cannot resolve class")
+                && !diagnosticLower.contains("cannot resolve type")) {
+            return null;
+        }
+
+        if (diagnosticMessage != null) {
+            java.util.regex.Matcher explicitTypeMatcher = INVENTED_UNKNOWN_TYPE_PATTERN.matcher(diagnosticMessage);
+            if (explicitTypeMatcher.find()) {
+                return stripTypeDecorators(explicitTypeMatcher.group(1));
+            }
+        }
+
+        String fallbackSimple = simpleName(fallbackType);
+        java.util.regex.Matcher matcher = NEW_CALL_PATTERN.matcher(sourceSnippet);
+        String candidate = null;
+        while (matcher.find()) {
+            String constructedType = stripTypeDecorators(matcher.group(1));
+            if (constructedType == null || constructedType.isEmpty()) {
+                continue;
+            }
+            if (!fallbackSimple.isEmpty() && fallbackSimple.equals(simpleName(constructedType))) {
+                continue;
+            }
+            candidate = constructedType;
+        }
+        return candidate;
+    }
+
+    private String resolveFallbackTypeForRepairNote(ParseResult parseResult, String relevantStatements) {
+        String explicitFallbackType = extractTypedFallbackDeclaredType(relevantStatements);
+        if (explicitFallbackType != null && !explicitFallbackType.isEmpty()) {
+            return explicitFallbackType;
+        }
+
+        List<ParseDiagnostic> resolutionDiagnostics = findRelevantFallbackResolutionDiagnostics(parseResult, null);
+        if (resolutionDiagnostics.size() == 1) {
+            String diagnosticType = extractFallbackTypeFromDiagnostic(resolutionDiagnostics.get(0));
+            if (diagnosticType != null && !diagnosticType.isEmpty()) {
+                return diagnosticType;
+            }
+        }
+
+        for (String candidateType : extractTypedNullDeclarationTypes(relevantStatements)) {
+            if (!findRelevantFallbackResolutionDiagnostics(parseResult, candidateType).isEmpty()) {
+                return candidateType;
+            }
+        }
+        return null;
+    }
+
+    private String buildNonInstantiableConstructionHint(String fallbackType,
+                                                        InstantiationGuidance guidance) {
+        String simple = simpleName(fallbackType);
+        String expression = "new " + simple + "()";
+        if ("interface".equals(guidance.kind)) {
+            if (!guidance.concreteSubtypes.isEmpty()) {
+                return "The type '" + simple + "' is an interface, so `" + expression
+                        + "` is invalid. Prefer a concrete implementation such as "
+                        + joinTop(guidance.concreteSubtypes, 3)
+                        + ", or use Mockito.mock(" + simple + ".class) / an anonymous implementation.";
+            }
+            return "The type '" + simple + "' is an interface, so `" + expression
+                    + "` is invalid. Replace it with Mockito.mock(" + simple
+                    + ".class), an anonymous implementation, or a known concrete implementation.";
+        }
+        if (!guidance.concreteSubtypes.isEmpty()) {
+            return "The type '" + simple + "' is abstract, so `" + expression
+                    + "` is invalid. Prefer a concrete subtype such as "
+                    + joinTop(guidance.concreteSubtypes, 3)
+                    + ", or use Mockito.mock(" + simple + ".class).";
+        }
+        return "The type '" + simple + "' is abstract, so `" + expression
+                + "` is invalid. Replace it with a concrete subtype or Mockito.mock("
+                + simple + ".class).";
+    }
+
+    private InstantiationGuidance resolveInstantiationGuidance(String fallbackType) {
+        String simple = simpleName(fallbackType);
+        if (simple.isEmpty()) {
+            return null;
+        }
+
+        ContextTypeIndex context = ContextTypeIndex.fromSummary(sutContextSummary);
+        if (!context.isEmpty() && context.isNonInstantiable(simple)) {
+            return new InstantiationGuidance(context.getKind(simple), context.getConcreteSubtypes(simple));
+        }
+
+        Class<?> resolved = tryResolveRepairType(fallbackType);
+        if (resolved == null) {
+            return null;
+        }
+        if (resolved.isInterface()) {
+            return new InstantiationGuidance("interface", Collections.<String>emptyList());
+        }
+        if (Modifier.isAbstract(resolved.getModifiers())) {
+            return new InstantiationGuidance("abstract", Collections.<String>emptyList());
+        }
+        return null;
+    }
+
+    private Class<?> tryResolveRepairType(String typeName) {
+        String clean = stripTypeDecorators(typeName);
+        if (clean.isEmpty()) {
+            return null;
+        }
+        LinkedHashSet<ClassLoader> loaders = new LinkedHashSet<>();
+        if (testParser != null && testParser.getClassLoader() != null) {
+            loaders.add(testParser.getClassLoader());
+        }
+        ClassLoader threadLoader = Thread.currentThread().getContextClassLoader();
+        if (threadLoader != null) {
+            loaders.add(threadLoader);
+        }
+        ClassLoader localLoader = TestRepairLoop.class.getClassLoader();
+        if (localLoader != null) {
+            loaders.add(localLoader);
+        }
+        for (ClassLoader loader : loaders) {
+            try {
+                return Class.forName(clean, false, loader);
+            } catch (ClassNotFoundException ignored) {
+                // Try next loader.
+            } catch (LinkageError ignored) {
+                // Best-effort only.
+            }
+        }
+        return null;
     }
 
     private List<ParseDiagnostic> findRelevantFallbackResolutionDiagnostics(ParseResult parseResult, String fallbackType) {
@@ -2087,6 +2641,22 @@ public class TestRepairLoop {
         return new ArrayList<>(selected.subList(0, Math.min(MAX_FALLBACK_DIAGNOSTICS, selected.size())));
     }
 
+    private static final class InstantiationGuidance {
+        private final String kind;
+        private final List<String> concreteSubtypes;
+
+        private InstantiationGuidance(String kind, List<String> concreteSubtypes) {
+            this.kind = kind;
+            this.concreteSubtypes = concreteSubtypes == null
+                    ? Collections.<String>emptyList()
+                    : concreteSubtypes;
+        }
+
+        private boolean isNonInstantiable() {
+            return "interface".equals(kind) || "abstract".equals(kind);
+        }
+    }
+
     private boolean isFallbackResolutionDiagnostic(String message) {
         if (message == null || message.isEmpty()) {
             return false;
@@ -2096,7 +2666,9 @@ public class TestRepairLoop {
                 || lower.startsWith("no matching method:")
                 || lower.startsWith("no method named ")
                 || lower.startsWith("no static method named ")
-                || lower.startsWith("method argument mismatch:");
+                || lower.startsWith("method argument mismatch:")
+                || (lower.contains("llm_repair_action_required:")
+                && (lower.contains("cannot resolve class") || lower.contains("cannot resolve type")));
     }
 
     private boolean matchesFallbackDiagnosticType(ParseDiagnostic diagnostic, String fallbackType) {
@@ -2123,15 +2695,14 @@ public class TestRepairLoop {
         if (parseResult == null || parseResult.getTestCase() == null) {
             return "";
         }
+        Map<Integer, String> renderedBlocks = renderIndexedStatementBlocks(parseResult);
         StringBuilder excerpt = new StringBuilder();
         int from = Math.max(0, startInclusive);
         int to = Math.min(parseResult.getTestCase().size(), Math.max(from, endExclusive));
         for (int i = from; i < to; i++) {
-            String statementCode;
-            try {
-                statementCode = parseResult.getTestCase().getStatement(i).getCode();
-            } catch (Throwable ignored) {
-                continue;
+            String statementCode = renderedBlocks.get(i);
+            if ((statementCode == null || statementCode.trim().isEmpty())) {
+                statementCode = renderStatementRangeFallback(parseResult, i);
             }
             if (statementCode == null || statementCode.trim().isEmpty()) {
                 continue;
@@ -2143,6 +2714,86 @@ public class TestRepairLoop {
                     .append(statementCode.trim());
         }
         return excerpt.toString();
+    }
+
+    private Map<Integer, String> renderIndexedStatementBlocks(ParseResult parseResult) {
+        Map<Integer, String> blocks = new LinkedHashMap<>();
+        String rendered = renderAnnotatedIndexedTestCase(parseResult);
+        if (rendered == null || rendered.trim().isEmpty()) {
+            return blocks;
+        }
+
+        List<String> pendingLines = new ArrayList<>();
+        Integer currentIndex = null;
+        List<String> currentLines = new ArrayList<>();
+        for (String line : rendered.split("\\R", -1)) {
+            java.util.regex.Matcher markerMatcher = EXCERPT_INDEX_MARKER_PATTERN.matcher(line);
+            if (markerMatcher.matches()) {
+                if (currentIndex != null) {
+                    blocks.put(currentIndex, trimBoundaryBlankLines(currentLines));
+                }
+                currentIndex = Integer.parseInt(markerMatcher.group(1));
+                currentLines = new ArrayList<>(pendingLines);
+                pendingLines.clear();
+                continue;
+            }
+            if (currentIndex == null) {
+                pendingLines.add(line);
+            } else {
+                currentLines.add(line);
+            }
+        }
+        if (currentIndex != null) {
+            blocks.put(currentIndex, trimBoundaryBlankLines(currentLines));
+        }
+        return blocks;
+    }
+
+    private String renderAnnotatedIndexedTestCase(ParseResult parseResult) {
+        if (parseResult == null || parseResult.getTestCase() == null) {
+            return "";
+        }
+        try {
+            org.evosuite.testcase.TestCase cloned = parseResult.getTestCase().clone();
+            for (int i = 0; i < cloned.size(); i++) {
+                org.evosuite.testcase.statements.Statement statement = cloned.getStatement(i);
+                String markerComment = statement.getComment().isEmpty()
+                        ? EXCERPT_INDEX_MARKER_PREFIX + i
+                        : "\n" + EXCERPT_INDEX_MARKER_PREFIX + i;
+                statement.addComment(markerComment);
+            }
+            org.evosuite.testcase.TestCodeVisitor visitor = new org.evosuite.testcase.TestCodeVisitor();
+            cloned.accept(visitor);
+            return visitor.getCode();
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    private String renderStatementRangeFallback(ParseResult parseResult, int index) {
+        try {
+            return parseResult.getTestCase().getStatement(index).getCode();
+        } catch (Throwable ignored) {
+            return "";
+        }
+    }
+
+    private String trimBoundaryBlankLines(List<String> lines) {
+        if (lines == null || lines.isEmpty()) {
+            return "";
+        }
+        int start = 0;
+        while (start < lines.size() && lines.get(start).trim().isEmpty()) {
+            start++;
+        }
+        int end = lines.size() - 1;
+        while (end >= start && lines.get(end).trim().isEmpty()) {
+            end--;
+        }
+        if (start > end) {
+            return "";
+        }
+        return String.join("\n", lines.subList(start, end + 1));
     }
 
     private String extractTopLevelReceiverVariableName(String statementCode) {
@@ -2164,10 +2815,15 @@ public class TestRepairLoop {
             if (!methodCallExpr.getScope().isPresent() || !(methodCallExpr.getScope().get() instanceof NameExpr)) {
                 return null;
             }
-            return ((NameExpr) methodCallExpr.getScope().get()).getNameAsString();
+            String receiverName = ((NameExpr) methodCallExpr.getScope().get()).getNameAsString();
+            return isLikelyTypeReferenceName(receiverName) ? null : receiverName;
         } catch (Throwable ignored) {
             return null;
         }
+    }
+
+    private boolean isLikelyTypeReferenceName(String name) {
+        return name != null && !name.isEmpty() && Character.isUpperCase(name.charAt(0));
     }
 
     private Integer resolveDiagnosticStatementPosition(ParseResult parseResult,

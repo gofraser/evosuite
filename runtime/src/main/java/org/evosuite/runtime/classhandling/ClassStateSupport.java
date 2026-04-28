@@ -71,7 +71,7 @@ public class ClassStateSupport {
 
         initialiseExternalTools(classLoader, classes);
 
-        if (RuntimeSettings.isUsingAnyMocking()) {
+        if (RuntimeSettings.isUsingAnyMocking() || RuntimeSettings.resetStaticState) {
 
             for (Class<?> clazz : classes) {
 
@@ -86,8 +86,9 @@ public class ClassStateSupport {
                 if (!InstrumentedClass.class.isAssignableFrom(clazz)) {
                     String msg = "Class " + clazz.getName() + " was not instrumented by EvoSuite. "
                             + "This can happen during the initial JUnit verification pass with "
-                            + "NonInstrumentingClassLoader and is usually resolved by an automatic "
-                            + "retry with the full InstrumentingClassLoader.";
+                            + "NonInstrumentingClassLoader and breaks EvoSuite features that depend on "
+                            + "instrumentation, including mocking and static-state reset. It is usually "
+                            + "resolved by an automatic retry with the full InstrumentingClassLoader.";
                     logger.info(msg);
                     nonInstrumentedClassDetected = true;
                     problem = true;

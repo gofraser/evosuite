@@ -186,7 +186,12 @@ public class GuiSupport {
     public static void setHeadless() {
 
         if (isDefaultHeadless) {
-            //already headless: nothing to do
+            // Already headless, but we may still need to repair the cached
+            // GraphicsEnvironment/Toolkit singletons before GUI-heavy static
+            // initializers run.
+            ensureGraphicsEnvironmentAvailable();
+            preloadHeadlessGuardedAwtClasses();
+            syncToolkitWithHeadlessState(true);
             return;
         }
 
@@ -325,21 +330,26 @@ public class GuiSupport {
             // Already disabled by an outer caller — nothing to do.
             return;
         }
-        if (isDefaultHeadless) {
-            // JVM started in headless mode. Flipping to non-headless can trigger
-            // toolkit native initialization (e.g., sun.awt.UNIXToolkit.check_gtk)
-            // and fail with UnsatisfiedLinkError in CI/minimal Linux runtimes.
-            // Keep headless=true and let mock constructors follow the regular
-            // headless-safe paths.
-            return;
-        }
         if (IS_MACOS) {
-            // On macOS, swapping in the real CGraphicsEnvironment/LWCToolkit
-            // would let the JDK's non-headless Window/Frame path run, which
-            // calls AppKit from the test thread and aborts the process.
-            // Skip the swap and leave headless=true; MockJFrame/MockFrame
-            // super-constructors will throw HeadlessException instead, which
-            // the test case handles as a normal exception.
+            // On macOS, unwrapping the real CGraphicsEnvironment/LWCToolkit can
+            // call into AppKit from the test thread and abort the JVM. Instead
+            // use a stub-only path: temporarily flip out of headless mode and
+            // replace the cached GraphicsEnvironment with EvoSuite's stub, while
+            // leaving the cached HeadlessToolkit in place.
+            ensureGraphicsEnvironmentAvailable();
+            preloadHeadlessGuardedAwtClasses();
+            setHeadless(false);
+            if (canSwapGe) {
+                try {
+                    GraphicsEnvironment current = (GraphicsEnvironment) geInstanceField.get(null);
+                    if (current != null) {
+                        savedHeadlessGe = current;
+                        setStaticField(geInstanceField, new StubGraphicsEnvironment(null));
+                    }
+                } catch (Throwable t) {
+                    logger.debug("Could not install stub GraphicsEnvironment on macOS: {}", t.getMessage());
+                }
+            }
             return;
         }
         // Force the <clinit> of Insets/Rectangle/Cursor/... to run while
@@ -347,7 +357,9 @@ public class GuiSupport {
         // would expose them to a native initIDs() call that may be unbound
         // on a JVM started with -Djava.awt.headless=true, leaving the class
         // in failed-init state for the rest of the run.
+        ensureGraphicsEnvironmentAvailable();
         preloadHeadlessGuardedAwtClasses();
+        initializeHeadlessToolkitIfNeeded();
         setHeadless(false);
         if (canSwapGe) {
             try {
@@ -395,6 +407,24 @@ public class GuiSupport {
             } catch (Throwable t) {
                 logger.debug("Could not swap cached Toolkit: {}", t.getMessage());
             }
+        }
+    }
+
+    /**
+     * Forces {@link Toolkit#getDefaultToolkit()} to populate the cached toolkit
+     * while the JVM is still headless, so a later temporary flip can unwrap the
+     * underlying toolkit instead of initializing a real one from scratch.
+     */
+    private static void initializeHeadlessToolkitIfNeeded() {
+        if (!canSwapToolkit || toolkitField == null) {
+            return;
+        }
+        try {
+            if (toolkitField.get(null) == null) {
+                Toolkit.getDefaultToolkit();
+            }
+        } catch (Throwable t) {
+            logger.debug("Could not initialize headless Toolkit cache: {}", t.getMessage());
         }
     }
 
@@ -447,6 +477,46 @@ public class GuiSupport {
             logger.warn("Could not change AWT headless state reflectively: {}", e.getMessage());
         }
 
+        if (isHeadless) {
+            ensureGraphicsEnvironmentAvailable();
+            preloadHeadlessGuardedAwtClasses();
+        }
+        syncToolkitWithHeadlessState(isHeadless);
+
+    }
+
+    private static void syncToolkitWithHeadlessState(boolean isHeadless) {
+        if (!canSwapToolkit || toolkitField == null) {
+            return;
+        }
+        try {
+            Toolkit current = (Toolkit) toolkitField.get(null);
+            if (isHeadless) {
+                if (current != null && !isHeadlessToolkit(current)) {
+                    // Force a later Toolkit.getDefaultToolkit() call to rebuild a
+                    // HeadlessToolkit instead of reusing a cached real toolkit.
+                    toolkitField.set(null, null);
+                }
+                return;
+            }
+
+            if (isHeadlessToolkit(current)) {
+                Toolkit real = null;
+                try {
+                    real = (Toolkit) getUnderlyingToolkitMethod.invoke(current);
+                } catch (Throwable t) {
+                    logger.debug("Could not unwrap cached HeadlessToolkit: {}", t.getMessage());
+                }
+                toolkitField.set(null, real);
+            }
+        } catch (Throwable t) {
+            logger.debug("Could not synchronize cached Toolkit with headless state: {}", t.getMessage());
+        }
+    }
+
+    private static boolean isHeadlessToolkit(Toolkit toolkit) {
+        return toolkit != null
+                && "sun.awt.HeadlessToolkit".equals(toolkit.getClass().getName());
     }
 
     /**
@@ -582,6 +652,10 @@ public class GuiSupport {
 
     static boolean canSwapGeForTests() {
         return canSwapGe;
+    }
+
+    static boolean canSwapToolkitForTests() {
+        return canSwapToolkit;
     }
 
     /**

@@ -300,16 +300,20 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         Class<?> declaringClass = constructor.getDeclaringClass();
         Class<?>[] parameterTypes = constructor.getParameterTypes();
         boolean isExact = true;
+        boolean hasNullArgument = false;
         Class<?>[] parameterClasses = new Class<?>[parameters.size()];
-        int num = 0;
-        for (VariableReference parameter : parameters) {
-            parameterClasses[num] = parameter.getVariableClass();
-            if (!parameterClasses[num].equals(parameterTypes[num])) {
+        for (int i = 0; i < parameters.size(); i++) {
+            VariableReference parameter = parameters.get(i);
+            if (isNullArgument(parameter)) {
+                hasNullArgument = true;
+            }
+            parameterClasses[i] = parameter.getVariableClass();
+            if (!parameterClasses[i].equals(parameterTypes[i])) {
                 isExact = false;
                 break;
             }
         }
-        if (isExact) {
+        if (isExact && !hasNullArgument) {
             return false;
         }
         try {
@@ -327,8 +331,8 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
                 boolean parametersEqual = true;
                 Class<?>[] otherParameterTypes = otherConstructor.getParameterTypes();
                 for (int i = 0; i < parameterClasses.length; i++) {
-                    if (parameters.get(i).isAssignableTo(parameterTypes[i])
-                            != parameters.get(i).isAssignableTo(otherParameterTypes[i])) {
+                    if (isAssignableToParameter(parameters.get(i), parameterTypes[i])
+                            != isAssignableToParameter(parameters.get(i), otherParameterTypes[i])) {
                         parametersEqual = false;
                         break;
                     }

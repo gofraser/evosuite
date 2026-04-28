@@ -84,6 +84,13 @@ public class TestParser {
     }
 
     /**
+     * Returns the class loader used to resolve SUT types while parsing.
+     */
+    public ClassLoader getClassLoader() {
+        return classLoader;
+    }
+
+    /**
      * Create a TestParser that uses EvoSuite's instrumented classloader for the SUT.
      * This should be used during test generation when running inside EvoSuite.
      *

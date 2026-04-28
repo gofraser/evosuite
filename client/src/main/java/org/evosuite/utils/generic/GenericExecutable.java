@@ -19,7 +19,9 @@
  */
 package org.evosuite.utils.generic;
 
+import org.evosuite.testcase.ConstraintHelper;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testcase.variable.NullReference;
 
 import java.lang.reflect.Executable;
 import java.lang.reflect.Parameter;
@@ -69,6 +71,29 @@ public abstract class GenericExecutable<T extends GenericExecutable<T, U>, U ext
      * @return {@code} true if there is an overloaded executable, {@code false} otherwise
      */
     public abstract boolean isOverloaded(List<VariableReference> parameters);
+
+    protected boolean isNullArgument(VariableReference parameter) {
+        if (parameter instanceof NullReference) {
+            return true;
+        }
+        try {
+            return parameter.getTestCase() != null && ConstraintHelper.isNull(parameter, parameter.getTestCase());
+        } catch (AssertionError | RuntimeException ignored) {
+            return false;
+        }
+    }
+
+    protected boolean isAssignableToParameter(VariableReference parameter, Type targetType) {
+        if (isNullArgument(parameter)) {
+            try {
+                Class<?> rawClass = GenericClassFactory.get(targetType).getRawClass();
+                return rawClass == null || !rawClass.isPrimitive();
+            } catch (RuntimeException ignored) {
+                return false;
+            }
+        }
+        return parameter.isAssignableTo(targetType);
+    }
 
     /**
      * Returns the fully qualified name concatenated with the descriptor of the underlying

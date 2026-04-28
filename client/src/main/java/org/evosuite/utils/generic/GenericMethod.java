@@ -24,7 +24,6 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
-import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -41,7 +40,9 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * GenericMethod class.
@@ -252,7 +253,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         String methodName = getName();
         Class<?> declaringClass = method.getDeclaringClass();
         try {
-            for (java.lang.reflect.Method otherMethod : declaringClass.getMethods()) {
+            for (java.lang.reflect.Method otherMethod : getCandidateMethods(declaringClass)) {
                 if (otherMethod.equals(method)) {
                     continue;
                 }
@@ -302,12 +303,12 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         Class<?> declaringClass = method.getDeclaringClass();
         Class<?>[] parameterTypes = method.getParameterTypes();
         boolean isExact = true;
-        boolean hasNullReference = false;
+        boolean hasNullArgument = false;
         Class<?>[] parameterClasses = new Class<?>[parameters.size()];
         for (int num = 0; num < parameters.size(); num++) {
             VariableReference parameter = parameters.get(num);
-            if (parameter instanceof NullReference) {
-                hasNullReference = true;
+            if (isNullArgument(parameter)) {
+                hasNullArgument = true;
             }
             parameterClasses[num] = parameter.getVariableClass();
             if (!parameterClasses[num].equals(parameterTypes[num])) {
@@ -319,26 +320,60 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
         // A null literal is typeless in source code. Even if the tracked variable type
         // exactly matches this method, we still need overload disambiguation casts.
-        if (isExact && !hasNullReference) {
+        if (isExact && !hasNullArgument) {
             return false;
         }
         try {
-            for (java.lang.reflect.Method otherMethod : declaringClass.getMethods()) {
+            for (java.lang.reflect.Method otherMethod : getCandidateMethods(declaringClass)) {
                 if (otherMethod.equals(method)) {
                     continue;
                 }
 
-                if (otherMethod.getName().equals(methodName)) {
-                    if (!Arrays.equals(otherMethod.getParameterTypes(), parameterTypes)) {
-                        return true;
+                if (!otherMethod.getName().equals(methodName)) {
+                    continue;
+                }
+
+                if (parameterTypes.length != otherMethod.getParameterCount()) {
+                    continue;
+                }
+
+                boolean parametersEqual = true;
+                Class<?>[] otherParameterTypes = otherMethod.getParameterTypes();
+                for (int i = 0; i < parameterClasses.length; i++) {
+                    if (isAssignableToParameter(parameters.get(i), parameterTypes[i])
+                            != isAssignableToParameter(parameters.get(i), otherParameterTypes[i])) {
+                        parametersEqual = false;
+                        break;
                     }
                 }
+                if (parametersEqual) {
+                    return true;
+                }
             }
-        } catch (SecurityException e) {
+        } catch (SecurityException | NoClassDefFoundError e) {
             // ignored
         }
 
         return false;
+    }
+
+    private Set<Method> getCandidateMethods(Class<?> declaringClass) {
+        Set<Method> candidates = new LinkedHashSet<>();
+        try {
+            candidates.addAll(Arrays.asList(declaringClass.getMethods()));
+        } catch (SecurityException | NoClassDefFoundError ignored) {
+            // Best effort: fall through to declared methods below.
+        }
+        Class<?> current = declaringClass;
+        while (current != null) {
+            try {
+                candidates.addAll(Arrays.asList(current.getDeclaredMethods()));
+            } catch (SecurityException | NoClassDefFoundError ignored) {
+                // Keep scanning remaining parents/interfaces when possible.
+            }
+            current = current.getSuperclass();
+        }
+        return candidates;
     }
 
     @Override

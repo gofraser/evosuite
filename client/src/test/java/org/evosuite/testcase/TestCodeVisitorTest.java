@@ -23,6 +23,7 @@ import com.examples.with.different.packagename.AbstractEnumInInnerClass;
 import com.examples.with.different.packagename.AbstractEnumUser;
 import com.examples.with.different.packagename.EnumInInnerClass;
 import com.examples.with.different.packagename.EnumUser;
+import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.ga.ConstructionFailedException;
@@ -49,16 +50,19 @@ import org.evosuite.utils.generic.WildcardTypeImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.nio.charset.StandardCharsets;
 import java.awt.HeadlessException;
 import javax.swing.JMenuItem;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.Iterator;
 import java.util.Set;
 import java.util.Vector;
 
@@ -390,6 +394,59 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testUninterpretedStatementAddsImportForThrowsClauseType() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "Object reader = new Object() {\n"
+                        + "  String read() throws IOException {\n"
+                        + "    return null;\n"
+                        + "  }\n"
+                        + "};"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(IOException.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportsForAnonymousClassGenericReturnType() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "Object adminApp = new Object() {\n"
+                        + "  public Vector<Locale> getGroups() {\n"
+                        + "    return null;\n"
+                        + "  }\n"
+                        + "};"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(java.util.Vector.class));
+        assertTrue(imports.contains(java.util.Locale.class));
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForGenericArgumentOfQualifiedReturnType() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "Object lib = new Object() {\n"
+                        + "  public java.util.List<JButton> getButtons() {\n"
+                        + "    return Collections.emptyList();\n"
+                        + "  }\n"
+                        + "};"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(Collections.class));
+        assertTrue(imports.contains(javax.swing.JButton.class));
+    }
+
+    @Test
     public void testUninterpretedStatementNormalizesBinaryInnerClassLiteral() {
         TestCase tc = new DefaultTestCase();
         tc.addStatement(new UninterpretedStatement(tc,
@@ -685,6 +742,31 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testClashingNestedEnumSimpleNamesUseCanonicalNameForSecond() throws ConstructionFailedException {
+        TestCase tc = new DefaultTestCase();
+
+        EnumPrimitiveStatement firstEnum = new EnumPrimitiveStatement(tc, EnumInInnerClass.AnEnum.class);
+        firstEnum.setValue(EnumInInnerClass.AnEnum.FOO);
+        tc.addStatement(firstEnum);
+
+        EnumPrimitiveStatement secondEnum = new EnumPrimitiveStatement(tc, AbstractEnumInInnerClass.AnEnum.class);
+        secondEnum.setValue(AbstractEnumInInnerClass.AnEnum.FOO);
+        tc.addStatement(secondEnum);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        Set<Class<?>> imports = visitor.getImports();
+
+        assertTrue(code.contains("EnumInInnerClass.AnEnum.FOO"));
+        assertTrue(code.contains("AbstractEnumInInnerClass.AnEnum.FOO"));
+        assertFalse(imports.contains(EnumInInnerClass.AnEnum.class),
+                "Qualified nested enum usage should not import the nested enum type");
+        assertFalse(imports.contains(AbstractEnumInInnerClass.AnEnum.class),
+                "Conflicting nested enum should use canonical name instead of a clashing import");
+    }
+
+    @Test
     public void testMethodRenamingWithHeuristics() throws Exception{
 
         Properties.getInstance().setValue("variable_naming_strategy", Properties.VariableNamingStrategy.HEURISTICS_BASED);
@@ -948,6 +1030,135 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testParameterizedReceiverWithRawMethodOwnerAvoidsObjectNullCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type parameterizedArrayList = TypeUtils.parameterize(ArrayList.class, String.class);
+        VariableReference listVar = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), parameterizedArrayList),
+                0,
+                0);
+        VariableReference nullVar = tc.addStatement(new NullStatement(tc, Object.class));
+
+        Method addMethod = ArrayList.class.getMethod("add", Object.class);
+        GenericMethod rawOwnerAdd = new GenericMethod(addMethod, ArrayList.class);
+        tc.addStatement(new MethodStatement(tc, rawOwnerAdd, listVar, Arrays.asList(nullVar)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains(".add(null);"), "Expected parameterized receiver to render plain null:\n" + code);
+        assertFalse(code.contains(".add((Object) null);"),
+                "Parameterized receiver should not emit erased Object null casts:\n" + code);
+    }
+
+    @Test
+    public void testRawReceiverWithParameterizedMethodOwnerCastsGenericReturn() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type parameterizedArrayList = TypeUtils.parameterize(ArrayList.class, String.class);
+        VariableReference listVar = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), parameterizedArrayList),
+                0,
+                0);
+
+        Method iteratorMethod = ArrayList.class.getMethod("iterator");
+        GenericMethod typedIteratorMethod = new GenericMethod(iteratorMethod, parameterizedArrayList);
+        VariableReference iteratorVar = tc.addStatement(
+                new MethodStatement(tc, typedIteratorMethod, listVar, Collections.emptyList()));
+        iteratorVar.setType(Iterator.class);
+
+        Method nextMethod = Iterator.class.getMethod("next");
+        GenericMethod typedNextMethod = new GenericMethod(nextMethod, TypeUtils.parameterize(Iterator.class, String.class));
+        VariableReference nextValue = tc.addStatement(
+                new MethodStatement(tc, typedNextMethod, iteratorVar, Collections.emptyList()));
+        Method lengthMethod = String.class.getMethod("length");
+        tc.addStatement(new MethodStatement(tc, new GenericMethod(lengthMethod, String.class), nextValue, Collections.emptyList()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("Iterator "),
+                "Expected raw Iterator receiver declaration in regression setup:\n" + code);
+        assertTrue(code.contains("= (String)") && code.contains(".next();"),
+                "Raw generic receiver should cast generic return to compile safely:\n" + code);
+    }
+
+    @Test
+    public void testParameterizedReceiverWithRawMethodOwnerAvoidsObjectCastForPrimitiveValue() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type parameterizedArrayList = TypeUtils.parameterize(ArrayList.class, Integer.class);
+        VariableReference listVar = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), parameterizedArrayList),
+                0,
+                0);
+        VariableReference intVar = tc.addStatement(new IntPrimitiveStatement(tc, 1));
+
+        Method addMethod = ArrayList.class.getMethod("add", Object.class);
+        GenericMethod rawOwnerAdd = new GenericMethod(addMethod, ArrayList.class);
+        tc.addStatement(new MethodStatement(tc, rawOwnerAdd, listVar, Arrays.asList(intVar)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains(".add("), "Expected add call:\n" + code);
+        assertFalse(code.contains(".add((Object)"),
+                "Parameterized receiver should not emit erased Object casts for concrete values:\n" + code);
+    }
+
+    @Test
+    public void testParameterizedReceiverWithRawMethodOwnerAvoidsObjectCastForReferenceValue() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type parameterizedArrayList = TypeUtils.parameterize(ArrayList.class, String.class);
+        VariableReference listVar = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), parameterizedArrayList),
+                0,
+                0);
+        VariableReference stringVar = tc.addStatement(new StringPrimitiveStatement(tc, "value"));
+
+        Method addMethod = ArrayList.class.getMethod("add", Object.class);
+        GenericMethod rawOwnerAdd = new GenericMethod(addMethod, ArrayList.class);
+        tc.addStatement(new MethodStatement(tc, rawOwnerAdd, listVar, Arrays.asList(stringVar)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains(".add("), "Expected add call:\n" + code);
+        assertFalse(code.contains(".add((Object)"),
+                "Parameterized receiver should not emit erased Object casts for reference values:\n" + code);
+    }
+
+    @Test
+    public void testParameterizedReceiverWithRawMethodOwnerAvoidsObjectCastForSubtypeReferenceValue() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type parameterizedArrayList = TypeUtils.parameterize(ArrayList.class, CharSequence.class);
+        VariableReference listVar = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), parameterizedArrayList),
+                0,
+                0);
+        VariableReference stringVar = tc.addStatement(new StringPrimitiveStatement(tc, "value"));
+
+        Method addMethod = ArrayList.class.getMethod("add", Object.class);
+        GenericMethod rawOwnerAdd = new GenericMethod(addMethod, ArrayList.class);
+        tc.addStatement(new MethodStatement(tc, rawOwnerAdd, listVar, Arrays.asList(stringVar)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains(".add("), "Expected add call:\n" + code);
+        assertFalse(code.contains(".add((Object)"),
+                "Parameterized receiver should not emit erased Object casts for subtype reference values:\n" + code);
+    }
+
+    @Test
     public void testAssertionReferencingFutureVariableIsDeferredUntilVariableIsDeclared() {
         TestCase tc = new DefaultTestCase();
         VariableReference int0 = tc.addStatement(new IntPrimitiveStatement(tc, 1));
@@ -1025,6 +1236,23 @@ public class TestCodeVisitorTest {
             assertTrue(code.contains("getDeclaredConstructor("));
             assertTrue(code.contains(".setAccessible(true);"));
             assertTrue(code.contains(".newInstance("));
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
+    }
+
+    @Test
+    public void testGetImportsSkipsNonPublicClassOutsideGeneratedPackage() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = "different.generated.package";
+        try {
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            Class<?> nodeClass = Class.forName("java.util.stream.Node");
+
+            visitor.getClassName(nodeClass);
+
+            Set<Class<?>> imports = visitor.getImports();
+            assertFalse(imports.contains(nodeClass));
         } finally {
             Properties.CLASS_PREFIX = oldClassPrefix;
         }

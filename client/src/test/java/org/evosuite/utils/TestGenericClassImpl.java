@@ -28,6 +28,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
+import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.WildcardTypeImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -997,5 +998,36 @@ public class TestGenericClassImpl {
         GenericClass<?> enumClass = GenericClassFactory.get(Enum.class);
         // Runtime enums should be assignable to Enum
         Assertions.assertTrue(enumClass.getRawClass().isAssignableFrom(java.util.concurrent.TimeUnit.class));
+    }
+
+    @Test
+    public void testNonGenericSubclassIgnoresInheritedParameterizedArguments() throws Exception {
+        Type malformedType = new ParameterizedTypeImpl(ConcreteRecord.class,
+                new Type[]{RecordContract.class, String.class}, null);
+
+        Assertions.assertEquals(0,
+                ((ParameterizedType) malformedType).getActualTypeArguments().length);
+
+        GenericConstructor constructor = new GenericConstructor(
+                ConcreteRecord.class.getDeclaredConstructor(String.class),
+                malformedType);
+        Type[] parameterTypes = constructor.getParameterTypes();
+
+        Assertions.assertEquals(1, parameterTypes.length);
+        Assertions.assertEquals(String.class, parameterTypes[0]);
+    }
+
+    private interface RecordContract {
+    }
+
+    private abstract static class AbstractRecord<TContract, TData> {
+        protected AbstractRecord(String value) {
+        }
+    }
+
+    private static final class ConcreteRecord extends AbstractRecord<RecordContract, String> {
+        private ConcreteRecord(String value) {
+            super(value);
+        }
     }
 }

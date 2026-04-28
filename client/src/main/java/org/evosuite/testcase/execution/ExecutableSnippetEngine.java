@@ -884,7 +884,7 @@ public final class ExecutableSnippetEngine {
         String className = classNameFor(key);
         String normalizedBody = sanitizeUnmatchedTopLevelClosingBraces(sourceCode);
         StringBuilder src = new StringBuilder();
-        appendImports(src, bindings);
+        appendImports(src, bindings, normalizedBody, returnExpression);
         src.append("public class ").append(className).append(" {\n");
         appendCompatibilityHelpers(src);
         src.append("  @SuppressWarnings(\"unchecked\")\n");
@@ -950,7 +950,7 @@ public final class ExecutableSnippetEngine {
                                              Map<String, Binding> bindings) {
         String className = classNameFor(key);
         StringBuilder src = new StringBuilder();
-        appendImports(src, bindings);
+        appendImports(src, bindings, assertionCode, null);
         src.append("import static org.junit.jupiter.api.Assertions.*;\n");
         src.append("import static org.junit.jupiter.api.Assumptions.*;\n");
         src.append("public class ").append(className).append(" {\n");
@@ -986,10 +986,14 @@ public final class ExecutableSnippetEngine {
      * all binding types, so that unqualified class names (including inner
      * classes like enums) used in the snippet source code resolve correctly.
      */
-    private void appendImports(StringBuilder src, Map<String, Binding> bindings) {
+    private void appendImports(StringBuilder src,
+                               Map<String, Binding> bindings,
+                               String sourceCode,
+                               String returnExpression) {
         Set<String> imports = new LinkedHashSet<>();
         Set<String> wildcardClassImports = new LinkedHashSet<>();
         Set<String> targetWildcardPackageImports = new LinkedHashSet<>();
+        Set<Class<?>> knownClasses = new LinkedHashSet<>();
 
         // Import public classes from the TestCluster — these are the SUT and
         // its dependencies that EvoSuite has analyzed.
@@ -999,6 +1003,7 @@ public final class ExecutableSnippetEngine {
         Set<String> collidingSimpleNames = new LinkedHashSet<>();
         try {
             for (Class<?> cls : org.evosuite.setup.TestCluster.getInstance().getAnalyzedClasses()) {
+                rememberKnownClass(cls, knownClasses);
                 addClassImport(cls, simpleNameToFqn, collidingSimpleNames);
                 // Add a wildcard import if the class has at least one public
                 // inner class/enum.  If getDeclaredClasses() fails (e.g.,
@@ -1041,8 +1046,12 @@ public final class ExecutableSnippetEngine {
             if (raw.isArray()) {
                 raw = rawComponentType(raw);
             }
+            rememberKnownClass(raw, knownClasses);
             addClassImport(raw, simpleNameToFqn, collidingSimpleNames);
         }
+
+        seedKnownClassesFromSource(sourceCode, returnExpression, knownClasses);
+        ensureSnippetImports(sourceCode, returnExpression, bindings, knownClasses, simpleNameToFqn, collidingSimpleNames);
 
         for (Map.Entry<String, String> entry : simpleNameToFqn.entrySet()) {
             if (!collidingSimpleNames.contains(entry.getKey())) {
@@ -1073,6 +1082,286 @@ public final class ExecutableSnippetEngine {
         for (String pkg : targetWildcardPackageImports) {
             src.append("import ").append(pkg).append(".*;\n");
         }
+    }
+
+    private void rememberKnownClass(Class<?> cls, Set<Class<?>> knownClasses) {
+        if (cls == null) {
+            return;
+        }
+        Class<?> raw = cls;
+        while (raw.isArray()) {
+            raw = raw.getComponentType();
+        }
+        if (!raw.isPrimitive()) {
+            knownClasses.add(raw);
+        }
+    }
+
+    private void seedKnownClassesFromSource(String sourceCode,
+                                            String returnExpression,
+                                            Set<Class<?>> knownClasses) {
+        String combined = ((sourceCode == null) ? "" : sourceCode) + "\n"
+                + ((returnExpression == null) ? "" : returnExpression);
+        if (combined.trim().isEmpty()) {
+            return;
+        }
+
+        Matcher matcher = Pattern.compile(
+                "\\b((?:[a-z_][A-Za-z0-9_]*\\.)+[A-Z][A-Za-z0-9_$]*(?:\\.[A-Z][A-Za-z0-9_$]*)*)\\b")
+                .matcher(combined);
+        while (matcher.find()) {
+            Class<?> resolved = tryLoadSourceLevelClassName(matcher.group(1));
+            if (resolved != null) {
+                rememberKnownClass(resolved, knownClasses);
+            }
+        }
+    }
+
+    private void ensureSnippetImports(String sourceCode,
+                                      String returnExpression,
+                                      Map<String, Binding> bindings,
+                                      Set<Class<?>> knownClasses,
+                                      Map<String, String> simpleNameToFqn,
+                                      Set<String> collidingSimpleNames) {
+        String combined = ((sourceCode == null) ? "" : sourceCode) + "\n"
+                + ((returnExpression == null) ? "" : returnExpression);
+        if (combined.trim().isEmpty()) {
+            return;
+        }
+
+        Set<String> boundNames = new LinkedHashSet<>();
+        if (bindings != null) {
+            boundNames.addAll(bindings.keySet());
+        }
+
+        Set<String> seen = new LinkedHashSet<>();
+        registerSnippetImports(combined, "\\b([A-Z][A-Za-z0-9_]*)\\s*\\.", boundNames, seen,
+                knownClasses, simpleNameToFqn, collidingSimpleNames);
+        registerSnippetImports(combined, "\\b([A-Z][A-Za-z0-9_]*)\\s*\\.class\\b", boundNames, seen,
+                knownClasses, simpleNameToFqn, collidingSimpleNames);
+        registerSnippetImports(combined, "\\(\\s*([A-Z][A-Za-z0-9_]*)\\s*\\)", boundNames, seen,
+                knownClasses, simpleNameToFqn, collidingSimpleNames);
+        registerSnippetImports(combined, "\\binstanceof\\s+([A-Z][A-Za-z0-9_]*)\\b", boundNames, seen,
+                knownClasses, simpleNameToFqn, collidingSimpleNames);
+        registerSnippetImports(combined,
+                "\\bnew\\s+([A-Z][A-Za-z0-9_]*)\\s*(?:<[^>]*>)?\\s*\\(",
+                boundNames, seen, knownClasses, simpleNameToFqn, collidingSimpleNames);
+        registerSnippetImports(combined,
+                "\\b(?:public|protected|private)\\s+"
+                        + "(?:static\\s+|final\\s+|abstract\\s+|synchronized\\s+)*"
+                        + "([A-Z][A-Za-z0-9_]*)\\s*(?:<[^\\n\\r{};=]*>)?\\s+"
+                        + "[A-Za-z_$][A-Za-z0-9_$]*\\s*\\(",
+                boundNames, seen, knownClasses, simpleNameToFqn, collidingSimpleNames);
+        registerSnippetImports(combined,
+                "\\b([A-Z][A-Za-z0-9_]*)\\s*(?:<[^;{}()=]*>)?\\s*(?:\\[\\s*\\])*\\s+"
+                        + "[A-Za-z_$][A-Za-z0-9_$]*\\s*(?==|;|,|\\))",
+                boundNames, seen, knownClasses, simpleNameToFqn, collidingSimpleNames);
+        registerGenericTypeArgumentImports(combined, boundNames, seen, knownClasses, simpleNameToFqn,
+                collidingSimpleNames);
+        registerThrownTypeImports(combined, boundNames, seen, knownClasses, simpleNameToFqn,
+                collidingSimpleNames);
+    }
+
+    private void registerSnippetImports(String text,
+                                        String regex,
+                                        Set<String> boundNames,
+                                        Set<String> seen,
+                                        Set<Class<?>> knownClasses,
+                                        Map<String, String> simpleNameToFqn,
+                                        Set<String> collidingSimpleNames) {
+        Matcher matcher = Pattern.compile(regex).matcher(text);
+        while (matcher.find()) {
+            String simpleName = matcher.group(1);
+            if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
+                continue;
+            }
+            Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
+            if (resolved != null) {
+                rememberKnownClass(resolved, knownClasses);
+                addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
+            }
+        }
+    }
+
+    private void registerThrownTypeImports(String text,
+                                           Set<String> boundNames,
+                                           Set<String> seen,
+                                           Set<Class<?>> knownClasses,
+                                           Map<String, String> simpleNameToFqn,
+                                           Set<String> collidingSimpleNames) {
+        Matcher throwsMatcher = Pattern.compile("\\bthrows\\s+([^\\{;]+)").matcher(text);
+        while (throwsMatcher.find()) {
+            String clause = throwsMatcher.group(1);
+            Matcher typeMatcher = Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b")
+                    .matcher(clause);
+            while (typeMatcher.find()) {
+                String simpleName = typeMatcher.group(1);
+                if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
+                    continue;
+                }
+                Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
+                if (resolved != null) {
+                    rememberKnownClass(resolved, knownClasses);
+                    addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
+                }
+            }
+        }
+    }
+
+    private void registerGenericTypeArgumentImports(String text,
+                                                    Set<String> boundNames,
+                                                    Set<String> seen,
+                                                    Set<Class<?>> knownClasses,
+                                                    Map<String, String> simpleNameToFqn,
+                                                    Set<String> collidingSimpleNames) {
+        Matcher matcher = Pattern.compile("<([^<>]+)>").matcher(text);
+        while (matcher.find()) {
+            String genericClause = matcher.group(1);
+            Matcher typeMatcher = Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b")
+                    .matcher(genericClause);
+            while (typeMatcher.find()) {
+                String simpleName = typeMatcher.group(1);
+                if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
+                    continue;
+                }
+                Class<?> resolved = resolveSimpleClassName(simpleName, knownClasses);
+                if (resolved != null) {
+                    rememberKnownClass(resolved, knownClasses);
+                    addClassImport(resolved, simpleNameToFqn, collidingSimpleNames);
+                }
+            }
+        }
+    }
+
+    private Class<?> resolveSimpleClassName(String simpleName, Set<Class<?>> knownClasses) {
+        if (simpleName == null || simpleName.isEmpty()) {
+            return null;
+        }
+
+        for (Class<?> knownClass : knownClasses) {
+            if (simpleName.equals(knownClass.getSimpleName())) {
+                return knownClass;
+            }
+        }
+
+        for (Class<?> knownClass : knownClasses) {
+            Class<?> nested = resolveNestedSimpleName(knownClass, simpleName);
+            if (nested != null) {
+                return nested;
+            }
+        }
+
+        String[] commonPackages = new String[]{
+                "java.lang",
+                "java.util",
+                "java.util.concurrent",
+                "java.util.regex",
+                "java.util.stream",
+                "java.nio",
+                "java.nio.charset",
+                "java.nio.file",
+                "java.io",
+                "java.net",
+                "java.time",
+                "java.math",
+                "java.lang.reflect",
+                "java.awt",
+                "javax.naming",
+                "javax.naming.directory",
+                "javax.naming.ldap",
+                "javax.swing",
+                "org.junit.jupiter.api"
+        };
+
+        for (String pkg : commonPackages) {
+            Class<?> resolved = tryLoadClass(pkg + "." + simpleName);
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+
+        for (Class<?> knownClass : knownClasses) {
+            Package knownPackage = knownClass.getPackage();
+            if (knownPackage == null || knownPackage.getName() == null || knownPackage.getName().isEmpty()) {
+                continue;
+            }
+            Class<?> sibling = tryLoadClass(knownPackage.getName() + "." + simpleName);
+            if (sibling != null) {
+                return sibling;
+            }
+        }
+
+        if (Properties.CLASS_PREFIX != null && !Properties.CLASS_PREFIX.trim().isEmpty()) {
+            return tryLoadClass(Properties.CLASS_PREFIX + "." + simpleName);
+        }
+        return null;
+    }
+
+    private Class<?> resolveNestedSimpleName(Class<?> owner, String simpleName) {
+        if (owner == null || simpleName == null || simpleName.isEmpty()) {
+            return null;
+        }
+        for (Class<?> nested : safeDeclaredClasses(owner)) {
+            if (simpleName.equals(nested.getSimpleName())) {
+                return nested;
+            }
+        }
+        return null;
+    }
+
+    private List<Class<?>> safeDeclaredClasses(Class<?> owner) {
+        try {
+            Class<?>[] declared = owner.getDeclaredClasses();
+            List<Class<?>> result = new ArrayList<>(declared.length);
+            Collections.addAll(result, declared);
+            return result;
+        } catch (Throwable ignored) {
+            return Collections.emptyList();
+        }
+    }
+
+    private Class<?> tryLoadClass(String className) {
+        if (className == null || className.isEmpty()) {
+            return null;
+        }
+        ClassLoader loader = resolveSnippetParentClassLoader();
+        try {
+            return Class.forName(className, false, loader);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private Class<?> tryLoadSourceLevelClassName(String typeName) {
+        if (typeName == null || typeName.isEmpty()) {
+            return null;
+        }
+        Class<?> direct = tryLoadClass(typeName);
+        if (direct != null) {
+            return direct;
+        }
+
+        int packageEnd = -1;
+        Matcher packageMatcher = Pattern.compile("^(?:[a-z_][A-Za-z0-9_]*\\.)+").matcher(typeName);
+        if (packageMatcher.find()) {
+            packageEnd = packageMatcher.end();
+        }
+        String packagePrefix = packageEnd > 0 ? typeName.substring(0, packageEnd) : "";
+        String remainder = typeName.substring(packagePrefix.length());
+        if (remainder.indexOf('.') < 0) {
+            return null;
+        }
+
+        String[] classSegments = remainder.split("\\.");
+        StringBuilder candidate = new StringBuilder(packagePrefix).append(classSegments[0]);
+        for (int i = 1; i < classSegments.length; i++) {
+            candidate.append('$').append(classSegments[i]);
+            Class<?> resolved = tryLoadClass(candidate.toString());
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+        return null;
     }
 
     private void appendCompatibilityHelpers(StringBuilder src) {

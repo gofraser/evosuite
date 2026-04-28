@@ -109,6 +109,7 @@ public class TestCodeVisitor extends TestVisitor {
     protected Map<VariableReference, String> methodNames = new HashMap<>();
     protected Map<VariableReference, String> argumentNames = new HashMap<>();
     private int nullDeclarationCounter = 0;
+    private final Map<VariableReference, String> declarationVariableNames = new IdentityHashMap<>();
     private final Map<Integer, List<Assertion>> deferredAssertionsByPosition = new HashMap<>();
 
     private Map<String, Map<VariableReference, String>> information = new HashMap<>();
@@ -144,6 +145,14 @@ public class TestCodeVisitor extends TestVisitor {
         }
         String canonicalName = clazz.getCanonicalName();
         if (canonicalName == null || canonicalName.isEmpty()) {
+            return false;
+        }
+        if (!isTypeAccessibleFromGeneratedTest(clazz, getGeneratedTestPackageName())) {
+            return false;
+        }
+        if (clazz.getEnclosingClass() != null
+                && renderedName.indexOf('.') >= 0
+                && testCode.indexOf(renderedName) >= 0) {
             return false;
         }
         return !canonicalName.equals(renderedName);
@@ -266,6 +275,9 @@ public class TestCodeVisitor extends TestVisitor {
         if (type instanceof Class<?>) {
             Class<?> clazz = (Class<?>) type;
             String name = getClassName(clazz);
+            if (clazz == Class.class) {
+                return name;
+            }
             // A raw generic class used as a type argument needs wildcards to avoid
             // compile errors (e.g. TypeVariable<Class> must be TypeVariable<Class<?>>).
             TypeVariable<?>[] typeParams = clazz.getTypeParameters();
@@ -358,8 +370,10 @@ public class TestCodeVisitor extends TestVisitor {
 
         GenericClass<?> c = GenericClassFactory.get(clazz);
         String name = c.getSimpleName();
+        boolean useCanonicalName = false;
         if (hasSimpleNameConflict(clazz, name)) {
             name = clazz.getCanonicalName();
+            useCanonicalName = true;
         } else {
             /*
              * If e.g. there is a foo.bar.IllegalStateException with
@@ -372,6 +386,7 @@ public class TestCodeVisitor extends TestVisitor {
                     if (ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
                             .hasClass(fullName)) {
                         name = clazz.getCanonicalName();
+                        useCanonicalName = true;
                     }
                 } catch (IllegalArgumentException e) {
                     // If the classpath is not correct, then we just don't check
@@ -382,7 +397,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
         // Ensure outer classes are imported as well
         Class<?> outerClass = clazz.getEnclosingClass();
-        if (outerClass != null) {
+        if (outerClass != null && !useCanonicalName) {
             String enclosingName = getClassName(outerClass);
             String simpleOuterName = outerClass.getSimpleName() + ".";
             if (simpleOuterName.equals(enclosingName)) {
@@ -400,6 +415,7 @@ public class TestCodeVisitor extends TestVisitor {
         // We can't use "Test" because of JUnit
         if (name.equals("Test")) {
             name = clazz.getCanonicalName();
+            useCanonicalName = true;
         }
         classNames.put(clazz, name);
 
@@ -409,7 +425,7 @@ public class TestCodeVisitor extends TestVisitor {
     private boolean hasSimpleNameConflict(Class<?> clazz, String simpleName) {
         String canonicalName = clazz.getCanonicalName();
         for (Map.Entry<Class<?>, String> entry : classNames.entrySet()) {
-            if (!simpleName.equals(entry.getValue())) {
+            if (!simpleName.equals(entry.getKey().getSimpleName())) {
                 continue;
             }
             Class<?> existingClass = entry.getKey();
@@ -494,9 +510,23 @@ public class TestCodeVisitor extends TestVisitor {
     }
 
     private String getDeclarationVariableName(VariableReference var) {
+        VariableReference normalized = normalizeVariableReference(var);
+        String existingName = declarationVariableNames.get(normalized);
+        if (existingName != null) {
+            return existingName;
+        }
+        String name = getVariableName(normalized);
+        if ("null".equals(name)) {
+            name = "nullRef" + (nullDeclarationCounter++);
+        }
+        declarationVariableNames.put(normalized, name);
+        return name;
+    }
+
+    private String getSnippetBindingName(VariableReference var) {
         String name = getVariableName(var);
         if ("null".equals(name)) {
-            return "nullRef" + (nullDeclarationCounter++);
+            return getDeclarationVariableName(var);
         }
         return name;
     }
@@ -600,6 +630,7 @@ public class TestCodeVisitor extends TestVisitor {
         this.test = test;
         this.testCode = new StringBuilder();
         this.nullDeclarationCounter = 0;
+        this.declarationVariableNames.clear();
         this.deferredAssertionsByPosition.clear();
         if (!customVariableNameStrategy) {
             this.variableNameStrategy = VariableNameStrategyFactory.get();
@@ -1350,6 +1381,12 @@ public class TestCodeVisitor extends TestVisitor {
     private String getParameterString(Type[] parameterTypes,
                                       List<VariableReference> parameters, boolean isGenericMethod,
                                       boolean isOverloaded, int startPos) {
+        return getParameterString(parameterTypes, parameters, isGenericMethod, isOverloaded, startPos, null);
+    }
+
+    private String getParameterString(Type[] parameterTypes,
+                                      List<VariableReference> parameters, boolean isGenericMethod,
+                                      boolean isOverloaded, int startPos, Type ownerType) {
         String parameterString = "";
 
         for (int i = startPos; i < parameters.size(); i++) {
@@ -1392,7 +1429,8 @@ public class TestCodeVisitor extends TestVisitor {
                     // For unresolved generic params (eg TypeVariable/Wildcard with erasure Object),
                     // an explicit cast like (Object) null can break invocation on parameterized
                     // receivers (eg List<Node>.add(E) rejects Object). Keep plain null.
-                    if (!isUnresolvedTypeVariableOrWildcard(declaredParamType)) {
+                    if (!isUnresolvedTypeVariableOrWildcard(declaredParamType)
+                            && !shouldSkipErasedObjectCast(declaredParamType, null, ownerType)) {
                         parameterString += "(" + getTypeName(declaredParamType) + ") ";
                     }
                 }
@@ -1425,6 +1463,10 @@ public class TestCodeVisitor extends TestVisitor {
                     // An `(Object)` cast here would defeat generic method resolution on
                     // a parameterized receiver (eg, HashSet<String>.add resolves to
                     // add(String), which then rejects an Object argument). Emit no cast.
+                } else if (shouldSkipErasedObjectCast(declaredParamType, actualParamType, ownerType)) {
+                    // For raw method owners on parameterized receivers (eg, ArrayList<Integer>
+                    // with add(Object)), an erased (Object) cast defeats the receiver's generic
+                    // method resolution and makes otherwise-valid code uncompilable.
                 } else {
                     parameterString += "(" + getCastTypeName(declaredParamType, actualParamType) + ") ";
                 }
@@ -1447,7 +1489,8 @@ public class TestCodeVisitor extends TestVisitor {
                     parameterString += "(" + getTypeName(declaredParamType) + ") ";
                 } else if (isOverloaded) {
                     // If there is an overloaded method, we need to cast to make sure we use the right version
-                    if (!declaredParamType.equals(actualParamType)) {
+                    if (!declaredParamType.equals(actualParamType)
+                            && !shouldSkipErasedObjectCast(declaredParamType, actualParamType, ownerType)) {
                         parameterString += "(" + getCastTypeName(declaredParamType, actualParamType) + ") ";
                     }
                 }
@@ -1457,6 +1500,26 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return parameterString;
+    }
+
+    private boolean shouldSkipErasedObjectCast(Type declaredParamType, Type actualParamType, Type ownerType) {
+        if (!(ownerType instanceof ParameterizedType) || declaredParamType == null) {
+            return false;
+        }
+        if (isUnresolvedTypeVariableOrWildcard(declaredParamType)) {
+            return true;
+        }
+        if (safeErasure(declaredParamType) != Object.class) {
+            return false;
+        }
+        if (actualParamType == null) {
+            return true;
+        }
+        Class<?> rawActual = safeErasure(actualParamType);
+        if (rawActual == null) {
+            return false;
+        }
+        return Object.class.isAssignableFrom(ClassUtils.primitiveToWrapper(rawActual));
     }
 
     private boolean isNullInitializedVariable(VariableReference reference) {
@@ -1470,6 +1533,9 @@ public class TestCodeVisitor extends TestVisitor {
         Statement statement = test.getStatement(pos);
         if (statement instanceof NullStatement) {
             return true;
+        }
+        if (statement instanceof PrimitiveStatement<?>) {
+            return ((PrimitiveStatement<?>) statement).getValue() == null;
         }
         if (statement instanceof UninterpretedStatement) {
             String code = ((UninterpretedStatement) statement).getSourceCode();
@@ -1492,7 +1558,55 @@ public class TestCodeVisitor extends TestVisitor {
                 && !declaredParamType.equals(actualParamType)) {
             return getTypeName(Class.class);
         }
+        if (requiresRawCastTypeName(declaredParamType)) {
+            return getTypeName(safeErasure(declaredParamType));
+        }
         return getTypeName(declaredParamType);
+    }
+
+    private boolean requiresRawCastTypeName(Type type) {
+        if (type == null) {
+            return false;
+        }
+        if (type instanceof ParameterizedType) {
+            for (Type argumentType : ((ParameterizedType) type).getActualTypeArguments()) {
+                if (requiresRawCastTypeName(argumentType)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            for (Type lowerBound : wildcardType.getLowerBounds()) {
+                if (requiresRawCastWildcardBound(lowerBound)) {
+                    return true;
+                }
+            }
+            for (Type upperBound : wildcardType.getUpperBounds()) {
+                if (upperBound == null || Object.class.equals(safeErasure(upperBound))) {
+                    continue;
+                }
+                if (requiresRawCastWildcardBound(upperBound)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (type instanceof GenericArrayType) {
+            return requiresRawCastTypeName(((GenericArrayType) type).getGenericComponentType());
+        }
+        return false;
+    }
+
+    private boolean requiresRawCastWildcardBound(Type bound) {
+        if (bound == null) {
+            return false;
+        }
+        if (bound instanceof WildcardType || bound instanceof TypeVariable || bound instanceof CaptureType) {
+            return true;
+        }
+        return requiresRawCastTypeName(bound);
     }
 
     private boolean isClassType(Type type) {
@@ -1564,7 +1678,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (!bindings.isEmpty()) {
             for (Map.Entry<String, VariableReference> entry : bindings.entrySet()) {
                 String originalName = entry.getKey();
-                String evoName = getVariableName(entry.getValue());
+                String evoName = getSnippetBindingName(entry.getValue());
                 if (evoName != null && !originalName.equals(evoName)) {
                     // Replace whole-word occurrences only (word boundary = not preceded/followed by
                     // a Java identifier character).
@@ -1718,6 +1832,15 @@ public class TestCodeVisitor extends TestVisitor {
                 "\\bnew\\s+([A-Z][A-Za-z0-9_]*)\\s*(?:<[^>]*>)?\\s*\\(",
                 boundNames,
                 seen);
+        // Method return types inside preserved anonymous classes / local classes,
+        // e.g. "public Vector<Group> getGroups() { ... }".
+        registerSnippetImports(combined,
+                "\\b(?:public|protected|private)\\s+"
+                        + "(?:static\\s+|final\\s+|abstract\\s+|synchronized\\s+)*"
+                        + "([A-Z][A-Za-z0-9_]*)\\s*(?:<[^\\n\\r{};=]*>)?\\s+"
+                        + "[A-Za-z_$][A-Za-z0-9_$]*\\s*\\(",
+                boundNames,
+                seen);
         // Plain declarations inside preserved snippets, e.g. "List results = ...;"
         // or "Map<String, Integer> m;" do not contain '.', '.class', casts, or 'new'.
         registerSnippetImports(combined,
@@ -1725,6 +1848,8 @@ public class TestCodeVisitor extends TestVisitor {
                         + "[A-Za-z_$][A-Za-z0-9_$]*\\s*(?==|;|,|\\))",
                 boundNames,
                 seen);
+        registerGenericTypeArgumentImports(combined, boundNames, seen);
+        registerThrownTypeImports(combined, boundNames, seen);
     }
 
     private void registerSnippetImports(String text,
@@ -1743,6 +1868,52 @@ public class TestCodeVisitor extends TestVisitor {
             Class<?> resolved = resolveSimpleClassName(simpleName);
             if (resolved != null) {
                 getClassName(resolved);
+            }
+        }
+    }
+
+    private void registerThrownTypeImports(String text,
+                                           Set<String> boundNames,
+                                           Set<String> seen) {
+        java.util.regex.Matcher throwsMatcher =
+                java.util.regex.Pattern.compile("\\bthrows\\s+([^\\{;]+)").matcher(text);
+        while (throwsMatcher.find()) {
+            String clause = throwsMatcher.group(1);
+            java.util.regex.Matcher typeMatcher =
+                    java.util.regex.Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b")
+                            .matcher(clause);
+            while (typeMatcher.find()) {
+                String simpleName = typeMatcher.group(1);
+                if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
+                    continue;
+                }
+                Class<?> resolved = resolveSimpleClassName(simpleName);
+                if (resolved != null) {
+                    getClassName(resolved);
+                }
+            }
+        }
+    }
+
+    private void registerGenericTypeArgumentImports(String text,
+                                                    Set<String> boundNames,
+                                                    Set<String> seen) {
+        java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile("<([^<>]+)>").matcher(text);
+        while (matcher.find()) {
+            String genericClause = matcher.group(1);
+            java.util.regex.Matcher typeMatcher =
+                    java.util.regex.Pattern.compile("(?<![A-Za-z0-9_$.])([A-Z][A-Za-z0-9_]*)\\b")
+                            .matcher(genericClause);
+            while (typeMatcher.find()) {
+                String simpleName = typeMatcher.group(1);
+                if (!seen.add(simpleName) || boundNames.contains(simpleName)) {
+                    continue;
+                }
+                Class<?> resolved = resolveSimpleClassName(simpleName);
+                if (resolved != null) {
+                    getClassName(resolved);
+                }
             }
         }
     }
@@ -2280,6 +2451,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
         String declarationVarName = getDeclarationVariableName(retval);
         boolean isGenericMethod = method.hasTypeParameters();
+        String declarationTypeName = getMethodReturnDeclarationType(method, retval);
         if (exception != null && !statement.isDeclaredException(exception)) {
             result += "// Undeclared exception!" + NEWLINE;
         }
@@ -2293,25 +2465,31 @@ public class TestCodeVisitor extends TestVisitor {
                 && !unused) {
             if (exception != null) {
                 if (!lastStatement || statement.hasAssertions()) {
-                    result += getClassName(retval) + " " + declarationVarName
+                    result += declarationTypeName + " " + declarationVarName
                             + " = " + retval.getDefaultValueString() + ";" + NEWLINE;
                 }
             } else {
-                result += getClassName(retval) + " ";
+                result += declarationTypeName + " ";
             }
         }
         if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
             result += "try {" + NEWLINE + "    ";
         }
+        Type ownerTypeForParameterRendering = statement.getCallee() != null
+                ? statement.getCallee().getType()
+                : method.getOwnerType();
         String parameterString = getParameterString(method.getParameterTypes(),
                 parameters, isGenericMethod,
-                method.isOverloaded(parameters), 0);
+                method.isOverloaded(parameters), 0, ownerTypeForParameterRendering);
 
         String calleeStr = "";
-        if (!unused && !retval.isAssignableFrom(method.getReturnType())
+        boolean requiresReturnCast = !unused
+                && (!retval.isAssignableFrom(method.getReturnType())
+                || requiresReturnValueCastForRawReceiver(statement, method, retval))
                 && !retval.getVariableClass().isAnonymousClass()
                 // Static generic methods are a special case where we shouldn't add a cast
-                && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic())) {
+                && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic());
+        if (requiresReturnCast) {
             String name = getClassName(retval);
             if (!name.matches(".*\\.\\d+$")) {
                 calleeStr = "(" + name + ")";
@@ -2402,6 +2580,84 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    private String getMethodReturnDeclarationType(GenericMethod method, VariableReference retval) {
+        String renderedType = getClassName(retval);
+        if (method == null || retval == null || retval.isVoid()) {
+            return renderedType;
+        }
+
+        Type resolvedReturnType = retval.getType();
+        Type declaredGenericReturn = method.getMethod().getGenericReturnType();
+        if (!(resolvedReturnType instanceof ParameterizedType)
+                || !method.hasTypeParameters()
+                || !dependsOnGenericTypeInformation(resolvedReturnType)
+                || !dependsOnGenericTypeInformation(declaredGenericReturn)) {
+            return renderedType;
+        }
+
+        return getTypeName(method.getMethod().getReturnType());
+    }
+
+    private boolean requiresReturnValueCastForRawReceiver(MethodStatement statement,
+                                                          GenericMethod method,
+                                                          VariableReference retval) {
+        if (statement == null || method == null || retval == null || method.isStatic()) {
+            return false;
+        }
+        VariableReference callee = statement.getCallee();
+        if (callee == null) {
+            return false;
+        }
+        Class<?> rawCalleeClass = callee.getVariableClass();
+        if (rawCalleeClass.getTypeParameters().length == 0) {
+            return false;
+        }
+        if (!getClassName(callee).equals(getClassName(rawCalleeClass))) {
+            return false;
+        }
+        Type declaredGenericReturn = method.getMethod().getGenericReturnType();
+        if (!dependsOnGenericTypeInformation(declaredGenericReturn)) {
+            return false;
+        }
+        Type resolvedReturnType = method.getReturnType();
+        Type erasedCallsiteReturnType = method.getMethod().getReturnType();
+        Class<?> retvalClass = retval.getVariableClass();
+        Class<?> erasedReturnClass = method.getMethod().getReturnType();
+        if (retvalClass == null || erasedReturnClass == null) {
+            return false;
+        }
+        return retval.isAssignableFrom(resolvedReturnType)
+                && !ClassUtils.isAssignable(erasedReturnClass, retvalClass, true);
+    }
+
+    private boolean dependsOnGenericTypeInformation(Type type) {
+        if (type == null) {
+            return false;
+        }
+        if (type instanceof TypeVariable || type instanceof WildcardType || type instanceof CaptureType) {
+            return true;
+        }
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            if (dependsOnGenericTypeInformation(parameterizedType.getRawType())) {
+                return true;
+            }
+            for (Type argument : parameterizedType.getActualTypeArguments()) {
+                if (dependsOnGenericTypeInformation(argument)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        if (type instanceof GenericArrayType) {
+            return dependsOnGenericTypeInformation(((GenericArrayType) type).getGenericComponentType());
+        }
+        if (type instanceof Class<?>) {
+            return ((Class<?>) type).getTypeParameters().length > 0;
+        }
+        return false;
     }
 
     private boolean hasMethodBySignatureName(Class<?> clazz, Method target) {
@@ -3017,13 +3273,7 @@ public class TestCodeVisitor extends TestVisitor {
     @Override
     public void visitNullStatement(NullStatement statement) {
         VariableReference retval = statement.getReturnValue();
-        String varName = getVariableName(retval);
-        if ("null".equals(varName)) {
-            // For NullStatement declarations we still need a legal Java identifier on the LHS.
-            // getVariableName() intentionally returns the literal "null" for null references used
-            // as expression operands, so synthesize a stable declaration name here.
-            varName = "nullRef" + (nullDeclarationCounter++);
-        }
+        String varName = getDeclarationVariableName(retval);
         testCode.append(getClassName(retval) + " " + varName + " = null;" + NEWLINE);
     }
 

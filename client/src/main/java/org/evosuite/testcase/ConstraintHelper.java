@@ -25,6 +25,7 @@ import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericMethod;
@@ -156,6 +157,15 @@ public class ConstraintHelper {
         if (varSource instanceof PrimitiveStatement) { //eg for String
             Object obj = ((PrimitiveStatement<?>) varSource).getValue();
             return obj == null;
+        }
+
+        if (varSource instanceof UninterpretedStatement) {
+            String code = ((UninterpretedStatement) varSource).getSourceCode();
+            if (code == null) {
+                return false;
+            }
+            String normalized = code.replace('\n', ' ').replace('\r', ' ').trim();
+            return normalized.matches(".*=\\s*null\\s*;\\s*$");
         }
 
         return false;
