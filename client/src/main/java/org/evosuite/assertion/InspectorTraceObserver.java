@@ -23,6 +23,7 @@ import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
@@ -68,7 +69,8 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
 
         logger.debug("Checking for inspectors of " + var + " at statement "
                 + statement.getPosition());
-        List<Inspector> inspectors = InspectorManager.getInstance().getInspectors(var.getVariableClass());
+        Class<?> observationType = getObservationType(var, declaringStatement);
+        List<Inspector> inspectors = InspectorManager.getInstance().getInspectors(observationType);
 
         InspectorTraceEntry entry = new InspectorTraceEntry(var);
 
@@ -100,7 +102,7 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 if (e instanceof TimeoutException) {
                     logger.debug("Timeout during inspector call - deactivating inspector "
                             + i.getMethodCall());
-                    InspectorManager.getInstance().removeInspector(var.getVariableClass(), i);
+                    InspectorManager.getInstance().removeInspector(observationType, i);
                 }
                 logger.debug("Exception " + e + " / " + e.getCause());
                 if (e.getCause() != null
@@ -110,22 +112,8 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 }
             }
         }
-        // Also process chained inspectors (e.g., getList().size()).
-        // Use the declared return type of the creating statement rather than
-        // var.getVariableClass(), because Scope.set() may have narrowed the
-        // variable's type to the runtime class.  After test-case cloning the
-        // variable reverts to the declared type, so only methods accessible on
-        // that type will compile in the generated test.
-        Class<?> declaredType = var.getVariableClass();
-        if (declaringStatement instanceof MethodStatement) {
-            Class<?> methodReturnType =
-                    ((MethodStatement) declaringStatement).getMethod().getMethod().getReturnType();
-            if (methodReturnType.isAssignableFrom(declaredType)) {
-                declaredType = methodReturnType;
-            }
-        }
         List<ChainedInspector> chainedInspectors = InspectorManager.getInstance()
-                .getChainedInspectors(declaredType);
+                .getChainedInspectors(observationType);
 
         for (ChainedInspector ci : chainedInspectors) {
 
@@ -166,6 +154,41 @@ public class InspectorTraceObserver extends AssertionTraceObserver<InspectorTrac
                 + " at statement " + statement.getPosition());
 
         trace.addEntry(statement.getPosition(), var, entry);
+    }
+
+    /**
+     * Prefer the declared/static type from the creating statement over a
+     * runtime-narrowed scope type when both are assignment-compatible. Scope
+     * may rewrite references to a subtype observed during execution, but the
+     * generated JUnit must compile against the statement's declared return type.
+     */
+    private Class<?> getObservationType(VariableReference var, Statement declaringStatement) {
+        Class<?> runtimeType = var.getVariableClass();
+        if (declaringStatement == null) {
+            return runtimeType;
+        }
+
+        Class<?> declaredType = getDeclaredReturnType(declaringStatement);
+        if (declaredType != null && runtimeType != null && declaredType.isAssignableFrom(runtimeType)) {
+            return declaredType;
+        }
+        if (declaredType != null && runtimeType == null) {
+            return declaredType;
+        }
+        return runtimeType;
+    }
+
+    private Class<?> getDeclaredReturnType(Statement declaringStatement) {
+        if (declaringStatement instanceof MethodStatement) {
+            return ((MethodStatement) declaringStatement).getMethod().getMethod().getReturnType();
+        }
+        if (declaringStatement instanceof FieldStatement) {
+            return ((FieldStatement) declaringStatement).getField().getField().getType();
+        }
+        if (declaringStatement instanceof ConstructorStatement) {
+            return ((ConstructorStatement) declaringStatement).getConstructor().getConstructor().getDeclaringClass();
+        }
+        return declaringStatement.getReturnClass();
     }
 
     @Override

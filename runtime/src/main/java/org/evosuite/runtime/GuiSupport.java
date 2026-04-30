@@ -95,6 +95,13 @@ public class GuiSupport {
     // failed-init state forever.  We force their <clinit> to run while headless
     // is still true so the decision is permanently "skip initIDs()".
     private static final String[] HEADLESS_GUARDED_AWT_CLASSES = {
+            // Linux/X11 toolkit internals: if first touched after headless is
+            // temporarily disabled, GTK/X11 probing may invoke native entry points
+            // such as UNIXToolkit.check_gtk and fail with UnsatisfiedLinkError
+            // on CI images without matching GUI libraries.
+            "sun.awt.UNIXToolkit",
+            "sun.awt.X11.XToolkit",
+            "sun.awt.X11GraphicsEnvironment",
             "java.awt.Insets",
             "java.awt.Rectangle",
             "java.awt.Cursor",
@@ -114,6 +121,14 @@ public class GuiSupport {
             "java.awt.event.MouseEvent",
             "java.awt.event.KeyEvent",
             "java.awt.event.WindowEvent",
+            // AWT/Swing color and UI defaults: these may trigger toolkit/UI manager
+            // initialization paths that are sensitive to first-touch headless state.
+            "java.awt.SystemColor",
+            "java.awt.Color",
+            "javax.swing.UIManager",
+            "javax.swing.UIDefaults",
+            "javax.swing.LookAndFeel",
+            "javax.swing.plaf.basic.BasicLookAndFeel",
     };
 
     static {

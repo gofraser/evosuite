@@ -20,7 +20,10 @@
 package org.evosuite.assertion;
 
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
@@ -210,9 +213,10 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
                 continue;
             }
             int assertionsBefore = countAssertions(test);
+            int diagnosticsBefore = parseResult.getDiagnostics().size();
+            com.github.javaparser.ast.stmt.Statement ast = null;
             try {
-                com.github.javaparser.ast.stmt.Statement ast =
-                        StaticJavaParser.parseStatement(assertionStr);
+                ast = StaticJavaParser.parseStatement(assertionStr);
                 parser.parseStatement(ast);
 
                 // Guard: rollback any statements added as a side effect
@@ -224,6 +228,10 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
                 if (assertionsAfter > assertionsBefore) {
                     attached += (assertionsAfter - assertionsBefore);
                     continue; // Successfully parsed into typed assertion
+                }
+                if (shouldSkipCodeAssertionFallback(parseResult, diagnosticsBefore, ast)) {
+                    logger.debug("Skipping CodeAssertion fallback after parser errors: {}", assertionStr);
+                    continue;
                 }
             } catch (Exception e) {
                 // Rollback any partial side effects
@@ -239,6 +247,38 @@ public class LlmAssertionGeneratorStrategy extends AssertionGenerator {
             }
         }
         return attached;
+    }
+
+    private boolean shouldSkipCodeAssertionFallback(ParseResult parseResult,
+                                                    int diagnosticsBefore,
+                                                    com.github.javaparser.ast.stmt.Statement ast) {
+        return hasNewErrorDiagnostics(parseResult, diagnosticsBefore) && containsArgumentMethodCall(ast);
+    }
+
+    private boolean hasNewErrorDiagnostics(ParseResult parseResult, int diagnosticsBefore) {
+        List<org.evosuite.testparser.ParseDiagnostic> diagnostics = parseResult.getDiagnostics();
+        for (int i = diagnosticsBefore; i < diagnostics.size(); i++) {
+            if (diagnostics.get(i).getSeverity() == org.evosuite.testparser.ParseDiagnostic.Severity.ERROR) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean containsArgumentMethodCall(com.github.javaparser.ast.stmt.Statement ast) {
+        if (!(ast instanceof ExpressionStmt)) {
+            return false;
+        }
+        Expression expression = ((ExpressionStmt) ast).getExpression();
+        if (!(expression instanceof MethodCallExpr)) {
+            return false;
+        }
+        for (Expression arg : ((MethodCallExpr) expression).getArguments()) {
+            if (arg instanceof MethodCallExpr || !arg.findAll(MethodCallExpr.class).isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isAssertionAlreadyPresent(TestCase test, String assertionStr) {

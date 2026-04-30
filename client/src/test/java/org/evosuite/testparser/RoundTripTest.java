@@ -20,6 +20,7 @@
 package org.evosuite.testparser;
 
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.PrivateFieldRoundTripFixture;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.statements.*;
@@ -27,12 +28,25 @@ import org.evosuite.testcase.statements.numeric.*;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.Test;
 
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import java.io.ByteArrayOutputStream;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Field;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -52,11 +66,153 @@ class RoundTripTest {
     }
 
     private ParseResult parseCode(String code) {
-        TestParser parser = new TestParser(getClass().getClassLoader());
-        return parser.parseTestMethodBody(code, List.of(
+        return parseCode(code, Collections.emptyList(), getClass().getClassLoader());
+    }
+
+    private ParseResult parseCode(String code, List<String> extraImports) {
+        return parseCode(code, extraImports, getClass().getClassLoader());
+    }
+
+    private ParseResult parseCode(String code, List<String> extraImports, ClassLoader classLoader) {
+        TestParser parser = new TestParser(classLoader);
+        List<String> imports = new ArrayList<>(List.of(
                 "import java.util.*;",
                 "import java.util.concurrent.TimeUnit;"
         ));
+        imports.addAll(extraImports);
+        return parser.parseTestMethodBody(code, imports);
+    }
+
+    private Object executeCompiledSnippet(String code,
+                                          String returnExpression,
+                                          List<String> importLines) throws Throwable {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        assertNotNull(compiler, "System Java compiler is required for round-trip execution");
+
+        Path tempDir = Files.createTempDirectory("evosuite-roundtrip");
+        String className = "RoundTripSnippet" + System.nanoTime();
+        Path sourceFile = tempDir.resolve(className + ".java");
+        StringBuilder source = new StringBuilder();
+        for (String importLine : importLines) {
+            source.append(importLine).append("\n");
+        }
+        source.append("public class ").append(className).append(" {\n")
+                .append("  public static Object run() throws Throwable {\n")
+                .append(code).append("\n")
+                .append("    return ").append(returnExpression).append(";\n")
+                .append("  }\n")
+                .append("}\n");
+        Files.write(sourceFile, source.toString().getBytes(StandardCharsets.UTF_8));
+
+        List<String> classpathEntries = buildRoundTripClasspathEntries();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        try {
+            String classpath = String.join(System.getProperty("path.separator"), classpathEntries);
+            int compilationResult = compiler.run(
+                    null,
+                    null,
+                    err,
+                    "-classpath",
+                    classpath,
+                    "-d",
+                    tempDir.toString(),
+                    sourceFile.toString());
+            assertEquals(0, compilationResult,
+                    "Generated reflective field access should compile:\n" + err.toString(StandardCharsets.UTF_8));
+
+            List<URL> urls = new ArrayList<>();
+            urls.add(tempDir.toUri().toURL());
+            for (String entry : classpathEntries) {
+                urls.add(Path.of(entry).toUri().toURL());
+            }
+            try (URLClassLoader loader =
+                         new ChildFirstRoundTripClassLoader(urls.toArray(new URL[0]), getClass().getClassLoader())) {
+                Class<?> snippetClass = Class.forName(className, true, loader);
+                return snippetClass.getMethod("run").invoke(null);
+            } catch (InvocationTargetException e) {
+                throw e.getCause();
+            }
+        } finally {
+            Files.deleteIfExists(sourceFile);
+            Files.deleteIfExists(tempDir.resolve(className + ".class"));
+            Files.deleteIfExists(tempDir);
+        }
+    }
+
+    private String codeSourcePath(Class<?> type) {
+        try {
+            return Path.of(type.getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
+        } catch (Exception e) {
+            throw new AssertionError("Could not resolve code source for " + type.getName(), e);
+        }
+    }
+
+    private List<String> buildRoundTripClasspathEntries() {
+        Set<String> entries = new LinkedHashSet<>();
+        addProjectOutput(entries, "runtime/target/classes");
+        addProjectOutput(entries, "client/target/test-classes");
+        addProjectOutput(entries, "client/target/classes");
+        String runtimeClasspath = System.getProperty("java.class.path");
+        if (runtimeClasspath != null && !runtimeClasspath.isEmpty()) {
+            for (String entry : runtimeClasspath.split(java.util.regex.Pattern.quote(System.getProperty("path.separator")))) {
+                if (!entry.isEmpty()) {
+                    entries.add(entry);
+                }
+            }
+        }
+        entries.add(codeSourcePath(org.evosuite.runtime.PrivateAccess.class));
+        entries.add(codeSourcePath(PrivateFieldRoundTripFixture.class));
+        entries.add(codeSourcePath(getClass()));
+        return new ArrayList<>(entries);
+    }
+
+    private void addProjectOutput(Set<String> entries, String relativePath) {
+        Path cwd = Path.of("").toAbsolutePath();
+        for (Path current = cwd; current != null; current = current.getParent()) {
+            Path candidate = current.resolve(relativePath);
+            if (Files.exists(candidate)) {
+                entries.add(candidate.toString());
+                return;
+            }
+        }
+    }
+
+    private ChildFirstRoundTripClassLoader createRoundTripClassLoader() throws Exception {
+        List<String> classpathEntries = buildRoundTripClasspathEntries();
+        List<URL> urls = new ArrayList<>();
+        for (String entry : classpathEntries) {
+            urls.add(Path.of(entry).toUri().toURL());
+        }
+        return new ChildFirstRoundTripClassLoader(urls.toArray(new URL[0]), getClass().getClassLoader());
+    }
+
+    private static final class ChildFirstRoundTripClassLoader extends URLClassLoader {
+
+        private ChildFirstRoundTripClassLoader(URL[] urls, ClassLoader parent) {
+            super(urls, parent);
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            if (name.startsWith("org.evosuite.runtime.")
+                    || name.startsWith("org.evosuite.testcase.PrivateFieldRoundTripFixture")) {
+                synchronized (getClassLoadingLock(name)) {
+                    Class<?> loaded = findLoadedClass(name);
+                    if (loaded == null) {
+                        try {
+                            loaded = findClass(name);
+                        } catch (ClassNotFoundException ignored) {
+                            loaded = super.loadClass(name, false);
+                        }
+                    }
+                    if (resolve) {
+                        resolveClass(loaded);
+                    }
+                    return loaded;
+                }
+            }
+            return super.loadClass(name, resolve);
+        }
     }
 
     @Test
@@ -248,5 +404,62 @@ class RoundTripTest {
         assertInstanceOf(MethodStatement.class, parsed.getStatement(2));
         assertEquals("size", ((MethodStatement) parsed.getStatement(1)).getMethodName());
         assertEquals("isEmpty", ((MethodStatement) parsed.getStatement(2)).getMethodName());
+    }
+
+    @Test
+    void roundTripReflectivePrivateFieldAccess() throws Throwable {
+        DefaultTestCase tc = new DefaultTestCase();
+
+        GenericConstructor ctor = new GenericConstructor(
+                PrivateFieldRoundTripFixture.class.getConstructor(),
+                GenericClassFactory.get(PrivateFieldRoundTripFixture.class));
+        VariableReference holderRef = tc.addStatement(
+                new ConstructorStatement(tc, ctor, Collections.emptyList()));
+
+        Field labelField = PrivateFieldRoundTripFixture.class.getDeclaredField("label");
+        VariableReference fieldRef = tc.addStatement(
+                new FieldStatement(tc, new GenericField(labelField, PrivateFieldRoundTripFixture.class), holderRef));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.visitTestCase(tc);
+        for (int i = 0; i < tc.size(); i++) {
+            visitor.visitStatement(tc.getStatement(i));
+        }
+        String code = visitor.getCode();
+        String returnExpression = visitor.getVariableName(fieldRef);
+
+        assertTrue(code.contains("PrivateAccess.getVariable("),
+                "Private field round-trip should emit reflective field access:\n" + code);
+        assertEquals("label", executeCompiledSnippet(code, returnExpression, List.of(
+                        "import org.evosuite.runtime.PrivateAccess;",
+                        "import org.evosuite.testcase.PrivateFieldRoundTripFixture;"
+                )),
+                "Emitted reflective field access should execute to the private field value.\n"
+                        + "Return expression: " + returnExpression + "\nCode:\n" + code);
+
+        ParseResult result;
+        try (ChildFirstRoundTripClassLoader roundTripLoader = createRoundTripClassLoader()) {
+            result = parseCode(code, List.of(
+                    "import org.evosuite.runtime.PrivateAccess;",
+                    "import org.evosuite.testcase.PrivateFieldRoundTripFixture;"
+            ), roundTripLoader);
+        }
+        assertFalse(result.hasErrors(), "Round-trip should parse reflective field access: " + result.getDiagnostics());
+
+        TestCase parsed = result.getTestCase();
+        assertTrue(parsed.size() >= tc.size(), "Reparsed reflective access may materialize helper arguments");
+        assertInstanceOf(ConstructorStatement.class, parsed.getStatement(0));
+        assertInstanceOf(MethodStatement.class, parsed.getStatement(parsed.size() - 1));
+        assertEquals("getVariable", ((MethodStatement) parsed.getStatement(parsed.size() - 1)).getMethodName());
+
+        TestCodeVisitor reparsedVisitor = new TestCodeVisitor();
+        reparsedVisitor.visitTestCase(parsed);
+        for (int i = 0; i < parsed.size(); i++) {
+            reparsedVisitor.visitStatement(parsed.getStatement(i));
+        }
+        String reparsedCode = reparsedVisitor.getCode();
+
+        assertTrue(reparsedCode.contains("PrivateAccess.getVariable("),
+                "Re-emitted reparsed code should keep reflective field access:\n" + reparsedCode);
     }
 }

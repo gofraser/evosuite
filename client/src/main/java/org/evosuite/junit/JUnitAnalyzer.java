@@ -348,6 +348,15 @@ public abstract class JUnitAnalyzer {
                             testName, failure.getMessage());
                     continue failure_loop;
                 }
+                // In JUnit re-checks, watchdog timeouts can race with loop-cap termination.
+                // Treat TimeoutException as equivalent to TooManyResourcesException to avoid
+                // dropping tests solely due to phase-specific watchdog scheduling.
+                if ("java.util.concurrent.TimeoutException".equals(failure.getExceptionClassName())) {
+                    logger.debug("Ignoring expected TimeoutException for test {} "
+                                    + "(equivalent to loop-cap termination during JUnit re-check): {}",
+                            testName, failure.getMessage());
+                    continue failure_loop;
+                }
 
 
                 logger.warn("Found unstable test named " + testName + " -> "
@@ -1586,6 +1595,8 @@ public abstract class JUnitAnalyzer {
                     Sandbox.initializeSecurityManagerForSUT(privileged);
                     org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
                             .registerCompilationThreadAsPrivileged();
+                    org.evosuite.llm.response.TestRepairLoop
+                            .registerParseCompileThreadAsPrivileged();
                 }
             } else {
                 if (Sandbox.isSecurityManagerInitialized()) {
@@ -1676,6 +1687,8 @@ public abstract class JUnitAnalyzer {
                     Sandbox.initializeSecurityManagerForSUT(privileged);
                     org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
                             .registerCompilationThreadAsPrivileged();
+                    org.evosuite.llm.response.TestRepairLoop
+                            .registerParseCompileThreadAsPrivileged();
                 }
             } else {
                 if (Sandbox.isSecurityManagerInitialized()) {

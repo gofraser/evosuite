@@ -20,6 +20,7 @@
 package org.evosuite.testcase.execution;
 
 import org.evosuite.Properties;
+import org.evosuite.runtime.mock.MockFramework;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -42,6 +43,7 @@ import java.util.jar.Manifest;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExecutableSnippetEngineImportFilterTest {
@@ -258,6 +260,34 @@ class ExecutableSnippetEngineImportFilterTest {
         assertTrue(generated.contains("removed unmatched top-level closing brace"));
         assertTrue(generated.contains("__vars.put("),
                 "Variable writeback should remain inside run(...) after sanitization");
+    }
+
+    @Test
+    void executeStatementTemporarilyEnablesMockFrameworkWhenGuiMockingIsActive() throws Throwable {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        boolean previousReplaceGui = Properties.REPLACE_GUI;
+        boolean previouslyEnabled = MockFramework.isEnabled();
+        try {
+            Properties.REPLACE_GUI = true;
+            MockFramework.disable();
+
+            ExecutableSnippetEngine.StatementResult result = engine.executeStatement(
+                    "boolean enabled = org.evosuite.runtime.mock.MockFramework.isEnabled();",
+                    Collections.emptyMap(),
+                    Collections.emptyMap(),
+                    "enabled");
+
+            assertEquals(Boolean.TRUE, result.getReturnValue());
+            assertFalse(MockFramework.isEnabled(),
+                    "Snippet execution should restore the previous mock framework state");
+        } finally {
+            if (previouslyEnabled) {
+                MockFramework.enable();
+            } else {
+                MockFramework.disable();
+            }
+            Properties.REPLACE_GUI = previousReplaceGui;
+        }
     }
 
     @Test

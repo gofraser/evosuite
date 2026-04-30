@@ -104,6 +104,48 @@ public class PrivateAccess {
     }
 
     /**
+     * Use reflection to read the given field.
+     *
+     * @param klass a {@link java.lang.Class} object.
+     * @param instance null if field is static
+     * @param fieldName a {@link java.lang.String} object.
+     * @param <T> the class type
+     * @return the field value
+     * @throws java.lang.IllegalArgumentException if klass or fieldName are null
+     * @throws org.evosuite.runtime.FalsePositiveException if the field does not exist anymore
+     */
+    public static <T> Object getVariable(Class<?> klass, T instance, String fieldName)
+            throws IllegalArgumentException, FalsePositiveException {
+
+        if (klass == null) {
+            throw new IllegalArgumentException("No specified class");
+        }
+        if (fieldName == null) {
+            throw new IllegalArgumentException("No specified field name");
+        }
+
+        Field field;
+        try {
+            field = klass.getDeclaredField(fieldName);
+        } catch (NoSuchFieldException e) {
+            String message = "Field '" + fieldName + "' does not exist any more in class " + klass;
+
+            if (shouldNotFailTest) {
+                throw new FalsePositiveException(message);
+            } else {
+                throw new IllegalArgumentException(message);
+            }
+        }
+        field.setAccessible(true);
+
+        try {
+            return field.get(instance);
+        } catch (IllegalAccessException e) {
+            throw new FalsePositiveException("Failed to read field " + fieldName + ": " + e);
+        }
+    }
+
+    /**
      * Call the default constructor of the class under test.
      * This is useful to avoid low coverage due to private constructors in final
      * classes used to prevent instantiating them (eg those classes only have

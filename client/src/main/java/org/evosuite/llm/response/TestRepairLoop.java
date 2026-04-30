@@ -28,6 +28,7 @@ import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.LambdaExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.BlockStmt;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.Statement;
@@ -40,6 +41,8 @@ import org.evosuite.llm.prompt.TestClusterSummarizer;
 import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.junit.UnitTestAdapter;
+import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -52,6 +55,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Modifier;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -62,6 +71,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import org.evosuite.runtime.sandbox.Sandbox;
 
 /**
  * Applies parse -> validate -> execute and iterative LLM repair.
@@ -104,8 +119,9 @@ public class TestRepairLoop {
             "\\bnew\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\(");
     private static final Pattern CONSTRUCTOR_DIAGNOSTIC_TYPE_PATTERN = Pattern.compile(
             "No matching constructor found for\\s+([A-Za-z_][A-Za-z0-9_$.]+)");
+    private static final String EXPLICIT_REPAIR_ACTION_MARKER = "LLM_REPAIR_ACTION_REQUIRED:";
     private static final Pattern EXPLICIT_REPAIR_ACTION_PATTERN = Pattern.compile(
-            "LLM_REPAIR_ACTION_REQUIRED:\\s*(.*)$");
+            EXPLICIT_REPAIR_ACTION_MARKER + "\\s*(.*)$");
     private static final Pattern INVENTED_UNKNOWN_TYPE_PATTERN = Pattern.compile(
             "replace invented/unknown type '([A-Za-z_][A-Za-z0-9_$.]*)'",
             Pattern.CASE_INSENSITIVE);
@@ -113,8 +129,23 @@ public class TestRepairLoop {
             "\\bnew\\s+([A-Za-z_][A-Za-z0-9_$.]*)\\s*\\([^)]*\\)\\s*\\{");
     private static final Pattern MISSING_SYMBOL_CLASS_PATTERN = Pattern.compile(
             "symbol:\\s+class\\s+([A-Za-z_][A-Za-z0-9_$]*)", Pattern.MULTILINE);
+    private static final Pattern MISSING_PACKAGE_PATTERN = Pattern.compile(
+            "package\\s+([A-Za-z_][A-Za-z0-9_$]*)\\s+does\\s+not\\s+exist", Pattern.MULTILINE);
+    private static final Pattern MISSING_SYMBOL_METHOD_WITH_LOCATION_PATTERN = Pattern.compile(
+            "symbol:\\s+method\\s+([A-Za-z_][A-Za-z0-9_$]*)\\s*\\([^)]*\\)\\s*"
+                    + "location:\\s+variable\\s+([A-Za-z_][A-Za-z0-9_$]*)\\s+of\\s+type\\s+([A-Za-z_][A-Za-z0-9_$.]*)",
+            Pattern.MULTILINE | Pattern.DOTALL);
+    private static final Pattern MISSING_SYMBOL_VARIABLE_WITH_LOCATION_PATTERN = Pattern.compile(
+            "symbol:\\s+variable\\s+([A-Za-z_][A-Za-z0-9_$]*)\\s*"
+                    + "location:\\s+variable\\s+([A-Za-z_][A-Za-z0-9_$]*)\\s+of\\s+type\\s+([A-Za-z_][A-Za-z0-9_$.]*)",
+            Pattern.MULTILINE | Pattern.DOTALL);
     private static final Pattern MALFORMED_IMPORT_LINE_PATTERN = Pattern.compile(
             "(?m)^\\s*import\\s+(?:static\\s+)?[^;]*[/\\\\][^;]*;\\s*$");
+    private static final ExecutorService PARSE_COMPILE_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+        Thread t = new Thread(r, "evosuite-llm-parse-compile");
+        t.setDaemon(true);
+        return t;
+    });
 
     /** Error patterns that the LLM cannot fix (native libs, sandbox, etc.). */
     private static final Set<String> UNFIXABLE_ERROR_PATTERNS = new HashSet<>(Arrays.asList(
@@ -425,6 +456,23 @@ public class TestRepairLoop {
                 }
             }
 
+            // Parse-phase compile gate: render parsed tests back to Java and run javac.
+            // This catches source-level issues (imports/symbol visibility/name resolution)
+            // before compile&rerun.
+            if (!validTests.isEmpty()) {
+                List<ParseResult> compileChecked = new ArrayList<>();
+                for (ParseResult pr : validTests) {
+                    String compileError = checkRenderedCompilation(pr);
+                    if (compileError == null) {
+                        compileChecked.add(pr);
+                    } else {
+                        droppedAtParse.add(pr);
+                        diagnostics.add(compileError);
+                    }
+                }
+                validTests = compileChecked;
+            }
+
             // Execute valid tests and split into executable (kept) and dropped-at-execution.
             List<ParseResult> finalTests = new ArrayList<>();
             List<ParseResult> droppedAtExecution = new ArrayList<>();
@@ -534,12 +582,14 @@ public class TestRepairLoop {
                 sb.append(System.lineSeparator()).append("* ").append(safeMethodName(pr)).append(":");
                 boolean anyErrorEmitted = false;
                 for (ParseDiagnostic d : pr.getDiagnostics()) {
-                    if (d.getSeverity() == ParseDiagnostic.Severity.ERROR) {
+                    if (shouldIncludeDroppedParseDiagnostic(d)) {
                         sb.append(System.lineSeparator()).append("  - ").append(d.toString());
                         anyErrorEmitted = true;
                     }
                 }
                 if (!anyErrorEmitted) {
+                    logger.warn("Dropped parse result {} had no ERROR or LLM_REPAIR_ACTION_REQUIRED diagnostic: {}",
+                            safeMethodName(pr), pr.getDiagnostics());
                     sb.append(System.lineSeparator()).append("  - (no ERROR diagnostic recorded)");
                 }
             }
@@ -899,6 +949,9 @@ public class TestRepairLoop {
             if (statementIndex < 0) {
                 continue;
             }
+            if (!isReflectiveMethodInvokeReceiver(invokeCall, blockStmt, statementIndex)) {
+                continue;
+            }
 
             String variableName = "invocationTargetException" + rewrites;
             String causeVariableName = "expectedCause" + rewrites;
@@ -959,6 +1012,49 @@ public class TestRepairLoop {
         return null;
     }
 
+    private boolean isReflectiveMethodInvokeReceiver(MethodCallExpr invokeCall,
+                                                     BlockStmt blockStmt,
+                                                     int statementIndex) {
+        if (invokeCall == null || blockStmt == null || statementIndex < 0) {
+            return false;
+        }
+        if (!invokeCall.getScope().isPresent()) {
+            return false;
+        }
+        Expression scope = invokeCall.getScope().get();
+        if (!(scope instanceof NameExpr)) {
+            return false;
+        }
+        String receiverName = ((NameExpr) scope).getNameAsString();
+        if (receiverName == null || receiverName.isEmpty()) {
+            return false;
+        }
+
+        // Only treat invoke(...) as reflective when we can find a prior local declaration
+        // of that receiver as java.lang.reflect.Method (or Method via import).
+        for (int i = statementIndex - 1; i >= 0; i--) {
+            Statement statement = blockStmt.getStatement(i);
+            if (!(statement instanceof ExpressionStmt)) {
+                continue;
+            }
+            Expression expression = ((ExpressionStmt) statement).getExpression();
+            if (!(expression instanceof VariableDeclarationExpr)) {
+                continue;
+            }
+            VariableDeclarationExpr declarationExpr = (VariableDeclarationExpr) expression;
+            for (com.github.javaparser.ast.body.VariableDeclarator variable : declarationExpr.getVariables()) {
+                if (!receiverName.equals(variable.getNameAsString())) {
+                    continue;
+                }
+                String typeName = variable.getType().asString();
+                return "Method".equals(typeName)
+                        || "java.lang.reflect.Method".equals(typeName)
+                        || typeName.endsWith(".Method");
+            }
+        }
+        return false;
+    }
+
     /**
      * Sends a repair request and accumulates the conversation with the assistant's
      * previous response and the error feedback, so subsequent repairs have full context.
@@ -1004,6 +1100,8 @@ public class TestRepairLoop {
         appendIndexedFixtureShapeRepairInstructions(error, repairMessage);
         appendReflectiveInvocationRepairInstructions(error, repairMessage);
         appendReflectiveAssertThrowsFallbackRepairInstructions(error, repairMessage);
+        appendMissingMethodOnVariableRepairInstructions(error, repairMessage);
+        appendMemberAccessRepairInstructions(error, repairMessage);
         appendNoTestMethodsRepairInstructions(error, previousResponse, repairMessage);
         appendCollaboratorFallbackRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
@@ -1192,6 +1290,61 @@ public class TestRepairLoop {
         repairMessage.append("\n- Prefer direct invocation of accessible SUT methods over reflection.");
         repairMessage.append("\n- If reflection is unavoidable, capture InvocationTargetException with Assertions.assertThrows(...), then cast/check invocationTargetException.getCause() as the expected SUT exception type.");
         repairMessage.append("\n- Do not assign assertThrows(...) results to synthetic null/fallback placeholders.");
+    }
+
+    private void appendMissingMethodOnVariableRepairInstructions(String error, StringBuilder repairMessage) {
+        if (error == null || error.isEmpty()) {
+            return;
+        }
+        java.util.regex.Matcher missingMethodMatcher = MISSING_SYMBOL_METHOD_WITH_LOCATION_PATTERN.matcher(error);
+        boolean emitted = false;
+        while (missingMethodMatcher.find()) {
+            String methodName = missingMethodMatcher.group(1);
+            String receiverVar = missingMethodMatcher.group(2);
+            String receiverType = missingMethodMatcher.group(3);
+            if (!emitted) {
+                repairMessage.append("\n\nMissing-method repair instructions:");
+                emitted = true;
+            }
+            if (methodName != null && methodName.equals(receiverVar)) {
+                repairMessage.append("\n- Invalid self-call typo detected: `")
+                        .append(receiverVar).append(".").append(methodName).append("(...)`.")
+                        .append(" Remove this call entirely or replace it with a real existing API call on `")
+                        .append(receiverType).append("` from provided context.")
+                        .append(" Do not invent methods from variable names.");
+            } else {
+                repairMessage.append("\n- Cannot resolve method `").append(methodName)
+                        .append("(...)` on variable `").append(receiverVar)
+                        .append("` of type `").append(receiverType)
+                        .append("`. Replace with an existing method from context or remove this call/assertion.");
+                repairMessage.append("\n- Do not call subtype-only methods on a supertype reference.")
+                        .append(" If the runtime object is a subtype, add an `instanceof` guard and cast before calling subtype APIs")
+                        .append(" (for example `Component` -> `JLabel` before `getText()`).");
+            }
+        }
+    }
+
+    private void appendMemberAccessRepairInstructions(String error, StringBuilder repairMessage) {
+        if (error == null || error.isEmpty()) {
+            return;
+        }
+        String lower = error.toLowerCase();
+        if (!(lower.contains("has private access")
+                || lower.contains("has protected access")
+                || lower.contains("cannot be accessed from outside package"))) {
+            return;
+        }
+        repairMessage.append("\n\nMember-access repair hint:");
+        repairMessage.append("\n- The failing test directly accesses non-public members (private/protected/package-private).");
+        repairMessage.append("\n- Keep all already executable tests unchanged.");
+        repairMessage.append("\n- For failing tests only, remove direct field/member access assertions and replace them with checks via accessible public/package-visible methods.");
+        repairMessage.append("\n- Do not assert internal fields such as receiver.superclassField; assert externally visible behavior instead.");
+        repairMessage.append("\n- If no accessible API exposes the same state, drop that assertion rather than forcing illegal member access.");
+        repairMessage.append("\n- Also avoid non-public cross-package types in imports/declarations/constructors; use only public accessible types/paths from context.");
+        if (lower.contains("baserecognizer") || lower.contains(".state.")) {
+            repairMessage.append("\n- ANTLR-specific: never access `lexer.state` / `BaseRecognizer.state` directly.")
+                    .append(" Remove assertions like `lexer.state.type` and assert behavior via public lexer APIs or tokenization results.");
+        }
     }
 
     static boolean isReflectiveAssertThrowsFallbackError(String error) {
@@ -1743,6 +1896,10 @@ public class TestRepairLoop {
                 + "LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback.");
         hints.add("Avoid unresolved expressions/calls that trigger synthetic __llm_fallback variables.");
         hints.add("Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.");
+        hints.add("Do not reference non-public dependency types from other packages "
+                + "(diagnostics like 'X is not public in package Y; cannot be accessed from outside package').");
+        hints.add("If a constructor/method path requires a non-public cross-package type, do not force it with fallbacks; "
+                + "use a public alternative setup/factory/path from context or rewrite the test to avoid that path.");
         hints.add("Do not use helper wrappers like setField/setStaticField unless those methods are explicitly available in the test class.");
         hints.add("Do not define anonymous classes; replace them with concrete existing types or null when acceptable.");
 
@@ -1879,11 +2036,73 @@ public class TestRepairLoop {
         while (symbolMatcher.find()) {
             missingSymbols.add(symbolMatcher.group(1));
         }
+        java.util.regex.Matcher missingPackageMatcher = MISSING_PACKAGE_PATTERN.matcher(error);
+        boolean hasMissingPackage = false;
+        while (missingPackageMatcher.find()) {
+            hasMissingPackage = true;
+            String missingPackage = missingPackageMatcher.group(1);
+            facts.add("Unresolved package/type prefix '" + missingPackage
+                    + "' often means an unqualified nested type/enum constant (for example Foo.BAR). "
+                    + "Use the declaring type qualifier from context (for example OuterType."
+                    + missingPackage + ".BAR) or an already declared variable.");
+        }
+        java.util.regex.Matcher missingMethodMatcher = MISSING_SYMBOL_METHOD_WITH_LOCATION_PATTERN.matcher(error);
+        boolean hasMissingMethodWithLocation = false;
+        while (missingMethodMatcher.find()) {
+            hasMissingMethodWithLocation = true;
+            String methodName = missingMethodMatcher.group(1);
+            String receiverVar = missingMethodMatcher.group(2);
+            String receiverType = missingMethodMatcher.group(3);
+            if (methodName != null && methodName.equals(receiverVar)) {
+                facts.add("Method call '" + receiverVar + "." + methodName
+                        + "(...)' is invalid: method name equals receiver variable name. "
+                        + "Replace/remove this self-call typo and invoke a real method on '" + receiverType + "'.");
+            } else {
+                facts.add("Cannot resolve method '" + methodName + "(...)' on variable '" + receiverVar
+                        + "' of type '" + receiverType + "'. Use an existing method from the provided context.");
+            }
+        }
+        java.util.regex.Matcher missingVariableMatcher = MISSING_SYMBOL_VARIABLE_WITH_LOCATION_PATTERN.matcher(error);
+        boolean hasMissingVariableWithLocation = false;
+        while (missingVariableMatcher.find()) {
+            hasMissingVariableWithLocation = true;
+            String missingField = missingVariableMatcher.group(1);
+            String receiverVar = missingVariableMatcher.group(2);
+            String receiverType = missingVariableMatcher.group(3);
+            if ("java.lang.Object".equals(receiverType)) {
+                facts.add("Invalid member access '" + receiverVar + "." + missingField
+                        + "': receiver is typed as Object (often a __llm_fallback alias). "
+                        + "Remove this assertion/access and replace with assertions over real typed collaborators.");
+            } else {
+                facts.add("Cannot resolve member '" + missingField + "' on variable '" + receiverVar
+                        + "' of type '" + receiverType + "'. Use accessible members that actually exist.");
+            }
+        }
         if (missingSymbols.isEmpty()) {
-            facts.add("Resolve symbol/package errors by using exact type names/packages from the provided context; do not invent FQCNs.");
+            if (!hasMissingMethodWithLocation && !hasMissingVariableWithLocation && !hasMissingPackage) {
+                facts.add("Resolve symbol/package errors by using exact type names/packages from the provided context; do not invent FQCNs.");
+            }
             return;
         }
         for (String symbol : missingSymbols) {
+            if (error.contains("__llm_fallback")) {
+                facts.add("Unresolved class '" + symbol + "' appears in a __llm_fallback declaration. "
+                        + "Do not introduce short unresolved type aliases (e.g., '" + symbol
+                        + " __llm_fallback...'); use a resolvable fully-qualified type or Object.");
+            }
+            if (error.contains("new " + symbol + "(")) {
+                facts.add("Unresolved class '" + symbol + "' is being instantiated (`new "
+                        + symbol + "(...)`). Do not invent helper/stub classes. "
+                        + "Replace with an existing SUT/JDK type, or use Mockito.mock(ExpectedType.class, new ViolatedAssumptionAnswer()) "
+                        + "for collaborator parameters.");
+            }
+            if ("Node".equals(symbol)
+                    && error.contains("org.dom4j")
+                    && error.contains("NodeComparator")) {
+                facts.add("For dom4j tests, unqualified cast type `Node` is unresolved here. "
+                        + "Use `org.dom4j.Node` (or an already imported compatible type such as `org.dom4j.Element`) "
+                        + "instead of bare `Node`.");
+            }
             if (context.isKnownType(symbol)) {
                 facts.add("Symbol '" + symbol + "' exists in provided context; use its exact context form/package and avoid invented qualifiers.");
             } else {
@@ -1929,6 +2148,18 @@ public class TestRepairLoop {
             sb.append(", ...");
         }
         return sb.toString();
+    }
+
+    private boolean shouldIncludeDroppedParseDiagnostic(ParseDiagnostic diagnostic) {
+        if (diagnostic == null) {
+            return false;
+        }
+        if (diagnostic.getSeverity() == ParseDiagnostic.Severity.ERROR) {
+            return true;
+        }
+        return diagnostic.getSeverity() == ParseDiagnostic.Severity.WARNING
+                && diagnostic.getMessage() != null
+                && diagnostic.getMessage().contains(EXPLICIT_REPAIR_ACTION_MARKER);
     }
 
     private static final class ContextTypeIndex {
@@ -2152,7 +2383,7 @@ public class TestRepairLoop {
                     hints.add("Declare the array before indexing it, including full rank/dimensions.");
                 } else if (lower.contains("unresolved variable")) {
                     hints.add("Declare the variable earlier and keep names consistent across statements.");
-                } else if (lower.contains("cannot resolve type")) {
+                } else if (isUnresolvedTypeDiagnostic(diagnostic)) {
                     hints.add("Replace invented/unknown types with existing SUT or JDK types.");
                 }
             }
@@ -2253,9 +2484,76 @@ public class TestRepairLoop {
                     .append(" - ")
                     .append(rootCause.getMessage() == null ? "" : rootCause.getMessage());
         }
+        appendSnippetCompilationDetails(message, throwable, rootCause);
         message.append(buildFailureStackExcerpt(rootCause != null ? rootCause : throwable,
                 parseResult, failingPosition));
         return message.toString();
+    }
+
+    private void appendSnippetCompilationDetails(StringBuilder message,
+                                                 Throwable throwable,
+                                                 Throwable rootCause) {
+        if (!isSnippetCompilationThrowable(throwable) && !isSnippetCompilationThrowable(rootCause)) {
+            return;
+        }
+
+        String wrapperMessage = throwable == null ? null : throwable.getMessage();
+        String causeMessage = rootCause == null ? null : rootCause.getMessage();
+        String compilerDiagnostics = extractSnippetCompilerDiagnostics(wrapperMessage, causeMessage);
+
+        message.append("\nSnippet compilation note:");
+        if (compilerDiagnostics != null && !compilerDiagnostics.isEmpty()) {
+            message.append("\n- javac diagnostics:\n")
+                    .append(compilerDiagnostics);
+        } else {
+            message.append("\n- No javac diagnostics were captured; only the snippet compilation wrapper message was available.");
+        }
+        message.append("\n- This came from EvoSuite-rendered synthesized code after parsing, not directly from raw LLM text.");
+    }
+
+    private boolean isSnippetCompilationThrowable(Throwable throwable) {
+        if (throwable == null) {
+            return false;
+        }
+        String className = throwable.getClass().getName();
+        if (className.endsWith("ExecutableSnippetEngine$SnippetCompilationException")
+                || className.contains("ExecutableSnippetEngine$SnippetCompilationException")) {
+            return true;
+        }
+        String message = throwable.getMessage();
+        return message != null
+                && (message.contains("SnippetCompilationException")
+                || message.contains("Snippet compilation failed")
+                || message.contains("Snippet compilation interrupted"));
+    }
+
+    private String extractSnippetCompilerDiagnostics(String wrapperMessage, String causeMessage) {
+        String[] candidates = new String[]{wrapperMessage, causeMessage};
+        for (String candidate : candidates) {
+            if (candidate == null || candidate.isEmpty()) {
+                continue;
+            }
+            int idx = candidate.indexOf("Snippet compilation failed for ");
+            if (idx >= 0) {
+                int colon = candidate.indexOf(':', idx);
+                if (colon >= 0 && colon + 1 < candidate.length()) {
+                    return candidate.substring(colon + 1).trim();
+                }
+            }
+            if (candidate.contains("Could not compile snippet") || candidate.contains("Snippet compilation interrupted")) {
+                return null;
+            }
+            if (candidate.contains("cannot find symbol")
+                    || candidate.contains("illegal start of type")
+                    || candidate.contains("error:")
+                    || candidate.contains("cannot be applied to given types")
+                    || candidate.contains("has protected access")
+                    || candidate.contains("not public in")
+                    || candidate.contains("incompatible types")) {
+                return candidate.trim();
+            }
+        }
+        return null;
     }
 
     private Throwable unwrapDiagnosticCause(Throwable throwable) {
@@ -2432,7 +2730,7 @@ public class TestRepairLoop {
             if (sourceSnippet != null && !sourceSnippet.trim().isEmpty()) {
                 note.append("\n- Source expression: ")
                         .append(truncate(sourceSnippet.trim(), MAX_FALLBACK_DIAGNOSTIC_CHARS).replace('\n', ' '));
-                String inventedHelperType = extractInventedHelperTypeForFallback(sourceSnippet, message, fallbackType);
+                String inventedHelperType = extractInventedHelperTypeForFallback(diagnostic, fallbackType);
                 if (inventedHelperType != null && !inventedHelperType.isEmpty()) {
                     inventedHelperTypes.add(inventedHelperType);
                 }
@@ -2474,17 +2772,19 @@ public class TestRepairLoop {
         return action.trim();
     }
 
-    private String extractInventedHelperTypeForFallback(String sourceSnippet,
-                                                        String diagnosticMessage,
-                                                        String fallbackType) {
+    private String extractInventedHelperTypeForFallback(ParseDiagnostic diagnostic, String fallbackType) {
+        if (diagnostic == null) {
+            return null;
+        }
+        String sourceSnippet = diagnostic.getSourceSnippet();
         if (sourceSnippet == null || sourceSnippet.isEmpty()) {
             return null;
         }
+        String diagnosticMessage = diagnostic.getMessage();
         String diagnosticLower = diagnosticMessage == null ? "" : diagnosticMessage.toLowerCase();
         if (!diagnosticLower.contains("invented/unknown type")
                 && !diagnosticLower.contains("do not invent local/helper types")
-                && !diagnosticLower.contains("cannot resolve class")
-                && !diagnosticLower.contains("cannot resolve type")) {
+                && !isUnresolvedTypeDiagnostic(diagnostic)) {
             return null;
         }
 
@@ -2623,7 +2923,7 @@ public class TestRepairLoop {
             if (diagnostic == null || diagnostic.getMessage() == null) {
                 continue;
             }
-            if (!isFallbackResolutionDiagnostic(diagnostic.getMessage())) {
+            if (!isFallbackResolutionDiagnostic(diagnostic)) {
                 continue;
             }
             resolutionDiagnostics.add(diagnostic);
@@ -2657,18 +2957,32 @@ public class TestRepairLoop {
         }
     }
 
-    private boolean isFallbackResolutionDiagnostic(String message) {
-        if (message == null || message.isEmpty()) {
+    private boolean isFallbackResolutionDiagnostic(ParseDiagnostic diagnostic) {
+        if (diagnostic == null || diagnostic.getMessage() == null || diagnostic.getMessage().isEmpty()) {
             return false;
         }
-        String lower = message.toLowerCase();
+        String lower = diagnostic.getMessage().toLowerCase();
         return lower.startsWith("no matching constructor:")
                 || lower.startsWith("no matching method:")
                 || lower.startsWith("no method named ")
                 || lower.startsWith("no static method named ")
                 || lower.startsWith("method argument mismatch:")
-                || (lower.contains("llm_repair_action_required:")
-                && (lower.contains("cannot resolve class") || lower.contains("cannot resolve type")));
+                || (lower.contains("llm_repair_action_required:") && isUnresolvedTypeDiagnostic(diagnostic));
+    }
+
+    private boolean isUnresolvedTypeDiagnostic(ParseDiagnostic diagnostic) {
+        if (diagnostic == null) {
+            return false;
+        }
+        if ("UNRESOLVED_TYPE".equals(diagnostic.getKindName())) {
+            return true;
+        }
+        String message = diagnostic.getMessage();
+        if (message == null || message.isEmpty()) {
+            return false;
+        }
+        String lower = message.toLowerCase();
+        return lower.contains("cannot resolve class") || lower.contains("cannot resolve type");
     }
 
     private boolean matchesFallbackDiagnosticType(ParseDiagnostic diagnostic, String fallbackType) {
@@ -2775,6 +3089,251 @@ public class TestRepairLoop {
             return parseResult.getTestCase().getStatement(index).getCode();
         } catch (Throwable ignored) {
             return "";
+        }
+    }
+
+    private String checkRenderedCompilation(ParseResult parseResult) {
+        if (parseResult == null || parseResult.getTestCase() == null) {
+            return "Compilation error in parsed test '<unnamed>': missing parsed test case";
+        }
+        ensureParseCompileThreadPrivileged();
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            return "Compilation error in parsed test '" + safeMethodName(parseResult)
+                    + "': No Java compiler available in current runtime";
+        }
+
+        org.evosuite.testcase.TestCodeVisitor visitor = new org.evosuite.testcase.TestCodeVisitor();
+        try {
+            parseResult.getTestCase().accept(visitor);
+        } catch (Throwable t) {
+            return "Compilation error in parsed test '" + safeMethodName(parseResult)
+                    + "': failed to render parsed test code: " + formatThrowable(t);
+        }
+        String methodBody = visitor.getCode() == null ? "" : visitor.getCode();
+        String source = buildCompilationProbeSource(parseResult, methodBody, visitor.getImports());
+
+        Path tmpDir = null;
+        try {
+            final String method = safeMethodName(parseResult);
+            final String finalSource = source;
+            Future<String> future = PARSE_COMPILE_EXECUTOR.submit(() -> runRenderedCompilationCheck(method, finalSource));
+            return future.get();
+        } catch (SecurityException securityException) {
+            return "Compilation error in parsed test '" + safeMethodName(parseResult)
+                    + "': parse-phase compile check failed due to sandbox/security restrictions: "
+                    + securityException.getMessage()
+                    + "\nNote: parse-phase compile checks are required; this test cannot be accepted when the check is unavailable.";
+        } catch (Throwable t) {
+            if (isSecurityInfrastructureError(t)) {
+                return "Compilation error in parsed test '" + safeMethodName(parseResult)
+                        + "': parse-phase compile check failed due to security infrastructure error: "
+                        + t.toString()
+                        + "\nNote: parse-phase compile checks are required; this test cannot be accepted when the check is unavailable.";
+            }
+            return "Compilation error in parsed test '" + safeMethodName(parseResult)
+                    + "': " + formatThrowable(t)
+                    + "\nNote: this error comes from EvoSuite-rendered synthesized test source (after parsing), not directly from raw LLM text."
+                    + "\nRendered compile-check class excerpt:\n```java\n"
+                    + truncate(source, MAX_TEST_CODE_EXCERPT_CHARS)
+                    + "\n```"
+                    + "\nParsed test code excerpt:\n```java\n"
+                    + truncate(methodBody, MAX_TEST_CODE_EXCERPT_CHARS)
+                    + "\n```";
+        }
+    }
+
+    private void ensureParseCompileThreadPrivileged() {
+        registerParseCompileThreadAsPrivileged();
+    }
+
+    /**
+     * Registers the parse-phase compilation worker thread as privileged with
+     * the EvoSuite sandbox. Must be invoked by a privileged EvoSuite thread
+     * after sandbox initialization.
+     */
+    public static void registerParseCompileThreadAsPrivileged() {
+        if (!Sandbox.isSecurityManagerInitialized()) {
+            return;
+        }
+        try {
+            Future<Thread> future = PARSE_COMPILE_EXECUTOR.submit(Thread::currentThread);
+            Thread worker = future.get();
+            Sandbox.addPrivilegedThread(worker);
+        } catch (SecurityException se) {
+            // Caller is not privileged right now; another privileged caller may register later.
+            logger.debug("Could not register parse-compile worker as privileged from thread '{}': {}",
+                    Thread.currentThread().getName(), se.getMessage());
+        } catch (Throwable t) {
+            logger.debug("Could not bootstrap parse-compile worker privilege registration: {}", t.toString());
+        }
+    }
+
+    private String runRenderedCompilationCheck(String methodName, String source) throws Exception {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            return "Compilation error in parsed test '" + methodName
+                    + "': No Java compiler available in current runtime";
+        }
+        Path tmpDir = null;
+        try {
+            tmpDir = Files.createTempDirectory("evosuite-llm-parse-compile-");
+            String packageName = getSutPackage();
+            String className = "__ParseCompileProbe_" + Math.abs(methodName.hashCode());
+            Path pkgDir = tmpDir;
+            if (packageName != null && !packageName.trim().isEmpty()) {
+                pkgDir = tmpDir.resolve(packageName.replace('.', File.separatorChar));
+                Files.createDirectories(pkgDir);
+            }
+            Path sourceFile = pkgDir.resolve(className + ".java");
+            Files.write(sourceFile, source.getBytes(StandardCharsets.UTF_8));
+
+            ByteArrayOutputStream err = new ByteArrayOutputStream();
+            String classPath = System.getProperty("java.class.path", "");
+            List<String> args = new ArrayList<>();
+            args.add("-proc:none");
+            args.add("-classpath");
+            args.add(classPath);
+            args.add("-d");
+            args.add(tmpDir.toString());
+            args.add(sourceFile.toString());
+            int result = compiler.run(null, null, err, args.toArray(new String[0]));
+            if (result == 0) {
+                return null;
+            }
+            String diagnostics = err.toString(StandardCharsets.UTF_8.name()).trim();
+            return "Compilation error in parsed test '" + methodName
+                    + "': " + diagnostics
+                    + "\nNote: this error comes from EvoSuite-rendered synthesized test source (after parsing), not directly from raw LLM text."
+                    + "\nRendered compile-check class excerpt:\n```java\n"
+                    + truncate(source, MAX_TEST_CODE_EXCERPT_CHARS)
+                    + "\n```"
+                    + "\n```";
+        } finally {
+            if (tmpDir != null) {
+                try {
+                    deleteRecursively(tmpDir.toFile());
+                } catch (Throwable ignored) {
+                    // best-effort cleanup
+                }
+            }
+        }
+    }
+
+    private boolean isSecurityInfrastructureError(Throwable throwable) {
+        if (throwable == null) {
+            return false;
+        }
+        Throwable current = throwable;
+        int depth = 0;
+        while (current != null && depth < 8) {
+            if (current instanceof SecurityException) {
+                return true;
+            }
+            String message = current.getMessage();
+            if (message != null) {
+                String lower = message.toLowerCase();
+                if (lower.contains("unable to create temporary file")
+                        || lower.contains("unable to create temporary directory")
+                        || lower.contains("access denied")
+                        || lower.contains("permission denied")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+            depth++;
+        }
+        return false;
+    }
+
+    private String buildCompilationProbeSource(ParseResult parseResult,
+                                               String methodBody,
+                                               Set<Class<?>> imports) {
+        String packageName = getSutPackage();
+        String className = "__ParseCompileProbe_" + Math.abs(safeMethodName(parseResult).hashCode());
+        StringBuilder sb = new StringBuilder();
+        if (packageName != null && !packageName.trim().isEmpty()) {
+            sb.append("package ").append(packageName).append(";\n\n");
+        }
+        UnitTestAdapter adapter = TestSuiteWriterUtils.getAdapter();
+        appendUniqueImportLines(sb, adapter.getImports());
+        if (imports != null) {
+            for (Class<?> clazz : imports) {
+                if (clazz == null) {
+                    continue;
+                }
+                String canonical = clazz.getCanonicalName();
+                if (canonical == null || canonical.isEmpty()) {
+                    continue;
+                }
+                if (canonical.startsWith("java.lang.")) {
+                    continue;
+                }
+                sb.append("import ").append(canonical.replace('$', '.')).append(";\n");
+            }
+        }
+        sb.append("\npublic class ").append(className).append(" {\n");
+        sb.append("  @Test\n");
+        sb.append("  public void ").append(sanitizeMethodName(safeMethodName(parseResult)))
+                .append("() throws Throwable {\n");
+        if (methodBody != null && !methodBody.isEmpty()) {
+            String[] lines = methodBody.split("\\R", -1);
+            for (String line : lines) {
+                sb.append("    ").append(line).append('\n');
+            }
+        }
+        sb.append("  }\n");
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    private void appendUniqueImportLines(StringBuilder sb, String rawImports) {
+        if (rawImports == null || rawImports.trim().isEmpty()) {
+            return;
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String line : rawImports.split("\\R")) {
+            String trimmed = line == null ? "" : line.trim();
+            if (!trimmed.startsWith("import ")) {
+                continue;
+            }
+            if (!trimmed.endsWith(";")) {
+                trimmed = trimmed + ";";
+            }
+            if (seen.add(trimmed)) {
+                sb.append(trimmed).append('\n');
+            }
+        }
+    }
+
+    private String sanitizeMethodName(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            return "test0";
+        }
+        String trimmed = name.trim();
+        if (!Character.isJavaIdentifierStart(trimmed.charAt(0))) {
+            trimmed = "test_" + trimmed;
+        }
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < trimmed.length(); i++) {
+            char c = trimmed.charAt(i);
+            out.append(Character.isJavaIdentifierPart(c) ? c : '_');
+        }
+        return out.toString();
+    }
+
+    private void deleteRecursively(File root) throws IOException {
+        if (root == null || !root.exists()) {
+            return;
+        }
+        File[] children = root.listFiles();
+        if (children != null) {
+            for (File child : children) {
+                deleteRecursively(child);
+            }
+        }
+        if (!root.delete() && root.exists()) {
+            throw new IOException("Could not delete " + root.getAbsolutePath());
         }
     }
 
@@ -3070,8 +3629,23 @@ public class TestRepairLoop {
         @Override
         public ExecutionResult execute(org.evosuite.testcase.TestCase testCase) {
             if (!TestCaseExecutor.isAvailable()) {
-                logger.debug("TestCaseExecutor has been shut down; skipping execution check");
-                return null;
+                // Keep parse-phase execution checks aligned with compile&rerun:
+                // if a prior phase called TestCaseExecutor.pullDown(), eagerly
+                // recreate the singleton executor instead of silently skipping
+                // runtime/assertion validation for this parsed test.
+                logger.info("TestCaseExecutor unavailable during parse-phase execution check; reinitializing.");
+                try {
+                    TestCaseExecutor.getInstance();
+                    if (!TestCaseExecutor.isAvailable()) {
+                        logger.warn("TestCaseExecutor reinitialization did not restore availability; "
+                                + "execution check will be skipped for this parsed test.");
+                        return null;
+                    }
+                } catch (Throwable t) {
+                    logger.warn("Could not reinitialize TestCaseExecutor during parse-phase execution check: {}",
+                            t.toString());
+                    return null;
+                }
             }
             if (Properties.RESET_STATIC_FIELDS) {
                 // Align repair-time execution with later JUnit rerun behavior by

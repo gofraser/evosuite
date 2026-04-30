@@ -547,9 +547,18 @@ public class TestSuiteWriter implements Opcodes {
             if (!imp.getName().contains(".")) {
                 continue;
             }
-            // TODO: Check for anonymous type?
+            // Avoid single-type imports of nested classes (eg Outer.Inner), which can
+            // easily collide on simple names such as "Factory" across different owners.
+            // Import the top-level declaring class instead; references are emitted as
+            // Outer.Inner (or fully-qualified when needed), which remains compilable.
             if (imp.getName().contains("$")) {
-                importNames.add(imp.getName().replace("$", "."));
+                Class<?> topLevel = imp;
+                while (topLevel.getEnclosingClass() != null) {
+                    topLevel = topLevel.getEnclosingClass();
+                }
+                if (topLevel.getCanonicalName() != null && !topLevel.getCanonicalName().isEmpty()) {
+                    importNames.add(topLevel.getCanonicalName());
+                }
             } else {
                 importNames.add(imp.getName());
             }

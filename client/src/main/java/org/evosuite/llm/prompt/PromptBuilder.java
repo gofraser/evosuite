@@ -118,7 +118,7 @@ public class PromptBuilder {
         this.sutContextSelectivelyTruncated = result.isSelectivelyTruncated();
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
-            userSections.add(result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
+            userSections.add("CLASS UNDER TEST (SUT): " + className + "\n\n" + result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
             userSections.add("IMPORTANT: Ensure that all generic types "
                     + "(e.g., Vector<Character>, List<String>) match the "
                     + "class definition exactly. Do not use generic types like Vector<String> if the class "

@@ -152,6 +152,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     Sandbox.initializeSecurityManagerForSUT();
                     org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
                             .registerCompilationThreadAsPrivileged();
+                    org.evosuite.llm.response.TestRepairLoop
+                            .registerParseCompileThreadAsPrivileged();
                 }
                 results = new ArrayList<>();
 
@@ -797,6 +799,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     Sandbox.initializeSecurityManagerForSUT();
                     org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
                             .registerCompilationThreadAsPrivileged();
+                    org.evosuite.llm.response.TestRepairLoop
+                            .registerParseCompileThreadAsPrivileged();
                 }
 
                 try {
@@ -889,6 +893,8 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     Sandbox.initializeSecurityManagerForSUT();
                     org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
                             .registerCompilationThreadAsPrivileged();
+                    org.evosuite.llm.response.TestRepairLoop
+                            .registerParseCompileThreadAsPrivileged();
                 }
 
                 try {

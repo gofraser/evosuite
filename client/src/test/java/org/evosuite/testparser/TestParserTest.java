@@ -291,6 +291,32 @@ class TestParserTest {
     }
 
     @Test
+    void llmBestEffortInlinedHelperDiagnosticUsesOriginalCallSiteLine() {
+        parser.setMarkParsedFromLlm(true);
+
+        String source = "import org.junit.jupiter.api.Test;\n"
+                + "public class MyTest {\n"
+                + "  private Object createInstance() { return missingValue; }\n"
+                + "  @Test\n"
+                + "  public void testUsesHelper() {\n"
+                + "    Object x = createInstance();\n"
+                + "  }\n"
+                + "}\n";
+
+        ParseResult result = parser.parseTestMethod(source, "testUsesHelper");
+        assertTrue(result.hasErrors(), "Expected unresolved-variable diagnostic from inlined helper");
+
+        ParseDiagnostic diagnostic = result.getDiagnostics().stream()
+                .filter(d -> d.getMessage() != null && d.getMessage().contains("Unresolved variable: missingValue"))
+                .findFirst()
+                .orElseThrow(() -> new AssertionError("Missing unresolved-variable diagnostic: "
+                        + result.getDiagnostics()));
+
+        assertEquals(6, diagnostic.getLineNumber(),
+                "Inlined helper diagnostics should point at the original call site");
+    }
+
+    @Test
     void llmBestEffortInlinesVoidOneArgHelperInsideUnsupportedForLoop() {
         parser.setMarkParsedFromLlm(true);
 

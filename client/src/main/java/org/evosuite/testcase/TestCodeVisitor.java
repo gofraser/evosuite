@@ -29,11 +29,13 @@ import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.*;
+import org.evosuite.runtime.PrivateAccess;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.LenientMockAnswer;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
 import org.evosuite.runtime.mock.EvoSuiteMock;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.EnvironmentDataStatement;
@@ -51,6 +53,7 @@ import org.evosuite.utils.generic.*;
 import java.lang.reflect.*;
 import java.net.URLClassLoader;
 import java.util.*;
+import java.util.regex.Pattern;
 
 import static java.util.stream.Collectors.toCollection;
 
@@ -302,11 +305,18 @@ public class TestCodeVisitor extends TestVisitor {
                 if (bound == null) { // || GenericTypeReflector.erase(bound).equals(Object.class))
                     continue;
                 }
+                String boundName = getTypeParameterName(bound);
+                // Avoid emitting invalid wildcard syntax like "? super ?".
+                // This can happen when the lower bound is itself an unresolved
+                // type variable/capture from reflective generic signatures.
+                if ("?".equals(boundName)) {
+                    continue;
+                }
 
                 if (!first) {
                     ret += ", ";
                 }
-                ret += " super " + getTypeParameterName(bound);
+                ret += " super " + boundName;
                 first = false;
             }
             for (Type bound : ((WildcardType) type).getUpperBounds()) {
@@ -366,6 +376,14 @@ public class TestCodeVisitor extends TestVisitor {
 
         if (clazz.isArray()) {
             return getClassName(clazz.getComponentType()) + "[]";
+        }
+
+        String canonicalName = clazz.getCanonicalName();
+        if (canonicalName != null
+                && !canonicalName.isEmpty()
+                && !isTypeAccessibleFromGeneratedTest(clazz, getGeneratedTestPackageName())) {
+            classNames.put(clazz, canonicalName);
+            return canonicalName;
         }
 
         GenericClass<?> c = GenericClassFactory.get(clazz);
@@ -458,6 +476,9 @@ public class TestCodeVisitor extends TestVisitor {
         } else if (var instanceof FieldReference) {
             VariableReference source = ((FieldReference) var).getSource();
             GenericField field = ((FieldReference) var).getField();
+            if (!canUseDirectFieldAccess(field.getField(), source)) {
+                return getReflectiveFieldAccess(field.getField(), source);
+            }
             if (source != null) {
                 String ret = "";
                 // If the method is not public and this is a subclass in a different package we need to cast
@@ -521,6 +542,42 @@ public class TestCodeVisitor extends TestVisitor {
         }
         declarationVariableNames.put(normalized, name);
         return name;
+    }
+
+    private boolean canUseDirectFieldAccess(Field field, VariableReference source) {
+        Class<?> ownerClass = source != null ? source.getVariableClass() : field.getDeclaringClass();
+        return TestUsageChecker.canUse(field, ownerClass);
+    }
+
+    private String getReflectiveFieldAccess(Field field, VariableReference source) {
+        String receiver = source == null ? "null" : getVariableName(source);
+        return "(" + getClassName(field.getType()) + ") "
+                + getClassName(PrivateAccess.class)
+                + ".getVariable("
+                + getClassName(field.getDeclaringClass())
+                + ".class, "
+                + receiver
+                + ", \""
+                + field.getName()
+                + "\")";
+    }
+
+    private String getFieldAccess(Field field, VariableReference source, String targetTypeName, boolean needsCast) {
+        if (!canUseDirectFieldAccess(field, source)) {
+            return getReflectiveFieldAccess(field, source);
+        }
+
+        String access;
+        if (Modifier.isStatic(field.getModifiers())) {
+            access = getClassName(field.getDeclaringClass()) + "." + field.getName();
+        } else {
+            access = getVariableName(source) + "." + field.getName();
+        }
+
+        if (!needsCast) {
+            return access;
+        }
+        return "(" + targetTypeName + ")" + access;
     }
 
     private String getSnippetBindingName(VariableReference var) {
@@ -590,11 +647,19 @@ public class TestCodeVisitor extends TestVisitor {
     }
 
     private int safePosition(VariableReference variableReference) {
-        try {
-            return variableReference.getStPosition();
-        } catch (AssertionError ignored) {
+        if (variableReference == null || test == null) {
             return -1;
         }
+        // Avoid VariableReference#getStPosition() here: on stale/orphan references it
+        // builds diagnostics via Statement#getCode(), which re-enters this visitor and
+        // can recurse indefinitely while we are already rendering code.
+        for (int i = 0; i < test.size(); i++) {
+            VariableReference candidate = test.getStatement(i).getReturnValue();
+            if (candidate == variableReference || candidate.equals(variableReference)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
 
@@ -766,7 +831,12 @@ public class TestCodeVisitor extends TestVisitor {
         int length = assertion.length;
 
         String stmt = "assertEquals(";
-        stmt += length + ", " + getVariableName(source) + ".length);";
+        String sourceExpr = getVariableName(source);
+        if (source != null && source.getVariableClass() != null && source.getVariableClass().isArray()) {
+            stmt += length + ", " + sourceExpr + ".length);";
+        } else {
+            stmt += length + ", java.lang.reflect.Array.getLength(" + sourceExpr + "));";
+        }
 
         testCode.append(stmt);
     }
@@ -799,12 +869,8 @@ public class TestCodeVisitor extends TestVisitor {
         Object value = assertion.getValue();
         Field field = assertion.getField();
 
-        String target = "";
-        if (Modifier.isStatic(field.getModifiers())) {
-            target = getClassName(field.getDeclaringClass()) + "." + field.getName();
-        } else {
-            target = getVariableName(source) + "." + field.getName();
-        }
+        String target = getFieldAccess(field, Modifier.isStatic(field.getModifiers()) ? null : source,
+                getTypeName(field.getGenericType()), false);
 
         if (value == null) {
             testCode.append("assertNull(" + target
@@ -854,70 +920,85 @@ public class TestCodeVisitor extends TestVisitor {
         Object value = assertion.getValue();
         Inspector inspector = assertion.getInspector();
         Class<?> generatedType = inspector.getReturnType();
+        String inspectorTarget = getInspectorTarget(source, inspector);
 
         if (value == null) {
-            testCode.append("assertNull(" + getVariableName(source) + "."
+            testCode.append("assertNull(" + inspectorTarget + "."
                     + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Long.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType)) {
                 testCode.append("(long)");
             }
-            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
+            testCode.append(inspectorTarget + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Short.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType)) {
                 testCode.append("(short)");
             }
-            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
+            testCode.append(inspectorTarget + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Integer.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType)) {
                 testCode.append("(int)");
             }
-            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
+            testCode.append(inspectorTarget + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Byte.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType)) {
                 testCode.append("(byte)");
             }
-            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
+            testCode.append(inspectorTarget + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(Float.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
-            testCode.append(getVariableName(source) + "." + inspector.getMethodCall()
+            testCode.append(inspectorTarget + "." + inspector.getMethodCall()
                     + "(), " + NumberFormatter.getNumberString(Properties.FLOAT_PRECISION, this) + ");");
         } else if (value.getClass().equals(Double.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
-            testCode.append(getVariableName(source) + "." + inspector.getMethodCall()
+            testCode.append(inspectorTarget + "." + inspector.getMethodCall()
                     + "(), " + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");");
         } else if (value.getClass().equals(Character.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             if (ClassUtils.isPrimitiveWrapper(generatedType)) {
                 testCode.append("(char)");
             }
-            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
+            testCode.append(inspectorTarget + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().equals(String.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
-            testCode.append(getVariableName(source) + "." + inspector.getMethodCall() + "());");
+            testCode.append(inspectorTarget + "." + inspector.getMethodCall() + "());");
         } else if (value.getClass().isEnum() || value instanceof Enum) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + getVariableName(source) + "." + inspector.getMethodCall() + "());");
+                    + inspectorTarget + "." + inspector.getMethodCall() + "());");
             // Make sure the enum is imported in the JUnit test
             getClassName(value.getClass());
 
         } else if (value.getClass().equals(boolean.class) || value.getClass().equals(Boolean.class)) {
             if ((Boolean) value) {
-                testCode.append("assertTrue(" + getVariableName(source) + "."
+                testCode.append("assertTrue(" + inspectorTarget + "."
                         + inspector.getMethodCall() + "());");
             } else {
-                testCode.append("assertFalse(" + getVariableName(source) + "."
+                testCode.append("assertFalse(" + inspectorTarget + "."
                         + inspector.getMethodCall() + "());");
             }
 
         } else {
-            testCode.append("assertEquals(" + value + ", " + getVariableName(source) + "."
+            testCode.append("assertEquals(" + value + ", " + inspectorTarget + "."
                     + inspector.getMethodCall() + "());");
         }
+    }
+
+    private String getInspectorTarget(VariableReference source, Inspector inspector) {
+        String sourceName = getVariableName(source);
+        if (source == null || inspector == null || inspector.getMethod() == null) {
+            return sourceName;
+        }
+
+        Class<?> declaringClass = inspector.getMethod().getDeclaringClass();
+        if (declaringClass == null || declaringClass.isAssignableFrom(source.getVariableClass())) {
+            return sourceName;
+        }
+
+        return "((" + getClassName(declaringClass) + ") " + sourceName + ")";
     }
 
     /**
@@ -1315,15 +1396,11 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitFieldStatement(FieldStatement statement) {
         Throwable exception = getException(statement);
 
-        String castStr = "";
         StringBuilder builder = new StringBuilder();
 
         VariableReference retval = statement.getReturnValue();
         GenericField field = statement.getField();
-
-        if (!retval.isAssignableFrom(field.getFieldType())) {
-            castStr += "(" + getClassName(retval) + ")";
-        }
+        boolean needsCast = !retval.isAssignableFrom(field.getFieldType());
 
         if (exception != null) {
             builder.append(getClassName(retval));
@@ -1342,16 +1419,12 @@ public class TestCodeVisitor extends TestVisitor {
             VariableReference source = statement.getSource();
             builder.append(getVariableName(retval));
             builder.append(" = ");
-            builder.append(castStr);
-            builder.append(getVariableName(source));
+            builder.append(getFieldAccess(field.getField(), source, getClassName(retval), needsCast));
         } else {
             builder.append(getVariableName(retval));
             builder.append(" = ");
-            builder.append(castStr);
-            builder.append(getClassName(field.getField().getDeclaringClass()));
+            builder.append(getFieldAccess(field.getField(), null, getClassName(retval), needsCast));
         }
-        builder.append(".");
-        builder.append(field.getName());
         builder.append(";");
         if (exception != null) {
             Class<?> ex = exception.getClass();
@@ -1526,7 +1599,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (reference == null || test == null) {
             return false;
         }
-        int pos = reference.getStPosition();
+        int pos = safePosition(reference);
         if (pos < 0 || pos >= test.size()) {
             return false;
         }
@@ -1558,10 +1631,33 @@ public class TestCodeVisitor extends TestVisitor {
                 && !declaredParamType.equals(actualParamType)) {
             return getTypeName(Class.class);
         }
+        if (requiresRawCastForInconvertibleParameterizedTypes(declaredParamType, actualParamType)) {
+            return getTypeName(safeErasure(declaredParamType));
+        }
         if (requiresRawCastTypeName(declaredParamType)) {
             return getTypeName(safeErasure(declaredParamType));
         }
         return getTypeName(declaredParamType);
+    }
+
+    private boolean requiresRawCastForInconvertibleParameterizedTypes(Type declaredParamType, Type actualParamType) {
+        if (!(declaredParamType instanceof ParameterizedType)
+                || !(actualParamType instanceof ParameterizedType)) {
+            return false;
+        }
+        ParameterizedType declared = (ParameterizedType) declaredParamType;
+        ParameterizedType actual = (ParameterizedType) actualParamType;
+        if (declared.equals(actual)) {
+            return false;
+        }
+        Class<?> declaredRaw = safeErasure(declared);
+        Class<?> actualRaw = safeErasure(actual);
+        if (declaredRaw == null || actualRaw == null) {
+            return false;
+        }
+        // Casting between the same/related raw types but incompatible type arguments
+        // can be rejected at compile-time (e.g. ArrayList<A> -> List<B>).
+        return declaredRaw.isAssignableFrom(actualRaw) || actualRaw.isAssignableFrom(declaredRaw);
     }
 
     private boolean requiresRawCastTypeName(Type type) {
@@ -1671,6 +1767,12 @@ public class TestCodeVisitor extends TestVisitor {
         if (statement.isParsedFromLlm()) {
             code = promoteUndeclaredNewAssignmentsToDeclarations(code, statement.getBindings());
         }
+        // Seed the import resolver with the statement return type before scanning
+        // raw snippet text. This lets generic return signatures inside anonymous
+        // bodies resolve helper types via same-package / related-type discovery.
+        if (statement.getReturnValue() != null && statement.getReturnValue().getType() != null) {
+            getClassName(statement.getReturnValue());
+        }
         ensureSnippetImports(code, returnExpression, statement.getBindings());
 
         // Substitute original LLM variable names with EvoSuite-generated names
@@ -1688,6 +1790,8 @@ public class TestCodeVisitor extends TestVisitor {
                 }
             }
         }
+
+        code = CodeEmissionUtils.renderCompilableSource(code);
 
         testCode.append(code);
         if (!code.endsWith("\n")) {
@@ -2103,12 +2207,75 @@ public class TestCodeVisitor extends TestVisitor {
                                         String simpleName,
                                         int depth,
                                         Set<Class<?>> visited) {
+        if (type == null || simpleName == null || simpleName.isEmpty() || depth < 0) {
+            return null;
+        }
+        if (type instanceof Class<?>) {
+            Class<?> raw = (Class<?>) type;
+            if (raw.isArray()) {
+                return resolveRelatedType(raw.getComponentType(), simpleName, depth - 1, visited);
+            }
+            return resolveRelatedSimpleName(raw, simpleName, depth, visited);
+        }
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            Class<?> raw = safeErasure(parameterizedType);
+            if (raw != null) {
+                Class<?> match = resolveRelatedSimpleName(raw, simpleName, depth, visited);
+                if (match != null) {
+                    return match;
+                }
+            }
+            Type ownerType = parameterizedType.getOwnerType();
+            if (ownerType != null) {
+                Class<?> ownerMatch = resolveRelatedType(ownerType, simpleName, depth - 1, visited);
+                if (ownerMatch != null) {
+                    return ownerMatch;
+                }
+            }
+            for (Type argumentType : parameterizedType.getActualTypeArguments()) {
+                Class<?> match = resolveRelatedType(argumentType, simpleName, depth - 1, visited);
+                if (match != null) {
+                    return match;
+                }
+            }
+            return null;
+        }
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            for (Type bound : wildcardType.getLowerBounds()) {
+                Class<?> match = resolveRelatedType(bound, simpleName, depth - 1, visited);
+                if (match != null) {
+                    return match;
+                }
+            }
+            for (Type bound : wildcardType.getUpperBounds()) {
+                Class<?> match = resolveRelatedType(bound, simpleName, depth - 1, visited);
+                if (match != null) {
+                    return match;
+                }
+            }
+            return null;
+        }
+        if (type instanceof TypeVariable) {
+            for (Type bound : ((TypeVariable<?>) type).getBounds()) {
+                Class<?> match = resolveRelatedType(bound, simpleName, depth - 1, visited);
+                if (match != null) {
+                    return match;
+                }
+            }
+            return null;
+        }
+        if (type instanceof GenericArrayType) {
+            return resolveRelatedType(((GenericArrayType) type).getGenericComponentType(),
+                    simpleName, depth - 1, visited);
+        }
         Class<?> raw = safeErasure(type);
         if (raw == null) {
             return null;
         }
         if (raw.isArray()) {
-            raw = raw.getComponentType();
+            return resolveRelatedType(raw.getComponentType(), simpleName, depth - 1, visited);
         }
         return resolveRelatedSimpleName(raw, simpleName, depth, visited);
     }
@@ -2291,6 +2458,7 @@ public class TestCodeVisitor extends TestVisitor {
                     }
 
                     parameterString = getParameterString(types, params, false, isOverloaded, 0);
+                    parameterString = sanitizeMockitoDoReturnArguments(parameterString, params);
                     // TODO unsure of these parameters
                 } else {
 
@@ -2410,6 +2578,31 @@ public class TestCodeVisitor extends TestVisitor {
 
 
         return parameterString;
+    }
+
+    private String sanitizeMockitoDoReturnArguments(String parameterString, List<VariableReference> params) {
+        if (parameterString == null || parameterString.isEmpty() || params == null || params.isEmpty()) {
+            return parameterString;
+        }
+        boolean allNull = true;
+        for (VariableReference param : params) {
+            if (!(param instanceof NullReference)) {
+                allNull = false;
+                break;
+            }
+        }
+        if (!allNull) {
+            return parameterString;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < params.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append("(Object) null");
+        }
+        return sb.toString();
     }
 
 
@@ -2749,6 +2942,7 @@ public class TestCodeVisitor extends TestVisitor {
      **/
     public String generateCatchBlock(AbstractStatement statement, Throwable exception) {
         String result = "";
+        String catchVarName = chooseFreshCatchVariableName();
 
         Class<?> ex = getExceptionClassToUse(exception);
 
@@ -2756,7 +2950,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (!(exception instanceof RuntimeException) && !(exception instanceof Error)) {
             // This is a checked exception.
             if (statement.isDeclaredException(exception)) {
-                result += " catch(" + getClassName(ex) + " e) {" + NEWLINE;
+                result += " catch(" + getClassName(ex) + " " + catchVarName + ") {" + NEWLINE;
             } else {
                 // A checked exception that is not declared cannot be thrown according to the JVM spec.
                 // And yet, it is possible, which is probably a bug in Java.
@@ -2770,14 +2964,14 @@ public class TestCodeVisitor extends TestVisitor {
                 // Passing in a PipeWriter will lead to an IOException.
                 // As a workaround, we'll just check for Throwable
                 //
-                result += " catch(" + getClassName(Throwable.class) + " e) {" + NEWLINE;
+                result += " catch(" + getClassName(Throwable.class) + " " + catchVarName + ") {" + NEWLINE;
             }
         } else {
             String className = getClassName(ex);
             if (className.contains("MockitoMock")) {
                 className = getClassName(Throwable.class);
             }
-            result += " catch(" + className + " e) {" + NEWLINE;
+            result += " catch(" + className + " " + catchVarName + ") {" + NEWLINE;
         }
 
         // adding the message of the exception
@@ -2807,7 +3001,9 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         if (sourceClass != null && isValidSource(sourceClass)
-                && isExceptionToAssertThrownBy(ex) && !Properties.NO_RUNTIME_DEPENDENCY) {
+                && isExceptionToAssertThrownBy(ex)
+                && shouldAssertThrowSite(sourceClass)
+                && !Properties.NO_RUNTIME_DEPENDENCY) {
             /*
                 do not check source if it comes from a non-runtime evosuite
                 class. this could happen if source is an instrumentation done
@@ -2815,11 +3011,55 @@ public class TestCodeVisitor extends TestVisitor {
              */
 
             //from class EvoAssertions
-            result += "    verifyException(\"" + sourceClass + "\", e);" + NEWLINE;
+            result += "    verifyException(\"" + sourceClass + "\", " + catchVarName + ");" + NEWLINE;
         }
 
         result += "}" + NEWLINE;// closing the catch block
         return result;
+    }
+
+    private String chooseFreshCatchVariableName() {
+        Set<String> usedNames = new HashSet<>(declarationVariableNames.values());
+        usedNames.addAll(argumentNames.values());
+        usedNames.addAll(methodNames.values());
+        String codeSoFar = testCode.toString();
+        String candidate = "e";
+        int suffix = 1;
+        while (usedNames.contains(candidate) || containsIdentifier(codeSoFar, candidate)) {
+            candidate = "e" + suffix++;
+        }
+        return candidate;
+    }
+
+    private boolean containsIdentifier(String code, String identifier) {
+        if (code == null || code.isEmpty() || identifier == null || identifier.isEmpty()) {
+            return false;
+        }
+        return Pattern.compile("\\b" + Pattern.quote(identifier) + "\\b").matcher(code).find();
+    }
+
+    private boolean shouldAssertThrowSite(String sourceClass) {
+        if (sourceClass == null || sourceClass.isEmpty()) {
+            return false;
+        }
+        String targetClass = Properties.TARGET_CLASS;
+        if (targetClass == null || targetClass.trim().isEmpty()) {
+            return true;
+        }
+        String targetPackage = "";
+        int idx = targetClass.lastIndexOf('.');
+        if (idx >= 0) {
+            targetPackage = targetClass.substring(0, idx);
+        }
+        String sourcePackage = "";
+        int sourceIdx = sourceClass.lastIndexOf('.');
+        if (sourceIdx >= 0) {
+            sourcePackage = sourceClass.substring(0, sourceIdx);
+        }
+        // Keep strict throw-site checks for SUT/package-owned failures only.
+        // Third-party/JDK throw sites (eg Swing/GUI init internals) are unstable
+        // across classloaders/instrumentation and should be matched by type only.
+        return targetPackage.equals(sourcePackage);
     }
 
     private String getSourceClassName(Throwable exception) {
@@ -2875,6 +3115,30 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return typeName;
+    }
+
+    private String getConstructorInvocationTypeName(Type type) {
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            for (Type argumentType : parameterizedType.getActualTypeArguments()) {
+                if (isUnresolvedTypeVariableOrWildcard(argumentType)) {
+                    return getClassName((Class<?>) parameterizedType.getRawType()) + "<>";
+                }
+            }
+        }
+        return getTypeName(type);
+    }
+
+    private String getSimpleConstructorInvocationTypeName(Type type) {
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            for (Type argumentType : parameterizedType.getActualTypeArguments()) {
+                if (isUnresolvedTypeVariableOrWildcard(argumentType)) {
+                    return getSimpleTypeName(parameterizedType.getRawType()) + "<>";
+                }
+            }
+        }
+        return getSimpleTypeName(type);
     }
 
     /*
@@ -2954,11 +3218,11 @@ public class TestCodeVisitor extends TestVisitor {
                 result += declarationPrefix + declarationVarName + " = "
                         + getVariableName(parameters.get(0))
                         + ".new "
-                        + getSimpleTypeName(constructor.getOwnerType()) + "("
+                        + getSimpleConstructorInvocationTypeName(constructor.getOwnerType()) + "("
                         + parameterString + ");";
             } else {
                 result += declarationPrefix + declarationVarName + " = new "
-                        + getTypeName(constructor.getOwnerType())
+                        + getConstructorInvocationTypeName(constructor.getOwnerType())
                         + "(" + parameterString + ");";
             }
         } else {
@@ -2979,6 +3243,8 @@ public class TestCodeVisitor extends TestVisitor {
             result += constructorVarName + ".setAccessible(true);" + NEWLINE;
             String reflectiveParameterString = getParameterString(parameterTypes, parameters,
                     isGenericConstructor, constructor.isOverloaded(parameters), 0);
+            reflectiveParameterString = normalizeReflectiveVarargsArguments(
+                    reflectiveParameterString, rawParameterTypes.length);
             result += declarationPrefix + declarationVarName
                     + " = (" + constructorTypeName + ") "
                     + constructorVarName + ".newInstance(" + reflectiveParameterString + ");";
@@ -2998,6 +3264,16 @@ public class TestCodeVisitor extends TestVisitor {
         addAssertions(statement);
     }
 
+    private String normalizeReflectiveVarargsArguments(String renderedArgs, int expectedArity) {
+        if (expectedArity == 1 && renderedArgs != null && "null".equals(renderedArgs.trim())) {
+            // Reflective varargs calls (e.g., Constructor.newInstance(Object...)) interpret
+            // bare null as a null varargs array (zero invocation args). Cast to Object so
+            // reflection receives one null element.
+            return "(Object) null";
+        }
+        return renderedArgs;
+    }
+
     private boolean isSourceAccessibleFromGeneratedTest(Constructor<?> constructor) {
         if (constructor == null) {
             return false;
@@ -3013,10 +3289,10 @@ public class TestCodeVisitor extends TestVisitor {
         if (Modifier.isPrivate(modifiers)) {
             return false;
         }
-        // No configured output package: assume the generated test can reside in
-        // the constructor's own package, so package-private access is legal.
+        // Without a concrete output package we cannot safely assume package-private
+        // access is legal; be conservative to avoid uncompilable tests.
         if (isEmptyPackageName(testPackageName)) {
-            return true;
+            return false;
         }
         return isSamePackage(constructor.getDeclaringClass(), testPackageName);
     }
@@ -3038,10 +3314,10 @@ public class TestCodeVisitor extends TestVisitor {
         if (Modifier.isPrivate(modifiers)) {
             return false;
         }
-        // No configured output package: treat package-private types as accessible,
-        // since the generated test can be emitted into the type's own package.
+        // Without a concrete output package we cannot safely assume package-private
+        // access is legal; be conservative to avoid uncompilable tests.
         if (isEmptyPackageName(testPackageName)) {
-            return true;
+            return false;
         }
         return isSamePackage(type, testPackageName);
     }
@@ -3274,7 +3550,36 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitNullStatement(NullStatement statement) {
         VariableReference retval = statement.getReturnValue();
         String varName = getDeclarationVariableName(retval);
-        testCode.append(getClassName(retval) + " " + varName + " = null;" + NEWLINE);
+        String declarationType = getNullDeclarationTypeName(retval);
+        testCode.append(declarationType + " " + varName + " = null;" + NEWLINE);
+    }
+
+    private String getNullDeclarationTypeName(VariableReference retval) {
+        if (retval == null) {
+            return getClassName(Object.class);
+        }
+        Class<?> variableClass = retval.getVariableClass();
+        String testPackageName = getGeneratedTestPackageName();
+        if (variableClass != null && !isTypeAccessibleFromGeneratedTest(variableClass, testPackageName)) {
+            // Keep null placeholder declarations compilable even when the original type
+            // is package-private in a different package.
+            return getClassName(Object.class);
+        }
+        if (variableClass != null) {
+            String canonicalName = variableClass.getCanonicalName();
+            if (canonicalName != null && !canonicalName.isEmpty()) {
+                // Null declarations are especially sensitive to missed imports for nested
+                // or cross-package reference types (eg bare "Node"). Use a stable
+                // canonical type name in those cases to keep emitted code compilable.
+                boolean nestedType = variableClass.getEnclosingClass() != null;
+                boolean crossPackage = !isEmptyPackageName(testPackageName)
+                        && !isSamePackage(variableClass, testPackageName);
+                if (nestedType || crossPackage) {
+                    return canonicalName;
+                }
+            }
+        }
+        return getClassName(retval);
     }
 
     /**

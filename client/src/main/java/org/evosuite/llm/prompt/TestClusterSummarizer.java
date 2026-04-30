@@ -326,6 +326,7 @@ public class TestClusterSummarizer {
 
         // Derive the SUT package prefix (top two segments, e.g. "com.example")
         String sutPrefix = extractSutPrefix(targetClassName);
+        String targetPackageName = extractPackageName(targetClassName);
 
         // Collect all types from the generators map
         Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType = cluster.getGeneratorsByType();
@@ -358,6 +359,9 @@ public class TestClusterSummarizer {
             }
             // Omit JDK types entirely — LLMs already know their APIs
             if (isJdkType(className)) {
+                continue;
+            }
+            if (!isSourceAccessibleFromTargetPackage(rawClass, targetPackageName)) {
                 continue;
             }
 
@@ -731,13 +735,14 @@ public class TestClusterSummarizer {
      */
     private Set<String> collectDirectDependencies(TestCluster cluster, String targetClassName) {
         Set<String> deps = new HashSet<>();
+        String targetPackageName = extractPackageName(targetClassName);
         try {
             Class<?> cutClass = Class.forName(targetClassName, false,
                     Thread.currentThread().getContextClassLoader());
             // Constructor parameter types
             for (Constructor<?> ctor : cutClass.getConstructors()) {
                 for (Class<?> paramType : ctor.getParameterTypes()) {
-                    addIfRelevant(deps, paramType);
+                    addIfRelevant(deps, paramType, targetPackageName);
                 }
             }
             // Public method parameter and return types
@@ -746,10 +751,10 @@ public class TestClusterSummarizer {
                     continue;
                 }
                 for (Class<?> paramType : method.getParameterTypes()) {
-                    addIfRelevant(deps, paramType);
+                    addIfRelevant(deps, paramType, targetPackageName);
                 }
                 Class<?> returnType = method.getReturnType();
-                addIfRelevant(deps, returnType);
+                addIfRelevant(deps, returnType, targetPackageName);
             }
         } catch (ClassNotFoundException e) {
             logger.debug("Could not load CUT class for dependency analysis: {}", targetClassName);
@@ -757,10 +762,55 @@ public class TestClusterSummarizer {
         return deps;
     }
 
-    private void addIfRelevant(Set<String> deps, Class<?> type) {
-        if (!type.isPrimitive() && !EXCLUDED_TYPES.contains(type.getName())) {
+    private void addIfRelevant(Set<String> deps, Class<?> type, String targetPackageName) {
+        if (!type.isPrimitive()
+                && !EXCLUDED_TYPES.contains(type.getName())
+                && isSourceAccessibleFromTargetPackage(type, targetPackageName)) {
             deps.add(type.getName());
         }
+    }
+
+    private String extractPackageName(String fqcn) {
+        if (fqcn == null) {
+            return "";
+        }
+        int idx = fqcn.lastIndexOf('.');
+        return idx >= 0 ? fqcn.substring(0, idx) : "";
+    }
+
+    private boolean isSourceAccessibleFromTargetPackage(Class<?> rawClass, String targetPackageName) {
+        if (rawClass == null) {
+            return false;
+        }
+        Class<?> type = rawClass;
+        while (type.isArray()) {
+            type = type.getComponentType();
+        }
+        if (type.isPrimitive()) {
+            return true;
+        }
+
+        if (!Modifier.isPublic(type.getModifiers()) && !isSamePackage(type, targetPackageName)) {
+            return false;
+        }
+
+        Class<?> enclosing = type.getEnclosingClass();
+        while (enclosing != null) {
+            if (!Modifier.isPublic(enclosing.getModifiers()) && !isSamePackage(enclosing, targetPackageName)) {
+                return false;
+            }
+            enclosing = enclosing.getEnclosingClass();
+        }
+        return true;
+    }
+
+    private boolean isSamePackage(Class<?> type, String targetPackageName) {
+        if (type == null) {
+            return false;
+        }
+        Package pkg = type.getPackage();
+        String packageName = pkg != null ? pkg.getName() : "";
+        return packageName.equals(targetPackageName == null ? "" : targetPackageName);
     }
 
     /** Summarizes the class as a rich pseudo-Java declaration with fields, generics, and exceptions. */

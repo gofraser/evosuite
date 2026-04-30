@@ -159,6 +159,9 @@ public class ExecutionResult implements Cloneable {
      */
     public void setThrownExceptions(Map<Integer, Throwable> data) {
         exceptions.clear();
+        if (data == null) {
+            return;
+        }
         data.forEach(this::reportNewThrownException);
     }
 
@@ -171,6 +174,7 @@ public class ExecutionResult implements Cloneable {
      * @return a {@link java.lang.Integer} object.
      */
     public Integer getFirstPositionOfThrownException() {
+        normalizeExceptionPositions();
         return exceptions.keySet().stream()
                 .min(Comparator.naturalOrder())
                 .orElse(null);
@@ -185,7 +189,11 @@ public class ExecutionResult implements Cloneable {
      * @param t        a {@link java.lang.Throwable} object.
      */
     public void reportNewThrownException(Integer position, Throwable t) {
-        exceptions.put(position, t);
+        Integer normalizedPosition = normalizeExceptionPosition(position, t);
+        if (normalizedPosition == null) {
+            return;
+        }
+        exceptions.put(normalizedPosition, t);
     }
 
     /**
@@ -196,6 +204,7 @@ public class ExecutionResult implements Cloneable {
      * @return a {@link java.util.Set} object.
      */
     public Set<Integer> getPositionsWhereExceptionsWereThrown() {
+        normalizeExceptionPositions();
         return exceptions.keySet();
     }
 
@@ -242,6 +251,7 @@ public class ExecutionResult implements Cloneable {
      * @return a {@link java.lang.Throwable} object.
      */
     public Throwable getExceptionThrownAtPosition(Integer position) {
+        normalizeExceptionPositions();
         return exceptions.get(position);
     }
 
@@ -261,6 +271,7 @@ public class ExecutionResult implements Cloneable {
      * @return Mapping of statement indexes and thrown exceptions.
      */
     public Map<Integer, Throwable> getCopyOfExceptionMapping() {
+        normalizeExceptionPositions();
         return new HashMap<>(exceptions);
     }
 
@@ -346,6 +357,7 @@ public class ExecutionResult implements Cloneable {
      * @return a boolean.
      */
     public boolean hasTimeout() {
+        normalizeExceptionPositions();
         if (test == null) {
             return false;
         }
@@ -375,15 +387,13 @@ public class ExecutionResult implements Cloneable {
      * @return a boolean.
      */
     public boolean hasUndeclaredException() {
+        normalizeExceptionPositions();
         if (test == null) {
             return false;
         }
 
         for (int i : exceptions.keySet()) {
             Throwable t = exceptions.get(i);
-            // Exceptions can be placed at test.size(), e.g. for timeouts
-            assert i >= 0 && i <= test.size() : "Exception " + t
-                    + " at position " + i + " in test of length " + test.size() + ": " + test.toCode(exceptions);
             if (i >= test.size()) {
                 continue;
             }
@@ -522,6 +532,95 @@ public class ExecutionResult implements Cloneable {
      */
     public void setTest(TestCase tc) {
         this.test = tc;
+        normalizeExceptionPositions();
+    }
+
+    private Integer normalizeExceptionPosition(Integer position, Throwable throwable) {
+        if (position == null) {
+            logger.debug("Ignoring exception without position: {}", throwable);
+            return null;
+        }
+        if (position < 0) {
+            logger.warn("Ignoring exception at negative position {} for test size {}", position,
+                    test == null ? "unknown" : test.size());
+            return null;
+        }
+        if (test == null) {
+            return position;
+        }
+        int maxPosition = test.size();
+        if (position > maxPosition) {
+            logger.warn("Normalizing exception position {} to terminal slot {} for test size {}",
+                    position, maxPosition, maxPosition);
+            return maxPosition;
+        }
+        return position;
+    }
+
+    private void normalizeExceptionPositions() {
+        if (test == null || exceptions.isEmpty()) {
+            return;
+        }
+
+        int maxPosition = test.size();
+        Map<Integer, Throwable> normalized = new HashMap<>();
+        List<Map.Entry<Integer, Throwable>> overflowEntries = new ArrayList<>();
+        boolean changed = false;
+
+        for (Map.Entry<Integer, Throwable> entry : exceptions.entrySet()) {
+            Integer position = entry.getKey();
+            if (position != null && position >= 0 && position <= maxPosition) {
+                normalized.put(position, entry.getValue());
+            } else {
+                overflowEntries.add(entry);
+                changed = true;
+            }
+        }
+
+        if (!changed) {
+            return;
+        }
+
+        for (Map.Entry<Integer, Throwable> entry : overflowEntries) {
+            Integer normalizedPosition = normalizeExceptionPosition(entry.getKey(), entry.getValue());
+            if (normalizedPosition == null) {
+                continue;
+            }
+            if (normalized.containsKey(normalizedPosition)) {
+                logger.debug("Dropping invalid exception position {} because slot {} is already occupied",
+                        entry.getKey(), normalizedPosition);
+                continue;
+            }
+            normalized.put(normalizedPosition, entry.getValue());
+        }
+
+        exceptions.clear();
+        exceptions.putAll(normalized);
+        normalizeExplicitExceptionPositions();
+    }
+
+    private void normalizeExplicitExceptionPositions() {
+        if (test == null || explicitExceptions.isEmpty()) {
+            return;
+        }
+
+        int maxPosition = test.size();
+        Map<Integer, Boolean> normalized = new HashMap<>();
+        boolean changed = false;
+
+        for (Map.Entry<Integer, Boolean> entry : explicitExceptions.entrySet()) {
+            Integer position = entry.getKey();
+            if (position != null && position >= 0 && position <= maxPosition) {
+                normalized.put(position, entry.getValue());
+            } else {
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            explicitExceptions.clear();
+            explicitExceptions.putAll(normalized);
+        }
     }
 
     /**

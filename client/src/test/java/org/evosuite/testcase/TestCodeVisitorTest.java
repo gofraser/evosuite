@@ -26,12 +26,16 @@ import com.examples.with.different.packagename.EnumUser;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.assertion.EqualsAssertion;
+import org.evosuite.assertion.Inspector;
+import org.evosuite.assertion.InspectorAssertion;
+import org.evosuite.assertion.PrimitiveFieldAssertion;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ClassPrimitiveStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.EnumPrimitiveStatement;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
@@ -40,10 +44,12 @@ import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.statements.numeric.CharPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
 import org.evosuite.utils.generic.Person;
 import org.evosuite.utils.generic.WildcardTypeImpl;
@@ -63,6 +69,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 
@@ -113,6 +120,15 @@ public class TestCodeVisitorTest {
         }
     }
 
+    public static class LocalUser {
+    }
+
+    public static class LocalGroup {
+        public Vector<LocalUser> getUsers() {
+            return new Vector<>();
+        }
+    }
+
     public static class Country {
         public String bar = "bar";
 
@@ -151,6 +167,15 @@ public class TestCodeVisitorTest {
         PublicTypeWithPackagePrivateCtor(String value) {
             // no-op
         }
+    }
+
+    public static class PrivateFieldHolder {
+        private String label = "label";
+        private long[] ids = new long[]{1L, 2L};
+    }
+
+    public static class PrivateGenericFieldHolder {
+        private java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
     }
 
     @Test
@@ -1159,6 +1184,85 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testWildcardParameterizedConstructorUsesDiamondOnInstantiation() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type wildcardType = new WildcardTypeImpl(new Type[]{Object.class}, new Type[]{});
+        Type parameterizedArrayList = TypeUtils.parameterize(ArrayList.class, wildcardType);
+        TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), parameterizedArrayList),
+                0,
+                0);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("ArrayList<?> "),
+                "Wildcard declaration type should be preserved:\n" + code);
+        assertTrue(code.contains("= new ArrayList<>();"),
+                "Wildcard constructor call should use diamond to remain compilable:\n" + code);
+        assertFalse(code.contains("new ArrayList<?>()"),
+                "Wildcard constructor call must not emit explicit wildcard type arguments:\n" + code);
+    }
+
+    @Test
+    public void testClassWildcardLowerTypeVariableDoesNotEmitInvalidSuperQuestionMark() {
+        TypeVariable<?> classTypeVar = Class.class.getTypeParameters()[0];
+        Type wildcard = new WildcardTypeImpl(new Type[]{Object.class}, new Type[]{classTypeVar});
+        Type classType = TypeUtils.parameterize(Class.class, wildcard);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        String rendered = visitor.getTypeName(classType);
+
+        assertEquals("Class<?>", rendered,
+                "Wildcard lower bound with unresolved type variable must not render as Class<? super ?>");
+    }
+
+    @Test
+    public void testSnippetImportsDiscoverGenericReturnTypeArgumentsInAnonymousBodies() {
+        TestCase tc = new DefaultTestCase();
+        String source = "LocalGroup group0 = new LocalGroup() {\n"
+                + "    @Override\n"
+                + "    public Vector<LocalUser> getUsers() {\n"
+                + "        return new Vector<>();\n"
+                + "    }\n"
+                + "};\n";
+        tc.addStatement(new UninterpretedStatement(tc, LocalGroup.class, source));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        assertTrue(visitor.getImports().contains(LocalUser.class),
+                "Snippet import harvesting should discover generic return-type arguments inside anonymous bodies");
+    }
+
+    @Test
+    public void testInspectorAssertionCastsObjectSourceToDeclaringType() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type parameterizedArrayList = TypeUtils.parameterize(ArrayList.class, String.class);
+        VariableReference listVar = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), parameterizedArrayList),
+                0,
+                0);
+        listVar.setType(Object.class);
+
+        Inspector inspector = new Inspector(List.class, List.class.getMethod("size"));
+        InspectorAssertion assertion = new InspectorAssertion(inspector, tc.getStatement(listVar.getStPosition()), listVar, 0);
+        tc.getStatement(listVar.getStPosition()).addAssertion(assertion);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("assertEquals(0, ((List) "),
+                "Inspector assertion should cast weakly-typed source to declaring type:\n" + code);
+        assertTrue(code.contains(".size());"),
+                "Expected generated inspector call:\n" + code);
+    }
+
+    @Test
     public void testAssertionReferencingFutureVariableIsDeferredUntilVariableIsDeclared() {
         TestCase tc = new DefaultTestCase();
         VariableReference int0 = tc.addStatement(new IntPrimitiveStatement(tc, 1));
@@ -1212,6 +1316,88 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testGenerateCatchBlockAvoidsDuplicateLocalNameE() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.testCode.append("MouseEvent e = null;\n");
+
+        DefaultTestCase tc = new DefaultTestCase();
+        IntPrimitiveStatement stmt = new IntPrimitiveStatement(tc, 1);
+        String catchBlock = visitor.generateCatchBlock(stmt, new IllegalArgumentException("boom"));
+
+        assertFalse(catchBlock.contains(" catch(IllegalArgumentException e) {"),
+                "Catch variable should not reuse already-declared local name 'e':\n" + catchBlock);
+        assertTrue(catchBlock.contains(" catch(IllegalArgumentException e1) {"),
+                "Catch variable should be renamed when 'e' is already used:\n" + catchBlock);
+    }
+
+    @Test
+    public void testPrivateFieldReadsUsePrivateAccessHelper() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(PrivateFieldHolder.class.getDeclaredConstructor(), PrivateFieldHolder.class),
+                0,
+                0);
+
+        java.lang.reflect.Field labelField = PrivateFieldHolder.class.getDeclaredField("label");
+        PrimitiveFieldAssertion primitiveFieldAssertion = new PrimitiveFieldAssertion();
+        primitiveFieldAssertion.setSource(holder);
+        primitiveFieldAssertion.setField(labelField);
+        primitiveFieldAssertion.setValue("label");
+        tc.getStatement(holder.getStPosition()).addAssertion(primitiveFieldAssertion);
+
+        java.lang.reflect.Field idsField = PrivateFieldHolder.class.getDeclaredField("ids");
+        FieldStatement fieldStatement = new FieldStatement(tc, new GenericField(idsField, PrivateFieldHolder.class), holder);
+        tc.addStatement(fieldStatement);
+
+        FieldReference idsReference = new FieldReference(tc, new GenericField(idsField, PrivateFieldHolder.class), holder);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String holderName = visitor.getVariableName(holder);
+        String idsAccess = visitor.getVariableName(idsReference);
+
+        assertTrue(code.contains("PrivateAccess.getVariable("),
+                "Private field reads should go through PrivateAccess:\n" + code);
+        assertFalse(code.contains(holderName + ".label"),
+                "Private field assertions must not use direct field access:\n" + code);
+        assertFalse(idsAccess.contains(holderName + ".ids"),
+                "Private field references must not use direct field access:\n" + idsAccess);
+        assertTrue(idsAccess.contains("PrivateAccess.getVariable("),
+                "Field references should go through PrivateAccess:\n" + idsAccess);
+    }
+
+    @Test
+    public void testPrivateGenericFieldReadsUseRawReflectiveCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(PrivateGenericFieldHolder.class.getDeclaredConstructor(),
+                        PrivateGenericFieldHolder.class),
+                0,
+                0);
+
+        java.lang.reflect.Field countsField = PrivateGenericFieldHolder.class.getDeclaredField("counts");
+        FieldStatement fieldStatement = new FieldStatement(
+                tc,
+                new GenericField(countsField, PrivateGenericFieldHolder.class),
+                holder);
+        tc.addStatement(fieldStatement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("Map<String, Integer> "),
+                "Generic field declaration should keep type arguments:\n" + code);
+        assertTrue(code.contains("= (Map) PrivateAccess.getVariable("),
+                "Reflective field cast should use raw Map type:\n" + code);
+        assertFalse(code.contains("(Map<String, Integer>) PrivateAccess.getVariable("),
+                "Reflective field cast must not include type arguments:\n" + code);
+    }
+
+    @Test
     public void testPackagePrivateConstructorInDifferentGeneratedPackageUsesReflection() throws Exception {
         String oldClassPrefix = Properties.CLASS_PREFIX;
         Properties.CLASS_PREFIX = "different.generated.package";
@@ -1253,6 +1439,28 @@ public class TestCodeVisitorTest {
 
             Set<Class<?>> imports = visitor.getImports();
             assertFalse(imports.contains(nodeClass));
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
+    }
+
+    @Test
+    public void testNullStatementUsesCanonicalNameForNonPublicExternalType() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = "different.generated.package";
+        try {
+            TestCase tc = new DefaultTestCase();
+            Class<?> nodeClass = Class.forName("java.util.stream.Node");
+            tc.addStatement(new NullStatement(tc, nodeClass));
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("java.util.stream.Node "),
+                    "Non-public external type should use canonical name:\n" + code);
+            assertFalse(code.contains("\nNode "),
+                    "Simple name would require an illegal import/reference for non-public external type:\n" + code);
         } finally {
             Properties.CLASS_PREFIX = oldClassPrefix;
         }

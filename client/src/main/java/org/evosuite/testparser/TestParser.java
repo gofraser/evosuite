@@ -289,6 +289,8 @@ public class TestParser {
             }
         }
 
+        stmtParser.finalizeParse();
+
         // Final validation: check that all VariableReferences in every statement
         // point to valid statement indices within this test case.
         validateVariableReferences(testCase, result);

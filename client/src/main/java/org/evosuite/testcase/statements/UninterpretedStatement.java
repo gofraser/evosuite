@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.statements;
 
+import org.evosuite.testcase.CodeEmissionUtils;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.evosuite.testcase.execution.Scope;
@@ -165,7 +166,7 @@ public class UninterpretedStatement extends AbstractStatement {
 
     @Override
     public String getCode() {
-        return sourceCode;
+        return CodeEmissionUtils.renderCompilableSource(sourceCode);
     }
 
     @Override

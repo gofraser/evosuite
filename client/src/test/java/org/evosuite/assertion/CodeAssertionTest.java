@@ -42,6 +42,26 @@ class CodeAssertionTest {
     }
 
     @Test
+    void getCode_rewritesAssertDoesNotThrowBoundMethodReferenceToBlockLambda() {
+        CodeAssertion a = new CodeAssertion("assertDoesNotThrow(writerEditorImpl0::removeChildren);");
+
+        assertEquals("assertDoesNotThrow(() -> {\n" +
+                        "    writerEditorImpl0.removeChildren();\n" +
+                        "});",
+                a.getCode());
+    }
+
+    @Test
+    void getCode_rewritesAssertDoesNotThrowConstructorReferenceToBlockLambda() {
+        CodeAssertion a = new CodeAssertion("assertDoesNotThrow(SimpleSecurityHandlerBean::new);");
+
+        assertEquals("assertDoesNotThrow(() -> {\n" +
+                        "    new SimpleSecurityHandlerBean();\n" +
+                        "});",
+                a.getCode());
+    }
+
+    @Test
     void evaluate_trueWhenAssertionHolds() throws Exception {
         TestCase tc = new DefaultTestCase();
         VariableReference ref = tc.addStatement(new IntPrimitiveStatement(tc, 42));

@@ -165,17 +165,18 @@ class LlmAssertionGeneratorStrategyTest {
     @Test
     void parseAndAttach_unparsableAssertion_fallsBackToCodeAssertion() {
         DefaultTestCase tc = new DefaultTestCase();
-        VariableReference intRef = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+        VariableReference strRef = tc.addStatement(new StringPrimitiveStatement(tc, " hello "));
 
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
-        String varName = visitor.getVariableName(intRef);
+        String varName = visitor.getVariableName(strRef);
 
         Map<String, VariableReference> varMap = new LinkedHashMap<>();
-        varMap.put(varName, intRef);
+        varMap.put(varName, strRef);
 
-        // An assertion referencing a method call — StatementParser can't resolve it cleanly
-        String complexAssertion = "assertEquals(\"hello\", " + varName + ".toString());";
+        // A valid method-call assertion that StatementParser cannot preserve as a typed assertion
+        // once temporary helper statements are rolled back.
+        String complexAssertion = "assertEquals(\"hello\", " + varName + ".trim());";
 
         LlmAssertionGeneratorStrategy strategy = new LlmAssertionGeneratorStrategy();
         int attached = strategy.parseAndAttachAssertions(tc,
@@ -193,6 +194,30 @@ class LlmAssertionGeneratorStrategyTest {
             }
         }
         assertTrue(hasCodeAssertion, "Should have a CodeAssertion for the unparseable assertion");
+    }
+
+    @Test
+    void parseAndAttach_invalidMethodCallAssertion_isDroppedInsteadOfFallbackCodeAssertion() {
+        DefaultTestCase tc = new DefaultTestCase();
+        VariableReference strRef = tc.addStatement(new StringPrimitiveStatement(tc, "hello"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String varName = visitor.getVariableName(strRef);
+
+        Map<String, VariableReference> varMap = new LinkedHashMap<>();
+        varMap.put(varName, strRef);
+
+        String invalidAssertion = "assertEquals(\"x\", " + varName + ".getErrorType());";
+
+        LlmAssertionGeneratorStrategy strategy = new LlmAssertionGeneratorStrategy();
+        int attached = strategy.parseAndAttachAssertions(tc, List.of(invalidAssertion), varMap);
+
+        assertEquals(0, attached, "Invalid method-call assertion should be dropped");
+        for (int i = 0; i < tc.size(); i++) {
+            assertTrue(tc.getStatement(i).getAssertions().isEmpty(),
+                    "Dropped invalid assertion must not leave raw CodeAssertion fallback");
+        }
     }
 
     @Test

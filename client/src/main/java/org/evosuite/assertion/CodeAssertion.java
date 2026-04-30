@@ -21,6 +21,7 @@ package org.evosuite.assertion;
 
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.expr.NameExpr;
+import org.evosuite.testcase.CodeEmissionUtils;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
@@ -65,7 +66,7 @@ public class CodeAssertion extends Assertion {
 
     @Override
     public String getCode() {
-        return codeString;
+        return CodeEmissionUtils.renderCompilableSource(codeString);
     }
 
     @Override

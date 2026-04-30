@@ -23,6 +23,8 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.GuiSupport;
+import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.statistics.RuntimeVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -327,9 +329,16 @@ public final class ExecutableSnippetEngine {
     }
 
     private Object invoke(CompiledSnippet snippet, Map<String, Object> values) throws Throwable {
+        boolean shouldEnableMockFramework =
+                RuntimeSettings.mockJVMNonDeterminism || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+        boolean guiGuardEnabled = Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+        boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
         boolean disabledHeadless = false;
         try {
-            if (Properties.REPLACE_GUI) {
+            if (shouldEnableMockFramework) {
+                MockFramework.enable();
+            }
+            if (guiGuardEnabled) {
                 GuiSupport.disableHeadlessForMockConstruction();
                 disabledHeadless = true;
             }
@@ -341,6 +350,9 @@ public final class ExecutableSnippetEngine {
         } finally {
             if (disabledHeadless) {
                 GuiSupport.restoreHeadlessAfterMockConstruction();
+            }
+            if (!wasMockFrameworkEnabled) {
+                MockFramework.disable();
             }
         }
     }

@@ -24,6 +24,7 @@ public class ParseDiagnostic {
     public enum Severity { INFO, WARNING, ERROR }
 
     private final Severity severity;
+    private final DiagnosticKind kind;
     private final String message;
     private final int lineNumber;
     private final String sourceSnippet;
@@ -37,7 +38,16 @@ public class ParseDiagnostic {
      * @param sourceSnippet the source snippet.
      */
     public ParseDiagnostic(Severity severity, String message, int lineNumber, String sourceSnippet) {
+        this(severity, null, message, lineNumber, sourceSnippet);
+    }
+
+    public ParseDiagnostic(Severity severity,
+                           DiagnosticKind kind,
+                           String message,
+                           int lineNumber,
+                           String sourceSnippet) {
         this.severity = severity;
+        this.kind = kind;
         this.message = message;
         this.lineNumber = lineNumber;
         this.sourceSnippet = sourceSnippet;
@@ -49,6 +59,14 @@ public class ParseDiagnostic {
 
     public String getMessage() {
         return message;
+    }
+
+    DiagnosticKind getKind() {
+        return kind;
+    }
+
+    public String getKindName() {
+        return kind == null ? null : kind.name();
     }
 
     public int getLineNumber() {

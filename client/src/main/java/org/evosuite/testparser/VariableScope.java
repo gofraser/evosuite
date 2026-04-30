@@ -22,6 +22,7 @@ package org.evosuite.testparser;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClass;
 
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -35,6 +36,7 @@ public class VariableScope {
 
     private final Map<String, VariableReference> variables = new LinkedHashMap<>();
     private final Map<String, GenericClass<?>> genericTypes = new LinkedHashMap<>();
+    private final Map<VariableReference, GenericClass<?>> refToGeneric = new IdentityHashMap<>();
 
     /**
      * Register a variable produced by a statement.
@@ -43,7 +45,7 @@ public class VariableScope {
      * @param ref  the VariableReference produced by the statement
      */
     public void register(String name, VariableReference ref) {
-        variables.put(name, ref);
+        registerInternal(name, ref, null, false);
     }
 
     /**
@@ -54,10 +56,7 @@ public class VariableScope {
      * @param genericType the fully-resolved GenericClass (with type parameters)
      */
     public void register(String name, VariableReference ref, GenericClass<?> genericType) {
-        variables.put(name, ref);
-        if (genericType != null) {
-            genericTypes.put(name, genericType);
-        }
+        registerInternal(name, ref, genericType, true);
     }
 
     /**
@@ -94,11 +93,38 @@ public class VariableScope {
      * @return the GenericClass, or null if not found
      */
     public GenericClass<?> findGenericTypeForRef(VariableReference ref) {
+        return refToGeneric.get(ref);
+    }
+
+    private void registerInternal(String name,
+                                  VariableReference ref,
+                                  GenericClass<?> genericType,
+                                  boolean updateGenericType) {
+        VariableReference previousRef = variables.put(name, ref);
+        if (updateGenericType && genericType != null) {
+            genericTypes.put(name, genericType);
+        }
+        refreshGenericTypeMapping(ref);
+        if (previousRef != null && previousRef != ref) {
+            refreshGenericTypeMapping(previousRef);
+        }
+    }
+
+    private void refreshGenericTypeMapping(VariableReference ref) {
+        if (ref == null) {
+            return;
+        }
         for (Map.Entry<String, VariableReference> entry : variables.entrySet()) {
             if (entry.getValue() == ref) {
-                return genericTypes.get(entry.getKey());
+                GenericClass<?> genericType = genericTypes.get(entry.getKey());
+                if (genericType != null) {
+                    refToGeneric.put(ref, genericType);
+                } else {
+                    refToGeneric.remove(ref);
+                }
+                return;
             }
         }
-        return null;
+        refToGeneric.remove(ref);
     }
 }

@@ -53,6 +53,9 @@ public class TypeResolver {
     /** static wildcard imports: fully qualified class names from "import static foo.Bar.*". */
     private final List<String> staticWildcardImports = new ArrayList<>();
 
+    /** Lazily built member cache for static wildcard imports, preserving import order. */
+    private Map<String, String> wildcardMemberToClass;
+
     private static final Map<String, Class<?>> PRIMITIVE_TYPES = new HashMap<>();
 
     static {
@@ -465,28 +468,29 @@ public class TypeResolver {
             return className;
         }
 
-        // Check wildcard static imports
+        ensureStaticWildcardMemberCache();
+        return wildcardMemberToClass.get(memberName);
+    }
+
+    private void ensureStaticWildcardMemberCache() {
+        if (wildcardMemberToClass != null) {
+            return;
+        }
+
+        wildcardMemberToClass = new LinkedHashMap<>();
         for (String fqClass : staticWildcardImports) {
             try {
                 Class<?> clazz = loadClass(fqClass);
-                // Check if the class has a method or field with this name
-                boolean hasMethod = Arrays.stream(clazz.getMethods())
-                        .anyMatch(m -> m.getName().equals(memberName));
-                if (hasMethod) {
-                    return fqClass;
+                for (java.lang.reflect.Method method : clazz.getMethods()) {
+                    wildcardMemberToClass.putIfAbsent(method.getName(), fqClass);
                 }
-
-                boolean hasField = Arrays.stream(clazz.getFields())
-                        .anyMatch(f -> f.getName().equals(memberName));
-                if (hasField) {
-                    return fqClass;
+                for (java.lang.reflect.Field field : clazz.getFields()) {
+                    wildcardMemberToClass.putIfAbsent(field.getName(), fqClass);
                 }
             } catch (ClassNotFoundException e) {
                 logger.debug("Could not load class for static wildcard import: {}", fqClass);
             }
         }
-
-        return null;
     }
 
     /**

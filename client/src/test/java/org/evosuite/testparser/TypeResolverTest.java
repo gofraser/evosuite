@@ -28,6 +28,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.WildcardType;
 import java.util.*;
@@ -262,6 +263,26 @@ class TypeResolverTest {
                 List.of("import static org.junit.jupiter.api.Assertions.*;")
         );
         assertEquals("org.junit.jupiter.api.Assertions", staticResolver.resolveStaticImportClass("assertEquals"));
+    }
+
+    @Test
+    void resolveStaticImportWildcardBuildsLazyMemberCacheOnce() throws Exception {
+        TypeResolver staticResolver = new TypeResolver(
+                getClass().getClassLoader(),
+                List.of("import static org.junit.jupiter.api.Assertions.*;")
+        );
+        Field cacheField = TypeResolver.class.getDeclaredField("wildcardMemberToClass");
+        cacheField.setAccessible(true);
+
+        assertNull(cacheField.get(staticResolver), "Wildcard member cache should be lazy");
+        assertEquals("org.junit.jupiter.api.Assertions", staticResolver.resolveStaticImportClass("assertEquals"));
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> cache = (Map<String, String>) cacheField.get(staticResolver);
+        assertNotNull(cache, "Wildcard member cache should be populated after first lookup");
+        assertEquals("org.junit.jupiter.api.Assertions", cache.get("assertEquals"));
+
+        assertEquals("org.junit.jupiter.api.Assertions", staticResolver.resolveStaticImportClass("assertTrue"));
     }
 
     @Test

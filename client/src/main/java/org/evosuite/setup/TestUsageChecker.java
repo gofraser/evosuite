@@ -40,6 +40,7 @@ import java.io.FileDescriptor;
 import java.lang.reflect.*;
 import java.text.MessageFormat;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Created by Andrea Arcuri on 30/06/15.
@@ -47,6 +48,7 @@ import java.util.*;
 public class TestUsageChecker {
 
     private static final Logger logger = LoggerFactory.getLogger(TestUsageChecker.class);
+    private static final Pattern COMPILER_ACCESSOR_NAME = Pattern.compile("access\\$\\d+");
 
     /**
      * Determine if a constructor can be used for testing.
@@ -391,6 +393,11 @@ public class TestUsageChecker {
             return false;
         }
 
+        if (isCompilerGeneratedAccessorMethod(m)) {
+            logger.debug("Excluding compiler-generated accessor method: " + m);
+            return false;
+        }
+
         if (m.isSynthetic()) {
             logger.debug("Excluding synthetic method: " + m);
             return false;
@@ -570,6 +577,20 @@ public class TestUsageChecker {
         return m.getName().equals("valueOf")
                 && m.getParameterCount() == 1
                 && m.getParameterTypes()[0].equals(String.class);
+    }
+
+    /**
+     * Detect package-private accessor stubs emitted by older bytecode targets.
+     * Some instrumented class-loading paths can drop the synthetic flag while
+     * keeping the compiler-assigned accessor name.
+     */
+    public static boolean isCompilerGeneratedAccessorMethod(Method m) {
+        int modifiers = m.getModifiers();
+        return Modifier.isStatic(modifiers)
+                && !Modifier.isPublic(modifiers)
+                && !Modifier.isProtected(modifiers)
+                && !Modifier.isPrivate(modifiers)
+                && COMPILER_ACCESSOR_NAME.matcher(m.getName()).matches();
     }
 
 

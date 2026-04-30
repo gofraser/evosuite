@@ -131,6 +131,13 @@ public class NumberFormatter {
 
             if (visitor != null) {
                 className = visitor.getClassName(enumClass);
+                Class<?> enclosingClass = enumClass.getEnclosingClass();
+                if (enclosingClass != null && className.indexOf('.') < 0) {
+                    String enclosingName = visitor.getClassName(enclosingClass);
+                    if (enclosingName != null && !enclosingName.isEmpty()) {
+                        className = enclosingName + "." + className;
+                    }
+                }
             } else {
                 Class<?> clazz = enumClass;
                 className = clazz.getSimpleName();
