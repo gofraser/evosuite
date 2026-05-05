@@ -25,6 +25,7 @@ import org.apache.commons.io.FileUtils;
 import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.NoSuchParameterException;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.utils.LoggingUtils;
 
 import java.io.File;
@@ -89,6 +90,18 @@ public class Setup {
                 continue;
             }
             addEntryToCP(element);
+        }
+
+        // Keep ClassPathHandler in sync with setup-mode CP so
+        // Properties.writeConfiguration emits a non-empty CP entry.
+        if (!Properties.CP.isEmpty()) {
+            try {
+                ClassPathHandler.getInstance().changeTargetClassPath(
+                        Properties.CP.split(File.pathSeparator));
+            } catch (IllegalArgumentException e) {
+                LoggingUtils.getEvoLogger().warn("* Could not synchronize target classpath in setup mode: "
+                        + e.getMessage());
+            }
         }
 
         Properties.MIN_FREE_MEM = 0; //TODO why this is done???

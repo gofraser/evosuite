@@ -340,31 +340,15 @@ public class GuiSupport {
      * <p>Must be paired with {@link #restoreHeadlessAfterMockConstruction()}.
      */
     public static void disableHeadlessForMockConstruction() {
+        if (IS_MACOS) {
+            // On macOS, touching real AWT Toolkit/Window initialization from
+            // non-main worker threads can block in AppKit initialization.
+            // Keep disable/restore as strict no-ops.
+            return;
+        }
         mockConstructionNestingDepth++;
         if (mockConstructionNestingDepth > 1) {
             // Already disabled by an outer caller — nothing to do.
-            return;
-        }
-        if (IS_MACOS) {
-            // On macOS, unwrapping the real CGraphicsEnvironment/LWCToolkit can
-            // call into AppKit from the test thread and abort the JVM. Instead
-            // use a stub-only path: temporarily flip out of headless mode and
-            // replace the cached GraphicsEnvironment with EvoSuite's stub, while
-            // leaving the cached HeadlessToolkit in place.
-            ensureGraphicsEnvironmentAvailable();
-            preloadHeadlessGuardedAwtClasses();
-            setHeadless(false);
-            if (canSwapGe) {
-                try {
-                    GraphicsEnvironment current = (GraphicsEnvironment) geInstanceField.get(null);
-                    if (current != null) {
-                        savedHeadlessGe = current;
-                        setStaticField(geInstanceField, new StubGraphicsEnvironment(null));
-                    }
-                } catch (Throwable t) {
-                    logger.debug("Could not install stub GraphicsEnvironment on macOS: {}", t.getMessage());
-                }
-            }
             return;
         }
         // Force the <clinit> of Insets/Rectangle/Cursor/... to run while
@@ -449,6 +433,9 @@ public class GuiSupport {
      * @see #disableHeadlessForMockConstruction()
      */
     public static void restoreHeadlessAfterMockConstruction() {
+        if (IS_MACOS) {
+            return;
+        }
         if (mockConstructionNestingDepth > 0) {
             mockConstructionNestingDepth--;
         }
@@ -475,6 +462,30 @@ public class GuiSupport {
             }
         }
         setHeadless(true);
+    }
+
+    /**
+     * Best-effort cleanup for leaked mock-construction headless scopes.
+     *
+     * <p>This is intended as a safety net when a mock constructor throws before
+     * reaching its post-super restore call. In that scenario the nesting depth
+     * can remain positive and keep headless disabled for subsequent statements.
+     *
+     * <p>Calling this method after statement execution guarantees that any
+     * leftover disable/restore imbalance is closed.
+     */
+    public static void forceRestoreHeadlessAfterMockConstructionLeak() {
+        if (IS_MACOS) {
+            return;
+        }
+        if (mockConstructionNestingDepth <= 0) {
+            return;
+        }
+        logger.debug("Detected leaked GUI mock-construction headless scope (depth={}), forcing restore",
+                mockConstructionNestingDepth);
+        while (mockConstructionNestingDepth > 0) {
+            restoreHeadlessAfterMockConstruction();
+        }
     }
 
     private static void setHeadless(boolean isHeadless) {

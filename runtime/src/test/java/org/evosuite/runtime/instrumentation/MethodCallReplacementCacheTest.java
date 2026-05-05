@@ -136,6 +136,50 @@ public class MethodCallReplacementCacheTest {
         String getScreenSizeKey = getScreenSize.getName() + Type.getMethodDescriptor(getScreenSize);
         Method getDefaultToolkit = java.awt.Toolkit.class.getMethod("getDefaultToolkit");
         String getDefaultToolkitKey = getDefaultToolkit.getName() + Type.getMethodDescriptor(getDefaultToolkit);
+        Method containerAddComponent = java.awt.Container.class.getMethod("add", java.awt.Component.class);
+        String containerAddComponentKey =
+                containerAddComponent.getName() + Type.getMethodDescriptor(containerAddComponent);
+        Method containerAddNameComponent =
+                java.awt.Container.class.getMethod("add", String.class, java.awt.Component.class);
+        String containerAddNameComponentKey =
+                containerAddNameComponent.getName() + Type.getMethodDescriptor(containerAddNameComponent);
+        Method containerAddComponentIndex =
+                java.awt.Container.class.getMethod("add", java.awt.Component.class, int.class);
+        String containerAddComponentIndexKey =
+                containerAddComponentIndex.getName() + Type.getMethodDescriptor(containerAddComponentIndex);
+        Method containerAddComponentConstraints =
+                java.awt.Container.class.getMethod("add", java.awt.Component.class, Object.class);
+        String containerAddComponentConstraintsKey =
+                containerAddComponentConstraints.getName() + Type.getMethodDescriptor(containerAddComponentConstraints);
+        Method containerAddComponentConstraintsIndex =
+                java.awt.Container.class.getMethod("add", java.awt.Component.class, Object.class, int.class);
+        String containerAddComponentConstraintsIndexKey = containerAddComponentConstraintsIndex.getName()
+                + Type.getMethodDescriptor(containerAddComponentConstraintsIndex);
+        Method tabbedPaneAddTabTitleComponent =
+                javax.swing.JTabbedPane.class.getMethod("addTab", String.class, java.awt.Component.class);
+        String tabbedPaneAddTabTitleComponentKey =
+                tabbedPaneAddTabTitleComponent.getName() + Type.getMethodDescriptor(tabbedPaneAddTabTitleComponent);
+        Method tabbedPaneAddTabTitleIconComponent =
+                javax.swing.JTabbedPane.class.getMethod(
+                        "addTab", String.class, javax.swing.Icon.class, java.awt.Component.class);
+        String tabbedPaneAddTabTitleIconComponentKey =
+                tabbedPaneAddTabTitleIconComponent.getName()
+                        + Type.getMethodDescriptor(tabbedPaneAddTabTitleIconComponent);
+        Method tabbedPaneAddTabTitleIconComponentTip =
+                javax.swing.JTabbedPane.class.getMethod(
+                        "addTab", String.class, javax.swing.Icon.class, java.awt.Component.class, String.class);
+        String tabbedPaneAddTabTitleIconComponentTipKey =
+                tabbedPaneAddTabTitleIconComponentTip.getName()
+                        + Type.getMethodDescriptor(tabbedPaneAddTabTitleIconComponentTip);
+        Method tabbedPaneInsertTab =
+                javax.swing.JTabbedPane.class.getMethod(
+                        "insertTab",
+                        String.class,
+                        javax.swing.Icon.class,
+                        java.awt.Component.class,
+                        String.class,
+                        int.class);
+        String tabbedPaneInsertTabKey = tabbedPaneInsertTab.getName() + Type.getMethodDescriptor(tabbedPaneInsertTab);
         Method getLocalGraphicsEnvironment = java.awt.GraphicsEnvironment.class.getMethod(
                 "getLocalGraphicsEnvironment");
         String getLocalGraphicsEnvironmentKey =
@@ -156,6 +200,18 @@ public class MethodCallReplacementCacheTest {
         String newLabelDefaultKey = "<init>()V";
         String newLabelTextKey = "<init>(Ljava/lang/String;)V";
         String newLabelTextAlignKey = "<init>(Ljava/lang/String;I)V";
+        String newJTextFieldDefaultKey = "<init>()V";
+        String newJTextFieldTextKey = "<init>(Ljava/lang/String;)V";
+        String newJTextFieldColumnsKey = "<init>(I)V";
+        String newJTextFieldTextColumnsKey = "<init>(Ljava/lang/String;I)V";
+        String newJTextFieldDocumentKey = "<init>(Ljavax/swing/text/Document;Ljava/lang/String;I)V";
+        String newJMenuBarKey = "<init>()V";
+        String newJTextAreaDefaultKey = "<init>()V";
+        String newJTextAreaTextKey = "<init>(Ljava/lang/String;)V";
+        String newJTextAreaRowsColsKey = "<init>(II)V";
+        String newJTextAreaTextRowsColsKey = "<init>(Ljava/lang/String;II)V";
+        String newJTextAreaDocumentKey = "<init>(Ljavax/swing/text/Document;)V";
+        String newJTextAreaDocumentTextRowsColsKey = "<init>(Ljavax/swing/text/Document;Ljava/lang/String;II)V";
         String newMenuBarKey = "<init>()V";
         String newWindowFrameOwnerKey = "<init>(Ljava/awt/Frame;)V";
         String newWindowWindowOwnerKey = "<init>(Ljava/awt/Window;)V";
@@ -218,6 +274,26 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Component", setCursorKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Toolkit", getScreenSizeKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Toolkit", getDefaultToolkitKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddComponentKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddNameComponentKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddComponentIndexKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddComponentConstraintsKey));
+        Assertions.assertTrue(cache.hasReplacementCall("java/awt/Container", containerAddComponentConstraintsIndexKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTabbedPane", tabbedPaneAddTabTitleComponentKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTabbedPane", tabbedPaneAddTabTitleIconComponentKey));
+        Assertions.assertTrue(
+                cache.hasReplacementCall("javax/swing/JTabbedPane", tabbedPaneAddTabTitleIconComponentTipKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTabbedPane", tabbedPaneInsertTabKey));
+        MethodCallReplacement containerAddReplacement = cache.getReplacementCall(
+                "java/awt/Container", containerAddComponentKey);
+        int containerAddOrigOpcode = origOpcodeField.getInt(containerAddReplacement);
+        Assertions.assertEquals(Opcodes.INVOKEVIRTUAL, containerAddOrigOpcode,
+                "Fallback opcode for Container#add(Component) must remain INVOKEVIRTUAL");
+        MethodCallReplacement tabbedPaneAddTabReplacement = cache.getReplacementCall(
+                "javax/swing/JTabbedPane", tabbedPaneAddTabTitleComponentKey);
+        int tabbedPaneAddTabOrigOpcode = origOpcodeField.getInt(tabbedPaneAddTabReplacement);
+        Assertions.assertEquals(Opcodes.INVOKEVIRTUAL, tabbedPaneAddTabOrigOpcode,
+                "Fallback opcode for JTabbedPane#addTab(String, Component) must remain INVOKEVIRTUAL");
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/GraphicsEnvironment",
                 getLocalGraphicsEnvironmentKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/security/CodeSource", codeSourceGetLocationKey));
@@ -230,6 +306,18 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Label", newLabelDefaultKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Label", newLabelTextKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Label", newLabelTextAlignKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextField", newJTextFieldDefaultKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextField", newJTextFieldTextKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextField", newJTextFieldColumnsKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextField", newJTextFieldTextColumnsKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextField", newJTextFieldDocumentKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JMenuBar", newJMenuBarKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextArea", newJTextAreaDefaultKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextArea", newJTextAreaTextKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextArea", newJTextAreaRowsColsKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextArea", newJTextAreaTextRowsColsKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextArea", newJTextAreaDocumentKey));
+        Assertions.assertTrue(cache.hasReplacementCall("javax/swing/JTextArea", newJTextAreaDocumentTextRowsColsKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/MenuBar", newMenuBarKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", newWindowFrameOwnerKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/awt/Window", newWindowWindowOwnerKey));

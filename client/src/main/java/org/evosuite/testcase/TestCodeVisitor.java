@@ -993,7 +993,15 @@ public class TestCodeVisitor extends TestVisitor {
             return sourceName;
         }
 
-        Class<?> declaringClass = inspector.getMethod().getDeclaringClass();
+        Method targetMethod = inspector.getMethod();
+        if (inspector instanceof ChainedInspector) {
+            Method outerMethod = ((ChainedInspector) inspector).getOuterMethod();
+            if (outerMethod != null) {
+                targetMethod = outerMethod;
+            }
+        }
+
+        Class<?> declaringClass = targetMethod.getDeclaringClass();
         if (declaringClass == null || declaringClass.isAssignableFrom(source.getVariableClass())) {
             return sourceName;
         }
@@ -1362,13 +1370,18 @@ public class TestCodeVisitor extends TestVisitor {
             testCode.append(((EnvironmentDataStatement<?>) statement).getTestCode(getDeclarationVariableName(retval)));
         } else if (statement instanceof ClassPrimitiveStatement) {
             StringBuilder builder = new StringBuilder();
-            // The declaration side must stay legal for primitive class literals
-            // (e.g., boolean.class cannot be represented as Class<boolean>).
-            builder.append("Class<?>");
+            Class<?> literalClass = (Class<?>) value;
+            // Primitive/void class literals cannot appear as generic type arguments
+            // (e.g., Class<boolean> is illegal), so use wildcard in those cases.
+            if (literalClass != null && (literalClass.isPrimitive() || literalClass == Void.TYPE)) {
+                builder.append("Class<?>");
+            } else {
+                builder.append(getClassName(retval));
+            }
             builder.append(" ");
             builder.append(getDeclarationVariableName(retval));
             builder.append(" = ");
-            builder.append(getClassName(((Class<?>) value)));
+            builder.append(getClassName(literalClass));
             builder.append(".class;");
             builder.append(NEWLINE);
             testCode.append(builder.toString());
@@ -2417,10 +2430,10 @@ public class TestCodeVisitor extends TestVisitor {
             // answer used during search (returns sensible non-null values for all
             // return types).  No explicit doReturn stubs are needed.
             result.append("mock(").append(rawClassName).append(".class, new ")
-                    .append(LenientMockAnswer.class.getSimpleName()).append("());").append(NEWLINE);
+                    .append(getClassName(LenientMockAnswer.class)).append("());").append(NEWLINE);
         } else {
             result.append("mock(").append(rawClassName).append(".class, new ")
-                    .append(ViolatedAssumptionAnswer.class.getSimpleName()).append("());").append(NEWLINE);
+                    .append(getClassName(ViolatedAssumptionAnswer.class)).append("());").append(NEWLINE);
         }
 
         // DMoN lenient mocks: skip doReturn stubs — RETURNS_MOCKS handles all calls.
@@ -2477,10 +2490,21 @@ public class TestCodeVisitor extends TestVisitor {
                 // that in the generated tests we import MockitoExtension class
                 //parameterString = "doReturn(" + parameterString.replaceAll(", ", ").doReturn(") + ")";
                 //result += parameterString+".when("+getVariableName(retval)+")";
-                result.append("doReturn(").append(parameterString)
-                        .append(").when(").append(getVariableName(retval)).append(")");
+                
+                java.lang.reflect.Method originalMethod = md.getMethod();
+                try {
+                    // Mockito sometimes intercepts methods on the generated proxy class.
+                    // To resolve generic type parameters correctly, we need the method
+                    // from the original target interface/class.
+                    originalMethod = st.getTargetClass().getMethod(md.getMethodName(), md.getMethod().getParameterTypes());
+                } catch (Exception e) {
+                    // Fallback
+                }
+                org.evosuite.testcase.fm.MethodDescriptor updatedMd = new org.evosuite.testcase.fm.MethodDescriptor(originalMethod, retval.getGenericClass());
+                
+                result.append("doReturn(").append(parameterString)                        .append(").when(").append(getVariableName(retval)).append(")");
                 result.append(".").append(md.getMethodName()).append("(")
-                        .append(md.getInputParameterMatchers()).append(");").append(NEWLINE);
+                        .append(updatedMd.getInputParameterMatchers()).append(");").append(NEWLINE);
 
             }
 
@@ -3559,25 +3583,17 @@ public class TestCodeVisitor extends TestVisitor {
             return getClassName(Object.class);
         }
         Class<?> variableClass = retval.getVariableClass();
-        String testPackageName = getGeneratedTestPackageName();
-        if (variableClass != null && !isTypeAccessibleFromGeneratedTest(variableClass, testPackageName)) {
-            // Keep null placeholder declarations compilable even when the original type
-            // is package-private in a different package.
+        if (variableClass == Void.class || variableClass == Void.TYPE) {
+            // Void/void null references are internal sentinels for "unknown reference
+            // type" during parsing. Emitting them as declaration types produces
+            // uncompilable code (eg "void nullRef0 = null;").
             return getClassName(Object.class);
         }
-        if (variableClass != null) {
-            String canonicalName = variableClass.getCanonicalName();
-            if (canonicalName != null && !canonicalName.isEmpty()) {
-                // Null declarations are especially sensitive to missed imports for nested
-                // or cross-package reference types (eg bare "Node"). Use a stable
-                // canonical type name in those cases to keep emitted code compilable.
-                boolean nestedType = variableClass.getEnclosingClass() != null;
-                boolean crossPackage = !isEmptyPackageName(testPackageName)
-                        && !isSamePackage(variableClass, testPackageName);
-                if (nestedType || crossPackage) {
-                    return canonicalName;
-                }
-            }
+        if (!isTypeAccessibleFromGeneratedTest(variableClass, getGeneratedTestPackageName())) {
+            // Package-private (or otherwise inaccessible) types cannot legally appear
+            // as a declared variable type in the generated test. Fall back to Object
+            // so the rendered code compiles.
+            return getClassName(Object.class);
         }
         return getClassName(retval);
     }

@@ -116,7 +116,7 @@ public class Scope {
                     if (declaredType == null || declaredType.isAssignableFrom(inferredType)) {
                         reference.setType(inferredType);
                     }
-                } else if (o.getClass().getName().contains("EnhancerByMockito")) {
+                } else if (o.getClass().getName().contains("EnhancerByMockito") || o.getClass().getName().contains("MockitoMock") || org.mockito.Mockito.mockingDetails(o).isMock()) {
                     /*
                         tricky: this is a functional mock for a class X. We do not want to set
                         scopes on mock objects, as their class definitions are created on the fly
@@ -136,12 +136,19 @@ public class Scope {
                         }
                     }
                     if (declaredType == null || declaredType.isAssignableFrom(target)) {
-                        reference.setType(target);
+                        // Do not overwrite the type if the target class is exactly the same
+                        // as the declared raw class, because the declared type might have
+                        // generic parameters (e.g. Foo<Integer>) while target is always raw (Foo.class).
+                        if (declaredType == null || !declaredType.equals(target)) {
+                            reference.setType(target);
+                        }
                     }
 
                 } else {
                     if (declaredType == null || declaredType.isAssignableFrom(o.getClass())) {
-                        reference.setType(o.getClass());
+                        if (declaredType == null || !declaredType.equals(o.getClass())) {
+                            reference.setType(o.getClass());
+                        }
                     }
                 }
             }

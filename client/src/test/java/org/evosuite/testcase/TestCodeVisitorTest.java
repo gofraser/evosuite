@@ -26,6 +26,7 @@ import com.examples.with.different.packagename.EnumUser;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.assertion.EqualsAssertion;
+import org.evosuite.assertion.ChainedInspector;
 import org.evosuite.assertion.Inspector;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
@@ -176,6 +177,18 @@ public class TestCodeVisitorTest {
 
     public static class PrivateGenericFieldHolder {
         private java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
+    }
+
+    public static class ChainedInspectorSource {
+        public ChainedInspectorValue getValue() {
+            return new ChainedInspectorValue();
+        }
+    }
+
+    public static class ChainedInspectorValue {
+        public int getMetric() {
+            return 51;
+        }
     }
 
     @Test
@@ -640,6 +653,21 @@ public class TestCodeVisitorTest {
         TestCodeVisitor visitor = new TestCodeVisitor();
         NullReference nullRef = new NullReference(tc, Void.class);
         assertEquals("null", visitor.getVariableName(nullRef));
+    }
+
+    @Test
+    public void testNullStatementWithVoidSentinelUsesObjectDeclarationType() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new NullStatement(tc, Void.TYPE));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("Object nullRef0 = null;"),
+                "Void sentinel null declarations must be emitted as Object:\n" + code);
+        assertFalse(code.contains("void nullRef0 = null;"),
+                "Null declarations must never use primitive void:\n" + code);
     }
 
     @Test
@@ -1260,6 +1288,39 @@ public class TestCodeVisitorTest {
                 "Inspector assertion should cast weakly-typed source to declaring type:\n" + code);
         assertTrue(code.contains(".size());"),
                 "Expected generated inspector call:\n" + code);
+    }
+
+    @Test
+    public void testChainedInspectorAssertionUsesOuterReceiverTypeForCastDecision() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference sourceVar = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ChainedInspectorSource.class.getDeclaredConstructor(), ChainedInspectorSource.class),
+                0,
+                0);
+
+        Inspector inner = new Inspector(ChainedInspectorValue.class, ChainedInspectorValue.class.getMethod("getMetric"));
+        ChainedInspector chained = new ChainedInspector(
+                ChainedInspectorSource.class,
+                ChainedInspectorSource.class.getMethod("getValue"),
+                inner);
+        InspectorAssertion assertion = new InspectorAssertion(
+                chained,
+                tc.getStatement(sourceVar.getStPosition()),
+                sourceVar,
+                51);
+        tc.getStatement(sourceVar.getStPosition()).addAssertion(assertion);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains(".getValue().getMetric());"),
+                "Expected chained inspector call:\n" + code);
+        assertFalse(code.contains("((ChainedInspectorValue)"),
+                "Source object must not be cast to inner return type for chained inspectors:\n" + code);
+        assertFalse(code.contains("((TestCodeVisitorTest.ChainedInspectorValue)"),
+                "Source object must not be cast to inner return type for chained inspectors:\n" + code);
     }
 
     @Test

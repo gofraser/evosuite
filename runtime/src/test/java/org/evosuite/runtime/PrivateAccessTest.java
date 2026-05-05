@@ -81,6 +81,19 @@ public class PrivateAccessTest {
     }
 
     @Test
+    public void testGetField_static() {
+        PrivateAccess.setVariable(FooFields.class, null, "n", 42);
+        Assertions.assertEquals(42, PrivateAccess.getVariable(FooFields.class, null, "n"));
+    }
+
+    @Test
+    public void testGetField_instance() {
+        FooFields foo = new FooFields();
+        PrivateAccess.setVariable(FooFields.class, foo, "s", "bar");
+        Assertions.assertEquals("bar", PrivateAccess.getVariable(FooFields.class, foo, "s"));
+    }
+
+    @Test
     public void testSetField_error() {
         PrivateAccess.setShouldNotFailTest(true);
         PrivateAccess.setVariable(FooFields.class, null, "a non-existing field", 42);

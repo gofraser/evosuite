@@ -152,9 +152,14 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         ClassNotFoundException classNotFound = null;
         LinkageError linkageError = null;
 
+        // Try the requested loader first so that callers who explicitly
+        // changeClassLoader(...) actually get classes loaded by that loader
+        // (e.g. an InstrumentingClassLoader). Falling back to the
+        // master-side classloader first would silently hand back a class
+        // with a different identity, breaking later isAssignableTo checks.
         ClassLoader[] loaders = new ClassLoader[]{
-                getMasterSideClassLoaderIfInitialized(),
                 preferredLoader,
+                getMasterSideClassLoaderIfInitialized(),
                 Thread.currentThread().getContextClassLoader(),
                 GenericClassImpl.class.getClassLoader(),
                 ClassLoader.getSystemClassLoader()
@@ -1156,7 +1161,8 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             } catch (Exception e) {
                 logger.debug("Exception while getting type map: " + e);
             }
-            for (int i = 0; i < typeVariables.size(); i++) {
+            int minSize = Math.min(typeVariables.size(), types.size());
+            for (int i = 0; i < minSize; i++) {
                 if (types.get(i) != typeVariables.get(i)) {
                     typeMap.put(typeVariables.get(i), types.get(i));
                 }

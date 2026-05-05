@@ -248,13 +248,18 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
             view = MockFileSystemView.getFileSystemView();
         }
         setFileSystemView(view);
-        // updateUI() installs the platform L&F UI (e.g. AquaFileChooserUI)
-        // which may create a DropTarget that checks headless state.
-        GuiSupport.disableHeadlessForMockConstruction();
-        try {
+        // In mocked execution, force stub UI and avoid platform L&F loading.
+        if (MockFramework.isEnabled()) {
             updateUI();
-        } finally {
-            GuiSupport.restoreHeadlessAfterMockConstruction();
+        } else {
+            // updateUI() installs the platform L&F UI (e.g. AquaFileChooserUI)
+            // which may create a DropTarget that checks headless state.
+            GuiSupport.disableHeadlessForMockConstruction();
+            try {
+                updateUI();
+            } finally {
+                GuiSupport.restoreHeadlessAfterMockConstruction();
+            }
         }
         if (isAcceptAllFileFilterUsed()) {
             setFileFilter(getAcceptAllFileFilter());
@@ -299,14 +304,9 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
     }
 
     private void installShowFilesListener() {
-        // Track native setting for showing hidden files
-        Toolkit tk = Toolkit.getDefaultToolkit();
-        Object showHiddenProperty = tk.getDesktopProperty(SHOW_HIDDEN_PROP);
-        if (showHiddenProperty instanceof Boolean) {
-            useFileHiding = !(Boolean) showHiddenProperty;
-            showFilesListener = new MockWeakPCL(this);
-            tk.addPropertyChangeListener(SHOW_HIDDEN_PROP, showFilesListener);
-        }
+        // Always skip native desktop property wiring in this mock implementation.
+        // Toolkit initialization can block on macOS AppKit startup in test workers.
+        showFilesListener = null;
     }
 
     /**
@@ -1248,17 +1248,8 @@ public class MockJFileChooser extends javax.swing.JFileChooser implements Overri
             removeChoosableFileFilter(getAcceptAllFileFilter());
         }
 
-        FileChooserUI ui;
-        try {
-            ui = (FileChooserUI) UIManager.getUI(this);
-        } catch (Throwable t) {
-            logger.warn("Falling back to stub FileChooserUI due to UI initialization failure: {}",
-                    t.getMessage());
-            ui = new StubFileChooserUI();
-        }
-        if (ui == null) {
-            ui = new StubFileChooserUI();
-        }
+        // Always use the stub UI in this mock class to avoid platform LAF startup.
+        FileChooserUI ui = new StubFileChooserUI();
 
         if (fileSystemView == null) {
             // We were probably deserialized

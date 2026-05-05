@@ -22,8 +22,10 @@ package org.evosuite.testcase.fm;
 import com.examples.with.different.packagename.fm.*;
 import org.evosuite.Properties;
 import org.evosuite.SystemTestBase;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -56,18 +58,33 @@ public class SimpleFM_SystemTest extends SystemTestBase {
     }
 
     @Test
-    public void testGenericsReturnWithExtend_Double_Feasability() {
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public void testGenericsReturnWithExtend_Double_Feasability() throws Exception {
+        ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        String base = SimpleFM_GenericsReturnWithExtend_Double.class.getName();
 
-        SimpleFM_GenericsReturnWithExtend_Double.W w = mock(SimpleFM_GenericsReturnWithExtend_Double.W.class);
-        when(w.isW()).thenReturn(true);
+        Class<?> targetClass = sutLoader.loadClass(base);
+        Class<?> wClass = sutLoader.loadClass(base + "$W");
+        Class<?> zClass = sutLoader.loadClass(base + "$Z");
+        Class<?> aClass = sutLoader.loadClass(base + "$A");
 
-        SimpleFM_GenericsReturnWithExtend_Double.Z z = mock(SimpleFM_GenericsReturnWithExtend_Double.Z.class);
-        when(z.isZ()).thenReturn(true);
+        Object w = mock((Class) wClass);
+        Method isW = wClass.getMethod("isW");
+        org.mockito.Mockito.doReturn(true).when(w);
+        isW.invoke(w);
 
-        SimpleFM_GenericsReturnWithExtend_Double.A a = mock(SimpleFM_GenericsReturnWithExtend_Double.A.class);
-        when(a.getB()).thenReturn(w, z);
+        Object z = mock((Class) zClass);
+        Method isZ = zClass.getMethod("isZ");
+        org.mockito.Mockito.doReturn(true).when(z);
+        isZ.invoke(z);
 
-        boolean res = SimpleFM_GenericsReturnWithExtend_Double.foo(a);
+        Object a = mock((Class) aClass);
+        Method getB = aClass.getMethod("getB");
+        org.mockito.Mockito.doReturn(w, z).when(a);
+        getB.invoke(a);
+
+        Method foo = targetClass.getMethod("foo", aClass);
+        boolean res = (Boolean) foo.invoke(null, a);
         assertTrue(res);
     }
 

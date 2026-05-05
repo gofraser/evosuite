@@ -1563,7 +1563,7 @@ public final class ExecutableSnippetEngine {
         return normalized;
     }
 
-    private String sanitizeClasspathForKnownCompileIssues(String classpath, String diagnostics) {
+    public String sanitizeClasspathForKnownCompileIssues(String classpath, String diagnostics) {
         if (classpath == null || classpath.isEmpty() || diagnostics == null || diagnostics.isEmpty()) {
             return null;
         }

@@ -77,7 +77,6 @@ public class ClientProcess {
         JDKClassResetter.init();
         Sandbox.setCheckForInitialization(Properties.SANDBOX);
         MockFramework.enable();
-        MockitoWarmUp.warmUp();
 
         if (TestSuiteWriterUtils.needToUseAgent() && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
                 || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
@@ -99,6 +98,10 @@ public class ClientProcess {
                     + Properties.PROCESS_COMMUNICATION_PORT);
         }
 
+        // Warm up Mockito after RMI registration so startup/connect cannot be blocked
+        // by ByteBuddy agent self-attach on newer JDKs.
+        startMockitoWarmUpAsync();
+
         if (Properties.SPAWN_PROCESS_MANAGER_PORT != null) {
             SpawnProcessKeepAliveChecker.getInstance().registerToRemoteServerAndDieIfFails(
                     Properties.SPAWN_PROCESS_MANAGER_PORT
@@ -113,6 +116,12 @@ public class ClientProcess {
         ClientServices.getInstance().getClientNode().waitUntilDone();
         ClientServices.getInstance().stopServices();
         SpawnProcessKeepAliveChecker.getInstance().unRegister();
+    }
+
+    private static void startMockitoWarmUpAsync() {
+        Thread warmUpThread = new Thread(MockitoWarmUp::warmUp, "evosuite-mockito-warmup");
+        warmUpThread.setDaemon(true);
+        warmUpThread.start();
     }
 
     /**

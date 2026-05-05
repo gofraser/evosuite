@@ -1260,6 +1260,14 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                         }
 
                         Method method = md.getMethod(); //target method, eg foo.aMethod(...)
+                        method = resolveMethodOnRuntimeClass(method, ret.getClass());
+                        if (method == null) {
+                            AtMostOnceLogger.warn(logger,
+                                    "Skipping mock stub due to classloader/signature mismatch for "
+                                            + md.getMethod().getDeclaringClass().getName()
+                                            + "." + md.getMethodName());
+                            continue;
+                        }
 
                         // this is needed if method is protected: it couldn't be called here,
                         // although fine in the generated JUnit tests
@@ -1277,14 +1285,13 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                                 method.getName(), targetInputs.length);
 
                         if (!method.getDeclaringClass().isAssignableFrom(ret.getClass())) {
-
-                            String msg = "Mismatch between callee's class " + ret.getClass()
-                                    + " and method's class " + method.getDeclaringClass();
-                            msg += "\nTarget class classloader "
-                                    + targetClass.getRawClass().getClassLoader()
-                                    + " vs method's classloader "
-                                    + method.getDeclaringClass().getClassLoader();
-                            throw new EvosuiteError(msg);
+                            AtMostOnceLogger.warn(logger,
+                                    "Skipping mock stub due to incompatible callee "
+                                            + ret.getClass().getName()
+                                            + " for method "
+                                            + method.getDeclaringClass().getName()
+                                            + "." + method.getName());
+                            continue;
                         }
 
                         //actual call foo.aMethod(...)
@@ -1350,6 +1357,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
                                 } else if (thenReturnInputs[i] != null
                                         && !TypeUtils.isAssignable(thenReturnInputs[i].getClass(),
+                                        method.getReturnType())
+                                        && !isAssignableByName(thenReturnInputs[i].getClass(),
                                         method.getReturnType())) {
                                     codeUnderTestException = new CodeUnderTestException(
                                             new UncompilableCodeException("Cannot assign "
@@ -1543,6 +1552,97 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         }
 
         return value;
+    }
+
+    private static Method resolveMethodOnRuntimeClass(Method method, Class<?> runtimeClass) {
+        if (method == null || runtimeClass == null) {
+            return null;
+        }
+        if (method.getDeclaringClass().isAssignableFrom(runtimeClass)) {
+            return method;
+        }
+
+        String methodName = method.getName();
+        Class<?>[] expectedParams = method.getParameterTypes();
+        String expectedReturnType = method.getReturnType().getName();
+
+        for (Method candidate : runtimeClass.getMethods()) {
+            if (!sameRawSignatureByName(candidate, methodName, expectedParams, expectedReturnType)) {
+                continue;
+            }
+            return candidate;
+        }
+        for (Class<?> c = runtimeClass; c != null; c = c.getSuperclass()) {
+            for (Method candidate : c.getDeclaredMethods()) {
+                if (!sameRawSignatureByName(candidate, methodName, expectedParams, expectedReturnType)) {
+                    continue;
+                }
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private static boolean sameRawSignatureByName(Method candidate, String methodName,
+                                                  Class<?>[] expectedParams, String expectedReturnType) {
+        if (!candidate.getName().equals(methodName)) {
+            return false;
+        }
+        Class<?>[] candidateParams = candidate.getParameterTypes();
+        if (candidateParams.length != expectedParams.length) {
+            return false;
+        }
+        if (!candidate.getReturnType().getName().equals(expectedReturnType)) {
+            return false;
+        }
+        for (int i = 0; i < candidateParams.length; i++) {
+            if (!candidateParams[i].getName().equals(expectedParams[i].getName())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAssignableByName(Class<?> actual, Class<?> expected) {
+        if (actual == null || expected == null || expected.isPrimitive()) {
+            return false;
+        }
+        if (expected.isAssignableFrom(actual)) {
+            return true;
+        }
+        String expectedName = expected.getName();
+        if (expectedName.equals(actual.getName())) {
+            return true;
+        }
+        for (Class<?> sup = actual.getSuperclass(); sup != null; sup = sup.getSuperclass()) {
+            if (expectedName.equals(sup.getName())) {
+                return true;
+            }
+        }
+        ArrayDeque<Class<?>> queue = new ArrayDeque<>();
+        HashSet<String> seen = new HashSet<>();
+        queue.add(actual);
+        while (!queue.isEmpty()) {
+            Class<?> current = queue.removeFirst();
+            for (Class<?> iface : current.getInterfaces()) {
+                if (iface == null) {
+                    continue;
+                }
+                String ifaceName = iface.getName();
+                if (!seen.add(ifaceName)) {
+                    continue;
+                }
+                if (expectedName.equals(ifaceName)) {
+                    return true;
+                }
+                queue.addLast(iface);
+            }
+            Class<?> superClass = current.getSuperclass();
+            if (superClass != null) {
+                queue.addLast(superClass);
+            }
+        }
+        return false;
     }
 
     @Override

@@ -144,27 +144,28 @@ public class CarvingRunListener extends RunListener {
             CarvedTestCase test = (CarvedTestCase) codeGen.getCode();
 
             if (test == null) {
-                logger.info("Failed to carve test for " + Arrays.asList(targetClasses));
+                LoggingUtils.getEvoLogger().info("Failed to carve test for {}", Arrays.asList(targetClasses));
                 codeGen.clear();
                 continue;
             }
             test.setName(description.getMethodName());
-            logger.info("Carved test of length " + test.size());
+            LoggingUtils.getEvoLogger().info("Carved test of length {}", test.size());
             try {
                 test.changeClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
+            } catch (Throwable t) {
+                LoggingUtils.getEvoLogger().info("Exception during classloader remapping of carved test: {}",
+                        t.toString());
+            }
+            try {
                 GenericTypeInference inference = new GenericTypeInference();
                 //test.accept(inference);
                 inference.inferTypes(test);
-
-                carvedTests.get(targetClass).add(test);
             } catch (Throwable t) {
-                logger.info("Exception during carving: " + t);
-                for (StackTraceElement elem : t.getStackTrace()) {
-                    logger.info(elem.toString());
-                }
-                logger.info(test.toCode());
-
+                LoggingUtils.getEvoLogger().info("Exception during carving: {}", t.toString());
             }
+            // Keep carved tests even if type inference fails due classloader-sensitive
+            // generic reflection checks (e.g., public static field reads across loaders).
+            carvedTests.get(targetClass).add(test);
             codeGen.clear();
         }
     }

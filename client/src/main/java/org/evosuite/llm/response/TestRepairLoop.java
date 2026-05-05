@@ -45,9 +45,12 @@ import org.evosuite.junit.UnitTestAdapter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.setup.TestCluster;
-import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.execution.ExecutionResult;
+import java.util.Optional;
+import java.util.Collections;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
@@ -466,6 +469,7 @@ public class TestRepairLoop {
                     if (compileError == null) {
                         compileChecked.add(pr);
                     } else {
+                        pr.addDiagnostic(new org.evosuite.testparser.ParseDiagnostic(org.evosuite.testparser.ParseDiagnostic.Severity.ERROR, compileError, -1, ""));
                         droppedAtParse.add(pr);
                         diagnostics.add(compileError);
                     }
@@ -510,6 +514,19 @@ public class TestRepairLoop {
             String next = tryRepair(combinedError, attempt, previousError, diagnostics,
                     conversation, currentResponse, feature, expandedClasses);
             if (next == null) {
+                // Final-resort: perform brute-force salvage on failed tests
+                List<ParseResult> allFailedTests = new ArrayList<>(droppedAtParse);
+                allFailedTests.addAll(droppedAtExecution);
+                for (ParseResult pr : allFailedTests) {
+                    Optional<TestCase> salvaged = performBruteForceSalvage(pr.getTestCase());
+                    if (salvaged.isPresent()) {
+                        ParseResult salvagedResult = new ParseResult(salvaged.get(), 
+                                                                     pr.getOriginalMethodName(), 
+                                                                     pr.getDiagnostics());
+                        mergeSalvagedTests(salvagedExecutableTests, Collections.singletonList(salvagedResult));
+                    }
+                }
+
                 if (!salvagedExecutableTests.isEmpty()) {
                     return RepairResult.success(new ArrayList<>(salvagedExecutableTests.values()),
                             diagnostics, attemptsUsed, expandedClasses);
@@ -545,6 +562,59 @@ public class TestRepairLoop {
             }
         }
     }
+
+    private Optional<TestCase> performBruteForceSalvage(TestCase failedTestCase) {
+        logger.warn("Attempting brute-force salvage for test case: {}", failedTestCase.getID());
+        TestCase salvaged = failedTestCase.clone();
+
+        // 1. Initial attempt: remove assertions
+        salvaged.removeAssertions();
+        ExecutionResult result = TestCaseExecutor.runTest(salvaged);
+
+        if (result.noThrownExceptions()) {
+            if (isMeaningful(salvaged)) {
+                logger.warn("Successfully salvaged test {} by removing assertions.", failedTestCase.getID());
+                return Optional.of(salvaged);
+            }
+            logger.warn("Discarded salvaged test {} as it is not meaningful.", failedTestCase.getID());
+            return Optional.empty();
+            }
+
+            // 2. Iterative truncation at failure site
+            while (!result.noThrownExceptions()) {
+            Map<Integer, Throwable> exceptionMapping = result.getCopyOfExceptionMapping();
+            Integer failIndex = exceptionMapping.keySet().stream().min(Integer::compareTo).orElse(-1);
+            if (failIndex == null || failIndex <= 0) break;
+
+            salvaged.chop(failIndex);
+            result = TestCaseExecutor.runTest(salvaged);
+
+            if (result.noThrownExceptions()) {
+                if (isMeaningful(salvaged)) {
+                    logger.warn("Successfully salvaged test {} by truncation at index {}.", failedTestCase.getID(), failIndex);
+                    return Optional.of(salvaged);
+                }
+                logger.warn("Discarded salvaged test {} after truncation as it is not meaningful.", failedTestCase.getID());
+                return Optional.empty();
+            }
+            }
+
+            logger.warn("Failed to salvage test case: {}", failedTestCase.getID());
+            return Optional.empty();
+            }
+    private boolean isMeaningful(TestCase testCase) {
+        for (org.evosuite.testcase.statements.Statement s : testCase) {
+            if (s instanceof org.evosuite.testcase.statements.MethodStatement) {
+                org.evosuite.testcase.statements.MethodStatement ms = 
+                    (org.evosuite.testcase.statements.MethodStatement) s;
+                if (ms.getMethod().getDeclaringClass().getName().equals(Properties.TARGET_CLASS)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
 
     /**
      * Build a repair prompt body that tells the LLM about every test in the batch:
@@ -1104,6 +1174,8 @@ public class TestRepairLoop {
         appendMemberAccessRepairInstructions(error, repairMessage);
         appendNoTestMethodsRepairInstructions(error, previousResponse, repairMessage);
         appendCollaboratorFallbackRepairInstructions(error, repairMessage);
+        appendSyntheticFallbackUsageRepairInstructions(error, repairMessage);
+        appendNotAMockRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
         appendContextSpecificRepairFacts(error, previousResponse, repairMessage);
         if (sutContextSummary != null && !sutContextSummary.isEmpty()) {
@@ -1335,9 +1407,9 @@ public class TestRepairLoop {
             return;
         }
         repairMessage.append("\n\nMember-access repair hint:");
-        repairMessage.append("\n- The failing test directly accesses non-public members (private/protected/package-private).");
+        repairMessage.append("\n- The failing test directly accesses private or protected members (which are not allowed). Note: Package-private members ARE allowed as tests are in the same package.");
         repairMessage.append("\n- Keep all already executable tests unchanged.");
-        repairMessage.append("\n- For failing tests only, remove direct field/member access assertions and replace them with checks via accessible public/package-visible methods.");
+        repairMessage.append("\n- For failing tests only, remove direct field/member access assertions and replace them with checks via accessible public or package-visible methods.");
         repairMessage.append("\n- Do not assert internal fields such as receiver.superclassField; assert externally visible behavior instead.");
         repairMessage.append("\n- If no accessible API exposes the same state, drop that assertion rather than forcing illegal member access.");
         repairMessage.append("\n- Also avoid non-public cross-package types in imports/declarations/constructors; use only public accessible types/paths from context.");
@@ -1399,6 +1471,24 @@ public class TestRepairLoop {
                 .append(simpleType)
                 .append(".class, new ViolatedAssumptionAnswer()) and stub only the minimal methods the SUT call actually uses.");
         repairMessage.append("\n- If that collaborator cannot be constructed or mocked with available SUT/JDK types, rewrite the failing test to avoid that path instead of keeping the synthetic fallback.");
+    }
+
+    private void appendNotAMockRepairInstructions(String error, StringBuilder repairMessage) {
+        if (error.contains("NotAMockException")) {
+            repairMessage.append("\n\nNot-a-mock repair instructions:");
+            repairMessage.append("\n- The failing test attempted to use Mockito.when() or Mockito.doReturn() on a real object.");
+            repairMessage.append("\n- Only use Mockito.when() or Mockito.doReturn() on objects created via Mockito.mock().");
+            repairMessage.append("\n- If the object was created using a 'new' constructor, it is a real instance. Remove the Mockito stubbing for this object.");
+        }
+    }
+
+    private void appendSyntheticFallbackUsageRepairInstructions(String error, StringBuilder repairMessage) {
+        if (error.contains("NullPointerException") && error.contains("__llm_fallback")) {
+            repairMessage.append("\n\nSynthetic fallback usage error:");
+            repairMessage.append("\n- You are attempting to call a method on a variable named '__llm_fallback...' which is 'null'.");
+            repairMessage.append("\n- This variable is a placeholder and should NEVER be used as a valid object instance.");
+            repairMessage.append("\n- You MUST fix the constructor call that led to this fallback by providing valid data (e.g., a valid byte array header like {0xCA, 0xFE, 0xBA, 0xBE} for ASM ClassReader).");
+        }
     }
 
     private void appendAnonymousImplementationRepairInstructions(String error,
@@ -1894,7 +1984,8 @@ public class TestRepairLoop {
         LinkedHashSet<String> hints = new LinkedHashSet<>();
         hints.add("__llm_fallback variables are parser-generated placeholders inserted because the previous "
                 + "LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback.");
-        hints.add("Avoid unresolved expressions/calls that trigger synthetic __llm_fallback variables.");
+        hints.add("Do NOT call methods on these fallback variables; they are 'null' placeholders and will throw NullPointerException at runtime.");
+        hints.add("Instead of using a fallback, fix the object instantiation that made the parser fail by using a valid SUT/JDK type or a proper Mockito.mock().");
         hints.add("Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.");
         hints.add("Do not reference non-public dependency types from other packages "
                 + "(diagnostics like 'X is not public in package Y; cannot be accessed from outside package').");
@@ -2842,11 +2933,11 @@ public class TestRepairLoop {
                 return "The type '" + simple + "' is an interface, so `" + expression
                         + "` is invalid. Prefer a concrete implementation such as "
                         + joinTop(guidance.concreteSubtypes, 3)
-                        + ", or use Mockito.mock(" + simple + ".class) / an anonymous implementation.";
+                        + ", or use Mockito.mock(" + simple + ".class).";
             }
             return "The type '" + simple + "' is an interface, so `" + expression
                     + "` is invalid. Replace it with Mockito.mock(" + simple
-                    + ".class), an anonymous implementation, or a known concrete implementation.";
+                    + ".class) or a known concrete implementation.";
         }
         if (!guidance.concreteSubtypes.isEmpty()) {
             return "The type '" + simple + "' is abstract, so `" + expression
@@ -3188,27 +3279,41 @@ public class TestRepairLoop {
             Path sourceFile = pkgDir.resolve(className + ".java");
             Files.write(sourceFile, source.getBytes(StandardCharsets.UTF_8));
 
-            ByteArrayOutputStream err = new ByteArrayOutputStream();
             String classPath = System.getProperty("java.class.path", "");
-            List<String> args = new ArrayList<>();
-            args.add("-proc:none");
-            args.add("-classpath");
-            args.add(classPath);
-            args.add("-d");
-            args.add(tmpDir.toString());
-            args.add(sourceFile.toString());
-            int result = compiler.run(null, null, err, args.toArray(new String[0]));
-            if (result == 0) {
-                return null;
+            int maxPasses = 3;
+            for (int pass = 0; pass <= maxPasses; pass++) {
+                ByteArrayOutputStream err = new ByteArrayOutputStream();
+                List<String> args = new ArrayList<>();
+                args.add("-proc:none");
+                args.add("-classpath");
+                args.add(classPath);
+                args.add("-d");
+                args.add(tmpDir.toString());
+                args.add(sourceFile.toString());
+                int result = compiler.run(null, null, err, args.toArray(new String[0]));
+                if (result == 0) {
+                    return null;
+                }
+                String diagnostics = err.toString(StandardCharsets.UTF_8.name()).trim();
+                
+                boolean repaired = false;
+                String repairedClasspath = org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE.sanitizeClasspathForKnownCompileIssues(classPath, diagnostics);
+                if (repairedClasspath != null && !repairedClasspath.equals(classPath)) {
+                    classPath = repairedClasspath;
+                    repaired = true;
+                }
+                
+                if (!repaired || pass == maxPasses) {
+                    return "Compilation error in parsed test '" + methodName
+                            + "': " + diagnostics
+                            + "\nNote: this error comes from EvoSuite-rendered synthesized test source (after parsing), not directly from raw LLM text."
+                            + "\nRendered compile-check class excerpt:\n```java\n"
+                            + truncate(source, MAX_TEST_CODE_EXCERPT_CHARS)
+                            + "\n```"
+                            + "\n```";
+                }
             }
-            String diagnostics = err.toString(StandardCharsets.UTF_8.name()).trim();
-            return "Compilation error in parsed test '" + methodName
-                    + "': " + diagnostics
-                    + "\nNote: this error comes from EvoSuite-rendered synthesized test source (after parsing), not directly from raw LLM text."
-                    + "\nRendered compile-check class excerpt:\n```java\n"
-                    + truncate(source, MAX_TEST_CODE_EXCERPT_CHARS)
-                    + "\n```"
-                    + "\n```";
+            return "Compilation check failed"; // Fallback, shouldn't be reached
         } finally {
             if (tmpDir != null) {
                 try {
@@ -3257,17 +3362,54 @@ public class TestRepairLoop {
         }
         UnitTestAdapter adapter = TestSuiteWriterUtils.getAdapter();
         appendUniqueImportLines(sb, adapter.getImports());
+        
+        String mockitoCanonical = org.mockito.Mockito.class.getCanonicalName();
+        if (mockitoCanonical != null) {
+            sb.append("import ").append(mockitoCanonical).append(";\n");
+            sb.append("import static ").append(mockitoCanonical).append(".*;\n");
+        } else {
+            sb.append("import org.mockito.Mockito;\n");
+            sb.append("import static org.mockito.Mockito.*;\n");
+        }
+        
+        String matchersCanonical = org.mockito.ArgumentMatchers.class.getCanonicalName();
+        if (matchersCanonical != null) {
+            sb.append("import ").append(matchersCanonical).append(";\n");
+            sb.append("import static ").append(matchersCanonical).append(".*;\n");
+        } else {
+            sb.append("import org.mockito.ArgumentMatchers;\n");
+            sb.append("import static org.mockito.ArgumentMatchers.*;\n");
+        }
+        
+        String evoAssertionsCanonical = org.evosuite.runtime.EvoAssertions.class.getCanonicalName();
+        if (evoAssertionsCanonical != null && evoAssertionsCanonical.startsWith("shaded.")) {
+            sb.append("import static ").append(evoAssertionsCanonical).append(".*;\n");
+        } else {
+            sb.append("import static org.evosuite.runtime.EvoAssertions.*;\n");
+        }
+        
+        String vaaCanonical = org.evosuite.runtime.ViolatedAssumptionAnswer.class.getCanonicalName();
+        if (vaaCanonical != null && vaaCanonical.startsWith("shaded.")) {
+            sb.append("import ").append(vaaCanonical).append(";\n");
+        } else {
+            sb.append("import org.evosuite.runtime.ViolatedAssumptionAnswer;\n");
+        }
+        
+        sb.append("import java.lang.reflect.Field;\n");
+        sb.append("import java.lang.reflect.Method;\n");
+        sb.append("import java.lang.reflect.Modifier;\n");
+        sb.append("import java.lang.reflect.Array;\n");
         if (imports != null) {
             for (Class<?> clazz : imports) {
                 if (clazz == null) {
                     continue;
                 }
                 String canonical = clazz.getCanonicalName();
-                if (canonical == null || canonical.isEmpty()) {
+                if (canonical == null || canonical.isEmpty() || canonical.startsWith("java.lang.")) {
                     continue;
                 }
-                if (canonical.startsWith("java.lang.")) {
-                    continue;
+                if (canonical.startsWith("shaded.org.evosuite.shaded.org.mockito.")) {
+                    canonical = canonical.replace("shaded.org.evosuite.shaded.org.mockito.", "org.mockito.");
                 }
                 sb.append("import ").append(canonical.replace('$', '.')).append(";\n");
             }

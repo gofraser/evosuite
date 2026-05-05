@@ -23,6 +23,7 @@ import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.dse.VMError;
+import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.System.SystemExitException;
 import org.evosuite.runtime.jvm.ShutdownHookHandler;
 import org.evosuite.runtime.thread.KillSwitch;
@@ -441,7 +442,15 @@ public class TestRunnable implements InterfaceTestRunnable {
              * Here actually execute a statement of the SUT
              */
             maybeCaptureFieldAssignmentRollback(s);
-            Throwable exceptionThrown = s.execute(scope, out);
+            Throwable exceptionThrown;
+            try {
+                exceptionThrown = s.execute(scope, out);
+            } finally {
+                // Safety net: if a GUI mock constructor throws before its own
+                // restore call, ensure we do not leak a disabled-headless scope
+                // into subsequent statements.
+                GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+            }
 
             if (exceptionThrown != null) {
                 // if internal error, then throw exception

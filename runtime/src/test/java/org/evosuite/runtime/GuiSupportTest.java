@@ -185,4 +185,36 @@ public class GuiSupportTest {
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         });
     }
+
+    @Test
+    public void testForceRestoreClosesLeakedMockConstructionScope() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        Assumptions.assumeTrue(GuiSupport.canForceHeadlessForTests());
+        Assumptions.assumeFalse(GuiSupport.isMacOsForTests());
+
+        GuiSupport.disableHeadlessForMockConstruction();
+        Assertions.assertFalse(GraphicsEnvironment.isHeadless());
+
+        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+        Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+    }
+
+    @Test
+    public void testForceRestoreClosesNestedLeakedMockConstructionScope() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        Assumptions.assumeTrue(GuiSupport.canForceHeadlessForTests());
+        Assumptions.assumeFalse(GuiSupport.isMacOsForTests());
+
+        GuiSupport.disableHeadlessForMockConstruction();
+        GuiSupport.disableHeadlessForMockConstruction();
+        Assertions.assertFalse(GraphicsEnvironment.isHeadless());
+
+        // Simulate one unmatched restore (e.g., constructor aborts before
+        // executing all post-super restore calls).
+        GuiSupport.restoreHeadlessAfterMockConstruction();
+        Assertions.assertFalse(GraphicsEnvironment.isHeadless());
+
+        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+        Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+    }
 }

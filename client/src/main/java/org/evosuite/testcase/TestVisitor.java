@@ -107,7 +107,9 @@ public abstract class TestVisitor {
      */
     public void visitStatement(Statement statement) {
 
-        if (statement instanceof PrimitiveStatement<?>) {
+        if (statement instanceof NullStatement) {
+            visitNullStatement((NullStatement) statement);
+        } else if (statement instanceof PrimitiveStatement<?>) {
             visitPrimitiveStatement((PrimitiveStatement<?>) statement);
         } else if (statement instanceof FieldStatement) {
             visitFieldStatement((FieldStatement) statement);
@@ -119,8 +121,6 @@ public abstract class TestVisitor {
             visitAssignmentStatement((AssignmentStatement) statement);
         } else if (statement instanceof ArrayStatement) {
             visitArrayStatement((ArrayStatement) statement);
-        } else if (statement instanceof NullStatement) {
-            visitNullStatement((NullStatement) statement);
         } else if (statement instanceof UninterpretedStatement) {
             visitUninterpretedStatement((UninterpretedStatement) statement);
         } else if (statement instanceof FunctionalMockStatement) {

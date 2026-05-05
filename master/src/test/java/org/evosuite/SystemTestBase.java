@@ -49,6 +49,8 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
+import org.mockito.Mockito;
+import org.mockito.plugins.MockMaker;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -92,8 +94,16 @@ public class SystemTestBase {
 
     @AfterEach
     public void resetStaticVariables() {
+        clearMockitoCaches();
         RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(false);
         RuntimeSettings.applyUIDTransformation = false;
+        // Reset mock-mode flags so the next test rebuilds MethodCallReplacementCache
+        // from defaults instead of inheriting flags set by ClientProcess.setupRuntimeProperties.
+        // Without this, a prior full-EvoSuite test leaves mockJVMNonDeterminism=true,
+        // and the next carving test's TestCaseExecutor instruments SUTs with the
+        // Object.toString -> System.toString replacement, breaking commons-beanutils-style
+        // converters that call value.toString() to drive type conversion.
+        RuntimeSettings.deactivateAllMocking();
         TestCaseExecutor.getInstance().newObservers();
         TestGenerationContext.getInstance().resetContext();
         ClassReInitializer.resetSingleton();
@@ -112,6 +122,8 @@ public class SystemTestBase {
 
     @BeforeEach
     public void setDefaultPropertiesForTestCases(TestInfo testInfo) {
+        clearMockitoCaches();
+
         if (testInfo != null) {
             Optional<Method> testMethod = testInfo.getTestMethod();
             if (testMethod.isPresent()) {
@@ -158,6 +170,22 @@ public class SystemTestBase {
         currentProperties = (java.util.Properties) System.getProperties().clone();
 
         MockFramework.enable();
+    }
+
+    private static void clearMockitoCaches() {
+        try {
+            MockMaker defaultMockMaker = Mockito.framework().getPlugins().getDefaultPlugin(MockMaker.class);
+            if (defaultMockMaker != null) {
+                defaultMockMaker.clearAllCaches();
+            }
+            MockMaker inlineMockMaker = Mockito.framework().getPlugins().getInlineMockMaker();
+            if (inlineMockMaker != null) {
+                inlineMockMaker.clearAllCaches();
+            }
+            Mockito.framework().clearInlineMocks();
+        } catch (Throwable ignored) {
+            // Best effort cleanup for classloader-sensitive Mockito state.
+        }
     }
 
 

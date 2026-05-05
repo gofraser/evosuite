@@ -190,8 +190,7 @@ public class GenericTypeInference extends TestVisitor {
             TypeVariable<?> mappedVar = typeVar;
             if (!typeMap.containsKey(mappedVar)) {
                 for (TypeVariable<?> existing : typeMap.keySet()) {
-                    if (existing.getName().equals(typeVar.getName())
-                            && existing.getGenericDeclaration().equals(typeVar.getGenericDeclaration())) {
+                    if (isSameTypeVariableIdentity(existing, typeVar)) {
                         mappedVar = existing;
                         break;
                     }
@@ -216,6 +215,54 @@ public class GenericTypeInference extends TestVisitor {
                 typeMap.put(typeVar, actualType);
             }
         }
+    }
+
+    /**
+     * Type variables can come from equivalent generic declarations loaded by different
+     * classloaders. In that case, object equality on GenericDeclaration fails even though
+     * the variables represent the same symbol (eg class T of the same FQCN). Match by
+     * stable declaration identity instead of object identity.
+     */
+    private boolean isSameTypeVariableIdentity(TypeVariable<?> left, TypeVariable<?> right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (!left.getName().equals(right.getName())) {
+            return false;
+        }
+
+        GenericDeclaration leftDecl = left.getGenericDeclaration();
+        GenericDeclaration rightDecl = right.getGenericDeclaration();
+        if (leftDecl == rightDecl) {
+            return true;
+        }
+        if (leftDecl == null || rightDecl == null) {
+            return false;
+        }
+        if (leftDecl.equals(rightDecl)) {
+            return true;
+        }
+        return getDeclarationIdentity(leftDecl).equals(getDeclarationIdentity(rightDecl));
+    }
+
+    private String getDeclarationIdentity(GenericDeclaration declaration) {
+        if (declaration instanceof Class<?>) {
+            return ((Class<?>) declaration).getName();
+        }
+        if (declaration instanceof Method) {
+            Method method = (Method) declaration;
+            return method.getDeclaringClass().getName() + "#" + method.getName()
+                    + Arrays.toString(method.getGenericParameterTypes());
+        }
+        if (declaration instanceof Constructor<?>) {
+            Constructor<?> constructor = (Constructor<?>) declaration;
+            return constructor.getDeclaringClass().getName() + "#<init>"
+                    + Arrays.toString(constructor.getGenericParameterTypes());
+        }
+        return declaration.toString();
     }
 
     private void determineVariablesFromParameters(List<VariableReference> parameters,

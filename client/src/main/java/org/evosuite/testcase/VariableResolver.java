@@ -22,11 +22,13 @@ package org.evosuite.testcase;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.seeding.ObjectPoolManager;
+import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.setup.TestUsageChecker;
@@ -39,6 +41,7 @@ import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -431,13 +434,17 @@ public class VariableResolver {
 
                 if (ret == null) {
                     if (!TestCluster.getInstance().hasGenerator(type)) {
-                        TestClusterGenerator clusterGenerator =
-                                TestGenerationContext.getInstance().getTestClusterGenerator();
-                        Class<?> mock = MockList.getMockClass(clazz.getRawClass().getCanonicalName());
-                        clusterGenerator.addNewDependencies(
-                                Collections.singletonList(mock != null ? mock : clazz.getRawClass()));
-                        if (TestCluster.getInstance().hasGenerator(type)) {
-                            return createObject(test, type, position, context.deeper(), config);
+                        TestClusterGenerator clusterGenerator = ensureClusterGenerator();
+                        if (clusterGenerator != null) {
+                            Class<?> mock = MockList.getMockClass(clazz.getRawClass().getCanonicalName());
+                            clusterGenerator.addNewDependencies(
+                                    Collections.singletonList(mock != null ? mock : clazz.getRawClass()));
+                            if (TestCluster.getInstance().hasGenerator(type)) {
+                                return createObject(test, type, position, context.deeper(), config);
+                            }
+                        } else {
+                            logger.warn("TestClusterGenerator is null while trying to add dependencies for {}",
+                                    clazz.getRawClass().getName());
                         }
                     }
                     throw new ConstructionFailedException("Have no generator for " + type);
@@ -454,6 +461,60 @@ public class VariableResolver {
         }
         ret.setDistance(context.getDepth() + 1);
         return ret;
+    }
+
+    private TestClusterGenerator ensureClusterGenerator() {
+        TestGenerationContext ctx = TestGenerationContext.getInstance();
+        TestClusterGenerator generator = ctx.getTestClusterGenerator();
+        if (generator != null) {
+            return generator;
+        }
+
+        synchronized (ctx) {
+            generator = ctx.getTestClusterGenerator();
+            if (generator != null) {
+                return generator;
+            }
+
+            if (!Properties.TARGET_CLASS.isEmpty()) {
+                String cp = ClassPathHandler.getInstance().getTargetProjectClasspath();
+                if (cp != null && !cp.isEmpty()) {
+                    List<String> classPath = Arrays.asList(cp.split(File.pathSeparator));
+                    try {
+                        DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, classPath);
+                        generator = ctx.getTestClusterGenerator();
+                        if (generator != null) {
+                            logger.info("Lazily initialized TestClusterGenerator by analyzing target {}",
+                                    Properties.TARGET_CLASS);
+                            return generator;
+                        }
+                    } catch (ClassNotFoundException | RuntimeException e) {
+                        logger.warn("Failed to lazily initialize TestClusterGenerator for {}: {}",
+                                Properties.TARGET_CLASS, e.getMessage());
+                        try {
+                            DependencyAnalysis.initInheritanceTree(classPath);
+                            generator = ctx.getTestClusterGenerator();
+                            if (generator != null) {
+                                logger.info("Lazily initialized TestClusterGenerator from inheritance tree for {}",
+                                        Properties.TARGET_CLASS);
+                                return generator;
+                            }
+                        } catch (RuntimeException treeInitError) {
+                            logger.warn("Failed to initialize inheritance tree for {}: {}",
+                                    Properties.TARGET_CLASS, treeInitError.getMessage());
+                        }
+                    }
+                }
+            }
+
+            if (DependencyAnalysis.getInheritanceTree() != null) {
+                generator = new TestClusterGenerator(DependencyAnalysis.getInheritanceTree());
+                ctx.setTestClusterGenerator(generator);
+                logger.info("Lazily initialized TestClusterGenerator from cached inheritance tree");
+                return generator;
+            }
+        }
+        return null;
     }
 
     /**

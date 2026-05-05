@@ -873,7 +873,7 @@ public class StatementParser {
         // isAssignableFrom matches any reference type during constructor/method
         // resolution.  retypeNullArguments() fixes these up to the actual
         // parameter type once the target method/constructor is resolved.
-        Type nullType = (rawClass == Object.class) ? Void.class : declaredType;
+        Type nullType = (rawClass == Object.class) ? Void.class : accessibleNullType(declaredType);
         NullStatement stmt = new NullStatement(testCase, nullType);
         return testCase.addStatement(stmt);
     }
@@ -1046,6 +1046,7 @@ public class StatementParser {
      * Internal API for helpers: parse a method call using the standard parser pipeline.
      */
     VariableReference handleMethodCall(MethodCallExpr expr, Type declaredType, String targetVarName) {
+        int expressionCheckpoint = testCase.size();
         try {
             VariableReference rewrittenAssertDoesNotThrow =
                     tryRewriteAssertDoesNotThrowSupplierAssignment(expr, declaredType, targetVarName);
@@ -1119,17 +1120,27 @@ public class StatementParser {
 
             if (staticCall) {
                 if (!overloadResolver.hasMethodNamed(targetClass, methodName, true)) {
-                    return failOrTypedFallback(expr, declaredType, null, targetVarName,
-                            DiagnosticMessage.categorized(DiagnosticKind.NO_MATCHING_METHOD,
-                                    "No static method named " + methodName + " in "
-                                            + targetClass.getSimpleName()));
+                    DiagnosticMessage diagnostic = DiagnosticMessage.categorized(DiagnosticKind.NO_MATCHING_METHOD,
+                            "No static method named " + methodName + " in " + targetClass.getSimpleName());
+                    VariableReference preserved = preserveUnresolvedTopLevelChainedMethodCall(
+                            expr, declaredType, targetVarName, expressionCheckpoint, diagnostic);
+                    if (preserved != null) {
+                        return preserved;
+                    }
+                    return failOrTypedFallbackWithRollback(
+                            expr, declaredType, null, targetVarName, expressionCheckpoint, diagnostic);
                 }
             } else {
                 if (!overloadResolver.hasMethodNamed(targetClass, methodName, false)) {
-                    return failOrTypedFallback(expr, declaredType, null, targetVarName,
-                            DiagnosticMessage.categorized(DiagnosticKind.NO_MATCHING_METHOD,
-                                    "No method named " + methodName + " in "
-                                            + targetClass.getSimpleName()));
+                    DiagnosticMessage diagnostic = DiagnosticMessage.categorized(DiagnosticKind.NO_MATCHING_METHOD,
+                            "No method named " + methodName + " in " + targetClass.getSimpleName());
+                    VariableReference preserved = preserveUnresolvedTopLevelChainedMethodCall(
+                            expr, declaredType, targetVarName, expressionCheckpoint, diagnostic);
+                    if (preserved != null) {
+                        return preserved;
+                    }
+                    return failOrTypedFallbackWithRollback(
+                            expr, declaredType, null, targetVarName, expressionCheckpoint, diagnostic);
                 }
             }
 
@@ -1152,11 +1163,18 @@ public class StatementParser {
             try {
                 method = overloadResolver.resolveMethod(methodTargetClass, methodName, argTypes);
             } catch (NoSuchMethodException e) {
+                DiagnosticMessage diagnostic =
+                        DiagnosticMessage.categorized(DiagnosticKind.NO_MATCHING_METHOD, e.getMessage());
+                VariableReference preserved = preserveUnresolvedTopLevelChainedMethodCall(
+                        expr, declaredType, targetVarName, expressionCheckpoint, diagnostic);
+                if (preserved != null) {
+                    return preserved;
+                }
                 return failOrTypedFallbackWithRollback(expr, declaredType,
                         inferFallbackMethodReturnType(methodTargetClass, methodName, declaredType),
                         targetVarName,
-                        argumentCheckpoint,
-                        DiagnosticMessage.categorized(DiagnosticKind.NO_MATCHING_METHOD, e.getMessage()));
+                        expressionCheckpoint,
+                        diagnostic);
             }
 
             if (!isAccessibleMember(method)) {
@@ -1193,6 +1211,7 @@ public class StatementParser {
             return testCase.addStatement(stmt);
 
         } catch (Exception e) {
+            rollbackTemporaryStatements(expressionCheckpoint);
             return failOrFallback(expr, declaredType, null,
                     "Failed to parse method call: " + e.getMessage());
         }
@@ -2004,7 +2023,7 @@ public class StatementParser {
         if (primitiveFallback != null) {
             return testCase.addStatement(primitiveFallback);
         }
-        return testCase.addStatement(new NullStatement(testCase, expectedType == null ? Object.class : expectedType));
+        return testCase.addStatement(new NullStatement(testCase, accessibleNullType(expectedType)));
     }
 
     private com.github.javaparser.ast.type.ClassOrInterfaceType parseClassOrInterfaceType(String typeName) {
@@ -3436,6 +3455,25 @@ public class StatementParser {
                 || errorMsg.startsWith("Method argument mismatch:");
     }
 
+    private VariableReference preserveUnresolvedTopLevelChainedMethodCall(MethodCallExpr expr,
+                                                                          Type declaredType,
+                                                                          String targetVarName,
+                                                                          int checkpointSize,
+                                                                          DiagnosticMessage diagnostic) {
+        if (!markParsedFromLlm
+                || expr == null
+                || targetVarName != null
+                || !isVoidContext(declaredType, targetVarName)
+                || !expr.getScope().isPresent()
+                || !(expr.getScope().get() instanceof MethodCallExpr)) {
+            return null;
+        }
+        rollbackTemporaryStatements(checkpointSize);
+        addWarning(expr, diagnostic.withAppendedText(
+                " — preserved full chained call as raw source to avoid dropping the terminal invocation"));
+        return testCase.addStatement(createUninterpretedStatement(expr, expr.toString() + ";"));
+    }
+
     public void finalizeParse() {
         for (PendingLlmDeclaration pendingDeclaration : pendingLlmDeclarations.values()) {
             String details = "declared variable `" + pendingDeclaration.getVariableName()
@@ -3476,7 +3514,7 @@ public class StatementParser {
             return testCase.addStatement(primitiveFallback);
         }
         return testCase.addStatement(new NullStatement(testCase,
-                expectedType == null ? Object.class : expectedType));
+                accessibleNullType(expectedType)));
     }
 
     private VariableReference fallbackForUnresolvedExpression(Expression expr,
@@ -3633,6 +3671,21 @@ public class StatementParser {
         Package pkg = type.getPackage();
         String packageName = pkg != null ? pkg.getName() : "";
         return targetPackage.equals(packageName);
+    }
+
+    // Downgrade a NullStatement's declared type to Object when the original
+    // type is not accessible from the generated test (e.g. package-private in a
+    // package other than the SUT's). Otherwise the rendered "Foo nullRef0 = null;"
+    // would not compile.
+    private Type accessibleNullType(Type type) {
+        if (type == null) {
+            return Object.class;
+        }
+        Class<?> raw = getRawClass(type);
+        if (raw == null) {
+            return type;
+        }
+        return isAccessibleFromGeneratedTest(raw) ? type : Object.class;
     }
 
     private String getDefaultFallbackLiteral(Type type) {

@@ -488,8 +488,12 @@ public class StatementFactory {
 
         try {
             if (!method.isStatic()) {
+                VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
+                        VariableResolutionConfig.defaultConfig())
+                        .withAllowNull(false)
+                        .build();
                 callee = testFactory.createOrReuseVariable(test, method.getOwnerType(), position,
-                        context, VariableResolutionConfig.defaultConfig());
+                        context, nonNullCalleeConfig);
                 
                 position += test.size() - length;
                 length = test.size();
@@ -579,8 +583,12 @@ public class StatementFactory {
         int length = test.size();
 
         if (!field.isStatic()) {
+            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
+                    VariableResolutionConfig.defaultConfig())
+                    .withAllowNull(false)
+                    .build();
             callee = testFactory.createOrReuseVariable(test, field.getOwnerType(), position,
-                    context, VariableResolutionConfig.defaultConfig());
+                    context, nonNullCalleeConfig);
             position += test.size() - length;
 
             if (!TestUsageChecker.canUse(field.getField(), callee.getVariableClass())) {
@@ -626,8 +634,12 @@ public class StatementFactory {
         int length = test.size();
         VariableReference callee = null;
         if (!field.isStatic()) {
+            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
+                    VariableResolutionConfig.defaultConfig())
+                    .withAllowNull(false)
+                    .build();
             callee = testFactory.createOrReuseVariable(test, field.getOwnerType(), position,
-                    context, VariableResolutionConfig.defaultConfig());
+                    context, nonNullCalleeConfig);
             position += test.size() - length;
             length = test.size();
             if (!TestUsageChecker.canUse(field.getField(), callee.getVariableClass())) {

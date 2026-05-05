@@ -341,10 +341,7 @@ public class System {
      * @param time a long.
      */
     public static synchronized void setCurrentTimeMillis(long time) {
-        // Keep mocked wall-clock monotonic. Backward jumps can poison
-        // time-dependent algorithms that assume non-decreasing timestamps
-        // (eg UUID clock synchronization loops).
-        if (time > currentTime) {
+        if (time >= currentTime) {
             currentTime = time;
         }
     }

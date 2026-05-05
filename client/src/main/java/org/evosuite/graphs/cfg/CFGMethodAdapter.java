@@ -29,8 +29,24 @@ import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.instrumentation.AnnotatedMethodNode;
 import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.*;
+import org.objectweb.asm.tree.AbstractInsnNode;
+import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.IincInsnNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.IntInsnNode;
+import org.objectweb.asm.tree.JumpInsnNode;
+import org.objectweb.asm.tree.LabelNode;
+import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.LineNumberNode;
+import org.objectweb.asm.tree.LookupSwitchInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.objectweb.asm.tree.MultiANewArrayInsnNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.TableSwitchInsnNode;
+import org.objectweb.asm.tree.TypeInsnNode;
+import org.objectweb.asm.tree.VarInsnNode;
 import org.objectweb.asm.tree.analysis.AnalyzerException;
+import org.objectweb.asm.util.Printer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -232,6 +248,7 @@ public class CFGMethodAdapter extends MethodVisitor {
             } catch (AnalyzerException e) {
                 logger.error("Analyzer exception while analyzing " + className + "."
                         + methodName + ": " + e);
+                dumpAnalyzerFailure(mn, e);
                 e.printStackTrace();
                 // CFGGenerator registers method instructions before ASM analysis starts.
                 // If analysis fails, we may end up with stale BytecodeInstructions but
@@ -249,6 +266,109 @@ public class CFGMethodAdapter extends MethodVisitor {
             super.visitEnd();
         }
         mn.accept(next);
+    }
+
+    private void dumpAnalyzerFailure(MethodNode mn, AnalyzerException e) {
+        if (e == null || mn == null || mn.instructions == null) {
+            return;
+        }
+
+        int failingIndex = -1;
+        AbstractInsnNode failingNode = e.node;
+        if (failingNode != null) {
+            int idx = 0;
+            for (AbstractInsnNode insn = mn.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+                if (insn == failingNode) {
+                    failingIndex = idx;
+                    break;
+                }
+                idx++;
+            }
+        }
+
+        logger.error("ASM analyzer failure context for {}.{}: index={}, node={}",
+                className, methodName, failingIndex, formatInsn(failingNode));
+        if (failingIndex < 0) {
+            return;
+        }
+
+        int from = Math.max(0, failingIndex - 10);
+        int to = failingIndex + 10;
+        int idx = 0;
+        for (AbstractInsnNode insn = mn.instructions.getFirst(); insn != null; insn = insn.getNext()) {
+            if (idx >= from && idx <= to) {
+                String marker = idx == failingIndex ? ">>" : "  ";
+                logger.error("{} [{}] {}", marker, idx, formatInsn(insn));
+            }
+            if (idx > to) {
+                break;
+            }
+            idx++;
+        }
+    }
+
+    private String formatInsn(AbstractInsnNode insn) {
+        if (insn == null) {
+            return "<null>";
+        }
+        int opcode = insn.getOpcode();
+        String op = opcode >= 0 && opcode < Printer.OPCODES.length ? Printer.OPCODES[opcode] : "NOOP";
+
+        if (insn instanceof MethodInsnNode) {
+            MethodInsnNode m = (MethodInsnNode) insn;
+            return op + " " + m.owner + "." + m.name + m.desc;
+        }
+        if (insn instanceof FieldInsnNode) {
+            FieldInsnNode f = (FieldInsnNode) insn;
+            return op + " " + f.owner + "." + f.name + " :" + f.desc;
+        }
+        if (insn instanceof TypeInsnNode) {
+            TypeInsnNode t = (TypeInsnNode) insn;
+            return op + " " + t.desc;
+        }
+        if (insn instanceof VarInsnNode) {
+            VarInsnNode v = (VarInsnNode) insn;
+            return op + " var=" + v.var;
+        }
+        if (insn instanceof IntInsnNode) {
+            IntInsnNode i = (IntInsnNode) insn;
+            return op + " " + i.operand;
+        }
+        if (insn instanceof LdcInsnNode) {
+            LdcInsnNode l = (LdcInsnNode) insn;
+            return op + " " + String.valueOf(l.cst);
+        }
+        if (insn instanceof JumpInsnNode) {
+            JumpInsnNode j = (JumpInsnNode) insn;
+            return op + " -> " + Integer.toHexString(System.identityHashCode(j.label));
+        }
+        if (insn instanceof IincInsnNode) {
+            IincInsnNode i = (IincInsnNode) insn;
+            return "IINC var=" + i.var + " inc=" + i.incr;
+        }
+        if (insn instanceof MultiANewArrayInsnNode) {
+            MultiANewArrayInsnNode m = (MultiANewArrayInsnNode) insn;
+            return "MULTIANEWARRAY " + m.desc + " dims=" + m.dims;
+        }
+        if (insn instanceof TableSwitchInsnNode) {
+            TableSwitchInsnNode t = (TableSwitchInsnNode) insn;
+            return "TABLESWITCH " + t.min + ".." + t.max;
+        }
+        if (insn instanceof LookupSwitchInsnNode) {
+            LookupSwitchInsnNode l = (LookupSwitchInsnNode) insn;
+            return "LOOKUPSWITCH keys=" + l.keys;
+        }
+        if (insn instanceof LineNumberNode) {
+            LineNumberNode l = (LineNumberNode) insn;
+            return "LINE " + l.line;
+        }
+        if (insn instanceof LabelNode) {
+            return "LABEL " + Integer.toHexString(System.identityHashCode(insn));
+        }
+        if (insn instanceof InsnNode) {
+            return op;
+        }
+        return insn.getClass().getSimpleName() + " opcode=" + op;
     }
 
     /*

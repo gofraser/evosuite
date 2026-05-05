@@ -237,6 +237,48 @@ public class MethodCallReplacementCache {
                     "(Ljava/awt/Cursor;)V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_setCursor",
                     "(Ljava/awt/Component;Ljava/awt/Cursor;)V", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
+                    "(Ljava/awt/Component;)Ljava/awt/Component;", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_addComponentGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/Component;)Ljava/awt/Component;", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
+                    "(Ljava/lang/String;Ljava/awt/Component;)Ljava/awt/Component;", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_addNameComponentGeneric",
+                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/awt/Component;)Ljava/awt/Component;",
+                    false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
+                    "(Ljava/awt/Component;I)Ljava/awt/Component;", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_addComponentIndexGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/Component;I)Ljava/awt/Component;", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
+                    "(Ljava/awt/Component;Ljava/lang/Object;)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_addComponentConstraintsGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/Component;Ljava/lang/Object;)V", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
+                    "(Ljava/awt/Component;Ljava/lang/Object;I)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_addComponentConstraintsIndexGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/Component;Ljava/lang/Object;I)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "addTab",
+                    "(Ljava/lang/String;Ljava/awt/Component;)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_addTabTitleComponentGeneric",
+                    "(Ljava/lang/Object;Ljava/lang/String;Ljava/awt/Component;)V", false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "addTab",
+                    "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_addTabTitleIconComponentGeneric",
+                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;)V",
+                    false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "addTab",
+                    "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;)V",
+                    Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_addTabTitleIconComponentTipGeneric",
+                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;)V",
+                    false, false));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "insertTab",
+                    "(Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V",
+                    Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_insertTabGeneric",
+                    "(Ljava/lang/Object;Ljava/lang/String;Ljavax/swing/Icon;Ljava/awt/Component;Ljava/lang/String;I)V",
+                    false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Cursor", "getDefaultCursor",
                     "()Ljava/awt/Cursor;", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_getDefaultCursor",
@@ -289,6 +331,56 @@ public class MethodCallReplacementCache {
                     "(Ljava/lang/String;I)V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_newTextField",
                     "(Ljava/lang/String;I)Ljava/awt/TextField;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
+                    "()V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextField",
+                    "()Ljavax/swing/JTextField;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
+                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextField",
+                    "(Ljava/lang/String;)Ljavax/swing/JTextField;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
+                    "(I)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextField",
+                    "(I)Ljavax/swing/JTextField;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
+                    "(Ljava/lang/String;I)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextField",
+                    "(Ljava/lang/String;I)Ljavax/swing/JTextField;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextField", "<init>",
+                    "(Ljavax/swing/text/Document;Ljava/lang/String;I)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextField",
+                    "(Ljavax/swing/text/Document;Ljava/lang/String;I)Ljavax/swing/JTextField;",
+                    true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JMenuBar", "<init>",
+                    "()V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJMenuBar",
+                    "()Ljavax/swing/JMenuBar;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
+                    "()V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextArea",
+                    "()Ljavax/swing/JTextArea;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
+                    "(Ljava/lang/String;)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextArea",
+                    "(Ljava/lang/String;)Ljavax/swing/JTextArea;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
+                    "(II)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextArea",
+                    "(II)Ljavax/swing/JTextArea;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
+                    "(Ljava/lang/String;II)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextArea",
+                    "(Ljava/lang/String;II)Ljavax/swing/JTextArea;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
+                    "(Ljavax/swing/text/Document;)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextArea",
+                    "(Ljavax/swing/text/Document;)Ljavax/swing/JTextArea;", true, true));
+            addReplacementCall(new MethodCallReplacement("javax/swing/JTextArea", "<init>",
+                    "(Ljavax/swing/text/Document;Ljava/lang/String;II)V", Opcodes.INVOKESTATIC,
+                    headlessSwing, "replacement_newJTextArea",
+                    "(Ljavax/swing/text/Document;Ljava/lang/String;II)Ljavax/swing/JTextArea;",
+                    true, true));
             addReplacementCall(new MethodCallReplacement("java/awt/MenuItem", "<init>",
                     "()V", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_newMenuItem",

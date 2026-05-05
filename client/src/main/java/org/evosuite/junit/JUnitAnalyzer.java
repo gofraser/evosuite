@@ -40,6 +40,8 @@ import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.junit.platform.engine.TestExecutionResult;
@@ -284,7 +286,7 @@ public abstract class JUnitAnalyzer {
             // identities across loader boundaries during JUnit recheck. If we
             // detect instrumentation/GUI mismatch signals, runTests() retries
             // once with InstrumentingClassLoader.
-            loader = createInitialJUnitClassLoader();
+            loader = createInitialJUnitClassLoader(tests);
             Class<?>[] testClasses = loadTests(generated);
 
             if (testClasses == null) {
@@ -358,6 +360,16 @@ public abstract class JUnitAnalyzer {
                     continue failure_loop;
                 }
 
+                // Class initialization failures are deterministic environmental issues
+                // (e.g., broken static initializers) rather than assertion instability.
+                // Remove those tests, but do not count them as unstable.
+                if (isClassInitializerFailure(failure)) {
+                    logger.warn("Removing test {} due deterministic class-initializer failure: {}: {}",
+                            testName, failure.getExceptionClassName(), failure.getMessage());
+                    removeTestByName(tests, testName);
+                    continue failure_loop;
+                }
+
 
                 logger.warn("Found unstable test named " + testName + " -> "
                         + failure.getExceptionClassName() + ": " + failure.getMessage());
@@ -421,6 +433,36 @@ public abstract class JUnitAnalyzer {
         return numUnstable;
     }
 
+    private static boolean isClassInitializerFailure(JUnitFailure failure) {
+        if (failure == null) {
+            return false;
+        }
+        String cls = failure.getExceptionClassName();
+        if (!"java.lang.ExceptionInInitializerError".equals(cls)
+                && !"java.lang.NoClassDefFoundError".equals(cls)) {
+            return false;
+        }
+        List<String> trace = failure.getExceptionStackTrace();
+        if (trace == null || trace.isEmpty()) {
+            return true;
+        }
+        for (String frame : trace) {
+            if (frame != null && frame.contains("<clinit>")) {
+                return true;
+            }
+        }
+        return "java.lang.ExceptionInInitializerError".equals(cls);
+    }
+
+    private static void removeTestByName(List<TestCase> tests, String testName) {
+        for (int i = 0; i < tests.size(); i++) {
+            if (TestSuiteWriterUtils.getNameOfTest(tests, i).equals(testName)) {
+                tests.remove(i);
+                return;
+            }
+        }
+    }
+
     private static JUnitResult runTests(Class<?>[] testClasses, File testClassDir, Collection<File> generatedFiles)
             throws JUnitExecutionException {
         ClassStateSupport.clearNonInstrumentedClassDetectionFlag();
@@ -439,8 +481,7 @@ public abstract class JUnitAnalyzer {
             return result;
         }
 
-        boolean needsInstrumentedRetry = ClassStateSupport.hadNonInstrumentedClassDetection()
-                || shouldRetryWithInstrumentingAfterFailure(result);
+        boolean needsInstrumentedRetry = shouldRetryWithInstrumentingAfterFailure(result);
 
         if (!needsInstrumentedRetry) {
             return result;
@@ -773,10 +814,44 @@ public abstract class JUnitAnalyzer {
                 : JUNIT4_ANALYZER;
     }
 
-    private static InstrumentingClassLoader createInitialJUnitClassLoader() {
-        // Prefer non-instrumenting first to minimize class-identity splits
-        // between app/system and instrumented loader hierarchies.
+    private static InstrumentingClassLoader createInitialJUnitClassLoader(List<TestCase> tests) {
+        // Replacements (Random/UUID/time/gui/etc.) are woven by the instrumenting
+        // class loader. If replacements are enabled, JUnit recheck must execute on
+        // instrumented classes to preserve deterministic behavior.
+        if (Properties.REPLACE_CALLS || Properties.REPLACE_GUI || mayInvokeJvmTermination(tests)) {
+            return new InstrumentingClassLoader();
+        }
         return new NonInstrumentingClassLoader();
+    }
+
+    private static boolean mayInvokeJvmTermination(List<TestCase> tests) {
+        if (tests == null || tests.isEmpty()) {
+            return false;
+        }
+        for (TestCase test : tests) {
+            if (test == null) {
+                continue;
+            }
+            for (Statement statement : test) {
+                if (!(statement instanceof MethodStatement)) {
+                    continue;
+                }
+                MethodStatement ms = (MethodStatement) statement;
+                java.lang.reflect.Method m = ms.getMethod() != null ? ms.getMethod().getMethod() : null;
+                if (m == null) {
+                    continue;
+                }
+                Class<?> owner = m.getDeclaringClass();
+                String name = m.getName();
+                if (owner == System.class && "exit".equals(name)) {
+                    return true;
+                }
+                if (owner == Runtime.class && ("exit".equals(name) || "halt".equals(name))) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static List<TestCase> cloneTests(List<TestCase> tests) {
@@ -797,7 +872,7 @@ public abstract class JUnitAnalyzer {
             if (generated == null) {
                 return Collections.singleton("compilation-error");
             }
-            loader = createInitialJUnitClassLoader();
+            loader = createInitialJUnitClassLoader(tests);
             Class<?>[] testClasses = loadTests(generated);
             if (testClasses == null) {
                 return Collections.singleton("load-error");

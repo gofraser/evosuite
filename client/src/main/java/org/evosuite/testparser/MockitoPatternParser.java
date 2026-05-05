@@ -309,9 +309,11 @@ class MockitoPatternParser {
             if (info == null) {
                 return false;
             }
-            List<VariableReference> orderedReturnValues =
-                    ensureStubbingValuesAvailableBeforeMock(context.mockRef, info.returnValues);
-            context.mockStatement.addMethodStubbing(info.descriptor, orderedReturnValues);
+            if (info.applyToMockStatement) {
+                List<VariableReference> orderedReturnValues =
+                        ensureStubbingValuesAvailableBeforeMock(context.mockRef, info.returnValues);
+                context.mockStatement.addMethodStubbing(info.descriptor, orderedReturnValues);
+            }
             capturedWhenStubbings.remove(aliasName);
             return true;
         }
@@ -359,9 +361,11 @@ class MockitoPatternParser {
             return false;
         }
 
-        List<VariableReference> orderedReturnValues =
-                ensureStubbingValuesAvailableBeforeMock(mockRef, info.returnValues);
-        mockStmt.addMethodStubbing(info.descriptor, orderedReturnValues);
+        if (info.applyToMockStatement) {
+            List<VariableReference> orderedReturnValues =
+                    ensureStubbingValuesAvailableBeforeMock(mockRef, info.returnValues);
+            mockStmt.addMethodStubbing(info.descriptor, orderedReturnValues);
+        }
         return true;
     }
 
@@ -768,7 +772,9 @@ class MockitoPatternParser {
                 break;
             }
 
-            mockStmt.addMethodStubbing(stubbing.descriptor, stubbing.returnValues);
+            if (stubbing.applyToMockStatement) {
+                mockStmt.addMethodStubbing(stubbing.descriptor, stubbing.returnValues);
+            }
             consumed++;
         }
         return consumed;
@@ -834,6 +840,12 @@ class MockitoPatternParser {
         if (method == null) {
             return null;
         }
+        if (isVoidReturn(method) && parser.isMarkParsedFromLlm()) {
+            parser.addWarning(outerCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
+                    "Ignored invalid Mockito doReturn(...).when(...)." + stubbedMethodName
+                            + "(...) stubbing on void method");
+            return StubbingInfo.consumeOnly();
+        }
 
         List<VariableReference> returnValues = resolveReturnValueArguments(
                 doReturnCall.getArguments(), method.getGenericReturnType());
@@ -890,6 +902,11 @@ class MockitoPatternParser {
         if (method == null) {
             return null;
         }
+        if (isVoidReturn(method) && parser.isMarkParsedFromLlm()) {
+            parser.addWarning(outerCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
+                    "Ignored invalid Mockito when(...).thenReturn(...) stubbing on void method");
+            return StubbingInfo.consumeOnly();
+        }
 
         List<VariableReference> returnValues = resolveReturnValueArguments(
                 outerCall.getArguments(), method.getGenericReturnType());
@@ -917,6 +934,14 @@ class MockitoPatternParser {
             }
         }
         return refs;
+    }
+
+    private static boolean isVoidReturn(Method method) {
+        if (method == null) {
+            return false;
+        }
+        Class<?> returnType = method.getReturnType();
+        return returnType == void.class || returnType == Void.class || returnType == Void.TYPE;
     }
 
     private boolean isUnsupportedMockitoThrowStubbing(MethodCallExpr methodCall) {
@@ -1136,10 +1161,22 @@ class MockitoPatternParser {
     private static class StubbingInfo {
         final MethodDescriptor descriptor;
         final List<VariableReference> returnValues;
+        final boolean applyToMockStatement;
 
         StubbingInfo(MethodDescriptor descriptor, List<VariableReference> returnValues) {
+            this(descriptor, returnValues, true);
+        }
+
+        private StubbingInfo(MethodDescriptor descriptor,
+                             List<VariableReference> returnValues,
+                             boolean applyToMockStatement) {
             this.descriptor = descriptor;
             this.returnValues = returnValues;
+            this.applyToMockStatement = applyToMockStatement;
+        }
+
+        static StubbingInfo consumeOnly() {
+            return new StubbingInfo(null, java.util.Collections.emptyList(), false);
         }
     }
 }

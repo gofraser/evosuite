@@ -22,7 +22,9 @@ package org.evosuite.testparser;
 import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCaseMinimizer;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
@@ -217,6 +219,253 @@ class CrossoverMutationTest {
             assertFalse(result.getStatement(i) instanceof AssignmentStatement,
                     "AssignmentStatement should be skipped during crossover append");
         }
+    }
+
+    /**
+     * Crossover should re-bind a snippet's variable bindings to a
+     * type-compatible variable already present in the offspring, not strip
+     * them.  Here parent A contributes an int, then we splice in parent B's
+     * snippet which originally bound an int from B; the rebound binding
+     * should point to A's int.
+     */
+    @Test
+    void crossoverRebindsBindingToOffspringVariable() throws Exception {
+        DefaultTestCase tc1 = new DefaultTestCase();
+        VariableReference int1 = tc1.addStatement(new IntPrimitiveStatement(tc1, 7));
+
+        DefaultTestCase tc2 = new DefaultTestCase();
+        VariableReference int2 = tc2.addStatement(new IntPrimitiveStatement(tc2, 99));
+        Map<String, VariableReference> bindings = new LinkedHashMap<>();
+        bindings.put("x", int2);
+        tc2.addStatement(new UninterpretedStatement(tc2, "System.out.println(x);", bindings));
+
+        TestChromosome chrom1 = new TestChromosome();
+        chrom1.setTestCase(tc1);
+        TestChromosome chrom2 = new TestChromosome();
+        chrom2.setTestCase(tc2);
+
+        // Take int1 from tc1, then splice the snippet from tc2 (position 1).
+        chrom1.crossOver(chrom2, 1, 1);
+
+        TestCase result = chrom1.getTestCase();
+        assertEquals(2, result.size(), "Offspring should contain int + snippet");
+        assertInstanceOf(UninterpretedStatement.class, result.getStatement(1));
+        UninterpretedStatement spliced = (UninterpretedStatement) result.getStatement(1);
+        assertEquals(1, spliced.getBindings().size(),
+                "Bindings should be preserved (not stripped) after crossover");
+        VariableReference rebound = spliced.getBindings().get("x");
+        assertNotNull(rebound, "Binding for 'x' should be present in offspring snippet");
+        assertSame(result, rebound.getTestCase(),
+                "Rebound variable must point into the offspring test case");
+        // The only int in the offspring at the snippet's position is int1.
+        assertEquals(0, rebound.getStPosition(),
+                "Binding should resolve to the offspring's int at position 0");
+    }
+
+    /**
+     * If the offspring has no variable of a type compatible with one of the
+     * snippet's bindings, the snippet must be skipped (not spliced with
+     * dangling bindings).
+     */
+    @Test
+    void crossoverSkipsSnippetWhenNoCompatibleVariable() throws Exception {
+        // Parent A has only a String-producing statement.
+        DefaultTestCase tc1 = new DefaultTestCase();
+        tc1.addStatement(new StringPrimitiveStatement(tc1, "hello"));
+
+        // Parent B has a snippet whose binding requires an int.
+        DefaultTestCase tc2 = new DefaultTestCase();
+        VariableReference intRef = tc2.addStatement(new IntPrimitiveStatement(tc2, 42));
+        Map<String, VariableReference> bindings = new LinkedHashMap<>();
+        bindings.put("x", intRef);
+        tc2.addStatement(new UninterpretedStatement(tc2, "System.out.println(x);", bindings));
+
+        TestChromosome chrom1 = new TestChromosome();
+        chrom1.setTestCase(tc1);
+        TestChromosome chrom2 = new TestChromosome();
+        chrom2.setTestCase(tc2);
+
+        // Take the String from tc1, then try to splice the snippet from tc2
+        // at position 1.  The snippet's int-binding has no compatible
+        // candidate in the offspring, so the splice should be refused.
+        assertDoesNotThrow(() -> chrom1.crossOver(chrom2, 1, 1));
+
+        TestCase result = chrom1.getTestCase();
+        for (int i = 0; i < result.size(); i++) {
+            assertFalse(result.getStatement(i) instanceof UninterpretedStatement,
+                    "Snippet with unresolvable binding should be dropped");
+        }
+    }
+
+    /**
+     * The change-mutation operator (P_TEST_CHANGE) must not silently
+     * overwrite a snippet with a fresh MethodStatement.
+     */
+    @Test
+    void mutationChangePreservesSnippetSource() {
+        DefaultTestCase tc = new DefaultTestCase();
+        tc.addStatement(new IntPrimitiveStatement(tc, 1));
+        // A snippet with a non-void return type is exactly the case that
+        // changeRandomCall used to consider a candidate for replacement.
+        tc.addStatement(new UninterpretedStatement(tc, Integer.TYPE, "1 + 2"));
+        String originalSource =
+                ((UninterpretedStatement) tc.getStatement(1)).getSourceCode();
+
+        double oldDelete = Properties.P_TEST_DELETE;
+        double oldInsert = Properties.P_TEST_INSERT;
+        double oldChange = Properties.P_TEST_CHANGE;
+        try {
+            Properties.P_TEST_DELETE = 0.0;
+            Properties.P_TEST_INSERT = 0.0;
+            Properties.P_TEST_CHANGE = 1.0;
+
+            TestChromosome chrom = new TestChromosome();
+            chrom.setTestCase(tc);
+            for (int i = 0; i < 50; i++) {
+                chrom.mutate();
+            }
+
+            TestCase result = chrom.getTestCase();
+            // Find the snippet (its position should not have shifted since
+            // delete/insert are disabled) and verify its source survived.
+            boolean found = false;
+            for (int i = 0; i < result.size(); i++) {
+                Statement s = result.getStatement(i);
+                if (s instanceof UninterpretedStatement) {
+                    assertEquals(originalSource,
+                            ((UninterpretedStatement) s).getSourceCode(),
+                            "Snippet source must not be overwritten by change-mutation");
+                    found = true;
+                }
+            }
+            assertTrue(found, "Snippet should still be present after mutation");
+        } finally {
+            Properties.P_TEST_DELETE = oldDelete;
+            Properties.P_TEST_INSERT = oldInsert;
+            Properties.P_TEST_CHANGE = oldChange;
+        }
+    }
+
+    /**
+     * Deleting a variable that a snippet binds should recursively delete
+     * the snippet too, because the snippet references the variable.
+     */
+    @Test
+    void deletingBoundVariableRecursivelyDeletesSnippet() {
+        DefaultTestCase tc = new DefaultTestCase();
+        VariableReference x = tc.addStatement(new IntPrimitiveStatement(tc, 10));
+        Map<String, VariableReference> bindings = new LinkedHashMap<>();
+        bindings.put("x", x);
+        tc.addStatement(new UninterpretedStatement(tc, "x + 1", bindings));
+
+        boolean deleted = TestFactory.getInstance().deleteStatement(tc, 0);
+
+        assertTrue(deleted, "Statement deletion should succeed");
+        assertEquals(0, tc.size(),
+                "Snippet should be deleted recursively when its binding is deleted");
+    }
+
+    /**
+     * deleteStatementGracefully should re-route the snippet's binding to
+     * another type-compatible variable rather than deleting the snippet.
+     * We delete the second of two ints (the one the snippet binds to), so
+     * the surviving int at position 0 is available as a replacement.
+     */
+    @Test
+    void deletingBoundVariableGracefullyRoutesBinding() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        VariableReference x = tc.addStatement(new IntPrimitiveStatement(tc, 10));
+        VariableReference y = tc.addStatement(new IntPrimitiveStatement(tc, 20));
+        Map<String, VariableReference> bindings = new LinkedHashMap<>();
+        bindings.put("y", y);
+        tc.addStatement(new UninterpretedStatement(tc, "y + 1", bindings));
+
+        // Delete y at position 1.  At that position, x (position 0) is a
+        // type-compatible alternative, so deleteStatementGracefully should
+        // rewrite the snippet's 'y' binding to point at x and only delete
+        // the int.
+        TestFactory.getInstance().deleteStatementGracefully(tc, 1);
+
+        boolean foundSnippet = false;
+        for (int i = 0; i < tc.size(); i++) {
+            Statement s = tc.getStatement(i);
+            if (s instanceof UninterpretedStatement) {
+                foundSnippet = true;
+                VariableReference binding =
+                        ((UninterpretedStatement) s).getBindings().get("y");
+                assertNotNull(binding, "Binding 'y' should still exist after graceful delete");
+                assertSame(x, binding,
+                        "Binding 'y' should be re-routed to the surviving int variable");
+            }
+        }
+        assertTrue(foundSnippet, "Snippet should survive graceful delete of one of its bindings");
+    }
+
+    /**
+     * The minimizer's removeUnusedVariables walks references via
+     * getVariableReferences().  Snippets include their bindings in that
+     * set, so a variable used only inside a snippet binding must NOT be
+     * pruned as unused.
+     */
+    @Test
+    void minimizerKeepsVariableUsedOnlyInSnippet() {
+        DefaultTestCase tc = new DefaultTestCase();
+        VariableReference x = tc.addStatement(new IntPrimitiveStatement(tc, 42));
+        Map<String, VariableReference> bindings = new LinkedHashMap<>();
+        bindings.put("x", x);
+        tc.addStatement(new UninterpretedStatement(tc, "System.out.println(x);", bindings));
+
+        boolean removedAny = TestCaseMinimizer.removeUnusedVariables(tc);
+
+        // The int is used by the snippet's binding.  The snippet's own
+        // return value is unused, but the snippet has side effects so the
+        // minimizer still removes its retval-only entry only if it isn't
+        // referenced -- which is fine.  The key invariant we test is that
+        // the int x is NOT removed.
+        boolean foundInt = false;
+        for (int i = 0; i < tc.size(); i++) {
+            if (tc.getStatement(i) instanceof IntPrimitiveStatement) {
+                foundInt = true;
+            }
+        }
+        assertTrue(foundInt,
+                "Variable used only inside a snippet's binding must not be pruned (removedAny="
+                        + removedAny + ")");
+    }
+
+    /**
+     * UninterpretedStatement.same() must compare bindings, not just
+     * sourceCode.  Two snippets at the same position with identical text
+     * but bindings to variables at different positions compute different
+     * things.
+     */
+    @Test
+    void sameDistinguishesSnippetsByBindings() {
+        // tc1: int(0), int(1), snippet bound to position 0.
+        DefaultTestCase tc1 = new DefaultTestCase();
+        VariableReference x1 = tc1.addStatement(new IntPrimitiveStatement(tc1, 0));
+        tc1.addStatement(new IntPrimitiveStatement(tc1, 1));
+        Map<String, VariableReference> b1 = new LinkedHashMap<>();
+        b1.put("v", x1);
+        tc1.addStatement(new UninterpretedStatement(tc1, "v + 1", b1));
+
+        // tc2: int(0), int(1), snippet bound to position 1.
+        DefaultTestCase tc2 = new DefaultTestCase();
+        tc2.addStatement(new IntPrimitiveStatement(tc2, 0));
+        VariableReference y2 = tc2.addStatement(new IntPrimitiveStatement(tc2, 1));
+        Map<String, VariableReference> b2 = new LinkedHashMap<>();
+        b2.put("v", y2);
+        tc2.addStatement(new UninterpretedStatement(tc2, "v + 1", b2));
+
+        // Snippets are at the same position (2) with the same retval type
+        // and source, but bindings refer to different positions.
+        assertFalse(tc1.getStatement(2).same(tc2.getStatement(2)),
+                "Same source but different binding targets must not be 'same'");
+
+        // Cloning preserves binding identity, so same() must hold.
+        DefaultTestCase tc1Clone = (DefaultTestCase) tc1.clone();
+        assertTrue(tc1.getStatement(2).same(tc1Clone.getStatement(2)),
+                "A cloned snippet must remain same() to its original");
     }
 
     @Test

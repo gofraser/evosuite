@@ -23,6 +23,8 @@ import com.examples.with.different.packagename.sandbox.OpenStream;
 import org.apache.commons.io.FileUtils;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.instrumentation.InstrumentingClassLoader;
+import org.evosuite.instrumentation.NonInstrumentingClassLoader;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
@@ -62,6 +64,8 @@ public class JUnitAnalyzerTest {
     private static final boolean DEFAULT_TEST_EXTENSION_MODE = Properties.TEST_EXTENSION_MODE;
     private static final boolean DEFAULT_RESET_STATIC_FIELDS = Properties.RESET_STATIC_FIELDS;
     private static final String DEFAULT_TARGET_CLASS = Properties.TARGET_CLASS;
+    private static final boolean DEFAULT_REPLACE_CALLS = Properties.REPLACE_CALLS;
+    private static final boolean DEFAULT_REPLACE_GUI = Properties.REPLACE_GUI;
 
     private File file = new File(OpenStream.FILE_NAME);
 
@@ -91,6 +95,8 @@ public class JUnitAnalyzerTest {
         Properties.TEST_EXTENSION_MODE = DEFAULT_TEST_EXTENSION_MODE;
         Properties.RESET_STATIC_FIELDS = DEFAULT_RESET_STATIC_FIELDS;
         Properties.TARGET_CLASS = DEFAULT_TARGET_CLASS;
+        Properties.REPLACE_CALLS = DEFAULT_REPLACE_CALLS;
+        Properties.REPLACE_GUI = DEFAULT_REPLACE_GUI;
     }
 
     @Test
@@ -297,6 +303,28 @@ public class JUnitAnalyzerTest {
 
         Assertions.assertTrue(detected);
         Assertions.assertFalse(notDetected);
+    }
+
+    @Test
+    public void testInitialJUnitClassLoaderSelectionFollowsReplacementSettings() throws Exception {
+        Method factory = JUnitAnalyzer.class.getDeclaredMethod("createInitialJUnitClassLoader", List.class);
+        factory.setAccessible(true);
+        Properties.REPLACE_CALLS = false;
+        Properties.REPLACE_GUI = false;
+        InstrumentingClassLoader selected = (InstrumentingClassLoader) factory.invoke(null, Collections.emptyList());
+        Assertions.assertTrue(selected instanceof NonInstrumentingClassLoader,
+                "Without replacements, JUnit check should start with NonInstrumentingClassLoader");
+
+        Properties.REPLACE_CALLS = true;
+        selected = (InstrumentingClassLoader) factory.invoke(null, Collections.emptyList());
+        Assertions.assertFalse(selected instanceof NonInstrumentingClassLoader,
+                "With call replacements enabled, JUnit check must use InstrumentingClassLoader");
+
+        Properties.REPLACE_CALLS = false;
+        Properties.REPLACE_GUI = true;
+        selected = (InstrumentingClassLoader) factory.invoke(null, Collections.emptyList());
+        Assertions.assertFalse(selected instanceof NonInstrumentingClassLoader,
+                "With GUI replacements enabled, JUnit check must use InstrumentingClassLoader");
     }
 
 

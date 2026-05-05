@@ -159,11 +159,22 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
             } else {
                 VariableReference ref = this.oidToVarRefMap.get(argId);
                 if (ref == null) {
-                    throw new RuntimeException("VariableReference is null for argId "
-                            + argId + "; have oids: " + this.oidToVarRefMap.keySet());
+                    Class<?> parameterType = methodParamTypeClasses[i];
+                    if (!parameterType.isPrimitive()) {
+                        logger.info("Missing carved argument object for oid {} and parameter type {}. "
+                                        + "Falling back to null argument.",
+                                argId, parameterType.getName());
+                        ref = testCase.addStatement(new NullStatement(testCase, parameterType));
+                    } else {
+                        throw new RuntimeException("VariableReference is null for primitive argId "
+                                + argId + " of type " + parameterType.getName()
+                                + "; have oids: " + this.oidToVarRefMap.keySet());
+                    }
                 } else {
                     args.add(ref);
+                    continue;
                 }
+                args.add(ref);
             }
         }
         return args;
@@ -281,6 +292,15 @@ public final class EvoTestCaseCodeGenerator implements ICodeGenerator<TestCase> 
         final Object returnValue = log.returnValues.get(logRecNo);
         if (!CaptureLog.RETURN_TYPE_VOID.equals(returnValue)) { // TODO necessary?
             Integer returnValueId = (Integer) returnValue;
+            // If we already have a variable for the read object (e.g. its
+            // construction was observed during static class init), reuse it
+            // rather than generating a field-read statement.  Cross-classloader
+            // static field reads can fail with ClassCastException at runtime
+            // because the field's value is loaded by a different classloader
+            // than the test execution's SUT classloader.
+            if (this.oidToVarRefMap.containsKey(returnValueId)) {
+                return;
+            }
             //            final String descriptor = log.descList.get(logRecNo);
             //            final org.objectweb.asm.Type fieldTypeType = org.objectweb.asm.Type.getType(descriptor);
             final String typeName = log.getTypeName(oid);

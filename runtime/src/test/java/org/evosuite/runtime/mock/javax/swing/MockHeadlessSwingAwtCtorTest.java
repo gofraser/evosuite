@@ -26,9 +26,19 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.awt.Component;
+import java.awt.Container;
 import java.awt.GraphicsEnvironment;
 
 public class MockHeadlessSwingAwtCtorTest {
+
+    private static final class PlainContainer extends Container {
+        private static final long serialVersionUID = 1L;
+    }
+
+    private static final class PlainComponent extends Component {
+        private static final long serialVersionUID = 1L;
+    }
 
     @BeforeEach
     public void enableMocking() {
@@ -52,6 +62,11 @@ public class MockHeadlessSwingAwtCtorTest {
         Assertions.assertNull(MockHeadlessSwing.replacement_newTextField("x"));
         Assertions.assertNull(MockHeadlessSwing.replacement_newTextField(3));
         Assertions.assertNull(MockHeadlessSwing.replacement_newTextField("x", 3));
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_newJTextField());
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_newJTextField("x"));
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_newJTextField(3));
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_newJTextField("x", 3));
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_newJTextField(null, "x", 3));
         Assertions.assertNull(MockHeadlessSwing.replacement_newMenuItem());
         Assertions.assertNull(MockHeadlessSwing.replacement_newMenuItem("x"));
         Assertions.assertNull(MockHeadlessSwing.replacement_newMenuItem("x", null));
@@ -86,4 +101,19 @@ public class MockHeadlessSwingAwtCtorTest {
         Assertions.assertEquals(4, insets.right);
         Assertions.assertNull(MockHeadlessSwing.replacement_newDefaultKeyboardFocusManager());
     }
+
+    @Test
+    public void containerAddReplacementsNoOpWhenMockingEnabled() {
+        PlainContainer container = new PlainContainer();
+        PlainComponent component = new PlainComponent();
+
+        Assertions.assertSame(component, MockHeadlessSwing.replacement_containerAdd(container, component));
+        Assertions.assertSame(component, MockHeadlessSwing.replacement_containerAdd(container, "name", component));
+        Assertions.assertSame(component, MockHeadlessSwing.replacement_containerAdd(container, component, 0));
+        Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_containerAdd(container, component, "north"));
+        Assertions.assertDoesNotThrow(
+                () -> MockHeadlessSwing.replacement_containerAdd(container, component, "north", 0));
+        Assertions.assertEquals(0, container.getComponentCount());
+    }
+
 }

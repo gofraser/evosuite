@@ -26,18 +26,32 @@ import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JComboBox;
 import javax.swing.JList;
+import javax.swing.JMenuBar;
 import javax.swing.JTable;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
 import javax.swing.JTree;
+import javax.swing.Icon;
 import javax.swing.ComboBoxModel;
 import javax.swing.ComboBoxEditor;
 import javax.swing.plaf.basic.BasicComboBoxEditor;
 import javax.swing.text.Caret;
 import javax.swing.text.DefaultCaret;
+import javax.swing.text.Document;
+import javax.swing.text.Element;
 import javax.swing.text.JTextComponent;
+import javax.swing.text.Position;
+import javax.swing.text.Segment;
+import javax.swing.text.SimpleAttributeSet;
+import javax.swing.text.BadLocationException;
 import javax.swing.JColorChooser;
+import javax.swing.event.DocumentListener;
+import javax.swing.event.UndoableEditListener;
 import java.awt.AWTException;
 import java.awt.Button;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.DefaultKeyboardFocusManager;
@@ -76,6 +90,8 @@ import java.io.File;
 import java.net.URI;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Headless-safe replacements for Swing DnD-related APIs that can throw
@@ -91,6 +107,10 @@ public final class MockHeadlessSwing {
 
     private static boolean isMockingInHeadlessEnvironment() {
         return MockFramework.isEnabled() && isHeadlessSafe();
+    }
+
+    private static boolean isGuiMockingEnabled() {
+        return MockFramework.isEnabled();
     }
 
     private static boolean isHeadlessSafe() {
@@ -1074,6 +1094,483 @@ public final class MockHeadlessSwing {
     }
 
     /**
+     * Replacement for {@code new JTextField()}.
+     *
+     * @return a text field instance
+     */
+    public static JTextField replacement_newJTextField() {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextField();
+        }
+        return new JTextField();
+    }
+
+    /**
+     * Replacement for {@code new JTextField(String)}.
+     *
+     * @param text initial text
+     * @return a text field instance
+     */
+    public static JTextField replacement_newJTextField(String text) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextField(text);
+        }
+        return new JTextField(text);
+    }
+
+    /**
+     * Replacement for {@code new JTextField(int)}.
+     *
+     * @param columns number of columns
+     * @return a text field instance
+     */
+    public static JTextField replacement_newJTextField(int columns) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextField(columns);
+        }
+        return new JTextField(columns);
+    }
+
+    /**
+     * Replacement for {@code new JTextField(String, int)}.
+     *
+     * @param text initial text
+     * @param columns number of columns
+     * @return a text field instance
+     */
+    public static JTextField replacement_newJTextField(String text, int columns) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextField(text, columns);
+        }
+        return new JTextField(text, columns);
+    }
+
+    /**
+     * Replacement for {@code new JTextField(Document, String, int)}.
+     *
+     * @param doc backing document
+     * @param text initial text
+     * @param columns number of columns
+     * @return a text field instance
+     */
+    public static JTextField replacement_newJTextField(Document doc, String text, int columns) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextField(doc, text, columns);
+        }
+        return new JTextField(doc, text, columns);
+    }
+
+    /**
+     * Replacement for {@code new JTextArea()}.
+     *
+     * @return a text area instance
+     */
+    public static JTextArea replacement_newJTextArea() {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextArea();
+        }
+        return new JTextArea();
+    }
+
+    /**
+     * Replacement for {@code new JTextArea(String)}.
+     *
+     * @param text initial text
+     * @return a text area instance
+     */
+    public static JTextArea replacement_newJTextArea(String text) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextArea(text);
+        }
+        return new JTextArea(text);
+    }
+
+    /**
+     * Replacement for {@code new JTextArea(int, int)}.
+     *
+     * @param rows number of rows
+     * @param columns number of columns
+     * @return a text area instance
+     */
+    public static JTextArea replacement_newJTextArea(int rows, int columns) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextArea(rows, columns);
+        }
+        return new JTextArea(rows, columns);
+    }
+
+    /**
+     * Replacement for {@code new JTextArea(String, int, int)}.
+     *
+     * @param text initial text
+     * @param rows number of rows
+     * @param columns number of columns
+     * @return a text area instance
+     */
+    public static JTextArea replacement_newJTextArea(String text, int rows, int columns) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextArea(text, rows, columns);
+        }
+        return new JTextArea(text, rows, columns);
+    }
+
+    /**
+     * Replacement for {@code new JTextArea(Document)}.
+     *
+     * @param doc backing document
+     * @return a text area instance
+     */
+    public static JTextArea replacement_newJTextArea(Document doc) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextArea(doc);
+        }
+        return new JTextArea(doc);
+    }
+
+    /**
+     * Replacement for {@code new JTextArea(Document, String, int, int)}.
+     *
+     * @param doc backing document
+     * @param text initial text
+     * @param rows number of rows
+     * @param columns number of columns
+     * @return a text area instance
+     */
+    public static JTextArea replacement_newJTextArea(Document doc, String text, int rows, int columns) {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJTextArea(doc, text, rows, columns);
+        }
+        return new JTextArea(doc, text, rows, columns);
+    }
+
+    /**
+     * Replacement for {@code new JMenuBar()}.
+     *
+     * @return a menu bar instance
+     */
+    public static JMenuBar replacement_newJMenuBar() {
+        if (isGuiMockingEnabled()) {
+            return new HeadlessSafeJMenuBar();
+        }
+        return new JMenuBar();
+    }
+
+    /**
+     * Generic replacement for {@code add(Component)}.
+     *
+     * @param source source object
+     * @param comp component to add
+     * @return added component
+     */
+    public static Component replacement_addComponentGeneric(Object source, Component comp) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof Container) {
+            return replacement_containerAdd((Container) source, comp);
+        }
+        return invokeAddComponentReflective(source, comp);
+    }
+
+    /**
+     * Generic replacement for {@code add(String, Component)}.
+     *
+     * @param source source object
+     * @param name component name
+     * @param comp component to add
+     * @return added component
+     */
+    public static Component replacement_addNameComponentGeneric(Object source, String name, Component comp) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof Container) {
+            return replacement_containerAdd((Container) source, name, comp);
+        }
+        return invokeAddNameComponentReflective(source, name, comp);
+    }
+
+    /**
+     * Generic replacement for {@code add(Component, int)}.
+     *
+     * @param source source object
+     * @param comp component to add
+     * @param index insertion index
+     * @return added component
+     */
+    public static Component replacement_addComponentIndexGeneric(Object source, Component comp, int index) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof Container) {
+            return replacement_containerAdd((Container) source, comp, index);
+        }
+        return invokeAddComponentIndexReflective(source, comp, index);
+    }
+
+    /**
+     * Generic replacement for {@code add(Component, Object)}.
+     *
+     * @param source source object
+     * @param comp component to add
+     * @param constraints layout constraints
+     */
+    public static void replacement_addComponentConstraintsGeneric(Object source, Component comp, Object constraints) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof Container) {
+            replacement_containerAdd((Container) source, comp, constraints);
+            return;
+        }
+        invokeAddComponentConstraintsReflective(source, comp, constraints);
+    }
+
+    /**
+     * Generic replacement for {@code add(Component, Object, int)}.
+     *
+     * @param source source object
+     * @param comp component to add
+     * @param constraints layout constraints
+     * @param index insertion index
+     */
+    public static void replacement_addComponentConstraintsIndexGeneric(
+            Object source, Component comp, Object constraints, int index) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof Container) {
+            replacement_containerAdd((Container) source, comp, constraints, index);
+            return;
+        }
+        invokeAddComponentConstraintsIndexReflective(source, comp, constraints, index);
+    }
+
+    /**
+     * Generic replacement for {@code addTab(String, Component)}.
+     *
+     * @param source source object
+     * @param title tab title
+     * @param component tab component
+     */
+    public static void replacement_addTabTitleComponentGeneric(Object source, String title, Component component) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof JTabbedPane) {
+            replacement_tabbedPaneAddTab((JTabbedPane) source, title, component);
+            return;
+        }
+        invokeAddTabTitleComponentReflective(source, title, component);
+    }
+
+    /**
+     * Generic replacement for {@code addTab(String, Icon, Component)}.
+     *
+     * @param source source object
+     * @param title tab title
+     * @param icon tab icon
+     * @param component tab component
+     */
+    public static void replacement_addTabTitleIconComponentGeneric(
+            Object source, String title, Icon icon, Component component) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof JTabbedPane) {
+            replacement_tabbedPaneAddTab((JTabbedPane) source, title, icon, component);
+            return;
+        }
+        invokeAddTabTitleIconComponentReflective(source, title, icon, component);
+    }
+
+    /**
+     * Generic replacement for {@code addTab(String, Icon, Component, String)}.
+     *
+     * @param source source object
+     * @param title tab title
+     * @param icon tab icon
+     * @param component tab component
+     * @param tip tab tooltip
+     */
+    public static void replacement_addTabTitleIconComponentTipGeneric(
+            Object source, String title, Icon icon, Component component, String tip) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof JTabbedPane) {
+            replacement_tabbedPaneAddTab((JTabbedPane) source, title, icon, component, tip);
+            return;
+        }
+        invokeAddTabTitleIconComponentTipReflective(source, title, icon, component, tip);
+    }
+
+    /**
+     * Generic replacement for {@code insertTab(String, Icon, Component, String, int)}.
+     *
+     * @param source source object
+     * @param title tab title
+     * @param icon tab icon
+     * @param component tab component
+     * @param tip tab tooltip
+     * @param index tab index
+     */
+    public static void replacement_insertTabGeneric(
+            Object source, String title, Icon icon, Component component, String tip, int index) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof JTabbedPane) {
+            replacement_tabbedPaneInsertTab((JTabbedPane) source, title, icon, component, tip, index);
+            return;
+        }
+        invokeInsertTabReflective(source, title, icon, component, tip, index);
+    }
+
+    /**
+     * Replacement for {@code JTabbedPane.addTab(String, Component)}.
+     */
+    public static void replacement_tabbedPaneAddTab(JTabbedPane source, String title, Component component) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return;
+        }
+        source.addTab(title, component);
+    }
+
+    /**
+     * Replacement for {@code JTabbedPane.addTab(String, Icon, Component)}.
+     */
+    public static void replacement_tabbedPaneAddTab(
+            JTabbedPane source, String title, Icon icon, Component component) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return;
+        }
+        source.addTab(title, icon, component);
+    }
+
+    /**
+     * Replacement for {@code JTabbedPane.addTab(String, Icon, Component, String)}.
+     */
+    public static void replacement_tabbedPaneAddTab(
+            JTabbedPane source, String title, Icon icon, Component component, String tip) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return;
+        }
+        source.addTab(title, icon, component, tip);
+    }
+
+    /**
+     * Replacement for {@code JTabbedPane.insertTab(String, Icon, Component, String, int)}.
+     */
+    public static void replacement_tabbedPaneInsertTab(
+            JTabbedPane source, String title, Icon icon, Component component, String tip, int index) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return;
+        }
+        source.insertTab(title, icon, component, tip, index);
+    }
+
+    /**
+     * Replacement for {@code Container.add(Component)}.
+     *
+     * @param source source container
+     * @param comp component to add
+     * @return added component
+     */
+    public static Component replacement_containerAdd(Container source, Component comp) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return comp;
+        }
+        return source.add(comp);
+    }
+
+    /**
+     * Replacement for {@code Container.add(String, Component)}.
+     *
+     * @param source source container
+     * @param name component name
+     * @param comp component to add
+     * @return added component
+     */
+    public static Component replacement_containerAdd(Container source, String name, Component comp) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return comp;
+        }
+        return source.add(name, comp);
+    }
+
+    /**
+     * Replacement for {@code Container.add(Component, int)}.
+     *
+     * @param source source container
+     * @param comp component to add
+     * @param index insertion index
+     * @return added component
+     */
+    public static Component replacement_containerAdd(Container source, Component comp, int index) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return comp;
+        }
+        return source.add(comp, index);
+    }
+
+    /**
+     * Replacement for {@code Container.add(Component, Object)}.
+     *
+     * @param source source container
+     * @param comp component to add
+     * @param constraints layout constraints
+     */
+    public static void replacement_containerAdd(Container source, Component comp, Object constraints) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return;
+        }
+        source.add(comp, constraints);
+    }
+
+    /**
+     * Replacement for {@code Container.add(Component, Object, int)}.
+     *
+     * @param source source container
+     * @param comp component to add
+     * @param constraints layout constraints
+     * @param index insertion index
+     */
+    public static void replacement_containerAdd(Container source, Component comp, Object constraints, int index) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isGuiMockingEnabled()) {
+            return;
+        }
+        source.add(comp, constraints, index);
+    }
+
+    /**
      * Replacement for {@code new MenuItem()}.
      *
      * @return a menu item instance or null in headless mode when mocking is enabled
@@ -1623,6 +2120,144 @@ public final class MockHeadlessSwing {
         }
     }
 
+    private static Component invokeAddComponentReflective(Object source, Component comp) {
+        try {
+            Method method = source.getClass().getMethod("add", Component.class);
+            return (Component) method.invoke(source, comp);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+            return null;
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No add(Component) on " + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access add(Component) on " + source.getClass().getName(), e);
+        }
+    }
+
+    private static Component invokeAddNameComponentReflective(Object source, String name, Component comp) {
+        try {
+            Method method = source.getClass().getMethod("add", String.class, Component.class);
+            return (Component) method.invoke(source, name, comp);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+            return null;
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No add(String, Component) on " + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access add(String, Component) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    private static Component invokeAddComponentIndexReflective(Object source, Component comp, int index) {
+        try {
+            Method method = source.getClass().getMethod("add", Component.class, int.class);
+            return (Component) method.invoke(source, comp, index);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+            return null;
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No add(Component, int) on " + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access add(Component, int) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeAddComponentConstraintsReflective(Object source, Component comp, Object constraints) {
+        try {
+            Method method = source.getClass().getMethod("add", Component.class, Object.class);
+            method.invoke(source, comp, constraints);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No add(Component, Object) on " + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access add(Component, Object) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeAddComponentConstraintsIndexReflective(
+            Object source, Component comp, Object constraints, int index) {
+        try {
+            Method method = source.getClass().getMethod("add", Component.class, Object.class, int.class);
+            method.invoke(source, comp, constraints, index);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No add(Component, Object, int) on "
+                    + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access add(Component, Object, int) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeAddTabTitleComponentReflective(Object source, String title, Component component) {
+        try {
+            Method method = source.getClass().getMethod("addTab", String.class, Component.class);
+            method.invoke(source, title, component);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No addTab(String, Component) on " + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access addTab(String, Component) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeAddTabTitleIconComponentReflective(
+            Object source, String title, Icon icon, Component component) {
+        try {
+            Method method = source.getClass().getMethod("addTab", String.class, Icon.class, Component.class);
+            method.invoke(source, title, icon, component);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No addTab(String, Icon, Component) on "
+                    + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access addTab(String, Icon, Component) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeAddTabTitleIconComponentTipReflective(
+            Object source, String title, Icon icon, Component component, String tip) {
+        try {
+            Method method = source.getClass().getMethod(
+                    "addTab", String.class, Icon.class, Component.class, String.class);
+            method.invoke(source, title, icon, component, tip);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No addTab(String, Icon, Component, String) on "
+                    + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access addTab(String, Icon, Component, String) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeInsertTabReflective(
+            Object source, String title, Icon icon, Component component, String tip, int index) {
+        try {
+            Method method = source.getClass().getMethod(
+                    "insertTab", String.class, Icon.class, Component.class, String.class, int.class);
+            method.invoke(source, title, icon, component, tip, index);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No insertTab(String, Icon, Component, String, int) on "
+                    + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access insertTab(String, Icon, Component, String, int) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
     private static Toolkit readCachedToolkit() {
         try {
             java.lang.reflect.Field toolkitField = Toolkit.class.getDeclaredField("toolkit");
@@ -1635,6 +2270,298 @@ public final class MockHeadlessSwing {
             // fall through
         }
         return null;
+    }
+
+    /**
+     * Headless-safe JTextField variant that avoids LAF/UI initialization.
+     */
+    private static final class HeadlessSafeJTextField extends JTextField {
+
+        private static final long serialVersionUID = 1L;
+
+        private HeadlessSafeJTextField() {
+            this(null, null, 0);
+        }
+
+        private HeadlessSafeJTextField(String text) {
+            this(null, text, 0);
+        }
+
+        private HeadlessSafeJTextField(int columns) {
+            this(null, null, columns);
+        }
+
+        private HeadlessSafeJTextField(String text, int columns) {
+            this(null, text, columns);
+        }
+
+        private HeadlessSafeJTextField(Document doc, String text, int columns) {
+            super(doc != null ? doc : new HeadlessSafeDocument(), text, columns);
+        }
+
+        @Override
+        public void updateUI() {
+            // Avoid platform UI delegate initialization in headless mode.
+            if (isGuiMockingEnabled()) {
+                return;
+            }
+            super.updateUI();
+        }
+
+        @Override
+        protected Document createDefaultModel() {
+            return new HeadlessSafeDocument();
+        }
+    }
+
+    /**
+     * Headless-safe JMenuBar variant that avoids LAF/UI initialization.
+     */
+    private static final class HeadlessSafeJMenuBar extends JMenuBar {
+
+        private static final long serialVersionUID = 1L;
+
+        @Override
+        public void updateUI() {
+            if (isGuiMockingEnabled()) {
+                return;
+            }
+            super.updateUI();
+        }
+    }
+
+    /**
+     * Headless-safe JTextArea variant that avoids LAF/UI initialization.
+     */
+    private static final class HeadlessSafeJTextArea extends JTextArea {
+
+        private static final long serialVersionUID = 1L;
+
+        private HeadlessSafeJTextArea() {
+            this(null, null, 0, 0);
+        }
+
+        private HeadlessSafeJTextArea(String text) {
+            this(null, text, 0, 0);
+        }
+
+        private HeadlessSafeJTextArea(int rows, int columns) {
+            this(null, null, rows, columns);
+        }
+
+        private HeadlessSafeJTextArea(String text, int rows, int columns) {
+            this(null, text, rows, columns);
+        }
+
+        private HeadlessSafeJTextArea(Document doc) {
+            this(doc, null, 0, 0);
+        }
+
+        private HeadlessSafeJTextArea(Document doc, String text, int rows, int columns) {
+            super(doc != null ? doc : new HeadlessSafeDocument(), text, rows, columns);
+        }
+
+        @Override
+        public void updateUI() {
+            if (isGuiMockingEnabled()) {
+                return;
+            }
+            super.updateUI();
+        }
+
+        @Override
+        protected Document createDefaultModel() {
+            return new HeadlessSafeDocument();
+        }
+    }
+
+    /**
+     * Minimal text model to support headless-safe JTextField construction
+     * without invoking Swing's styled document internals.
+     */
+    private static final class HeadlessSafeDocument implements Document {
+
+        private final StringBuilder text = new StringBuilder();
+        private final Map<Object, Object> properties = new HashMap<>();
+        private final Element rootElement = new HeadlessSafeElement(this);
+
+        @Override
+        public int getLength() {
+            return text.length();
+        }
+
+        @Override
+        public void addDocumentListener(DocumentListener listener) {
+            // no-op
+        }
+
+        @Override
+        public void removeDocumentListener(DocumentListener listener) {
+            // no-op
+        }
+
+        @Override
+        public void addUndoableEditListener(UndoableEditListener listener) {
+            // no-op
+        }
+
+        @Override
+        public void removeUndoableEditListener(UndoableEditListener listener) {
+            // no-op
+        }
+
+        @Override
+        public Object getProperty(Object key) {
+            return properties.get(key);
+        }
+
+        @Override
+        public void putProperty(Object key, Object value) {
+            properties.put(key, value);
+        }
+
+        @Override
+        public void remove(int offs, int len) throws BadLocationException {
+            if (offs < 0 || len < 0 || offs + len > text.length()) {
+                throw new BadLocationException("Invalid range", offs);
+            }
+            text.delete(offs, offs + len);
+        }
+
+        @Override
+        public void insertString(int offset, String str, javax.swing.text.AttributeSet a)
+                throws BadLocationException {
+            if (offset < 0 || offset > text.length()) {
+                throw new BadLocationException("Invalid offset", offset);
+            }
+            if (str != null) {
+                text.insert(offset, str);
+            }
+        }
+
+        @Override
+        public String getText(int offset, int length) throws BadLocationException {
+            if (offset < 0 || length < 0 || offset + length > text.length()) {
+                throw new BadLocationException("Invalid range", offset);
+            }
+            return text.substring(offset, offset + length);
+        }
+
+        @Override
+        public void getText(int offset, int length, Segment txt) throws BadLocationException {
+            String value = getText(offset, length);
+            txt.array = value.toCharArray();
+            txt.offset = 0;
+            txt.count = txt.array.length;
+        }
+
+        @Override
+        public Position getStartPosition() {
+            return new HeadlessSafePosition(0);
+        }
+
+        @Override
+        public Position getEndPosition() {
+            return new HeadlessSafePosition(text.length());
+        }
+
+        @Override
+        public Position createPosition(int offs) throws BadLocationException {
+            if (offs < 0 || offs > text.length()) {
+                throw new BadLocationException("Invalid offset", offs);
+            }
+            return new HeadlessSafePosition(offs);
+        }
+
+        @Override
+        public Element[] getRootElements() {
+            return new Element[]{rootElement};
+        }
+
+        @Override
+        public Element getDefaultRootElement() {
+            return rootElement;
+        }
+
+        @Override
+        public void render(Runnable r) {
+            if (r != null) {
+                r.run();
+            }
+        }
+    }
+
+    private static final class HeadlessSafePosition implements Position {
+
+        private final int offset;
+
+        private HeadlessSafePosition(int offset) {
+            this.offset = offset;
+        }
+
+        @Override
+        public int getOffset() {
+            return offset;
+        }
+    }
+
+    private static final class HeadlessSafeElement implements Element {
+
+        private final Document document;
+
+        private HeadlessSafeElement(Document document) {
+            this.document = document;
+        }
+
+        @Override
+        public Document getDocument() {
+            return document;
+        }
+
+        @Override
+        public Element getParentElement() {
+            return null;
+        }
+
+        @Override
+        public String getName() {
+            return "headlessRoot";
+        }
+
+        @Override
+        public javax.swing.text.AttributeSet getAttributes() {
+            return SimpleAttributeSet.EMPTY;
+        }
+
+        @Override
+        public int getStartOffset() {
+            return 0;
+        }
+
+        @Override
+        public int getEndOffset() {
+            return document.getLength();
+        }
+
+        @Override
+        public int getElementIndex(int offset) {
+            return -1;
+        }
+
+        @Override
+        public int getElementCount() {
+            return 0;
+        }
+
+        @Override
+        public Element getElement(int index) {
+            return null;
+        }
+
+        @Override
+        public boolean isLeaf() {
+            return true;
+        }
     }
 
     private static final class HeadlessSafeGraphicsEnvironment extends GraphicsEnvironment {

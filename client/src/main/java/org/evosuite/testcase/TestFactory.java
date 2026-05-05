@@ -530,17 +530,38 @@ public class TestFactory {
             // re-resolved from scratch.
             logger.debug("Skipping AssignmentStatement during crossover append");
         } else if (statement instanceof UninterpretedStatement) {
-            // UninterpretedStatement may carry variable bindings that
-            // reference positions in the source parent.  Re-resolving them
-            // in the offspring is not possible, so we copy the raw source
-            // code without bindings.  The snippet will still compile if it
-            // only uses literals/static calls; if it needs the bindings it
-            // will fail gracefully at execution time.
+            // UninterpretedStatement carries variable bindings (source-name
+            // -> VariableReference) that point into the source parent.  We
+            // re-bind each one to a type-compatible variable already
+            // present in the offspring.  If any binding has no compatible
+            // candidate at the insertion point, we refuse the splice
+            // (mirroring the AssignmentStatement skip above) rather than
+            // emit a snippet that references variables not in scope.
             UninterpretedStatement orig = (UninterpretedStatement) statement;
-            UninterpretedStatement copy = new UninterpretedStatement(
-                    test, orig.getReturnType(), orig.getSourceCode());
-            copy.setParsedFromLlm(orig.isParsedFromLlm());
-            test.addStatement(copy);
+            int insertPos = test.size();
+            Map<String, VariableReference> rebound = new LinkedHashMap<>();
+            boolean allBound = true;
+            for (Map.Entry<String, VariableReference> entry : orig.getBindings().entrySet()) {
+                Type bindingType = entry.getValue().getType();
+                List<VariableReference> candidates = test.getObjects(bindingType, insertPos);
+                if (candidates.isEmpty()) {
+                    allBound = false;
+                    break;
+                }
+                rebound.put(entry.getKey(), Randomness.choice(candidates));
+            }
+            if (!allBound) {
+                AtMostOnceLogger.warn(logger,
+                        "Skipping UninterpretedStatement during crossover: no type-compatible "
+                                + "variable in offspring for one or more bindings of: "
+                                + orig.getSourceCode());
+            } else {
+                UninterpretedStatement copy = new UninterpretedStatement(
+                        test, orig.getReturnType(), orig.getSourceCode(),
+                        rebound, orig.getReturnExpression());
+                copy.setParsedFromLlm(orig.isParsedFromLlm());
+                test.addStatement(copy);
+            }
         } else {
             // NullStatement, ArrayStatement — their copy() methods create
             // fresh variable references without positional lookups, so

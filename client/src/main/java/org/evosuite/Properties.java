@@ -3462,12 +3462,19 @@ public class Properties {
      * @param fileName a {@link java.lang.String} object.
      */
     public void writeConfiguration(String fileName) {
+        String classpathForConfig = ClassPathHandler.getInstance().getTargetProjectClasspath();
+        if (classpathForConfig == null || classpathForConfig.trim().isEmpty()) {
+            classpathForConfig = Properties.CP;
+        }
+        if (classpathForConfig == null) {
+            classpathForConfig = "";
+        }
+
         StringBuilder buffer = new StringBuilder();
         buffer.append("CP=");
         // Replace backslashes with forwardslashes, as backslashes are dropped during reading
         // TODO: What if there are weird characters in the code? Need regex
-        buffer.append(ClassPathHandler.getInstance()
-                .getTargetProjectClasspath().replace("\\", "/"));
+        buffer.append(classpathForConfig.replace("\\", "/"));
         buffer.append("\nPROJECT_PREFIX=");
         if (Properties.PROJECT_PREFIX != null) {
             buffer.append(Properties.PROJECT_PREFIX);

@@ -323,38 +323,104 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         if (isExact && !hasNullArgument) {
             return false;
         }
+
+        List<Method> applicable = new ArrayList<>();
+        boolean thisMethodApplicable = false;
+        boolean hasSiblingWithSameName = false;
         try {
             for (java.lang.reflect.Method otherMethod : getCandidateMethods(declaringClass)) {
-                if (otherMethod.equals(method)) {
-                    continue;
-                }
-
                 if (!otherMethod.getName().equals(methodName)) {
                     continue;
+                }
+                if (!otherMethod.equals(method)) {
+                    hasSiblingWithSameName = true;
                 }
 
                 if (parameterTypes.length != otherMethod.getParameterCount()) {
                     continue;
                 }
 
-                boolean parametersEqual = true;
                 Class<?>[] otherParameterTypes = otherMethod.getParameterTypes();
+                boolean applicableToOther = true;
                 for (int i = 0; i < parameterClasses.length; i++) {
-                    if (isAssignableToParameter(parameters.get(i), parameterTypes[i])
-                            != isAssignableToParameter(parameters.get(i), otherParameterTypes[i])) {
-                        parametersEqual = false;
+                    if (!isAssignableToParameter(parameters.get(i), otherParameterTypes[i])) {
+                        applicableToOther = false;
                         break;
                     }
                 }
-                if (parametersEqual) {
-                    return true;
+                if (!applicableToOther) {
+                    continue;
+                }
+
+                applicable.add(otherMethod);
+                if (otherMethod.equals(method)) {
+                    thisMethodApplicable = true;
                 }
             }
+
+            // No other method shares this name, so there is no overload to disambiguate.
+            if (!hasSiblingWithSameName) {
+                return false;
+            }
+
+            // If current variable types cannot call this overload directly,
+            // a cast/disambiguation is required to represent it.
+            if (!thisMethodApplicable) {
+                return true;
+            }
+
+            if (applicable.size() <= 1) {
+                return false;
+            }
+
+            List<Method> maximalApplicable = new ArrayList<>();
+            for (Method candidate : applicable) {
+                boolean dominated = false;
+                for (Method other : applicable) {
+                    if (candidate.equals(other)) {
+                        continue;
+                    }
+                    if (isMoreSpecific(other, candidate)) {
+                        dominated = true;
+                        break;
+                    }
+                }
+                if (!dominated) {
+                    maximalApplicable.add(candidate);
+                }
+            }
+
+            // No cast needed only when this method is the unique most-specific
+            // applicable overload chosen by Java compile-time resolution.
+            return maximalApplicable.size() != 1 || !maximalApplicable.get(0).equals(method);
         } catch (SecurityException | NoClassDefFoundError e) {
             // ignored
         }
 
         return false;
+    }
+
+    private boolean isMoreSpecific(Method left, Method right) {
+        Class<?>[] leftParams = left.getParameterTypes();
+        Class<?>[] rightParams = right.getParameterTypes();
+        if (leftParams.length != rightParams.length) {
+            return false;
+        }
+
+        boolean strictlyMoreSpecific = false;
+        for (int i = 0; i < leftParams.length; i++) {
+            Class<?> lp = leftParams[i];
+            Class<?> rp = rightParams[i];
+            if (lp.equals(rp)) {
+                continue;
+            }
+            if (rp.isAssignableFrom(lp)) {
+                strictlyMoreSpecific = true;
+                continue;
+            }
+            return false;
+        }
+        return strictlyMoreSpecific;
     }
 
     private Set<Method> getCandidateMethods(Class<?> declaringClass) {

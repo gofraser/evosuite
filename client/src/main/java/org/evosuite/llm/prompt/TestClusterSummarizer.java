@@ -371,7 +371,8 @@ public class TestClusterSummarizer {
             Map<String, Integer> methodFrequency = modifierFrequencyByClass.getOrDefault(className,
                     Collections.<String, Integer>emptyMap());
             TypeSummary summary = buildTypeSummary(rawClass, generators, modifiers, compactSignatures,
-                    methodFrequency, concreteSubtypeLookup.getOrDefault(className, Collections.<Class<?>>emptyList()));
+                    methodFrequency, concreteSubtypeLookup.getOrDefault(className, Collections.<Class<?>>emptyList()),
+                    targetPackageName);
             if (summary == null || summary.isEmpty()) {
                 continue;
             }
@@ -464,7 +465,8 @@ public class TestClusterSummarizer {
                                          Set<GenericAccessibleObject<?>> modifiers,
                                          boolean compactSignatures,
                                          Map<String, Integer> modifierFrequency,
-                                         List<Class<?>> concreteSubtypes) {
+                                         List<Class<?>> concreteSubtypes,
+                                         String targetPackageName) {
         TypeSummary summary = new TypeSummary(rawClass.getSimpleName(), buildTypeHeader(rawClass));
         if (rawClass.isEnum()) {
             Object[] constants = rawClass.getEnumConstants();
@@ -487,8 +489,7 @@ public class TestClusterSummarizer {
             if (!nonInstantiable) {
                 List<Constructor<?>> constructors = new ArrayList<>();
                 for (Constructor<?> ctor : rawClass.getDeclaredConstructors()) {
-                    if (Modifier.isPrivate(ctor.getModifiers())
-                            || Modifier.isProtected(ctor.getModifiers())) {
+                    if (!isAccessible(ctor, targetPackageName)) {
                         continue;
                     }
                     constructors.add(ctor);
@@ -500,7 +501,7 @@ public class TestClusterSummarizer {
                 }
             } else if (concreteSubtypes != null && !concreteSubtypes.isEmpty()) {
                 summary.instantiators.add("  concrete subtypes: "
-                        + formatConcreteSubtypeHints(concreteSubtypes, compactSignatures));
+                        + formatConcreteSubtypeHints(concreteSubtypes, compactSignatures, targetPackageName));
             }
 
             // Static factory methods from generators (methods that aren't constructors)
@@ -511,7 +512,7 @@ public class TestClusterSummarizer {
                         Method method = ((java.lang.reflect.AccessibleObject) gen.getAccessibleObject())
                                 instanceof Method
                                 ? (Method) gen.getAccessibleObject() : null;
-                        if (method != null) {
+                        if (method != null && isAccessible(method, targetPackageName)) {
                             factoryMethods.add(method);
                         }
                     }
@@ -532,7 +533,7 @@ public class TestClusterSummarizer {
                     if (mod.isMethod()) {
                         Method method = mod.getAccessibleObject() instanceof Method
                                 ? (Method) mod.getAccessibleObject() : null;
-                        if (method != null && Modifier.isPublic(method.getModifiers())) {
+                        if (method != null && isAccessible(method, targetPackageName)) {
                             String sig = method.getName() + "("
                                     + formatParameterList(method.getGenericParameterTypes(), compactSignatures) + ")";
                             if (seen.add(sig)) {
@@ -629,7 +630,7 @@ public class TestClusterSummarizer {
         return sb.toString();
     }
 
-    private String formatConcreteSubtypeHints(List<Class<?>> concreteSubtypes, boolean compactSignatures) {
+    private String formatConcreteSubtypeHints(List<Class<?>> concreteSubtypes, boolean compactSignatures, String targetPackageName) {
         if (concreteSubtypes == null || concreteSubtypes.isEmpty()) {
             return "(none known)";
         }
@@ -637,7 +638,7 @@ public class TestClusterSummarizer {
         int limit = Math.min(4, concreteSubtypes.size());
         for (int i = 0; i < limit; i++) {
             Class<?> subtype = concreteSubtypes.get(i);
-            hints.add(formatSubtypeInstantiation(subtype, compactSignatures));
+            hints.add(formatSubtypeInstantiation(subtype, compactSignatures, targetPackageName));
         }
         if (concreteSubtypes.size() > limit) {
             hints.add("...");
@@ -645,10 +646,10 @@ public class TestClusterSummarizer {
         return String.join(", ", hints);
     }
 
-    private String formatSubtypeInstantiation(Class<?> subtype, boolean compactSignatures) {
+    private String formatSubtypeInstantiation(Class<?> subtype, boolean compactSignatures, String targetPackageName) {
         List<Constructor<?>> ctors = new ArrayList<>();
         for (Constructor<?> ctor : subtype.getDeclaredConstructors()) {
-            if (Modifier.isPrivate(ctor.getModifiers()) || Modifier.isProtected(ctor.getModifiers())) {
+            if (!isAccessible(ctor, targetPackageName)) {
                 continue;
             }
             if (ctor.isSynthetic()) {
@@ -804,7 +805,7 @@ public class TestClusterSummarizer {
         return true;
     }
 
-    private boolean isSamePackage(Class<?> type, String targetPackageName) {
+    private static boolean isSamePackage(Class<?> type, String targetPackageName) {
         if (type == null) {
             return false;
         }
@@ -815,6 +816,16 @@ public class TestClusterSummarizer {
 
     /** Summarizes the class as a rich pseudo-Java declaration with fields, generics, and exceptions. */
     public String summarizeClass(GenericClass<?> clazz) {
+        String targetPackageName = (clazz != null && clazz.getRawClass() != null)
+                ? extractPackageName(clazz.getRawClass().getName()) : null;
+        return summarizeClass(clazz, targetPackageName);
+    }
+
+    /**
+     * Summarizes the class as a rich pseudo-Java declaration with fields, generics, and exceptions,
+     * respecting accessibility from the target package.
+     */
+    public String summarizeClass(GenericClass<?> clazz, String targetPackageName) {
         if (clazz == null || clazz.getRawClass() == null) {
             return "Unknown class";
         }
@@ -915,7 +926,7 @@ public class TestClusterSummarizer {
                 continue;
             }
             int fm = field.getModifiers();
-            if (Modifier.isPrivate(fm) || Modifier.isProtected(fm)) {
+            if (!isAccessible(field, targetPackageName)) {
                 continue;
             }
             // Skip enum internal fields ($VALUES, etc.)
@@ -945,8 +956,7 @@ public class TestClusterSummarizer {
         // Constructors (include public and package-private for same-package test access)
         boolean hasConstructorHeader = false;
         for (Constructor<?> ctor : raw.getDeclaredConstructors()) {
-            int cm = ctor.getModifiers();
-            if (Modifier.isPrivate(cm) || Modifier.isProtected(cm)) {
+            if (!isAccessible(ctor, targetPackageName)) {
                 continue;
             }
             if (ctor.isSynthetic()) {
@@ -962,11 +972,14 @@ public class TestClusterSummarizer {
             b.append(System.lineSeparator());
         }
 
-        // Public methods
-        Method[] methods = raw.getMethods();
+        // Methods (include public and package-private)
+        Method[] methods = raw.getDeclaredMethods();
         boolean hasMethodHeader = false;
         for (Method method : methods) {
-            if (!Modifier.isPublic(method.getModifiers()) || method.getDeclaringClass() == Object.class) {
+            if (!isAccessible(method, targetPackageName) || method.getDeclaringClass() == Object.class) {
+                continue;
+            }
+            if (method.isSynthetic() || method.isBridge()) {
                 continue;
             }
             if (!hasMethodHeader) {
@@ -1474,5 +1487,23 @@ public class TestClusterSummarizer {
             this.method = method;
             this.score = score;
         }
+    }
+
+    /**
+     * Returns true if the member is accessible from a test class in the same package
+     * as the SUT (public or package-private in the same package).
+     * Private and protected members are always excluded.
+     */
+    private static boolean isAccessible(java.lang.reflect.Member member, String targetPackageName) {
+        int mod = member.getModifiers();
+        if (Modifier.isPublic(mod)) {
+            return true;
+        }
+        // Exclude private and protected
+        if (Modifier.isPrivate(mod) || Modifier.isProtected(mod)) {
+            return false;
+        }
+        // Package-private: allow only if in the same package as the target SUT
+        return isSamePackage(member.getDeclaringClass(), targetPackageName);
     }
 }

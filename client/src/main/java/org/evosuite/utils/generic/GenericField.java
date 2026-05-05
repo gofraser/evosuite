@@ -152,13 +152,21 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
      * @return the exact type
      */
     public Type getFieldType() {
-        return GenericTypeReflector.getExactFieldType(field, owner.getType());
-        //      try {
-        // fieldType = field.getGenericType();
-        // } catch (java.lang.reflect.GenericSignatureFormatError e) {
-        // Ignore
-        // fieldType = field.getType();
-        // }
+        try {
+            return GenericTypeReflector.getExactFieldType(field, owner.getType());
+        } catch (IllegalArgumentException e) {
+            // Cross-classloader fallback: the reflected Field and owner type may
+            // have the same name but come from different classloaders.
+            // For static fields (and as a safe fallback in general), keep the
+            // field-declared type instead of failing hard.
+            logger.debug("Falling back to declared field type for {} due to owner mismatch: {}",
+                    field, e.toString());
+            try {
+                return field.getGenericType();
+            } catch (GenericSignatureFormatError ignored) {
+                return field.getType();
+            }
+        }
     }
 
     /**

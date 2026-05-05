@@ -149,6 +149,13 @@ public class TestMutator {
     public boolean changeRandomCall(TestCase test, Statement statement) {
         logger.debug("Changing statement {}", statement.getCode());
 
+        if (statement instanceof UninterpretedStatement) {
+            // Snippets are opaque text: replacing them with a fresh
+            // MethodStatement would silently destroy the source code and
+            // its bindings.  Use insert/delete to vary snippets instead.
+            return false;
+        }
+
         List<VariableReference> objects = test.getObjects(statement.getReturnValue().getStPosition());
         objects.remove(statement.getReturnValue());
 

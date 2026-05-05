@@ -150,9 +150,10 @@ public final class CaptureLogAnalyzer implements ICaptureLogAnalyzer {
                     oidExchange = this.restoreCodeFromLastPosTo(log, generator, currentOid, currentRecord + 1,
                             blackList);
                 } catch (Throwable t) {
-                    logger.debug("Error: " + t);
+                    logger.info("Carving analyzer failed while restoring code for oid {} at record {}: {}",
+                            currentOid, currentRecord, t.toString());
                     for (StackTraceElement elem : t.getStackTrace()) {
-                        logger.debug(elem.toString());
+                        logger.info(elem.toString());
                     }
                     break;
                 }

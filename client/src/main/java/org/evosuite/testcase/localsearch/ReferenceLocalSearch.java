@@ -65,6 +65,12 @@ public class ReferenceLocalSearch extends StatementLocalSearch {
     public boolean doSearch(TestChromosome test, int statement,
                             LocalSearchObjective<TestChromosome> objective) {
 
+        if (test.getTestCase().getStatement(statement) instanceof UninterpretedStatement) {
+            // Snippets are opaque text; REPLACE would delete the snippet
+            // and PARAMETER does not apply.  Skip local search for them.
+            return false;
+        }
+
         boolean hasImproved = false;
         int currentProbe = 0;
 

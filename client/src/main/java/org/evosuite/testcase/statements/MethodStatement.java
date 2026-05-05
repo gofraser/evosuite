@@ -425,7 +425,8 @@ public class MethodStatement extends EntityWithParametersStatement {
 
                         if (!returnClass.isPrimitive()
                                 && ret != null
-                                && !returnClass.isAssignableFrom(ret.getClass())) {
+                                && !returnClass.isAssignableFrom(ret.getClass())
+                                && !isAssignableByName(returnClass, ret.getClass())) {
                             throw new CodeUnderTestException(new ClassCastException(
                                     "Cannot assign " + method.getReturnType()
                                             + " to variable of type " + retval.getType()));
@@ -441,6 +442,9 @@ public class MethodStatement extends EntityWithParametersStatement {
                             // Fallback for wildcard captures that TypeUtils cannot handle.
                             Class<?> rawReturnType = method.getMethod().getReturnType();
                             assignable = rawReturnType.isAssignableFrom(ret.getClass());
+                        }
+                        if (!assignable && isAssignableByName(retval.getType(), ret.getClass())) {
+                            assignable = true;
                         }
                         if (!assignable) {
                             throw new CodeUnderTestException(

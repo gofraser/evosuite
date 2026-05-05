@@ -30,16 +30,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.GenericDeclaration;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 
 /**
@@ -100,24 +106,50 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
 
     private static Class<?>[] determineMatcherParameterTypes(GenericMethod method) {
         Class<?>[] raw = method.getMethod().getParameterTypes();
-        if (!hasUnresolvedGenericParameterTypes(method.getMethod())) {
-            return raw;
-        }
-
         Class<?>[] resolved = raw.clone();
         try {
-            List<GenericClass<?>> parameterClasses = method.getParameterClasses();
-            for (int i = 0; i < raw.length && i < parameterClasses.size(); i++) {
-                GenericClass<?> parameterClass = parameterClasses.get(i);
-                if (parameterClass == null || parameterClass.getRawClass() == null) {
-                    continue;
+            if (hasUnresolvedGenericParameterTypes(method.getMethod())) {
+                List<GenericClass<?>> parameterClasses = method.getParameterClasses();
+                for (int i = 0; i < raw.length && i < parameterClasses.size(); i++) {
+                    GenericClass<?> parameterClass = parameterClasses.get(i);
+                    if (parameterClass == null || parameterClass.getRawClass() == null) {
+                        continue;
+                    }
+                    Class<?> candidate = parameterClass.getRawClass();
+                    // Only adopt strictly more specific resolved types.
+                    if (!raw[i].equals(candidate) && raw[i].isAssignableFrom(candidate)) {
+                        resolved[i] = candidate;
+                    }
                 }
-                Class<?> candidate = parameterClass.getRawClass();
-                // Only adopt strictly more specific resolved types.
-                if (!raw[i].equals(candidate) && raw[i].isAssignableFrom(candidate)) {
-                    resolved[i] = candidate;
+
+                // Fallback for classloader-mismatched generic declarations:
+                // resolve type variables by stable declaration identity (name/signature)
+                // so constrained generics (eg T extends Number with owner Foo<Integer>)
+                // can still yield Integer matcher types instead of erased Number.
+                Type[] genericParamTypes = method.getMethod().getGenericParameterTypes();
+                for (int i = 0; i < raw.length && i < genericParamTypes.length; i++) {
+                    if (!resolved[i].equals(raw[i])) {
+                        continue;
+                    }
+                    Type paramType = genericParamTypes[i];
+                    if (!(paramType instanceof TypeVariable<?>)) {
+                        continue;
+                    }
+
+                    TypeVariable<?> typeVariable = (TypeVariable<?>) paramType;
+                    Type mapped = resolveTypeVariableFromOwner(method, typeVariable);
+                    Class<?> candidate = rawClassOf(mapped);
+                    if (candidate != null
+                            && !raw[i].equals(candidate)
+                            && raw[i].isAssignableFrom(candidate)) {
+                        resolved[i] = candidate;
+                    }
                 }
             }
+
+            // Even when invocation metadata is erased (no TypeVariable in signature),
+            // owner type arguments can still reveal a stricter matcher type.
+            refineErasedParametersFromOwnerMap(method, raw, resolved);
         } catch (RuntimeException | LinkageError e) {
             logger.debug("Falling back to raw matcher parameter types for {}.{}: {}",
                     method.getMethod().getDeclaringClass().getName(),
@@ -128,13 +160,121 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
         return resolved;
     }
 
-    private static boolean hasUnresolvedGenericParameterTypes(Method method) {
+    public static boolean hasUnresolvedGenericParameterTypes(Method method) {
         for (Type type : method.getGenericParameterTypes()) {
             if (type instanceof TypeVariable || type instanceof WildcardType) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static Type resolveTypeVariableFromOwner(GenericMethod method, TypeVariable<?> target) {
+        Map<TypeVariable<?>, Type> ownerMap = method.getOwnerClass().getTypeVariableMap();
+        for (Map.Entry<TypeVariable<?>, Type> entry : ownerMap.entrySet()) {
+            TypeVariable<?> existing = entry.getKey();
+            if (isSameTypeVariableIdentity(existing, target)) {
+                return entry.getValue();
+            }
+        }
+        return ownerMap.get(target);
+    }
+
+    private static Class<?> rawClassOf(Type type) {
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            Type raw = ((ParameterizedType) type).getRawType();
+            if (raw instanceof Class<?>) {
+                return (Class<?>) raw;
+            }
+        }
+        return null;
+    }
+
+    private static void refineErasedParametersFromOwnerMap(GenericMethod method, Class<?>[] raw, Class<?>[] resolved) {
+        Map<TypeVariable<?>, Type> ownerMap = method.getOwnerClass().getTypeVariableMap();
+        if (ownerMap == null || ownerMap.isEmpty()) {
+            return;
+        }
+
+        List<Class<?>> candidates = ownerMap.values().stream()
+                .map(MethodDescriptor::rawClassOf)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        for (int i = 0; i < raw.length && i < resolved.length; i++) {
+            if (!resolved[i].equals(raw[i])) {
+                continue;
+            }
+            if (raw[i].equals(Object.class)) {
+                // Too imprecise: Object parameters are frequently unrelated to
+                // owner type variables (eg Foo<T>.get(Object)).
+                continue;
+            }
+
+            Class<?> singleMatch = null;
+            for (Class<?> candidate : candidates) {
+                if (candidate.equals(raw[i]) || !raw[i].isAssignableFrom(candidate)) {
+                    continue;
+                }
+                if (singleMatch == null) {
+                    singleMatch = candidate;
+                } else if (!singleMatch.equals(candidate)) {
+                    singleMatch = null;
+                    break;
+                }
+            }
+            if (singleMatch != null) {
+                resolved[i] = singleMatch;
+            }
+        }
+    }
+
+    private static boolean isSameTypeVariableIdentity(TypeVariable<?> left, TypeVariable<?> right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        if (!left.getName().equals(right.getName())) {
+            return false;
+        }
+        GenericDeclaration leftDecl = left.getGenericDeclaration();
+        GenericDeclaration rightDecl = right.getGenericDeclaration();
+        if (leftDecl == rightDecl) {
+            return true;
+        }
+        if (leftDecl == null || rightDecl == null) {
+            return false;
+        }
+        if (leftDecl.equals(rightDecl)) {
+            return true;
+        }
+        return declarationIdentity(leftDecl).equals(declarationIdentity(rightDecl));
+    }
+
+    private static String declarationIdentity(GenericDeclaration declaration) {
+        if (declaration instanceof Class<?>) {
+            return ((Class<?>) declaration).getName();
+        }
+        if (declaration instanceof Method) {
+            Method method = (Method) declaration;
+            return method.getDeclaringClass().getName() + "#" + method.getName()
+                    + Arrays.toString(method.getGenericParameterTypes());
+        }
+        if (declaration instanceof Constructor<?>) {
+            Constructor<?> constructor = (Constructor<?>) declaration;
+            return constructor.getDeclaringClass().getName() + "#<init>"
+                    + Arrays.toString(constructor.getGenericParameterTypes());
+        }
+        return declaration.toString();
     }
 
     static String matcherStringForType(Class<?> type) {

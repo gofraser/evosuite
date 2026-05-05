@@ -47,8 +47,19 @@ import java.util.Set;
  * TestCodeVisitor. This allows parsed tests to preserve constructs that don't
  * have a direct EvoSuite model while remaining executable.
  *
- * <p>UninterpretedStatements are excluded from mutation/crossover by the genetic
- * algorithm (they are treated as immutable).
+ * <p>UninterpretedStatements participate in evolution as follows:
+ * <ul>
+ *   <li>Crossover splices them into the offspring by re-binding each
+ *       captured variable to a type-compatible variable already present
+ *       in the offspring (see {@code TestFactory.appendStatement}).
+ *       If no compatible variable exists, the splice is skipped.</li>
+ *   <li>The change-mutation operator ({@code TestMutator.changeRandomCall})
+ *       does not replace snippets, since their source text is opaque.</li>
+ *   <li>{@code ReferenceLocalSearch} also skips snippets.</li>
+ *   <li>Snippets can be deleted: downstream snippets that bind the
+ *       deleted variable are recursively deleted, or have their binding
+ *       re-routed by {@code deleteStatementGracefully}.</li>
+ * </ul>
  */
 public class UninterpretedStatement extends AbstractStatement {
 
@@ -117,6 +128,17 @@ public class UninterpretedStatement extends AbstractStatement {
         return returnExpression;
     }
 
+    /**
+     * Copies the statement positionally: each binding is rebound by looking
+     * up {@code newTestCase.getStatement(originalPos + offset).getReturnValue()}.
+     * The caller must ensure that {@code newTestCase} has a structurally
+     * compatible statement at every binding position + offset.  This holds
+     * for {@link TestCase#clone()} (which pre-seeds placeholders) and for
+     * contiguous-block copies (object-pool sequence insertion).  For
+     * crossover splices into a non-aligned offspring, do NOT call this
+     * method directly — use {@code TestFactory.appendStatement}, which
+     * re-binds via type lookup.
+     */
     @Override
     public Statement copy(TestCase newTestCase, int offset) {
         Map<String, VariableReference> copiedBindings = new LinkedHashMap<>();
@@ -203,8 +225,23 @@ public class UninterpretedStatement extends AbstractStatement {
             return false;
         }
         UninterpretedStatement that = (UninterpretedStatement) s;
-        return sourceCode.equals(that.sourceCode)
-                && Objects.equals(returnExpression, that.returnExpression);
+        if (!sourceCode.equals(that.sourceCode)
+                || !Objects.equals(returnExpression, that.returnExpression)) {
+            return false;
+        }
+        if (!retval.same(that.retval)) {
+            return false;
+        }
+        if (bindings.size() != that.bindings.size()) {
+            return false;
+        }
+        for (Map.Entry<String, VariableReference> entry : bindings.entrySet()) {
+            VariableReference thatValue = that.bindings.get(entry.getKey());
+            if (thatValue == null || !entry.getValue().same(thatValue)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

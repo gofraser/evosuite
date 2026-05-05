@@ -20,10 +20,15 @@
 package org.evosuite;
 
 import org.evosuite.Properties.NoSuchParameterException;
+import org.evosuite.classpath.ClassPathHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -37,6 +42,7 @@ public class PropertiesTest {
     @AfterEach
     public void reset() {
         Properties.getInstance().resetToDefaults();
+        ClassPathHandler.resetSingleton();
     }
 
     @Test
@@ -99,5 +105,20 @@ public class PropertiesTest {
 
         Properties.getInstance().resetToDefaults();
         Assertions.assertEquals(defaultValue, Properties.TARGET_CLASS);
+    }
+
+    @Test
+    public void testWriteConfigurationFallsBackToPropertiesCpWhenClasspathHandlerIsUnset() throws Exception {
+        ClassPathHandler.resetSingleton();
+        Properties.CP = "/tmp/a" + java.io.File.pathSeparator + "/tmp/b";
+
+        Path tmp = Files.createTempFile("evosuite-properties", ".properties");
+        try {
+            Properties.getInstance().writeConfiguration(tmp.toString());
+            String firstLine = Files.readAllLines(tmp, StandardCharsets.UTF_8).get(0);
+            Assertions.assertEquals("CP=/tmp/a" + java.io.File.pathSeparator + "/tmp/b", firstLine);
+        } finally {
+            Files.deleteIfExists(tmp);
+        }
     }
 }
