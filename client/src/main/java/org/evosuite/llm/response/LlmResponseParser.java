@@ -41,6 +41,15 @@ public class LlmResponseParser {
     private static final Pattern ASSERT_CALL_PATTERN =
             Pattern.compile("\\bassert(Equals|True|False|NotNull|Null|That|Throws)\\s*\\(");
 
+    // Java has no `import ... as ...` syntax (Kotlin/Scala/Python carry-over). We rewrite
+    // the alias to its fully qualified name everywhere it appears as a standalone identifier,
+    // then drop the alias import line; FQN substitution makes a replacement plain import
+    // unnecessary (and avoids duplicate-import errors when both the aliased and plain forms
+    // were emitted, as we have observed for collisions like javax.persistence.Query vs
+    // net.sourceforge.beanbin.query.Query).
+    private static final Pattern ALIASED_IMPORT_LINE_PATTERN = Pattern.compile(
+            "(?m)^[ \\t]*import\\s+(?:static\\s+)?([\\w.$]+)\\s+as\\s+([A-Za-z_][\\w$]*)\\s*;[ \\t]*\\r?\\n?");
+
     private static final Pattern LEADING_FENCE_PATTERN =
             Pattern.compile("^\\s*```(?:java)?\\s*\\n?", Pattern.CASE_INSENSITIVE);
     private static final Pattern TRAILING_FENCE_PATTERN =
@@ -151,6 +160,7 @@ public class LlmResponseParser {
     public ExtractionResult extractTestClassWithMetadata(String response, String className, String packageName) {
         List<String> blocks = extractCodeBlocks(response);
         String code = blocks.isEmpty() ? "" : blocks.get(0);
+        code = sanitizeAliasImports(code);
         String extractedSource;
         if (code.isEmpty()) {
             extractedSource = packageDeclaration(packageName)
@@ -189,6 +199,51 @@ public class LlmResponseParser {
                 + indent(bodyCode)
                 + "\n}";
         return maybeRecover(extractedSource);
+    }
+
+    /**
+     * Rewrites invalid Kotlin/Scala-style alias imports (e.g.
+     * {@code import a.b.C as D;}) into valid Java by deleting the import line
+     * and substituting every standalone occurrence of the alias identifier with
+     * the original fully qualified name. This is invoked before the source is
+     * handed to JavaParser, since JavaParser cannot recover from this syntax
+     * and downstream extraction would silently produce no test methods.
+     */
+    static String sanitizeAliasImports(String code) {
+        if (code == null || code.isEmpty()) {
+            return code;
+        }
+        Matcher matcher = ALIASED_IMPORT_LINE_PATTERN.matcher(code);
+        if (!matcher.find()) {
+            return code;
+        }
+        // Collect alias -> fqn mappings in the order they appear, then perform
+        // substitutions on the whole source. We deliberately do NOT add a
+        // replacement plain import: a colliding simple name was the reason the
+        // alias was introduced, and the FQN substitution removes the need.
+        java.util.LinkedHashMap<String, String> aliasToFqn = new java.util.LinkedHashMap<>();
+        do {
+            String fqn = matcher.group(1);
+            String alias = matcher.group(2);
+            if (alias != null && !alias.isEmpty() && fqn != null && !fqn.isEmpty()) {
+                aliasToFqn.putIfAbsent(alias, fqn);
+            }
+        } while (matcher.find());
+        String rewritten = ALIASED_IMPORT_LINE_PATTERN.matcher(code).replaceAll("");
+        for (java.util.Map.Entry<String, String> entry : aliasToFqn.entrySet()) {
+            String alias = entry.getKey();
+            String fqn = entry.getValue();
+            // Skip the no-op case where the alias matches the FQN's simple name.
+            int lastDot = fqn.lastIndexOf('.');
+            String simple = lastDot >= 0 ? fqn.substring(lastDot + 1) : fqn;
+            if (alias.equals(simple)) {
+                continue;
+            }
+            rewritten = rewritten.replaceAll(
+                    "\\b" + Pattern.quote(alias) + "\\b",
+                    Matcher.quoteReplacement(fqn));
+        }
+        return rewritten;
     }
 
     private ExtractionResult maybeRecover(String source) {

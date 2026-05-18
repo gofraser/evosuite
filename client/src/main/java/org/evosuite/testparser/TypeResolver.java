@@ -56,6 +56,15 @@ public class TypeResolver {
     /** Lazily built member cache for static wildcard imports, preserving import order. */
     private Map<String, String> wildcardMemberToClass;
 
+    /**
+     * Records package corrections made by the FQN→simple-name fallback path:
+     * key is the original (wrong) FQN written by the caller, value is the
+     * resolved canonical name. Surfaced via {@link #drainPackageCorrections()}
+     * so the parser can emit a visible diagnostic that nudges the LLM toward
+     * the correct package on subsequent attempts.
+     */
+    private final Map<String, String> packageCorrections = new LinkedHashMap<>();
+
     private static final Map<String, Class<?>> PRIMITIVE_TYPES = new HashMap<>();
 
     static {
@@ -151,15 +160,52 @@ public class TypeResolver {
             String rest = typeName.substring(firstDot + 1);
             String outerFqn = importMap.get(outerName);
             if (outerFqn != null) {
-                return loadClass(outerFqn + "$" + rest.replace('.', '$'));
+                try {
+                    return loadClass(outerFqn + "$" + rest.replace('.', '$'));
+                } catch (ClassNotFoundException ignored) {
+                    // Fall through to simple-name fallback below.
+                }
+            }
+
+            // Fall back to simple-name resolution. The LLM frequently invents the
+            // wrong package for a real class (e.g. "a.b.MemoryStorage" when the
+            // class actually lives at "a.b.storage.MemoryStorage"). If the test
+            // cluster / wildcard imports / common-package search can locate a
+            // class with the trailing simple name, prefer that over a hard fail.
+            int lastDot = typeName.lastIndexOf('.');
+            String trailingSimpleName = typeName.substring(lastDot + 1);
+            if (!trailingSimpleName.isEmpty()
+                    && Character.isUpperCase(trailingSimpleName.charAt(0))) {
+                Class<?> bySimple = tryResolveBySimpleName(trailingSimpleName);
+                if (bySimple != null) {
+                    String resolvedName = bySimple.getCanonicalName();
+                    if (resolvedName != null && !resolvedName.equals(typeName)) {
+                        packageCorrections.putIfAbsent(typeName, resolvedName);
+                    }
+                    return bySimple;
+                }
             }
 
             throw new ClassNotFoundException("Cannot resolve type: " + typeName);
         }
 
+        Class<?> resolved = tryResolveBySimpleName(typeName);
+        if (resolved != null) {
+            return resolved;
+        }
+
+        throw new ClassNotFoundException("Cannot resolve type: " + typeName);
+    }
+
+    /**
+     * Resolve an unqualified simple class name through explicit imports, java.lang,
+     * wildcard imports, the TestCluster, and inner-class probes against analyzed
+     * classes. Returns null if no resolution path matched.
+     */
+    private Class<?> tryResolveBySimpleName(String simpleName) {
         // Check explicit imports (but fall through if the imported class
         // does not exist — the LLM may have guessed wrong package names)
-        String fqn = importMap.get(typeName);
+        String fqn = importMap.get(simpleName);
         if (fqn != null) {
             try {
                 return loadClass(fqn);
@@ -170,7 +216,7 @@ public class TypeResolver {
 
         // Check java.lang.*
         try {
-            return loadClass("java.lang." + typeName);
+            return loadClass("java.lang." + simpleName);
         } catch (ClassNotFoundException ignored) {
             // Ignore and try wildcard imports
         }
@@ -178,7 +224,7 @@ public class TypeResolver {
         // Check wildcard imports
         for (String prefix : wildcardImports) {
             try {
-                return loadClass(prefix + "." + typeName);
+                return loadClass(prefix + "." + simpleName);
             } catch (ClassNotFoundException ignored) {
                 // Ignore and try next prefix
             }
@@ -186,7 +232,7 @@ public class TypeResolver {
 
         // Check TestCluster (available during EvoSuite test generation)
         try {
-            return org.evosuite.setup.TestCluster.getInstance().getClass(typeName);
+            return org.evosuite.setup.TestCluster.getInstance().getClass(simpleName);
         } catch (Exception ignored) {
             // TestCluster may not be initialized outside of EvoSuite context
         }
@@ -195,7 +241,7 @@ public class TypeResolver {
         try {
             for (Class<?> analyzed : org.evosuite.setup.TestCluster.getInstance().getAnalyzedClasses()) {
                 try {
-                    return loadClass(analyzed.getName() + "$" + typeName);
+                    return loadClass(analyzed.getName() + "$" + simpleName);
                 } catch (ClassNotFoundException ignored) {
                     // Not an inner class of this one
                 }
@@ -204,7 +250,22 @@ public class TypeResolver {
             // TestCluster may not be initialized
         }
 
-        throw new ClassNotFoundException("Cannot resolve type: " + typeName);
+        return null;
+    }
+
+    /**
+     * Returns and clears the set of FQN→canonical-name corrections recorded by
+     * the simple-name fallback. The parser drains this after each parse so it
+     * can emit a {@code WRONG_FQN_PACKAGE} warning telling the LLM which exact
+     * package the class actually lives in.
+     */
+    public Map<String, String> drainPackageCorrections() {
+        if (packageCorrections.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, String> snapshot = new LinkedHashMap<>(packageCorrections);
+        packageCorrections.clear();
+        return snapshot;
     }
 
     private Class<?> loadClass(String fqn) throws ClassNotFoundException {
@@ -229,6 +290,20 @@ public class TypeResolver {
                     // Ignore and throw original exception
                 }
             }
+
+            // Handle Mockito shading redirection
+            if (fqn.startsWith("org.mockito.")) {
+                try {
+                    return Class.forName("org.evosuite.shaded." + fqn, false, classLoader);
+                } catch (ClassNotFoundException ignored) {
+                    try {
+                        return Class.forName("shaded.org.evosuite.shaded." + fqn, false, classLoader);
+                    } catch (ClassNotFoundException ignored2) {
+                        // Ignore and throw original exception
+                    }
+                }
+            }
+
             throw e;
         }
     }
@@ -271,7 +346,7 @@ public class TypeResolver {
         if (!usesInstrumentingClassLoader()) {
             return false;
         }
-        if (isLikelyJdkClassName(fqn)) {
+        if (isExemptFromResourceCheck(fqn)) {
             return false;
         }
         try {
@@ -286,7 +361,13 @@ public class TypeResolver {
         return classLoader instanceof org.evosuite.instrumentation.InstrumentingClassLoader;
     }
 
-    private static boolean isLikelyJdkClassName(String fqn) {
+    /**
+     * Returns true if the class belongs to a package that is exempt from the strict
+     * project-resource check. This includes JDK classes and common testing libraries
+     * that are expected to be available in the test classloader even if not present
+     * in the SUT's scanned project classpath.
+     */
+    private static boolean isExemptFromResourceCheck(String fqn) {
         return fqn.startsWith("java.")
                 || fqn.startsWith("javax.")
                 || fqn.startsWith("jdk.")
@@ -294,7 +375,10 @@ public class TypeResolver {
                 || fqn.startsWith("com.sun.")
                 || fqn.startsWith("org.w3c.")
                 || fqn.startsWith("org.xml.")
-                || fqn.startsWith("org.ietf.");
+                || fqn.startsWith("org.ietf.")
+                || fqn.startsWith("org.junit.")
+                || fqn.startsWith("org.mockito.")
+                || fqn.startsWith("org.hamcrest.");
     }
 
     /**

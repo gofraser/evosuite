@@ -158,45 +158,53 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
             }
             typePool.addConstant((Type) object);
         } else if (object instanceof Integer) {
-            if (Properties.RESTRICT_POOL) {
-                int val = (Integer) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    intPool.addConstant((Integer) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Integer) object)) {
                 intPool.addConstant((Integer) object);
             }
         } else if (object instanceof Long) {
-            if (Properties.RESTRICT_POOL) {
-                long val = (Long) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    longPool.addConstant((Long) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Long) object)) {
                 longPool.addConstant((Long) object);
             }
         } else if (object instanceof Float) {
-            if (Properties.RESTRICT_POOL) {
-                float val = (Float) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    floatPool.addConstant((Float) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Float) object)) {
                 floatPool.addConstant((Float) object);
             }
         } else if (object instanceof Double) {
-            if (Properties.RESTRICT_POOL) {
-                double val = (Double) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    doublePool.addConstant((Double) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Double) object)) {
                 doublePool.addConstant((Double) object);
             }
         } else {
             LoggingUtils.getEvoLogger().info("Constant of unknown type: "
                     + object.getClass());
         }
+    }
+
+    @Override
+    public int pruneOversizedNumericConstants(long maxAbsExclusive) {
+        if (maxAbsExclusive <= 0L) {
+            return 0;
+        }
+
+        int removed = 0;
+        removed += intPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += longPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += floatPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += doublePool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+
+        if (intPool.isEmpty()) {
+            intPool.addConstant(0);
+        }
+        if (longPool.isEmpty()) {
+            longPool.addConstant(0L);
+        }
+        if (floatPool.isEmpty()) {
+            floatPool.addConstant(0.0f);
+        }
+        if (doublePool.isEmpty()) {
+            doublePool.addConstant(0.0);
+        }
+
+        return removed;
     }
 
 }

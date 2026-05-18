@@ -28,11 +28,13 @@ import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.StaticJavaParser;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.mock.OverrideMock;
+import org.evosuite.runtime.mock.StaticReplacementMock;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.FunctionalMockForAbstractClassStatement;
@@ -197,6 +199,52 @@ class MockitoPatternParser {
         }
     }
 
+    VariableReference tryHandleLlmMockitoMockCallBeforeMethodResolution(MethodCallExpr expr,
+                                                                         String methodName,
+                                                                         Class<?> targetClass,
+                                                                         boolean staticCall) {
+        if (!parser.isMarkParsedFromLlm()
+                || !"mock".equals(methodName)
+                || expr.getArguments().isEmpty()) {
+            return null;
+        }
+
+        boolean looksLikeMockitoStaticMock =
+                (staticCall && isMockitoClass(targetClass))
+                        || isLikelyMockitoMockScope(expr.getScope().orElse(null))
+                        || (parser.isMarkParsedFromLlm() && !expr.getScope().isPresent()); // LLM often omits 'Mockito.'
+        if (!looksLikeMockitoStaticMock) {
+            return null;
+        }
+
+        Class<?> mockTargetClass = extractMockTargetClass(expr.getArgument(0));
+        if (mockTargetClass == null) {
+            return null;
+        }
+
+        MockVariant variant = detectMockVariant(expr);
+        GenericClass<?> targetGenericClass = GenericClassFactory.get(mockTargetClass);
+        try {
+            if (variant == MockVariant.CALLS_REAL_METHODS) {
+                if (!FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(mockTargetClass)) {
+                    return null;
+                }
+                return testCase.addStatement(new FunctionalMockForAbstractClassStatement(
+                        testCase, mockTargetClass, targetGenericClass));
+            }
+
+            if (!FunctionalMockStatement.canBeFunctionalMocked(mockTargetClass)) {
+                return null;
+            }
+            return testCase.addStatement(new FunctionalMockStatement(
+                    testCase, mockTargetClass, targetGenericClass));
+        } catch (IllegalArgumentException e) {
+            logger.debug("Cannot normalize pre-resolution Mockito.mock({}) into FunctionalMockStatement: {}",
+                    mockTargetClass.getName(), e.getMessage());
+            return null;
+        }
+    }
+
     VariableReference tryNormalizeAnonymousInterfaceCreationToMock(ObjectCreationExpr expr, Type declaredType) {
         Type targetType = declaredType;
         if (targetType == null || targetType == Object.class) {
@@ -236,7 +284,7 @@ class MockitoPatternParser {
         if (!parser.isMarkParsedFromLlm() || rawClass == null) {
             return rawClass;
         }
-        Class<?> mockClass = getCompatibleOverrideMockClass(rawClass);
+        Class<?> mockClass = getCompatibleStaticMethodMockClass(rawClass);
         if (mockClass == null) {
             return rawClass;
         }
@@ -309,11 +357,16 @@ class MockitoPatternParser {
             if (info == null) {
                 return false;
             }
-            if (info.applyToMockStatement) {
-                List<VariableReference> orderedReturnValues =
-                        ensureStubbingValuesAvailableBeforeMock(context.mockRef, info.returnValues);
-                context.mockStatement.addMethodStubbing(info.descriptor, orderedReturnValues);
+            // If the terminal call was syntactically matched but semantically invalid
+            // (eg unresolved method, void return, etc.), keep the captured alias pending
+            // so flushCapturedWhenStubbingDiagnostics() can report it as stranded.
+            if (!info.applyToMockStatement) {
+                return false;
             }
+            relocateMockAfterStubbingValuesIfNeeded(context.mockRef, info.returnValues);
+            List<VariableReference> orderedReturnValues =
+                    ensureStubbingValuesAvailableBeforeMock(context.mockRef, info.returnValues, methodCall);
+            context.mockStatement.addMethodStubbing(info.descriptor, orderedReturnValues);
             capturedWhenStubbings.remove(aliasName);
             return true;
         }
@@ -341,11 +394,24 @@ class MockitoPatternParser {
 
         VariableReference mockRef = scope.resolve(mockVarName);
         if (mockRef == null) {
+            if (parser.isMarkParsedFromLlm()) {
+                parser.addWarning(methodCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
+                        "Dropped Mockito stubbing with unresolved receiver '" + mockVarName
+                                + "'. Do not use spy/fallback receivers; stub only Mockito.mock(...) values.");
+                return true;
+            }
             return false;
         }
 
         Statement stmt = testCase.getStatement(mockRef.getStPosition());
         if (!(stmt instanceof FunctionalMockStatement)) {
+            if (parser.isMarkParsedFromLlm()) {
+                parser.addWarning(methodCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
+                        "Dropped Mockito stubbing on non-functional-mock receiver '" + mockVarName
+                                + "'. EvoSuite LLM parsing does not support spy-style stubbing "
+                                + "(e.g., doReturn(...).when(spy)...).");
+                return true;
+            }
             return false;
         }
         FunctionalMockStatement mockStmt = (FunctionalMockStatement) stmt;
@@ -362,11 +428,60 @@ class MockitoPatternParser {
         }
 
         if (info.applyToMockStatement) {
+            relocateMockAfterStubbingValuesIfNeeded(mockRef, info.returnValues);
             List<VariableReference> orderedReturnValues =
-                    ensureStubbingValuesAvailableBeforeMock(mockRef, info.returnValues);
+                    ensureStubbingValuesAvailableBeforeMock(mockRef, info.returnValues, methodCall);
             mockStmt.addMethodStubbing(info.descriptor, orderedReturnValues);
         }
         return true;
+    }
+
+    /**
+     * If any stubbing return value is defined later in the test case than the mock itself,
+     * try to move the mock statement to just after the latest such value. This handles the
+     * common LLM pattern of declaring all mocks first and writing the stubbings afterwards,
+     * which would otherwise cause {@link #ensureStubbingValuesAvailableBeforeMock} to fall
+     * back to a typed null when the value's defining statement transitively depends on
+     * variables that are also after the mock.
+     *
+     * <p>The relocation is skipped when any statement between the mock's current position
+     * and the target position already references the mock — moving would invalidate that
+     * downstream use, and the existing hoist path is left to handle (or report) it.
+     */
+    private void relocateMockAfterStubbingValuesIfNeeded(VariableReference mockRef,
+                                                         List<VariableReference> values) {
+        if (values == null || values.isEmpty()) {
+            return;
+        }
+        int currentMockPos = mockRef.getStPosition();
+        int latestValuePos = currentMockPos;
+        for (VariableReference value : values) {
+            if (value == null) {
+                continue;
+            }
+            int p = value.getStPosition();
+            if (p > latestValuePos) {
+                latestValuePos = p;
+            }
+        }
+        if (latestValuePos <= currentMockPos) {
+            return;
+        }
+
+        // Refuse the move if anything in the spanned range already uses the mock —
+        // moving would leave that earlier statement with an unresolved reference.
+        for (int i = currentMockPos + 1; i <= latestValuePos; i++) {
+            Statement spanned = testCase.getStatement(i);
+            if (spanned != null && spanned.references(mockRef)) {
+                return;
+            }
+        }
+
+        Statement mockStmt = testCase.getStatement(currentMockPos);
+        testCase.remove(currentMockPos);
+        // After remove, every statement after currentMockPos shifts down by one;
+        // inserting at latestValuePos puts the mock immediately after the (shifted) value.
+        testCase.addStatement(mockStmt, latestValuePos);
     }
 
     boolean tryPreserveStandaloneThrowStubbingCall(MethodCallExpr methodCall) {
@@ -486,7 +601,17 @@ class MockitoPatternParser {
             return null;
         }
 
-        Class<?> targetClass = parser.resolveClassFromExpression(innerMethodCall.getScope().get());
+        Expression receiverExpr = unwrapCastsAndParentheses(innerMethodCall.getScope().get());
+        Class<?> targetClass = null;
+        if (receiverExpr instanceof NameExpr) {
+            VariableReference receiverRef = scope.resolve(((NameExpr) receiverExpr).getNameAsString());
+            if (receiverRef != null) {
+                targetClass = parser.getRawClass(receiverRef.getType());
+            }
+        }
+        if (targetClass == null) {
+            targetClass = parser.resolveClassFromExpression(receiverExpr);
+        }
         if (targetClass == null) {
             return null;
         }
@@ -587,11 +712,15 @@ class MockitoPatternParser {
         }
 
         MethodCallExpr innerMethodCall = (MethodCallExpr) whenArgument;
-        if (!innerMethodCall.getScope().isPresent() || !(innerMethodCall.getScope().get() instanceof NameExpr)) {
+        if (!innerMethodCall.getScope().isPresent()) {
+            return null;
+        }
+        Expression innerScope = unwrapCastsAndParentheses(innerMethodCall.getScope().get());
+        if (!(innerScope instanceof NameExpr)) {
             return null;
         }
 
-        String mockVarName = ((NameExpr) innerMethodCall.getScope().get()).getNameAsString();
+        String mockVarName = ((NameExpr) innerScope).getNameAsString();
         VariableReference mockRef = scope.resolve(mockVarName);
         if (mockRef == null || mockRef.getStPosition() < 0 || mockRef.getStPosition() >= testCase.size()) {
             return null;
@@ -699,6 +828,23 @@ class MockitoPatternParser {
                 || "shaded.org.evosuite.shaded.org.mockito.Mockito".equals(name);
     }
 
+    private boolean isLikelyMockitoMockScope(Expression scopeExpression) {
+        if (scopeExpression == null) {
+            return false;
+        }
+        if (scopeExpression instanceof NameExpr) {
+            return "Mockito".equals(((NameExpr) scopeExpression).getNameAsString());
+        }
+        if (scopeExpression instanceof FieldAccessExpr) {
+            String scopeText = scopeExpression.toString();
+            return "org.mockito.Mockito".equals(scopeText)
+                    || "org.evosuite.shaded.org.mockito.Mockito".equals(scopeText)
+                    || "shaded.org.evosuite.shaded.org.mockito.Mockito".equals(scopeText)
+                    || scopeText.endsWith(".Mockito");
+        }
+        return false;
+    }
+
     private Class<?> resolveMockitoMockTargetClass(Expression firstArgument, List<VariableReference> argRefs) {
         Class<?> classLiteralTarget = extractMockTargetClass(firstArgument);
         if (classLiteralTarget != null) {
@@ -715,7 +861,7 @@ class MockitoPatternParser {
             return null;
         }
 
-        Expression unwrapped = unwrapMockClassArgument(firstArgument);
+        Expression unwrapped = unwrapCastsAndParentheses(firstArgument);
         if (!(unwrapped instanceof ClassExpr)) {
             return null;
         }
@@ -727,7 +873,7 @@ class MockitoPatternParser {
         }
     }
 
-    private Expression unwrapMockClassArgument(Expression expression) {
+    private Expression unwrapCastsAndParentheses(Expression expression) {
         Expression current = expression;
         while (current instanceof CastExpr || current instanceof EnclosedExpr) {
             if (current instanceof CastExpr) {
@@ -838,6 +984,12 @@ class MockitoPatternParser {
 
         Method method = OverloadResolver.findByNameLoose(targetClass, stubbedMethodName);
         if (method == null) {
+            if (parser.isMarkParsedFromLlm()) {
+                parser.addWarning(outerCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
+                        "Ignored invalid Mockito doReturn(...).when(...)." + stubbedMethodName
+                                + "(...) stubbing: no matching method on mock target type");
+                return StubbingInfo.consumeOnly();
+            }
             return null;
         }
         if (isVoidReturn(method) && parser.isMarkParsedFromLlm()) {
@@ -888,7 +1040,7 @@ class MockitoPatternParser {
         if (!innerMethodCall.getScope().isPresent()) {
             return null;
         }
-        Expression innerScope = innerMethodCall.getScope().get();
+        Expression innerScope = unwrapCastsAndParentheses(innerMethodCall.getScope().get());
         if (!(innerScope instanceof NameExpr)) {
             return null;
         }
@@ -900,6 +1052,12 @@ class MockitoPatternParser {
 
         Method method = OverloadResolver.findByNameLoose(targetClass, stubbedMethodName);
         if (method == null) {
+            if (parser.isMarkParsedFromLlm()) {
+                parser.addWarning(outerCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
+                        "Ignored invalid Mockito when(...).thenReturn(...) stubbing: no method named "
+                                + stubbedMethodName + " on mock target type");
+                return StubbingInfo.consumeOnly();
+            }
             return null;
         }
         if (isVoidReturn(method) && parser.isMarkParsedFromLlm()) {
@@ -974,7 +1132,8 @@ class MockitoPatternParser {
     }
 
     private List<VariableReference> ensureStubbingValuesAvailableBeforeMock(VariableReference mockRef,
-                                                                            List<VariableReference> values) {
+                                                                            List<VariableReference> values,
+                                                                            com.github.javaparser.ast.Node diagnosticNode) {
         int mockPos = mockRef.getStPosition();
         List<VariableReference> adjusted = new ArrayList<>(values.size());
         Map<VariableReference, VariableReference> hoisted = new IdentityHashMap<>();
@@ -1003,6 +1162,13 @@ class MockitoPatternParser {
             if (parser.isMarkParsedFromLlm()) {
                 logger.debug("Could not hoist stubbing value '{}' before mock; using typed fallback value",
                         valueRef.getName());
+                if (diagnosticNode != null) {
+                    parser.addWarning(diagnosticNode, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
+                            "Stubbing return value '" + valueRef.getName()
+                                    + "' is defined later in the test than the mock receiver and could not be"
+                                    + " reordered; substituted a typed default value. Declare the value variable"
+                                    + " before the mock it is returned from.");
+                }
                 adjusted.add(parser.createTypedFallbackValue(valueRef.getType()));
             } else {
                 adjusted.add(valueRef);
@@ -1018,6 +1184,7 @@ class MockitoPatternParser {
         if (!(stmt instanceof PrimitiveStatement
                 || stmt instanceof org.evosuite.testcase.statements.NullStatement
                 || stmt instanceof org.evosuite.testcase.statements.ConstructorStatement
+                || stmt instanceof org.evosuite.testcase.statements.FunctionalMockStatement
                 || stmt instanceof org.evosuite.testcase.statements.EnumPrimitiveStatement
                 || stmt instanceof org.evosuite.testcase.statements.ArrayStatement)) {
             return false;
@@ -1046,10 +1213,14 @@ class MockitoPatternParser {
                 return null;
             }
             MethodCallExpr innerCall = (MethodCallExpr) whenArg;
-            if (!innerCall.getScope().isPresent() || !(innerCall.getScope().get() instanceof NameExpr)) {
+            if (!innerCall.getScope().isPresent()) {
                 return null;
             }
-            return ((NameExpr) innerCall.getScope().get()).getNameAsString();
+            Expression receiver = unwrapCastsAndParentheses(innerCall.getScope().get());
+            if (!(receiver instanceof NameExpr)) {
+                return null;
+            }
+            return ((NameExpr) receiver).getNameAsString();
         }
 
         if (expr.getScope().isPresent() && expr.getScope().get() instanceof MethodCallExpr) {
@@ -1092,6 +1263,34 @@ class MockitoPatternParser {
             return null;
         }
         return mockClass;
+    }
+
+    private Class<?> getCompatibleStaticMethodMockClass(Class<?> rawClass) {
+        if (!parser.isMarkParsedFromLlm() || rawClass == null) {
+            return null;
+        }
+        String canonicalName = rawClass.getCanonicalName();
+        if (canonicalName == null || canonicalName.isEmpty()) {
+            return null;
+        }
+
+        Class<?> mockClass;
+        try {
+            mockClass = MockList.getMockClass(canonicalName);
+        } catch (Throwable ignored) {
+            return null;
+        }
+        if (mockClass == null) {
+            return null;
+        }
+
+        if (OverrideMock.class.isAssignableFrom(mockClass)) {
+            return rawClass.isAssignableFrom(mockClass) ? mockClass : null;
+        }
+        if (StaticReplacementMock.class.isAssignableFrom(mockClass)) {
+            return mockClass;
+        }
+        return null;
     }
 
     private static String demockTypeTokens(String typeText) {

@@ -19,6 +19,12 @@
  */
 package org.evosuite.testcase;
 
+import com.github.javaparser.ParseProblemException;
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.body.VariableDeclarator;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.stmt.BlockStmt;
 import com.googlecode.gentyref.CaptureType;
 import com.googlecode.gentyref.GenericTypeReflector;
 import dk.brics.automaton.RegExp;
@@ -35,7 +41,6 @@ import org.evosuite.runtime.LenientMockAnswer;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
 import org.evosuite.runtime.mock.EvoSuiteMock;
-import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.EnvironmentDataStatement;
@@ -113,6 +118,9 @@ public class TestCodeVisitor extends TestVisitor {
     protected Map<VariableReference, String> argumentNames = new HashMap<>();
     private int nullDeclarationCounter = 0;
     private final Map<VariableReference, String> declarationVariableNames = new IdentityHashMap<>();
+    private static final Pattern ALL_NULL_MOCKITO_DORETURN_ARGS = Pattern.compile(
+            "\\s*(?:\\([^)]*\\)\\s*)?null\\s*(?:,\\s*(?:\\([^)]*\\)\\s*)?null\\s*)*");
+    private final Set<String> reservedLocalVariableNames = new LinkedHashSet<>();
     private final Map<Integer, List<Assertion>> deferredAssertionsByPosition = new HashMap<>();
 
     private Map<String, Map<VariableReference, String>> information = new HashMap<>();
@@ -521,6 +529,10 @@ public class TestCodeVisitor extends TestVisitor {
             return result;
         } else {
             VariableReference normalized = normalizeVariableReference(var);
+            String declaredName = declarationVariableNames.get(normalized);
+            if (declaredName != null && !declaredName.isEmpty()) {
+                return declaredName;
+            }
             if (VariableNameStrategyFactory.gatherInformation()) {
                 information.put("MethodNames", methodNames);
                 information.put("ArgumentNames", argumentNames);
@@ -540,13 +552,60 @@ public class TestCodeVisitor extends TestVisitor {
         if ("null".equals(name)) {
             name = "nullRef" + (nullDeclarationCounter++);
         }
+        name = ensureUniqueLocalVariableName(name);
         declarationVariableNames.put(normalized, name);
+        reservedLocalVariableNames.add(name);
         return name;
     }
 
+    private String ensureUniqueLocalVariableName(String baseName) {
+        String seed = (baseName == null || baseName.trim().isEmpty()) ? "var" : baseName.trim();
+        if (!isLocalNameReserved(seed)) {
+            return seed;
+        }
+        int suffix = 1;
+        String candidate = seed + "_" + suffix;
+        while (isLocalNameReserved(candidate)) {
+            suffix++;
+            candidate = seed + "_" + suffix;
+        }
+        return candidate;
+    }
+
+    private boolean isLocalNameReserved(String candidate) {
+        if (candidate == null || candidate.isEmpty()) {
+            return true;
+        }
+        if (reservedLocalVariableNames.contains(candidate)) {
+            return true;
+        }
+        if (declarationVariableNames.containsValue(candidate)) {
+            return true;
+        }
+        return containsIdentifier(testCode.toString(), candidate);
+    }
+
     private boolean canUseDirectFieldAccess(Field field, VariableReference source) {
-        Class<?> ownerClass = source != null ? source.getVariableClass() : field.getDeclaringClass();
-        return TestUsageChecker.canUse(field, ownerClass);
+        if (field == null) {
+            return false;
+        }
+        String testPackageName = getGeneratedTestPackageName();
+        if (!isTypeAccessibleFromGeneratedTest(field.getDeclaringClass(), testPackageName)) {
+            return false;
+        }
+        int modifiers = field.getModifiers();
+        if (Modifier.isPublic(modifiers)) {
+            return true;
+        }
+        if (Modifier.isPrivate(modifiers)) {
+            return false;
+        }
+        // Without a concrete output package we cannot safely assume package-private
+        // or protected access is legal; be conservative to avoid uncompilable tests.
+        if (isEmptyPackageName(testPackageName)) {
+            return false;
+        }
+        return isSamePackage(field.getDeclaringClass(), testPackageName);
     }
 
     private String getReflectiveFieldAccess(Field field, VariableReference source) {
@@ -560,6 +619,20 @@ public class TestCodeVisitor extends TestVisitor {
                 + ", \""
                 + field.getName()
                 + "\")";
+    }
+
+    private String getReflectiveFieldWrite(Field field, VariableReference source, String valueExpression) {
+        String receiver = source == null ? "null" : getVariableName(source);
+        return getClassName(PrivateAccess.class)
+                + ".setVariable("
+                + getClassName(field.getDeclaringClass())
+                + ".class, "
+                + receiver
+                + ", \""
+                + field.getName()
+                + "\", "
+                + valueExpression
+                + ")";
     }
 
     private String getFieldAccess(Field field, VariableReference source, String targetTypeName, boolean needsCast) {
@@ -696,6 +769,7 @@ public class TestCodeVisitor extends TestVisitor {
         this.testCode = new StringBuilder();
         this.nullDeclarationCounter = 0;
         this.declarationVariableNames.clear();
+        this.reservedLocalVariableNames.clear();
         this.deferredAssertionsByPosition.clear();
         if (!customVariableNameStrategy) {
             this.variableNameStrategy = VariableNameStrategyFactory.get();
@@ -1371,13 +1445,7 @@ public class TestCodeVisitor extends TestVisitor {
         } else if (statement instanceof ClassPrimitiveStatement) {
             StringBuilder builder = new StringBuilder();
             Class<?> literalClass = (Class<?>) value;
-            // Primitive/void class literals cannot appear as generic type arguments
-            // (e.g., Class<boolean> is illegal), so use wildcard in those cases.
-            if (literalClass != null && (literalClass.isPrimitive() || literalClass == Void.TYPE)) {
-                builder.append("Class<?>");
-            } else {
-                builder.append(getClassName(retval));
-            }
+            builder.append(getClassLiteralDeclarationTypeName(literalClass));
             builder.append(" ");
             builder.append(getDeclarationVariableName(retval));
             builder.append(" = ");
@@ -1390,6 +1458,21 @@ public class TestCodeVisitor extends TestVisitor {
                     + NumberFormatter.getNumberString(value, this) + ";" + NEWLINE);
         }
         addAssertions(statement);
+    }
+
+    private String getClassLiteralDeclarationTypeName(Class<?> literalClass) {
+        // Primitive/void class literals cannot appear as generic type arguments
+        // (e.g., Class<boolean> is illegal), so use wildcard in those cases.
+        if (literalClass == null || literalClass.isPrimitive() || literalClass == Void.TYPE) {
+            return "Class<?>";
+        }
+        if (!isTypeAccessibleFromGeneratedTest(literalClass, getGeneratedTestPackageName())) {
+            return "Class<?>";
+        }
+        // For class literals of generic raw classes, using wildcarded type arguments
+        // in the declaration (e.g., Class<List<?>> x = List.class) is not assignable.
+        // Emit the raw literal target type directly to preserve compilability.
+        return "Class<" + getClassName(literalClass) + ">";
     }
 
 
@@ -1512,12 +1595,10 @@ public class TestCodeVisitor extends TestVisitor {
                 // overloaded signatures. Otherwise it can introduce fragile type
                 // references that are unnecessary for compilation.
                 if (isOverloaded) {
-                    // For unresolved generic params (eg TypeVariable/Wildcard with erasure Object),
-                    // an explicit cast like (Object) null can break invocation on parameterized
-                    // receivers (eg List<Node>.add(E) rejects Object). Keep plain null.
-                    if (!isUnresolvedTypeVariableOrWildcard(declaredParamType)
-                            && !shouldSkipErasedObjectCast(declaredParamType, null, ownerType)) {
-                        parameterString += "(" + getTypeName(declaredParamType) + ") ";
+                    String nullCastTypeName = getNullCastTypeNameForOverloadedCall(
+                            declaredParamType, ownerType);
+                    if (nullCastTypeName != null) {
+                        parameterString += "(" + nullCastTypeName + ") ";
                     }
                 }
             } else if (!GenericClassUtils.isAssignable(declaredParamType, actualParamType)) {
@@ -1586,6 +1667,127 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return parameterString;
+    }
+
+    private String getNullCastTypeNameForOverloadedCall(Type declaredParamType, Type ownerType) {
+        if (declaredParamType == null) {
+            return null;
+        }
+        // For raw method owners on parameterized receivers, an erased (Object)
+        // cast can defeat generic method resolution and make valid code fail.
+        if (shouldSkipErasedObjectCast(declaredParamType, null, ownerType)) {
+            return null;
+        }
+        if (isUnresolvedTypeVariableOrWildcard(declaredParamType)) {
+            Class<?> erasedType = safeErasure(declaredParamType);
+            if (erasedType == null || erasedType == Object.class || erasedType.isPrimitive()) {
+                return null;
+            }
+            return getTypeName(erasedType);
+        }
+        return getTypeName(declaredParamType);
+    }
+
+    private boolean isRenderedNullArgument(VariableReference parameter) {
+        if (parameter == null) {
+            return false;
+        }
+        String rendered = getVariableName(parameter);
+        return "null".equals(rendered) || isNullInitializedVariable(parameter);
+    }
+
+    private boolean isApplicableAtInvocation(VariableReference argument, Class<?> parameterType) {
+        if (argument == null) {
+            return false;
+        }
+        if (isRenderedNullArgument(argument)) {
+            return parameterType == null || !parameterType.isPrimitive();
+        }
+        return argument.isAssignableTo(parameterType);
+    }
+
+    private boolean hasNullOverloadAmbiguity(Class<?>[] thisParameterTypes,
+                                             List<Class<?>[]> otherParameterTypes,
+                                             List<VariableReference> arguments,
+                                             int startPos) {
+        if (thisParameterTypes == null || arguments == null || otherParameterTypes == null) {
+            return false;
+        }
+        boolean hasRenderedNull = false;
+        for (int i = startPos; i < arguments.size() && i < thisParameterTypes.length; i++) {
+            if (isRenderedNullArgument(arguments.get(i))) {
+                hasRenderedNull = true;
+                break;
+            }
+        }
+        if (!hasRenderedNull) {
+            return false;
+        }
+
+        for (Class<?>[] candidateTypes : otherParameterTypes) {
+            if (candidateTypes == null || candidateTypes.length != thisParameterTypes.length) {
+                continue;
+            }
+            boolean allArgsApplicableToBoth = true;
+            boolean differsAtNullSlot = false;
+            for (int i = startPos; i < arguments.size() && i < thisParameterTypes.length; i++) {
+                VariableReference argument = arguments.get(i);
+                boolean thisApplicable = isApplicableAtInvocation(argument, thisParameterTypes[i]);
+                boolean candidateApplicable = isApplicableAtInvocation(argument, candidateTypes[i]);
+                if (!(thisApplicable && candidateApplicable)) {
+                    allArgsApplicableToBoth = false;
+                    break;
+                }
+                if (isRenderedNullArgument(argument) && !Objects.equals(thisParameterTypes[i], candidateTypes[i])) {
+                    differsAtNullSlot = true;
+                }
+            }
+            if (allArgsApplicableToBoth && differsAtNullSlot) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean requiresNullArgumentDisambiguation(Constructor<?> constructor,
+                                                       List<VariableReference> arguments,
+                                                       int startPos) {
+        if (constructor == null || arguments == null) {
+            return false;
+        }
+        Class<?>[] thisParameterTypes = constructor.getParameterTypes();
+        List<Class<?>[]> alternatives = new ArrayList<>();
+        for (Constructor<?> other : constructor.getDeclaringClass().getConstructors()) {
+            if (other.equals(constructor)) {
+                continue;
+            }
+            if (other.getParameterCount() == thisParameterTypes.length) {
+                alternatives.add(other.getParameterTypes());
+            }
+        }
+        return hasNullOverloadAmbiguity(thisParameterTypes, alternatives, arguments, startPos);
+    }
+
+    private boolean requiresNullArgumentDisambiguation(Method method,
+                                                       List<VariableReference> arguments,
+                                                       int startPos) {
+        if (method == null || arguments == null) {
+            return false;
+        }
+        Class<?>[] thisParameterTypes = method.getParameterTypes();
+        List<Class<?>[]> alternatives = new ArrayList<>();
+        for (Method other : method.getDeclaringClass().getMethods()) {
+            if (other.equals(method)) {
+                continue;
+            }
+            if (!other.getName().equals(method.getName())) {
+                continue;
+            }
+            if (other.getParameterCount() == thisParameterTypes.length) {
+                alternatives.add(other.getParameterTypes());
+            }
+        }
+        return hasNullOverloadAmbiguity(thisParameterTypes, alternatives, arguments, startPos);
     }
 
     private boolean shouldSkipErasedObjectCast(Type declaredParamType, Type actualParamType, Type ownerType) {
@@ -1779,6 +1981,11 @@ public class TestCodeVisitor extends TestVisitor {
         String returnExpression = normalizeBinaryInnerClassLiterals(statement.getReturnExpression());
         if (statement.isParsedFromLlm()) {
             code = promoteUndeclaredNewAssignmentsToDeclarations(code, statement.getBindings());
+            SnippetLocalNameNormalization normalization =
+                    normalizeLlmSnippetLocalNames(code, returnExpression);
+            code = normalization.code;
+            returnExpression = normalization.returnExpression;
+            reservedLocalVariableNames.addAll(normalization.declaredNames);
         }
         // Seed the import resolver with the statement return type before scanning
         // raw snippet text. This lets generic return signatures inside anonymous
@@ -1795,11 +2002,8 @@ public class TestCodeVisitor extends TestVisitor {
                 String originalName = entry.getKey();
                 String evoName = getSnippetBindingName(entry.getValue());
                 if (evoName != null && !originalName.equals(evoName)) {
-                    // Replace whole-word occurrences only (word boundary = not preceded/followed by
-                    // a Java identifier character).
-                    code = code.replaceAll(
-                            "(?<![A-Za-z0-9_$])" + java.util.regex.Pattern.quote(originalName) + "(?![A-Za-z0-9_$])",
-                            java.util.regex.Matcher.quoteReplacement(evoName));
+                    // Replace identifier usages in code only, not inside literals/comments.
+                    code = replaceIdentifierOutsideLiteralsAndComments(code, originalName, evoName);
                 }
             }
         }
@@ -1812,7 +2016,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
         if (returnExpression != null && !returnExpression.trim().isEmpty()
                 && !statement.getReturnValue().isVoid()) {
-            String generatedName = getVariableName(statement.getReturnValue());
+            String generatedName = getDeclarationVariableName(statement.getReturnValue());
             if (generatedName != null && !generatedName.equals(returnExpression.trim())) {
                 testCode.append(getClassName(statement.getReturnValue()))
                         .append(" ")
@@ -1824,6 +2028,203 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
         addAssertions(statement);
+    }
+
+    private SnippetLocalNameNormalization normalizeLlmSnippetLocalNames(String code,
+                                                                        String returnExpression) {
+        if (code == null || code.trim().isEmpty()) {
+            return new SnippetLocalNameNormalization(code, returnExpression, Collections.<String>emptySet());
+        }
+        try {
+            BlockStmt block = StaticJavaParser.parseBlock("{\n" + code + "\n}");
+            Map<String, String> renames = new LinkedHashMap<>();
+            Set<String> declaredNames = new LinkedHashSet<>();
+
+            for (VariableDeclarator declarator : block.findAll(VariableDeclarator.class)) {
+                String original = declarator.getNameAsString();
+                String candidate = original;
+                if (isLocalNameReserved(candidate) || declaredNames.contains(candidate)) {
+                    candidate = ensureUniqueLocalVariableName(candidate);
+                    renames.put(original, candidate);
+                }
+                declarator.setName(candidate);
+                declaredNames.add(candidate);
+            }
+
+            for (Parameter parameter : block.findAll(Parameter.class)) {
+                String original = parameter.getNameAsString();
+                String candidate = original;
+                if (isLocalNameReserved(candidate) || declaredNames.contains(candidate)) {
+                    candidate = ensureUniqueLocalVariableName(candidate);
+                    renames.put(original, candidate);
+                }
+                parameter.setName(candidate);
+                declaredNames.add(candidate);
+            }
+
+            if (!renames.isEmpty()) {
+                for (NameExpr nameExpr : block.findAll(NameExpr.class)) {
+                    String replacement = renames.get(nameExpr.getNameAsString());
+                    if (replacement != null && !replacement.equals(nameExpr.getNameAsString())) {
+                        nameExpr.setName(replacement);
+                    }
+                }
+                if (returnExpression != null && !returnExpression.isEmpty()) {
+                    for (Map.Entry<String, String> entry : renames.entrySet()) {
+                        returnExpression = replaceIdentifierOutsideLiteralsAndComments(
+                                returnExpression, entry.getKey(), entry.getValue());
+                    }
+                }
+            }
+
+            return new SnippetLocalNameNormalization(
+                    stripBlockBraces(block.toString()),
+                    returnExpression,
+                    declaredNames);
+        } catch (ParseProblemException ignored) {
+            return new SnippetLocalNameNormalization(code, returnExpression, Collections.<String>emptySet());
+        }
+    }
+
+    private String stripBlockBraces(String blockSource) {
+        if (blockSource == null) {
+            return null;
+        }
+        String trimmed = blockSource.trim();
+        if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+            return blockSource;
+        }
+        String withoutLeading = trimmed.substring(1);
+        String withoutBraces = withoutLeading.substring(0, withoutLeading.length() - 1);
+        return withoutBraces.trim();
+    }
+
+    private static final class SnippetLocalNameNormalization {
+        private final String code;
+        private final String returnExpression;
+        private final Set<String> declaredNames;
+
+        private SnippetLocalNameNormalization(String code,
+                                              String returnExpression,
+                                              Set<String> declaredNames) {
+            this.code = code;
+            this.returnExpression = returnExpression;
+            this.declaredNames = declaredNames == null
+                    ? Collections.<String>emptySet()
+                    : declaredNames;
+        }
+    }
+
+    private String replaceIdentifierOutsideLiteralsAndComments(String source,
+                                                               String identifier,
+                                                               String replacement) {
+        if (source == null || source.isEmpty()
+                || identifier == null || identifier.isEmpty()
+                || replacement == null) {
+            return source;
+        }
+
+        StringBuilder out = new StringBuilder(source.length());
+        int i = 0;
+        while (i < source.length()) {
+            char c = source.charAt(i);
+
+            if (c == '"' || c == '\'') {
+                i = copyQuotedLiteral(source, i, out, c);
+                continue;
+            }
+            if (c == '/' && i + 1 < source.length()) {
+                char next = source.charAt(i + 1);
+                if (next == '/') {
+                    i = copyLineComment(source, i, out);
+                    continue;
+                }
+                if (next == '*') {
+                    i = copyBlockComment(source, i, out);
+                    continue;
+                }
+            }
+
+            if (startsWithIdentifier(source, i, identifier)
+                    && isIdentifierBoundary(source, i - 1)
+                    && isIdentifierBoundary(source, i + identifier.length())) {
+                out.append(replacement);
+                i += identifier.length();
+                continue;
+            }
+
+            out.append(c);
+            i++;
+        }
+        return out.toString();
+    }
+
+    private int copyQuotedLiteral(String source, int start, StringBuilder out, char quote) {
+        int i = start;
+        out.append(source.charAt(i++));
+        while (i < source.length()) {
+            char current = source.charAt(i);
+            out.append(current);
+            i++;
+            if (current == '\\' && i < source.length()) {
+                out.append(source.charAt(i));
+                i++;
+                continue;
+            }
+            if (current == quote) {
+                break;
+            }
+        }
+        return i;
+    }
+
+    private int copyLineComment(String source, int start, StringBuilder out) {
+        int i = start;
+        while (i < source.length()) {
+            char c = source.charAt(i);
+            out.append(c);
+            i++;
+            if (c == '\n') {
+                break;
+            }
+        }
+        return i;
+    }
+
+    private int copyBlockComment(String source, int start, StringBuilder out) {
+        int i = start;
+        out.append(source.charAt(i++)); // '/'
+        if (i < source.length()) {
+            out.append(source.charAt(i++)); // '*'
+        }
+        while (i < source.length()) {
+            char c = source.charAt(i);
+            out.append(c);
+            i++;
+            if (c == '*' && i < source.length() && source.charAt(i) == '/') {
+                out.append(source.charAt(i));
+                i++;
+                break;
+            }
+        }
+        return i;
+    }
+
+    private boolean startsWithIdentifier(String source, int offset, String identifier) {
+        int remaining = source.length() - offset;
+        return remaining >= identifier.length()
+                && source.regionMatches(offset, identifier, 0, identifier.length());
+    }
+
+    private boolean isIdentifierBoundary(String source, int index) {
+        if (index < 0 || index >= source.length()) {
+            return true;
+        }
+        return !isJavaIdentifierChar(source.charAt(index));
+    }
+
+    private boolean isJavaIdentifierChar(char c) {
+        return Character.isLetterOrDigit(c) || c == '_' || c == '$';
     }
 
     /**
@@ -1947,6 +2348,13 @@ public class TestCodeVisitor extends TestVisitor {
         registerSnippetImports(combined, "\\binstanceof\\s+([A-Z][A-Za-z0-9_]*)\\b", boundNames, seen);
         registerSnippetImports(combined,
                 "\\bnew\\s+([A-Z][A-Za-z0-9_]*)\\s*(?:<[^>]*>)?\\s*\\(",
+                boundNames,
+                seen);
+        // Array creation: "new Foo[0]" / "new Foo[N][]". Lambdas preserved as
+        // UninterpretedStatements often contain inline array creations whose
+        // simple type names would otherwise miss the constructor-call regex.
+        registerSnippetImports(combined,
+                "\\bnew\\s+([A-Z][A-Za-z0-9_]*)\\s*\\[",
                 boundNames,
                 seen);
         // Method return types inside preserved anonymous classes / local classes,
@@ -2073,6 +2481,7 @@ public class TestCodeVisitor extends TestVisitor {
                 "java.math",
                 "java.lang.reflect",
                 "java.awt",
+                "java.awt.event",
                 "javax.naming",
                 "javax.naming.directory",
                 "javax.naming.ldap",
@@ -2102,6 +2511,29 @@ public class TestCodeVisitor extends TestVisitor {
             Class<?> sibling = tryLoadClass(pkg + "." + simpleName, sut);
             if (sibling != null) {
                 return sibling;
+            }
+        }
+
+        // Try parent-package siblings of already-known classes. This handles
+        // snippets that refer to project-level utility types (e.g. Constants)
+        // while the known CUT/collaborators are in deeper subpackages.
+        for (Class<?> knownClass : classNames.keySet()) {
+            Package knownPackage = knownClass.getPackage();
+            if (knownPackage == null) {
+                continue;
+            }
+            String pkg = knownPackage.getName();
+            if (pkg == null || pkg.isEmpty()) {
+                continue;
+            }
+            int lastDot = pkg.lastIndexOf('.');
+            while (lastDot > 0) {
+                pkg = pkg.substring(0, lastDot);
+                Class<?> parentSibling = tryLoadClass(pkg + "." + simpleName, sut);
+                if (parentSibling != null) {
+                    return parentSibling;
+                }
+                lastDot = pkg.lastIndexOf('.');
             }
         }
 
@@ -2471,6 +2903,7 @@ public class TestCodeVisitor extends TestVisitor {
                     }
 
                     parameterString = getParameterString(types, params, false, isOverloaded, 0);
+                    parameterString = inlineForwardReferencedMockReturnValues(parameterString, params, st.getPosition());
                     parameterString = sanitizeMockitoDoReturnArguments(parameterString, params);
                     // TODO unsure of these parameters
                 } else {
@@ -2478,6 +2911,7 @@ public class TestCodeVisitor extends TestVisitor {
                     //if return type is a primitive, then things can get complicated due to autoboxing :(
 
                     parameterString = getParameterStringForFMthatReturnPrimitive(returnType.getRawClass(), params);
+                    parameterString = inlineForwardReferencedMockReturnValues(parameterString, params, st.getPosition());
                 }
 
                 // this does not work when throwing exception as default answer
@@ -2608,25 +3042,94 @@ public class TestCodeVisitor extends TestVisitor {
         if (parameterString == null || parameterString.isEmpty() || params == null || params.isEmpty()) {
             return parameterString;
         }
-        boolean allNull = true;
+        boolean allNullByReference = true;
         for (VariableReference param : params) {
             if (!(param instanceof NullReference)) {
-                allNull = false;
+                allNullByReference = false;
                 break;
             }
         }
-        if (!allNull) {
+        boolean allNullByLiteral = ALL_NULL_MOCKITO_DORETURN_ARGS.matcher(parameterString).matches();
+        if (!allNullByReference && !allNullByLiteral) {
             return parameterString;
         }
 
+        int argumentCount = allNullByReference ? params.size() : parameterString.split(",").length;
         StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < params.size(); i++) {
+        for (int i = 0; i < argumentCount; i++) {
             if (i > 0) {
                 sb.append(", ");
             }
             sb.append("(Object) null");
         }
         return sb.toString();
+    }
+
+    /**
+     * Functional-mock stubbing occasionally references values that are declared
+     * later in the statement list (e.g., doReturn(int0)... with int0 declared
+     * after the mock statement). Such forward references are not legal Java.
+     * For primitive/null/enum/class literal statements we can safely inline the
+     * literal expression to keep emitted code compilable.
+     */
+    private String inlineForwardReferencedMockReturnValues(String parameterString,
+                                                           List<VariableReference> params,
+                                                           int mockStatementPosition) {
+        if (parameterString == null || parameterString.isEmpty() || params == null || params.isEmpty()
+                || test == null) {
+            return parameterString;
+        }
+        String rewritten = parameterString;
+        for (VariableReference param : params) {
+            if (param == null) {
+                continue;
+            }
+            int position = safePosition(normalizeVariableReference(param));
+            if (position <= mockStatementPosition || position >= test.size()) {
+                continue;
+            }
+            String variableName = getVariableName(param);
+            if (variableName == null || variableName.isEmpty()) {
+                continue;
+            }
+            String inlineValue = getInlineValueExpressionForForwardReference(position);
+            if (inlineValue == null || inlineValue.isEmpty()) {
+                continue;
+            }
+            rewritten = rewritten.replaceAll(
+                    "(?<![A-Za-z0-9_$])" + Pattern.quote(variableName) + "(?![A-Za-z0-9_$])",
+                    java.util.regex.Matcher.quoteReplacement(inlineValue));
+        }
+        return rewritten;
+    }
+
+    private String getInlineValueExpressionForForwardReference(int statementPosition) {
+        Statement sourceStatement = test.getStatement(statementPosition);
+        if (sourceStatement instanceof NullStatement) {
+            return "null";
+        }
+        if (sourceStatement instanceof EnumPrimitiveStatement<?>) {
+            return getEnumValue((EnumPrimitiveStatement<?>) sourceStatement);
+        }
+        if (sourceStatement instanceof ClassPrimitiveStatement) {
+            Object value = ((ClassPrimitiveStatement) sourceStatement).getValue();
+            if (!(value instanceof Class<?>)) {
+                return null;
+            }
+            return getClassName((Class<?>) value) + ".class";
+        }
+        if (sourceStatement instanceof StringPrimitiveStatement) {
+            Object value = ((StringPrimitiveStatement) sourceStatement).getValue();
+            if (value == null) {
+                return "null";
+            }
+            return "\"" + StringUtil.getEscapedString((String) value) + "\"";
+        }
+        if (sourceStatement instanceof PrimitiveStatement<?>) {
+            Object value = ((PrimitiveStatement<?>) sourceStatement).getValue();
+            return NumberFormatter.getNumberString(value, this);
+        }
+        return null;
     }
 
 
@@ -2695,9 +3198,11 @@ public class TestCodeVisitor extends TestVisitor {
         Type ownerTypeForParameterRendering = statement.getCallee() != null
                 ? statement.getCallee().getType()
                 : method.getOwnerType();
+        boolean overloadedMethodCall = method.isOverloaded(parameters)
+                || requiresNullArgumentDisambiguation(method.getMethod(), parameters, 0);
         String parameterString = getParameterString(method.getParameterTypes(),
                 parameters, isGenericMethod,
-                method.isOverloaded(parameters), 0, ownerTypeForParameterRendering);
+                overloadedMethodCall, 0, ownerTypeForParameterRendering);
 
         String calleeStr = "";
         boolean requiresReturnCast = !unused
@@ -3201,9 +3706,11 @@ public class TestCodeVisitor extends TestVisitor {
             startPos = 1;
         }
         Type[] parameterTypes = constructor.getParameterTypes();
+        boolean overloadedConstructorCall = constructor.isOverloaded(parameters)
+                || requiresNullArgumentDisambiguation(rawConstructor, parameters, startPos);
         String parameterString = getParameterString(parameterTypes, parameters,
                 isGenericConstructor,
-                constructor.isOverloaded(parameters),
+                overloadedConstructorCall,
                 startPos);
 
         // Use the constructor's owner type for the LHS declaration so that it
@@ -3266,7 +3773,7 @@ public class TestCodeVisitor extends TestVisitor {
             result += ");" + NEWLINE;
             result += constructorVarName + ".setAccessible(true);" + NEWLINE;
             String reflectiveParameterString = getParameterString(parameterTypes, parameters,
-                    isGenericConstructor, constructor.isOverloaded(parameters), 0);
+                    isGenericConstructor, overloadedConstructorCall, 0);
             reflectiveParameterString = normalizeReflectiveVarargsArguments(
                     reflectiveParameterString, rawParameterTypes.length);
             result += declarationPrefix + declarationVarName
@@ -3412,6 +3919,40 @@ public class TestCodeVisitor extends TestVisitor {
         return false;
     }
 
+    private static boolean isTransientGuiEnvironmentError(Throwable t) {
+        if (t == null) {
+            return false;
+        }
+
+        if (!(t instanceof NullPointerException
+                || t instanceof IllegalStateException
+                || t instanceof NoClassDefFoundError
+                || t instanceof ExceptionInInitializerError
+                || t instanceof UnsatisfiedLinkError
+                || t instanceof InternalError
+                || t instanceof java.awt.AWTError)) {
+            return false;
+        }
+
+        for (Throwable current = t; current != null; current = current.getCause()) {
+            for (StackTraceElement ste : current.getStackTrace()) {
+                String cn = ste.getClassName();
+                if (cn == null) {
+                    continue;
+                }
+                if (cn.startsWith("java.awt.")
+                        || cn.startsWith("javax.swing.")
+                        || cn.startsWith("sun.awt.")
+                        || cn.startsWith("sun.swing.")
+                        || cn.startsWith("sun.java2d.")
+                        || cn.startsWith("com.apple.laf.")) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     /**
      * Generates a fail assertion for being inserted after a statement
      * generating an exception. Parameter "statement" is not used in the default
@@ -3426,7 +3967,9 @@ public class TestCodeVisitor extends TestVisitor {
 
         // boolean isExpected = getDeclaredExceptions().contains(ex);
         // if (isExpected)
-        if (isHeadlessExceptionType(ex) || isEvoReflectionHelperError(exception)) {
+        if (isHeadlessExceptionType(ex)
+                || isEvoReflectionHelperError(exception)
+                || isTransientGuiEnvironmentError(exception)) {
             return "";
         }
 
@@ -3539,6 +4082,19 @@ public class TestCodeVisitor extends TestVisitor {
                 }
             } else {
                 cast = "(" + getClassName(retval) + ") ";
+            }
+        }
+
+        if (retval instanceof FieldReference) {
+            FieldReference fieldReference = (FieldReference) retval;
+            Field field = fieldReference.getField().getField();
+            VariableReference source = fieldReference.getSource();
+            if (!canUseDirectFieldAccess(field, source)) {
+                String valueExpression = cast + getVariableName(parameter);
+                testCode.append(getReflectiveFieldWrite(field, source, valueExpression)
+                        + ";" + NEWLINE);
+                addAssertions(statement);
+                return;
             }
         }
 

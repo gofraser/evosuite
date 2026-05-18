@@ -125,6 +125,11 @@ public class TestRepairLoop {
     private static final String EXPLICIT_REPAIR_ACTION_MARKER = "LLM_REPAIR_ACTION_REQUIRED:";
     private static final Pattern EXPLICIT_REPAIR_ACTION_PATTERN = Pattern.compile(
             EXPLICIT_REPAIR_ACTION_MARKER + "\\s*(.*)$");
+    private static final Pattern MISSING_METHOD_DIAGNOSTIC_PATTERN = Pattern.compile(
+            "No method named\\s+([A-Za-z_][A-Za-z0-9_$]*)\\s+in\\s+([A-Za-z_][A-Za-z0-9_$.]+)",
+            Pattern.CASE_INSENSITIVE);
+    private static final Pattern METHOD_SIGNATURE_PATTERN = Pattern.compile(
+            "\\b([A-Za-z_][A-Za-z0-9_$]*)\\s*\\(([^\\)]*)\\)");
     private static final Pattern INVENTED_UNKNOWN_TYPE_PATTERN = Pattern.compile(
             "replace invented/unknown type '([A-Za-z_][A-Za-z0-9_$.]*)'",
             Pattern.CASE_INSENSITIVE);
@@ -143,7 +148,10 @@ public class TestRepairLoop {
                     + "location:\\s+variable\\s+([A-Za-z_][A-Za-z0-9_$]*)\\s+of\\s+type\\s+([A-Za-z_][A-Za-z0-9_$.]*)",
             Pattern.MULTILINE | Pattern.DOTALL);
     private static final Pattern MALFORMED_IMPORT_LINE_PATTERN = Pattern.compile(
-            "(?m)^\\s*import\\s+(?:static\\s+)?[^;]*[/\\\\][^;]*;\\s*$");
+            "(?m)^\\s*import\\s+(?:static\\s+)?[^;]*([/\\\\]|\\s+as\\s+)[^;]*;\\s*$");
+
+    private static final Pattern ALIASED_IMPORT_PATTERN = Pattern.compile(
+            "(?m)^\\s*import\\s+[^;]+\\s+as\\s+([^;]+);\\s*$", Pattern.CASE_INSENSITIVE);
     private static final ExecutorService PARSE_COMPILE_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "evosuite-llm-parse-compile");
         t.setDaemon(true);
@@ -156,6 +164,14 @@ public class TestRepairLoop {
             "AccessControlException",
             "java.security.AccessControlException"
     ));
+    /**
+     * FQCN prefix for exceptions thrown by EvoSuite's mock runtime. Anything
+     * under this package is produced deterministically by the harness, not by
+     * the SUT, so no test can avoid it: instead of dropping such tests as
+     * failures, we accept them for coverage purposes.
+     */
+    static final String SHADED_MOCK_RUNTIME_PACKAGE_PREFIX =
+            "shaded.org.evosuite.runtime.mock.";
     private static final Set<String> DEPENDENCY_MISSING_MARKERS = new HashSet<>(Arrays.asList(
             "NoClassDefFoundError",
             "ClassNotFoundException",
@@ -186,6 +202,10 @@ public class TestRepairLoop {
             "MissingMethodInvocationException",
             "org.mockito.exceptions.misusing"
     ));
+    private static final Pattern FALSE_POSITIVE_MOCK_CALL_PATTERN = Pattern.compile(
+            "Mock call to\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s+which was not presented when the test was generated");
+    private static final Pattern FALSE_POSITIVE_MOCK_SIGNATURE_PATTERN = Pattern.compile(
+            "(?:\\[Dependency Stack\\]\\s+)?([A-Za-z_$][A-Za-z0-9_.$]*)\\.([A-Za-z_$][A-Za-z0-9_$]*)\\(");
     private static final Set<String> INDEXED_FIXTURE_FAILURE_MARKERS = new HashSet<>(Arrays.asList(
             "ArrayIndexOutOfBoundsException",
             "IndexOutOfBoundsException",
@@ -201,7 +221,64 @@ public class TestRepairLoop {
     private final String systemPrompt;
     private final String sutContextSummary;
     private final RepairOptions repairOptions;
+    private final DependencyCodeContextResolver dependencyCodeResolver = new DependencyCodeContextResolver();
+    private final RepairHintResolver repairHintResolver = new RepairHintResolver();
     private boolean expansionAttempted;
+    /** FQCNs whose static initializer has failed during this repair conversation. */
+    private final Set<String> poisonedClasses = new LinkedHashSet<>();
+    /** Hint-id -> last repair attempt where it was emitted, for cooldown/dedup. */
+    private final Map<String, Integer> hintLastShownAttemptById = new LinkedHashMap<>();
+    /**
+     * Access-violation tracking keys ("memberName:declaringClass") accumulated
+     * across repair attempts. Used to detect recurrent inaccessible-member
+     * errors and escalate to early termination.
+     */
+    private final Set<String> seenAccessViolations = new LinkedHashSet<>();
+
+    /**
+     * One-shot flag: set when the loop encounters an identical-error retry on
+     * a headless/AWT failure and decides to escalate (do not skip; instead
+     * inject a stronger "use Mockito.mock(SUT.class)" instruction). The next
+     * repair message includes the escalation hint, after which this flag stays
+     * true so we do not bypass the identical-error skip again in the same
+     * conversation.
+     */
+    private boolean headlessRepairEscalated;
+
+    /**
+     * One-shot flag: set when the loop encounters an identical-error retry
+     * that does not match any of the more specific escalation paths (headless,
+     * access-violation, dependency-missing). Allows exactly one more repair
+     * turn with a generic "the environment cannot satisfy this assumption,
+     * change the expected exception or drop the test" nudge prepended to the
+     * user message before falling back to abort.
+     */
+    private boolean identicalErrorEscalated;
+
+    /**
+     * Transient text injected at the top of the next repair user message. Used
+     * by escalation paths to communicate a single high-priority directive that
+     * must not be diluted by the rest of the rule-based hint blocks. Cleared
+     * after it is consumed so the same hint is not repeated on later turns.
+     */
+    private String pendingTopOfMessageEscalationHint;
+
+    /**
+     * Per-test execution failure: the formatted error string, the originating
+     * throwable (used for dependency-code lookup), and the failing statement
+     * position when known.
+     */
+    private static final class ExecutionFailureContext {
+        final String errorMessage;
+        final Throwable throwable;
+        final Integer failingPosition;
+
+        ExecutionFailureContext(String errorMessage, Throwable throwable, Integer failingPosition) {
+            this.errorMessage = errorMessage;
+            this.throwable = throwable;
+            this.failingPosition = failingPosition;
+        }
+    }
 
     /**
      * Options controlling parse-repair behavior.
@@ -352,6 +429,16 @@ public class TestRepairLoop {
         Map<String, ParseResult> salvagedExecutableTests = new LinkedHashMap<>();
         String currentResponse = llmResponse;
         int attemptsUsed = 0;
+        // Conversation-scoped state: any class poisoned in a previous turn must
+        // remain in the avoidance instructions, even when later turns surface
+        // different errors.
+        poisonedClasses.clear();
+        hintLastShownAttemptById.clear();
+        seenAccessViolations.clear();
+        headlessRepairEscalated = false;
+        identicalErrorEscalated = false;
+        pendingTopOfMessageEscalationHint = null;
+        boolean observedExecutionDrop = false;
         String previousError = null;
 
         // Accumulate the full conversation so repair requests include prior turns
@@ -385,7 +472,8 @@ public class TestRepairLoop {
                 String parserFailureText = "Parser failure: " + formatThrowable(parserFailure);
                 diagnostics.add(parserFailureText);
                 String next = tryRepair(parserFailureText, attempt, previousError, diagnostics,
-                        conversation, currentResponse, feature, expandedClasses);
+                        conversation, currentResponse, feature, expandedClasses,
+                        Collections.<ParseResult, ExecutionFailureContext>emptyMap());
                 if (next == null) {
                     break;
                 }
@@ -398,7 +486,8 @@ public class TestRepairLoop {
                 String parseErrorText = buildNoTestMethodsParseError(extractedClass);
                 diagnostics.add(parseErrorText);
                 String next = tryRepair(parseErrorText, attempt, previousError, diagnostics,
-                        conversation, currentResponse, feature, expandedClasses);
+                        conversation, currentResponse, feature, expandedClasses,
+                        Collections.<ParseResult, ExecutionFailureContext>emptyMap());
                 if (next == null) {
                     break;
                 }
@@ -480,15 +569,15 @@ public class TestRepairLoop {
             // Execute valid tests and split into executable (kept) and dropped-at-execution.
             List<ParseResult> finalTests = new ArrayList<>();
             List<ParseResult> droppedAtExecution = new ArrayList<>();
-            Map<ParseResult, String> executionErrorByTest = new LinkedHashMap<>();
+            Map<ParseResult, ExecutionFailureContext> executionErrorByTest = new LinkedHashMap<>();
             for (ParseResult pr : validTests) {
-                String executionError = checkExecution(pr, repairOptions);
-                if (executionError == null) {
+                ExecutionFailureContext failure = checkExecution(pr, repairOptions);
+                if (failure == null) {
                     finalTests.add(pr);
                 } else {
                     droppedAtExecution.add(pr);
-                    executionErrorByTest.put(pr, executionError);
-                    diagnostics.add(executionError);
+                    executionErrorByTest.put(pr, failure);
+                    diagnostics.add(failure.errorMessage);
                 }
             }
 
@@ -510,9 +599,13 @@ public class TestRepairLoop {
                     + " executable test(s), " + droppedAtParse.size()
                     + " failed to parse, " + droppedAtExecution.size()
                     + " failed to execute. Requesting repair with combined diagnostics.");
+            if (!droppedAtExecution.isEmpty()) {
+                observedExecutionDrop = true;
+            }
 
             String next = tryRepair(combinedError, attempt, previousError, diagnostics,
-                    conversation, currentResponse, feature, expandedClasses);
+                    conversation, currentResponse, feature, expandedClasses,
+                    executionErrorByTest);
             if (next == null) {
                 // Final-resort: perform brute-force salvage on failed tests
                 List<ParseResult> allFailedTests = new ArrayList<>(droppedAtParse);
@@ -542,6 +635,24 @@ public class TestRepairLoop {
             return RepairResult.success(new ArrayList<>(salvagedExecutableTests.values()),
                     diagnostics, attemptsUsed, expandedClasses);
         }
+        if (observedExecutionDrop) {
+            // Distinct, easily greppable signal: every parsed candidate was
+            // dropped at execution and no covering chromosome was salvaged.
+            // Useful for triaging classes where the LLM "succeeds" but the
+            // population is left empty.
+            diagnostics.add("All LLM candidate tests dropped at execution; "
+                    + "no covering chromosome obtained.");
+            try {
+                org.evosuite.rmi.ClientServices.track(
+                        org.evosuite.statistics.RuntimeVariable.LLM_All_Candidates_Dropped_Execution,
+                        1);
+            } catch (Throwable trackingFailure) {
+                logger.debug("Could not publish LLM_All_Candidates_Dropped_Execution stat",
+                        trackingFailure);
+            }
+            logger.warn("LLM seeding for {} dropped every candidate at execution after {} attempt(s)",
+                    Properties.TARGET_CLASS, attemptsUsed);
+        }
         return RepairResult.failure(diagnostics, attemptsUsed, expandedClasses);
     }
 
@@ -567,8 +678,11 @@ public class TestRepairLoop {
         logger.warn("Attempting brute-force salvage for test case: {}", failedTestCase.getID());
         TestCase salvaged = failedTestCase.clone();
 
-        // 1. Initial attempt: remove assertions
-        salvaged.removeAssertions();
+        // 1. Initial attempt: remove assertions and assertion-only raw snippets.
+        LlmAssertionSanitizer.sanitize(salvaged);
+
+        // Force reset to align with strict JUnitAnalyzer check
+        ClassReInitializer.getInstance().resetAllInitializedClasses(1);
         ExecutionResult result = TestCaseExecutor.runTest(salvaged);
 
         if (result.noThrownExceptions()) {
@@ -578,15 +692,29 @@ public class TestRepairLoop {
             }
             logger.warn("Discarded salvaged test {} as it is not meaningful.", failedTestCase.getID());
             return Optional.empty();
-            }
+        }
 
-            // 2. Iterative truncation at failure site
-            while (!result.noThrownExceptions()) {
+        // 1b. If the throwing statement IS the SUT's meaningful entry call,
+        // chopping it would remove the only line worth keeping. Instead, drop
+        // everything AFTER the failing call and keep the test as a "covering
+        // throw" — the chromosome will exercise the SUT up to the throw point,
+        // and the test writer wraps it in a try/fail block at render time.
+        Optional<TestCase> coveringThrow = trySalvageAsCoveringSutThrow(salvaged, result, failedTestCase);
+        if (coveringThrow.isPresent()) {
+            return coveringThrow;
+        }
+
+        // 2. Iterative truncation at failure site
+        while (!result.noThrownExceptions()) {
             Map<Integer, Throwable> exceptionMapping = result.getCopyOfExceptionMapping();
             Integer failIndex = exceptionMapping.keySet().stream().min(Integer::compareTo).orElse(-1);
             if (failIndex == null || failIndex <= 0) break;
 
             salvaged.chop(failIndex);
+            LlmAssertionSanitizer.sanitize(salvaged);
+
+            // Force reset again for the truncated test
+            ClassReInitializer.getInstance().resetAllInitializedClasses(1);
             result = TestCaseExecutor.runTest(salvaged);
 
             if (result.noThrownExceptions()) {
@@ -597,22 +725,84 @@ public class TestRepairLoop {
                 logger.warn("Discarded salvaged test {} after truncation as it is not meaningful.", failedTestCase.getID());
                 return Optional.empty();
             }
-            }
+        }
 
-            logger.warn("Failed to salvage test case: {}", failedTestCase.getID());
+        logger.warn("Failed to salvage test case: {}", failedTestCase.getID());
+        return Optional.empty();
+    }
+
+    /**
+     * If the failing index of <code>salvaged</code> points at a statement that
+     * invokes the SUT directly (a method call on the target class, or a
+     * constructor of the target class), keep the test as a covering-throw
+     * chromosome. The throwing statement stays; everything after it is
+     * removed. The test still throws when re-run, but it now genuinely
+     * exercises the SUT and contributes coverage up to the throw point.
+     */
+    private Optional<TestCase> trySalvageAsCoveringSutThrow(TestCase salvaged,
+                                                            ExecutionResult result,
+                                                            TestCase failedTestCase) {
+        if (salvaged == null || result == null || result.noThrownExceptions()) {
             return Optional.empty();
+        }
+        Map<Integer, Throwable> exceptionMapping = result.getCopyOfExceptionMapping();
+        Integer failIndex = exceptionMapping.keySet().stream().min(Integer::compareTo).orElse(-1);
+        if (failIndex == null || failIndex < 0 || failIndex >= salvaged.size()) {
+            return Optional.empty();
+        }
+        org.evosuite.testcase.statements.Statement failStmt = salvaged.getStatement(failIndex);
+        if (!isSutCallStatement(failStmt)) {
+            return Optional.empty();
+        }
+        // Trim everything after the failing statement (keep [0..failIndex]).
+        if (salvaged.size() > failIndex + 1) {
+            salvaged.chop(failIndex + 1);
+        }
+        // Strip any assertions that may now be dangling.
+        LlmAssertionSanitizer.sanitize(salvaged);
+        if (!isMeaningful(salvaged)) {
+            return Optional.empty();
+        }
+        Throwable thrown = exceptionMapping.get(failIndex);
+        String thrownName = thrown == null ? "<unknown>" : thrown.getClass().getName();
+        logger.warn("Salvaged test {} as covering-throw at SUT call (index {}, exception {}).",
+                failedTestCase.getID(), failIndex, thrownName);
+        return Optional.of(salvaged);
+    }
+
+    /**
+     * True when the statement is a direct invocation of the SUT (a method
+     * declared by the target class, or a constructor of the target class).
+     * Used by the salvage path to recognize the only line worth keeping when
+     * the LLM-generated test throws at the SUT entry point.
+     */
+    private boolean isSutCallStatement(org.evosuite.testcase.statements.Statement statement) {
+        if (statement == null || Properties.TARGET_CLASS == null) {
+            return false;
+        }
+        if (statement instanceof org.evosuite.testcase.statements.MethodStatement) {
+            org.evosuite.testcase.statements.MethodStatement ms =
+                    (org.evosuite.testcase.statements.MethodStatement) statement;
+            Class<?> declaring = ms.getMethod() == null ? null
+                    : ms.getMethod().getDeclaringClass();
+            return declaring != null
+                    && Properties.TARGET_CLASS.equals(declaring.getName());
+        }
+        if (statement instanceof org.evosuite.testcase.statements.ConstructorStatement) {
+            org.evosuite.testcase.statements.ConstructorStatement cs =
+                    (org.evosuite.testcase.statements.ConstructorStatement) statement;
+            if (cs.getReturnValue() == null
+                    || cs.getReturnValue().getVariableClass() == null) {
+                return false;
             }
-    private boolean isMeaningful(TestCase testCase) {
-        for (org.evosuite.testcase.statements.Statement s : testCase) {
-            if (s instanceof org.evosuite.testcase.statements.MethodStatement) {
-                org.evosuite.testcase.statements.MethodStatement ms = 
-                    (org.evosuite.testcase.statements.MethodStatement) s;
-                if (ms.getMethod().getDeclaringClass().getName().equals(Properties.TARGET_CLASS)) {
-                    return true;
-                }
-            }
+            return Properties.TARGET_CLASS.equals(
+                    cs.getReturnValue().getVariableClass().getName());
         }
         return false;
+    }
+
+    private boolean isMeaningful(TestCase testCase) {
+        return TestInteractionChecker.invokesTarget(testCase, Properties.TARGET_CLASS);
     }
 
 
@@ -627,7 +817,7 @@ public class TestRepairLoop {
     private String buildCombinedRepairMessage(List<ParseResult> keptExecutable,
                                               List<ParseResult> droppedAtParse,
                                               List<ParseResult> droppedAtExecution,
-                                              Map<ParseResult, String> executionErrorByTest) {
+                                              Map<ParseResult, ExecutionFailureContext> executionErrorByTest) {
         StringBuilder sb = new StringBuilder();
         appendAttritionSummary(sb, keptExecutable, droppedAtParse, droppedAtExecution, executionErrorByTest);
 
@@ -671,7 +861,9 @@ public class TestRepairLoop {
             }
             sb.append("The following tests parsed but failed at execution; please repair them:");
             for (ParseResult pr : droppedAtExecution) {
-                String error = executionErrorByTest == null ? null : executionErrorByTest.get(pr);
+                ExecutionFailureContext context =
+                        executionErrorByTest == null ? null : executionErrorByTest.get(pr);
+                String error = context == null ? null : context.errorMessage;
                 sb.append(System.lineSeparator()).append("* ").append(safeMethodName(pr)).append(":")
                         .append(System.lineSeparator()).append("  - ")
                         .append(error == null ? "(execution error)" : error);
@@ -700,7 +892,7 @@ public class TestRepairLoop {
                                         List<ParseResult> keptExecutable,
                                         List<ParseResult> droppedAtParse,
                                         List<ParseResult> droppedAtExecution,
-                                        Map<ParseResult, String> executionErrorByTest) {
+                                        Map<ParseResult, ExecutionFailureContext> executionErrorByTest) {
         int keptCount = keptExecutable == null ? 0 : keptExecutable.size();
         int droppedAtParseCount = droppedAtParse == null ? 0 : droppedAtParse.size();
         int droppedAtExecutionCount = droppedAtExecution == null ? 0 : droppedAtExecution.size();
@@ -727,14 +919,18 @@ public class TestRepairLoop {
         }
     }
 
-    private String buildSharedExecutionFailureHint(Map<ParseResult, String> executionErrorByTest) {
+    private String buildSharedExecutionFailureHint(Map<ParseResult, ExecutionFailureContext> executionErrorByTest) {
         if (executionErrorByTest == null || executionErrorByTest.size() < 2) {
             return null;
         }
 
         Map<String, Integer> counts = new LinkedHashMap<>();
         Map<String, String> hints = new LinkedHashMap<>();
-        for (String executionError : executionErrorByTest.values()) {
+        for (ExecutionFailureContext failureContext : executionErrorByTest.values()) {
+            if (failureContext == null) {
+                continue;
+            }
+            String executionError = failureContext.errorMessage;
             if (executionError == null || executionError.trim().isEmpty()) {
                 continue;
             }
@@ -771,6 +967,16 @@ public class TestRepairLoop {
                 String key = "shape:indexed-fixture";
                 counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
                 hints.putIfAbsent(key, buildSharedIndexedFixtureFailureHint());
+                continue;
+            }
+
+            if (isFalsePositiveMockError(executionError)) {
+                String mockMethodName = pickFalsePositiveMockName(executionError);
+                String key = mockMethodName == null || mockMethodName.isEmpty()
+                        ? "mockfp:generic"
+                        : "mockfp:" + mockMethodName;
+                counts.put(key, counts.containsKey(key) ? counts.get(key) + 1 : 1);
+                hints.putIfAbsent(key, buildSharedFalsePositiveMockFailureHint(mockMethodName));
             }
         }
 
@@ -797,6 +1003,16 @@ public class TestRepairLoop {
                 + "() { ... }`; replace it with Mockito.mock("
                 + constructedType
                 + ".class, new ViolatedAssumptionAnswer()) or a real concrete collaborator setup.";
+    }
+
+    private String buildSharedFalsePositiveMockFailureHint(String mockMethodName) {
+        if (mockMethodName == null || mockMethodName.isEmpty()) {
+            return "Multiple dropped tests fail because a ViolatedAssumptionAnswer mock path is missing one or more collaborator stubs. "
+                    + "Repair the shared mock setup once by adding the minimal stub(s) the SUT actually calls instead of deleting those tests one-by-one.";
+        }
+        return "Multiple dropped tests fail because the SUT reaches an unstubbed mock call to `"
+                + mockMethodName
+                + "(...)` on a ViolatedAssumptionAnswer collaborator. Repair the shared mock setup once by stubbing that collaborator method (and any returned nested collaborator) instead of deleting those tests one-by-one.";
     }
 
     private String buildSharedNpeExecutionFailureHint(NpeDereferenceInfo dereferenceInfo) {
@@ -830,7 +1046,7 @@ public class TestRepairLoop {
         return (name == null || name.isEmpty()) ? "<unnamed>" : name;
     }
 
-    private String checkExecution(ParseResult parseResult, RepairOptions options) {
+    private ExecutionFailureContext checkExecution(ParseResult parseResult, RepairOptions options) {
         ExecutionResult executionResult;
         try {
             executionResult = testExecutor.execute(parseResult.getTestCase());
@@ -844,18 +1060,20 @@ public class TestRepairLoop {
                         continue;
                     }
                     Integer diagnosticPosition = resolveDiagnosticStatementPosition(parseResult, position, thrown);
-                    return "Execution error in test '" + parseResult.getOriginalMethodName()
+                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
                             + "': " + formatThrowableWithStackExcerpt(thrown, parseResult, diagnosticPosition)
                             + buildExecutionContext(parseResult, diagnosticPosition, thrown);
+                    return new ExecutionFailureContext(message, thrown, diagnosticPosition);
                 }
             }
         } catch (Throwable executionFailure) {
-            return "Execution failure in test '" + parseResult.getOriginalMethodName()
+            String message = "Execution failure in test '" + parseResult.getOriginalMethodName()
                     + "': " + formatThrowableWithStackExcerpt(executionFailure, parseResult, null)
                     + buildExecutionContext(parseResult, null, executionFailure);
+            return new ExecutionFailureContext(message, executionFailure, null);
         }
         if (options.isRepairOnAssertionFailures()) {
-            String assertionError = checkAssertions(parseResult, executionResult);
+            ExecutionFailureContext assertionError = checkAssertions(parseResult, executionResult);
             if (assertionError != null) {
                 return assertionError;
             }
@@ -863,7 +1081,7 @@ public class TestRepairLoop {
         return null;
     }
 
-    private String checkAssertions(ParseResult parseResult, ExecutionResult executionResult) {
+    private ExecutionFailureContext checkAssertions(ParseResult parseResult, ExecutionResult executionResult) {
         if (parseResult == null || parseResult.getTestCase() == null || executionResult == null) {
             return null;
         }
@@ -883,16 +1101,18 @@ public class TestRepairLoop {
                 try {
                     holds = assertion.evaluate(executionResult.getFinalScope());
                 } catch (Throwable assertionFailure) {
-                    return "Execution error in test '" + parseResult.getOriginalMethodName()
+                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
                             + "': Assertion evaluation error at statement " + i + " - "
                             + formatThrowableWithStackExcerpt(assertionFailure, parseResult, i)
                             + buildExecutionContext(parseResult, i, assertionFailure);
+                    return new ExecutionFailureContext(message, assertionFailure, i);
                 }
                 if (!holds) {
-                    return "Execution error in test '" + parseResult.getOriginalMethodName()
+                    String message = "Execution error in test '" + parseResult.getOriginalMethodName()
                             + "': Assertion failed at statement " + i + " - "
                             + assertion.getCode()
                             + buildExecutionContext(parseResult, i, null);
+                    return new ExecutionFailureContext(message, null, i);
                 }
             }
         }
@@ -906,6 +1126,13 @@ public class TestRepairLoop {
         if (matchesExpectedException(parseResult, thrown)) {
             return false;
         }
+        // Exceptions raised by the EvoSuite mock runtime (shaded.org.evosuite.runtime.mock.*)
+        // are environment-induced, deterministic, and unavoidable for any test that
+        // reaches the mocked call site. Accept them as if they were declared so the
+        // test is kept as a covering chromosome instead of dropped.
+        if (isShadedRuntimeMockException(thrown)) {
+            return false;
+        }
         if (position < 0 || position >= parseResult.getTestCase().size()) {
             // If execution reports an exception at an invalid position, treat it as undeclared.
             // Silently ignoring it can incorrectly mark a failing candidate as successful.
@@ -913,6 +1140,36 @@ public class TestRepairLoop {
         }
         return !parseResult.getTestCase().getStatement(position)
                 .getDeclaredExceptions().contains(thrown.getClass());
+    }
+
+    /**
+     * Returns true when the throwable (or any of its superclasses) is a member
+     * of EvoSuite's shaded mock runtime package. Used by the executor and the
+     * repair-loop hint logic to recognize environment-induced exceptions that
+     * the LLM cannot eliminate by changing the test.
+     */
+    static boolean isShadedRuntimeMockException(Throwable thrown) {
+        if (thrown == null) {
+            return false;
+        }
+        Class<?> current = thrown.getClass();
+        while (current != null) {
+            String name = current.getName();
+            if (name != null && name.startsWith(SHADED_MOCK_RUNTIME_PACKAGE_PREFIX)) {
+                return true;
+            }
+            current = current.getSuperclass();
+        }
+        return false;
+    }
+
+    /**
+     * Returns true when the diagnostic error string contains a reference to
+     * an exception under the shaded mock runtime package, suggesting the
+     * underlying failure is environment-induced rather than test-fixable.
+     */
+    static boolean errorMentionsShadedRuntimeMockException(String error) {
+        return error != null && error.contains(SHADED_MOCK_RUNTIME_PACKAGE_PREFIX);
     }
 
     private boolean matchesExpectedException(ParseResult parseResult, Throwable thrown) {
@@ -1134,7 +1391,8 @@ public class TestRepairLoop {
                                  String error,
                                  LlmFeature feature,
                                  List<String> expandedClasses,
-                                 int repairAttempt) {
+                                 int repairAttempt,
+                                 Map<ParseResult, ExecutionFailureContext> executionFailures) {
         // Ensure system prompt is at the front of the conversation
         if (systemPrompt != null && !systemPrompt.isEmpty()
                 && (conversation.isEmpty()
@@ -1148,6 +1406,12 @@ public class TestRepairLoop {
         }
         // Build repair message with error + SUT context reminder
         StringBuilder repairMessage = new StringBuilder();
+        if (pendingTopOfMessageEscalationHint != null && !pendingTopOfMessageEscalationHint.isEmpty()) {
+            repairMessage.append("=== PRIORITY DIRECTIVE ===\n")
+                         .append(pendingTopOfMessageEscalationHint)
+                         .append("\n=== END PRIORITY DIRECTIVE ===\n\n");
+            pendingTopOfMessageEscalationHint = null;
+        }
         if (!expandedClasses.isEmpty()) {
             repairMessage.append("Note: The test cluster has been expanded with newly resolved classes: ")
                          .append(expandedClasses).append("\n\n");
@@ -1162,8 +1426,10 @@ public class TestRepairLoop {
                     .append("\n- Focus on pure constructors/methods that do not require GUI/network/plugin containers.");
         }
         appendInitializationFailureRepairInstructions(error, repairMessage);
+        appendHeadlessEscalationRepairInstructions(error, repairMessage);
         appendInstantiationFailureRepairInstructions(error, repairMessage);
-        appendNpePreconditionRepairInstructions(error, repairMessage);
+        appendExpectationMismatchRepairInstructions(executionFailures, repairMessage);
+        appendNpePreconditionRepairInstructions(error, executionFailures, repairMessage);
         appendMockingRepairInstructions(error, repairMessage);
         appendStreamPreconditionRepairInstructions(error, repairMessage);
         appendArgumentPreconditionRepairInstructions(error, repairMessage);
@@ -1172,13 +1438,22 @@ public class TestRepairLoop {
         appendReflectiveAssertThrowsFallbackRepairInstructions(error, repairMessage);
         appendMissingMethodOnVariableRepairInstructions(error, repairMessage);
         appendMemberAccessRepairInstructions(error, repairMessage);
+        appendFalsePositiveMockRepairInstructions(error, repairMessage);
         appendNoTestMethodsRepairInstructions(error, previousResponse, repairMessage);
+        appendSpyUnsupportedRepairInstructions(error, repairMessage);
         appendCollaboratorFallbackRepairInstructions(error, repairMessage);
         appendSyntheticFallbackUsageRepairInstructions(error, repairMessage);
         appendNotAMockRepairInstructions(error, repairMessage);
         appendAnonymousImplementationRepairInstructions(error, previousResponse, repairMessage);
         appendContextSpecificRepairFacts(error, previousResponse, repairMessage);
-        if (sutContextSummary != null && !sutContextSummary.isEmpty()) {
+        appendDependencyCodeContext(executionFailures, repairMessage);
+        appendRuleBasedRepairHints(error, executionFailures, repairAttempt, repairMessage);
+        // Include the bulk dependency-types catalog only on the first repair
+        // turn (repairAttempt == 2 in the conversation numbering: 1 = initial
+        // seed, 2 = first repair). On later turns the LLM already has it in
+        // its conversation history, and re-emitting tens of KB of catalog text
+        // dilutes the failure-specific hints that should drive the repair.
+        if (sutContextSummary != null && !sutContextSummary.isEmpty() && repairAttempt <= 2) {
             repairMessage.append("\n\nFor reference, here are the available constructors and methods:\n")
                          .append(sutContextSummary);
         }
@@ -1197,7 +1472,9 @@ public class TestRepairLoop {
                 expanded, expandedClasses);
     }
 
-    private void appendNpePreconditionRepairInstructions(String error, StringBuilder repairMessage) {
+    private void appendNpePreconditionRepairInstructions(String error,
+                                                         Map<ParseResult, ExecutionFailureContext> executionFailures,
+                                                         StringBuilder repairMessage) {
         if (error == null || error.isEmpty()) {
             return;
         }
@@ -1206,11 +1483,28 @@ public class TestRepairLoop {
             return;
         }
 
+        // Scope hint to the specific tests whose actual exception is an NPE.
+        // Without this, an NPE in one test would emit "fix the receiver" hints
+        // for sibling tests that failed for an unrelated reason (e.g. shaded
+        // mock-runtime exceptions), pushing the LLM toward changes that cannot
+        // resolve the non-NPE failures.
+        FailureScopes scopes = classifyExecutionFailures(executionFailures);
+        if (scopes.npeFailingTests.isEmpty() && !scopes.executionFailuresAvailable) {
+            // Best-effort: when no per-failure context is available, fall through
+            // and emit the hint based on the aggregate error string only.
+        } else if (scopes.npeFailingTests.isEmpty()) {
+            return;
+        }
+
         String nullVariable = extractNullVariableName(error);
         NpeDereferenceInfo dereferenceInfo = extractNpeDereferenceInfo(error);
         boolean syntheticLocal = isSyntheticLocalVariable(nullVariable);
         boolean directTestVariable = appearsInParsedTestCodeExcerpt(error, nullVariable);
         repairMessage.append("\n\nNPE precondition hint:");
+        appendFailureScopeQualifier(repairMessage, scopes, scopes.npeFailingTests,
+                "These NPE-precondition hints apply ONLY to the test(s) above; do not "
+                        + "apply them to sibling failing tests whose actual exception is "
+                        + "different (those are listed separately and require different fixes).");
         repairMessage.append("\n- The failing test violates required non-null preconditions.");
         repairMessage.append("\n- Keep all already executable tests unchanged.");
         if (nullVariable != null && !nullVariable.isEmpty() && !syntheticLocal && directTestVariable) {
@@ -1269,6 +1563,9 @@ public class TestRepairLoop {
                 + "over anonymous classes.");
         repairMessage.append("\n- Do not call the target method with null for mandatory "
                 + "provider/session arguments.");
+        repairMessage.append("\n- If the test is intentionally checking null-input behavior, "
+                + "wrap the call in assertThrows(NullPointerException.class, ...) instead of "
+                + "making a plain invocation with a known-null collaborator.");
         repairMessage.append("\n- If a required collaborator type is an interface/abstract type, "
                 + "do NOT use new on that type; use a listed concrete subtype or Mockito.mock(Type.class).");
         repairMessage.append("\n- Do not assume complex SUT methods succeed on minimally initialized objects: "
@@ -1284,6 +1581,136 @@ public class TestRepairLoop {
         return SYNTHETIC_LOCAL_VARIABLE_PATTERN.matcher(variableName).matches();
     }
 
+    /**
+     * Per-failure classification of an execution-failure batch. Used to scope
+     * hint blocks (e.g. NPE-precondition hints) to the tests they actually
+     * apply to, instead of letting one failure's signal pollute the prompt for
+     * sibling tests that failed for different reasons.
+     */
+    private static final class FailureScopes {
+        final boolean executionFailuresAvailable;
+        final List<String> npeFailingTests = new ArrayList<>();
+        final List<String> shadedMockFailingTests = new ArrayList<>();
+        final List<String> expectationMismatchFailingTests = new ArrayList<>();
+        /** test method name -> "expected=X, actual=Y" */
+        final Map<String, String> expectationMismatchDetails = new LinkedHashMap<>();
+
+        FailureScopes(boolean executionFailuresAvailable) {
+            this.executionFailuresAvailable = executionFailuresAvailable;
+        }
+    }
+
+    private FailureScopes classifyExecutionFailures(
+            Map<ParseResult, ExecutionFailureContext> executionFailures) {
+        boolean available = executionFailures != null && !executionFailures.isEmpty();
+        FailureScopes scopes = new FailureScopes(available);
+        if (!available) {
+            return scopes;
+        }
+        for (Map.Entry<ParseResult, ExecutionFailureContext> entry : executionFailures.entrySet()) {
+            ParseResult pr = entry.getKey();
+            ExecutionFailureContext ctx = entry.getValue();
+            if (pr == null || ctx == null) {
+                continue;
+            }
+            String name = safeMethodName(pr);
+            Throwable thrown = ctx.throwable;
+            if (thrown instanceof NullPointerException
+                    || (ctx.errorMessage != null
+                            && (ctx.errorMessage.contains("NullPointerException")
+                                    || ctx.errorMessage.contains("is null")))) {
+                scopes.npeFailingTests.add(name);
+            }
+            if (isShadedRuntimeMockException(thrown)
+                    || (ctx.errorMessage != null
+                            && errorMentionsShadedRuntimeMockException(ctx.errorMessage))) {
+                scopes.shadedMockFailingTests.add(name);
+            }
+            String expected = pr.getExpectedExceptionClass();
+            if (expected != null && !expected.trim().isEmpty()) {
+                String actualName = thrown != null ? thrown.getClass().getName() : null;
+                if (actualName != null && !matchesExpectedExceptionName(thrown.getClass(), expected)) {
+                    scopes.expectationMismatchFailingTests.add(name);
+                    scopes.expectationMismatchDetails.put(name,
+                            "expected=" + expected + ", actual=" + actualName);
+                }
+            }
+        }
+        return scopes;
+    }
+
+    /**
+     * Appends a one-line scope qualifier that names the specific tests a hint
+     * block applies to. Skipped when no per-failure context is available, so
+     * hints emitted purely from the aggregate error text remain unchanged.
+     */
+    private void appendFailureScopeQualifier(StringBuilder repairMessage,
+                                             FailureScopes scopes,
+                                             List<String> applicableTests,
+                                             String exclusivityNote) {
+        if (scopes == null || !scopes.executionFailuresAvailable) {
+            return;
+        }
+        if (applicableTests == null || applicableTests.isEmpty()) {
+            return;
+        }
+        // Only add the scope qualifier when there is at least one sibling failure
+        // that this hint block does NOT apply to; otherwise the hint already
+        // implicitly applies to every failure in the batch.
+        boolean hasNonApplicableSibling =
+                scopes.npeFailingTests.size() + scopes.shadedMockFailingTests.size()
+                        + scopes.expectationMismatchFailingTests.size()
+                        > applicableTests.size()
+                        || scopes.shadedMockFailingTests.stream()
+                                .anyMatch(name -> !applicableTests.contains(name));
+        if (!hasNonApplicableSibling) {
+            return;
+        }
+        repairMessage.append("\n- Applies to test(s): ").append(applicableTests).append(".");
+        if (exclusivityNote != null && !exclusivityNote.isEmpty()) {
+            repairMessage.append("\n- ").append(exclusivityNote);
+        }
+    }
+
+    /**
+     * Surfaces a single, prioritized line near the top of the repair message
+     * when the LLM's <code>assertThrows(Y.class, ...)</code> expectation does
+     * not match the actually observed exception type. The bytecode signature
+     * tells the LLM what the SUT <em>declares</em> it can throw; the runtime
+     * tells us what actually happens. Trust the runtime.
+     */
+    private void appendExpectationMismatchRepairInstructions(
+            Map<ParseResult, ExecutionFailureContext> executionFailures,
+            StringBuilder repairMessage) {
+        if (executionFailures == null || executionFailures.isEmpty()) {
+            return;
+        }
+        FailureScopes scopes = classifyExecutionFailures(executionFailures);
+        if (scopes.expectationMismatchFailingTests.isEmpty()) {
+            return;
+        }
+        repairMessage.append("\n\nExpected-vs-actual exception mismatch:");
+        for (String name : scopes.expectationMismatchFailingTests) {
+            String detail = scopes.expectationMismatchDetails.get(name);
+            repairMessage.append("\n- ").append(name).append(": ")
+                    .append(detail == null ? "(details unavailable)" : detail);
+        }
+        repairMessage.append("\n- The actual runtime exception is what executes; the expected class");
+        repairMessage.append(" came from the method's declared `throws` clause but the SUT does not");
+        repairMessage.append(" actually translate the runtime failure into that type in this environment.");
+        repairMessage.append("\n- For each test above, EITHER change the assertThrows expectation to the");
+        repairMessage.append(" actually observed class, OR replace the test with one that does not");
+        repairMessage.append(" reach the failing call. Do NOT keep the same expected class hoping a");
+        repairMessage.append(" different setup will produce it.");
+        if (!scopes.shadedMockFailingTests.isEmpty()) {
+            repairMessage.append("\n- Note: tests ").append(scopes.shadedMockFailingTests)
+                    .append(" failed with an exception under shaded.org.evosuite.runtime.mock.*;");
+            repairMessage.append(" that is the EvoSuite test harness, not the SUT, and you cannot");
+            repairMessage.append(" eliminate it by changing test inputs. Either accept it via");
+            repairMessage.append(" assertThrows on that exact class or drop those tests.");
+        }
+    }
+
     private void appendMockingRepairInstructions(String error, StringBuilder repairMessage) {
         if (!isMockingMisuseError(error)) {
             return;
@@ -1295,7 +1722,37 @@ public class TestRepairLoop {
         repairMessage.append("\n- Do NOT stub or verify real objects created with constructors.");
         repairMessage.append("\n- If a collaborator type is interface/abstract, use Mockito.mock(Type.class) "
                 + "or a concrete subtype; never use new on the interface/abstract type.");
+        repairMessage.append("\n- Do NOT use Mockito.spy(...) or doReturn(...).when(spy)...; regenerate failing tests using real instances or Mockito.mock(...) collaborators.");
         repairMessage.append("\n- Complete each stubbing expression fully (avoid unfinished stubbing chains).");
+    }
+
+    private void appendSpyUnsupportedRepairInstructions(String error, StringBuilder repairMessage) {
+        if (!isSpyUnsupportedPattern(error)) {
+            return;
+        }
+        repairMessage.append("\n\nSpy-unsupported repair instructions:");
+        repairMessage.append("\n- Do NOT use Mockito.spy(...) in EvoSuite-generated parsed tests.");
+        repairMessage.append("\n- Do NOT use spy-based stubbing such as doReturn(...).when(spy)... or when(spy.method(...)).thenReturn(...).");
+        repairMessage.append("\n- Replace spy-based setup with one of: (1) direct calls on real SUT instances without spy stubbing, or (2) Mockito.mock(...) collaborators that are stubbed minimally.");
+        repairMessage.append("\n- Never alias or stub through parser-generated '__llm_fallback...' variables.");
+    }
+
+    private void appendFalsePositiveMockRepairInstructions(String error, StringBuilder repairMessage) {
+        if (!isFalsePositiveMockError(error)) {
+            return;
+        }
+
+        String mockMethodName = pickFalsePositiveMockName(error);
+        repairMessage.append("\n\nMock-stubbing hint:");
+        repairMessage.append("\n- The rerun failed because a mocked collaborator used ViolatedAssumptionAnswer and the SUT called an unstubbed method.");
+        if (mockMethodName != null && !mockMethodName.isEmpty()) {
+            repairMessage.append("\n- Unstubbed mock call: `").append(mockMethodName).append("(...)`.");
+        } else {
+            repairMessage.append("\n- Unstubbed mock call: the runtime reported a false-positive mock-policy failure, but the exact method name was not captured.");
+        }
+        repairMessage.append("\n- Add the minimal stub for the collaborator method the SUT actually calls, instead of leaving that mock on a bare ViolatedAssumptionAnswer path.");
+        repairMessage.append("\n- Keep the rest of the test unchanged unless it depends on the missing stub.");
+        repairMessage.append("\n- Do not replace the collaborator with null; make the mock return the value or nested collaborator the SUT needs.");
     }
 
     private void appendStreamPreconditionRepairInstructions(String error, StringBuilder repairMessage) {
@@ -1319,12 +1776,20 @@ public class TestRepairLoop {
         if (!isArgumentPreconditionError(error)) {
             return;
         }
+        String lower = error == null ? "" : error.toLowerCase();
+        boolean eventObjectNullSource = lower.contains("null source")
+                && (lower.contains("eventobject") || lower.contains("actionevent"));
         repairMessage.append("\n\nArgument precondition hint:");
         repairMessage.append("\n- The failing test violates method preconditions for input arguments.");
         repairMessage.append("\n- Keep all already executable tests unchanged.");
         repairMessage.append("\n- For failing tests only, replace invalid empty/default inputs with minimally valid non-empty values before invoking the SUT.");
         repairMessage.append("\n- Typical fixes: provide at least one required line/entry/token/element instead of empty structures or empty strings.");
         repairMessage.append("\n- If testing validation behavior, use assertThrows(...) for the invalid-input case and add a separate valid-input smoke test.");
+        if (eventObjectNullSource) {
+            repairMessage.append("\n- Detected `IllegalArgumentException: null source` from EventObject/ActionEvent construction.");
+            repairMessage.append("\n- Never build `new ActionEvent(null, ...)`: the first constructor argument (event source) must be non-null.");
+            repairMessage.append("\n- If receiver construction collapsed to a typed null placeholder (`__llm_fallback...`), do not keep emitting event-driven tests on that null receiver; repair upstream construction or rewrite/drop those tests.");
+        }
     }
 
     private void appendIndexedFixtureShapeRepairInstructions(String error, StringBuilder repairMessage) {
@@ -1392,6 +1857,27 @@ public class TestRepairLoop {
                 repairMessage.append("\n- Do not call subtype-only methods on a supertype reference.")
                         .append(" If the runtime object is a subtype, add an `instanceof` guard and cast before calling subtype APIs")
                         .append(" (for example `Component` -> `JLabel` before `getText()`).");
+                String closest = findClosestAccessibleApiSuggestion(methodName);
+                if (closest != null && !closest.isEmpty()) {
+                    repairMessage.append("\n- Closest available API: ").append(closest);
+                }
+            }
+        }
+
+        java.util.regex.Matcher directMissingMethodMatcher = MISSING_METHOD_DIAGNOSTIC_PATTERN.matcher(error);
+        while (directMissingMethodMatcher.find()) {
+            if (!emitted) {
+                repairMessage.append("\n\nMissing-method repair instructions:");
+                emitted = true;
+            }
+            String methodName = directMissingMethodMatcher.group(1);
+            String targetClass = directMissingMethodMatcher.group(2);
+            repairMessage.append("\n- No method named `").append(methodName)
+                    .append("` exists in `").append(targetClass)
+                    .append("`. Replace the invented call with a real API from context, or remove the call entirely.");
+            String closest = findClosestAccessibleApiSuggestion(methodName);
+            if (closest != null && !closest.isEmpty()) {
+                repairMessage.append("\n- Closest available API: ").append(closest);
             }
         }
     }
@@ -1406,9 +1892,47 @@ public class TestRepairLoop {
                 || lower.contains("cannot be accessed from outside package"))) {
             return;
         }
+
+        // Parse specific inaccessible members from diagnostics and track them
+        List<AccessViolationDiagnosticParser.AccessViolation> violations =
+                AccessViolationDiagnosticParser.parse(error);
+        Set<String> currentKeys = new LinkedHashSet<>();
+        for (AccessViolationDiagnosticParser.AccessViolation v : violations) {
+            currentKeys.add(v.toTrackingKey());
+        }
+        boolean hasRecurrent = false;
+        for (String key : currentKeys) {
+            if (seenAccessViolations.contains(key)) {
+                hasRecurrent = true;
+                break;
+            }
+        }
+        seenAccessViolations.addAll(currentKeys);
+
         repairMessage.append("\n\nMember-access repair hint:");
         repairMessage.append("\n- The failing test directly accesses private or protected members (which are not allowed). Note: Package-private members ARE allowed as tests are in the same package.");
         repairMessage.append("\n- Keep all already executable tests unchanged.");
+
+        // Emit specific inaccessible member names so the LLM knows exactly what to avoid
+        if (!violations.isEmpty()) {
+            repairMessage.append("\n- Specifically inaccessible members detected:");
+            for (AccessViolationDiagnosticParser.AccessViolation v : violations) {
+                if (hasRecurrent && seenAccessViolations.contains(v.toTrackingKey())) {
+                    // Escalation language for members that recurred across retries
+                    repairMessage.append("\n  * CRITICAL (recurrent): You MUST NOT call `")
+                            .append(v.getMemberName()).append("()` — it has ")
+                            .append(v.getAccessLevel()).append(" access in `")
+                            .append(v.getDeclaringClass()).append("`. ")
+                            .append("Remove ALL calls to this member immediately.");
+                } else {
+                    repairMessage.append("\n  * Do NOT call `")
+                            .append(v.getMemberName()).append("()` — it has ")
+                            .append(v.getAccessLevel()).append(" access in `")
+                            .append(v.getDeclaringClass()).append("`.");
+                }
+            }
+        }
+
         repairMessage.append("\n- For failing tests only, remove direct field/member access assertions and replace them with checks via accessible public or package-visible methods.");
         repairMessage.append("\n- Do not assert internal fields such as receiver.superclassField; assert externally visible behavior instead.");
         repairMessage.append("\n- If no accessible API exposes the same state, drop that assertion rather than forcing illegal member access.");
@@ -1567,11 +2091,18 @@ public class TestRepairLoop {
         
         List<String> malformedImports = extractMalformedImportLines(error + "\n" + (previousResponse == null ? "" : previousResponse));
         if (!malformedImports.isEmpty()) {
-            repairMessage.append("\n- The previous response used invalid Java import syntax with file-path separators instead of package dots.");
-            for (String importLine : malformedImports.subList(0, Math.min(2, malformedImports.size()))) {
-                repairMessage.append("\n- Invalid import from previous response: ").append(importLine);
+            boolean hasAlias = malformedImports.stream().anyMatch(l -> l.toLowerCase().contains(" as "));
+            if (hasAlias) {
+                repairMessage.append("\n- The previous response used invalid 'import ... as ...' alias syntax, which Java does not support.");
+                repairMessage.append("\n- To resolve naming conflicts (e.g., between two classes named 'Query'), use the fully qualified name at the call site instead of aliasing the import.");
+                repairMessage.append("\n- Example: `net.sourceforge.beanbin.query.Query beanBinQuery = new net.sourceforge.beanbin.query.Query();`.");
+            } else {
+                repairMessage.append("\n- The previous response used invalid Java import syntax with file-path separators instead of package dots.");
+                for (String importLine : malformedImports.subList(0, Math.min(2, malformedImports.size()))) {
+                    repairMessage.append("\n- Invalid import from previous response: ").append(importLine);
+                }
+                repairMessage.append("\n- Java imports must use dotted package names, for example `import br.com.jnfe.base.service.SimpleSecurityHandlerBean;`.");
             }
-            repairMessage.append("\n- Java imports must use dotted package names, for example `import br.com.jnfe.base.service.SimpleSecurityHandlerBean;`.");
         } else if (error.contains("LLM response was empty") || error.contains("hit a token limit") || error.contains("contained only bytecode")) {
             repairMessage.append("\n- Do not return only context, documentation, or bytecode disassembly.");
             repairMessage.append("\n- Generate actual test code with concrete @Test methods that instantiate and interact with the target class.");
@@ -1609,8 +2140,9 @@ public class TestRepairLoop {
             for (String importLine : malformedImports.subList(0, Math.min(2, malformedImports.size()))) {
                 error.append("\n- ").append(importLine);
             }
-            error.append("\nRepair action: Java import declarations must use package dots, not file-path slashes. ");
-            error.append("Example: import br.com.jnfe.base.service.SimpleSecurityHandlerBean;");
+            error.append("\nRepair action: Java import declarations must use package dots, not file-path slashes, and do NOT support 'as' aliases. ");
+            error.append("Example: import net.sourceforge.beanbin.query.Query; (not 'import ... as ...'). ");
+            error.append("To resolve naming conflicts, use fully qualified names at the call site.");
         } else if (extractedClass == null || extractedClass.trim().isEmpty()) {
             error.append("\nThe LLM response was empty or contained no Java code. This can happen when:");
             error.append("\n- The LLM hit a token limit and returned only context/documentation");
@@ -1735,6 +2267,10 @@ public class TestRepairLoop {
                 || lower.contains("mockillegalargumentexception");
         if (!illegalArgument) {
             return false;
+        }
+        if (lower.contains("null source")
+                && (lower.contains("eventobject") || lower.contains("actionevent"))) {
+            return true;
         }
         return lower.contains("no ")
                 || lower.contains("empty")
@@ -1872,6 +2408,152 @@ public class TestRepairLoop {
                 || receiverType.endsWith(".Element");
     }
 
+    /**
+     * Append two kinds of dep-code-driven repair guidance:
+     * <ol>
+     *   <li>For exceptions raised inside a non-CUT instance method or constructor body,
+     *       inline a focused excerpt of that member's source/decompiled code so the
+     *       LLM can satisfy the missing precondition.</li>
+     *   <li>For {@code <clinit>} failures and follow-on {@code NoClassDefFoundError},
+     *       record the poisoned class on the conversation-scoped set and emit a
+     *       strong avoidance instruction. The class is permanently unusable for the
+     *       rest of this run, so showing its source would only mislead the LLM.</li>
+     * </ol>
+     */
+    private void appendDependencyCodeContext(Map<ParseResult, ExecutionFailureContext> executionFailures,
+                                             StringBuilder repairMessage) {
+        if (!Properties.LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR) {
+            return;
+        }
+        String targetClass = Properties.TARGET_CLASS;
+        String targetPackage = getSutPackage();
+
+        DependencyFailureAnalysis.Frame depFrame = null;
+
+        if (executionFailures != null) {
+            for (ExecutionFailureContext context : executionFailures.values()) {
+                if (context == null || context.throwable == null) {
+                    continue;
+                }
+                DependencyFailureAnalysis analysis = DependencyFailureAnalysis.analyze(
+                        context.throwable, targetClass, targetPackage);
+                switch (analysis.getKind()) {
+                    case CLASS_INIT_FAILURE:
+                    case CLASS_INIT_AFTERSHOCK:
+                        if (analysis.getPoisonedClass() != null) {
+                            poisonedClasses.add(analysis.getPoisonedClass());
+                        }
+                        break;
+                    case DEP_MEMBER_FAILURE:
+                        if (depFrame == null) {
+                            depFrame = analysis.getFrame();
+                        }
+                        break;
+                    default:
+                        // No-op
+                        break;
+                }
+            }
+        }
+
+        appendPoisonedClassAvoidance(repairMessage);
+        appendDependencyCodeExcerpt(depFrame, repairMessage);
+    }
+
+    private void appendPoisonedClassAvoidance(StringBuilder repairMessage) {
+        if (poisonedClasses.isEmpty()) {
+            return;
+        }
+        repairMessage.append("\n\nPoisoned-class avoidance:");
+        repairMessage.append("\n- The following non-CUT class(es) failed to initialize during this run "
+                + "and are now permanently unusable in this JVM. Any test that touches them — directly "
+                + "or transitively — will fail with NoClassDefFoundError no matter how it is rewritten.");
+        for (String poisoned : poisonedClasses) {
+            repairMessage.append("\n  * ").append(poisoned);
+        }
+        repairMessage.append("\n- Do NOT reference these classes from any test in the corrected class, "
+                + "including via fields, parameters, return types, factories, or methods that internally "
+                + "construct or load them. Choose alternative SUT/JDK types from the dependency summary instead.");
+    }
+
+    private void appendDependencyCodeExcerpt(DependencyFailureAnalysis.Frame depFrame,
+                                             StringBuilder repairMessage) {
+        if (depFrame == null) {
+            return;
+        }
+        if (Properties.LLM_DEPENDENCY_CODE_MAX_CLASSES <= 0) {
+            return;
+        }
+        int budget = Math.max(0, Properties.LLM_DEPENDENCY_CODE_MAX_CHARS);
+        if (budget <= 0) {
+            return;
+        }
+        Optional<String> excerpt = dependencyCodeResolver.resolveExcerpt(depFrame, budget);
+        if (!excerpt.isPresent()) {
+            return;
+        }
+        repairMessage.append("\n\nDependency code excerpt (non-CUT, source unavailable to LLM otherwise):\n")
+                .append(excerpt.get())
+                .append("\n- Use this excerpt to understand the precondition the failing call requires.");
+        if (depFrame.isConstructor()) {
+            repairMessage.append("\n- Provide constructor arguments that satisfy the body's null/range checks before invoking it.");
+        } else {
+            repairMessage.append("\n- Initialize collaborators or arguments so the method body's branches succeed instead of throwing.");
+        }
+        repairMessage.append("\n- Do not assert on the dependency's internals; only adjust how your test sets up inputs to it.");
+    }
+
+    private void appendRuleBasedRepairHints(String error,
+                                            Map<ParseResult, ExecutionFailureContext> executionFailures,
+                                            int repairAttempt,
+                                            StringBuilder repairMessage) {
+        if (!Properties.LLM_REPAIR_HINTS_ENABLED) {
+            return;
+        }
+        List<Throwable> throwables = collectExecutionThrowables(executionFailures);
+        RepairHintResolver.Resolution resolution = repairHintResolver.resolve(
+                error,
+                throwables,
+                poisonedClasses,
+                repairAttempt,
+                hintLastShownAttemptById,
+                Properties.LLM_REPAIR_HINTS_MAX_PER_ATTEMPT,
+                Properties.LLM_REPAIR_HINTS_COOLDOWN_ATTEMPTS,
+                Properties.LLM_REPAIR_HINTS_ALWAYS_ON);
+        if (resolution.isEmpty()) {
+            return;
+        }
+
+        List<RepairFailureSignal> signals = resolution.getSignals();
+        if (signals != null && !signals.isEmpty()) {
+            repairMessage.append("\n\nObserved failure signals:");
+            int maxSignals = Math.min(4, signals.size());
+            for (int i = 0; i < maxSignals; i++) {
+                repairMessage.append("\n- ").append(signals.get(i).getSummary());
+            }
+        }
+
+        repairMessage.append("\n\nTargeted repair hints:");
+        for (RepairHintRule hint : resolution.getHints()) {
+            repairMessage.append("\n- ").append(hint.getText());
+            hintLastShownAttemptById.put(hint.getId(), repairAttempt);
+        }
+    }
+
+    private List<Throwable> collectExecutionThrowables(
+            Map<ParseResult, ExecutionFailureContext> executionFailures) {
+        if (executionFailures == null || executionFailures.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<Throwable> throwables = new ArrayList<>();
+        for (ExecutionFailureContext context : executionFailures.values()) {
+            if (context != null && context.throwable != null) {
+                throwables.add(context.throwable);
+            }
+        }
+        return throwables;
+    }
+
     private void appendInitializationFailureRepairInstructions(String error, StringBuilder repairMessage) {
         if (!isInitializationFailureError(error)) {
             return;
@@ -1890,6 +2572,31 @@ public class TestRepairLoop {
             repairMessage.append("\n- AWT/Swing initialization failed in headless execution: avoid UI construction paths that require a real display toolkit.");
             repairMessage.append("\n- Prefer non-visual SUT logic and model-level methods; only create GUI objects when constructor preconditions are fully initialized.");
         }
+    }
+
+    /**
+     * Strong, last-chance hint emitted exactly once per conversation when a
+     * headless/AWT failure repeats unchanged. By the time we reach this branch,
+     * gentler guidance has already failed; the LLM is stuck on a SUT it cannot
+     * construct in this JVM. Tell it explicitly to drop the constructor.
+     */
+    private void appendHeadlessEscalationRepairInstructions(String error, StringBuilder repairMessage) {
+        if (!headlessRepairEscalated || !containsHeadlessGuiSignal(error)) {
+            return;
+        }
+        String sut = Properties.TARGET_CLASS;
+        String simpleSut = sut == null ? "<SUT>"
+                : sut.substring(sut.lastIndexOf('.') + 1);
+        repairMessage.append("\n\nHEADLESS ESCALATION (final attempt for this failure mode):");
+        repairMessage.append("\n- The previous repair attempt produced the same headless/AWT failure. The SUT cannot be constructed in this JVM.");
+        repairMessage.append("\n- Do NOT call `new ").append(simpleSut).append("(...)` anywhere in the test class — every call path through the constructor will hit `Local GraphicsEnvironment must not be null`.");
+        repairMessage.append("\n- Replace SUT instantiation with `").append(simpleSut)
+                .append(" sut = Mockito.mock(").append(simpleSut).append(".class);` (or `mock(")
+                .append(simpleSut).append(".class)` when static Mockito imports are present), then exercise only methods that do not require real GUI state.");
+        repairMessage.append("\n- For tests that need real behavior, restrict them to static methods or utility entry points reachable without instantiation.");
+        repairMessage.append("\n- Do NOT extract construction into a private helper method; the parser cannot inline GUI-touching helpers and the SUT will be elided to a typed null.");
+        repairMessage.append("\n- If a test fundamentally requires a real ").append(simpleSut)
+                .append(", remove that test from the class — partial coverage is preferable to a class that yields zero executable tests.");
     }
 
     private boolean containsHeadlessGuiSignal(String error) {
@@ -1965,6 +2672,91 @@ public class TestRepairLoop {
         return false;
     }
 
+    static boolean isSpyUnsupportedPattern(String error) {
+        if (error == null || error.isEmpty()) {
+            return false;
+        }
+        String lower = error.toLowerCase();
+        boolean hasSpySignal = lower.contains("mockito.spy(")
+                || lower.contains(".when(spy)")
+                || lower.contains("when(spy.")
+                || lower.contains("spy).");
+        if (!hasSpySignal) {
+            return false;
+        }
+        return lower.contains("__llm_fallback")
+                || lower.contains("cannot find symbol")
+                || lower.contains("notamockexception")
+                || lower.contains("missingmethodinvocationexception")
+                || lower.contains("llm_repair_action_required");
+    }
+
+    static boolean isFalsePositiveMockError(String error) {
+        return extractFalsePositiveMockMethod(error) != null
+                || (error != null && !error.isEmpty()
+                && error.contains("FalsePositiveException")
+                && error.contains("Mock call to"));
+    }
+
+    private static String extractFalsePositiveMockMethod(String error) {
+        if (error == null || error.isEmpty()) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = FALSE_POSITIVE_MOCK_CALL_PATTERN.matcher(error);
+        if (!matcher.find()) {
+            return null;
+        }
+        return matcher.group(1);
+    }
+
+    /**
+     * Picks the most useful name to surface for a false-positive mock failure.
+     * The canonical signal is the {@code "Mock call to X which was not presented"}
+     * phrase produced by the runtime; that yields the bare method name. The
+     * SIGNATURE pattern can additionally enrich it with a {@code Class.method}
+     * form when the runtime has captured the actual collaborator type — but
+     * only when the matched method name agrees with the canonical hint;
+     * otherwise the signature match is just noise from the test runner's own
+     * stack frames (e.g. {@code java.util.ArrayList.forEach}) and must be
+     * rejected so the canonical method name wins.
+     */
+    private static String pickFalsePositiveMockName(String error) {
+        String simpleMethod = extractFalsePositiveMockMethod(error);
+        String signature = extractFalsePositiveMockSignature(error);
+        if (signature == null || signature.isEmpty()) {
+            return simpleMethod;
+        }
+        if (simpleMethod == null || simpleMethod.isEmpty()) {
+            return signature;
+        }
+        if (signature.endsWith("." + simpleMethod) || signature.equals(simpleMethod)) {
+            return signature;
+        }
+        return simpleMethod;
+    }
+
+    private static String extractFalsePositiveMockSignature(String error) {
+        if (error == null || error.isEmpty()) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = FALSE_POSITIVE_MOCK_SIGNATURE_PATTERN.matcher(error);
+        while (matcher.find()) {
+            String className = matcher.group(1);
+            String methodName = matcher.group(2);
+            if (className == null || className.isEmpty() || methodName == null || methodName.isEmpty()) {
+                continue;
+            }
+            String lowerClass = className.toLowerCase();
+            if (lowerClass.startsWith("org.evosuite.")
+                    || lowerClass.startsWith("org.mockito.")
+                    || lowerClass.startsWith("java.lang.reflect.")) {
+                continue;
+            }
+            return className + "." + methodName;
+        }
+        return null;
+    }
+
     private void appendFallbackRepairInstructions(String error, StringBuilder repairMessage) {
         if (error == null || error.isEmpty()) {
             return;
@@ -1983,7 +2775,8 @@ public class TestRepairLoop {
 
         LinkedHashSet<String> hints = new LinkedHashSet<>();
         hints.add("__llm_fallback variables are parser-generated placeholders inserted because the previous "
-                + "LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback.");
+                + "LLM output contained unresolved or unsupported code that had to be replaced with a compilable fallback. "
+                + "Do not trigger synthetic __llm_fallback variables by reusing unsupported helper patterns.");
         hints.add("Do NOT call methods on these fallback variables; they are 'null' placeholders and will throw NullPointerException at runtime.");
         hints.add("Instead of using a fallback, fix the object instantiation that made the parser fail by using a valid SUT/JDK type or a proper Mockito.mock().");
         hints.add("Use only existing SUT/JDK types and exact type names; never derive package/type names from variable names.");
@@ -2368,11 +3161,92 @@ public class TestRepairLoop {
                 diagnostics.add("Skipped repair: dependency-missing error persisted");
                 return true;
             }
+            // Headless escalation: when the LLM keeps producing tests that crash on
+            // AWT/Swing initialization, the diagnostics fed back to it usually
+            // describe downstream NPEs (because the parser elided the GUI ctor with
+            // a typed null), not the original headless error. Give the LLM one more
+            // turn with an explicit "use Mockito.mock(SUT.class)" instruction
+            // before bailing out.
+            if (!headlessRepairEscalated && containsHeadlessGuiSignal(error)) {
+                headlessRepairEscalated = true;
+                logger.info("Continuing repair with headless escalation hint after identical-error retry: {}", error);
+                diagnostics.add("Continuing repair: headless escalation hint injected for identical-error retry");
+                return false;
+            }
+            // Generic identical-error escalation: the LLM has produced essentially
+            // the same source as last turn (same normalized error). Before
+            // bailing out, give it exactly one more turn with a strong, top-of-
+            // message directive to either change the expected exception class
+            // to what was actually observed or drop the test entirely.
+            if (!identicalErrorEscalated) {
+                identicalErrorEscalated = true;
+                pendingTopOfMessageEscalationHint = buildIdenticalErrorEscalationHint(error);
+                logger.info("Continuing repair with identical-error escalation hint: {}", error);
+                diagnostics.add("Continuing repair: identical-error escalation hint injected");
+                return false;
+            }
             logger.info("Aborting repair: equivalent error on consecutive attempts: {}", error);
             diagnostics.add("Skipped repair: identical error repeated");
             return true;
         }
+        // Escalation: if every access violation in the current error has already
+        // been reported in a previous attempt, the LLM is stuck retrying the same
+        // inaccessible members — stop the loop.
+        if (hasOnlyRecurrentAccessViolations(error)) {
+            logger.info("Aborting repair: all access violations are recurrent: {}", error);
+            diagnostics.add("Skipped repair: recurrent access violations");
+            return true;
+        }
         return false;
+    }
+
+    /**
+     * Returns true when the error contains access-violation diagnostics and
+     * every single one has already been seen in a previous repair attempt.
+     * This detects the pattern where the LLM keeps retrying the same
+     * inaccessible members despite being told they are off-limits.
+     */
+    private boolean hasOnlyRecurrentAccessViolations(String error) {
+        if (!AccessViolationDiagnosticParser.containsAccessViolation(error)) {
+            return false;
+        }
+        Set<String> currentKeys = AccessViolationDiagnosticParser.extractTrackingKeys(error);
+        if (currentKeys.isEmpty()) {
+            return false;
+        }
+        // All current violations must have been seen before
+        return seenAccessViolations.containsAll(currentKeys);
+    }
+
+    /**
+     * Builds the one-shot top-of-message escalation hint sent on the bonus
+     * turn after the LLM produced an identical normalized error. The text is
+     * intentionally generic: it tells the LLM that the previous repair did not
+     * change the failure, so the previous response was effectively the same
+     * source, and that on this turn it must either change the assertThrows
+     * expectation to whatever was actually observed or drop the offending
+     * tests entirely.
+     */
+    static String buildIdenticalErrorEscalationHint(String error) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("STOP: identical failure repeated.\n");
+        sb.append("Your previous repair produced the same normalized error as the turn before.\n");
+        sb.append("That means the test source for the failing tests is effectively unchanged.\n");
+        sb.append("Do NOT submit another response that tweaks the same tests in the same shape.\n");
+        sb.append("On this turn you MUST do one of the following for every failing test:\n");
+        sb.append("  1) Change the assertThrows expectation to the EXACT exception class observed\n");
+        sb.append("     at runtime (look at \"actual=...\" in the failure list above).\n");
+        sb.append("  2) Replace the test with a different one that does NOT reach the failing call\n");
+        sb.append("     (e.g. exercise a different SUT method, constructor, or pure-logic path).\n");
+        sb.append("  3) Remove the test from the class entirely.\n");
+        if (errorMentionsShadedRuntimeMockException(error)) {
+            sb.append("Note: the failure list mentions an exception under shaded.org.evosuite.runtime.mock.*.\n");
+            sb.append("That is the EvoSuite mock harness, not the SUT, and it is unavoidable in this\n");
+            sb.append("environment for any test reaching that call site. Treat it as ground truth.\n");
+        }
+        sb.append("Returning the same tests with cosmetic changes (renamed locals, reordered imports)\n");
+        sb.append("will be rejected as no progress.");
+        return sb.toString();
     }
 
     /**
@@ -2399,12 +3273,13 @@ public class TestRepairLoop {
                              List<LlmMessage> conversation,
                              String currentResponse,
                              LlmFeature feature,
-                             List<String> expandedClasses) {
+                             List<String> expandedClasses,
+                             Map<ParseResult, ExecutionFailureContext> executionFailures) {
         if (attempt == maxAttempts || shouldSkipRepair(errorText, previousError, diagnostics)) {
             return null;
         }
         return requestRepairSafely(conversation, currentResponse, errorText,
-                feature, expandedClasses, diagnostics, attempt + 2);
+                feature, expandedClasses, diagnostics, attempt + 2, executionFailures);
     }
 
     private String requestRepairSafely(List<LlmMessage> conversation,
@@ -2413,10 +3288,11 @@ public class TestRepairLoop {
                                        LlmFeature feature,
                                        List<String> expandedClasses,
                                        List<String> diagnostics,
-                                       int repairAttempt) {
+                                       int repairAttempt,
+                                       Map<ParseResult, ExecutionFailureContext> executionFailures) {
         try {
             return requestRepair(conversation, previousResponse, error, feature,
-                    expandedClasses, repairAttempt);
+                    expandedClasses, repairAttempt, executionFailures);
         } catch (Throwable repairFailure) {
             diagnostics.add("Repair request failure: " + formatThrowable(repairFailure));
             return null;
@@ -2470,6 +3346,22 @@ public class TestRepairLoop {
                             + "in ClassName.method(...) form.");
                 } else if (lower.contains("cannot resolve unscoped method call")) {
                     hints.add("Avoid bare helper calls; inline helper logic or call an existing SUT/JDK method.");
+                } else if (lower.contains("no method named") || lower.contains("no matching method")) {
+                    String missingMethodName = extractMissingMethodName(message);
+                    if (missingMethodName != null && !missingMethodName.isEmpty()) {
+                        hints.add("The parser rejected invented method `" + missingMethodName
+                                + "`; keep the raw failing line visible in the prompt instead of collapsing it into generic `llm_feedback`.");
+                        String snippet = diagnostic.getSourceSnippet();
+                        if (snippet != null && !snippet.trim().isEmpty()) {
+                            hints.add("Source expression: " + snippet.trim());
+                        }
+                        String closest = findClosestAccessibleApiSuggestion(missingMethodName);
+                        if (closest != null && !closest.isEmpty()) {
+                            hints.add("Closest available API: " + closest);
+                        }
+                    } else {
+                        hints.add("Replace invented method calls with real APIs from the supplied context; keep the offending line visible in the repair prompt.");
+                    }
                 } else if (lower.contains("unknown array variable")) {
                     hints.add("Declare the array before indexing it, including full rank/dimensions.");
                 } else if (lower.contains("unresolved variable")) {
@@ -2783,6 +3675,7 @@ public class TestRepairLoop {
 
         boolean constructorDiagnostic = false;
         boolean methodDiagnostic = false;
+        String missingMethodName = null;
         InstantiationGuidance fallbackInstantiationGuidance = resolveInstantiationGuidance(fallbackType);
         LinkedHashSet<String> explicitRepairActions = new LinkedHashSet<>();
         LinkedHashSet<String> inventedHelperTypes = new LinkedHashSet<>();
@@ -2815,6 +3708,9 @@ public class TestRepairLoop {
             if (explicitRepairAction != null && !explicitRepairAction.isEmpty()) {
                 explicitRepairActions.add(explicitRepairAction);
             }
+            if (missingMethodName == null) {
+                missingMethodName = extractMissingMethodName(message);
+            }
             note.append("\n- Parser detail: ")
                     .append(truncate(message, MAX_FALLBACK_DIAGNOSTIC_CHARS).replace('\n', ' '));
             String sourceSnippet = diagnostic.getSourceSnippet();
@@ -2844,8 +3740,139 @@ public class TestRepairLoop {
             }
         } else if (methodDiagnostic) {
             note.append("\n- Use one of the listed existing methods/overloads exactly; keep receiver and argument types aligned with the resolved signature.");
+            String closest = findClosestAccessibleApiSuggestion(missingMethodName);
+            if (closest != null && !closest.isEmpty()) {
+                note.append("\n- Closest available API: ").append(closest);
+            }
         }
         return note.toString();
+    }
+
+    private String extractMissingMethodName(String diagnosticMessage) {
+        if (diagnosticMessage == null || diagnosticMessage.isEmpty()) {
+            return null;
+        }
+        java.util.regex.Matcher matcher = MISSING_METHOD_DIAGNOSTIC_PATTERN.matcher(diagnosticMessage);
+        if (!matcher.find()) {
+            return null;
+        }
+        return matcher.group(1);
+    }
+
+    private String findClosestAccessibleApiSuggestion(String missingMethodName) {
+        if (missingMethodName == null || missingMethodName.isEmpty()
+                || sutContextSummary == null || sutContextSummary.isEmpty()) {
+            return null;
+        }
+
+        java.util.regex.Matcher matcher = METHOD_SIGNATURE_PATTERN.matcher(sutContextSummary);
+        String bestSignature = null;
+        String bestMethodName = null;
+        int bestScore = 0;
+        while (matcher.find()) {
+            String candidateMethodName = matcher.group(1);
+            if (candidateMethodName == null || candidateMethodName.isEmpty()
+                    || candidateMethodName.equals(missingMethodName)) {
+                continue;
+            }
+            int score = scoreMethodSimilarity(missingMethodName, candidateMethodName);
+            if (score > bestScore) {
+                bestScore = score;
+                bestMethodName = candidateMethodName;
+                bestSignature = candidateMethodName + "(" + matcher.group(2).trim() + ")";
+            }
+        }
+
+        if (bestSignature == null || bestScore < 2) {
+            return null;
+        }
+        if (bestMethodName == null) {
+            return null;
+        }
+        return bestSignature;
+    }
+
+    private int scoreMethodSimilarity(String missingMethodName, String candidateMethodName) {
+        if (missingMethodName == null || candidateMethodName == null
+                || missingMethodName.isEmpty() || candidateMethodName.isEmpty()) {
+            return 0;
+        }
+        String missingVerb = methodVerbPrefix(missingMethodName);
+        String candidateVerb = methodVerbPrefix(candidateMethodName);
+        String missingStem = stripMethodVerbPrefix(missingMethodName);
+        String candidateStem = stripMethodVerbPrefix(candidateMethodName);
+        Set<String> missingTokens = splitCamelCaseTokens(missingStem);
+        Set<String> candidateTokens = splitCamelCaseTokens(candidateStem);
+        missingTokens.retainAll(candidateTokens);
+        int score = missingTokens.size();
+        if (score == 0) {
+            return 0;
+        }
+        if (!missingVerb.isEmpty()) {
+            if (missingVerb.equals(candidateVerb)) {
+                score += 5;
+            } else {
+                score -= 2;
+            }
+        }
+        if (candidateTokens.containsAll(missingTokens)) {
+            score += 1;
+        }
+        return score;
+    }
+
+    private String methodVerbPrefix(String methodName) {
+        if (methodName == null || methodName.isEmpty()) {
+            return "";
+        }
+        if (methodName.startsWith("set")) {
+            return "set";
+        }
+        if (methodName.startsWith("get")) {
+            return "get";
+        }
+        if (methodName.startsWith("is")) {
+            return "is";
+        }
+        return "";
+    }
+
+    private String stripMethodVerbPrefix(String methodName) {
+        if (methodName == null || methodName.length() <= 3) {
+            return methodName == null ? "" : methodName;
+        }
+        if (methodName.startsWith("set") || methodName.startsWith("get")) {
+            return methodName.substring(3);
+        }
+        if (methodName.startsWith("is")) {
+            return methodName.substring(2);
+        }
+        return methodName;
+    }
+
+    private Set<String> splitCamelCaseTokens(String text) {
+        LinkedHashSet<String> tokens = new LinkedHashSet<>();
+        if (text == null || text.isEmpty()) {
+            return tokens;
+        }
+        StringBuilder current = new StringBuilder();
+        for (int i = 0; i < text.length(); i++) {
+            char ch = text.charAt(i);
+            if (i > 0 && Character.isUpperCase(ch) && current.length() > 0) {
+                tokens.add(current.toString().toLowerCase());
+                current.setLength(0);
+            }
+            if (Character.isLetterOrDigit(ch)) {
+                current.append(ch);
+            } else if (current.length() > 0) {
+                tokens.add(current.toString().toLowerCase());
+                current.setLength(0);
+            }
+        }
+        if (current.length() > 0) {
+            tokens.add(current.toString().toLowerCase());
+        }
+        return tokens;
     }
 
     private String extractExplicitRepairAction(String diagnosticMessage) {
@@ -3361,38 +4388,39 @@ public class TestRepairLoop {
             sb.append("package ").append(packageName).append(";\n\n");
         }
         UnitTestAdapter adapter = TestSuiteWriterUtils.getAdapter();
-        appendUniqueImportLines(sb, adapter.getImports());
-        
+        ImportCollector importCollector = new ImportCollector(sb);
+        appendUniqueImportLines(importCollector, adapter.getImports());
+
         String mockitoCanonical = org.mockito.Mockito.class.getCanonicalName();
         if (mockitoCanonical != null) {
-            sb.append("import ").append(mockitoCanonical).append(";\n");
-            sb.append("import static ").append(mockitoCanonical).append(".*;\n");
+            importCollector.append("import " + mockitoCanonical + ";");
+            importCollector.append("import static " + mockitoCanonical + ".*;");
         } else {
-            sb.append("import org.mockito.Mockito;\n");
-            sb.append("import static org.mockito.Mockito.*;\n");
+            importCollector.append("import org.mockito.Mockito;");
+            importCollector.append("import static org.mockito.Mockito.*;");
         }
-        
+
         String matchersCanonical = org.mockito.ArgumentMatchers.class.getCanonicalName();
         if (matchersCanonical != null) {
-            sb.append("import ").append(matchersCanonical).append(";\n");
-            sb.append("import static ").append(matchersCanonical).append(".*;\n");
+            importCollector.append("import " + matchersCanonical + ";");
+            importCollector.append("import static " + matchersCanonical + ".*;");
         } else {
-            sb.append("import org.mockito.ArgumentMatchers;\n");
-            sb.append("import static org.mockito.ArgumentMatchers.*;\n");
+            importCollector.append("import org.mockito.ArgumentMatchers;");
+            importCollector.append("import static org.mockito.ArgumentMatchers.*;");
         }
-        
+
         String evoAssertionsCanonical = org.evosuite.runtime.EvoAssertions.class.getCanonicalName();
         if (evoAssertionsCanonical != null && evoAssertionsCanonical.startsWith("shaded.")) {
-            sb.append("import static ").append(evoAssertionsCanonical).append(".*;\n");
+            importCollector.append("import static " + evoAssertionsCanonical + ".*;");
         } else {
-            sb.append("import static org.evosuite.runtime.EvoAssertions.*;\n");
+            importCollector.append("import static org.evosuite.runtime.EvoAssertions.*;");
         }
-        
+
         String vaaCanonical = org.evosuite.runtime.ViolatedAssumptionAnswer.class.getCanonicalName();
         if (vaaCanonical != null && vaaCanonical.startsWith("shaded.")) {
-            sb.append("import ").append(vaaCanonical).append(";\n");
+            importCollector.append("import " + vaaCanonical + ";");
         } else {
-            sb.append("import org.evosuite.runtime.ViolatedAssumptionAnswer;\n");
+            importCollector.append("import org.evosuite.runtime.ViolatedAssumptionAnswer;");
         }
         
         sb.append("import java.lang.reflect.Field;\n");
@@ -3411,7 +4439,7 @@ public class TestRepairLoop {
                 if (canonical.startsWith("shaded.org.evosuite.shaded.org.mockito.")) {
                     canonical = canonical.replace("shaded.org.evosuite.shaded.org.mockito.", "org.mockito.");
                 }
-                sb.append("import ").append(canonical.replace('$', '.')).append(";\n");
+                importCollector.append("import " + canonical.replace('$', '.') + ";");
             }
         }
         sb.append("\npublic class ").append(className).append(" {\n");
@@ -3429,22 +4457,64 @@ public class TestRepairLoop {
         return sb.toString();
     }
 
-    private void appendUniqueImportLines(StringBuilder sb, String rawImports) {
-        if (rawImports == null || rawImports.trim().isEmpty()) {
+    private void appendUniqueImportLines(ImportCollector collector, String rawImports) {
+        if (collector == null || rawImports == null || rawImports.trim().isEmpty()) {
             return;
         }
-        LinkedHashSet<String> seen = new LinkedHashSet<>();
         for (String line : rawImports.split("\\R")) {
-            String trimmed = line == null ? "" : line.trim();
+            collector.append(line);
+        }
+    }
+
+    private static final class ImportCollector {
+        private final StringBuilder sb;
+        private final Set<String> seenExactImports = new LinkedHashSet<>();
+        private final Set<String> seenNormalSimpleNames = new LinkedHashSet<>();
+        private final Set<String> seenStaticSimpleNames = new LinkedHashSet<>();
+
+        private ImportCollector(StringBuilder sb) {
+            this.sb = sb;
+        }
+
+        private void append(String rawLine) {
+            String trimmed = rawLine == null ? "" : rawLine.trim();
             if (!trimmed.startsWith("import ")) {
-                continue;
+                return;
             }
             if (!trimmed.endsWith(";")) {
                 trimmed = trimmed + ";";
             }
-            if (seen.add(trimmed)) {
-                sb.append(trimmed).append('\n');
+            if (!seenExactImports.add(trimmed)) {
+                return;
             }
+            String simpleName = extractImportSimpleName(trimmed);
+            if (simpleName != null) {
+                Set<String> seen = trimmed.startsWith("import static ")
+                        ? seenStaticSimpleNames
+                        : seenNormalSimpleNames;
+                if (!seen.add(simpleName)) {
+                    seenExactImports.remove(trimmed);
+                    return;
+                }
+            }
+            sb.append(trimmed).append('\n');
+        }
+
+        private String extractImportSimpleName(String importLine) {
+            String body;
+            if (importLine.startsWith("import static ")) {
+                body = importLine.substring("import static ".length(), importLine.length() - 1).trim();
+            } else {
+                body = importLine.substring("import ".length(), importLine.length() - 1).trim();
+            }
+            if (body.endsWith(".*")) {
+                body = body.substring(0, body.length() - 2);
+            }
+            int lastDot = body.lastIndexOf('.');
+            if (lastDot < 0 || lastDot == body.length() - 1) {
+                return null;
+            }
+            return body.substring(lastDot + 1);
         }
     }
 
@@ -3640,8 +4710,14 @@ public class TestRepairLoop {
                     continue;
                 }
                 String className = frame.getClassName();
-                if (className == null || isFrameworkStackFrame(className)) {
+                if (isEvoSuiteStackFrame(className)) {
                     continue;
+                }
+                if (isJdkOrFrameworkFrame(className)) {
+                    selected.add("[Dependency Stack] " + frame.toString());
+                    nonFrameworkFrameSelected = true;
+                    // Stop after capturing the first dependency cause
+                    break;
                 }
                 selected.add(frame.toString());
                 nonFrameworkFrameSelected = true;
@@ -3752,16 +4828,19 @@ public class TestRepairLoop {
                 && className.startsWith(targetPackage + ".");
     }
 
-    private boolean isFrameworkStackFrame(String className) {
+    private boolean isEvoSuiteStackFrame(String className) {
+        return className.startsWith("org.evosuite.") || className.startsWith("shaded.org.evosuite.");
+    }
+
+    private boolean isJdkOrFrameworkFrame(String className) {
         return className.startsWith("java.")
                 || className.startsWith("javax.")
                 || className.startsWith("jdk.")
                 || className.startsWith("sun.")
                 || className.startsWith("org.junit.")
-                || className.startsWith("org.mockito.")
-                || className.startsWith("org.evosuite.")
-                || className.startsWith("shaded.org.evosuite.");
+                || className.startsWith("org.mockito.");
     }
+
 
     public interface TestExecutor {
         ExecutionResult execute(org.evosuite.testcase.TestCase testCase);

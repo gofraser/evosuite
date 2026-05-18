@@ -152,6 +152,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, 0);
         ClientServices.track(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures, 0);
         ClientServices.track(RuntimeVariable.LLM_Fallback_Assertion_Evaluation_Failures, 0);
+        ClientServices.track(RuntimeVariable.LLM_All_Candidates_Dropped_Execution, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Mutations, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Mutation_Fallbacks, 0);
         ClientServices.track(RuntimeVariable.LLM_Semantic_Crossovers, 0);

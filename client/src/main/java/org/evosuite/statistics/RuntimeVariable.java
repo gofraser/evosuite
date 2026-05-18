@@ -724,6 +724,15 @@ public enum RuntimeVariable {
      * Number of failed fallback assertion evaluations (compile or runtime).
      */
     LLM_Fallback_Assertion_Evaluation_Failures,
+    /**
+     * Set to 1 for a SUT whose entire LLM-seeding batch (across all repair
+     * attempts) was dropped by the executor — every parsed candidate test
+     * threw an undeclared exception and no covering chromosome survived.
+     * Set to 0 otherwise. Useful for triaging projects where the LLM seems to
+     * succeed (LLM_Calls_Succeeded > 0) but the seeds never make it into the
+     * population.
+     */
+    LLM_All_Candidates_Dropped_Execution,
 
     // ---- Phase 5: Operator & Diversity ----
 

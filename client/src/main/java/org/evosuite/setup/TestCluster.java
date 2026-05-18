@@ -75,6 +75,21 @@ public class TestCluster {
     private static final Set<GenericAccessibleObject<?>> testMethods = new LinkedHashSet<>();
 
     /**
+     * Baseline set of discovered target calls before runtime pruning.
+     * <p>
+     * Some search components (eg archive-driven call removal) can temporarily
+     * drain {@link #testMethods}. Keeping this baseline allows mutation to
+     * recover and continue exploring instead of dead-ending.
+     * </p>
+     */
+    private static final Set<GenericAccessibleObject<?>> allDiscoveredTestMethods = new LinkedHashSet<>();
+
+    /**
+     * Guard to avoid repeating the same fallback warning every generation.
+     */
+    private static boolean warnedAboutExhaustedActiveCalls = false;
+
+    /**
      * Methods used to modify and set the environment of the UUT.
      */
     private final Set<GenericAccessibleObject<?>> environmentMethods;
@@ -126,6 +141,8 @@ public class TestCluster {
     public static void reset() {
         analyzedClasses.clear();
         testMethods.clear();
+        allDiscoveredTestMethods.clear();
+        warnedAboutExhaustedActiveCalls = false;
         generators.clear();
         generatorCache.clear();
         modifiers.clear();
@@ -400,6 +417,7 @@ public class TestCluster {
      */
     public void addTestCall(GenericAccessibleObject<?> call) throws IllegalArgumentException {
         Inputs.checkNull(call);
+        allDiscoveredTestMethods.add(call);
         if (shouldFilterHeadlessIncompatibleTestCall(call)) {
             logger.debug("Skipping headless-incompatible test call: {}", call);
             return;
@@ -1704,9 +1722,21 @@ public class TestCluster {
         candidateTestMethods.removeIf(this::shouldFilterHeadlessIncompatibleTestCall);
 
         if (candidateTestMethods.isEmpty()) {
-            logger.debug("No more calls");
-            // TODO: return null, or throw ConstructionFailedException?
-            return null;
+            List<GenericAccessibleObject<?>> fallbackCalls = new ArrayList<>(allDiscoveredTestMethods);
+            fallbackCalls.removeIf(this::shouldFilterHeadlessIncompatibleTestCall);
+            if (fallbackCalls.isEmpty()) {
+                fallbackCalls = new ArrayList<>(allDiscoveredTestMethods);
+            }
+            if (fallbackCalls.isEmpty()) {
+                logger.debug("No more calls");
+                // TODO: return null, or throw ConstructionFailedException?
+                return null;
+            }
+            if (!warnedAboutExhaustedActiveCalls) {
+                warnedAboutExhaustedActiveCalls = true;
+                logger.warn("Active target call set is empty; falling back to baseline discovered calls");
+            }
+            candidateTestMethods = fallbackCalls;
         }
 
         // If test already has a SUT call, remove all constructors

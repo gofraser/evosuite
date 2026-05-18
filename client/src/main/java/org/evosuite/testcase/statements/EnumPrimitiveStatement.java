@@ -91,14 +91,14 @@ public class EnumPrimitiveStatement<T extends Enum<T>> extends PrimitiveStatemen
      */
     @SuppressWarnings("unchecked")
     public EnumPrimitiveStatement(TestCase tc, T value) {
-        super(tc, value.getClass(), value);
+        super(tc, (Class<T>) retrieveEnumClass(value.getClass()), value);
         boolean tracerEnabled = ExecutionTracer.isEnabled();
         if (tracerEnabled) {
             ExecutionTracer.disable();
         }
 
         enumClass = (Class<T>) retrieveEnumClass(value.getClass());
-        constants = (T[]) retrieveEnumClass(value.getClass()).getEnumConstants();
+        constants = enumClass.getEnumConstants();
 
         if (tracerEnabled) {
             ExecutionTracer.enable();

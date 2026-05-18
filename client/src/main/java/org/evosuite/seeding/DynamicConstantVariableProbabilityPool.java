@@ -20,7 +20,6 @@
 package org.evosuite.seeding;
 
 import org.evosuite.Properties;
-import org.evosuite.utils.RandomAccessQueue;
 import org.objectweb.asm.Type;
 
 /**
@@ -28,17 +27,17 @@ import org.objectweb.asm.Type;
  */
 public class DynamicConstantVariableProbabilityPool implements ConstantPool {
 
-    private final RandomAccessQueue<String> stringPool = new FrequencyBasedRandomAccessQueue<>();
+    private final FrequencyBasedRandomAccessQueue<String> stringPool = new FrequencyBasedRandomAccessQueue<>();
 
-    private final RandomAccessQueue<Type> typePool = new FrequencyBasedRandomAccessQueue<>();
+    private final FrequencyBasedRandomAccessQueue<Type> typePool = new FrequencyBasedRandomAccessQueue<>();
 
-    private final RandomAccessQueue<Integer> intPool = new FrequencyBasedRandomAccessQueue<>();
+    private final FrequencyBasedRandomAccessQueue<Integer> intPool = new FrequencyBasedRandomAccessQueue<>();
 
-    private final RandomAccessQueue<Double> doublePool = new FrequencyBasedRandomAccessQueue<>();
+    private final FrequencyBasedRandomAccessQueue<Double> doublePool = new FrequencyBasedRandomAccessQueue<>();
 
-    private final RandomAccessQueue<Long> longPool = new FrequencyBasedRandomAccessQueue<>();
+    private final FrequencyBasedRandomAccessQueue<Long> longPool = new FrequencyBasedRandomAccessQueue<>();
 
-    private final RandomAccessQueue<Float> floatPool = new FrequencyBasedRandomAccessQueue<>();
+    private final FrequencyBasedRandomAccessQueue<Float> floatPool = new FrequencyBasedRandomAccessQueue<>();
 
     /**
      * Initializes the dynamic constant pool with variable probabilities.
@@ -128,39 +127,19 @@ public class DynamicConstantVariableProbabilityPool implements ConstantPool {
         } else if (object instanceof Type) {
             typePool.restrictedAdd((Type) object);
         } else if (object instanceof Integer) {
-            if (Properties.RESTRICT_POOL) {
-                int val = (Integer) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    intPool.restrictedAdd((Integer) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Integer) object)) {
                 intPool.restrictedAdd((Integer) object);
             }
         } else if (object instanceof Long) {
-            if (Properties.RESTRICT_POOL) {
-                long val = (Long) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    longPool.restrictedAdd((Long) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Long) object)) {
                 longPool.restrictedAdd((Long) object);
             }
         } else if (object instanceof Float) {
-            if (Properties.RESTRICT_POOL) {
-                float val = (Float) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    floatPool.restrictedAdd((Float) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Float) object)) {
                 floatPool.restrictedAdd((Float) object);
             }
         } else if (object instanceof Double) {
-            if (Properties.RESTRICT_POOL) {
-                double val = (Double) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    doublePool.restrictedAdd((Double) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Double) object)) {
                 doublePool.restrictedAdd((Double) object);
             }
         }
@@ -176,5 +155,30 @@ public class DynamicConstantVariableProbabilityPool implements ConstantPool {
         res += "floatPool=" + floatPool + " ; ";
         res += "doublePool=" + doublePool + "}";
         return res;
+    }
+
+    @Override
+    public int pruneOversizedNumericConstants(long maxAbsExclusive) {
+        if (maxAbsExclusive <= 0L) {
+            return 0;
+        }
+        int removed = 0;
+        removed += intPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += longPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += floatPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += doublePool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        if (intPool.isEmpty()) {
+            intPool.restrictedAdd(0);
+        }
+        if (longPool.isEmpty()) {
+            longPool.restrictedAdd(0L);
+        }
+        if (floatPool.isEmpty()) {
+            floatPool.restrictedAdd(0.0f);
+        }
+        if (doublePool.isEmpty()) {
+            doublePool.restrictedAdd(0.0);
+        }
+        return removed;
     }
 }

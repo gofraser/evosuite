@@ -284,6 +284,19 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
      */
     public FunctionalMockStatement(TestCase tc, Type retvalType, GenericClass<?> targetClass)
             throws IllegalArgumentException {
+        this(tc, retvalType, targetClass, true);
+    }
+
+    /**
+     * Internal constructor variant used by clone/copy paths.
+     *
+     * @param tc             the test case
+     * @param retvalType     the type of the return value
+     * @param targetClass    the class to mock
+     * @param validateTarget whether to re-run target mockability checks
+     */
+    private FunctionalMockStatement(TestCase tc, Type retvalType, GenericClass<?> targetClass,
+                                    boolean validateTarget) throws IllegalArgumentException {
         super(tc, retvalType);
         Inputs.checkNull(targetClass);
 
@@ -299,7 +312,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         this.targetClass = targetClass;
         mockedMethods = new ArrayList<>();
         methodParameters = new LinkedHashMap<>();
-        checkTarget();
+        if (validateTarget) {
+            checkTarget();
+        }
         assert parameters.isEmpty();
         //setUpMockCreator();
     }
@@ -916,7 +931,7 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
 
         FunctionalMockStatement copy = new FunctionalMockStatement(
-                newTestCase, retval.getType(), targetClass);
+                newTestCase, retval.getType(), targetClass, false);
 
         for (VariableReference r : this.parameters) {
             copy.parameters.add(r.copy(newTestCase, offset));

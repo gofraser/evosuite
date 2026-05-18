@@ -33,6 +33,7 @@ import org.objectweb.asm.Opcodes;
  *     <li>INVOKESPECIAL</li>
  *     <li>INVOKEINTERFACE</li>
  *     <li>INVOKEVIRTUAL</li>
+ *     <li>array-store opcodes (conservatively treated as field updates)</li>
  * </ul>
  * This class only reads the existing bytecode.
  *
@@ -41,6 +42,8 @@ import org.objectweb.asm.Opcodes;
 public class PurityAnalysisMethodVisitor extends MethodVisitor {
 
     private boolean updatesField;
+    private boolean hasArrayStore;
+    private boolean hasFieldLoad;
     private final CheapPurityAnalyzer purityAnalyzer;
     private final String classNameWithDots;
     private final String methodName;
@@ -66,10 +69,6 @@ public class PurityAnalysisMethodVisitor extends MethodVisitor {
         this.descriptor = descriptor;
     }
 
-    /* (non-Javadoc)
-     * @see org.objectweb.asm.MethodAdapter#visitFieldInsn(int, java.lang.String, java.lang.String, java.lang.String)
-     */
-
     /**
      * {@inheritDoc}
      */
@@ -78,8 +77,24 @@ public class PurityAnalysisMethodVisitor extends MethodVisitor {
                                String desc) {
         if (opcode == Opcodes.PUTSTATIC || opcode == Opcodes.PUTFIELD) {
             updatesField = true;
+        } else if (opcode == Opcodes.GETFIELD || opcode == Opcodes.GETSTATIC) {
+            hasFieldLoad = true;
         }
         super.visitFieldInsn(opcode, owner, name, desc);
+    }
+
+    @Override
+    public void visitInsn(int opcode) {
+        // A precise flow-based check for impure array stores would require
+        // buffering the entire method, which is too costly on large classes.
+        // As a cheap streaming approximation, we flag array stores as impure
+        // only when the method also reads from a field (GETFIELD/GETSTATIC),
+        // which is a strong indicator that the stored-into array may be the
+        // field itself rather than a fresh local.
+        if (isArrayStoreOpcode(opcode)) {
+            hasArrayStore = true;
+        }
+        super.visitInsn(opcode);
     }
 
     public boolean updatesField() {
@@ -111,5 +126,27 @@ public class PurityAnalysisMethodVisitor extends MethodVisitor {
             }
         }
         super.visitMethodInsn(opcode, owner, name, desc, itf);
+    }
+
+    @Override
+    public void visitEnd() {
+        super.visitEnd();
+        if (!updatesField && hasArrayStore && hasFieldLoad) {
+            updatesField = true;
+        }
+        if (updatesField) {
+            purityAnalyzer.addUpdatesFieldMethod(classNameWithDots, methodName, descriptor);
+        }
+    }
+
+    private static boolean isArrayStoreOpcode(int opcode) {
+        return opcode == Opcodes.IASTORE
+                || opcode == Opcodes.LASTORE
+                || opcode == Opcodes.FASTORE
+                || opcode == Opcodes.DASTORE
+                || opcode == Opcodes.AASTORE
+                || opcode == Opcodes.BASTORE
+                || opcode == Opcodes.CASTORE
+                || opcode == Opcodes.SASTORE;
     }
 }

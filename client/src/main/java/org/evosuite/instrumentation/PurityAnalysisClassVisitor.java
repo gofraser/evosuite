@@ -24,8 +24,6 @@ import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-import java.util.HashMap;
-
 /**
  * It launches a <code>PurityAnalysisMethodVisitor</code> on each method.
  * This class only reads the existing bytecode.
@@ -36,54 +34,7 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
 
     private final CheapPurityAnalyzer purityAnalyzer;
 
-    /**
-     * Entry for a method.
-     */
-    public static class MethodEntry {
-        private final String className;
-        private final String methodName;
-        private final String descriptor;
-
-        /**
-         * Constructor for MethodEntry.
-         *
-         * @param className the name of the class.
-         * @param methodName the name of the method.
-         * @param descriptor the descriptor.
-         */
-        public MethodEntry(String className, String methodName,
-                           String descriptor) {
-            this.className = className;
-            this.methodName = methodName;
-            this.descriptor = descriptor;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (o == null) {
-                return false;
-            }
-
-            if (!o.getClass().equals(MethodEntry.class)) {
-                return false;
-            }
-
-            MethodEntry that = (MethodEntry) o;
-
-            return this.className.equals(that.className)
-                    && this.methodName.equals(that.methodName)
-                    && this.descriptor.equals(that.descriptor);
-        }
-
-        @Override
-        public int hashCode() {
-            return this.className.hashCode() + this.methodName.hashCode()
-                    + this.descriptor.hashCode();
-        }
-    }
-
     private final String className;
-    private final HashMap<MethodEntry, PurityAnalysisMethodVisitor> methodAdapters = new HashMap<>();
 
     /**
      * <p>
@@ -126,22 +77,8 @@ public class PurityAnalysisClassVisitor extends ClassVisitor {
 
         MethodVisitor mv = super.visitMethod(methodAccess, name, descriptor,
                 signature, exceptions);
-        PurityAnalysisMethodVisitor purityAnalysisMethodVisitor = new PurityAnalysisMethodVisitor(
+        return new PurityAnalysisMethodVisitor(
                 className, name, descriptor, mv, purityAnalyzer);
-        MethodEntry methodEntry = new MethodEntry(className, name, descriptor);
-        this.methodAdapters.put(methodEntry, purityAnalysisMethodVisitor);
-        return purityAnalysisMethodVisitor;
-    }
-
-    @Override
-    public void visitEnd() {
-        for (MethodEntry methodEntry : this.methodAdapters.keySet()) {
-
-            if (this.methodAdapters.get(methodEntry).updatesField()) {
-                purityAnalyzer.addUpdatesFieldMethod(methodEntry.className,
-                        methodEntry.methodName, methodEntry.descriptor);
-            }
-        }
     }
 
     private boolean visitingInterface = false;

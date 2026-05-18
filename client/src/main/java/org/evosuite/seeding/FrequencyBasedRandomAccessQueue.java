@@ -23,7 +23,9 @@ import org.evosuite.Properties;
 import org.evosuite.utils.RandomAccessQueue;
 
 import java.util.ArrayDeque;
+import java.util.Iterator;
 import java.util.Queue;
+import java.util.function.Predicate;
 
 /**
  * Created by gordon on 06/01/2017.
@@ -60,6 +62,24 @@ public class FrequencyBasedRandomAccessQueue<T> implements RandomAccessQueue<T> 
     @Override
     public synchronized T getRandomValue() {
         return values.getRandomConstant();
+    }
+
+    public synchronized int removeIf(Predicate<? super T> predicate) {
+        int removed = 0;
+        Iterator<T> iterator = queue.iterator();
+        while (iterator.hasNext()) {
+            T value = iterator.next();
+            if (predicate.test(value)) {
+                iterator.remove();
+                values.removeConstant(value);
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    public synchronized boolean isEmpty() {
+        return values.isEmpty();
     }
 
     @Override

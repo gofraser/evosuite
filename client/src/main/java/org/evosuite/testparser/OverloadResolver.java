@@ -97,7 +97,14 @@ class OverloadResolver {
     Method resolveMethod(Class<?> clazz, String name, Class<?>[] argTypes)
             throws NoSuchMethodException {
         try {
-            return clazz.getMethod(name, argTypes);
+            Method exact = clazz.getMethod(name, argTypes);
+            // Ignore synthetic bridge wrappers here: they can appear as exact
+            // reflection matches (e.g., generic compare(Object,Object)), but
+            // javac resolves against the source-level generic signature and may
+            // reject those calls at compile time.
+            if (!exact.isBridge()) {
+                return exact;
+            }
         } catch (NoSuchMethodException ignored) {
             // Ignore and try compatibility match
         }

@@ -364,7 +364,7 @@ public class ExecutionResult implements Cloneable {
 
         final int size = test.size();
         return exceptions.containsKey(size)
-                && exceptions.get(size) instanceof TestCaseExecutor.TimeoutExceeded;
+                && isTimeoutLike(exceptions.get(size));
     }
 
     /**
@@ -373,12 +373,53 @@ public class ExecutionResult implements Cloneable {
      * @return a boolean.
      */
     public boolean hasTestException() {
+        normalizeExceptionPositions();
         if (test == null) {
             return false;
         }
+        if (exceptions.isEmpty()) {
+            return false;
+        }
 
-        return exceptions.values().stream()
-                .anyMatch(t -> t instanceof CodeUnderTestException);
+        // Classify by the effective terminating exception only.
+        // Stale/secondary entries (e.g., from outdated positions or timeout
+        // bookkeeping) must not mark the whole test as a test-side exception.
+        Integer firstPosition = getFirstPositionOfThrownException();
+        if (firstPosition == null) {
+            return false;
+        }
+        Throwable firstThrown = exceptions.get(firstPosition);
+        return firstThrown instanceof CodeUnderTestException;
+    }
+
+    /**
+     * Returns true if the throwable itself, or any cause in its chain, is a timeout marker.
+     */
+    public static boolean isTimeoutLike(Throwable throwable) {
+        return hasThrowableType(throwable, TestCaseExecutor.TimeoutExceeded.class);
+    }
+
+    /**
+     * Returns true if the throwable itself, or any cause in its chain, is a code-under-test wrapper.
+     */
+    public static boolean isCodeUnderTestLike(Throwable throwable) {
+        return hasThrowableType(throwable, CodeUnderTestException.class);
+    }
+
+    private static boolean hasThrowableType(Throwable throwable, Class<?> expectedType) {
+        if (throwable == null || expectedType == null) {
+            return false;
+        }
+
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        Throwable current = throwable;
+        while (current != null && seen.add(current)) {
+            if (expectedType.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     /**
@@ -550,7 +591,7 @@ public class ExecutionResult implements Cloneable {
         }
         int maxPosition = test.size();
         if (position > maxPosition) {
-            logger.warn("Normalizing exception position {} to terminal slot {} for test size {}",
+            logger.info("Normalizing exception position {} to terminal slot {} for test size {}",
                     position, maxPosition, maxPosition);
             return maxPosition;
         }

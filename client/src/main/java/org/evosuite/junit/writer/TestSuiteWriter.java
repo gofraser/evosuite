@@ -457,12 +457,16 @@ public class TestSuiteWriter implements Opcodes {
     protected ExecutionResult runTest(TestCase test) {
 
         ExecutionResult result = new ExecutionResult(test, null);
+        boolean oldDmonEnabled = Properties.DMON_ENABLED;
 
         try {
+            Properties.DMON_ENABLED = false;
             logger.debug("Executing test");
             result = executor.execute(test);
         } catch (Exception e) {
             throw new Error(e);
+        } finally {
+            Properties.DMON_ENABLED = oldDmonEnabled;
         }
 
         return result;
@@ -608,17 +612,29 @@ public class TestSuiteWriter implements Opcodes {
         String rawImports = adapter.getImports() + getImports(results, requirements);
         SortedSet<String> normalImports = new TreeSet<>();
         SortedSet<String> staticImports = new TreeSet<>();
+        Set<String> seenNormalSimpleNames = new LinkedHashSet<>();
+        Set<String> seenStaticSimpleNames = new LinkedHashSet<>();
 
         String[] lines = rawImports.split("\\R");
         for (String line : lines) {
-            String trimmed = line.trim();
+            String trimmed = line == null ? "" : line.trim();
             if (!trimmed.startsWith("import ")) {
                 continue;
             }
             if (trimmed.startsWith("import static ")) {
-                staticImports.add(trimmed);
+                String normalized = normalizeImportLine(trimmed);
+                String simpleName = extractImportSimpleName(normalized);
+                if (simpleName == null || !seenStaticSimpleNames.add(simpleName)) {
+                    continue;
+                }
+                staticImports.add(normalized);
             } else {
-                normalImports.add(trimmed);
+                String normalized = normalizeImportLine(trimmed);
+                String simpleName = extractImportSimpleName(normalized);
+                if (simpleName == null || !seenNormalSimpleNames.add(simpleName)) {
+                    continue;
+                }
+                normalImports.add(normalized);
             }
         }
 
@@ -634,6 +650,34 @@ public class TestSuiteWriter implements Opcodes {
         }
         builder.append(NEWLINE);
         return builder.toString();
+    }
+
+    private String normalizeImportLine(String importLine) {
+        String trimmed = importLine == null ? "" : importLine.trim();
+        if (!trimmed.endsWith(";")) {
+            trimmed = trimmed + ";";
+        }
+        return trimmed;
+    }
+
+    private String extractImportSimpleName(String importLine) {
+        if (importLine == null || !importLine.startsWith("import ")) {
+            return null;
+        }
+        String body;
+        if (importLine.startsWith("import static ")) {
+            body = importLine.substring("import static ".length(), importLine.length() - 1).trim();
+        } else {
+            body = importLine.substring("import ".length(), importLine.length() - 1).trim();
+        }
+        if (body.endsWith(".*")) {
+            body = body.substring(0, body.length() - 2);
+        }
+        int lastDot = body.lastIndexOf('.');
+        if (lastDot < 0 || lastDot == body.length() - 1) {
+            return null;
+        }
+        return body.substring(lastDot + 1);
     }
 
 

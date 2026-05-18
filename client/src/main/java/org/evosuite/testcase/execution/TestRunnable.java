@@ -28,6 +28,7 @@ import org.evosuite.runtime.System.SystemExitException;
 import org.evosuite.runtime.jvm.ShutdownHookHandler;
 import org.evosuite.runtime.thread.KillSwitch;
 import org.evosuite.runtime.thread.ThreadStopper;
+import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.dmon.DmonCoordinator;
 import org.evosuite.testcase.dmon.DmonFailureSite;
@@ -515,6 +516,16 @@ public class TestRunnable implements InterfaceTestRunnable {
                         logger.warn("OOM in {} at statement {}/{}: {}\nFull test case:\n{}",
                                 s.getClass().getSimpleName(), num.get(), test.size(),
                                 s.getCode(), test.toCode());
+                    }
+
+                    ConstantPoolManager.AdaptiveSeedLimitUpdate update =
+                            ConstantPoolManager.getInstance().tightenSeededNumericLimitAfterOom();
+                    int sanitizedLiterals = ConstantPoolManager.sanitizeTestCaseNumericLiterals(test);
+                    if (update.isEnabled() || sanitizedLiterals > 0) {
+                        logger.warn("OOM mitigation applied: adaptiveSeedLimit={}, "
+                                        + "activations={}, prunedConstants={}, sanitizedLiterals={}",
+                                update.getLimit(), update.getActivationCount(),
+                                update.getPrunedConstants(), sanitizedLiterals);
                     }
                 }
 

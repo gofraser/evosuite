@@ -153,6 +153,8 @@ public class TestSuiteMinimizer {
     private void minimizeTests(TestSuiteChromosome suite) {
 
         logger.info("Minimizing per test");
+        final int originalSuiteSize = suite.size();
+        final int originalSuiteLength = suite.totalLengthOfTestCases();
 
         ExecutionTracer.enableTraceCalls();
 
@@ -241,6 +243,9 @@ public class TestSuiteMinimizer {
         Set<TestFitnessFunction> covered = new LinkedHashSet<>();
         List<TestChromosome> minimizedTests = new ArrayList<>();
         TestSuiteWriter minimizedSuite = new TestSuiteWriter();
+        int goalsWithoutCoveringTests = 0;
+        int discardedMinimizedTestsWithoutCoverage = 0;
+        int keptMinimizedTests = 0;
 
         boolean timeout = false;
 
@@ -317,14 +322,19 @@ public class TestSuiteMinimizer {
                 if (covered.size() > coveredBefore) {
                     minimizedTests.add(copy);
                     minimizedSuite.insertTest(copy.getTestCase());
+                    keptMinimizedTests++;
                 } else {
-                    logger.info("Discarding minimized test that covers no goals on re-execution");
+                    discardedMinimizedTestsWithoutCoverage++;
+                    logger.warn("Discarding minimized test that covers no goals on re-execution. "
+                                    + "lastExecutionResult={}",
+                            summarizeExecutionResult(copy.getLastExecutionResult()));
                 }
 
                 logger.info("After new test the suite covers " + covered.size() + "/"
                         + goals.size() + " goals");
 
             } else {
+                goalsWithoutCoveringTests++;
                 logger.info("Goal is not covered: " + goal);
             }
         }
@@ -347,6 +357,18 @@ public class TestSuiteMinimizer {
 
         for (TestCase test : minimizedSuite.getTestCases()) {
             suite.addTest(test);
+        }
+
+        logger.info("Minimization diagnostics: originalTests={}, originalLength={}, "
+                        + "keptMinimizedTests={}, discardedNoCoverage={}, goalsWithoutCoveringTests={}, "
+                        + "resultTests={}, resultLength={}, timeout={}",
+                originalSuiteSize, originalSuiteLength,
+                keptMinimizedTests, discardedMinimizedTestsWithoutCoverage, goalsWithoutCoveringTests,
+                suite.size(), suite.totalLengthOfTestCases(), timeout);
+        if (originalSuiteSize > 0 && suite.size() == 0) {
+            logger.warn("Minimization resulted in empty suite ({} -> 0 tests). "
+                            + "discardedNoCoverage={}, goalsWithoutCoveringTests={}, timeout={}",
+                    originalSuiteSize, discardedMinimizedTestsWithoutCoverage, goalsWithoutCoveringTests, timeout);
         }
 
         if (Properties.MINIMIZE_SECOND_PASS && !timeout) {
@@ -520,6 +542,7 @@ public class TestSuiteMinimizer {
         // Subsuming tests are inserted in the back, so we start inserting the final tests from there
         List<TestChromosome> tests = suite.getTestChromosomes();
         logger.debug("Before removing redundant tests: " + tests.size());
+        int before = tests.size();
 
         Collections.reverse(tests);
         List<TestChromosome> finalTests = new ArrayList<>();
@@ -545,6 +568,31 @@ public class TestSuiteMinimizer {
         suite.getTestChromosomes().clear();
         suite.getTestChromosomes().addAll(finalTests);
         logger.debug("After removing redundant tests: " + tests.size());
+        if (before > 0 && finalTests.isEmpty()) {
+            logger.warn("Second-pass redundancy removal dropped all tests ({} -> 0). "
+                            + "Covered goals retained in pass: {}",
+                    before, coveredGoals.size());
+        }
 
+    }
+
+    private String summarizeExecutionResult(ExecutionResult result) {
+        if (result == null) {
+            return "<null>";
+        }
+        Integer firstPos = result.getFirstPositionOfThrownException();
+        String firstException = "<none>";
+        if (firstPos != null) {
+            Throwable thrown = result.getExceptionThrownAtPosition(firstPos);
+            if (thrown != null) {
+                firstException = thrown.getClass().getName() + ": " + thrown.getMessage();
+            }
+        }
+        return "timeout=" + result.hasTimeout()
+                + ", testException=" + result.hasTestException()
+                + ", securityException=" + result.hasSecurityException()
+                + ", thrownExceptions=" + result.getNumberOfThrownExceptions()
+                + ", firstException=" + firstException
+                + ", executedStatements=" + result.getExecutedStatements();
     }
 }

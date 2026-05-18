@@ -20,6 +20,7 @@
 package org.evosuite.setup;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.CheapPurityAnalyzer;
 import org.evosuite.instrumentation.testability.BooleanTestabilityTransformation;
 import org.evosuite.runtime.mock.MockList;
@@ -391,6 +392,12 @@ public class MemberAnalyzer {
                      *
                      * private MillisDurationField() { super(); }
                      */
+                    if (TestGenerationContext.getInstance().isAssertionGenerationContext()
+                            && rawClass.getName().equals(Properties.TARGET_CLASS)) {
+                        logger.debug("Skipping target static-field probe during assertion-generation reload: {}",
+                                field);
+                        return;
+                    }
                     try {
                         Object o = field.get(null);
                         if (o == null) {
@@ -412,6 +419,15 @@ public class MemberAnalyzer {
                         }
                     } catch (IllegalAccessException e) {
                         logger.error(e.getMessage());
+                    } catch (Throwable t) {
+                        // field.get(null) forces <clinit> of the declaring
+                        // class; a failing static initializer (e.g. NPE,
+                        // ExceptionInInitializerError, NoClassDefFoundError)
+                        // must not abort the rest of the target analysis,
+                        // since this lookup is only an optimisation for the
+                        // singleton-instance pattern.
+                        logger.info("Skipping static-field probe for "
+                                + field + ": " + t);
                     }
                 }
             }

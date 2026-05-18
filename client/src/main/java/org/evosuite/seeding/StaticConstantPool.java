@@ -27,6 +27,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Static constant pool.
@@ -63,6 +64,26 @@ public class StaticConstantPool implements ConstantPool {
                 dirty = false;
             }
             return Randomness.choice(list);
+        }
+
+        public synchronized int removeIf(Predicate<? super T> predicate) {
+            int removed = 0;
+            for (T element : new java.util.ArrayList<>(list)) {
+                if (predicate.test(element)) {
+                    if (set.remove(element)) {
+                        removed++;
+                    }
+                }
+            }
+            if (removed > 0) {
+                list.removeIf(predicate);
+                dirty = true;
+            }
+            return removed;
+        }
+
+        public synchronized int size() {
+            return list.size();
         }
     }
 
@@ -200,44 +221,50 @@ public class StaticConstantPool implements ConstantPool {
             }
             typePool.add((Type) object);
         } else if (object instanceof Integer) {
-            if (Properties.RESTRICT_POOL) {
-                int val = (Integer) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    intPool.add((Integer) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Integer) object)) {
                 intPool.add((Integer) object);
             }
         } else if (object instanceof Long) {
-            if (Properties.RESTRICT_POOL) {
-                long val = (Long) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    longPool.add((Long) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Long) object)) {
                 longPool.add((Long) object);
             }
         } else if (object instanceof Float) {
-            if (Properties.RESTRICT_POOL) {
-                float val = (Float) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    floatPool.add((Float) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Float) object)) {
                 floatPool.add((Float) object);
             }
         } else if (object instanceof Double) {
-            if (Properties.RESTRICT_POOL) {
-                double val = (Double) object;
-                if (Math.abs(val) < Properties.MAX_INT) {
-                    doublePool.add((Double) object);
-                }
-            } else {
+            if (ConstantPoolManager.shouldKeepNumericConstant((Double) object)) {
                 doublePool.add((Double) object);
             }
         } else {
             logger.info("Constant of unknown type: {}", object.getClass());
         }
+    }
+
+    @Override
+    public int pruneOversizedNumericConstants(long maxAbsExclusive) {
+        if (maxAbsExclusive <= 0L) {
+            return 0;
+        }
+        int removed = 0;
+        removed += intPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += longPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += floatPool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+        removed += doublePool.removeIf(value -> !ConstantPoolManager.shouldKeepNumericConstant(value, maxAbsExclusive));
+
+        if (intPool.size() == 0) {
+            intPool.add(0);
+        }
+        if (longPool.size() == 0) {
+            longPool.add(0L);
+        }
+        if (floatPool.size() == 0) {
+            floatPool.add(0.0f);
+        }
+        if (doublePool.size() == 0) {
+            doublePool.add(0.0);
+        }
+        return removed;
     }
 
 }

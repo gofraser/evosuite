@@ -22,10 +22,12 @@ package org.evosuite.utils.generic;
 import com.googlecode.gentyref.GenericTypeReflector;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.LoggingUtils;
+import org.evosuite.utils.MasterClassLoaderBridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -489,6 +491,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         String methodDesc = (String) ois.readObject();
 
         ClassLoader[] candidateLoaders = new ClassLoader[]{
+                GenericClassImpl.getMasterSideClassLoaderIfInitialized(),
                 TestGenerationContext.getInstance().getClassLoaderForSUT(),
                 Thread.currentThread().getContextClassLoader(),
                 GenericMethod.class.getClassLoader(),
@@ -519,6 +522,15 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
                 new IllegalStateException("Unknown method " + methodName + " in class " + className);
         if (lastError != null) {
             exception.initCause(lastError);
+        }
+        if (MasterClassLoaderBridge.isMasterProcess()) {
+            AtMostOnceLogger.warn(logger,
+                    "Falling back to placeholder method for unresolved "
+                            + className + "." + methodName + methodDesc + " on master side");
+            logger.debug("Cause for unresolved method during master-side deserialization", exception);
+            this.method = SerializationFallbackMember.getFallbackMethod();
+            this.reflectionAccessible = makeMethodAccessible(this.method);
+            return;
         }
         throw exception;
     }

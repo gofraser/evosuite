@@ -280,8 +280,25 @@ public class Properties {
             description = "Maximum size of randomly generated integers (minimum range = -1 * max)")
     public static int MAX_INT = 2048;
 
+    @Parameter(key = "max_seeded_constant", group = "Test Creation",
+            description = "Maximum absolute value for seeded numeric constants in the pools "
+                    + "(<=0 disables this extra cap; when restrict_pool=true, max_int is used)")
+    public static long MAX_SEEDED_CONSTANT = 0L;
+
+    @Parameter(key = "adaptive_seeded_constants_on_oom", group = "Test Creation",
+            description = "After OOM, enable and progressively tighten a runtime cap for seeded numeric constants")
+    public static boolean ADAPTIVE_SEEDED_CONSTANTS_ON_OOM = true;
+
+    @Parameter(key = "adaptive_seeded_constant_initial_limit", group = "Test Creation",
+            description = "Initial absolute cap for seeded numeric constants after first OOM")
+    public static long ADAPTIVE_SEEDED_CONSTANT_INITIAL_LIMIT = 8192L;
+
+    @Parameter(key = "adaptive_seeded_constant_min_limit", group = "Test Creation",
+            description = "Minimum absolute cap when adaptively tightening seeded numeric constants after repeated OOMs")
+    public static long ADAPTIVE_SEEDED_CONSTANT_MIN_LIMIT = 64L;
+
     @Parameter(key = "restrict_pool", group = "Test Creation",
-            description = "Prohibit integers in the pool greater than max_int")
+            description = "Prohibit seeded numeric constants in the pool whose absolute value is >= max_int")
     public static boolean RESTRICT_POOL = false;
 
     @Parameter(key = "max_delta", group = "Test Creation",
@@ -2027,7 +2044,39 @@ public class Properties {
     @Parameter(key = "llm_repair_attempts", group = "LLM",
             description = "Maximum repair attempts for malformed LLM output")
     @IntValue(min = 0)
-    public static int LLM_REPAIR_ATTEMPTS = 3;
+    public static int LLM_REPAIR_ATTEMPTS = 4;
+
+    @Parameter(key = "llm_include_dependency_code_on_repair", group = "LLM",
+            description = "Inline decompiled/bytecode excerpts of non-CUT classes whose code triggered a repair-blocking exception")
+    public static boolean LLM_INCLUDE_DEPENDENCY_CODE_ON_REPAIR = true;
+
+    @Parameter(key = "llm_repair_hints_enabled", group = "LLM",
+            description = "Enable generic, error-triggered repair hints in addition to SUT-specific diagnostics")
+    public static boolean LLM_REPAIR_HINTS_ENABLED = true;
+
+    @Parameter(key = "llm_repair_hints_always_on", group = "LLM",
+            description = "Include a small always-on baseline of generic repair hints in every repair prompt")
+    public static boolean LLM_REPAIR_HINTS_ALWAYS_ON = true;
+
+    @Parameter(key = "llm_repair_hints_max_per_attempt", group = "LLM",
+            description = "Maximum number of generic repair hints injected per repair attempt")
+    @IntValue(min = 0)
+    public static int LLM_REPAIR_HINTS_MAX_PER_ATTEMPT = 6;
+
+    @Parameter(key = "llm_repair_hints_cooldown_attempts", group = "LLM",
+            description = "Minimum number of repair attempts before repeating the same generic hint")
+    @IntValue(min = 0)
+    public static int LLM_REPAIR_HINTS_COOLDOWN_ATTEMPTS = 1;
+
+    @Parameter(key = "llm_dependency_code_max_chars", group = "LLM",
+            description = "Maximum characters of dependency code to inline per repair turn")
+    @IntValue(min = 0)
+    public static int LLM_DEPENDENCY_CODE_MAX_CHARS = 4000;
+
+    @Parameter(key = "llm_dependency_code_max_classes", group = "LLM",
+            description = "Hard cap on distinct dependency classes whose code may be inlined per repair turn")
+    @IntValue(min = 0)
+    public static int LLM_DEPENDENCY_CODE_MAX_CLASSES = 1;
 
     @Parameter(key = "llm_enable_truncation_recovery", group = "LLM",
             description = "Attempt to salvage truncated Java test output by trimming incomplete members")

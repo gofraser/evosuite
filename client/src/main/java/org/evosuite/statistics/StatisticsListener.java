@@ -97,8 +97,8 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
              * is no point in sending too many
              */
             timeFromLastGenerationUpdate = System.currentTimeMillis();
-            // Enqueue current best individual
-            individuals.offer(algorithm.getBestIndividual());
+            // Enqueue an immutable snapshot to avoid cross-thread mutation races
+            enqueueSnapshot(algorithm.getBestIndividual());
             // send timeline variable directly
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.TotalExceptionsTimeline,
                     ExceptionCoverageSuiteFitness.getMaxExceptionsCovered());
@@ -110,7 +110,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
 
         // If the search is finished, we may want to clear the queue and just send the final element?
         //individuals.clear(); // TODO: Maybe have a check on size
-        individuals.offer(algorithm.getBestIndividual());
+        enqueueSnapshot(algorithm.getBestIndividual());
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Statements_Executed,
                 MaxStatementsStoppingCondition.getNumExecutedStatements());
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Tests_Executed,
@@ -185,15 +185,22 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
             if (fitness < bestFitness) {
                 bestFitness = fitness;
 
-                individuals.offer(individual);
+                enqueueSnapshot(individual);
             }
         } else {
             if (fitness > bestFitness) {
                 bestFitness = fitness;
 
-                individuals.offer(individual);
+                enqueueSnapshot(individual);
             }
         }
+    }
+
+    private void enqueueSnapshot(T individual) {
+        if (individual == null) {
+            return;
+        }
+        individuals.offer(individual.clone());
     }
 
     @Override

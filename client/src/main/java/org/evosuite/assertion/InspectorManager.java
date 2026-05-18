@@ -235,6 +235,9 @@ public class InspectorManager {
     }
 
     private boolean isBlackListed(Method method) {
+        if (TestUsageChecker.isUnstableGuiAccessor(method)) {
+            return true;
+        }
         String className = method.getDeclaringClass().getCanonicalName();
         if (MockList.isAMockClass(className)) {
             className = method.getDeclaringClass().getSuperclass().getCanonicalName();

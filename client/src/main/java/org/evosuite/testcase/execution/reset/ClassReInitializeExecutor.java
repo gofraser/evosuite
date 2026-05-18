@@ -305,6 +305,13 @@ class ClassReInitializeExecutor {
             return true;
         }
 
+        // Avoid mutating static fields of third-party classes outside the target
+        // project scope. Reflective nulling there is likely unsafe and can
+        // corrupt shared library state for subsequent executions.
+        if (!isInTargetProjectScope(className)) {
+            return true;
+        }
+
         try {
             ClassLoader loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
             Class<?> clazz = Class.forName(className, false, loader);
@@ -320,5 +327,28 @@ class ClassReInitializeExecutor {
         }
 
         return false;
+    }
+
+    private static boolean isInTargetProjectScope(String className) {
+        if (className == null || className.isEmpty()) {
+            return false;
+        }
+
+        String targetClass = Properties.TARGET_CLASS;
+        if (targetClass != null && !targetClass.isEmpty()) {
+            if (className.equals(targetClass) || className.startsWith(targetClass + "$")) {
+                return true;
+            }
+        }
+
+        String targetPrefix = Properties.TARGET_CLASS_PREFIX;
+        if (targetPrefix != null && !targetPrefix.isEmpty() && className.startsWith(targetPrefix)) {
+            return true;
+        }
+
+        String projectPrefix = Properties.PROJECT_PREFIX;
+        return projectPrefix != null
+                && !projectPrefix.isEmpty()
+                && className.startsWith(projectPrefix);
     }
 }

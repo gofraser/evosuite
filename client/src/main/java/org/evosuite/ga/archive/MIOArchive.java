@@ -260,7 +260,8 @@ public class MIOArchive extends Archive {
      */
     @Override
     public TestChromosome getRandomSolution() {
-        return Randomness.choice(this.getSolutions());
+        TestChromosome randomChoice = Randomness.choice(this.getSolutions());
+        return randomChoice == null ? null : randomChoice.clone();
     }
 
     /**

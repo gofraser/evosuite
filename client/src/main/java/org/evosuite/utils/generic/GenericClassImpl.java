@@ -27,6 +27,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.RecursiveConstructionFailedException;
+import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.MasterClassLoaderBridge;
@@ -2148,21 +2149,61 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
         this.rawClass = getClass(name);
 
-        Boolean isParameterized = (Boolean) ois.readObject();
-        if (isParameterized) {
-            // GenericClass rawType = (GenericClass) ois.readObject();
-            GenericClass ownerType = (GenericClass) ois.readObject();
-            @SuppressWarnings("unchecked")
-            List<GenericClass> parameterClasses = (List<GenericClass>) ois.readObject();
-            Type[] parameterTypes = new Type[parameterClasses.size()];
-            for (int i = 0; i < parameterClasses.size(); i++) {
-                parameterTypes[i] = parameterClasses.get(i).getType();
-            }
-            this.type = new ParameterizedTypeImpl(rawClass, parameterTypes,
-                    ownerType.getType());
-        } else {
-            this.type = addTypeParameters(rawClass); //GenericTypeReflector.addWildcardParameters(raw_class);
+        // isParameterized is a primitive boolean, not a Boolean object: see
+        // the matching writeBoolean() in writeObject for the rationale.
+        boolean isParameterized;
+        try {
+            isParameterized = ois.readBoolean();
+        } catch (IOException e) {
+            logFallback(name, "isParameterized flag", e);
+            this.type = addTypeParameters(rawClass);
+            return;
         }
+        if (!isParameterized) {
+            this.type = addTypeParameters(rawClass); //GenericTypeReflector.addWildcardParameters(raw_class);
+            return;
+        }
+
+        GenericClass ownerType;
+        try {
+            ownerType = (GenericClass) ois.readObject();
+        } catch (OptionalDataException | ClassCastException e) {
+            logFallback(name, "ownerType", e);
+            this.type = addTypeParameters(rawClass);
+            return;
+        }
+
+        List<GenericClass> parameterClasses;
+        try {
+            @SuppressWarnings("unchecked")
+            List<GenericClass> tmp = (List<GenericClass>) ois.readObject();
+            parameterClasses = tmp;
+        } catch (OptionalDataException | ClassCastException e) {
+            logFallback(name, "parameterClasses (owner="
+                    + (ownerType == null ? "null" : String.valueOf(ownerType.getRawClass())) + ")", e);
+            this.type = addTypeParameters(rawClass);
+            return;
+        }
+
+        Type[] parameterTypes = new Type[parameterClasses.size()];
+        for (int i = 0; i < parameterClasses.size(); i++) {
+            parameterTypes[i] = parameterClasses.get(i).getType();
+        }
+        this.type = new ParameterizedTypeImpl(rawClass, parameterTypes,
+                ownerType == null ? null : ownerType.getType());
+    }
+
+    private static void logFallback(String name, String stage, Exception e) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Falling back to raw generic type for ").append(name)
+                .append(" during deserialization of ").append(stage)
+                .append(": ").append(e);
+        if (e instanceof OptionalDataException) {
+            OptionalDataException ode = (OptionalDataException) e;
+            sb.append(" [eof=").append(ode.eof)
+                    .append(", length=").append(ode.length).append("]");
+        }
+        AtMostOnceLogger.warn(logger, sb.toString());
     }
 
     /**
@@ -2174,23 +2215,27 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     private void writeObject(ObjectOutputStream oos) throws IOException {
         if (rawClass == null) {
             oos.writeObject(null);
-        } else {
-            Class<?> serializableRawClass = normalizeMockitoGeneratedClass(rawClass);
-            oos.writeObject(serializableRawClass.getName());
-            if (type instanceof ParameterizedType) {
-                oos.writeObject(Boolean.TRUE);
-                ParameterizedType pt = (ParameterizedType) type;
-                // oos.writeObject(new GenericClass(pt.getRawType()));
-                oos.writeObject(new GenericClassImpl(pt.getOwnerType()));
-                List<GenericClassImpl> parameterClasses = new ArrayList<>();
-                for (Type parameterType : pt.getActualTypeArguments()) {
-                    parameterClasses.add(new GenericClassImpl(parameterType));
-                }
-                oos.writeObject(parameterClasses);
-            } else {
-                oos.writeObject(Boolean.FALSE);
-            }
+            return;
         }
+        Class<?> serializableRawClass = normalizeMockitoGeneratedClass(rawClass);
+        oos.writeObject(serializableRawClass.getName());
+        if (!(type instanceof ParameterizedType)) {
+            // Primitive boolean byte, not Boolean.FALSE: a Boolean object
+            // participates in the stream's handle table, so back-references
+            // to a previously-serialized Boolean can resolve to the wrong
+            // singleton on the reader when handle indices drift. Writing a
+            // primitive boolean byte sidesteps the handle table.
+            oos.writeBoolean(false);
+            return;
+        }
+        oos.writeBoolean(true);
+        ParameterizedType pt = (ParameterizedType) type;
+        oos.writeObject(pt.getOwnerType() == null ? null : new GenericClassImpl(pt.getOwnerType()));
+        List<GenericClassImpl> parameterClasses = new ArrayList<>();
+        for (Type parameterType : pt.getActualTypeArguments()) {
+            parameterClasses.add(new GenericClassImpl(parameterType));
+        }
+        oos.writeObject(parameterClasses);
     }
 
     private static Class<?> normalizeMockitoGeneratedClass(Class<?> clazz) {

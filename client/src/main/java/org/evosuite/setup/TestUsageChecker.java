@@ -49,6 +49,47 @@ public class TestUsageChecker {
 
     private static final Logger logger = LoggerFactory.getLogger(TestUsageChecker.class);
     private static final Pattern COMPILER_ACCESSOR_NAME = Pattern.compile("access\\$\\d+");
+    private static final Set<String> UNSTABLE_GUI_ACCESSORS = Collections.unmodifiableSet(new LinkedHashSet<>(
+            Arrays.asList(
+                    "toString",
+                    "isVisible",
+                    "isForegroundSet",
+                    "isBackgroundSet",
+                    "isFontSet",
+                    "isCursorSet",
+                    "isDisplayable",
+                    "isEnabled",
+                    "isFocusable",
+                    "isFocusOwner",
+                    "isFocusTraversable",
+                    "isLightweight",
+                    "isMaximumSizeSet",
+                    "isMinimumSizeSet",
+                    "isPreferredSizeSet",
+                    "isShowing",
+                    "isValid",
+                    "countComponents",
+                    "getComponentCount",
+                    "getBackground",
+                    "getBounds",
+                    "bounds",
+                    "getLocation",
+                    "location",
+                    "getSize",
+                    "size",
+                    "getX",
+                    "getY",
+                    "getWidth",
+                    "getHeight",
+                    "getMinimumSize",
+                    "getMaximumSize",
+                    "getPreferredSize",
+                    "getComponentOrientation",
+                    "getFocusTraversalKeysEnabled",
+                    "getIgnoreRepaint",
+                    "isFocusTraversalPolicySet",
+                    "isFocusCycleRoot",
+                    "isFocusTraversalPolicyProvider")));
 
     /**
      * Determine if a constructor can be used for testing.
@@ -438,6 +479,10 @@ public class TestUsageChecker {
             return false;
         }
 
+        if (isUnstableGuiAccessor(m)) {
+            return false;
+        }
+
         // FIXME: EvoSuite currently can't deal properly with the Map.of(...) methods introduced in Java 9
         if (m.getDeclaringClass().equals(java.util.Map.class) && Modifier.isStatic(m.getModifiers())) {
             return false;
@@ -560,6 +605,38 @@ public class TestUsageChecker {
         }
 
         return false;
+    }
+
+    /**
+     * GUI accessors inherited from JDK AWT/Swing base classes are highly environment-sensitive:
+     * they depend on headless state, Look&Feel initialization, windowing backends, and component
+     * realization. Treat them as unusable test calls to avoid brittle tests on GUI subclasses such
+     * as Plot2D/VisualizePanel that merely inherit these accessors from Component/Container.
+     */
+    public static boolean isUnstableGuiAccessor(Method method) {
+        if (method == null || method.getParameterCount() != 0) {
+            return false;
+        }
+
+        Class<?> declaringClass = method.getDeclaringClass();
+        if (declaringClass == null) {
+            return false;
+        }
+
+        String className = declaringClass.getName();
+        if (!className.startsWith("java.awt.") && !className.startsWith("javax.swing.")) {
+            return false;
+        }
+
+        try {
+            if (!java.awt.Component.class.isAssignableFrom(declaringClass)) {
+                return false;
+            }
+        } catch (Throwable ignored) {
+            return false;
+        }
+
+        return UNSTABLE_GUI_ACCESSORS.contains(method.getName());
     }
 
     /**

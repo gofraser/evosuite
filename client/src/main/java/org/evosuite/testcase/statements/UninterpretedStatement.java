@@ -23,6 +23,7 @@ import org.evosuite.testcase.CodeEmissionUtils;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.execution.UnresolvedSymbolSnippetException;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.generic.GenericAccessibleObject;
@@ -164,6 +165,11 @@ public class UninterpretedStatement extends AbstractStatement {
 
             ExecutableSnippetEngine.StatementResult result = ExecutableSnippetEngine.INSTANCE.executeStatement(
                     sourceCode, bindingTypes, bindingValues, returnExpression);
+            if (isParsedFromLlm() && result.isCannotFindSymbolSanitizationApplied()) {
+                return new UnresolvedSymbolSnippetException(
+                        "LLM snippet required cannot find symbol sanitization during fallback compilation. "
+                                + "Rejecting this salvaged test because emitted source would stay non-compilable.");
+            }
 
             for (Map.Entry<String, Object> entry : result.getUpdatedValues().entrySet()) {
                 VariableReference reference = bindings.get(entry.getKey());

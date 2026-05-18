@@ -89,6 +89,15 @@ public class TestGenerationContext {
     private TestClusterGenerator testClusterGenerator;
 
     /**
+     * True while the assertion-generation reloader is rebuilding the target cluster.
+     * Certain setup-time optimizations (eg reflective static-field singleton probes)
+     * should be skipped in this mode to avoid poisoning the fresh classloader with
+     * target-class initialization failures before the later non-initializing fallback
+     * has a chance to load the CUT.
+     */
+    private boolean assertionGenerationContext;
+
+    /**
      * Private singleton constructor.
      */
     private TestGenerationContext() {
@@ -98,6 +107,14 @@ public class TestGenerationContext {
 
     public static TestGenerationContext getInstance() {
         return singleton;
+    }
+
+    public boolean isAssertionGenerationContext() {
+        return assertionGenerationContext;
+    }
+
+    public void setAssertionGenerationContext(boolean assertionGenerationContext) {
+        this.assertionGenerationContext = assertionGenerationContext;
     }
 
     /**

@@ -132,6 +132,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         // Let each class implement the clone method instead
 
         Class<?> clazz = genericClass.getRawClass();
+        Class<?> enumClass = getEnumDeclaringClass(clazz);
         PrimitiveStatement<?> statement;
 
         if (clazz == boolean.class) {
@@ -152,8 +153,8 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
             statement = new BytePrimitiveStatement(tc);
         } else if (clazz.equals(String.class)) {
             statement = new StringPrimitiveStatement(tc);
-        } else if (GenericTypeReflector.erase(clazz).isEnum()) {
-            statement = new EnumPrimitiveStatement(tc, GenericTypeReflector.erase(clazz));
+        } else if (enumClass != null) {
+            statement = new EnumPrimitiveStatement(tc, enumClass);
         } else if (EnvironmentStatements.isEnvironmentData(clazz)) {
             statement = EnvironmentStatements.getStatement(clazz, tc);
         } else if (clazz == Class.class) {
@@ -206,6 +207,28 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
                     + clazz.getClass());
         }
         return statement;
+    }
+
+    private static Class<?> getEnumDeclaringClass(Class<?> clazz) {
+        if (clazz == null) {
+            return null;
+        }
+        if (GenericTypeReflector.erase(clazz).isEnum()) {
+            return GenericTypeReflector.erase(clazz);
+        }
+        Class<?> enclosingClass = clazz.getEnclosingClass();
+        if (enclosingClass != null && enclosingClass.isEnum()) {
+            return enclosingClass;
+        }
+        Class<?> superclass = clazz.getSuperclass();
+        if (superclass != null && superclass.isEnum()) {
+            return superclass;
+        }
+        Class<?> declaringClass = clazz.getDeclaringClass();
+        if (declaringClass != null && declaringClass.isEnum()) {
+            return declaringClass;
+        }
+        return null;
     }
 
     /**

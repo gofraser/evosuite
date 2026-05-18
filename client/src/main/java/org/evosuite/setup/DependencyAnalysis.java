@@ -60,6 +60,7 @@ public class DependencyAnalysis {
 
     private static InheritanceTree inheritanceTree = null;
     private static String inheritanceTreeClasspathSignature = null;
+    private static List<String> inheritanceTreeClasspath = null;
 
     private static Set<String> targetClasses = null;
 
@@ -114,9 +115,38 @@ public class DependencyAnalysis {
         } else {
             inheritanceTree.resetRuntimeState();
         }
+        inheritanceTreeClasspath = classPath;
         TestClusterGenerator clusterGenerator = new TestClusterGenerator(inheritanceTree);
         TestGenerationContext.getInstance().setTestClusterGenerator(clusterGenerator);
         InheritanceTreeGenerator.gatherStatistics(inheritanceTree);
+    }
+
+    /**
+     * If the inheritance tree has been marked stale and we still have the classpath it was
+     * built from, regenerate it on the spot. This is the same dance that {@link #analyzeClass}
+     * does up front, exposed so detectors that find a stale cache *during* cluster generation
+     * (e.g. {@link ConcreteClassAnalyzer} when a JDK class fails to load) can rebuild instead
+     * of just printing a warning.
+     *
+     * @return {@code true} if the tree was regenerated, {@code false} if no action was taken.
+     */
+    public static synchronized boolean regenerateInheritanceTreeIfStale() {
+        if (inheritanceTree == null
+                || !inheritanceTree.hasMissingClasses()
+                || Properties.INHERITANCE_FILE.isEmpty()
+                || inheritanceTreeClasspath == null) {
+            return false;
+        }
+
+        LoggingUtils.getEvoLogger().info("* Cached inheritance tree ({}) is out of sync with the running JVM; "
+                + "regenerating a fresh inheritance tree", Properties.INHERITANCE_FILE);
+        List<String> classPath = inheritanceTreeClasspath;
+        callGraphs.clear();
+        classCache.clear();
+        dropInheritanceTree();
+        Properties.INHERITANCE_FILE = "";
+        initInheritanceTree(classPath);
+        return true;
     }
 
     /**

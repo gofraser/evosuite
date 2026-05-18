@@ -29,6 +29,15 @@ enum DiagnosticKind {
             "Cannot resolve unscoped method call",
             "avoid bare helper calls; either inline the helper logic or call through a declared "
                     + "instance/class method that exists in SUT/JDK."),
+    SUT_HELPER_CALL_ELIDED(
+            "SUT construction elided: helper method on the SUT-typed variable could not be inlined",
+            "the parser dropped the SUT-creation call (a private helper like createSut()/safeCreate*()) "
+                    + "and substituted a typed-null. Any subsequent NPE on that variable is caused by the "
+                    + "elision, not by your test logic. Fix by either: (1) inline the constructor at the "
+                    + "call site (no helper method) so the SUT is built directly, or (2) replace it with "
+                    + "Mockito.mock(SUT.class) when the SUT is hard to construct (e.g. requires a real GUI "
+                    + "toolkit). Helpers that the parser can inline must contain only local-variable "
+                    + "declarations and a single terminal return; no control flow, no try/catch."),
     UNKNOWN_ARRAY_VAR(
             "Unknown array variable",
             "declare the array variable before indexing it (including dimensions), e.g. "
@@ -48,6 +57,11 @@ enum DiagnosticKind {
             "do not invent local/helper types (e.g., Target, Input, Helper) in test code; "
                     + "instantiate only real SUT/JDK/dependency types from context, or pass null/Object "
                     + "when the API accepts it."),
+    WRONG_FQN_PACKAGE(
+            "Class exists but the package in your fully qualified name is wrong",
+            "use the correct fully qualified name shown in the diagnostic; do NOT guess that a class "
+                    + "lives in the same package as its interface — concrete implementations often live "
+                    + "in a sibling sub-package."),
     UNRESOLVED_VARIABLE(
             "Unresolved variable",
             "declare the variable earlier in the test and ensure the name matches exactly."),
@@ -87,6 +101,10 @@ enum DiagnosticKind {
             "Legacy helper wrapper used",
             "avoid invented helper wrappers like setField()/invokeX(...); use direct public API or "
                     + "supported reflection helpers instead."),
+    ACCESSOR_CHAIN_ELIDED(
+            "Elided top-level accessor chain with ignored return value",
+            "avoid standalone getter/getter-like chains whose result is unused; either assert on the "
+                    + "value or assign it to a local used later in the test."),
     PARSE_FAILURE(
             "Failed to parse construct",
             "rewrite the construct into simpler Java that uses resolvable types, members, and literals only."),
@@ -137,7 +155,15 @@ enum DiagnosticKind {
     STRANDED_WHEN_ALIAS(
             "Mockito `when(...)` alias has no terminal",
             "complete the stubbing with `.thenReturn(...)` or `.thenThrow(...)` on the captured alias, "
-                    + "or remove the call entirely");
+                    + "or remove the call entirely"),
+    ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK(
+            "Parser dropped anonymous body of a non-instantiable abstract/interface type and emitted a typed null",
+            "the abstract type has unimplemented abstract methods that the anonymous body did not override, "
+                    + "so EvoSuite cannot synthesize a concrete instance and substituted a typed null. "
+                    + "If this type is the SUT or a required collaborator, instantiate a listed concrete subtype, "
+                    + "or override every abstract method in the anonymous body so the synthetic subclass compiles. "
+                    + "If the test was intentionally checking null-input behavior, wrap the call in "
+                    + "assertThrows(NullPointerException.class, ...) and use a real receiver where applicable.");
 
     static final String ACTION_REQUIRED_PREFIX = "LLM_REPAIR_ACTION_REQUIRED:";
 

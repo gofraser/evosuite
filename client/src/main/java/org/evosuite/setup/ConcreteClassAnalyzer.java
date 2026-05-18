@@ -297,6 +297,17 @@ public class ConcreteClassAnalyzer {
             return;
         }
 
+        // Mark the tree stale and try to rebuild it in-place from the cached classpath. If
+        // that succeeds, the rest of cluster generation sees the fresh tree; if it doesn't
+        // (e.g. the classpath wasn't cached), fall through to the manual-action warning.
+        InheritanceTree tree = DependencyAnalysis.getInheritanceTree();
+        if (tree != null) {
+            tree.markStale();
+        }
+        if (DependencyAnalysis.regenerateInheritanceTreeIfStale()) {
+            return;
+        }
+
         String javaVersion = System.getProperty("java.version", "unknown");
         String javaSpecVersion = System.getProperty("java.specification.version", "unknown");
         String message = "Cached inheritance tree (" + Properties.INHERITANCE_FILE + ") appears out of sync with "

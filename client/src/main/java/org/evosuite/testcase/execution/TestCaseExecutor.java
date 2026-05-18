@@ -29,6 +29,7 @@ import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JOptionPaneInputs;
 import org.evosuite.runtime.util.SystemInUtil;
+import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
@@ -41,6 +42,7 @@ import org.slf4j.LoggerFactory;
 import java.io.PrintStream;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
 
@@ -76,7 +78,15 @@ public class TestCaseExecutor implements ThreadFactory {
 
     private static TestCaseExecutor instance = null;
 
-    private ExecutorService executor;
+    private volatile ExecutorService executor;
+
+    /**
+     * Serializes top-level execute(...) calls across all callers.
+     * TestCaseExecutor has shared mutable state (e.g., currentThread) and uses
+     * a process-global sandbox flag, so concurrent execute invocations from
+     * different threads are unsafe.
+     */
+    private final Object executionLock = new Object();
 
     private Thread currentThread = null;
 
@@ -273,9 +283,11 @@ public class TestCaseExecutor implements ThreadFactory {
      */
     public static void pullDown() {
         if (instance != null) {
-            if (instance.executor != null) {
-                instance.executor.shutdownNow();
-                instance.executor = null;
+            synchronized (instance) {
+                if (instance.executor != null) {
+                    instance.executor.shutdownNow();
+                    instance.executor = null;
+                }
             }
         }
     }
@@ -285,7 +297,11 @@ public class TestCaseExecutor implements ThreadFactory {
      * i.e. it is safe to call {@link #runTest(TestCase)}.
      */
     public static boolean isAvailable() {
-        return instance != null && instance.executor != null;
+        if (instance == null) {
+            return false;
+        }
+        ExecutorService snapshot = instance.executor;
+        return snapshot != null && !snapshot.isShutdown() && !snapshot.isTerminated();
     }
 
     /**
@@ -295,12 +311,55 @@ public class TestCaseExecutor implements ThreadFactory {
      */
     public static void initExecutor() {
         if (instance != null) {
-            if (instance.executor == null) {
-                logger.info("TestCaseExecutor instance is non-null, but its actual executor is null");
-                instance.executor = Executors.newSingleThreadExecutor(instance);
-            } else {
-                instance.executor = Executors.newSingleThreadExecutor(instance);
+            synchronized (instance) {
+                if (instance.executor == null) {
+                    logger.info("TestCaseExecutor instance is non-null, but its actual executor is null");
+                    instance.executor = Executors.newSingleThreadExecutor(instance);
+                } else {
+                    instance.executor = Executors.newSingleThreadExecutor(instance);
+                }
             }
+        }
+    }
+
+    private ExecutionResult buildExecutorUnavailableResult(TestCase tc, String reason) {
+        ExecutionResult result = new ExecutionResult(tc, null);
+        // Use slot 0 instead of the terminal slot to avoid no-op chops in salvage
+        // loops that truncate at the first failing statement.
+        result.reportNewThrownException(0, new IllegalStateException(reason));
+        result.setTrace(ExecutionTracer.getExecutionTracer().getTrace());
+        ExecutionTracer.getExecutionTracer().clear();
+        return result;
+    }
+
+    private ExecutorService getUsableExecutor() {
+        ExecutorService snapshot;
+        synchronized (this) {
+            snapshot = executor;
+        }
+        if (snapshot == null || snapshot.isShutdown() || snapshot.isTerminated()) {
+            return null;
+        }
+        return snapshot;
+    }
+
+    private ExecutionResult executeWithUnavailableGuard(TestCase tc,
+                                                        TimeoutHandler<ExecutionResult> handler,
+                                                        TestRunnable callable,
+                                                        int timeout) throws InterruptedException,
+            ExecutionException, TimeoutException {
+        ExecutorService usableExecutor = getUsableExecutor();
+        if (usableExecutor == null) {
+            logger.debug("Skipping test execution because TestCaseExecutor has been pulled down.");
+            return buildExecutorUnavailableResult(tc,
+                    "TestCaseExecutor is unavailable (executor was pulled down)");
+        }
+        try {
+            return handler.execute(callable, usableExecutor, timeout, Properties.CPU_TIMEOUT);
+        } catch (RejectedExecutionException e) {
+            logger.debug("Skipping test execution because TestCaseExecutor rejected task submission.", e);
+            return buildExecutorUnavailableResult(tc,
+                    "TestCaseExecutor rejected execution (executor shutting down)");
         }
     }
 
@@ -402,73 +461,75 @@ public class TestCaseExecutor implements ThreadFactory {
      * @return a {@link org.evosuite.testcase.execution.ExecutionResult} object.
      */
     public ExecutionResult execute(TestCase tc, int timeout) {
-        Scope scope = new Scope();
-        ExecutionResult result;
-        boolean timedOutExecution = false;
-        boolean workerThreadStillAliveAfterTimeout = false;
-        try {
-            result = execute(tc, scope, timeout);
-            timedOutExecution = result != null && result.hasTimeout();
-            // Use the flag set by the inner execute()'s TimeoutException handler
-            // which checks FutureTask.isDone() — this is authoritative and avoids
-            // the race condition where stack trace inspection catches the pool
-            // thread in a transient cleanup state.
-            workerThreadStillAliveAfterTimeout = timedOutExecution && lastTaskStillRunning;
-        } finally {
-            clearMockInvocationsIfNeeded(tc, scope, timedOutExecution,
-                    workerThreadStillAliveAfterTimeout);
-        }
-        if (timedOutExecution && workerThreadStillAliveAfterTimeout) {
-            rotateExecutorAfterStalledTimeout();
-        }
+        synchronized (executionLock) {
+            Scope scope = new Scope();
+            ExecutionResult result;
+            boolean timedOutExecution = false;
+            boolean workerThreadStillAliveAfterTimeout = false;
+            try {
+                result = execute(tc, scope, timeout);
+                timedOutExecution = result != null && result.hasTimeout();
+                // Use the flag set by the inner execute()'s TimeoutException handler
+                // which checks FutureTask.isDone() — this is authoritative and avoids
+                // the race condition where stack trace inspection catches the pool
+                // thread in a transient cleanup state.
+                workerThreadStillAliveAfterTimeout = timedOutExecution && lastTaskStillRunning;
+            } finally {
+                clearMockInvocationsIfNeeded(tc, scope, timedOutExecution,
+                        workerThreadStillAliveAfterTimeout);
+            }
+            if (timedOutExecution && workerThreadStillAliveAfterTimeout) {
+                rotateExecutorAfterStalledTimeout();
+            }
 
-        // Track consecutive timeouts and temporarily disable mocking if the SUT
-        // consistently hangs.  Unlike FunctionalMockStatement's own global disable
-        // (which is permanent based on mock failure rates), this is reversible:
-        //  - Immediately restored when a test succeeds without timeout.
-        //  - Periodically restored after MOCK_DISABLE_RETRY_INTERVAL tests even
-        //    if all tests keep timing out, to avoid a one-way trap where mocking
-        //    is needed for some code paths but never gets re-enabled.
-        if (timedOutExecution) {
-            consecutiveTimeoutCount++;
-            if (consecutiveTimeoutCount >= CONSECUTIVE_TIMEOUT_THRESHOLD
-                    && !mockingDisabledDueToTimeouts
-                    && (Properties.P_FUNCTIONAL_MOCKING > 0.0 || Properties.MOCK_IF_NO_GENERATOR)) {
-                logger.warn("Temporarily disabling functional mocking after {} consecutive timeouts "
-                        + "to reduce mock class generation overhead.", consecutiveTimeoutCount);
-                savedPFunctionalMocking = Properties.P_FUNCTIONAL_MOCKING;
-                savedMockIfNoGenerator = Properties.MOCK_IF_NO_GENERATOR;
-                Properties.P_FUNCTIONAL_MOCKING = 0.0;
-                Properties.MOCK_IF_NO_GENERATOR = false;
-                mockingDisabledDueToTimeouts = true;
-                testsSinceMockingDisabled = 0;
-            } else if (mockingDisabledDueToTimeouts) {
-                testsSinceMockingDisabled++;
-                if (testsSinceMockingDisabled >= MOCK_DISABLE_RETRY_INTERVAL) {
-                    logger.info("Restoring functional mocking after {} tests without success "
-                            + "— giving mocked tests another chance.", testsSinceMockingDisabled);
+            // Track consecutive timeouts and temporarily disable mocking if the SUT
+            // consistently hangs.  Unlike FunctionalMockStatement's own global disable
+            // (which is permanent based on mock failure rates), this is reversible:
+            //  - Immediately restored when a test succeeds without timeout.
+            //  - Periodically restored after MOCK_DISABLE_RETRY_INTERVAL tests even
+            //    if all tests keep timing out, to avoid a one-way trap where mocking
+            //    is needed for some code paths but never gets re-enabled.
+            if (timedOutExecution) {
+                consecutiveTimeoutCount++;
+                if (consecutiveTimeoutCount >= CONSECUTIVE_TIMEOUT_THRESHOLD
+                        && !mockingDisabledDueToTimeouts
+                        && (Properties.P_FUNCTIONAL_MOCKING > 0.0 || Properties.MOCK_IF_NO_GENERATOR)) {
+                    logger.warn("Temporarily disabling functional mocking after {} consecutive timeouts "
+                            + "to reduce mock class generation overhead.", consecutiveTimeoutCount);
+                    savedPFunctionalMocking = Properties.P_FUNCTIONAL_MOCKING;
+                    savedMockIfNoGenerator = Properties.MOCK_IF_NO_GENERATOR;
+                    Properties.P_FUNCTIONAL_MOCKING = 0.0;
+                    Properties.MOCK_IF_NO_GENERATOR = false;
+                    mockingDisabledDueToTimeouts = true;
+                    testsSinceMockingDisabled = 0;
+                } else if (mockingDisabledDueToTimeouts) {
+                    testsSinceMockingDisabled++;
+                    if (testsSinceMockingDisabled >= MOCK_DISABLE_RETRY_INTERVAL) {
+                        logger.info("Restoring functional mocking after {} tests without success "
+                                + "— giving mocked tests another chance.", testsSinceMockingDisabled);
+                        Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
+                        Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
+                        mockingDisabledDueToTimeouts = false;
+                        consecutiveTimeoutCount = 0;
+                    }
+                }
+            } else {
+                consecutiveTimeoutCount = 0;
+                // Restore mocking if we previously disabled it and the timeout pattern broke
+                if (mockingDisabledDueToTimeouts) {
+                    logger.info("Restoring functional mocking — consecutive timeout streak broken.");
                     Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
                     Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
                     mockingDisabledDueToTimeouts = false;
-                    consecutiveTimeoutCount = 0;
                 }
             }
-        } else {
-            consecutiveTimeoutCount = 0;
-            // Restore mocking if we previously disabled it and the timeout pattern broke
-            if (mockingDisabledDueToTimeouts) {
-                logger.info("Restoring functional mocking — consecutive timeout streak broken.");
-                Properties.P_FUNCTIONAL_MOCKING = savedPFunctionalMocking;
-                Properties.MOCK_IF_NO_GENERATOR = savedMockIfNoGenerator;
-                mockingDisabledDueToTimeouts = false;
-            }
-        }
 
-        if (Properties.RESET_STATIC_FIELDS) {
-            logger.debug("Resetting classes after execution");
-            ClassReInitializer.getInstance().reInitializeClassesAfterTestExecution(tc, result);
+            if (Properties.RESET_STATIC_FIELDS) {
+                logger.debug("Resetting classes after execution");
+                ClassReInitializer.getInstance().reInitializeClassesAfterTestExecution(tc, result);
+            }
+            return result;
         }
-        return result;
     }
 
     /**
@@ -482,6 +543,12 @@ public class TestCaseExecutor implements ThreadFactory {
     private ExecutionResult execute(TestCase tc, Scope scope, int timeout) {
         lastTaskStillRunning = false;
         ExecutionTracer.getExecutionTracer().clear();
+
+        int sanitizedLiterals = ConstantPoolManager.sanitizeTestCaseNumericLiterals(tc);
+        if (sanitizedLiterals > 0) {
+            logger.info("Sanitized {} oversized numeric literals before executing test {}", sanitizedLiterals,
+                    tc.getID());
+        }
 
         // TODO: Re-insert!
         resetObservers();
@@ -519,13 +586,14 @@ public class TestCaseExecutor implements ThreadFactory {
             Sandbox.goingToExecuteSUTCode();
             TestGenerationContext.getInstance().goingToExecuteSUTCode();
             try {
-                result = handler.execute(callable, executor, timeout, Properties.CPU_TIMEOUT);
+                result = executeWithUnavailableGuard(tc, handler, callable, timeout);
             } finally {
                 Sandbox.doneWithExecutingSUTCode();
                 TestGenerationContext.getInstance().doneWithExecutingSUTCode();
             }
 
-            PermissionStatistics.getInstance().countThreads(threadGroup.activeCount());
+            int activeThreadCount = threadGroup != null ? threadGroup.activeCount() : 0;
+            PermissionStatistics.getInstance().countThreads(activeThreadCount);
             result.setSecurityException(PermissionStatistics.getInstance().getAndResetExceptionInfo());
             /*
              * TODO: this will need proper care when we ll start to handle
@@ -541,6 +609,20 @@ public class TestCaseExecutor implements ThreadFactory {
             long endTime = System.currentTimeMillis();
             timeExecuted += endTime - startTime;
             testsExecuted++;
+            if (logger.isDebugEnabled()) {
+                int testSize = tc == null ? -1 : tc.size();
+                Map<Integer, Throwable> snapshot = result.getCopyOfExceptionMapping();
+                boolean hasTimeoutInSnapshot = testSize >= 0
+                        && snapshot.containsKey(testSize)
+                        && ExecutionResult.isTimeoutLike(snapshot.get(testSize));
+                boolean hasCodeUnderTestExceptionInSnapshot = snapshot.values().stream()
+                        .anyMatch(ExecutionResult::isCodeUnderTestLike);
+                logger.debug("ExecutionResult handoff: resultIdentity=" + System.identityHashCode(result)
+                        + ", testSize=" + testSize
+                        + ", exceptionCount=" + snapshot.size()
+                        + ", hasTimeoutInSnapshot=" + hasTimeoutInSnapshot
+                        + ", hasCodeUnderTestExceptionInSnapshot=" + hasCodeUnderTestExceptionInSnapshot);
+            }
             return result;
         } catch (ThreadDeath t) {
             logger.warn("Caught ThreadDeath during test execution");

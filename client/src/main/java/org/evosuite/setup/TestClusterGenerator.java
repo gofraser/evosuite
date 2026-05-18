@@ -455,7 +455,7 @@ public class TestClusterGenerator {
             }
         }
 
-        if (Properties.HANDLE_STATIC_FIELDS) {
+        if (shouldHandleStaticFields()) {
 
             GetStaticGraph getStaticGraph = GetStaticGraphGenerator.generate(Properties.TARGET_CLASS);
 
@@ -533,6 +533,11 @@ public class TestClusterGenerator {
         }
 
         logger.info("Finished analyzing target class");
+    }
+
+    static boolean shouldHandleStaticFields() {
+        return Properties.HANDLE_STATIC_FIELDS
+                && !TestGenerationContext.getInstance().isAssertionGenerationContext();
     }
 
     /**

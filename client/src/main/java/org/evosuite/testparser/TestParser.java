@@ -369,11 +369,20 @@ public class TestParser {
     }
 
     /**
-     * Extract helper methods that can be safely inlined by simple substitution:
-     * arity 0 or 1, body of exactly one statement, and that statement is either
-     * {@code return <expr>;} or a single expression statement
-     * (for side-effect/void helpers). Overloaded duplicates for the same
-     * name/arity are considered ambiguous and skipped.
+     * Extract helper methods that can be safely inlined.
+     *
+     * <p>Eligibility:
+     * <ul>
+     *   <li>Arity 0 or 1.</li>
+     *   <li>Body has at least one statement.</li>
+     *   <li>The terminal statement is either a {@code return <expr>;} or a plain
+     *   expression statement (for void/side-effect helpers).</li>
+     *   <li>Every preceding statement is a plain expression statement
+     *   (typically a local-variable declaration or a simple side-effect call).</li>
+     * </ul>
+     * Anything else (control flow, throws, try/catch, blocks, etc.) is rejected.
+     * Overloaded duplicates for the same name/arity are considered ambiguous and
+     * skipped.
      */
     private Map<String, MethodDeclaration> extractInlineableHelperMethods(List<MethodDeclaration> nonTestMethods) {
         Map<String, MethodDeclaration> inlineable = new LinkedHashMap<>();
@@ -384,16 +393,7 @@ public class TestParser {
                 continue;
             }
             List<com.github.javaparser.ast.stmt.Statement> statements = method.getBody().get().getStatements();
-            if (statements.size() != 1) {
-                continue;
-            }
-            com.github.javaparser.ast.stmt.Statement only = statements.get(0);
-            if (only instanceof ReturnStmt) {
-                ReturnStmt returnStmt = (ReturnStmt) only;
-                if (!returnStmt.getExpression().isPresent()) {
-                    continue;
-                }
-            } else if (!(only instanceof ExpressionStmt)) {
+            if (!isInlineableBody(statements)) {
                 continue;
             }
             String key = inlineHelperKey(method.getNameAsString(), arity);
@@ -408,5 +408,26 @@ public class TestParser {
             inlineable.put(key, method.clone());
         }
         return inlineable;
+    }
+
+    private static boolean isInlineableBody(List<com.github.javaparser.ast.stmt.Statement> statements) {
+        int n = statements.size();
+        if (n == 0) {
+            return false;
+        }
+        com.github.javaparser.ast.stmt.Statement terminal = statements.get(n - 1);
+        if (terminal instanceof ReturnStmt) {
+            if (!((ReturnStmt) terminal).getExpression().isPresent()) {
+                return false;
+            }
+        } else if (!(terminal instanceof ExpressionStmt)) {
+            return false;
+        }
+        for (int i = 0; i < n - 1; i++) {
+            if (!(statements.get(i) instanceof ExpressionStmt)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

@@ -34,6 +34,7 @@ import com.github.javaparser.ast.stmt.ExpressionStmt;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /**
  * Parses JUnit test source code into AST structures.
@@ -41,6 +42,15 @@ import java.util.Optional;
  * by {@link StatementParser}.
  */
 public class TestMethodParser {
+
+    // Defensive guard for callers that bypass LlmResponseParser. Java does not
+    // support `import ... as ...` aliases; if such a line reaches JavaParser the
+    // rest of the source is silently dropped (no compilation unit, no @Test
+    // methods extracted). We strip the offending lines here so every parser
+    // entry point — including cluster-expansion retries and few-shot example
+    // parsing — fails loudly only on substantively bad input.
+    private static final Pattern ALIASED_IMPORT_LINE_PATTERN = Pattern.compile(
+            "(?m)^[ \\t]*import\\s+(?:static\\s+)?[\\w.$]+\\s+as\\s+[A-Za-z_][\\w$]*\\s*;[ \\t]*\\r?\\n?");
 
     /**
      * Parse a complete test class source string into a CompilationUnit AST.
@@ -55,8 +65,11 @@ public class TestMethodParser {
      * constructed AST nodes lack position information.
      */
     public CompilationUnit parseSource(String sourceCode) {
+        String cleaned = sourceCode == null
+                ? null
+                : ALIASED_IMPORT_LINE_PATTERN.matcher(sourceCode).replaceAll("");
         ParserConfiguration config = new ParserConfiguration().setAttributeComments(false);
-        com.github.javaparser.ParseResult<CompilationUnit> parsed = new JavaParser(config).parse(sourceCode);
+        com.github.javaparser.ParseResult<CompilationUnit> parsed = new JavaParser(config).parse(cleaned);
         return parsed.getResult()
                 .orElseThrow(() -> new ParseProblemException(parsed.getProblems()));
     }

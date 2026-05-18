@@ -34,6 +34,7 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -208,6 +209,7 @@ class AssertionParser {
                 ((MethodCallExpr) expression).clone(), expression);
         if ("assertThrows".equals(preserved.getNameAsString())) {
             normalizeAssertThrowsClassLiteral(preserved);
+            normalizeAssertThrowsLambdaBooleanArguments(preserved);
         }
         return preserved;
     }
@@ -534,6 +536,210 @@ class AssertionParser {
         }
     }
 
+    private void normalizeAssertThrowsLambdaBooleanArguments(MethodCallExpr assertThrowsCall) {
+        if (assertThrowsCall == null) {
+            return;
+        }
+        for (Expression arg : assertThrowsCall.getArguments()) {
+            LambdaExpr lambdaExpr = extractLambdaExpr(arg);
+            if (lambdaExpr == null) {
+                continue;
+            }
+            MethodCallExpr lambdaCall = extractSingleMethodCallFromLambda(lambdaExpr);
+            if (lambdaCall == null || !lambdaCall.getScope().isPresent()) {
+                continue;
+            }
+            Class<?> targetClass = resolveReceiverTargetClass(lambdaCall.getScope().get());
+            if (targetClass == null) {
+                continue;
+            }
+            List<Method> candidates = collectMethodCandidates(
+                    targetClass, lambdaCall.getNameAsString(), lambdaCall.getArguments().size());
+            if (candidates.isEmpty()) {
+                continue;
+            }
+            for (int i = 0; i < lambdaCall.getArguments().size(); i++) {
+                Boolean coercedBoolean = numericZeroOneToBoolean(lambdaCall.getArgument(i));
+                if (coercedBoolean == null) {
+                    continue;
+                }
+                boolean hasBooleanCandidate = false;
+                boolean hasNonBooleanCandidate = false;
+                for (Method candidate : candidates) {
+                    Class<?> formal = candidate.getParameterTypes()[i];
+                    if (formal == boolean.class || formal == Boolean.class) {
+                        if (isCompatibleWithForcedBooleanAtIndex(candidate, lambdaCall, i)) {
+                            hasBooleanCandidate = true;
+                        }
+                    } else if (isCompatibleWithNumericLiteralAtIndex(candidate, lambdaCall, i)) {
+                        hasNonBooleanCandidate = true;
+                    }
+                }
+                if (hasBooleanCandidate && !hasNonBooleanCandidate) {
+                    lambdaCall.setArgument(
+                            i,
+                            StatementParser.copySyntheticRange(
+                                    new BooleanLiteralExpr(coercedBoolean), lambdaCall.getArgument(i)));
+                }
+            }
+        }
+    }
+
+    private MethodCallExpr extractSingleMethodCallFromLambda(LambdaExpr lambdaExpr) {
+        if (lambdaExpr == null) {
+            return null;
+        }
+        com.github.javaparser.ast.stmt.Statement body = lambdaExpr.getBody();
+        if (body instanceof com.github.javaparser.ast.stmt.ExpressionStmt) {
+            Expression expression = ((com.github.javaparser.ast.stmt.ExpressionStmt) body).getExpression();
+            return expression instanceof MethodCallExpr ? (MethodCallExpr) expression : null;
+        }
+        if (!(body instanceof BlockStmt)) {
+            return null;
+        }
+        BlockStmt block = (BlockStmt) body;
+        if (block.getStatements().size() != 1) {
+            return null;
+        }
+        com.github.javaparser.ast.stmt.Statement onlyStatement = block.getStatement(0);
+        if (onlyStatement instanceof com.github.javaparser.ast.stmt.ExpressionStmt) {
+            Expression expression = ((com.github.javaparser.ast.stmt.ExpressionStmt) onlyStatement).getExpression();
+            return expression instanceof MethodCallExpr ? (MethodCallExpr) expression : null;
+        }
+        if (onlyStatement.isReturnStmt() && onlyStatement.asReturnStmt().getExpression().isPresent()) {
+            Expression expression = onlyStatement.asReturnStmt().getExpression().get();
+            return expression instanceof MethodCallExpr ? (MethodCallExpr) expression : null;
+        }
+        return null;
+    }
+
+    private Class<?> resolveReceiverTargetClass(Expression scopeExpr) {
+        Expression current = scopeExpr;
+        while (current instanceof EnclosedExpr || current instanceof CastExpr) {
+            if (current instanceof EnclosedExpr) {
+                current = ((EnclosedExpr) current).getInner();
+            } else {
+                current = ((CastExpr) current).getExpression();
+            }
+        }
+        if (current instanceof NameExpr) {
+            VariableReference ref = scope.resolve(((NameExpr) current).getNameAsString());
+            if (ref != null) {
+                Class<?> raw = parser.getRawClass(ref.getType());
+                if (raw != null) {
+                    return raw;
+                }
+            }
+        }
+        return parser.resolveClassFromExpression(current);
+    }
+
+    private List<Method> collectMethodCandidates(Class<?> targetClass, String methodName, int arity) {
+        List<Method> methods = new ArrayList<>();
+        if (targetClass == null || methodName == null) {
+            return methods;
+        }
+        for (Method method : targetClass.getMethods()) {
+            if (method.getName().equals(methodName) && method.getParameterCount() == arity && !method.isVarArgs()) {
+                methods.add(method);
+            }
+        }
+        for (Method method : targetClass.getDeclaredMethods()) {
+            if (method.getName().equals(methodName) && method.getParameterCount() == arity && !method.isVarArgs()) {
+                methods.add(method);
+            }
+        }
+        return methods;
+    }
+
+    private boolean isCompatibleWithForcedBooleanAtIndex(Method method, MethodCallExpr call, int forcedIndex) {
+        Class<?>[] parameters = method.getParameterTypes();
+        for (int i = 0; i < parameters.length; i++) {
+            Expression arg = call.getArgument(i);
+            Class<?> formal = parameters[i];
+            if (i == forcedIndex) {
+                if ((formal != boolean.class && formal != Boolean.class) || numericZeroOneToBoolean(arg) == null) {
+                    return false;
+                }
+                continue;
+            }
+            if (!isArgumentLikelyCompatible(arg, formal)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isCompatibleWithNumericLiteralAtIndex(Method method, MethodCallExpr call, int literalIndex) {
+        Class<?>[] parameters = method.getParameterTypes();
+        for (int i = 0; i < parameters.length; i++) {
+            Expression arg = call.getArgument(i);
+            Class<?> formal = parameters[i];
+            if (i == literalIndex) {
+                Class<?> literalType = inferLiteralType(arg);
+                if (literalType == null || !OverloadResolver.isAssignableFrom(formal, literalType)) {
+                    return false;
+                }
+                continue;
+            }
+            if (!isArgumentLikelyCompatible(arg, formal)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean isArgumentLikelyCompatible(Expression arg, Class<?> formal) {
+        Class<?> literalType = inferLiteralType(arg);
+        if (literalType == null) {
+            return true;
+        }
+        return OverloadResolver.isAssignableFrom(formal, literalType);
+    }
+
+    private Class<?> inferLiteralType(Expression arg) {
+        if (arg instanceof IntegerLiteralExpr) {
+            return int.class;
+        }
+        if (arg instanceof LongLiteralExpr) {
+            return long.class;
+        }
+        if (arg instanceof DoubleLiteralExpr) {
+            return double.class;
+        }
+        if (arg instanceof CharLiteralExpr) {
+            return char.class;
+        }
+        if (arg instanceof StringLiteralExpr) {
+            return String.class;
+        }
+        if (arg instanceof BooleanLiteralExpr) {
+            return boolean.class;
+        }
+        if (arg instanceof NullLiteralExpr) {
+            return Object.class;
+        }
+        return null;
+    }
+
+    private Boolean numericZeroOneToBoolean(Expression expression) {
+        if (expression instanceof IntegerLiteralExpr) {
+            int value = ((IntegerLiteralExpr) expression).asNumber().intValue();
+            if (value == 0 || value == 1) {
+                return value == 1;
+            }
+            return null;
+        }
+        if (expression instanceof LongLiteralExpr) {
+            long value = ((LongLiteralExpr) expression).asNumber().longValue();
+            if (value == 0L || value == 1L) {
+                return value == 1L;
+            }
+            return null;
+        }
+        return null;
+    }
+
     private String resolveAssertionExceptionClassName(ClassExpr classExpr) {
         if (classExpr == null) {
             return null;
@@ -553,7 +759,49 @@ class AssertionParser {
             }
             return canonicalName;
         } catch (ClassNotFoundException e) {
+            String salvagedTypeName = salvageVariableQualifiedExceptionType(originalTypeName);
+            if (salvagedTypeName != null && !salvagedTypeName.isEmpty()) {
+                return salvagedTypeName;
+            }
             return originalTypeName;
+        }
+    }
+
+    private String salvageVariableQualifiedExceptionType(String originalTypeName) {
+        if (originalTypeName == null || originalTypeName.isEmpty()) {
+            return null;
+        }
+        int firstDot = originalTypeName.indexOf('.');
+        int lastDot = originalTypeName.lastIndexOf('.');
+        if (firstDot <= 0 || lastDot <= firstDot || lastDot >= originalTypeName.length() - 1) {
+            return null;
+        }
+
+        String qualifier = originalTypeName.substring(0, firstDot);
+        if (!scope.isDefined(qualifier)) {
+            return null;
+        }
+
+        String trailingSimpleName = originalTypeName.substring(lastDot + 1);
+        if (trailingSimpleName.isEmpty() || !Character.isUpperCase(trailingSimpleName.charAt(0))) {
+            return null;
+        }
+
+        try {
+            Class<?> resolvedTrailingClass = typeResolver.resolveClass(trailingSimpleName);
+            if (resolvedTrailingClass == null || resolvedTrailingClass.isPrimitive()) {
+                return trailingSimpleName;
+            }
+            String canonicalName = resolvedTrailingClass.getCanonicalName();
+            if (canonicalName == null || canonicalName.isEmpty()) {
+                return trailingSimpleName;
+            }
+            if (canonicalName.startsWith("java.lang.")) {
+                return trailingSimpleName;
+            }
+            return canonicalName;
+        } catch (ClassNotFoundException ignored) {
+            return trailingSimpleName;
         }
     }
 

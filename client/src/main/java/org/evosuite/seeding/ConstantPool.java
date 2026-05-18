@@ -77,5 +77,15 @@ public interface ConstantPool {
      */
     void add(Object object);
 
+    /**
+     * Removes numeric constants whose absolute value is not smaller than {@code maxAbsExclusive}.
+     *
+     * @param maxAbsExclusive exclusive absolute bound; <= 0 means no pruning.
+     * @return number of removed constants.
+     */
+    default int pruneOversizedNumericConstants(long maxAbsExclusive) {
+        return 0;
+    }
+
     String toString();
 }

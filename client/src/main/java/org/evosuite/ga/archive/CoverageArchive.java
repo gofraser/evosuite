@@ -20,6 +20,8 @@
 package org.evosuite.ga.archive;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
+import org.evosuite.coverage.exception.TryCatchCoverageTestFitness;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.testcase.TestChromosome;
@@ -89,6 +91,15 @@ public class CoverageArchive extends Archive {
             return;
         }
 
+        // Do not allow non-exception targets to be considered covered by tests
+        // that terminate with code-under-test exceptions. Those tests are filtered
+        // later in post-processing and would otherwise create empty final suites
+        // with misleading archive coverage.
+        if (shouldRejectExceptionThrowingCandidate(target, solution)) {
+            logger.debug("Ignoring candidate for target {} due to CUT exception in execution result", target);
+            return;
+        }
+
         boolean isNewCoveredTarget = false;
         boolean isNewSolutionBetterThanCurrent = false;
 
@@ -108,25 +119,84 @@ public class CoverageArchive extends Archive {
         }
     }
 
+    private boolean shouldRejectExceptionThrowingCandidate(TestFitnessFunction target, TestChromosome solution) {
+        if (target instanceof ExceptionCoverageTestFitness || target instanceof TryCatchCoverageTestFitness) {
+            return false;
+        }
+        ExecutionResult result = solution.getLastExecutionResult();
+        return result != null && result.hasTestException();
+    }
+
     private void addToArchive(TestFitnessFunction target, TestChromosome solution) {
         logger.debug("Adding test case for goal {}: {}", target, solution);
         this.uncovered.remove(target);
-        this.covered.put(target, solution);
+        this.covered.put(target, solution.clone());
         this.removeNonCoveredTargetOfAMethod(target);
         this.hasBeenUpdated = true;
 
         ExecutionResult result = solution.getLastExecutionResult();
-        if (result != null && (result.hasTimeout() || result.hasTestException())) {
+        if (result != null) {
+            Map<Integer, Throwable> exceptionSnapshot = result.getCopyOfExceptionMapping();
+            int testSize = result.test == null ? -1 : result.test.size();
+            boolean snapshotHasTimeout = testSize >= 0
+                    && exceptionSnapshot.containsKey(testSize)
+                    && ExecutionResult.isTimeoutLike(exceptionSnapshot.get(testSize));
+            boolean snapshotHasTestException = exceptionSnapshot.values().stream()
+                    .anyMatch(ExecutionResult::isCodeUnderTestLike);
+
+            // Use one immutable snapshot for the whole diagnostic branch to avoid
+            // mixed-state logging when result internals are observed multiple times.
+            if (!(snapshotHasTimeout || snapshotHasTestException)) {
+                return;
+            }
+
             AtMostOnceLogger.warn(logger,
                     "A solution with a timeout/exception result has been added to the archive. The covered goal was "
                             + target.toString());
-            if (result.getAllThrownExceptions().isEmpty()) {
+
+            logger.info("ExecutionResult snapshot: snapshotHasTimeout=" + snapshotHasTimeout
+                    + ", snapshotHasTestException=" + snapshotHasTestException
+                    + ", exceptionCount=" + exceptionSnapshot.size()
+                    + ", executedStatements=" + result.getExecutedStatements()
+                    + ", executionTimeMs=" + result.getExecutionTime()
+                    + ", testSize=" + testSize
+                    + ", resultIdentity=" + System.identityHashCode(result));
+
+            if (exceptionSnapshot.isEmpty()) {
                 logger.info("ExecutionResult flagged timeout/exception but has no recorded thrown exceptions.");
             } else {
                 int index = 0;
-                for (Throwable thrown : result.getAllThrownExceptions()) {
-                    logger.info("Recorded thrown exception[{}]: {}: {}", index,
+                for (Map.Entry<Integer, Throwable> entry : exceptionSnapshot.entrySet()) {
+                    Throwable thrown = entry.getValue();
+                    Integer position = entry.getKey();
+                    if (thrown == null) {
+                        logger.info("Recorded thrown exception[{}] at position {}: <null>", index, position);
+                        index++;
+                        continue;
+                    }
+                    logger.info("Recorded thrown exception[{}] at position {}: {}: {}", index, position,
                             thrown.getClass().getName(), thrown.getMessage());
+                    boolean atTerminalPosition = testSize >= 0 && position != null && position == testSize;
+                    boolean isTimeoutExceeded = ExecutionResult.isTimeoutLike(thrown);
+                    boolean isCodeUnderTestException = ExecutionResult.isCodeUnderTestLike(thrown);
+                    String causeType = thrown.getCause() == null ? "<null>" : thrown.getCause().getClass().getName();
+                    logger.info("  flags: atTerminalPosition=" + atTerminalPosition
+                            + ", isTimeoutExceeded=" + isTimeoutExceeded
+                            + ", isCodeUnderTestException=" + isCodeUnderTestException
+                            + ", causeType=" + causeType);
+                    logger.info("  dbg_v4: positionRaw=" + position
+                            + ", testSizeRaw=" + testSize
+                            + ", classRaw=" + thrown.getClass().getName()
+                            + ", timeoutDirect="
+                            + (thrown instanceof org.evosuite.testcase.execution.TestCaseExecutor.TimeoutExceeded)
+                            + ", codeUnderDirect="
+                            + (thrown instanceof org.evosuite.testcase.execution.CodeUnderTestException)
+                            + ", timeoutByName="
+                            + org.evosuite.testcase.execution.TestCaseExecutor.TimeoutExceeded.class.getName()
+                            .equals(thrown.getClass().getName())
+                            + ", codeUnderByName="
+                            + org.evosuite.testcase.execution.CodeUnderTestException.class.getName()
+                            .equals(thrown.getClass().getName()));
                     for (StackTraceElement elem : thrown.getStackTrace()) {
                         logger.info("  at {}", elem);
                     }

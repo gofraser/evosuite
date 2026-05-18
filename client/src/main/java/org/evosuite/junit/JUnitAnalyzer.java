@@ -69,8 +69,10 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -88,6 +90,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -120,6 +123,14 @@ public abstract class JUnitAnalyzer {
     private static final int MAX_STORED_COMPILER_DIAGNOSTICS = 100;
     private static final int MAX_LOGGED_SOURCE_EXCERPT_LINES_PER_FILE = 200;
     private static final int MAX_LOGGED_SOURCE_EXCERPT_CHARS_TOTAL = 20_000;
+    private static final String FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE =
+            "META-INF/services/java.nio.file.spi.FileSystemProvider";
+    private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_CLASSPATH_ENTRIES = 30;
+    private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_IMPLEMENTATIONS_PER_ENTRY = 10;
+    private static final int MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS = 30;
+    private static volatile boolean COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE = false;
+    private static volatile boolean COMPILE_CHECK_DISABLED_LOGGED = false;
+    private static volatile boolean COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED = false;
 
     private static InstrumentingClassLoader loader = new NonInstrumentingClassLoader();
 
@@ -198,6 +209,10 @@ public abstract class JUnitAnalyzer {
         if (tests == null || tests.isEmpty()) { //nothing to do
             return;
         }
+        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+            logCompileCheckDisabledIfNeeded();
+            return;
+        }
 
         Iterator<TestCase> iter = tests.iterator();
 
@@ -223,6 +238,8 @@ public abstract class JUnitAnalyzer {
                     iter.remove();
                     String code = test.toCode();
                     logger.error("Failed to compile test case:\n" + code);
+                } else if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+                    return;
                 }
             } finally {
                 //let's be sure we clean up all what we wrote on disk
@@ -255,6 +272,10 @@ public abstract class JUnitAnalyzer {
         logger.info("Going to execute: handleTestsThatAreUnstable");
 
         if (tests == null || tests.isEmpty()) { //nothing to do
+            return numUnstable;
+        }
+        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+            logCompileDependentExecutionSkippedIfNeeded();
             return numUnstable;
         }
 
@@ -369,6 +390,12 @@ public abstract class JUnitAnalyzer {
                     removeTestByName(tests, testName);
                     continue failure_loop;
                 }
+                if (isDeterministicGuiEnvironmentFailure(failure)) {
+                    logger.warn("Removing test {} due deterministic GUI-environment failure: {}: {}",
+                            testName, failure.getExceptionClassName(), failure.getMessage());
+                    removeTestByName(tests, testName);
+                    continue failure_loop;
+                }
 
 
                 logger.warn("Found unstable test named " + testName + " -> "
@@ -388,7 +415,6 @@ public abstract class JUnitAnalyzer {
                 }
 
                 boolean toRemove = !(failure.isAssertionError());
-
                 for (int i = 0; i < tests.size(); i++) {
                     if (TestSuiteWriterUtils.getNameOfTest(tests, i).equals(testName)) {
                         logger.warn("Failing test:\n " + tests.get(i).toCode());
@@ -437,7 +463,7 @@ public abstract class JUnitAnalyzer {
         if (failure == null) {
             return false;
         }
-        String cls = failure.getExceptionClassName();
+        String cls = normalizeFailureClassName(failure.getExceptionClassName());
         if (!"java.lang.ExceptionInInitializerError".equals(cls)
                 && !"java.lang.NoClassDefFoundError".equals(cls)) {
             return false;
@@ -461,6 +487,37 @@ public abstract class JUnitAnalyzer {
                 return;
             }
         }
+    }
+
+    private static boolean isDeterministicGuiEnvironmentFailure(JUnitFailure failure) {
+        if (failure == null) {
+            return false;
+        }
+        String failureClass = normalizeFailureClassName(failure.getExceptionClassName());
+        String message = failure.getMessage();
+        List<String> trace = failure.getExceptionStackTrace();
+
+        if ("java.awt.AWTError".equals(failureClass)
+                && isGraphicsEnvironmentNullFailure(message, trace)) {
+            return true;
+        }
+
+        if (!"java.awt.HeadlessException".equals(failureClass)) {
+            return false;
+        }
+
+        if (message != null && message.toLowerCase(Locale.ROOT).contains("headless")) {
+            return true;
+        }
+        if (trace == null || trace.isEmpty()) {
+            return true;
+        }
+        return containsAny(trace,
+                "java.awt.GraphicsEnvironment.checkHeadless",
+                "java.awt.Window.<init>",
+                "javax.swing.JFrame.<init>",
+                "javax.swing.JDialog.<init>",
+                "javax.swing.JWindow.<init>");
     }
 
     private static JUnitResult runTests(Class<?>[] testClasses, File testClassDir, Collection<File> generatedFiles)
@@ -515,10 +572,14 @@ public abstract class JUnitAnalyzer {
 
     private static boolean shouldRetryWithInstrumentingAfterFailure(JUnitResult result) {
         for (JUnitFailure failure : result.getFailures()) {
-            String failureClass = failure.getExceptionClassName();
+            String failureClass = normalizeFailureClassName(failure.getExceptionClassName());
             String message = failure.getMessage();
             List<String> trace = failure.getExceptionStackTrace();
             if ("java.awt.HeadlessException".equals(failureClass)) {
+                return true;
+            }
+            if ("java.awt.AWTError".equals(failureClass)
+                    && isGraphicsEnvironmentNullFailure(message, trace)) {
                 return true;
             }
             if ("java.lang.ClassCastException".equals(failureClass)) {
@@ -535,6 +596,25 @@ public abstract class JUnitAnalyzer {
             }
         }
         return false;
+    }
+
+    private static String normalizeFailureClassName(String rawClassName) {
+        if (rawClassName == null) {
+            return "";
+        }
+        String trimmed = rawClassName.trim();
+        if (trimmed.startsWith("class ")) {
+            return trimmed.substring("class ".length()).trim();
+        }
+        return trimmed;
+    }
+
+    private static boolean isGraphicsEnvironmentNullFailure(String message, List<String> trace) {
+        if (message != null
+                && message.toLowerCase(Locale.ROOT).contains("local graphicsenvironment must not be null")) {
+            return true;
+        }
+        return trace != null && containsAny(trace, "GraphicsEnvironment.getLocalGraphicsEnvironment");
     }
 
     /**
@@ -681,7 +761,7 @@ public abstract class JUnitAnalyzer {
         String firstLoopCounterFrame = firstFrameContaining(trace, "org.evosuite.runtime.LoopCounter.checkLoop");
         String firstHeadlessFrame = firstFrameContaining(trace, "java.awt.HeadlessException");
         String firstAwtFrame = firstFrameContaining(trace, "java.awt.");
-        String failureClass = failure.getExceptionClassName();
+        String failureClass = normalizeFailureClassName(failure.getExceptionClassName());
         String failureMessage = failure.getMessage();
 
         StringBuilder sb = new StringBuilder();
@@ -711,6 +791,9 @@ public abstract class JUnitAnalyzer {
         sb.append(", envHeadlessProperty=").append(System.getenv("JAVA_AWT_HEADLESS"));
         if ("java.awt.HeadlessException".equals(failureClass)) {
             sb.append(", hint=Headless mismatch likely indicates missing/late GUI replacement during JUnit recheck");
+        } else if ("java.awt.AWTError".equals(failureClass)
+                && isGraphicsEnvironmentNullFailure(failureMessage, trace)) {
+            sb.append(", hint=GraphicsEnvironment initialization/reset issue during JUnit recheck");
         }
         return sb.toString();
     }
@@ -863,6 +946,10 @@ public abstract class JUnitAnalyzer {
     }
 
     private static Set<String> executeAndCollectUnexpectedFailures(List<TestCase> tests) {
+        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+            logCompileDependentExecutionSkippedIfNeeded();
+            return Collections.emptySet();
+        }
         File dir = createNewTmpDir();
         if (dir == null) {
             return Collections.singleton("tmp-dir-error");
@@ -952,9 +1039,11 @@ public abstract class JUnitAnalyzer {
         String name = Properties.TARGET_CLASS.substring(beginIndex);
         name += "_" + (NUM++) + "_tmp_" + Properties.JUNIT_SUFFIX; //postfix
 
+        List<File> generated = null;
+        String compilerClasspath = null;
         try {
             //now generate the JUnit test case
-            List<File> generated = suite.writeTestSuite(name, dir.getAbsolutePath(), Collections.EMPTY_LIST);
+            generated = suite.writeTestSuite(name, dir.getAbsolutePath(), Collections.EMPTY_LIST);
             for (File file : generated) {
                 if (!file.exists()) {
                     logger.error("Supposed to generate " + file
@@ -969,62 +1058,57 @@ public abstract class JUnitAnalyzer {
                 logger.error("No Java compiler is available");
                 return null;
             }
-
-            BoundedDiagnosticListener diagnostics = new BoundedDiagnosticListener(MAX_STORED_COMPILER_DIAGNOSTICS);
-            Locale locale = Locale.getDefault();
-            Charset charset = StandardCharsets.UTF_8;
-            try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics,
-                    locale,
-                    charset)) {
-                Iterable<? extends JavaFileObject> compilationUnits =
-                        fileManager.getJavaFileObjectsFromFiles(generated);
-
-                String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
-                if (JarPathing.containsAPathingJar(evosuiteCP)) {
-                    evosuiteCP = JarPathing.expandPathingJars(evosuiteCP);
-                }
-
-                String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
-                if (JarPathing.containsAPathingJar(targetProjectCP)) {
-                    targetProjectCP = JarPathing.expandPathingJars(targetProjectCP);
-                }
-
-                String classpath = targetProjectCP + File.pathSeparator + evosuiteCP;
-                classpath = sanitizeClasspathForCompiler(classpath);
-
-                List<String> optionList = new ArrayList<>(Arrays.asList(
-                        "-classpath", classpath,
-                        "-proc:none"));
-
-                CompilationTask task = compiler.getTask(null, fileManager, diagnostics,
-                        optionList, null, compilationUnits);
-                boolean compiled = task.call();
-
-                if (!compiled) {
-                    logger.error("Compilation failed on {} generated test file(s)", generated.size());
-                    logger.error("Classpath: {}", classpath);
-                    // TODO remove
-                    logger.error("evosuiteCP: {}", evosuiteCP);
-
-                    if (diagnostics.sawErrorWhileWriting()) {
-                        logger.error("Error is due to file permissions, ignoring...");
-                        return generated;
-                    }
-
-                    for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
-                        logger.error("Diagnostic: {}: {}", diagnostic.getMessage(null),
-                                diagnostic.getLineNumber());
-                    }
-                    if (diagnostics.wasTruncated()) {
-                        logger.error("Additional compiler diagnostics were omitted after {} entries",
-                                MAX_STORED_COMPILER_DIAGNOSTICS);
-                    }
-
-                    logGeneratedSourceExcerptsOnCompilationFailure(generated);
-                    return null;
-                }
+            if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+                logCompileCheckDisabledIfNeeded();
+                return generated;
             }
 
+            Locale locale = Locale.getDefault();
+            Charset charset = StandardCharsets.UTF_8;
+            String evosuiteCP = ClassPathHandler.getInstance().getEvoSuiteClassPath();
+            if (JarPathing.containsAPathingJar(evosuiteCP)) {
+                evosuiteCP = JarPathing.expandPathingJars(evosuiteCP);
+            }
+
+            String targetProjectCP = ClassPathHandler.getInstance().getTargetProjectClasspath();
+            if (JarPathing.containsAPathingJar(targetProjectCP)) {
+                targetProjectCP = JarPathing.expandPathingJars(targetProjectCP);
+            }
+
+            String classpath = targetProjectCP + File.pathSeparator + evosuiteCP;
+            classpath = sanitizeClasspathForCompiler(classpath);
+            compilerClasspath = classpath;
+
+            CompilerAttemptResult attempt = runCompilerAttempt(compiler, generated, classpath, locale, charset);
+            if (attempt.hasInfrastructureFailure()) {
+                disableCompileCheckDueToInfrastructure(attempt.getInfrastructureFailure(), compilerClasspath);
+                return generated;
+            }
+
+            if (!attempt.isCompiled()) {
+                BoundedDiagnosticListener diagnostics = attempt.getDiagnostics();
+                logger.error("Compilation failed on {} generated test file(s)", generated.size());
+                logger.error("Classpath: {}", compilerClasspath);
+                // TODO remove
+                logger.error("evosuiteCP: {}", evosuiteCP);
+
+                if (diagnostics.sawErrorWhileWriting()) {
+                    logger.error("Error is due to file permissions, ignoring...");
+                    return generated;
+                }
+
+                for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
+                    logger.error("Diagnostic: {}: {}", diagnostic.getMessage(null),
+                            diagnostic.getLineNumber());
+                }
+                if (diagnostics.wasTruncated()) {
+                    logger.error("Additional compiler diagnostics were omitted after {} entries",
+                            MAX_STORED_COMPILER_DIAGNOSTICS);
+                }
+
+                logGeneratedSourceExcerptsOnCompilationFailure(generated);
+                return null;
+            }
             return generated;
 
         } catch (OutOfMemoryError e) {
@@ -1033,7 +1117,312 @@ public abstract class JUnitAnalyzer {
         } catch (IOException e) {
             logger.error("" + e, e);
             return null;
+        } catch (RuntimeException e) {
+            if (isJavacInfrastructureFailure(e)) {
+                disableCompileCheckDueToInfrastructure(e, compilerClasspath);
+                return generated;
+            }
+            logger.error("Unexpected runtime exception while compiling generated tests", e);
+            return null;
+        } catch (Error e) {
+            if (isJavacInfrastructureFailure(e)) {
+                disableCompileCheckDueToInfrastructure(e, compilerClasspath);
+                return generated;
+            }
+            throw e;
         }
+    }
+
+    private static CompilerAttemptResult runCompilerAttempt(JavaCompiler compiler,
+                                                            List<File> generated,
+                                                            String classpath,
+                                                            Locale locale,
+                                                            Charset charset) throws IOException {
+        BoundedDiagnosticListener diagnostics = new BoundedDiagnosticListener(MAX_STORED_COMPILER_DIAGNOSTICS);
+        try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, locale, charset)) {
+            Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(generated);
+            List<String> optionList = new ArrayList<>(Arrays.asList(
+                    "-classpath", classpath,
+                    "-proc:none"));
+            CompilationTask task = compiler.getTask(null, fileManager, diagnostics,
+                    optionList, null, compilationUnits);
+            boolean compiled = task.call();
+            return CompilerAttemptResult.success(compiled, diagnostics);
+        } catch (RuntimeException e) {
+            if (isJavacInfrastructureFailure(e)) {
+                return CompilerAttemptResult.infrastructureFailure(e, diagnostics);
+            }
+            throw e;
+        } catch (Error e) {
+            if (isJavacInfrastructureFailure(e)) {
+                return CompilerAttemptResult.infrastructureFailure(e, diagnostics);
+            }
+            throw e;
+        }
+    }
+
+    private static void disableCompileCheckDueToInfrastructure(Throwable failure, String compilerClasspath) {
+        COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE = true;
+        logger.error("Javac infrastructure failure during compile check. "
+                        + "Disabling compile filtering for the remainder of this run and keeping generated tests.",
+                failure);
+        logFileSystemProviderClasspathDiagnostics(compilerClasspath);
+    }
+
+    private static void logCompileCheckDisabledIfNeeded() {
+        if (COMPILE_CHECK_DISABLED_LOGGED) {
+            return;
+        }
+        COMPILE_CHECK_DISABLED_LOGGED = true;
+        logger.warn("Compile check is disabled due to a prior javac infrastructure failure. "
+                + "Generated tests will be kept without compile filtering.");
+    }
+
+    private static void logCompileDependentExecutionSkippedIfNeeded() {
+        if (COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED) {
+            return;
+        }
+        COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED = true;
+        logger.warn("Skipping compile-dependent JUnit execution checks because compile check is disabled "
+                + "after a javac infrastructure failure.");
+    }
+
+    private static boolean isJavacInfrastructureFailure(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof NoSuchElementException) {
+                return true;
+            }
+
+            for (StackTraceElement element : current.getStackTrace()) {
+                if (element == null) {
+                    continue;
+                }
+                String className = element.getClassName();
+                if (className == null) {
+                    continue;
+                }
+                if (className.startsWith("java.util.ServiceLoader")
+                        || className.startsWith("java.nio.file.spi.FileSystemProvider")
+                        || className.startsWith("com.sun.tools.javac.file.FSInfo")
+                        || className.startsWith("jdk.compiler/com.sun.tools.javac.file.FSInfo")) {
+                    return true;
+                }
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private static final class CompilerAttemptResult {
+        private final boolean compiled;
+        private final BoundedDiagnosticListener diagnostics;
+        private final Throwable infrastructureFailure;
+
+        private CompilerAttemptResult(boolean compiled,
+                                      BoundedDiagnosticListener diagnostics,
+                                      Throwable infrastructureFailure) {
+            this.compiled = compiled;
+            this.diagnostics = diagnostics;
+            this.infrastructureFailure = infrastructureFailure;
+        }
+
+        private static CompilerAttemptResult success(boolean compiled, BoundedDiagnosticListener diagnostics) {
+            return new CompilerAttemptResult(compiled, diagnostics, null);
+        }
+
+        private static CompilerAttemptResult infrastructureFailure(Throwable failure,
+                                                                   BoundedDiagnosticListener diagnostics) {
+            return new CompilerAttemptResult(false, diagnostics, failure);
+        }
+
+        private boolean isCompiled() {
+            return compiled;
+        }
+
+        private BoundedDiagnosticListener getDiagnostics() {
+            return diagnostics;
+        }
+
+        private Throwable getInfrastructureFailure() {
+            return infrastructureFailure;
+        }
+
+        private boolean hasInfrastructureFailure() {
+            return infrastructureFailure != null;
+        }
+    }
+
+    private static void logFileSystemProviderClasspathDiagnostics(String classpath) {
+        Map<String, List<String>> providersByEntry = findFileSystemProviderServiceDeclarations(classpath);
+        if (providersByEntry.isEmpty()) {
+            logger.error("No {} declaration was found on the compiler classpath used during failure analysis",
+                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+        } else {
+            logFileSystemProviderDeclarations(
+                    "Compiler classpath entry {} declares {} provider(s) via {}: {}",
+                    providersByEntry);
+        }
+        logRuntimeFileSystemProviderDiagnostics();
+    }
+
+    private static void logFileSystemProviderDeclarations(String messagePattern,
+                                                          Map<String, List<String>> providersByEntry) {
+        int logged = 0;
+        for (Map.Entry<String, List<String>> entry : providersByEntry.entrySet()) {
+            if (logged >= MAX_LOGGED_FILE_SYSTEM_PROVIDER_CLASSPATH_ENTRIES) {
+                logger.error("Omitted {} additional classpath entries declaring {}",
+                        providersByEntry.size() - logged,
+                        FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+                break;
+            }
+            List<String> providerClasses = entry.getValue();
+            if (providerClasses.size() > MAX_LOGGED_FILE_SYSTEM_PROVIDER_IMPLEMENTATIONS_PER_ENTRY) {
+                List<String> visibleProviders = providerClasses.subList(0,
+                        MAX_LOGGED_FILE_SYSTEM_PROVIDER_IMPLEMENTATIONS_PER_ENTRY);
+                logger.error(messagePattern + " ({} more omitted)",
+                        entry.getKey(),
+                        providerClasses.size(),
+                        FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE,
+                        visibleProviders,
+                        providerClasses.size() - visibleProviders.size());
+            } else {
+                logger.error(messagePattern,
+                        entry.getKey(),
+                        providerClasses.size(),
+                        FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE,
+                        providerClasses);
+            }
+            logged++;
+        }
+    }
+
+    private static void logRuntimeFileSystemProviderDiagnostics() {
+        String defaultProviderProperty = System.getProperty("java.nio.file.spi.DefaultFileSystemProvider");
+        logger.error("System property java.nio.file.spi.DefaultFileSystemProvider={}",
+                defaultProviderProperty == null ? "<unset>" : defaultProviderProperty);
+
+        String runtimeClasspath = System.getProperty("java.class.path");
+        Map<String, List<String>> runtimeProviders = findFileSystemProviderServiceDeclarations(runtimeClasspath);
+        if (runtimeProviders.isEmpty()) {
+            logger.error("No {} declaration was found on java.class.path",
+                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+        } else {
+            logFileSystemProviderDeclarations(
+                    "Runtime classpath entry {} declares {} provider(s) via {}: {}",
+                    runtimeProviders);
+        }
+
+        logVisibleFileSystemProviderServiceResources();
+    }
+
+    private static void logVisibleFileSystemProviderServiceResources() {
+        ClassLoader systemLoader = ClassLoader.getSystemClassLoader();
+        if (systemLoader == null) {
+            logger.error("System class loader is null while checking visible {} resources",
+                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+            return;
+        }
+
+        int count = 0;
+        try {
+            Enumeration<URL> resources = systemLoader.getResources(FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+            while (resources.hasMoreElements()) {
+                URL resource = resources.nextElement();
+                count++;
+                if (count <= MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS) {
+                    logger.error("System class loader resource {} for {}",
+                            resource, FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+                }
+            }
+        } catch (IOException e) {
+            logger.error("Failed to enumerate {} resources from system class loader: {}",
+                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE, e.getMessage());
+            return;
+        }
+
+        if (count == 0) {
+            logger.error("System class loader has no visible {} resources",
+                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+            return;
+        }
+        if (count > MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS) {
+            logger.error("Omitted {} additional {} resources from system class loader",
+                    count - MAX_LOGGED_FILE_SYSTEM_PROVIDER_SERVICE_URLS,
+                    FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+        }
+    }
+
+    private static Map<String, List<String>> findFileSystemProviderServiceDeclarations(String classpath) {
+        Map<String, List<String>> providersByEntry = new LinkedHashMap<>();
+        if (classpath == null || classpath.trim().isEmpty()) {
+            return providersByEntry;
+        }
+
+        String[] classpathEntries = classpath.split(File.pathSeparator);
+        for (String entry : classpathEntries) {
+            if (entry == null || entry.trim().isEmpty()) {
+                continue;
+            }
+            File classpathEntry = new File(entry);
+            List<String> providers = readFileSystemProviderServiceDeclarations(classpathEntry);
+            if (!providers.isEmpty()) {
+                providersByEntry.put(classpathEntry.getAbsolutePath(), providers);
+            }
+        }
+        return providersByEntry;
+    }
+
+    private static List<String> readFileSystemProviderServiceDeclarations(File classpathEntry) {
+        if (classpathEntry == null || !classpathEntry.exists()) {
+            return Collections.emptyList();
+        }
+
+        if (classpathEntry.isDirectory()) {
+            File serviceFile = new File(classpathEntry, FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+            if (!serviceFile.isFile()) {
+                return Collections.emptyList();
+            }
+            try (BufferedReader reader = Files.newBufferedReader(serviceFile.toPath(), StandardCharsets.UTF_8)) {
+                return parseServiceProviderDeclarations(reader);
+            } catch (IOException e) {
+                logger.debug("Could not inspect service declarations in directory {}: {}",
+                        classpathEntry.getAbsolutePath(), e.getMessage());
+                return Collections.emptyList();
+            }
+        }
+
+        if (classpathEntry.isFile() && classpathEntry.getName().endsWith(".jar")) {
+            try (JarFile jar = new JarFile(classpathEntry)) {
+                JarEntry serviceEntry = jar.getJarEntry(FILE_SYSTEM_PROVIDER_SERVICE_RESOURCE);
+                if (serviceEntry == null) {
+                    return Collections.emptyList();
+                }
+                try (InputStream in = jar.getInputStream(serviceEntry);
+                     BufferedReader reader = new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))) {
+                    return parseServiceProviderDeclarations(reader);
+                }
+            } catch (IOException e) {
+                logger.debug("Could not inspect service declarations in jar {}: {}",
+                        classpathEntry.getAbsolutePath(), e.getMessage());
+            }
+        }
+
+        return Collections.emptyList();
+    }
+
+    private static List<String> parseServiceProviderDeclarations(BufferedReader reader) throws IOException {
+        LinkedHashSet<String> providers = new LinkedHashSet<>();
+        String line;
+        while ((line = reader.readLine()) != null) {
+            int comment = line.indexOf('#');
+            String sanitized = comment >= 0 ? line.substring(0, comment) : line;
+            String providerClass = sanitized.trim();
+            if (!providerClass.isEmpty()) {
+                providers.add(providerClass);
+            }
+        }
+        return new ArrayList<>(providers);
     }
 
     private static List<String> resolveExtensionInitializationOrderForCompileCheck() {
@@ -1404,6 +1793,10 @@ public abstract class JUnitAnalyzer {
             //nothing to compile or run
             return true;
         }
+        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+            logCompileDependentExecutionSkippedIfNeeded();
+            return true;
+        }
 
         File dir = createNewTmpDir();
         if (dir == null) {
@@ -1638,6 +2031,7 @@ public abstract class JUnitAnalyzer {
                     MockFramework.enable();
                 }
                 if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
                     // Align JUnit recheck with search-time constructor execution:
                     // ConstructorStatement temporarily disables headless mode for GUI
                     // constructors, but JUnit executes plain Java source directly.
@@ -1657,6 +2051,9 @@ public abstract class JUnitAnalyzer {
                 org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
                 if (disabledHeadless) {
                     GuiSupport.restoreHeadlessAfterMockConstruction();
+                }
+                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
                 }
                 if (!wasMockFrameworkEnabled) {
                     MockFramework.disable();
@@ -1719,6 +2116,7 @@ public abstract class JUnitAnalyzer {
                     MockFramework.enable();
                 }
                 if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
                     // Keep JUnit recheck behavior aligned with search-time execution.
                     GuiSupport.disableHeadlessForMockConstruction();
                     disabledHeadless = true;
@@ -1749,6 +2147,9 @@ public abstract class JUnitAnalyzer {
                 org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
                 if (disabledHeadless) {
                     GuiSupport.restoreHeadlessAfterMockConstruction();
+                }
+                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
                 }
                 if (!wasMockFrameworkEnabled) {
                     MockFramework.disable();

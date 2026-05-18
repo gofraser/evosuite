@@ -328,6 +328,7 @@ public class TestSuiteGenerator {
      * @param testSuite the test suite to post-process
      */
     protected void postProcessTests(TestSuiteChromosome testSuite) {
+        logSuiteDiagnostics("postProcess:start", testSuite);
 
         // If overall time is short, the search might not have had enough time
         // to come up with a suite without timeouts. However, they will slow
@@ -337,9 +338,38 @@ public class TestSuiteGenerator {
         // are kept: the JUnit writer wraps them in an ExecutorService with
         // future.get(timeout) so they won't hang.  This preserves coverage for
         // classes whose constructors always block (e.g., on network I/O).
-        testSuite.getTestChromosomes()
-                .removeIf(t -> t.getLastExecutionResult() != null
-                        && t.getLastExecutionResult().hasTestException());
+        int beforeExceptionFilter = testSuite.size();
+        Map<String, Integer> exceptionTypeHistogram = new LinkedHashMap<>();
+        List<TestChromosome> candidatesToRemove = new ArrayList<>();
+        for (TestChromosome test : testSuite.getTestChromosomes()) {
+            ExecutionResult result = test.getLastExecutionResult();
+            if (result != null && result.hasTestException()) {
+                String exceptionType = "<unknown>";
+                Integer firstPos = result.getFirstPositionOfThrownException();
+                if (firstPos != null) {
+                    Throwable thrown = result.getExceptionThrownAtPosition(firstPos);
+                    if (thrown != null) {
+                        exceptionType = thrown.getClass().getName();
+                    }
+                }
+                exceptionTypeHistogram.merge(exceptionType, 1, Integer::sum);
+                candidatesToRemove.add(test);
+            }
+        }
+        if (!candidatesToRemove.isEmpty() && candidatesToRemove.size() == beforeExceptionFilter
+                && beforeExceptionFilter > 0) {
+            logger.warn("Post-process exception filter would remove all {} test(s). "
+                            + "Keeping suite intact to avoid empty-output regression. "
+                            + "Exception histogram: {}",
+                    beforeExceptionFilter, exceptionTypeHistogram);
+        } else if (!candidatesToRemove.isEmpty()) {
+            testSuite.getTestChromosomes().removeAll(candidatesToRemove);
+            int removedByExceptionFilter = candidatesToRemove.size();
+            logger.warn("Post-process exception filter removed {} test(s) out of {}. "
+                            + "Remaining: {}. Exception histogram: {}",
+                    removedByExceptionFilter, beforeExceptionFilter, testSuite.size(), exceptionTypeHistogram);
+        }
+        logSuiteDiagnostics("postProcess:afterExceptionFilter", testSuite);
 
         if (Properties.CTG_SEEDS_FILE_OUT != null) {
             TestSuiteSerialization.saveTests(testSuite, new File(Properties.CTG_SEEDS_FILE_OUT));
@@ -399,10 +429,19 @@ public class TestSuiteGenerator {
             } else {
                 double before = testSuite.getFitness();
                 TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
+                int testsBeforeMinimization = testSuite.size();
+                int lengthBeforeMinimization = testSuite.totalLengthOfTestCases();
 
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Minimizing test suite");
                 minimizer.minimize(testSuite, true);
+                logger.info("Minimization changed suite size {} -> {}, length {} -> {}",
+                        testsBeforeMinimization, testSuite.size(),
+                        lengthBeforeMinimization, testSuite.totalLengthOfTestCases());
+                if (testsBeforeMinimization > 0 && testSuite.size() == 0) {
+                    logger.warn("Minimization removed all tests ({} -> 0).", testsBeforeMinimization);
+                }
+                logSuiteDiagnostics("postProcess:afterMinimization", testSuite);
 
                 double after = testSuite.getFitness();
                 if (after > before + 0.01d) { // assume minimization
@@ -547,11 +586,67 @@ public class TestSuiteGenerator {
         } else if (Properties.JUNIT_TESTS && (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
                 || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
             if (ClassPathHacker.isJunitCheckAvailable()) {
+                int beforeJUnitCheck = testSuite.size();
                 compileAndCheckTests(testSuite);
+                logger.info("JUnit compile-check changed suite size {} -> {}",
+                        beforeJUnitCheck, testSuite.size());
+                if (beforeJUnitCheck > 0 && testSuite.size() == 0) {
+                    logger.warn("JUnit compile-check removed all tests ({} -> 0).", beforeJUnitCheck);
+                }
+                logSuiteDiagnostics("postProcess:afterJUnitCheck", testSuite);
             } else {
                 logger.warn("Cannot run Junit test. Cause {}", ClassPathHacker.getCause());
             }
         }
+    }
+
+    private void logSuiteDiagnostics(String phase, TestSuiteChromosome suite) {
+        if (suite == null) {
+            logger.warn("Suite diagnostics [{}]: suite is null", phase);
+            return;
+        }
+
+        int total = suite.size();
+        int totalLength = suite.totalLengthOfTestCases();
+        int withoutExecutionResult = 0;
+        int withTimeout = 0;
+        int withTestException = 0;
+        int withSecurityException = 0;
+        int emptyTests = 0;
+        Map<String, Integer> firstExceptionHistogram = new LinkedHashMap<>();
+
+        for (TestChromosome test : suite.getTestChromosomes()) {
+            if (test == null || test.getTestCase() == null || test.getTestCase().size() == 0) {
+                emptyTests++;
+            }
+            ExecutionResult result = test == null ? null : test.getLastExecutionResult();
+            if (result == null) {
+                withoutExecutionResult++;
+                continue;
+            }
+            if (result.hasTimeout()) {
+                withTimeout++;
+            }
+            if (result.hasTestException()) {
+                withTestException++;
+            }
+            if (result.hasSecurityException()) {
+                withSecurityException++;
+            }
+
+            Integer firstPos = result.getFirstPositionOfThrownException();
+            if (firstPos != null) {
+                Throwable thrown = result.getExceptionThrownAtPosition(firstPos);
+                if (thrown != null) {
+                    firstExceptionHistogram.merge(thrown.getClass().getName(), 1, Integer::sum);
+                }
+            }
+        }
+
+        logger.info("Suite diagnostics [{}]: tests={}, length={}, emptyTests={}, noResult={}, "
+                        + "timeouts={}, testExceptions={}, securityExceptions={}, firstExceptions={}",
+                phase, total, totalLength, emptyTests, withoutExecutionResult,
+                withTimeout, withTestException, withSecurityException, firstExceptionHistogram);
     }
 
     /**
@@ -590,6 +685,7 @@ public class TestSuiteGenerator {
     private void compileAndCheckTests(TestSuiteChromosome chromosome) {
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                 + "Compiling and checking tests");
+        final int originalSuiteSize = chromosome.size();
 
         if (!JUnitAnalyzer.isJavaCompilerAvailable()) {
             String msg = "No Java compiler is available. Make sure to run EvoSuite with the JDK and not the JRE. "
@@ -620,13 +716,20 @@ public class TestSuiteGenerator {
 
         List<TestCase> testCases = chromosome.getTests(); // make copy of
         // current tests
+        int beforeCompileFilter = testCases.size();
 
         // first, let's just get rid of all the tests that do not compile
         JUnitAnalyzer.removeTestsThatDoNotCompile(testCases);
+        int removedByCompileFilter = beforeCompileFilter - testCases.size();
+        if (removedByCompileFilter > 0) {
+            logger.warn("JUnit compile filter removed {} test(s) out of {} before runtime checks",
+                    removedByCompileFilter, beforeCompileFilter);
+        }
 
         // compile and run each test one at a time. and keep track of total time
         long start = java.lang.System.currentTimeMillis();
         Iterator<TestCase> iter = testCases.iterator();
+        int removedInSingleTestChecks = 0;
         while (iter.hasNext()) {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 break;
@@ -639,7 +742,11 @@ public class TestSuiteGenerator {
                 // if the test was unstable and deleted, need to remove it from
                 // final testSuite
                 iter.remove();
+                removedInSingleTestChecks++;
             }
+        }
+        if (removedInSingleTestChecks > 0) {
+            logger.warn("JUnit per-test instability checks removed {} test(s)", removedInSingleTestChecks);
         }
         /*
          * compiling and running each single test individually will take more
@@ -662,6 +769,10 @@ public class TestSuiteGenerator {
         chromosome.clearTests(); // remove all tests
         for (TestCase testCase : testCases) {
             chromosome.addTest(testCase); // add back the filtered tests
+        }
+        logger.info("JUnit check suite reduction: {} -> {}", originalSuiteSize, chromosome.size());
+        if (originalSuiteSize > 0 && chromosome.size() == 0) {
+            logger.warn("JUnit check removed all tests from suite");
         }
 
         boolean unstable = (numUnstable > 0);

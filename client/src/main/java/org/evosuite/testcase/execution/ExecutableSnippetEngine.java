@@ -89,6 +89,8 @@ public final class ExecutableSnippetEngine {
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+package\\s+.+\\s+is not visible");
     private static final Pattern CANNOT_FIND_SYMBOL_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+cannot find symbol");
+    private static final Pattern CANNOT_FIND_SYMBOL_CLASS_DETAIL_PATTERN =
+            Pattern.compile("(?m)^\\s*symbol:\\s+class\\s+[A-Za-z_][A-Za-z0-9_$.]*\\s*$");
     private static final Pattern STATEMENTS_OUTSIDE_METHOD_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+statements\\s+not\\s+expected\\s+outside\\s+of\\s+methods\\s+and\\s+initializers");
     private static final Pattern MISSING_RETURN_PATTERN =
@@ -137,6 +139,8 @@ public final class ExecutableSnippetEngine {
                     + "(?:javax\\.swing\\.)?(?:JFrame|JDialog|JWindow))\\s*\\(");
     private static final Pattern VFS_IO_NEW_EXPRESSION_PATTERN =
             Pattern.compile("\\bnew\\s+((?:java\\.io\\.)?(?:File|RandomAccessFile|FileInputStream|FileOutputStream|FileReader|FileWriter|PrintStream|PrintWriter))\\s*\\(");
+    private static final Pattern VFS_IO_STATIC_CALL_OWNER_PATTERN =
+            Pattern.compile("\\b((?:java\\.io\\.)?File|(?:java\\.nio\\.file\\.)?(?:Files|Paths|FileSystems))\\s*\\.");
 
     /** An output stream that silently discards all bytes written to it. */
     private static final OutputStream DISCARD = new OutputStream() {
@@ -168,10 +172,14 @@ public final class ExecutableSnippetEngine {
     public static final class StatementResult {
         private final Object returnValue;
         private final Map<String, Object> updatedValues;
+        private final boolean cannotFindSymbolSanitizationApplied;
 
-        private StatementResult(Object returnValue, Map<String, Object> updatedValues) {
+        private StatementResult(Object returnValue,
+                                Map<String, Object> updatedValues,
+                                boolean cannotFindSymbolSanitizationApplied) {
             this.returnValue = returnValue;
             this.updatedValues = updatedValues;
+            this.cannotFindSymbolSanitizationApplied = cannotFindSymbolSanitizationApplied;
         }
 
         public Object getReturnValue() {
@@ -181,13 +189,30 @@ public final class ExecutableSnippetEngine {
         public Map<String, Object> getUpdatedValues() {
             return updatedValues;
         }
+
+        public boolean isCannotFindSymbolSanitizationApplied() {
+            return cannotFindSymbolSanitizationApplied;
+        }
     }
 
     private static final class CompiledSnippet {
         private final Method method;
+        private final boolean cannotFindSymbolSanitizationApplied;
 
-        private CompiledSnippet(Method method) {
+        private CompiledSnippet(Method method, boolean cannotFindSymbolSanitizationApplied) {
             this.method = method;
+            this.cannotFindSymbolSanitizationApplied = cannotFindSymbolSanitizationApplied;
+        }
+    }
+
+    private static final class SourceSanitizationOutcome {
+        private final String sanitizedSource;
+        private final boolean cannotFindSymbolSanitizationApplied;
+
+        private SourceSanitizationOutcome(String sanitizedSource,
+                                          boolean cannotFindSymbolSanitizationApplied) {
+            this.sanitizedSource = sanitizedSource;
+            this.cannotFindSymbolSanitizationApplied = cannotFindSymbolSanitizationApplied;
         }
     }
 
@@ -241,6 +266,8 @@ public final class ExecutableSnippetEngine {
             createHeavyGuiMockConstructorReplacements();
     private static final Map<String, String> VFS_IO_MOCK_CONSTRUCTOR_REPLACEMENTS =
             createVfsIoMockConstructorReplacements();
+    private static final Map<String, String> VFS_IO_MOCK_STATIC_OWNER_REPLACEMENTS =
+            createVfsIoMockStaticOwnerReplacements();
 
     private ExecutableSnippetEngine() {
         this.compilationDir = new File(System.getProperty("java.io.tmpdir"), "evosuite-snippets").toPath();
@@ -290,7 +317,9 @@ public final class ExecutableSnippetEngine {
                             parentLoader));
             Map<String, Object> values = new LinkedHashMap<>(variableValues);
             Object returnValue = invoke(snippet, values);
-            return new StatementResult(returnValue, values);
+            return new StatementResult(returnValue,
+                    values,
+                    snippet.cannotFindSymbolSanitizationApplied);
         } catch (Throwable t) {
             increment(RuntimeVariable.LLM_Fallback_Statement_Execution_Failures, statementExecutionFailures);
             if (t instanceof SnippetEngineRuntimeException) {
@@ -406,6 +435,7 @@ public final class ExecutableSnippetEngine {
 
             String classpath = buildCompilationClasspath(parentLoader);
             String diagnostics = null;
+            boolean cannotFindSymbolSanitizationApplied = false;
             final int maxRepairPasses = 3;
             for (int pass = 0; pass <= maxRepairPasses; pass++) {
                 diagnostics = compileSource(compiler, classpath, sourceFile);
@@ -418,9 +448,13 @@ public final class ExecutableSnippetEngine {
                     classpath = repairedClasspath;
                     repaired = true;
                 }
-                String repairedSource = sanitizeSourceForKnownCompileIssues(workingSource, diagnostics);
-                if (repairedSource != null && !repairedSource.equals(workingSource)) {
-                    workingSource = repairedSource;
+                SourceSanitizationOutcome repairedSource = sanitizeSourceForKnownCompileIssuesWithOutcome(workingSource, diagnostics);
+                if (repairedSource != null && repairedSource.sanitizedSource != null
+                        && !repairedSource.sanitizedSource.equals(workingSource)) {
+                    workingSource = repairedSource.sanitizedSource;
+                    if (repairedSource.cannotFindSymbolSanitizationApplied) {
+                        cannotFindSymbolSanitizationApplied = true;
+                    }
                     Files.write(sourceFile, workingSource.getBytes(StandardCharsets.UTF_8));
                     repaired = true;
                 }
@@ -444,7 +478,7 @@ public final class ExecutableSnippetEngine {
             Method method = compiledClass.getMethod("run", Map.class);
             safeDelete(sourceFile);
             safeDelete(classFile);
-            return new CompiledSnippet(method);
+            return new CompiledSnippet(method, cannotFindSymbolSanitizationApplied);
         } catch (IOException | ReflectiveOperationException e) {
             increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
             throw new SnippetCompilationException("Could not compile snippet", e);
@@ -481,10 +515,19 @@ public final class ExecutableSnippetEngine {
     }
 
     private String sanitizeSourceForKnownCompileIssues(String source, String diagnostics) {
+        SourceSanitizationOutcome outcome = sanitizeSourceForKnownCompileIssuesWithOutcome(source, diagnostics);
+        return outcome == null ? null : outcome.sanitizedSource;
+    }
+
+    private SourceSanitizationOutcome sanitizeSourceForKnownCompileIssuesWithOutcome(String source, String diagnostics) {
         boolean changed = false;
         Set<Integer> targetLines = new LinkedHashSet<>();
+        Set<Integer> cannotFindSymbolLines = new LinkedHashSet<>();
+        boolean hasCannotFindSymbolClassDetail =
+                diagnostics != null && CANNOT_FIND_SYMBOL_CLASS_DETAIL_PATTERN.matcher(diagnostics).find();
         collectDiagnosticLineNumbers(diagnostics, NOT_A_STATEMENT_PATTERN, targetLines);
         collectDiagnosticLineNumbers(diagnostics, PACKAGE_NOT_VISIBLE_PATTERN, targetLines);
+        collectDiagnosticLineNumbers(diagnostics, CANNOT_FIND_SYMBOL_PATTERN, cannotFindSymbolLines);
         collectDiagnosticLineNumbers(diagnostics, CANNOT_FIND_SYMBOL_PATTERN, targetLines);
         collectDiagnosticLineNumbers(diagnostics, STATEMENTS_OUTSIDE_METHOD_PATTERN, targetLines);
         collectDiagnosticLineNumbers(diagnostics, ABSTRACT_INSTANTIATION_PATTERN, targetLines);
@@ -492,6 +535,7 @@ public final class ExecutableSnippetEngine {
         collectDiagnosticLineNumbers(diagnostics, CTOR_CANNOT_APPLY_PATTERN, targetLines);
         collectDiagnosticLineNumbers(diagnostics, NON_PUBLIC_ACCESS_PATTERN, targetLines);
         collectDiagnosticLineNumbers(diagnostics, INCOMPATIBLE_TYPES_PATTERN, targetLines);
+        boolean cannotFindSymbolSanitizationApplied = false;
 
         String candidate = source;
         if (!targetLines.isEmpty()) {
@@ -507,6 +551,10 @@ public final class ExecutableSnippetEngine {
                 }
                 String indent = leadingWhitespace(original);
                 lines[index] = indent + "/* evosuite: removed uncompilable llm statement */";
+                if (cannotFindSymbolLines.contains(lineNumber)
+                        && hasCannotFindSymbolClassDetail) {
+                    cannotFindSymbolSanitizationApplied = true;
+                }
                 changed = true;
             }
             candidate = String.join("\n", lines);
@@ -520,7 +568,9 @@ public final class ExecutableSnippetEngine {
             }
         }
 
-        return changed ? candidate : null;
+        return changed
+                ? new SourceSanitizationOutcome(candidate, cannotFindSymbolSanitizationApplied)
+                : null;
     }
 
     /**
@@ -717,10 +767,28 @@ public final class ExecutableSnippetEngine {
                     lines[i] = indent + "/* evosuite: removed forbidden heavyweight gui construction */";
                 }
                 changed = true;
-            } else if (isVirtualFsRewriteEnabled() && VFS_IO_NEW_EXPRESSION_PATTERN.matcher(line).find()) {
-                String rewritten = rewriteVfsIoConstructionToMocks(line);
-                if (rewritten != null) {
-                    lines[i] = rewritten;
+            } else if (isVirtualFsRewriteEnabled()) {
+                String rewrittenLine = line;
+                boolean lineChanged = false;
+
+                if (VFS_IO_NEW_EXPRESSION_PATTERN.matcher(rewrittenLine).find()) {
+                    String rewrittenCtor = rewriteVfsIoConstructionToMocks(rewrittenLine);
+                    if (rewrittenCtor != null) {
+                        rewrittenLine = rewrittenCtor;
+                        lineChanged = true;
+                    }
+                }
+
+                if (VFS_IO_STATIC_CALL_OWNER_PATTERN.matcher(rewrittenLine).find()) {
+                    String rewrittenStatic = rewriteVfsIoStaticCallOwnersToMocks(rewrittenLine);
+                    if (rewrittenStatic != null) {
+                        rewrittenLine = rewrittenStatic;
+                        lineChanged = true;
+                    }
+                }
+
+                if (lineChanged) {
+                    lines[i] = rewrittenLine;
                     changed = true;
                 }
             }
@@ -827,6 +895,35 @@ public final class ExecutableSnippetEngine {
         return rewritten.toString();
     }
 
+    private String rewriteVfsIoStaticCallOwnersToMocks(String line) {
+        Matcher matcher = VFS_IO_STATIC_CALL_OWNER_PATTERN.matcher(line);
+        StringBuffer rewritten = new StringBuffer();
+        boolean anyReplacement = false;
+        while (matcher.find()) {
+            String ownerToken = matcher.group(1);
+            String replacementOwner = VFS_IO_MOCK_STATIC_OWNER_REPLACEMENTS.get(ownerToken);
+            if (replacementOwner == null || !isLoadableClass(replacementOwner)) {
+                continue;
+            }
+            anyReplacement = true;
+            matcher.appendReplacement(rewritten, Matcher.quoteReplacement(replacementOwner + "."));
+        }
+        if (!anyReplacement) {
+            return null;
+        }
+        matcher.appendTail(rewritten);
+        return rewritten.toString();
+    }
+
+    private boolean isLoadableClass(String className) {
+        try {
+            Class.forName(className, false, ExecutableSnippetEngine.class.getClassLoader());
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private boolean isVirtualFsRewriteEnabled() {
         return Properties.VIRTUAL_FS;
     }
@@ -868,6 +965,19 @@ public final class ExecutableSnippetEngine {
         map.put("java.io.PrintStream", "org.evosuite.runtime.mock.java.io.MockPrintStream");
         map.put("PrintWriter", "org.evosuite.runtime.mock.java.io.MockPrintWriter");
         map.put("java.io.PrintWriter", "org.evosuite.runtime.mock.java.io.MockPrintWriter");
+        return map;
+    }
+
+    private static Map<String, String> createVfsIoMockStaticOwnerReplacements() {
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("File", "org.evosuite.runtime.mock.java.io.MockFile");
+        map.put("java.io.File", "org.evosuite.runtime.mock.java.io.MockFile");
+        map.put("Files", "org.evosuite.runtime.mock.java.nio.file.MockFiles");
+        map.put("java.nio.file.Files", "org.evosuite.runtime.mock.java.nio.file.MockFiles");
+        map.put("Paths", "org.evosuite.runtime.mock.java.nio.file.MockPaths");
+        map.put("java.nio.file.Paths", "org.evosuite.runtime.mock.java.nio.file.MockPaths");
+        map.put("FileSystems", "org.evosuite.runtime.mock.java.nio.file.MockFileSystems");
+        map.put("java.nio.file.FileSystems", "org.evosuite.runtime.mock.java.nio.file.MockFileSystems");
         return map;
     }
 

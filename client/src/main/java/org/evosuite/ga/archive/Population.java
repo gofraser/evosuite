@@ -90,7 +90,7 @@ class Population implements Serializable {
             return false;
         }
 
-        Pair<Double, TestChromosome> candidateSolution = new ImmutablePair<>(h, t);
+        Pair<Double, TestChromosome> candidateSolution = new ImmutablePair<>(h, t.clone());
 
         boolean added = false;
 

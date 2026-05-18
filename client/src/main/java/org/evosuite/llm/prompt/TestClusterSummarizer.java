@@ -501,7 +501,7 @@ public class TestClusterSummarizer {
                 }
             } else if (concreteSubtypes != null && !concreteSubtypes.isEmpty()) {
                 summary.instantiators.add("  concrete subtypes: "
-                        + formatConcreteSubtypeHints(concreteSubtypes, compactSignatures, targetPackageName));
+                        + formatConcreteSubtypeHints(concreteSubtypes, compactSignatures, targetPackageName, rawClass));
             }
 
             // Static factory methods from generators (methods that aren't constructors)
@@ -630,7 +630,10 @@ public class TestClusterSummarizer {
         return sb.toString();
     }
 
-    private String formatConcreteSubtypeHints(List<Class<?>> concreteSubtypes, boolean compactSignatures, String targetPackageName) {
+    private String formatConcreteSubtypeHints(List<Class<?>> concreteSubtypes,
+                                              boolean compactSignatures,
+                                              String targetPackageName,
+                                              Class<?> baseClass) {
         if (concreteSubtypes == null || concreteSubtypes.isEmpty()) {
             return "(none known)";
         }
@@ -638,7 +641,7 @@ public class TestClusterSummarizer {
         int limit = Math.min(4, concreteSubtypes.size());
         for (int i = 0; i < limit; i++) {
             Class<?> subtype = concreteSubtypes.get(i);
-            hints.add(formatSubtypeInstantiation(subtype, compactSignatures, targetPackageName));
+            hints.add(formatSubtypeInstantiation(subtype, compactSignatures, targetPackageName, baseClass));
         }
         if (concreteSubtypes.size() > limit) {
             hints.add("...");
@@ -646,7 +649,10 @@ public class TestClusterSummarizer {
         return String.join(", ", hints);
     }
 
-    private String formatSubtypeInstantiation(Class<?> subtype, boolean compactSignatures, String targetPackageName) {
+    private String formatSubtypeInstantiation(Class<?> subtype,
+                                              boolean compactSignatures,
+                                              String targetPackageName,
+                                              Class<?> baseClass) {
         List<Constructor<?>> ctors = new ArrayList<>();
         for (Constructor<?> ctor : subtype.getDeclaredConstructors()) {
             if (!isAccessible(ctor, targetPackageName)) {
@@ -657,8 +663,9 @@ public class TestClusterSummarizer {
             }
             ctors.add(ctor);
         }
+        String displayName = subtypeDisplayName(subtype, baseClass);
         if (ctors.isEmpty()) {
-            return subtype.getSimpleName();
+            return displayName;
         }
         ctors.sort((a, b) -> {
             int byArity = Integer.compare(a.getParameterCount(), b.getParameterCount());
@@ -668,8 +675,42 @@ public class TestClusterSummarizer {
             return a.toGenericString().compareTo(b.toGenericString());
         });
         Constructor<?> ctor = ctors.get(0);
-        return subtype.getSimpleName() + "("
+        return displayName + "("
                 + formatParameterList(ctor.getGenericParameterTypes(), compactSignatures) + ")";
+    }
+
+    /**
+     * Pick the simple name when {@code subtype} lives in the same package as its
+     * base interface/abstract class; otherwise prefer the fully qualified name so
+     * the LLM cannot infer the wrong package by simple proximity. Concrete impls
+     * frequently live in a sibling sub-package (e.g.
+     * {@code …configuration.storage.MemoryStorage} implementing
+     * {@code …configuration.ConfigurationStorage}); without the FQN the LLM
+     * tends to write {@code new …configuration.MemoryStorage()} and the parser
+     * has to fall back through the simple-name resolution path.
+     */
+    static String subtypeDisplayName(Class<?> subtype, Class<?> baseClass) {
+        if (subtype == null) {
+            return "";
+        }
+        if (baseClass == null || sharePackage(subtype, baseClass)) {
+            return subtype.getSimpleName();
+        }
+        String canonical = subtype.getCanonicalName();
+        if (canonical != null && !canonical.isEmpty()) {
+            return canonical;
+        }
+        // Fallback for local/anonymous classes that have no canonical name.
+        return subtype.getName().replace('$', '.');
+    }
+
+    private static boolean sharePackage(Class<?> a, Class<?> b) {
+        Package pa = a.getPackage();
+        Package pb = b.getPackage();
+        if (pa == null || pb == null) {
+            return pa == pb;
+        }
+        return pa.getName().equals(pb.getName());
     }
 
     private Map<String, Class<?>> collectCandidateTypes(

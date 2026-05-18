@@ -157,30 +157,22 @@ public class InstrumentingClassLoader extends ClassLoader {
                     return loaded;
                 }
                 ClassLoader masterLoader = MasterClassLoaderBridge.getMasterClassLoaderIfInitialized();
-                if (masterLoader == null) {
-                    throw new ClassNotFoundException(name + " (master classloader is not initialized)");
+                if (masterLoader != null) {
+                    return masterLoader.loadClass(name);
                 }
-                return masterLoader.loadClass(name);
+                // During CLIENT_ON_THREAD execution the master marker may be set
+                // before the dedicated master classloader is initialized. Fall
+                // back to normal non-instrumenting resolution for core/JDK and
+                // already-visible classes.
+                return loadWithoutInstrumentation(name);
             }
 
-            if (!RuntimeInstrumentation.checkIfCanInstrument(name)) {
+            if (!shouldAttemptInstrumentation(name)) {
                 Class<?> result = findLoadedClass(name);
                 if (result != null) {
                     return result;
                 }
-                // Delegate to parent first.
-                try {
-                    // Parent was passed as InstrumentingClassLoader.class.getClassLoader()
-                    return getParent().loadClass(name);
-                } catch (ClassNotFoundException e) {
-                    // During (de-)serialization, project dependencies may only be visible from
-                    // the current thread context class loader.
-                    ClassLoader context = Thread.currentThread().getContextClassLoader();
-                    if (context != null && context != this && context != getParent()) {
-                        return context.loadClass(name);
-                    }
-                    throw e;
-                }
+                return loadWithoutInstrumentation(name);
             }
 
             Class<?> result = classes.get(name);
@@ -190,6 +182,47 @@ public class InstrumentingClassLoader extends ClassLoader {
                 logger.info("Seeing class for first time: " + name);
                 return instrumentClass(name);
             }
+        }
+    }
+
+    private boolean shouldAttemptInstrumentation(String name) {
+        if (!RuntimeInstrumentation.checkIfCanInstrument(name)) {
+            return false;
+        }
+
+        // For unqualified simple names (e.g., "Object"), only instrument if they
+        // really exist on the SUT classpath (default-package class).
+        if (!name.contains(".")) {
+            try {
+                ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+                return ResourceList.getInstance(sutLoader).hasClass(name);
+            } catch (Throwable ignored) {
+                // Preserve previous behavior if classpath metadata is temporarily unavailable.
+                return true;
+            }
+        }
+
+        return true;
+    }
+
+    private Class<?> loadWithoutInstrumentation(String name) throws ClassNotFoundException {
+        // Delegate to parent first.
+        try {
+            // Parent was passed as InstrumentingClassLoader.class.getClassLoader()
+            ClassLoader parent = getParent();
+            if (parent != null) {
+                return parent.loadClass(name);
+            }
+            return ClassLoader.getSystemClassLoader().loadClass(name);
+        } catch (ClassNotFoundException e) {
+            // During (de-)serialization and assertion generation, project
+            // dependencies may only be visible from the current thread context
+            // class loader.
+            ClassLoader context = Thread.currentThread().getContextClassLoader();
+            if (context != null && context != this && context != getParent()) {
+                return context.loadClass(name);
+            }
+            throw e;
         }
     }
 

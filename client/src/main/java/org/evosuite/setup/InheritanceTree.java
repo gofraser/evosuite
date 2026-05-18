@@ -72,6 +72,16 @@ public class InheritanceTree {
     }
 
     /**
+     * Force the tree to report itself as stale on the next {@link #hasMissingClasses()} call.
+     * Used by detectors that recognise the cache is out of sync (e.g. a JVM-version mismatch
+     * surfaced during class loading) but don't go through the {@code getSubclasses} /
+     * {@code getSuperclasses} paths that normally flip the flag.
+     */
+    public void markStale() {
+        missingClassDetected = true;
+    }
+
+    /**
      * Reset runtime-only caches and flags that can become stale across analysis phases.
      */
     public void resetRuntimeState() {

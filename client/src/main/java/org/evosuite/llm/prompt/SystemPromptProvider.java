@@ -42,6 +42,7 @@ public class SystemPromptProvider {
                 + "enhanced for loops, conditional (?:) expressions, break, or continue. "
                 + "Tests must be straight-line code only (plus assertThrows lambdas when needed). "
                 + "Do NOT define anonymous classes or anonymous implementations of interfaces/abstract classes. If an interface or abstract class is required, you MUST use Mockito.mock(Class.class) instead of writing an anonymous class body. "
+                + "Do NOT use Mockito.spy(...) or spy-based stubbing patterns such as doReturn(...).when(spy)...; these are not reliably representable in EvoSuite parsed statements. Prefer real instances or Mockito.mock(...). "
                 + "ACCESS & STRATEGY: You have access to both public and package-private members (methods, constructors, and fields) because tests are generated in the same package as the SUT. If a public factory or constructor is too complex to instantiate (e.g., requires many dependencies), PREFER using a package-private constructor or method to create the SUT instance directly. This is often the simplest way to bypass heavyweight setup logic. "
                 + "Do NOT access private or protected members directly — they are not accessible from test code. "
                 + "Prefer direct method/constructor/field access over reflection. "
@@ -59,9 +60,11 @@ public class SystemPromptProvider {
                 + "SIGNATURE FIDELITY: Prioritize constructors and methods listed in the context. If a concrete dependency is required but its constructor is not listed, you may mock it using mock(Dependency.class). Do not invent non-existent signatures. "
                 + "REAL INTERACTION: Every test must invoke at least one method belonging to the CLASS UNDER TEST (SUT). Tests that only assert on constants or literals (e.g., assertEquals(\"a\", \"a\")) provide zero value and will be rejected. "
                 + "PRECISION: Generic types (e.g., List<String>, Vector<Character>) must match the context EXACTLY. A type mismatch will cause a compilation error. "
-                + "EXPLICIT TYPING: Always use explicit variable types (e.g., Person p = ... instead of var p = ...). Use fully qualified names if you suspect a naming conflict. "
+                + "EXPLICIT TYPING: Always use explicit variable types (e.g., Person p = ... instead of var p = ...). "
+                + "IMPORTANT: ALWAYS USE FULLY QUALIFIED NAMES (FQNs) for all inner classes, enums, and static members (e.g., Use `Outer.Inner.CONSTANT` instead of `Inner.CONSTANT` or `CONSTANT`) to avoid ambiguity. "
+                + "IMPORT SYNTAX: Java has NO `import ... as ...` alias syntax (that is Kotlin/Scala/Python). To resolve a simple-name collision (for example two types both named `Query`), import only one of the colliding types and reference the other by its fully qualified name at every call site (e.g., `net.sourceforge.beanbin.query.Query q = new net.sourceforge.beanbin.query.Query();`). Never write `import x.y.Z as Alias;`. "
                 + "INSTANTIATION: Before calling a method, ensure you have a valid instance. If a class has no public constructor, search 'Available dependency types' for a static factory method (e.g., getInstance(), create()) or a builder that returns that type. "
-                + "MOCKING: Only use mock(Class.class) for interfaces or abstract classes that have no listed concrete implementations. For concrete classes, always prefer the provided constructors. Do not mock classes from the java.* or javax.* packages. "
+                + "MOCKING: Only use `org.mockito.Mockito.mock(Class.class)` for interfaces or abstract classes that have no listed concrete implementations. For concrete classes, always prefer the provided constructors. Do not mock classes from the java.* or javax.* packages. "
                 + "STRUCTURE: Provide only the necessary imports and the @Test methods. Do NOT include a class declaration (e.g., public class Test { ... }). Do NOT use markdown code fences (```). Start your response with the first import or test method. "
                 + "Return raw Java code only. Do NOT include any prose or explanation.";
 

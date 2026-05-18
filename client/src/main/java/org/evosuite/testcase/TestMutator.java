@@ -156,7 +156,8 @@ public class TestMutator {
             return false;
         }
 
-        List<VariableReference> objects = test.getObjects(statement.getReturnValue().getStPosition());
+        int position = statement.getReturnValue().getStPosition();
+        List<VariableReference> objects = test.getObjects(position);
         objects.remove(statement.getReturnValue());
 
         Iterator<VariableReference> iter = objects.iterator();
@@ -170,7 +171,7 @@ public class TestMutator {
         }
 
         // TODO: replacing void calls with other void calls might not be the best idea
-        List<GenericAccessibleObject<?>> calls = getPossibleCalls(statement.getReturnType(), objects);
+        List<GenericAccessibleObject<?>> calls = getPossibleCalls(statement.getReturnType(), test, position);
 
         GenericAccessibleObject<?> ao = statement.getAccessibleObject();
         if (ao != null && ao.getNumParameters() > 0) {
@@ -574,16 +575,10 @@ public class TestMutator {
     }
 
     private static boolean dependenciesSatisfied(Set<Type> dependencies,
-                                                 List<VariableReference> objects) {
+                                                 TestCase test,
+                                                 int position) {
         for (Type type : dependencies) {
-            boolean found = false;
-            for (VariableReference var : objects) {
-                if (var.isAssignableTo(type)) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
+            if (test.getObjects(type, position).isEmpty()) {
                 return false;
             }
         }
@@ -614,7 +609,8 @@ public class TestMutator {
     }
 
     List<GenericAccessibleObject<?>> getPossibleCalls(Type returnType,
-                                                              List<VariableReference> objects) {
+                                                      TestCase test,
+                                                      int position) {
         List<GenericAccessibleObject<?>> calls = new ArrayList<>();
         Set<GenericAccessibleObject<?>> allCalls;
 
@@ -657,12 +653,10 @@ public class TestMutator {
             } else {
                 assert (false);
             }
-            if (dependenciesSatisfied(dependencies, objects)) {
+            if (dependenciesSatisfied(dependencies, test, position)) {
                 calls.add(call);
             }
         }
-
-        // TODO: What if primitive?
 
         return calls;
     }

@@ -189,6 +189,7 @@ public class StatementFactory {
             "java.awt.image.DataBufferFloat",
             "java.awt.image.DataBufferDouble",
             // I/O — allocate internal byte[]/char[] buffers
+            "java.io.ByteArrayInputStream",
             "java.io.ByteArrayOutputStream",
             "java.io.CharArrayWriter",
             // I/O — allocate internal buffers proportional to int arg
@@ -225,25 +226,25 @@ public class StatementFactory {
     ));
 
     /**
-     * Classes discovered at runtime to cause OOM when constructed with large int args.
+     * Classes discovered at runtime to cause OOM.
      * Populated by {@link #addAllocationSensitiveClass(String)} when a constructor
-     * throws OutOfMemoryError during test execution, so that future test generation
-     * avoids repeating the same mistake.
+     * or method throws OutOfMemoryError during test execution, so that future test
+     * generation avoids repeating the same mistake.
      */
     private static final Set<String> dynamicAllocationSensitiveClasses =
             java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /**
-     * Registers a class as allocation-sensitive at runtime, after observing that
-     * its constructor caused an OutOfMemoryError. Future constructor calls for this
-     * class will have their int parameters capped.
+     * Registers a class as allocation-sensitive at runtime, after observing an
+     * OutOfMemoryError while executing code on that class. Future constructor and
+     * method calls for this class will have their int parameters capped.
      *
      * @param className the fully qualified class name (dots)
      */
     public static void addAllocationSensitiveClass(String className) {
         if (className != null && dynamicAllocationSensitiveClasses.add(className)) {
             LoggerFactory.getLogger(StatementFactory.class)
-                    .warn("Registered {} as allocation-sensitive after OOM in constructor", className);
+                    .warn("Registered {} as allocation-sensitive after OOM during execution", className);
         }
     }
 

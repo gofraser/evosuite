@@ -244,14 +244,15 @@ public abstract class AssertionGenerator {
         TestGenerationContext.getInstance().goingToExecuteSUTCode();
         Sandbox.goingToExecuteUnsafeCodeOnSameThread();
         try {
-
-
+            TestGenerationContext.getInstance().setAssertionGenerationContext(true);
             TestGenerationContext.getInstance().resetContext();
             TestGenerationContext.getInstance().goingToExecuteSUTCode();
             // We need to reset the target Class since it requires a different instrumentation
             // for handling assertion generation.
             Properties.resetTargetClass();
-            Properties.getInitializedTargetClass();
+            if (!loadTargetClassForAssertionGeneration()) {
+                return;
+            }
 
             ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Mutants,
                     MutationPool.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
@@ -269,10 +270,45 @@ public abstract class AssertionGenerator {
                     : e.toString()));
             logger.error("Problem for " + Properties.TARGET_CLASS + ". Full stack:", e);
         } finally {
+            TestGenerationContext.getInstance().setAssertionGenerationContext(false);
             TestGenerationContext.getInstance().doneWithExecutingSUTCode();
             Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
             Sandbox.doneWithExecutingSUTCode();
             TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+        }
+    }
+
+    /**
+     * During assertion generation we re-instrument and switch classloaders.
+     * If the CUT fails during static initialization in the fresh loader, retry by
+     * loading without executing {@code <clinit>} so the rest of the assertion
+     * pipeline can still run.
+     */
+    private boolean loadTargetClassForAssertionGeneration() {
+        try {
+            Properties.getInitializedTargetClass();
+            return true;
+        } catch (Throwable initFailure) {
+            LoggingUtils.getEvoLogger().warn("* Could not initialize target class during assertion generation; "
+                    + "retrying without static initialization");
+            logger.warn("Failed to initialize target class {} during assertion generation. "
+                            + "Falling back to non-initializing load.",
+                    Properties.TARGET_CLASS, initFailure);
+            Properties.resetTargetClass();
+            try {
+                Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+                if (targetClass == null) {
+                    LoggingUtils.getEvoLogger().error("* Could not load target class without initialization");
+                    return false;
+                }
+                return true;
+            } catch (Throwable loadFailure) {
+                LoggingUtils.getEvoLogger().error("* Error while loading target class without initialization: "
+                        + (loadFailure.getMessage() != null ? loadFailure.getMessage() : loadFailure.toString()));
+                logger.error("Failed to load target class {} without initialization during assertion generation.",
+                        Properties.TARGET_CLASS, loadFailure);
+                return false;
+            }
         }
     }
 

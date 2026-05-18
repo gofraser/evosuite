@@ -367,16 +367,32 @@ public class BytecodeInstrumentation {
                     || current instanceof NegativeArraySizeException) {
                 for (StackTraceElement element : current.getStackTrace()) {
                     String className = element.getClassName();
-                    if (className.endsWith(".Frame") && "merge".equals(element.getMethodName())) {
+                    String methodName = element.getMethodName();
+                    if (className.endsWith(".Frame") && "merge".equals(methodName)) {
                         return true;
                     }
-                    if (className.endsWith(".MethodWriter") && "computeAllFrames".equals(element.getMethodName())) {
+                    if (className.endsWith(".MethodWriter")
+                            && ("computeAllFrames".equals(methodName)
+                                || "visitMaxs".equals(methodName))) {
                         return true;
                     }
                     // AnalyzerAdapter.pop() underflow: the testability transformation
                     // produced bytecode whose operand stack is inconsistent with what
                     // the AnalyzerAdapter expects.
-                    if (className.endsWith(".AnalyzerAdapter") && "pop".equals(element.getMethodName())) {
+                    if (className.endsWith(".AnalyzerAdapter") && "pop".equals(methodName)) {
+                        return true;
+                    }
+                    // Data-flow Analyzer.analyze covers BooleanTestabilityTransformation,
+                    // StringTransformation, MutationInstrumentation, PurityAnalysisMethodVisitor,
+                    // and any other ASM Analyzer<V> user — these can throw AIOOBE on bytecode
+                    // shapes the interpreter wasn't designed for.
+                    if (className.endsWith(".Analyzer") && "analyze".equals(methodName)) {
+                        return true;
+                    }
+                    // JSRInlinerAdapter buffers the method and replays at visitEnd; failures
+                    // inside that replay (or its own JSR-handling) are recoverable by stripping
+                    // instrumentation.
+                    if (className.endsWith(".JSRInlinerAdapter")) {
                         return true;
                     }
                 }

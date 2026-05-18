@@ -23,8 +23,10 @@ import org.evosuite.Properties;
 
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Default implementation of RandomAccessQueue.
@@ -65,6 +67,24 @@ public class DefaultRandomAccessQueue<T> implements RandomAccessQueue<T> {
     @Override
     public synchronized T getRandomValue() {
         return Randomness.choice(valueSet);
+    }
+
+    public synchronized int removeIf(Predicate<? super T> predicate) {
+        int removed = 0;
+        Iterator<T> iterator = queue.iterator();
+        while (iterator.hasNext()) {
+            T value = iterator.next();
+            if (predicate.test(value)) {
+                iterator.remove();
+                valueSet.remove(value);
+                removed++;
+            }
+        }
+        return removed;
+    }
+
+    public synchronized boolean isEmpty() {
+        return queue.isEmpty();
     }
 
     @Override

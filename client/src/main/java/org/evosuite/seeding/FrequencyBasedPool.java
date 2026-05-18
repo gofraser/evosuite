@@ -21,8 +21,10 @@ package org.evosuite.seeding;
 
 import org.evosuite.utils.Randomness;
 
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.function.Predicate;
 
 /**
  * Created by gordon on 06/01/2017.
@@ -65,6 +67,24 @@ public class FrequencyBasedPool<T> {
 
     public synchronized boolean hasConstant(T value) {
         return constants.containsKey(value);
+    }
+
+    public synchronized boolean isEmpty() {
+        return numConstants == 0;
+    }
+
+    public synchronized int removeIf(Predicate<? super T> predicate) {
+        int removed = 0;
+        Iterator<Map.Entry<T, Integer>> iterator = constants.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<T, Integer> entry = iterator.next();
+            if (predicate.test(entry.getKey())) {
+                removed += entry.getValue();
+                numConstants -= entry.getValue();
+                iterator.remove();
+            }
+        }
+        return removed;
     }
 
 
