@@ -20,10 +20,14 @@
 package org.evosuite.utils.generic;
 
 import org.evosuite.Properties;
+import org.evosuite.utils.ParameterizedTypeImpl;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.io.*;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.withSettings;
@@ -52,6 +56,24 @@ public class GenericClassImplMockitoSerializationTest {
         } finally {
             Properties.CP = previousCp;
         }
+    }
+
+    @Test
+    public void shouldPreserveNullOwnerTypeForTopLevelParameterizedType() throws Exception {
+        Type functionType = new ParameterizedTypeImpl(Function.class, new Type[]{Object.class, Byte.class}, null);
+
+        GenericClassImpl roundTripped = serializeAndDeserialize(new GenericClassImpl(functionType));
+
+        assertEquals(Function.class, roundTripped.getRawClass());
+        assertTrue(roundTripped.getType() instanceof ParameterizedType);
+        ParameterizedType parameterizedType = (ParameterizedType) roundTripped.getType();
+        assertNull(parameterizedType.getOwnerType());
+        assertEquals("java.util.function.Function<java.lang.Object, java.lang.Byte>",
+                roundTripped.getTypeName());
+
+        Object mock = Mockito.mock(Function.class,
+                withSettings().stubOnly().genericTypeToMock(roundTripped.getType()));
+        assertNotNull(mock);
     }
 
     private static GenericClassImpl serializeAndDeserialize(GenericClassImpl value)

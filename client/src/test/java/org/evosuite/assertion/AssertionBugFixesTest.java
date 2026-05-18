@@ -19,12 +19,15 @@
  */
 package org.evosuite.assertion;
 
+import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -53,6 +56,26 @@ public class AssertionBugFixesTest {
         @Override
         public void addAssertions(TestCase test) {
             // not used in tests
+        }
+
+        void triggerChangeClassLoader(TestSuiteChromosome suite) {
+            changeClassLoader(suite);
+        }
+    }
+
+    public static class ExplodingStaticInitTarget {
+        static {
+            if (Boolean.parseBoolean("true")) {
+                throw new NullPointerException("boom");
+            }
+        }
+    }
+
+    public static class ExplodingStaticFieldProbeTarget {
+        public static final Object INSTANCE = createInstance();
+
+        private static Object createInstance() {
+            throw new NullPointerException("probe boom");
         }
     }
 
@@ -279,6 +302,48 @@ public class AssertionBugFixesTest {
 
         // Plain statements are not processed
         verify(stmt, never()).removeAssertion(any());
+    }
+
+    @Test
+    public void testChangeClassLoader_fallsBackWhenTargetInitializationFails() {
+        String originalTargetClass = Properties.TARGET_CLASS;
+        try {
+            Properties.TARGET_CLASS = ExplodingStaticInitTarget.class.getName();
+            Properties.resetTargetClass();
+
+            TestSuiteChromosome suite = new TestSuiteChromosome();
+            TestChromosome testChromosome = suite.addTest(new DefaultTestCase());
+            testChromosome.setChanged(false);
+
+            TestableAssertionGenerator generator = new TestableAssertionGenerator();
+            assertDoesNotThrow(() -> generator.triggerChangeClassLoader(suite));
+            assertTrue(testChromosome.isChanged(),
+                    "Fallback load without <clinit> should still switch tests to the new classloader");
+        } finally {
+            Properties.TARGET_CLASS = originalTargetClass;
+            Properties.resetTargetClass();
+        }
+    }
+
+    @Test
+    public void testChangeClassLoader_skipsTargetStaticFieldProbeDuringAssertionReload() {
+        String originalTargetClass = Properties.TARGET_CLASS;
+        try {
+            Properties.TARGET_CLASS = ExplodingStaticFieldProbeTarget.class.getName();
+            Properties.resetTargetClass();
+
+            TestSuiteChromosome suite = new TestSuiteChromosome();
+            TestChromosome testChromosome = suite.addTest(new DefaultTestCase());
+            testChromosome.setChanged(false);
+
+            TestableAssertionGenerator generator = new TestableAssertionGenerator();
+            assertDoesNotThrow(() -> generator.triggerChangeClassLoader(suite));
+            assertTrue(testChromosome.isChanged(),
+                    "Assertion reload should not poison the fresh classloader via target static-field probes");
+        } finally {
+            Properties.TARGET_CLASS = originalTargetClass;
+            Properties.resetTargetClass();
+        }
     }
 
     // -----------------------------------------------------------------------

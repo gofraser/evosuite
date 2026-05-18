@@ -19,6 +19,8 @@
  */
 package org.evosuite.testparser;
 
+import org.evosuite.Properties;
+import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
@@ -352,6 +354,145 @@ class TestParserTest {
     }
 
     @Test
+    void llmBestEffortInlinesMultiStatementNoArgFactoryHelper() {
+        parser.setMarkParsedFromLlm(true);
+
+        String source = "import org.junit.jupiter.api.Test;\n"
+                + "import java.util.ArrayList;\n"
+                + "public class MyTest {\n"
+                + "  private ArrayList createList() {\n"
+                + "    Integer seed = Integer.valueOf(7);\n"
+                + "    ArrayList list = new ArrayList();\n"
+                + "    return list;\n"
+                + "  }\n"
+                + "  @Test\n"
+                + "  public void testUsesFactory() {\n"
+                + "    ArrayList list = createList();\n"
+                + "  }\n"
+                + "}\n";
+
+        ParseResult result = parser.parseTestMethod(source, "testUsesFactory");
+        assertFalse(result.hasErrors(),
+                "Multi-statement no-arg factory helper should be inlineable: "
+                        + result.getDiagnostics());
+        // Two preamble statements (Integer seed, ArrayList list) + the assignment of the
+        // helper's return value to the test variable.
+        assertTrue(result.getTestCase().size() >= 3,
+                "Expected preamble statements + factory call to be materialized; got "
+                        + result.getTestCase().size());
+    }
+
+    @Test
+    void llmBestEffortInlinesMultiStatementOneArgHelperWithParamSubstitution() {
+        parser.setMarkParsedFromLlm(true);
+
+        String source = "import org.junit.jupiter.api.Test;\n"
+                + "import java.util.ArrayList;\n"
+                + "public class MyTest {\n"
+                + "  private ArrayList createListOfSize(int n) {\n"
+                + "    ArrayList list = new ArrayList(n);\n"
+                + "    return list;\n"
+                + "  }\n"
+                + "  @Test\n"
+                + "  public void testUsesFactoryWithArg() {\n"
+                + "    ArrayList list = createListOfSize(3);\n"
+                + "  }\n"
+                + "}\n";
+
+        ParseResult result = parser.parseTestMethod(source, "testUsesFactoryWithArg");
+        assertFalse(result.hasErrors(),
+                "One-arg multi-statement factory helper should inline with param substitution: "
+                        + result.getDiagnostics());
+    }
+
+    @Test
+    void llmBestEffortInlinedHelperLocalsDoNotCollideAcrossInvocations() {
+        parser.setMarkParsedFromLlm(true);
+
+        // Two test methods both call the same helper. The helper declares a local
+        // named "list"; inlining must rename it on each call site to avoid collisions.
+        String source = "import org.junit.jupiter.api.Test;\n"
+                + "import java.util.ArrayList;\n"
+                + "public class MyTest {\n"
+                + "  private ArrayList createList() {\n"
+                + "    ArrayList list = new ArrayList();\n"
+                + "    return list;\n"
+                + "  }\n"
+                + "  @Test\n"
+                + "  public void testFirst() {\n"
+                + "    ArrayList list = createList();\n"
+                + "    ArrayList second = createList();\n"
+                + "  }\n"
+                + "}\n";
+
+        ParseResult result = parser.parseTestMethod(source, "testFirst");
+        assertFalse(result.hasErrors(),
+                "Repeated invocations of multi-statement helper must not collide on local names: "
+                        + result.getDiagnostics());
+    }
+
+    @Test
+    void llmBestEffortDiagnosesSutHelperElisionDistinctlyFromGenericUnscopedHelper() {
+        parser.setMarkParsedFromLlm(true);
+
+        String savedTarget = Properties.TARGET_CLASS;
+        try {
+            Properties.TARGET_CLASS = "java.util.ArrayList";
+
+            // Helper is referenced but NOT declared on the test class. The parser cannot
+            // inline it, so the SUT-typed assignment becomes a typed-null fallback.
+            String source = "import org.junit.jupiter.api.Test;\n"
+                    + "import java.util.ArrayList;\n"
+                    + "public class MyTest {\n"
+                    + "  @Test\n"
+                    + "  public void testElidedSutCtor() {\n"
+                    + "    ArrayList list = createSut();\n"
+                    + "  }\n"
+                    + "}\n";
+
+            ParseResult result = parser.parseTestMethod(source, "testElidedSutCtor");
+            assertTrue(result.getDiagnostics().stream()
+                            .anyMatch(d -> d.getMessage() != null
+                                    && d.getMessage().contains("SUT construction elided")
+                                    && d.getMessage().contains("Mockito.mock")),
+                    "Expected SUT_HELPER_CALL_ELIDED diagnostic with explicit Mockito.mock guidance; got: "
+                            + result.getDiagnostics());
+        } finally {
+            Properties.TARGET_CLASS = savedTarget;
+        }
+    }
+
+    @Test
+    void llmBestEffortRejectsHelperWithControlFlow() {
+        parser.setMarkParsedFromLlm(true);
+
+        // Control flow (if/for/try) in the helper body must NOT be inlined,
+        // because inlining is a flat substitution that can't preserve flow.
+        String source = "import org.junit.jupiter.api.Test;\n"
+                + "import java.util.ArrayList;\n"
+                + "public class MyTest {\n"
+                + "  private ArrayList createList() {\n"
+                + "    if (System.currentTimeMillis() > 0) {\n"
+                + "      return new ArrayList();\n"
+                + "    }\n"
+                + "    return null;\n"
+                + "  }\n"
+                + "  @Test\n"
+                + "  public void testUsesControlFlowHelper() {\n"
+                + "    ArrayList list = createList();\n"
+                + "  }\n"
+                + "}\n";
+
+        ParseResult result = parser.parseTestMethod(source, "testUsesControlFlowHelper");
+        // Helper is rejected from the inlineable map; the call site falls back through
+        // the standard NO_UNSCOPED_METHOD path. We just want the parser to remain
+        // robust (no crash) and produce a fallback. The exact diagnostic text is
+        // covered elsewhere; here we just assert non-crash and a fallback statement.
+        assertEquals(1, result.getTestCase().size(),
+                "Helper with control flow should not be inlined; expect a single fallback statement");
+    }
+
+    @Test
     void llmBestEffortFallsBackForPrivateConstructorAccess() {
         parser.setMarkParsedFromLlm(true);
 
@@ -623,6 +764,48 @@ class TestParserTest {
             assertEquals("org.evosuite.runtime.mock.java.io.MockFile",
                     staticCall.getMethod().getMethod().getDeclaringClass().getName(),
                     "Expected File static factory to be rewritten to OverrideMock MockFile");
+        } finally {
+            RuntimeSettings.useVFS = oldUseVfs;
+        }
+    }
+
+    @Test
+    void llmBestEffortRewritesStaticNioFilesCallToStaticReplacementMockWhenAvailable() {
+        boolean oldUseVfs = RuntimeSettings.useVFS;
+        try {
+            RuntimeSettings.useVFS = true;
+            parser.setMarkParsedFromLlm(true);
+
+            String source = "import org.junit.jupiter.api.Test;\n"
+                    + "import java.nio.file.Files;\n"
+                    + "import java.nio.file.Path;\n"
+                    + "public class MyTest {\n"
+                    + "  @Test\n"
+                    + "  public void testCreateTempDirectory() throws Exception {\n"
+                    + "    Path p = Files.createTempDirectory(\"llm-vfs\");\n"
+                    + "  }\n"
+                    + "}\n";
+
+            ParseResult result = parser.parseTestMethod(source, "testCreateTempDirectory");
+            assertFalse(result.hasErrors(), "Files static call should remain parsable in LLM mode");
+
+            MethodStatement staticCall = null;
+            for (int i = 0; i < result.getTestCase().size(); i++) {
+                if (result.getTestCase().getStatement(i) instanceof MethodStatement) {
+                    staticCall = (MethodStatement) result.getTestCase().getStatement(i);
+                }
+            }
+            assertNotNull(staticCall, "Expected a parsed method call statement");
+
+            Class<?> filesMock = MockList.getMockClass("java.nio.file.Files");
+            String actualOwner = staticCall.getMethod().getMethod().getDeclaringClass().getName();
+            if (filesMock != null) {
+                assertEquals(filesMock.getName(), actualOwner,
+                        "Expected Files static call to be rewritten to StaticReplacementMock target");
+            } else {
+                assertEquals("java.nio.file.Files", actualOwner,
+                        "If MockFiles is unavailable on this runtime, parser should keep original owner");
+            }
         } finally {
             RuntimeSettings.useVFS = oldUseVfs;
         }

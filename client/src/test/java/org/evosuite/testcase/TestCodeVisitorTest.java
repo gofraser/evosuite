@@ -31,6 +31,7 @@ import org.evosuite.assertion.Inspector;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ClassPrimitiveStatement;
@@ -64,6 +65,7 @@ import java.lang.reflect.TypeVariable;
 import java.nio.charset.StandardCharsets;
 import java.awt.HeadlessException;
 import javax.swing.JMenuItem;
+import javax.swing.table.DefaultTableModel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
@@ -71,6 +73,7 @@ import java.util.Collections;
 import java.util.LinkedList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
 
@@ -385,6 +388,28 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testUninterpretedStatementAddsImportForArrayCreationInLambda() {
+        // Regression: lambda bodies preserved as UninterpretedStatement source
+        // commonly contain inline array creations (e.g.
+        //   () -> sut.search(new Request(new Serializable[0]))
+        // ). The simple-name scanner must recognize "new T[..]" or the rendered
+        // probe class for parse-phase compilation will be missing the import.
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "assertThrows(java.io.IOException.class, () -> {"
+                        + " Object o = new Serializable[0];"
+                        + " });"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(java.io.Serializable.class),
+                "Expected java.io.Serializable import to be detected from "
+                        + "inline array creation in a lambda body. Got: " + imports);
+    }
+
+    @Test
     public void testUninterpretedStatementAddsImportForClassLiteralAndCastType() {
         TestCase tc = new DefaultTestCase();
         tc.addStatement(new UninterpretedStatement(tc,
@@ -585,6 +610,20 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testUninterpretedStatementAddsImportForAwtEventInputEventSimpleName() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new UninterpretedStatement(tc,
+                "int mods = InputEvent.CTRL_DOWN_MASK | InputEvent.SHIFT_DOWN_MASK;"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(java.awt.event.InputEvent.class),
+                "Expected InputEvent import for simple-name qualifier usage");
+    }
+
+    @Test
     public void testUninterpretedStatementAddsImportForJndiSearchControlsSimpleName() {
         TestCase tc = new DefaultTestCase();
         tc.addStatement(new UninterpretedStatement(tc,
@@ -628,6 +667,52 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testUninterpretedStatementAddsImportForParentPackageSiblingType() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.getClassName(com.examples.with.different.packagename.subpackage.AccessExamplesSubclass.class);
+        try {
+            Method resolver = TestCodeVisitor.class.getDeclaredMethod("resolveSimpleClassName", String.class);
+            resolver.setAccessible(true);
+            Class<?> resolved = (Class<?>) resolver.invoke(visitor, "AccessExamples");
+            assertNotNull(resolved, "Expected parent-package sibling type to resolve");
+            assertEquals("com.examples.with.different.packagename.AccessExamples", resolved.getName(),
+                    "Expected parent-package sibling type resolution from known subpackage class");
+        } catch (Exception e) {
+            fail("Could not invoke resolveSimpleClassName via reflection: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForParentPackageSiblingTypeInJdkPackage() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.getClassName(java.awt.event.MouseEvent.class);
+        try {
+            Method resolver = TestCodeVisitor.class.getDeclaredMethod("resolveSimpleClassName", String.class);
+            resolver.setAccessible(true);
+            Class<?> resolved = (Class<?>) resolver.invoke(visitor, "Color");
+            assertNotNull(resolved, "Expected parent-package sibling type to resolve");
+            assertEquals("java.awt.Color", resolved.getName(),
+                    "Expected parent-package sibling type resolution from known JDK subpackage class");
+        } catch (Exception e) {
+            fail("Could not invoke resolveSimpleClassName via reflection: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testUninterpretedStatementAddsImportForParentPackageQualifiedConstantType() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new ClassPrimitiveStatement(tc, java.awt.event.MouseEvent.class));
+        tc.addStatement(new UninterpretedStatement(tc, "int rgb = Color.RED.getRGB();"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        Set<Class<?>> imports = visitor.getImports();
+        assertTrue(imports.contains(java.awt.Color.class),
+                "Expected parent-package type import for qualified constant usage");
+    }
+
+    @Test
     public void testLlmUninterpretedStatementPromotesUndeclaredNewAssignment() {
         TestCase tc = new DefaultTestCase();
         UninterpretedStatement stmt = new UninterpretedStatement(tc,
@@ -645,6 +730,33 @@ public class TestCodeVisitorTest {
 
         assertTrue(code.contains("Scanner s = new Scanner(\"x\");"),
                 "Undeclared constructor assignment should be promoted to declaration:\n" + code);
+    }
+
+    @Test
+    public void testUninterpretedBindingReplacementDoesNotTouchStringLiteralsOrComments() {
+        TestCase tc = new DefaultTestCase();
+        VariableReference intRef = tc.addStatement(new IntPrimitiveStatement(tc, 7));
+
+        Map<String, VariableReference> bindings = new java.util.LinkedHashMap<>();
+        bindings.put("quota", intRef);
+        tc.addStatement(new UninterpretedStatement(tc,
+                "String xml = \"<quota id=\\\"x\\\">\" + quota + \"</quota>\";\n"
+                        + "// quota in comment must stay unchanged",
+                bindings));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String renamed = visitor.getVariableName(intRef);
+
+        assertTrue(code.contains("\"<quota id=\\\"x\\\">\""),
+                "Replacement must not rewrite string literals:\n" + code);
+        assertTrue(code.contains("\"</quota>\""),
+                "Replacement must not rewrite string literals:\n" + code);
+        assertTrue(code.contains("// quota in comment must stay unchanged"),
+                "Replacement must not rewrite comments:\n" + code);
+        assertTrue(code.contains(" + " + renamed + " + "),
+                "Replacement should still apply to identifier usages:\n" + code);
     }
 
     @Test
@@ -718,6 +830,120 @@ public class TestCodeVisitorTest {
 
         assertTrue(code.contains("mock("));
         assertTrue(code.contains("MessageMultiplexer"));
+    }
+
+    @Test
+    public void testFunctionalMockStubbingInlinesForwardPrimitiveReturnValue() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        FunctionalMockStatement mockStatement = new FunctionalMockStatement(
+                tc, Map.class, GenericClassFactory.get(Map.class));
+        VariableReference mockRef = tc.addStatement(mockStatement);
+
+        // Intentionally declare the return value after the mock statement to
+        // exercise forward-reference handling in emitted doReturn(...).
+        IntPrimitiveStatement intStatement = new IntPrimitiveStatement(tc, 42);
+        VariableReference intValue = tc.addStatement(intStatement);
+
+        Method mapGet = Map.class.getMethod("get", Object.class);
+        MethodDescriptor descriptor = new MethodDescriptor(mapGet, GenericClassFactory.get(Map.class));
+        descriptor.increaseCounter();
+        mockStatement.addMethodStubbing(descriptor, Collections.singletonList(intValue));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("doReturn(42).when("),
+                "Expected forward primitive reference to be inlined in Mockito stubbing:\n" + code);
+        assertFalse(code.contains("doReturn(int0).when("),
+                "Stubbing should not reference not-yet-declared local variables:\n" + code);
+    }
+
+    @Test
+    public void testFunctionalMockStubbingInlinesForwardNullVarargsWithObjectCasts() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        FunctionalMockStatement mockStatement = new FunctionalMockStatement(
+                tc, Map.class, GenericClassFactory.get(Map.class));
+        tc.addStatement(mockStatement);
+
+        // Intentionally declare null return values after the mock statement to
+        // exercise forward-reference handling for varargs doReturn(...).
+        VariableReference null0 = tc.addStatement(new NullStatement(tc, Object.class));
+        VariableReference null1 = tc.addStatement(new NullStatement(tc, Object.class));
+
+        Method mapGet = Map.class.getMethod("get", Object.class);
+        MethodDescriptor descriptor = new MethodDescriptor(mapGet, GenericClassFactory.get(Map.class));
+        descriptor.increaseCounter();
+        mockStatement.addMethodStubbing(descriptor, Arrays.asList(null0, null1));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertFalse(code.contains("doReturn(null, null).when("),
+                "Varargs null stubbing should not emit ambiguous raw null syntax:\n" + code);
+        assertTrue(code.contains("doReturn((Object) null, (Object) null).when("),
+                "Varargs null stubbing should emit explicit Object-cast nulls:\n" + code);
+    }
+
+    @Test
+    public void testLlmUninterpretedSnippetRenamesConflictingLocalDeclarations() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new StringPrimitiveStatement(tc, "seed"));
+
+        UninterpretedStatement snippet = new UninterpretedStatement(tc,
+                "String string0 = null;\nObject object0 = null;");
+        snippet.setParsedFromLlm(true);
+        tc.addStatement(snippet);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("String string0 = \"seed\";"),
+                "Expected the modeled declaration for the first String statement:\n" + code);
+        assertTrue(code.contains("String string0_1 = null;"),
+                "Conflicting snippet declaration should be renamed to keep method compilable:\n" + code);
+    }
+
+    @Test
+    public void testModeledDeclarationAvoidsCollisionWithPriorLlmSnippetLocalName() {
+        TestCase tc = new DefaultTestCase();
+        UninterpretedStatement snippet = new UninterpretedStatement(tc, "String string0 = null;");
+        snippet.setParsedFromLlm(true);
+        tc.addStatement(snippet);
+        tc.addStatement(new StringPrimitiveStatement(tc, "seed"));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("String string0 = null;"),
+                "Expected original snippet declaration to stay present:\n" + code);
+        assertTrue(code.contains("String string0_1 = \"seed\";"),
+                "Later modeled declaration should avoid colliding with snippet local variable:\n" + code);
+    }
+
+    @Test
+    public void testLlmUninterpretedReturnExpressionDeclarationAvoidsPriorModeledNameCollision() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new StringPrimitiveStatement(tc, "seed"));
+
+        UninterpretedStatement snippet = new UninterpretedStatement(
+                tc, String.class, "int int0 = 0;", Collections.<String, VariableReference>emptyMap(), "null");
+        snippet.setParsedFromLlm(true);
+        tc.addStatement(snippet);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("String string0 = \"seed\";"),
+                "Expected modeled declaration for first String value:\n" + code);
+        assertFalse(code.contains("String string0 = null;"),
+                "Typed return-expression declaration must not reuse an existing local name:\n" + code);
+        assertTrue(code.matches("(?s).*String\\s+string\\d+\\s*=\\s*null;.*"),
+                "Expected a uniquely named typed return-expression declaration:\n" + code);
     }
 
     @Test
@@ -821,98 +1047,106 @@ public class TestCodeVisitorTest {
 
     @Test
     public void testMethodRenamingWithHeuristics() throws Exception{
+        Properties.VariableNamingStrategy oldStrategy = Properties.VARIABLE_NAMING_STRATEGY;
+        try {
+            Properties.getInstance().setValue("variable_naming_strategy", Properties.VariableNamingStrategy.HEURISTICS_BASED);
+            TestCase tc = new DefaultTestCase();
+            // new Person()
+            VariableReference person = TestFactory.getInstance().addConstructor(tc,
+                    new GenericConstructor(Person.class.getDeclaredConstructor(), Person.class), 0, 0);
+            //getFixedId()
+            Method m0 = Person.class.getDeclaredMethod("getFixedId");
+            GenericMethod gm0 = new GenericMethod(m0, Person.class);
+            MethodStatement ms0 = new MethodStatement(tc, gm0, person, Arrays.asList());
+            VariableReference var0 = tc.addStatement(ms0);
+            //setAge();
+            Method m1 = Person.class.getDeclaredMethod("setAge", int.class);
+            GenericMethod gm1 = new GenericMethod(m1, Person.class);
+            MethodStatement ms1 = new MethodStatement(tc, gm1, person, Arrays.asList(var0));
+            tc.addStatement(ms1);
+            //getAge();
+            Method m2 = Person.class.getDeclaredMethod("getAge");
+            GenericMethod gm2 = new GenericMethod(m2, Person.class);
+            MethodStatement ms2 = new MethodStatement(tc, gm2, person, Arrays.asList());
+            VariableReference var1 = tc.addStatement(ms2);
+            AssignmentStatement as0 = new AssignmentStatement(tc, var0, var1);
+            tc.addStatement(as0);
+            //isAdult();
+            Method m3 = Person.class.getDeclaredMethod("isAdult");
+            GenericMethod gm3 = new GenericMethod(m3, Person.class);
+            MethodStatement ms3 = new MethodStatement(tc, gm3, person, Arrays.asList());
+            VariableReference var2 = tc.addStatement(ms3);
+            AssignmentStatement as1 = new AssignmentStatement(tc, var2, var2);
+            tc.addStatement(as1);
 
-        Properties.getInstance().setValue("variable_naming_strategy", Properties.VariableNamingStrategy.HEURISTICS_BASED);
-        TestCase tc = new DefaultTestCase();
-        // new Person()
-        VariableReference person = TestFactory.getInstance().addConstructor(tc,
-                new GenericConstructor(Person.class.getDeclaredConstructor(), Person.class), 0, 0);
-        //getFixedId()
-        Method m0 = Person.class.getDeclaredMethod("getFixedId");
-        GenericMethod gm0 = new GenericMethod(m0, Person.class);
-        MethodStatement ms0 = new MethodStatement(tc, gm0, person, Arrays.asList());
-        VariableReference var0 = tc.addStatement(ms0);
-        //setAge();
-        Method m1 = Person.class.getDeclaredMethod("setAge", int.class);
-        GenericMethod gm1 = new GenericMethod(m1, Person.class);
-        MethodStatement ms1 = new MethodStatement(tc, gm1, person, Arrays.asList(var0));
-        tc.addStatement(ms1);
-        //getAge();
-        Method m2 = Person.class.getDeclaredMethod("getAge");
-        GenericMethod gm2 = new GenericMethod(m2, Person.class);
-        MethodStatement ms2 = new MethodStatement(tc, gm2, person, Arrays.asList());
-        VariableReference var1 = tc.addStatement(ms2);
-        AssignmentStatement as0 = new AssignmentStatement(tc, var0, var1);
-        tc.addStatement(as0);
-        //isAdult();
-        Method m3 = Person.class.getDeclaredMethod("isAdult");
-        GenericMethod gm3 = new GenericMethod(m3, Person.class);
-        MethodStatement ms3 = new MethodStatement(tc, gm3, person, Arrays.asList());
-        VariableReference var2 = tc.addStatement(ms3);
-        AssignmentStatement as1 = new AssignmentStatement(tc, var2, var2);
-        tc.addStatement(as1);
 
+            //Finally, visit the test
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor); //should not throw exception
+            String code = visitor.getCode();
+            System.out.println(code);
 
-        //Finally, visit the test
-        TestCodeVisitor visitor = new TestCodeVisitor();
-        tc.accept(visitor); //should not throw exception
-        String code = visitor.getCode();
-        System.out.println(code);
-
-        assertTrue(code.contains("int age = person.getAge()"));
-        assertFalse(code.contains("int int1 = person0.getAge()"));
-        assertTrue(code.contains("int fixedId = person.getFixedId()"));
-        assertFalse(code.contains("int int0 = person0.getFixedId()"));
-        assertTrue(code.contains("boolean adult = person.isAdult()"));
-        assertFalse(code.contains("boolean boolean0 = person0.isAdult()"));
+            assertTrue(code.contains("int age = person.getAge()"));
+            assertFalse(code.contains("int int1 = person0.getAge()"));
+            assertTrue(code.contains("int fixedId = person.getFixedId()"));
+            assertFalse(code.contains("int int0 = person0.getFixedId()"));
+            assertTrue(code.contains("boolean adult = person.isAdult()"));
+            assertFalse(code.contains("boolean boolean0 = person0.isAdult()"));
+        } finally {
+            Properties.getInstance().setValue("variable_naming_strategy", oldStrategy);
+        }
     }
 
     @Test
     public void testMethodRenamingWithTypes() throws Exception{
+        Properties.VariableNamingStrategy oldStrategy = Properties.VARIABLE_NAMING_STRATEGY;
+        try {
+            Properties.getInstance().setValue("variable_naming_strategy", Properties.VariableNamingStrategy.TYPE_BASED);
+            TestCase tc = new DefaultTestCase();
+            // new Person()
+            VariableReference person = TestFactory.getInstance().addConstructor(tc,
+                    new GenericConstructor(Person.class.getDeclaredConstructor(), Person.class), 0, 0);
+            //getFixedId()
+            Method m0 = Person.class.getDeclaredMethod("getFixedId");
+            GenericMethod gm0 = new GenericMethod(m0, Person.class);
+            MethodStatement ms0 = new MethodStatement(tc, gm0, person, Arrays.asList());
+            VariableReference var0 = tc.addStatement(ms0);
+            //setAge();
+            Method m1 = Person.class.getDeclaredMethod("setAge", int.class);
+            GenericMethod gm1 = new GenericMethod(m1, Person.class);
+            MethodStatement ms1 = new MethodStatement(tc, gm1, person, Arrays.asList(var0));
+            tc.addStatement(ms1);
+            //getAge();
+            Method m2 = Person.class.getDeclaredMethod("getAge");
+            GenericMethod gm2 = new GenericMethod(m2, Person.class);
+            MethodStatement ms2 = new MethodStatement(tc, gm2, person, Arrays.asList());
+            VariableReference var1 = tc.addStatement(ms2);
+            AssignmentStatement as0 = new AssignmentStatement(tc, var0, var1);
+            tc.addStatement(as0);
+            //isAdult();
+            Method m3 = Person.class.getDeclaredMethod("isAdult");
+            GenericMethod gm3 = new GenericMethod(m3, Person.class);
+            MethodStatement ms3 = new MethodStatement(tc, gm3, person, Arrays.asList());
+            VariableReference var2 = tc.addStatement(ms3);
+            AssignmentStatement as1 = new AssignmentStatement(tc, var2, var2);
+            tc.addStatement(as1);
 
-        Properties.getInstance().setValue("variable_naming_strategy", Properties.VariableNamingStrategy.TYPE_BASED);
-        TestCase tc = new DefaultTestCase();
-        // new Person()
-        VariableReference person = TestFactory.getInstance().addConstructor(tc,
-                new GenericConstructor(Person.class.getDeclaredConstructor(), Person.class), 0, 0);
-        //getFixedId()
-        Method m0 = Person.class.getDeclaredMethod("getFixedId");
-        GenericMethod gm0 = new GenericMethod(m0, Person.class);
-        MethodStatement ms0 = new MethodStatement(tc, gm0, person, Arrays.asList());
-        VariableReference var0 = tc.addStatement(ms0);
-        //setAge();
-        Method m1 = Person.class.getDeclaredMethod("setAge", int.class);
-        GenericMethod gm1 = new GenericMethod(m1, Person.class);
-        MethodStatement ms1 = new MethodStatement(tc, gm1, person, Arrays.asList(var0));
-        tc.addStatement(ms1);
-        //getAge();
-        Method m2 = Person.class.getDeclaredMethod("getAge");
-        GenericMethod gm2 = new GenericMethod(m2, Person.class);
-        MethodStatement ms2 = new MethodStatement(tc, gm2, person, Arrays.asList());
-        VariableReference var1 = tc.addStatement(ms2);
-        AssignmentStatement as0 = new AssignmentStatement(tc, var0, var1);
-        tc.addStatement(as0);
-        //isAdult();
-        Method m3 = Person.class.getDeclaredMethod("isAdult");
-        GenericMethod gm3 = new GenericMethod(m3, Person.class);
-        MethodStatement ms3 = new MethodStatement(tc, gm3, person, Arrays.asList());
-        VariableReference var2 = tc.addStatement(ms3);
-        AssignmentStatement as1 = new AssignmentStatement(tc, var2, var2);
-        tc.addStatement(as1);
 
+            //Finally, visit the test
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor); //should not throw exception
+            String code = visitor.getCode();
+            System.out.println(code);
 
-        //Finally, visit the test
-        TestCodeVisitor visitor = new TestCodeVisitor();
-        tc.accept(visitor); //should not throw exception
-        String code = visitor.getCode();
-        System.out.println(code);
-
-        assertFalse(code.contains("int age = person.getAge()"));
-        assertTrue(code.contains("int int1 = person0.getAge()"));
-        assertFalse(code.contains("int fixedId = person.getFixedId()"));
-        assertTrue(code.contains("int int0 = person0.getFixedId()"));
-        assertFalse(code.contains("boolean adult = person.isAdult()"));
-        assertTrue(code.contains("boolean boolean0 = person0.isAdult()"));
+            assertFalse(code.contains("int age = person.getAge()"));
+            assertTrue(code.contains("int int1 = person0.getAge()"));
+            assertFalse(code.contains("int fixedId = person.getFixedId()"));
+            assertTrue(code.contains("int int0 = person0.getFixedId()"));
+            assertFalse(code.contains("boolean adult = person.isAdult()"));
+            assertTrue(code.contains("boolean boolean0 = person0.isAdult()"));
+        } finally {
+            Properties.getInstance().setValue("variable_naming_strategy", oldStrategy);
+        }
     }
 
     @Test
@@ -945,6 +1179,23 @@ public class TestCodeVisitorTest {
         assertTrue(code.contains("Class<?> "));
         assertTrue(code.contains("boolean.class"));
         assertFalse(code.contains("Class<boolean>"));
+    }
+
+    @Test
+    public void testGenericRawClassLiteralDeclarationAvoidsWildcardTypeArgument() {
+        TestCase tc = new DefaultTestCase();
+        tc.addStatement(new ClassPrimitiveStatement(tc, List.class));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("Class<List> "),
+                "Class literal declaration for generic raw class should use raw target type:\n" + code);
+        assertTrue(code.contains("= List.class;"),
+                "Expected List.class assignment to remain intact:\n" + code);
+        assertFalse(code.contains("Class<List<?>>"),
+                "Wildcard type argument on Class declaration is not assignable from List.class:\n" + code);
     }
 
     @Test
@@ -1104,6 +1355,29 @@ public class TestCodeVisitorTest {
         assertTrue(code.contains(".add(null);"), "Expected parameterized receiver to render plain null:\n" + code);
         assertFalse(code.contains(".add((Object) null);"),
                 "Parameterized receiver should not emit erased Object null casts:\n" + code);
+    }
+
+    @Test
+    public void testOverloadedDefaultTableModelConstructorNullIsDisambiguated() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference nullVector = tc.addStatement(new NullStatement(tc, Vector.class));
+        VariableReference rows = tc.addStatement(new IntPrimitiveStatement(tc, 127));
+
+        GenericConstructor constructor = new GenericConstructor(
+                DefaultTableModel.class.getConstructor(Vector.class, int.class),
+                DefaultTableModel.class);
+        tc.addStatement(new ConstructorStatement(tc, constructor, Arrays.asList(nullVector, rows)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("new DefaultTableModel("),
+                "Expected DefaultTableModel constructor call in rendered code:\n" + code);
+        assertTrue(code.contains("(Vector") && code.contains("null"),
+                "Overloaded null constructor argument should be explicitly cast to disambiguate:\n" + code);
+        assertFalse(code.contains("new DefaultTableModel(null, 127)"),
+                "Plain null should not be used for overloaded DefaultTableModel constructor:\n" + code);
     }
 
     @Test
@@ -1362,6 +1636,37 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testGenerateFailAssertionSkipsTransientGuiEnvironmentError() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        NullPointerException ex = new NullPointerException("swing init race");
+        ex.setStackTrace(new StackTraceElement[]{
+                new StackTraceElement("javax.swing.JFileChooser",
+                        "setup",
+                        "JFileChooser.java",
+                        101),
+                new StackTraceElement("weka.gui.visualize.VisualizePanel",
+                        "<init>",
+                        "VisualizePanel.java",
+                        1855)
+        });
+
+        String fail = visitor.generateFailAssertion(null, ex);
+        assertEquals("", fail);
+    }
+
+    @Test
+    public void testGenerateFailAssertionKeepsNonGuiNullPointerException() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        NullPointerException ex = new NullPointerException("boom");
+        ex.setStackTrace(new StackTraceElement[]{
+                new StackTraceElement("x.Foo", "bar", "Foo.java", 10)
+        });
+
+        String fail = visitor.generateFailAssertion(null, ex);
+        assertTrue(fail.contains("Expecting exception: NullPointerException"));
+    }
+
+    @Test
     public void testGenerateFailAssertionSkipsPrivateAccessIllegalArgumentException() {
         TestCodeVisitor visitor = new TestCodeVisitor();
         IllegalArgumentException ex = new IllegalArgumentException("boom");
@@ -1427,6 +1732,41 @@ public class TestCodeVisitorTest {
                 "Private field references must not use direct field access:\n" + idsAccess);
         assertTrue(idsAccess.contains("PrivateAccess.getVariable("),
                 "Field references should go through PrivateAccess:\n" + idsAccess);
+    }
+
+    @Test
+    public void testPrivateFieldAssignmentsUsePrivateAccessHelper() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(PrivateFieldHolder.class.getDeclaredConstructor(), PrivateFieldHolder.class),
+                0,
+                0);
+
+        StringPrimitiveStatement value = new StringPrimitiveStatement(tc, "updated");
+        tc.addStatement(value);
+
+        java.lang.reflect.Field labelField = PrivateFieldHolder.class.getDeclaredField("label");
+        FieldReference labelReference = new FieldReference(
+                tc,
+                new GenericField(labelField, PrivateFieldHolder.class),
+                holder);
+        AssignmentStatement assignmentStatement = new AssignmentStatement(
+                tc,
+                labelReference,
+                value.getReturnValue());
+        assertTrue(assignmentStatement.isValid());
+        tc.addStatement(assignmentStatement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String holderName = visitor.getVariableName(holder);
+
+        assertTrue(code.contains("PrivateAccess.setVariable("),
+                "Private field assignments should go through PrivateAccess:\n" + code);
+        assertFalse(code.contains(holderName + ".label = "),
+                "Private field assignments must not use direct field access:\n" + code);
     }
 
     @Test
@@ -1506,7 +1846,7 @@ public class TestCodeVisitorTest {
     }
 
     @Test
-    public void testNullStatementUsesCanonicalNameForNonPublicExternalType() throws Exception {
+    public void testNullStatementFallsBackToObjectForNonPublicExternalType() throws Exception {
         String oldClassPrefix = Properties.CLASS_PREFIX;
         Properties.CLASS_PREFIX = "different.generated.package";
         try {
@@ -1518,10 +1858,10 @@ public class TestCodeVisitorTest {
             tc.accept(visitor);
             String code = visitor.getCode();
 
-            assertTrue(code.contains("java.util.stream.Node "),
-                    "Non-public external type should use canonical name:\n" + code);
-            assertFalse(code.contains("\nNode "),
-                    "Simple name would require an illegal import/reference for non-public external type:\n" + code);
+            assertTrue(code.contains("Object nullRef0 = null;"),
+                    "Non-public external type should be declared as Object to keep generated code accessible/compilable:\n" + code);
+            assertFalse(code.contains("java.util.stream.Node "),
+                    "Non-public external type should not be used directly in null declarations:\n" + code);
         } finally {
             Properties.CLASS_PREFIX = oldClassPrefix;
         }

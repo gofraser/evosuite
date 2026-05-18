@@ -22,6 +22,7 @@ package org.evosuite.assertion;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.JPanel;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,6 +32,13 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests for InspectorManager, focusing on chained inspector discovery.
  */
 public class InspectorManagerTest {
+
+    @SuppressWarnings("serial")
+    public static class GuiInspectorFixture extends JPanel {
+        public int getMarker() {
+            return 7;
+        }
+    }
 
     @BeforeEach
     public void setUp() {
@@ -141,6 +149,30 @@ public class InspectorManagerTest {
             assertTrue(methodCall.contains("()."),
                     "Method call should contain '().' pattern: " + methodCall);
         }
+    }
+
+    @Test
+    public void testGetInspectors_skipsInheritedGuiAccessors() {
+        List<Inspector> inspectors = InspectorManager.getInstance().getInspectors(GuiInspectorFixture.class);
+
+        assertFalse(inspectors.stream().anyMatch(i -> i.getMethodCall().equals("getBackground")),
+                "Inherited Component#getBackground should be excluded");
+        assertFalse(inspectors.stream().anyMatch(i -> i.getMethodCall().equals("getBounds")),
+                "Inherited Component#getBounds should be excluded");
+        assertFalse(inspectors.stream().anyMatch(i -> i.getMethodCall().equals("getComponentOrientation")),
+                "Inherited Component#getComponentOrientation should be excluded");
+    }
+
+    @Test
+    public void testGetChainedInspectors_skipsInheritedGuiChains() {
+        List<ChainedInspector> chained = InspectorManager.getInstance().getChainedInspectors(GuiInspectorFixture.class);
+
+        assertFalse(chained.stream().anyMatch(i -> i.getMethodCall().startsWith("getBackground().")),
+                "Color chains from Component#getBackground should be excluded");
+        assertFalse(chained.stream().anyMatch(i -> i.getMethodCall().startsWith("getBounds().")),
+                "Geometry chains from Component#getBounds should be excluded");
+        assertFalse(chained.stream().anyMatch(i -> i.getMethodCall().startsWith("getComponentOrientation().")),
+                "Orientation chains from Component#getComponentOrientation should be excluded");
     }
 
     @Test

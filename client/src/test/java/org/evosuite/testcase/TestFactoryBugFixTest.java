@@ -20,6 +20,7 @@
 package org.evosuite.testcase;
 
 import org.evosuite.testcase.variable.VariableReference;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -27,10 +28,18 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.*;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 public class TestFactoryBugFixTest {
+
+    private TestCase testCase;
+
+    @BeforeEach
+    public void setup() {
+        testCase = Mockito.mock(TestCase.class);
+    }
 
     @Test
     public void testDependenciesSatisfiedWithSubtypes() throws Exception {
@@ -38,13 +47,9 @@ public class TestFactoryBugFixTest {
         dependencies.add(List.class);
 
         VariableReference var = Mockito.mock(VariableReference.class);
-        when(var.getType()).thenReturn(ArrayList.class);
-        // Stub isAssignableTo to return true for List.class
-        when(var.isAssignableTo(List.class)).thenReturn(true);
-        
-        List<VariableReference> objects = Collections.singletonList(var);
+        when(testCase.getObjects(List.class, 10)).thenReturn(Collections.singletonList(var));
 
-        boolean result = invokeDependenciesSatisfied(dependencies, objects);
+        boolean result = invokeDependenciesSatisfied(dependencies, testCase, 10);
         
         assertTrue(result, "ArrayList should satisfy List dependency");
     }
@@ -55,19 +60,28 @@ public class TestFactoryBugFixTest {
         dependencies.add(List.class);
 
         VariableReference var = Mockito.mock(VariableReference.class);
-        when(var.getType()).thenReturn(List.class);
-        when(var.isAssignableTo(List.class)).thenReturn(true);
-        
-        List<VariableReference> objects = Collections.singletonList(var);
+        when(testCase.getObjects(List.class, 10)).thenReturn(Collections.singletonList(var));
 
-        boolean result = invokeDependenciesSatisfied(dependencies, objects);
-        
+        boolean result = invokeDependenciesSatisfied(dependencies, testCase, 10);
+
         assertTrue(result, "Exact type should satisfy dependency");
     }
 
-    private boolean invokeDependenciesSatisfied(Set<Type> dependencies, List<VariableReference> objects) throws Exception {
-        Method method = TestMutator.class.getDeclaredMethod("dependenciesSatisfied", Set.class, List.class);
+    @Test
+    public void testDependenciesSatisfiedRejectsWrapperForPrimitive() throws Exception {
+        Set<Type> dependencies = new HashSet<>();
+        dependencies.add(float.class);
+
+        when(testCase.getObjects(float.class, 10)).thenReturn(Collections.emptyList());
+
+        boolean result = invokeDependenciesSatisfied(dependencies, testCase, 10);
+
+        assertFalse(result, "Wrapper Float should not satisfy primitive float dependency");
+    }
+
+    private boolean invokeDependenciesSatisfied(Set<Type> dependencies, TestCase testCase, int position) throws Exception {
+        Method method = TestMutator.class.getDeclaredMethod("dependenciesSatisfied", Set.class, TestCase.class, int.class);
         method.setAccessible(true);
-        return (boolean) method.invoke(null, dependencies, objects);
+        return (boolean) method.invoke(null, dependencies, testCase, position);
     }
 }

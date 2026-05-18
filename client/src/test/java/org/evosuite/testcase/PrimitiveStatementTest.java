@@ -19,13 +19,25 @@
  */
 package org.evosuite.testcase;
 
+import org.evosuite.testcase.statements.EnumPrimitiveStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class PrimitiveStatementTest {
+
+    private enum EnumWithAnonymousConstant {
+        PLAIN,
+        SPECIAL {
+            @Override
+            public String toString() {
+                return "SPECIAL";
+            }
+        }
+    }
 
     @Test
     public void testSame() {
@@ -47,5 +59,32 @@ public class PrimitiveStatementTest {
         //PrimitiveStatement<?> anotherNullString = new StringPrimitiveStatement(tc,null);
         //Assert.assertTrue(nullString.same(anotherNullString));
         //Assert.assertTrue(anotherNullString.same(nullString));
+    }
+
+    @Test
+    public void testEnumAnonymousConstantCanBeCopiedAndCloned() {
+        TestCase source = new DefaultTestCase();
+        EnumPrimitiveStatement<EnumWithAnonymousConstant> statement =
+                new EnumPrimitiveStatement<>(source, EnumWithAnonymousConstant.SPECIAL);
+        source.addStatement(statement);
+
+        Assertions.assertEquals(EnumWithAnonymousConstant.class,
+                statement.getReturnValue().getVariableClass());
+
+        TestCase cloned = Assertions.assertDoesNotThrow(source::clone);
+        Assertions.assertEquals(1, cloned.size());
+        Assertions.assertInstanceOf(EnumPrimitiveStatement.class, cloned.getStatement(0));
+        EnumPrimitiveStatement<?> clonedStatement = (EnumPrimitiveStatement<?>) cloned.getStatement(0);
+        Assertions.assertEquals(EnumWithAnonymousConstant.SPECIAL, clonedStatement.getValue());
+        Assertions.assertEquals(EnumWithAnonymousConstant.class,
+                clonedStatement.getReturnValue().getVariableClass());
+
+        TestCase target = new DefaultTestCase();
+        Statement copied = Assertions.assertDoesNotThrow(() -> statement.copy(target, 0));
+        Assertions.assertInstanceOf(EnumPrimitiveStatement.class, copied);
+        EnumPrimitiveStatement<?> copiedStatement = (EnumPrimitiveStatement<?>) copied;
+        Assertions.assertEquals(EnumWithAnonymousConstant.SPECIAL, copiedStatement.getValue());
+        Assertions.assertEquals(EnumWithAnonymousConstant.class,
+                copiedStatement.getReturnValue().getVariableClass());
     }
 }

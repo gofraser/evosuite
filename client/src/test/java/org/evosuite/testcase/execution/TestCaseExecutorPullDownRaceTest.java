@@ -1,0 +1,53 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.testcase.execution;
+
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.statements.StringPrimitiveStatement;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class TestCaseExecutorPullDownRaceTest {
+
+    @AfterEach
+    public void restoreExecutor() {
+        TestCaseExecutor.initExecutor();
+        TestCaseExecutor.resetAdaptiveTimeoutStateIfPresent();
+    }
+
+    @Test
+    public void testRunTestAfterPullDownReturnsFailureResultInsteadOfThrowing() {
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new StringPrimitiveStatement(testCase, "seed"));
+
+        TestCaseExecutor.getInstance();
+        TestCaseExecutor.pullDown();
+
+        ExecutionResult result = Assertions.assertDoesNotThrow(() -> TestCaseExecutor.runTest(testCase));
+
+        Assertions.assertNotNull(result);
+        Assertions.assertFalse(result.noThrownExceptions());
+        Assertions.assertEquals(Integer.valueOf(0), result.getFirstPositionOfThrownException());
+        Throwable failure = result.getExceptionThrownAtPosition(0);
+        Assertions.assertTrue(failure instanceof IllegalStateException);
+        Assertions.assertTrue(failure.getMessage().contains("TestCaseExecutor"));
+    }
+}

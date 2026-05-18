@@ -53,6 +53,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -697,6 +698,30 @@ public class FunctionalMockStatementTest {
         Assertions.assertNotNull(copy);
         Assertions.assertTrue(copy instanceof FunctionalMockStatement);
         Assertions.assertEquals(PdfFileParam.class, copy.getReturnClass());
+    }
+
+    @Test
+    public void testCopyDoesNotRevalidateTargetClassMockability() {
+        String previousTargetClass = Properties.TARGET_CLASS;
+        Properties.resetTargetClass();
+        try {
+            Properties.TARGET_CLASS = "";
+            Type consumerOfObjectType = TypeUtils.parameterize(Consumer.class, Object.class);
+            FunctionalMockStatement mockStmt = new FunctionalMockStatement(
+                    new DefaultTestCase(),
+                    consumerOfObjectType,
+                    GenericClassFactory.get(consumerOfObjectType));
+
+            Properties.TARGET_CLASS = Consumer.class.getName();
+            Properties.resetTargetClass();
+            assertFalse(FunctionalMockStatement.canBeFunctionalMocked(Consumer.class));
+
+            Statement copied = assertDoesNotThrow(() -> mockStmt.copy(new DefaultTestCase(), 0));
+            assertNotNull(copied);
+        } finally {
+            Properties.TARGET_CLASS = previousTargetClass;
+            Properties.resetTargetClass();
+        }
     }
 
     @Test

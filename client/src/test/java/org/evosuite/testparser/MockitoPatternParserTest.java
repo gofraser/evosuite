@@ -36,19 +36,20 @@ import org.evosuite.utils.generic.GenericClassFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class MockitoPatternParserTest {
 
-    private static final List<String> MOCKITO_IMPORTS = List.of(
+    private static final List<String> MOCKITO_IMPORTS = Arrays.asList(
             "import java.util.*;",
             "import static org.mockito.Mockito.*;",
             "import org.evosuite.runtime.ViolatedAssumptionAnswer;"
     );
 
-    private static final List<String> QUALIFIED_MOCKITO_IMPORTS = List.of(
+    private static final List<String> QUALIFIED_MOCKITO_IMPORTS = Arrays.asList(
             "import java.util.*;",
             "import org.mockito.Mockito;",
             "import org.evosuite.runtime.ViolatedAssumptionAnswer;"
@@ -322,7 +323,7 @@ class MockitoPatternParserTest {
 
         fixture.statementParser.parseStatement(fixture.astStatements.get(0), fixture.astStatements, 0);
         MethodCallExpr methodCall = methodCall(fixture, 1);
-        Class<?> targetClass = fixture.statementParser.resolveClassFromExpression(methodCall.getScope().orElseThrow());
+        Class<?> targetClass = fixture.statementParser.resolveClassFromExpression(methodCall.getScope().get());
         List<VariableReference> argRefs = fixture.statementParser.resolveArguments(methodCall.getArguments(), null, null);
 
         VariableReference mockRef = fixture.mockitoPatternParser.tryHandleLlmMockitoMockCall(
@@ -338,6 +339,26 @@ class MockitoPatternParserTest {
         assertFalse(fixture.testCase.toCode().contains("Mockito.mock((Class) class0)"),
                 "Raw Mockito.mock(ClassVar) should not leak into emitted code:\n" + fixture.testCase.toCode());
         executeAllStatements(fixture.testCase);
+    }
+
+    @Test
+    void llmPreResolutionMockitoMockFallbackHandlesObjectScopedFailureShape() {
+        Fixture fixture = fixture(
+                "org.mockito.Mockito.mock(List.class);",
+                List.of("import java.util.*;"),
+                true);
+
+        MethodCallExpr methodCall = methodCall(fixture, 0);
+        VariableReference mockRef = fixture.mockitoPatternParser.tryHandleLlmMockitoMockCallBeforeMethodResolution(
+                methodCall, methodCall.getNameAsString(), Object.class, false);
+
+        assertNotNull(mockRef, "Expected pre-resolution fallback to normalize Mockito.mock(...)");
+        assertFalse(fixture.result.hasErrors(), "Errors: " + fixture.result.getDiagnostics());
+        assertTrue(fixture.testCase.getStatement(0) instanceof FunctionalMockStatement,
+                "Expected pre-resolution fallback to emit FunctionalMockStatement:\n"
+                        + fixture.testCase.toCode());
+        FunctionalMockStatement mockStmt = (FunctionalMockStatement) fixture.testCase.getStatement(0);
+        assertEquals(List.class, mockStmt.getTargetClass());
     }
 
     @Test
@@ -390,13 +411,13 @@ class MockitoPatternParserTest {
                         + "    }\n"
                         + "};\n"
                         + "int size0 = list0.size();",
-                List.of(),
+                java.util.Collections.emptyList(),
                 true);
 
         VariableDeclarator declarator = variableDeclaration(fixture, 0).getVariables().get(0);
         ObjectCreationExpr creation = declarator.getInitializer().filter(ObjectCreationExpr.class::isInstance)
                 .map(ObjectCreationExpr.class::cast)
-                .orElseThrow();
+                .get();
         VariableReference listRef = fixture.mockitoPatternParser.tryNormalizeAnonymousInterfaceCreationToMock(
                 creation, fixture.typeResolver.resolveType(declarator.getType()));
 
@@ -427,13 +448,13 @@ class MockitoPatternParserTest {
                         + "    }\n"
                         + "};\n"
                         + "Object object0 = supplier0.get();",
-                List.of("import java.util.function.Supplier;"),
+                Arrays.asList("import java.util.function.Supplier;"),
                 true);
 
         VariableDeclarator declarator = variableDeclaration(fixture, 0).getVariables().get(0);
         ObjectCreationExpr creation = declarator.getInitializer().filter(ObjectCreationExpr.class::isInstance)
                 .map(ObjectCreationExpr.class::cast)
-                .orElseThrow();
+                .get();
         VariableReference supplierRef = fixture.mockitoPatternParser.tryNormalizeAnonymousInterfaceCreationToMock(
                 creation, fixture.typeResolver.resolveType(declarator.getType()));
 
@@ -452,6 +473,107 @@ class MockitoPatternParserTest {
                 "Anonymous interface body should be discarded after mock normalization:\n" + code);
         assertFalse(code.contains("__llm_fallback"),
                 "Anonymous interface declarations should not degrade to fallback null:\n" + code);
+        executeAllStatements(fixture.testCase);
+    }
+
+    @Test
+    void parseStubbingWithAnotherMockAsReturnValue() throws Exception {
+        Fixture fixture = fixture(
+                "List provider = mock(List.class);\n"
+                        + "Iterator it = mock(Iterator.class);\n"
+                        + "when(provider.iterator()).thenReturn(it);",
+                MOCKITO_IMPORTS,
+                true);
+
+        fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 0), fixture.astStatements, 0);
+        fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 1), fixture.astStatements, 1);
+
+        boolean handled = fixture.mockitoPatternParser.tryHandleStandaloneStubbingCall(methodCall(fixture, 2));
+
+        assertTrue(handled, "Expected standalone stubbing call to be handled");
+        String code = fixture.testCase.toCode();
+        assertTrue(code.contains("Iterator iterator0 = mock(Iterator.class"),
+                "Expected iterator mock declaration in code:\n" + code);
+        assertTrue(code.contains("doReturn(iterator0).when(list0).iterator();"),
+                "Expected stubbing with iterator mock in code:\n" + code);
+        assertFalse(code.contains("__llm_fallback"), "Should not fallback to null for mock return value:\n" + code);
+        executeAllStatements(fixture.testCase);
+    }
+
+    /**
+     * Mirrors the EngineImpl LLM scenario: multiple unrelated mocks declared first, then
+     * a chain of stubbings on each, where one mock is used as the return value for another
+     * mock declared earlier. Verifies the relocated mock ends up emitted after the values
+     * it depends on and the stubbing wires through to the right value.
+     */
+    @Test
+    void standaloneStubbingHandlesEngineImplLikeMockOrdering() throws Exception {
+        Fixture fixture = fixture(
+                "List request = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                        + "Map context = mock(Map.class, new ViolatedAssumptionAnswer());\n"
+                        + "Iterator session = mock(Iterator.class, new ViolatedAssumptionAnswer());\n"
+                        + "when(context.get(\"key\")).thenReturn(\"value\");\n"
+                        + "when(session.next()).thenReturn(\"item\");\n"
+                        + "when(request.iterator()).thenReturn(session);",
+                MOCKITO_IMPORTS,
+                true);
+
+        fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 0), fixture.astStatements, 0);
+        fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 1), fixture.astStatements, 1);
+        fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 2), fixture.astStatements, 2);
+        fixture.mockitoPatternParser.tryHandleStandaloneStubbingCall(methodCall(fixture, 3));
+        fixture.mockitoPatternParser.tryHandleStandaloneStubbingCall(methodCall(fixture, 4));
+        fixture.mockitoPatternParser.tryHandleStandaloneStubbingCall(methodCall(fixture, 5));
+
+        String code = fixture.testCase.toCode();
+        assertTrue(code.contains("doReturn(iterator0).when(list0).iterator()"),
+                "request.iterator() must wire through to the session mock:\n" + code);
+        assertFalse(code.contains("doReturn((Iterator) null)") || code.contains("doReturn((Object) null).when(list0)"),
+                "request.iterator() must not silently fall back to null:\n" + code);
+        int sessionPos = code.indexOf("Iterator iterator0");
+        int requestPos = code.indexOf("List list0");
+        assertTrue(sessionPos >= 0 && requestPos >= 0 && sessionPos < requestPos,
+                "Expected iterator (session) mock to appear before list (request) mock after relocate:\n" + code);
+        executeAllStatements(fixture.testCase);
+    }
+
+    /**
+     * Reproduces the EngineImpl scenario where the LLM declares all mocks first, then their
+     * stubbings. The "value" mock B has its own subsequent stubbing referencing a third
+     * variable C, so when the parser later tries to hoist B before A for the
+     * `when(a.getB()).thenReturn(b)` stubbing, B's dep on C makes hoisting fail and the
+     * value silently degrades to null.
+     */
+    @Test
+    void standaloneStubbingPreservesMockChainEvenWhenInnerMockHasItsOwnStubbings() throws Exception {
+        Fixture fixture = fixture(
+                "List outer = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                        + "Iterator inner = mock(Iterator.class, new ViolatedAssumptionAnswer());\n"
+                        + "Object payload = new Object();\n"
+                        + "when(inner.next()).thenReturn(payload);\n"
+                        + "when(outer.iterator()).thenReturn(inner);",
+                MOCKITO_IMPORTS,
+                true);
+
+        fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 0), fixture.astStatements, 0);
+        fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 1), fixture.astStatements, 1);
+        fixture.statementParser.parseStatement(fixture.astStatements.get(2), fixture.astStatements, 2);
+        fixture.mockitoPatternParser.tryHandleStandaloneStubbingCall(methodCall(fixture, 3));
+        fixture.mockitoPatternParser.tryHandleStandaloneStubbingCall(methodCall(fixture, 4));
+
+        String code = fixture.testCase.toCode();
+        assertFalse(code.contains("doReturn((Object) null).when(list0).iterator()")
+                        || code.contains("doReturn(null).when(list0).iterator()"),
+                "outer.iterator() must not silently degrade to null when inner has its own stubbing:\n" + code);
+        assertTrue(code.contains("doReturn(iterator0).when(list0).iterator()"),
+                "Expected outer.iterator() stubbing to wire through to iterator mock:\n" + code);
         executeAllStatements(fixture.testCase);
     }
 

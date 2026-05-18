@@ -710,6 +710,33 @@ class TestClusterSummarizerTest {
         assertTrue(text.contains("concrete subtypes: ConcretePrefs()"), text);
     }
 
+    // --- R1': cross-package concrete-subtype hint qualification ---
+
+    @Test
+    void subtypeDisplayNameUsesSimpleNameWhenInSamePackage() {
+        // ConcretePrefs and AbstractPrefs are nested classes of this test class,
+        // so they share a package. Simple name should be sufficient.
+        assertEquals("ConcretePrefs",
+                TestClusterSummarizer.subtypeDisplayName(ConcretePrefs.class, AbstractPrefs.class));
+    }
+
+    @Test
+    void subtypeDisplayNameUsesFqnWhenSubtypePackageDiffers() {
+        // java.math.BigInteger extends java.lang.Number — packages differ.
+        // Without R1' the LLM would see "Number → BigInteger()" and naturally
+        // try `new java.lang.BigInteger()` because both share the simple-name
+        // heuristic. The qualified form prevents that hallucination.
+        assertEquals("java.math.BigInteger",
+                TestClusterSummarizer.subtypeDisplayName(java.math.BigInteger.class, Number.class));
+    }
+
+    @Test
+    void subtypeDisplayNameFallsBackToSimpleNameWhenBaseClassMissing() {
+        // Defensive: with no base, no package comparison is possible.
+        assertEquals("ConcretePrefs",
+                TestClusterSummarizer.subtypeDisplayName(ConcretePrefs.class, null));
+    }
+
     @Test
     void summarizeDependenciesOrdersAbstractTier1TypesBeforeConcreteOnes() {
         Properties.LLM_CLUSTER_SUMMARY_COMPACT_SIGNATURES = false;

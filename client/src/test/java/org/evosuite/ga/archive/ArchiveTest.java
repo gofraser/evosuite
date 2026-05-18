@@ -20,8 +20,12 @@
 package org.evosuite.ga.archive;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.execution.CodeUnderTestException;
+import org.evosuite.testcase.execution.ExecutionResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,14 +46,23 @@ public class ArchiveTest {
     @Mock
     private TestChromosome chromosome;
 
+    @Mock
+    private TestChromosome clonedChromosome;
+
+    @Mock
+    private TestCase testCase;
+
+    @Mock
+    private ExceptionCoverageTestFitness exceptionTarget;
+
     private Properties.Criterion[] originalCriteria;
 
     @BeforeEach
     public void setUp() {
         originalCriteria = Properties.CRITERION;
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.LINE};
-        when(target.getTargetClass()).thenReturn("Foo");
-        when(target.getTargetMethod()).thenReturn("bar");
+        lenient().when(target.getTargetClass()).thenReturn("Foo");
+        lenient().when(target.getTargetMethod()).thenReturn("bar");
     }
 
     @AfterEach
@@ -70,13 +84,15 @@ public class ArchiveTest {
     public void testCoverageArchiveUpdateArchive() {
         CoverageArchive archive = new CoverageArchive();
         archive.addTarget(target);
+        when(chromosome.clone()).thenReturn(clonedChromosome);
 
         archive.updateArchive(target, chromosome, 0.0);
 
         assertEquals(1, archive.getNumberOfCoveredTargets());
         assertEquals(0, archive.getNumberOfUncoveredTargets());
         assertTrue(archive.hasSolution(target));
-        assertEquals(chromosome, archive.getSolution(target));
+        assertSame(clonedChromosome, archive.getSolution(target));
+        assertNotSame(chromosome, archive.getSolution(target));
     }
 
     @Test
@@ -85,5 +101,42 @@ public class ArchiveTest {
         archive.addTarget(target);
         assertTrue(archive.hasTarget(target));
         assertEquals(1, archive.getNumberOfTargets());
+    }
+
+    @Test
+    public void testCoverageArchiveRejectsExceptionThrowingCandidateForLineTarget() throws Exception {
+        CoverageArchive archive = new CoverageArchive();
+        archive.addTarget(target);
+        when(testCase.size()).thenReturn(0);
+        ExecutionResult result = new ExecutionResult(testCase);
+        result.reportNewThrownException(0, new CodeUnderTestException(new NullPointerException()));
+        when(chromosome.getLastExecutionResult()).thenReturn(result);
+
+        archive.updateArchive(target, chromosome, 0.0);
+
+        assertEquals(0, archive.getNumberOfCoveredTargets());
+        assertEquals(1, archive.getNumberOfUncoveredTargets());
+        assertFalse(archive.hasSolution(target));
+    }
+
+    @Test
+    public void testCoverageArchiveAcceptsExceptionThrowingCandidateForExceptionTarget() throws Exception {
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.EXCEPTION};
+        when(exceptionTarget.getTargetClass()).thenReturn("Foo");
+        when(exceptionTarget.getTargetMethod()).thenReturn("bar");
+
+        CoverageArchive archive = new CoverageArchive();
+        archive.addTarget(exceptionTarget);
+        when(testCase.size()).thenReturn(0);
+        ExecutionResult result = new ExecutionResult(testCase);
+        result.reportNewThrownException(0, new CodeUnderTestException(new NullPointerException()));
+        when(chromosome.getLastExecutionResult()).thenReturn(result);
+        when(chromosome.clone()).thenReturn(clonedChromosome);
+
+        archive.updateArchive(exceptionTarget, chromosome, 0.0);
+
+        assertEquals(1, archive.getNumberOfCoveredTargets());
+        assertEquals(0, archive.getNumberOfUncoveredTargets());
+        assertTrue(archive.hasSolution(exceptionTarget));
     }
 }

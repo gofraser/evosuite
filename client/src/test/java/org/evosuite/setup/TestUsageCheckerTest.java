@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 
+import javax.swing.JPanel;
+
 class TestUsageCheckerTest {
 
     private final boolean defaultUseVFS = RuntimeSettings.useVFS;
@@ -44,6 +46,13 @@ class TestUsageCheckerTest {
 
         public static void userVisibleMethod() {
             // no-op
+        }
+    }
+
+    @SuppressWarnings("serial")
+    private static class GuiSubclassFixture extends JPanel {
+        public int getMarker() {
+            return 7;
         }
     }
 
@@ -110,5 +119,27 @@ class TestUsageCheckerTest {
         Assertions.assertFalse(TestUsageChecker.canUse(accessor, CompilerAccessorNameFallbackFixture.class));
         Assertions.assertFalse(TestUsageChecker.isCompilerGeneratedAccessorMethod(userVisibleMethod));
         Assertions.assertTrue(TestUsageChecker.canUse(userVisibleMethod, CompilerAccessorNameFallbackFixture.class));
+    }
+
+    @Test
+    void testUnstableGuiAccessorsAreExcludedFromMethodCalls() throws NoSuchMethodException {
+        Method getBackground = java.awt.Component.class.getMethod("getBackground");
+        Method getBounds = java.awt.Component.class.getMethod("getBounds");
+        Method getComponentOrientation = java.awt.Component.class.getMethod("getComponentOrientation");
+
+        Assertions.assertTrue(TestUsageChecker.isUnstableGuiAccessor(getBackground));
+        Assertions.assertTrue(TestUsageChecker.isUnstableGuiAccessor(getBounds));
+        Assertions.assertTrue(TestUsageChecker.isUnstableGuiAccessor(getComponentOrientation));
+        Assertions.assertFalse(TestUsageChecker.canUse(getBackground, GuiSubclassFixture.class));
+        Assertions.assertFalse(TestUsageChecker.canUse(getBounds, GuiSubclassFixture.class));
+        Assertions.assertFalse(TestUsageChecker.canUse(getComponentOrientation, GuiSubclassFixture.class));
+    }
+
+    @Test
+    void testGuiSubclassMethodsRemainUsableWhenNotInheritedGuiAccessors() throws NoSuchMethodException {
+        Method marker = GuiSubclassFixture.class.getMethod("getMarker");
+
+        Assertions.assertFalse(TestUsageChecker.isUnstableGuiAccessor(marker));
+        Assertions.assertTrue(TestUsageChecker.canUse(marker, GuiSubclassFixture.class));
     }
 }

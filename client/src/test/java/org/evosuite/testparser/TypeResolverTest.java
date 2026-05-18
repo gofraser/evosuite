@@ -320,4 +320,45 @@ class TypeResolverTest {
         assertThrows(ClassNotFoundException.class,
                 () -> noImportsResolver.resolveClass("LinkedList"));
     }
+
+    // --- FQN simple-name fallback (T2) and package-correction tracking (T3) ---
+
+    @Test
+    void wrongPackageFqnResolvesViaSimpleNameFallback() throws ClassNotFoundException {
+        // LLM frequently invents the wrong package: e.g. uses
+        // "java.lang.LinkedList" or "java.io.LinkedList" instead of the real
+        // java.util.LinkedList. Once the simple name is reachable through
+        // any of the resolution paths (here: TestCluster), the FQN attempt
+        // should fall through to it instead of hard-failing.
+        TestCluster.getInstance().getAnalyzedClasses().add(LinkedList.class);
+
+        TypeResolver fqnResolver = new TypeResolver(
+                getClass().getClassLoader(),
+                List.of()
+        );
+        assertEquals(LinkedList.class, fqnResolver.resolveClass("a.b.LinkedList"));
+    }
+
+    @Test
+    void wrongPackageFqnRecordsCorrection() throws ClassNotFoundException {
+        TestCluster.getInstance().getAnalyzedClasses().add(LinkedList.class);
+
+        TypeResolver fqnResolver = new TypeResolver(
+                getClass().getClassLoader(),
+                List.of()
+        );
+        fqnResolver.resolveClass("a.b.LinkedList");
+        Map<String, String> corrections = fqnResolver.drainPackageCorrections();
+        assertEquals(1, corrections.size());
+        assertEquals("java.util.LinkedList", corrections.get("a.b.LinkedList"));
+        // Subsequent drain returns empty.
+        assertTrue(fqnResolver.drainPackageCorrections().isEmpty());
+    }
+
+    @Test
+    void correctlyQualifiedFqnDoesNotRecordCorrection() throws ClassNotFoundException {
+        // Real FQN load succeeds without going through the fallback path.
+        resolver.resolveClass("java.util.LinkedList");
+        assertTrue(resolver.drainPackageCorrections().isEmpty());
+    }
 }

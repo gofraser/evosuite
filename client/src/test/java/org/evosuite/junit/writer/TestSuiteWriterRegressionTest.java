@@ -21,11 +21,15 @@ package org.evosuite.junit.writer;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -55,6 +59,7 @@ public class TestSuiteWriterRegressionTest {
     private final String[] defaultIgnoreThreads = Properties.IGNORE_THREADS;
     private final String defaultClassPrefix = Properties.CLASS_PREFIX;
     private final Properties.TestNamingStrategy defaultTestNamingStrategy = Properties.TEST_NAMING_STRATEGY;
+    private final boolean defaultDmonEnabled = Properties.DMON_ENABLED;
 
     @AfterEach
     public void restoreProperties() {
@@ -72,6 +77,21 @@ public class TestSuiteWriterRegressionTest {
         Properties.IGNORE_THREADS = defaultIgnoreThreads;
         Properties.CLASS_PREFIX = defaultClassPrefix;
         Properties.TEST_NAMING_STRATEGY = defaultTestNamingStrategy;
+        Properties.DMON_ENABLED = defaultDmonEnabled;
+    }
+
+    private static final class InspectingWriter extends TestSuiteWriter {
+        ExecutionResult runInternal(DefaultTestCase test) {
+            return super.runTest(test);
+        }
+    }
+
+    public static final class DmonWriterProbe {
+        private static boolean observedDmonEnabled;
+
+        public static void record() {
+            observedDmonEnabled = Properties.DMON_ENABLED;
+        }
     }
 
     @Test
@@ -238,6 +258,25 @@ public class TestSuiteWriterRegressionTest {
         Assertions.assertTrue(generated.stream().anyMatch(f -> f.getName().endsWith("_scaffolding.java")));
         Assertions.assertTrue(Files.exists(tempDir.resolve("LegacyJ5ScaffTest_scaffolding.java")));
         deleteTempDir(tempDir);
+    }
+
+    @Test
+    public void testInternalWriterExecutionDisablesDmon() throws Exception {
+        configureDefaults();
+        Properties.DMON_ENABLED = true;
+        DmonWriterProbe.observedDmonEnabled = true;
+
+        DefaultTestCase test = new DefaultTestCase();
+        Method record = DmonWriterProbe.class.getMethod("record");
+        test.addStatement(new MethodStatement(test, new GenericMethod(record, DmonWriterProbe.class), null, Collections.emptyList()));
+
+        InspectingWriter writer = new InspectingWriter();
+        writer.runInternal(test);
+
+        Assertions.assertFalse(DmonWriterProbe.observedDmonEnabled,
+                "Post-search writer execution should not run with DMoN enabled");
+        Assertions.assertTrue(Properties.DMON_ENABLED,
+                "Writer must restore the caller's DMoN configuration after execution");
     }
 
     @Test

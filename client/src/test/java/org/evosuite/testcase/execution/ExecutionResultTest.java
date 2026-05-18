@@ -94,4 +94,52 @@ public class ExecutionResultTest {
         Assertions.assertEquals(Integer.valueOf(testCase.size()), result.getFirstPositionOfThrownException());
         Assertions.assertSame(timeout, result.getExceptionThrownAtPosition(testCase.size()));
     }
+
+    @Test
+    public void testHasTestExceptionDetectsDirectCodeUnderTestException() {
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new StringPrimitiveStatement(testCase, "seed"));
+
+        ExecutionResult result = new ExecutionResult(testCase, null);
+        result.reportNewThrownException(0, new CodeUnderTestException(new NullPointerException("npe")));
+
+        Assertions.assertTrue(result.hasTestException());
+    }
+
+    @Test
+    public void testHasTestExceptionIgnoresWrappedCodeUnderTestException() {
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new StringPrimitiveStatement(testCase, "seed"));
+
+        ExecutionResult result = new ExecutionResult(testCase, null);
+        RuntimeException wrapped = new RuntimeException(new CodeUnderTestException(new NullPointerException("npe")));
+        result.reportNewThrownException(0, wrapped);
+
+        Assertions.assertFalse(result.hasTestException());
+    }
+
+    @Test
+    public void testHasTestExceptionUsesTerminatingExceptionNotSecondaryEntries() {
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new StringPrimitiveStatement(testCase, "first"));
+        testCase.addStatement(new StringPrimitiveStatement(testCase, "second"));
+
+        ExecutionResult result = new ExecutionResult(testCase, null);
+        result.reportNewThrownException(0, new NullPointerException("real-terminal"));
+        result.reportNewThrownException(1, new CodeUnderTestException(new NullPointerException("secondary")));
+
+        Assertions.assertFalse(result.hasTestException());
+    }
+
+    @Test
+    public void testHasTestExceptionIgnoresDroppedInvalidCodeUnderTestEntry() {
+        DefaultTestCase testCase = new DefaultTestCase();
+        testCase.addStatement(new StringPrimitiveStatement(testCase, "seed"));
+
+        ExecutionResult result = new ExecutionResult(testCase, null);
+        result.reportNewThrownException(0, new NullPointerException("real-terminal"));
+        result.reportNewThrownException(-1, new CodeUnderTestException(new NullPointerException("invalid")));
+
+        Assertions.assertFalse(result.hasTestException());
+    }
 }

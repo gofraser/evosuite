@@ -29,6 +29,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OverloadResolverTest {
@@ -64,6 +65,12 @@ class OverloadResolverTest {
 
         assertFalse(method.isBridge());
         assertEquals(Argument.class, method.getParameterTypes()[0]);
+    }
+
+    @Test
+    void resolveMethodDoesNotReturnBridgeOnExactObjectSignature() {
+        assertThrows(NoSuchMethodException.class,
+                () -> resolver.resolveMethod(BridgeTarget.class, "compareTo", new Class<?>[]{Object.class}));
     }
 
     @Test

@@ -41,8 +41,11 @@ import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
@@ -327,5 +330,184 @@ public class JUnitAnalyzerTest {
                 "With GUI replacements enabled, JUnit check must use InstrumentingClassLoader");
     }
 
+    @Test
+    public void testInstrumentingRetryDetectsHeadlessFailuresWithJUnit4ClassPrefix() throws Exception {
+        Method shouldRetry = JUnitAnalyzer.class.getDeclaredMethod(
+                "shouldRetryWithInstrumentingAfterFailure", JUnitResult.class);
+        shouldRetry.setAccessible(true);
+
+        JUnitResult result = new JUnitResult(false, 1, 1);
+        JUnitFailure failure = new JUnitFailure(
+                "headless",
+                "class java.awt.HeadlessException",
+                "test0",
+                false,
+                "");
+        result.addFailure(failure);
+
+        boolean retry = (boolean) shouldRetry.invoke(null, result);
+        Assertions.assertTrue(retry, "Headless failures should trigger instrumented retry");
+    }
+
+    @Test
+    public void testInstrumentingRetryDetectsLocalGraphicsEnvironmentAwtError() throws Exception {
+        Method shouldRetry = JUnitAnalyzer.class.getDeclaredMethod(
+                "shouldRetryWithInstrumentingAfterFailure", JUnitResult.class);
+        shouldRetry.setAccessible(true);
+
+        JUnitResult result = new JUnitResult(false, 1, 1);
+        JUnitFailure failure = new JUnitFailure(
+                "Local GraphicsEnvironment must not be null",
+                "class java.awt.AWTError",
+                "test0",
+                false,
+                "");
+        failure.addToExceptionStackTrace("java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment(GraphicsEnvironment.java:123)");
+        result.addFailure(failure);
+
+        boolean retry = (boolean) shouldRetry.invoke(null, result);
+        Assertions.assertTrue(retry, "GraphicsEnvironment-null AWTError should trigger instrumented retry");
+    }
+
+    @Test
+    public void testDeterministicGuiFailureDetectionForLocalGraphicsEnvironmentAwtError() throws Exception {
+        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+                "isDeterministicGuiEnvironmentFailure", JUnitFailure.class);
+        detector.setAccessible(true);
+
+        JUnitFailure failure = new JUnitFailure(
+                "Local GraphicsEnvironment must not be null",
+                "java.awt.AWTError",
+                "test0",
+                false,
+                "");
+        failure.addToExceptionStackTrace("java.awt.GraphicsEnvironment.getLocalGraphicsEnvironment(GraphicsEnvironment.java:123)");
+
+        boolean detected = (boolean) detector.invoke(null, failure);
+        Assertions.assertTrue(detected);
+    }
+
+    @Test
+    public void testDeterministicGuiFailureDetectionForHeadlessException() throws Exception {
+        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+                "isDeterministicGuiEnvironmentFailure", JUnitFailure.class);
+        detector.setAccessible(true);
+
+        JUnitFailure failure = new JUnitFailure(
+                "No X11 DISPLAY variable was set, but this program performed an operation which requires it.",
+                "class java.awt.HeadlessException",
+                "test0",
+                false,
+                "");
+        failure.addToExceptionStackTrace("java.awt.GraphicsEnvironment.checkHeadless(GraphicsEnvironment.java:204)");
+        failure.addToExceptionStackTrace("java.awt.Window.<init>(Window.java:553)");
+
+        boolean detected = (boolean) detector.invoke(null, failure);
+        Assertions.assertTrue(detected);
+    }
+
+    @Test
+    public void testDeterministicGuiFailureDetectionIgnoresNonGuiFailure() throws Exception {
+        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+                "isDeterministicGuiEnvironmentFailure", JUnitFailure.class);
+        detector.setAccessible(true);
+
+        JUnitFailure failure = new JUnitFailure(
+                "boom",
+                "java.lang.NullPointerException",
+                "test0",
+                false,
+                "");
+        failure.addToExceptionStackTrace("x.Foo.bar(Foo.java:10)");
+
+        boolean detected = (boolean) detector.invoke(null, failure);
+        Assertions.assertFalse(detected);
+    }
+
+    @Test
+    public void testJavacInfrastructureFailureDetectionSupportsErrorAndCauseChains() throws Exception {
+        Method detector = JUnitAnalyzer.class.getDeclaredMethod(
+                "isJavacInfrastructureFailure", Throwable.class);
+        detector.setAccessible(true);
+
+        Error providerLoadingError = new Error("Circular loading of installed providers detected");
+        providerLoadingError.setStackTrace(new StackTraceElement[]{
+                new StackTraceElement(
+                        "java.nio.file.spi.FileSystemProvider",
+                        "installedProviders",
+                        "FileSystemProvider.java",
+                        198)
+        });
+        Assertions.assertTrue((boolean) detector.invoke(null, providerLoadingError));
+
+        RuntimeException wrapped = new RuntimeException("wrapper", new NoSuchElementException("missing provider"));
+        wrapped.setStackTrace(new StackTraceElement[]{
+                new StackTraceElement("x.Foo", "bar", "Foo.java", 1)
+        });
+        Assertions.assertTrue((boolean) detector.invoke(null, wrapped));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testFindFileSystemProviderServiceDeclarationsScansJarAndDirectory() throws Exception {
+        File jarWithProvider = Files.createTempFile("evosuite-fs-provider", ".jar").toFile();
+        jarWithProvider.deleteOnExit();
+
+        try (JarOutputStream out = new JarOutputStream(Files.newOutputStream(jarWithProvider.toPath()))) {
+            out.putNextEntry(new JarEntry("META-INF/services/java.nio.file.spi.FileSystemProvider"));
+            out.write(("# comment\n" +
+                    "x.provider.First\n" +
+                    "x.provider.First\n" +
+                    "x.provider.Second # inline comment\n").getBytes(StandardCharsets.UTF_8));
+            out.closeEntry();
+        }
+
+        File providerDir = Files.createTempDirectory("evosuite-fs-provider-dir").toFile();
+        providerDir.deleteOnExit();
+        File serviceFile = new File(providerDir, "META-INF/services/java.nio.file.spi.FileSystemProvider");
+        Assertions.assertTrue(serviceFile.getParentFile().mkdirs() || serviceFile.getParentFile().isDirectory());
+        Files.write(serviceFile.toPath(), Collections.singletonList("y.provider.Only"), StandardCharsets.UTF_8);
+        serviceFile.deleteOnExit();
+
+        Method scanner = JUnitAnalyzer.class.getDeclaredMethod(
+                "findFileSystemProviderServiceDeclarations", String.class);
+        scanner.setAccessible(true);
+
+        String classpath = jarWithProvider.getAbsolutePath() + File.pathSeparator + providerDir.getAbsolutePath();
+        Map<String, List<String>> providersByEntry = (Map<String, List<String>>) scanner.invoke(null, classpath);
+
+        Assertions.assertEquals(2, providersByEntry.size());
+        Assertions.assertEquals(Arrays.asList("x.provider.First", "x.provider.Second"),
+                providersByEntry.get(jarWithProvider.getAbsolutePath()));
+        Assertions.assertEquals(Collections.singletonList("y.provider.Only"),
+                providersByEntry.get(providerDir.getAbsolutePath()));
+    }
+
+    @Test
+    public void testDisableCompileCheckDueToInfrastructureSetsRunWideFlag() throws Exception {
+        java.lang.reflect.Field disabledField = JUnitAnalyzer.class.getDeclaredField(
+                "COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE");
+        disabledField.setAccessible(true);
+        java.lang.reflect.Field loggedField = JUnitAnalyzer.class.getDeclaredField("COMPILE_CHECK_DISABLED_LOGGED");
+        loggedField.setAccessible(true);
+
+        boolean previousDisabled = disabledField.getBoolean(null);
+        boolean previousLogged = loggedField.getBoolean(null);
+        try {
+            disabledField.setBoolean(null, false);
+            loggedField.setBoolean(null, false);
+
+            Method disable = JUnitAnalyzer.class.getDeclaredMethod(
+                    "disableCompileCheckDueToInfrastructure", Throwable.class, String.class);
+            disable.setAccessible(true);
+            disable.invoke(null, new RuntimeException("infra"), "");
+
+            Assertions.assertTrue(disabledField.getBoolean(null));
+            Assertions.assertFalse(loggedField.getBoolean(null));
+        } finally {
+            disabledField.setBoolean(null, previousDisabled);
+            loggedField.setBoolean(null, previousLogged);
+        }
+    }
 
 }

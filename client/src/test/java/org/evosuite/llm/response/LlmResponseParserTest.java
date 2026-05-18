@@ -113,4 +113,94 @@ class LlmResponseParserTest {
         assertFalse(result.isRecoveryApplied());
         assertTrue(result.getSource().contains("public class AlreadyValid"));
     }
+
+    /**
+     * Regression: Java has no `import ... as ...` syntax. JavaParser silently
+     * drops the rest of the file when it hits one, leaving zero @Test methods.
+     * The sanitizer must rewrite the alias to the fully qualified name so the
+     * downstream parser sees a complete class.
+     */
+    @Test
+    void rewritesAliasImportToFullyQualifiedName() {
+        String response = "```java\n"
+                + "import net.sourceforge.beanbin.query.Query as BeanBinQuery;\n"
+                + "import org.junit.jupiter.api.Test;\n"
+                + "\n"
+                + "class EJB3SearcherTest {\n"
+                + "  @Test\n"
+                + "  void t() {\n"
+                + "    BeanBinQuery q = null;\n"
+                + "  }\n"
+                + "}\n"
+                + "```";
+
+        String source = parser.extractTestClass(response, "Ignored");
+
+        assertFalse(source.contains(" as BeanBinQuery"),
+                "alias import should be removed");
+        assertFalse(source.contains("BeanBinQuery"),
+                "all alias references should be rewritten to FQN");
+        assertTrue(source.contains("net.sourceforge.beanbin.query.Query q = null"),
+                "body reference should be rewritten to fully qualified name");
+    }
+
+    @Test
+    void aliasSanitizerHandlesMultipleAliasesAndPreservesPlainImports() {
+        String response = "```java\n"
+                + "import javax.persistence.Query;\n"
+                + "import net.sourceforge.beanbin.query.Query as BeanBinQuery;\n"
+                + "import java.util.List as Lst;\n"
+                + "import org.junit.jupiter.api.Test;\n"
+                + "\n"
+                + "class T {\n"
+                + "  @Test\n"
+                + "  void t() {\n"
+                + "    Query q = null;\n"
+                + "    BeanBinQuery b = null;\n"
+                + "    Lst items = null;\n"
+                + "  }\n"
+                + "}\n"
+                + "```";
+
+        String source = parser.extractTestClass(response, "Ignored");
+
+        assertFalse(source.contains(" as BeanBinQuery"));
+        assertFalse(source.contains(" as Lst"));
+        assertTrue(source.contains("import javax.persistence.Query;"),
+                "non-aliased imports must be preserved verbatim");
+        assertTrue(source.contains("net.sourceforge.beanbin.query.Query b = null"));
+        assertTrue(source.contains("java.util.List items = null"));
+        assertTrue(source.contains("Query q = null"),
+                "non-aliased simple-name reference must be left alone");
+    }
+
+    @Test
+    void aliasSanitizerLeavesSourcesWithoutAliasesUnchanged() {
+        String code = "import java.util.List;\n"
+                + "class T { @org.junit.Test public void t(){ List l = null; } }";
+        assertEquals(code, LlmResponseParser.sanitizeAliasImports(code));
+    }
+
+    @Test
+    void aliasSanitizerYieldsParseableClassWithTestMethods() {
+        String response = "```java\n"
+                + "import net.sourceforge.beanbin.query.Query as BeanBinQuery;\n"
+                + "import org.junit.jupiter.api.Test;\n"
+                + "\n"
+                + "class EJB3SearcherTest {\n"
+                + "  @Test\n"
+                + "  void t() {\n"
+                + "    BeanBinQuery q = null;\n"
+                + "  }\n"
+                + "}\n"
+                + "```";
+
+        String source = parser.extractTestClass(response, "Ignored");
+        org.evosuite.testparser.TestMethodParser methodParser =
+                new org.evosuite.testparser.TestMethodParser();
+        com.github.javaparser.ast.CompilationUnit cu = methodParser.parseSource(source);
+
+        assertEquals(1, methodParser.findTestMethods(cu).size(),
+                "alias-sanitized source must yield exactly one @Test method");
+    }
 }

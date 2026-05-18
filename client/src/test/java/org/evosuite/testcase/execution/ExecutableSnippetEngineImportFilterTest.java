@@ -176,6 +176,19 @@ class ExecutableSnippetEngineImportFilterTest {
     }
 
     @Test
+    void executeStatementReportsCannotFindSymbolSanitizationWhenLineIsDropped() throws Throwable {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        ExecutableSnippetEngine.StatementResult result = engine.executeStatement(
+                "MissingType neverResolves = null;",
+                Collections.emptyMap(),
+                Collections.emptyMap(),
+                null);
+
+        assertTrue(result.isCannotFindSymbolSanitizationApplied(),
+                "Snippet execution should report unresolved-symbol sanitization");
+    }
+
+    @Test
     void generatedSnippetAvoidsAmbiguousDateImportsFromBindings() throws Exception {
         ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
         Method buildStatementClassSource = ExecutableSnippetEngine.class.getDeclaredMethod(
@@ -826,6 +839,43 @@ class ExecutableSnippetEngineImportFilterTest {
             assertTrue(sanitized.contains("new org.evosuite.runtime.mock.java.io.MockFile("));
             assertTrue(sanitized.contains("new org.evosuite.runtime.mock.java.io.MockRandomAccessFile("));
             assertTrue(sanitized.contains("new org.evosuite.runtime.mock.java.io.MockFileOutputStream("));
+        } finally {
+            Properties.VIRTUAL_FS = previousVirtualFs;
+        }
+    }
+
+    @Test
+    void sanitizeForbiddenPackageUsageRewritesNioFilesStaticCallsWhenVfsEnabled() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method sanitize = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "sanitizeForbiddenPackageUsageInSource", String.class);
+        sanitize.setAccessible(true);
+
+        boolean previousVirtualFs = Properties.VIRTUAL_FS;
+        try {
+            Properties.VIRTUAL_FS = true;
+            String source = "class X {\n"
+                    + "  void m() throws Exception {\n"
+                    + "    java.nio.file.Path p = java.nio.file.Files.createTempDirectory(\"fdp-test\");\n"
+                    + "  }\n"
+                    + "}\n";
+            String sanitized = (String) sanitize.invoke(engine, source);
+
+            assertNotNull(sanitized);
+            boolean hasMockFiles;
+            try {
+                Class.forName("org.evosuite.runtime.mock.java.nio.file.MockFiles");
+                hasMockFiles = true;
+            } catch (Throwable ignored) {
+                hasMockFiles = false;
+            }
+
+            if (hasMockFiles) {
+                assertFalse(sanitized.contains("java.nio.file.Files.createTempDirectory("));
+                assertTrue(sanitized.contains("org.evosuite.runtime.mock.java.nio.file.MockFiles.createTempDirectory("));
+            } else {
+                assertTrue(sanitized.contains("java.nio.file.Files.createTempDirectory("));
+            }
         } finally {
             Properties.VIRTUAL_FS = previousVirtualFs;
         }

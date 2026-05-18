@@ -136,6 +136,35 @@ class StatementParserTest {
         }
     }
 
+    public static class BooleanArgumentTarget {
+        public void searchPoints(int x, int y, boolean useDistance) {
+        }
+    }
+
+    public static class ObjectGetTarget {
+        public Object get(int x, int y) {
+            return Integer.valueOf(0);
+        }
+    }
+
+    public static class RequestParamLike {
+        public String getValue(int index) {
+            return String.valueOf(index);
+        }
+    }
+
+    public static class RequestLike {
+        public RequestParamLike getParam(String name) {
+            return new RequestParamLike();
+        }
+    }
+
+    private static class PrivateCastNode {
+        Object getUserObject() {
+            return new Object();
+        }
+    }
+
     public static class ArrayEqualsInlineCallTarget {
         public String[] bar() {
             return new String[]{"a"};
@@ -1816,6 +1845,82 @@ class StatementParserTest {
             // ArrayList() + toString() + trim()
             assertTrue(tc.size() >= 3);
         }
+
+        @Test
+        void parseLlmChainedObjectNumericTerminalCallAddsWrapperCast() {
+            ParseResult r = parseLlm(
+                    "StatementParserTest.ObjectGetTarget image0 = new StatementParserTest.ObjectGetTarget();\n"
+                            + "image0.get(0, 0).intValue();",
+                    List.of("import org.evosuite.testparser.StatementParserTest;"));
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 2, "Expected declaration plus preserved invocation: " + tc.size());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("intValue()"),
+                    "Terminal numeric wrapper method should remain in emitted code:\n" + code);
+            assertTrue(code.contains("((Number)"),
+                    "Unresolved Object terminal call should be preserved with Number cast for compilability:\n" + code);
+        }
+
+        @Test
+        void parseLlmChainedUnknownTerminalMethodDoesNotLeakRawCall() {
+            ParseResult r = parseLlm(
+                    "StatementParserTest.ObjectGetTarget image0 = new StatementParserTest.ObjectGetTarget();\n"
+                            + "image0.get(0, 0).findDependingComponentByName(\"unknown\");",
+                    List.of("import org.evosuite.testparser.StatementParserTest;"));
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            assertTrue(tc.size() >= 1, "Expected at least constructor statement");
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("findDependingComponentByName("),
+                    "Unknown terminal method on chained call must not leak raw uncompilable source:\n" + code);
+        }
+
+        @Test
+        void parseLlmTopLevelAccessorChainWithIgnoredValueIsElided() {
+            ParseResult r = parseLlm(
+                    "StatementParserTest.ObjectGetTarget image0 = new StatementParserTest.ObjectGetTarget();\n"
+                            + "image0.get(0, 0).getClass().getName();",
+                    List.of("import org.evosuite.testparser.StatementParserTest;"));
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("getClass().getName()"),
+                    "Top-level getter-like chained call with ignored value should be elided:\n" + code);
+        }
+
+        @Test
+        void parseLlmTopLevelAccessorChainWithIncompatibleArgumentIsElided() {
+            ParseResult r = parseLlm(
+                    "StatementParserTest.RequestLike request0 = new StatementParserTest.RequestLike();\n"
+                            + "request0.getParam(\"a\").getValue(\"1\");",
+                    List.of("import org.evosuite.testparser.StatementParserTest;"));
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("getParam(\"a\").getValue(\"1\")"),
+                    "Incompatible-argument accessor chain should be elided:\n" + code);
+        }
     }
 
     // ========================================================================
@@ -2586,6 +2691,28 @@ class StatementParserTest {
         }
 
         @Test
+        void parseLlmAssertThrowsWithVariableQualifiedExceptionLiteralNormalizesType() {
+            ParseResult r = parseLlm(
+                    "java.util.ArrayList list0 = new java.util.ArrayList();\n"
+                            + "assertThrows(list0.IOException.class, () -> { throw new java.io.IOException(); });",
+                    List.of(
+                            "import java.util.ArrayList;",
+                            "import java.io.IOException;",
+                            "import static org.junit.jupiter.api.Assertions.*;"
+                    ));
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            assertEquals("java.io.IOException", r.getExpectedExceptionClass(),
+                    "Variable-qualified exception literal should be normalized to a resolvable type");
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("list0.IOException.class"),
+                    "Invalid variable-qualified exception literal should not leak into output:\n" + code);
+        }
+
+        @Test
         void parseLlmAssertThrowsWithMethodReferencePreservesBoundReceiverName() {
             ParseResult r = parseLlm(
                     "java.util.Stack ds = new java.util.Stack();\n"
@@ -2657,24 +2784,29 @@ class StatementParserTest {
         }
 
         @Test
-        void parseLlmAssertionWithInaccessibleProtectedFieldDoesNotPreserveRawAccess() {
+        void parseLlmSamePackageProtectedFieldAccessProducesFieldStatement() {
+            // When TARGET_CLASS is unset (permissive mode) or the declaring class is
+            // in the same package, protected fields are now accessible and should
+            // produce a real FieldStatement rather than a fallback.
+            // Note: use ProtectedFieldBase directly (which declares 'state'), not
+            // ProtectedFieldChild (getDeclaredField does not walk inheritance).
             ParseResult r = parseLlm(
-                    "StatementParserTest.ProtectedFieldChild lexer = new StatementParserTest.ProtectedFieldChild();\n"
-                            + "assertEquals(19, lexer.state);",
+                    "StatementParserTest.ProtectedFieldBase base = new StatementParserTest.ProtectedFieldBase();\n"
+                            + "int val = base.state;",
                     List.of(
-                            "import org.evosuite.testparser.StatementParserTest;",
-                            "import static org.junit.jupiter.api.Assertions.*;"
+                            "import org.evosuite.testparser.StatementParserTest;"
                     ));
             assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
 
-            TestCodeVisitor visitor = new TestCodeVisitor();
-            r.getTestCase().accept(visitor);
-            String code = visitor.getCode();
-
-            assertFalse(code.contains("lexer.state"),
-                    "Inaccessible protected field access must not be preserved in emitted assertion:\n" + code);
-            assertFalse(code.contains(".state"),
-                    "Protected field access should be replaced by fallback path in LLM mode:\n" + code);
+            TestCase tc = r.getTestCase();
+            boolean hasFieldStatement = false;
+            for (int i = 0; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof FieldStatement) {
+                    hasFieldStatement = true;
+                }
+            }
+            assertTrue(hasFieldStatement,
+                    "Same-package protected field should produce FieldStatement:\n" + tc.toCode());
         }
 
         @Test
@@ -2796,6 +2928,166 @@ class StatementParserTest {
         }
 
         @Test
+        void parseLlmAnonymousAbstractClassWithNoAbstractMethodsIsPreserved() {
+            // ClassLoader is abstract but declares no abstract methods, so an
+            // empty anonymous body produces a legal concrete subclass instance.
+            // This mirrors real-world SUTs (e.g. fi.vtt.noen.mfw.bundle.common.BasePlugin)
+            // that use abstract solely as an "extend me" marker.
+            ParseResult r = parseLlm(
+                    "ClassLoader loader0 = new ClassLoader() {};\n"
+                            + "String desc0 = loader0.toString();",
+                    List.of());
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            TestCase tc = r.getTestCase();
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+            assertTrue(code.contains("new java.lang.ClassLoader()") || code.contains("new ClassLoader()"),
+                    "Empty anonymous body of an abstract class with no abstract methods should be preserved:\n" + code);
+            assertFalse(code.contains("ClassLoader loader0 = null;"),
+                    "Anonymous body of an instantiable abstract class must not degrade to typed null:\n" + code);
+            assertTrue(tc.getStatement(0) instanceof UninterpretedStatement,
+                    "Preserved anonymous instantiation should be an UninterpretedStatement:\n" + code);
+            // After the UninterpretedStatement, the parser should resolve the
+            // typed call against the declared type (ClassLoader.toString()
+            // exists via Object) and emit a MethodStatement, not another
+            // UninterpretedStatement.
+            boolean foundMethodStatement = false;
+            for (int i = 1; i < tc.size(); i++) {
+                if (tc.getStatement(i) instanceof MethodStatement) {
+                    foundMethodStatement = true;
+                    break;
+                }
+            }
+            assertTrue(foundMethodStatement,
+                    "Subsequent typed call on the preserved variable should resolve to a MethodStatement:\n" + code);
+        }
+
+        @Test
+        void parseLlmAnonymousAbstractClassWithMissingAbstractOverrideStillFallsBack() {
+            // java.io.OutputStream is abstract with one abstract method (write(int)).
+            // An empty body cannot satisfy it, so the parser must still fall back
+            // to a typed null receiver.
+            ParseResult r = parseLlm(
+                    "java.io.OutputStream out0 = new java.io.OutputStream() {\n"
+                            + "};",
+                    List.of());
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+            assertTrue(code.contains("OutputStream out0 = null;"),
+                    "Anonymous body that fails to override an abstract method must still fall back to typed null:\n" + code);
+            assertFalse(code.contains("new java.io.OutputStream()"),
+                    "Non-instantiable anonymous body should not leak into emitted code:\n" + code);
+        }
+
+        @Test
+        void parseLlmAnonymousAbstractClassWithCompleteAbstractOverridesIsPreserved() {
+            // Override the only abstract method (write(int)) of OutputStream so
+            // the synthetic subclass is instantiable; the parser should preserve
+            // the anonymous body instead of nulling out the receiver.
+            ParseResult r = parseLlm(
+                    "java.io.OutputStream out0 = new java.io.OutputStream() {\n"
+                            + "    @Override public void write(int b) { }\n"
+                            + "};",
+                    List.of());
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            TestCase tc = r.getTestCase();
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+            assertTrue(code.contains("new java.io.OutputStream()"),
+                    "Anonymous body that overrides every abstract method should be preserved:\n" + code);
+            assertFalse(code.contains("OutputStream out0 = null;"),
+                    "Body with complete overrides must not degrade to typed null:\n" + code);
+            assertTrue(tc.getStatement(0) instanceof UninterpretedStatement,
+                    "Preserved override-anonymous should be an UninterpretedStatement");
+        }
+
+        @Test
+        void parseLlmAnonymousAbstractClassFallbackUsesCategorizedDiagnosticKind() {
+            ParseResult r = parseLlm(
+                    "java.io.OutputStream out0 = new java.io.OutputStream() {\n"
+                            + "};\n"
+                            + "out0.flush();",
+                    List.of());
+            // The fallback diagnostic must be tagged with the dedicated
+            // DiagnosticKind so the seeding pipeline (T1b/T1c) can demote
+            // these tests to parse-time-dropped instead of letting them run
+            // to NPE.
+            boolean hasFallbackKind = r.getDiagnostics().stream()
+                    .anyMatch(d -> d.getKind() == DiagnosticKind.ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK);
+            assertTrue(hasFallbackKind,
+                    "Typed-null fallback for non-instantiable anonymous body must surface ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK; got: "
+                            + r.getDiagnostics());
+        }
+
+        @Test
+        void parseLlmAnonymousAbstractFallbackForSutTypeIsAnError() {
+            String previousTargetClass = org.evosuite.Properties.TARGET_CLASS;
+            try {
+                // Simulate the BasePlugin failure mode: the LLM tried to
+                // instantiate the SUT (an abstract class with one unimplemented
+                // abstract method) via an empty anonymous body. The parser must
+                // upgrade the typed-null fallback to ERROR severity so the
+                // seeding pipeline routes the test to parse-time-dropped, with
+                // the categorized diagnostic the LLM can act on, instead of
+                // running to NPE.
+                org.evosuite.Properties.TARGET_CLASS = "java.io.OutputStream";
+                ParseResult r = parseLlm(
+                        "java.io.OutputStream out0 = new java.io.OutputStream() {\n"
+                                + "};\n"
+                                + "out0.flush();",
+                        List.of());
+
+                assertTrue(r.hasErrors(),
+                        "SUT-typed null fallback must produce an ERROR-severity diagnostic so the "
+                                + "seeding pipeline drops the test at parse time. Got: "
+                                + r.getDiagnostics());
+                boolean hasSutFallbackError = r.getDiagnostics().stream()
+                        .anyMatch(d -> d.getSeverity() == ParseDiagnostic.Severity.ERROR
+                                && d.getKind() == DiagnosticKind.ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK);
+                assertTrue(hasSutFallbackError,
+                        "Expected an ERROR with kind ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK; got: "
+                                + r.getDiagnostics());
+            } finally {
+                org.evosuite.Properties.TARGET_CLASS = previousTargetClass;
+            }
+        }
+
+        @Test
+        void parseLlmAnonymousAbstractFallbackForNonSutStaysWarning() {
+            String previousTargetClass = org.evosuite.Properties.TARGET_CLASS;
+            try {
+                // When the typed-null fallback applies to a non-SUT abstract
+                // type (e.g. a collaborator the LLM tried to mock), the
+                // fallback stays a warning — the test may still execute
+                // meaningfully if the receiver isn't dereferenced. Demoting to
+                // ERROR here would over-restrict the existing flow.
+                org.evosuite.Properties.TARGET_CLASS = "com.example.SomeOtherClass";
+                ParseResult r = parseLlm(
+                        "java.io.OutputStream out0 = new java.io.OutputStream() {\n"
+                                + "};",
+                        List.of());
+
+                assertFalse(r.hasErrors(),
+                        "Non-SUT typed-null fallback should remain a warning; got: " + r.getDiagnostics());
+                boolean hasFallbackWarning = r.getDiagnostics().stream()
+                        .anyMatch(d -> d.getSeverity() == ParseDiagnostic.Severity.WARNING
+                                && d.getKind() == DiagnosticKind.ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK);
+                assertTrue(hasFallbackWarning,
+                        "Non-SUT fallback should still surface ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK as warning; got: "
+                                + r.getDiagnostics());
+            } finally {
+                org.evosuite.Properties.TARGET_CLASS = previousTargetClass;
+            }
+        }
+
+        @Test
         void parseLlmAnonymousAbstractClassArgumentFallsBackToTypedNull() {
             ParseResult r = parseLlm(
                     "Object object0 = java.util.Objects.requireNonNull(new java.io.InputStream() {\n"
@@ -2838,6 +3130,31 @@ class StatementParserTest {
             assertFalse(code.contains("MockException"),
                     "Runtime mock subclass must not narrow the declared exception type in emitted code:\n" + code);
         }
+
+        @Test
+        void parseLlmAssertThrowsCoercesNumericBooleanMethodArgument() {
+            ParseResult r = parseLlm(
+                    "StatementParserTest.BooleanArgumentTarget target = new StatementParserTest.BooleanArgumentTarget();\n"
+                            + "Exception ex = assertThrows(Exception.class, () -> target.searchPoints(0, 0, 0));\n"
+                            + "assertNotNull(ex);",
+                    List.of(
+                            "import org.evosuite.testparser.StatementParserTest;",
+                            "import static org.junit.jupiter.api.Assertions.*;"
+                    ));
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            r.getTestCase().accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("searchPoints(0, 0, false)")
+                            || code.contains("searchPoints(int0, int1, false)")
+                            || code.contains("searchPoints(0, 0, boolean0)")
+                            || code.contains("searchPoints(int0, int1, boolean0)"),
+                    "Numeric literal 0 should be coerced to a boolean argument in emitted code:\n" + code);
+            assertFalse(code.contains("searchPoints(0, 0, 0)"),
+                    "Emitted code must not keep numeric literal for boolean parameter:\n" + code);
+        }
     }
 
     // ========================================================================
@@ -2868,6 +3185,19 @@ class StatementParserTest {
                     "import java.util.*;",
                     "import org.mockito.Mockito;",
                     "import org.evosuite.runtime.ViolatedAssumptionAnswer;"
+            ));
+        }
+
+        private ParseResult parseLlmWithChangeNodeLevelActionImports(String body) {
+            return parseLlm(body, List.of(
+                    "import accessories.plugins.ChangeNodeLevelAction;",
+                    "import freemind.controller.Controller;",
+                    "import freemind.modes.MindMapNode;",
+                    "import freemind.modes.mindmapmode.MindMapController;",
+                    "import java.util.ArrayList;",
+                    "import java.util.List;",
+                    "import org.evosuite.runtime.ViolatedAssumptionAnswer;",
+                    "import static org.mockito.Mockito.*;"
             ));
         }
 
@@ -3104,6 +3434,71 @@ class StatementParserTest {
         }
 
         @Test
+        void llmFullyQualifiedMockitoMockResolvesEvenWhenMockitoClassIsUnavailableToResolver() {
+            ClassLoader blockingMockitoLoader = new ClassLoader(getClass().getClassLoader()) {
+                @Override
+                protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+                    if (name.startsWith("org.mockito.")
+                            || name.startsWith("org.evosuite.shaded.org.mockito.")
+                            || name.startsWith("shaded.org.evosuite.shaded.org.mockito.")) {
+                        throw new ClassNotFoundException(name);
+                    }
+                    return super.loadClass(name, resolve);
+                }
+            };
+
+            TestParser localParser = new TestParser(blockingMockitoLoader);
+            localParser.setMarkParsedFromLlm(true);
+            ParseResult r = localParser.parseTestMethodBody(
+                    "Object mock0 = org.mockito.Mockito.mock(java.util.List.class);",
+                    List.of());
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(),
+                    "LLM Mockito normalization should not depend on resolver loading Mockito class: "
+                            + r.getDiagnostics());
+            assertTrue(tc.getStatement(0) instanceof FunctionalMockStatement,
+                    "Fully qualified Mockito.mock(...) should normalize to FunctionalMockStatement "
+                            + "even when Mockito class is unavailable to resolver:\n" + tc.toCode());
+            FunctionalMockStatement mockStmt = (FunctionalMockStatement) tc.getStatement(0);
+            assertEquals(List.class, mockStmt.getTargetClass());
+        }
+
+        @Test
+        void llmChangeNodeLevelActionResponseWithUnsupportedSetterProducesFallbackDiagnostic() {
+            ParseResult r = parseLlmWithChangeNodeLevelActionImports(
+                    "ChangeNodeLevelAction action = new ChangeNodeLevelAction();\n" +
+                            "Controller controller = mock(Controller.class, new ViolatedAssumptionAnswer());\n" +
+                            "MindMapController mmc = mock(MindMapController.class, new ViolatedAssumptionAnswer());\n" +
+                            "MindMapNode selected = mock(MindMapNode.class, new ViolatedAssumptionAnswer());\n" +
+                            "List<MindMapNode> selecteds = new ArrayList<MindMapNode>();\n" +
+                            "when(mmc.getSelected()).thenReturn(selected);\n" +
+                            "when(mmc.getSelecteds()).thenReturn(selecteds);\n" +
+                            "when(mmc.getController()).thenReturn(controller);\n" +
+                            "when(mmc.sortNodesByDepth(anyList())).thenAnswer(inv -> null);\n" +
+                            "when(selected.isRoot()).thenReturn(true);\n" +
+                            "action.setMindMapController(mmc);\n" +
+                            "action.invoke(selected);\n" +
+                            "verify(controller, atLeastOnce()).errorMessage(any(Object.class));");
+
+            assertFalse(r.hasErrors(), "LLM best-effort should keep the response parseable: " + r.getDiagnostics());
+            assertTrue(r.getDiagnostics().stream().anyMatch(d ->
+                            d.getMessage() != null
+                                    && d.getMessage().contains("No method named setMindMapController in ChangeNodeLevelAction")),
+                    "Expected unresolved-setter diagnostic for the raw LLM response: " + r.getDiagnostics());
+
+            TestCase tc = r.getTestCase();
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertFalse(code.contains("setMindMapController("),
+                    "Unsupported setter from the raw response should not survive rendering:\n" + code);
+            assertTrue(code.contains("__llm_fallback"),
+                    "Raw response should still surface the fallback shape that led to the bad generated test:\n" + code);
+        }
+
+        @Test
         void llmWhenThenThrowStubbingOnVoidMethodIsRewrittenToDoThrow() throws Exception {
             ParseResult r = parseLlmWithMockitoImports(
                     "Runnable runnable0 = mock(Runnable.class, new ViolatedAssumptionAnswer());\n" +
@@ -3116,6 +3511,44 @@ class StatementParserTest {
             assertFalse(code.contains("OngoingStubbing<?>"),
                     "Throw-stubbing should not be flattened into OngoingStubbing temporaries:\n" + code);
             executeAllStatements(tc);
+        }
+
+        @Test
+        void llmWhenThenThrowOnJdbcConnectionVoidMethodIsRewrittenToDoThrow() {
+            ParseResult r = parseLlmWithMockitoImports(
+                    "java.sql.Connection connection0 = mock(java.sql.Connection.class, new ViolatedAssumptionAnswer());\n"
+                            + "when(connection0.commit()).thenThrow(new java.sql.SQLException(\"commit fail\"));");
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            String code = tc.toCode();
+            assertTrue(code.contains("doThrow(") && code.contains(").when(connection0).commit();"),
+                    "Expected void JDBC commit stubbing to be rewritten to doThrow(...).when(...):\n" + code);
+            assertFalse(code.contains("when(connection0.commit()).thenThrow("),
+                    "Raw when(voidCall).thenThrow(...) must not leak into emitted code:\n" + code);
+        }
+
+        @Test
+        void llmWhenThenReturnWithCastWrappedReceiverAndUnknownMethodIsDropped() {
+            ParseResult r = parseLlmWithQualifiedMockitoImports(
+                    "Object object0 = mock(Object.class, new ViolatedAssumptionAnswer());\n" +
+                            "Object value0 = new Object();\n" +
+                            "Mockito.when(((StatementParserTest.PrivateCastNode) object0).getUserObject())"
+                            + ".thenReturn(value0);");
+            TestCase tc = r.getTestCase();
+
+            assertFalse(r.hasErrors(), "Errors: " + r.getDiagnostics());
+            String code = tc.toCode();
+
+            assertFalse(code.contains("Mockito.when("),
+                    "Invalid when/thenReturn stubbing should be consumed, not emitted raw:\n" + code);
+            assertFalse(code.contains("PrivateCastNode"),
+                    "Private cast type from invalid stubbing should not leak into output:\n" + code);
+            assertTrue(r.getDiagnostics().stream().anyMatch(d ->
+                            d.getSeverity() == ParseDiagnostic.Severity.WARNING
+                                    && d.getMessage() != null
+                                    && d.getMessage().contains("Ignored invalid Mockito when(...).thenReturn(...) stubbing")),
+                    "Expected warning for dropped invalid when/thenReturn stubbing: " + r.getDiagnostics());
         }
     }
 

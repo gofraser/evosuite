@@ -19,6 +19,8 @@
  */
 package org.evosuite.setup;
 
+import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.runtime.RuntimeSettings;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -29,10 +31,13 @@ import java.io.File;
 public class TestClusterGeneratorTest {
 
     private static final boolean defaultVFS = RuntimeSettings.useVFS;
+    private static final boolean defaultHandleStaticFields = Properties.HANDLE_STATIC_FIELDS;
 
     @AfterEach
     public void tearDown() {
         RuntimeSettings.useVFS = defaultVFS;
+        Properties.HANDLE_STATIC_FIELDS = defaultHandleStaticFields;
+        TestGenerationContext.getInstance().setAssertionGenerationContext(false);
     }
 
     @Test
@@ -62,5 +67,24 @@ public class TestClusterGeneratorTest {
     public void test_checkIfCanUse_allowsRegularJdkApis() {
         RuntimeSettings.useVFS = false;
         Assertions.assertTrue(TestClusterUtils.checkIfCanUse("java.util.ArrayList"));
+    }
+
+    @Test
+    public void test_shouldHandleStaticFields_skipsDuringAssertionGenerationReload() {
+        Properties.HANDLE_STATIC_FIELDS = true;
+        TestGenerationContext.getInstance().setAssertionGenerationContext(true);
+
+        Assertions.assertFalse(TestClusterGenerator.shouldHandleStaticFields());
+    }
+
+    @Test
+    public void test_shouldHandleStaticFields_respectsPropertyOutsideAssertionGenerationReload() {
+        TestGenerationContext.getInstance().setAssertionGenerationContext(false);
+
+        Properties.HANDLE_STATIC_FIELDS = true;
+        Assertions.assertTrue(TestClusterGenerator.shouldHandleStaticFields());
+
+        Properties.HANDLE_STATIC_FIELDS = false;
+        Assertions.assertFalse(TestClusterGenerator.shouldHandleStaticFields());
     }
 }

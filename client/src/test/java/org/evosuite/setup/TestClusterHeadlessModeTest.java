@@ -21,6 +21,7 @@ package org.evosuite.setup;
 
 import org.evosuite.Properties;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
@@ -158,5 +159,24 @@ public class TestClusterHeadlessModeTest {
         cluster.addTestCall(cutConstructor);
         Assertions.assertEquals(1, cluster.getNumTestCalls(),
                 "Non-JDK CUT constructor should not be filtered only due to declared HeadlessException");
+    }
+
+    @Test
+    public void testFallsBackToBaselineCallsWhenActiveCallsExhausted() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+        Properties.HEADLESS_MODE = false;
+
+        GenericConstructor objectConstructor =
+                new GenericConstructor(Object.class.getConstructor(), Object.class);
+        cluster.addTestCall(objectConstructor);
+        cluster.removeTestCall(objectConstructor);
+
+        Assertions.assertEquals(0, cluster.getNumTestCalls(),
+                "Active test calls should be empty after explicit removal");
+
+        GenericAccessibleObject<?> recovered = cluster.getRandomTestCall(new DefaultTestCase());
+        Assertions.assertNotNull(recovered,
+                "Cluster should recover from baseline discovered calls instead of returning null");
     }
 }

@@ -23,6 +23,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.execution.UnresolvedSymbolSnippetException;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.junit.jupiter.api.Test;
@@ -143,5 +144,33 @@ class UninterpretedStatementExecutionTest {
         Throwable thrown = statement.execute(scope, System.out);
 
         assertNull(thrown);
+    }
+
+    @Test
+    void execute_llmSnippetWithUnresolvedSymbolSanitizationReturnsDedicatedFailure() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        UninterpretedStatement statement = new UninterpretedStatement(
+                tc, "MissingType neverResolves = null;");
+        statement.setParsedFromLlm(true);
+
+        Scope scope = new Scope();
+        Throwable thrown = statement.execute(scope, System.out);
+
+        assertNotNull(thrown);
+        assertInstanceOf(UnresolvedSymbolSnippetException.class, thrown);
+        assertTrue(thrown.getMessage().contains("cannot find symbol"));
+    }
+
+    @Test
+    void execute_nonLlmSnippetKeepsLegacyBehaviorAfterUnresolvedSymbolSanitization() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        UninterpretedStatement statement = new UninterpretedStatement(
+                tc, "MissingType neverResolves = null;");
+        statement.setParsedFromLlm(false);
+
+        Scope scope = new Scope();
+        Throwable thrown = statement.execute(scope, System.out);
+
+        assertNull(thrown, "Non-LLM snippets should keep historical permissive behavior");
     }
 }
