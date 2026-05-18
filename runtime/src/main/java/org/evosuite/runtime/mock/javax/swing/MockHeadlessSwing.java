@@ -106,7 +106,22 @@ public final class MockHeadlessSwing {
     }
 
     private static boolean isMockingInHeadlessEnvironment() {
-        return MockFramework.isEnabled() && isHeadlessSafe();
+        if (!MockFramework.isEnabled()) {
+            return false;
+        }
+        if (isHeadlessSafe()) {
+            return true;
+        }
+        // EvoSuite temporarily flips headless to false for two scopes that are
+        // still part of mocked test execution: per-constructor GUI scopes
+        // (ConstructorStatement) and the whole JUnit recheck run. In both
+        // windows the SUT is running under mocking, so we must keep returning
+        // safe stubs from these replacements. Falling through to the real
+        // JDK GraphicsEnvironment/Toolkit in this state would, on JDK 17.0.10+,
+        // trip the "Local GraphicsEnvironment must not be null" AWTError when
+        // the cached LocalGE.INSTANCE swap did not take, or expose uninstrumented
+        // java.awt.* internals (called from the SUT) to a misconfigured GE.
+        return GuiSupport.isHeadlessTemporarilyDisabledForMockConstruction();
     }
 
     private static boolean isGuiMockingEnabled() {

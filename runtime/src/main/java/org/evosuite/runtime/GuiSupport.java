@@ -76,6 +76,10 @@ public class GuiSupport {
     // One-shot guard for preloadHeadlessGuardedAwtClasses().
     private static final AtomicBoolean awtClassesPreloaded = new AtomicBoolean(false);
 
+    // Cached result of probeNativeAwtAvailability(). null = not yet probed.
+    // See canFlipHeadlessSafely() for semantics.
+    private static volatile Boolean canFlipHeadless;
+
     // On macOS the real GraphicsEnvironment (CGraphicsEnvironment) and Toolkit
     // (LWCToolkit) call into AppKit, which aborts the JVM (SIGABRT) when touched
     // off the main thread.  The EvoSuite test-execution thread is never the
@@ -248,12 +252,59 @@ public class GuiSupport {
          * Force the loading of fonts.
          * This is needed because font loading in the JVM can take several seconds (done only once),
          * and that can mess up the JUnit test execution timeouts...
+         *
+         * IMPORTANT: this is a latency-hiding optimization, NOT a correctness
+         * requirement. Skip it entirely if AWT is in a state where the JButton
+         * constructor chain would fault, because the JButton path transitively
+         * pulls in UIManager / LookAndFeel / Color / Font initializers, and a
+         * fault partway through any of those leaves the class in permanent
+         * <init-failed> state (JLS 12.4.2). Subsequent SUT class loads that
+         * even transitively reference the failed class — common targets are
+         * log4j (which references Swing chainsaw classes from its config
+         * paths), and XML libraries like XmlBeans that initialize logging in
+         * their own <clinit> — then blow up with NoClassDefFoundError for the
+         * rest of the JVM, even though they have nothing to do with GUI.
+         *
+         * The exact trigger we have observed on JDK 17.0.10+ (with the
+         * JDK-8316324 null-check backport) is the cached
+         * java.awt.GraphicsEnvironment$LocalGE.INSTANCE being null at the
+         * point AWT internals read it. Our Unsafe-based swap in
+         * disableHeadlessForMockConstruction()/ensureGraphicsEnvironmentAvailable()
+         * does not always persist on every JDK build (the catch in setStaticField
+         * is silent at debug level), and there is no observable signal that the
+         * write took. So we don't trust ensureGraphicsEnvironmentAvailable() —
+         * we probe directly and bail out if AWT is unsafe.
          */
+        if (!isGraphicsEnvironmentUsable()) {
+            logger.debug("Skipping Swing font pre-initialization because the cached "
+                    + "GraphicsEnvironment is not usable; first SUT use of fonts will "
+                    + "pay the one-time JDK font-loading cost.");
+            return;
+        }
+
         try {
             (new javax.swing.JButton()).getFontMetrics(new java.awt.Font(null));
         } catch (Throwable t) {
             logger.warn("Failed to eagerly initialize Swing fonts; continuing without GUI pre-initialization: {}",
                     t.getMessage());
+            if (logger.isDebugEnabled()) {
+                logger.debug("Swing font pre-initialization failure trace", t);
+            }
+        }
+    }
+
+    /**
+     * Probes whether {@link GraphicsEnvironment#getLocalGraphicsEnvironment()}
+     * currently returns a non-null environment without throwing. Used by
+     * {@link #initialize()} to decide whether it is safe to trigger Swing
+     * class initialization — see comment there. Package-private so the unit
+     * test can drive this branch deterministically.
+     */
+    static boolean isGraphicsEnvironmentUsable() {
+        try {
+            return GraphicsEnvironment.getLocalGraphicsEnvironment() != null;
+        } catch (Throwable t) {
+            return false;
         }
     }
 
@@ -349,6 +400,21 @@ public class GuiSupport {
         mockConstructionNestingDepth++;
         if (mockConstructionNestingDepth > 1) {
             // Already disabled by an outer caller — nothing to do.
+            return;
+        }
+        if (!canFlipHeadlessSafely()) {
+            // The native AWT toolkit library (libawt_xawt on Linux/X11) cannot
+            // be bound on this JVM. Flipping headless=false would then cause
+            // sun.awt.X11.XWindow.<clinit> to call native initIDs() with no
+            // backing symbol, failing with UnsatisfiedLinkError and leaving
+            // XFramePeer in <initializer-failed> state — which cascades into
+            // NoClassDefFoundError for every subsequent test in the suite.
+            //
+            // Stay headless instead: the mock super-constructor will throw
+            // HeadlessException, which is caught as a per-test failure with
+            // no class-init poisoning. JUnitAnalyzer classifies that as a
+            // recheck failure for the single GUI test, leaving every other
+            // test in the run intact.
             return;
         }
         // Force the <clinit> of Insets/Rectangle/Cursor/... to run while
@@ -462,6 +528,28 @@ public class GuiSupport {
             }
         }
         setHeadless(true);
+    }
+
+    /**
+     * Reports whether EvoSuite has temporarily flipped the JVM out of headless
+     * mode via {@link #disableHeadlessForMockConstruction()} and not yet paired
+     * it with a matching restore.
+     *
+     * <p>Two scopes use this window: (a) per-constructor disable around GUI
+     * {@code ConstructorStatement}s during search, and (b) the whole JUnit
+     * recheck run (see {@code JUnitAnalyzer.runJUnitOnCurrentProcess}).
+     *
+     * <p>Mock replacements treat this state the same as headless because the
+     * SUT is still executing under EvoSuite mocking — the headless flag was
+     * flipped only to let the JDK-side {@code HeadlessException} check pass.
+     * Falling through to the real {@code GraphicsEnvironment.getLocalGraphicsEnvironment()}
+     * during this window can hit JDK-8316324's "Local GraphicsEnvironment must
+     * not be null" AWTError on JDK 17.0.10+ if the cached singleton swap did
+     * not persist (or in races with JDK code that reads {@code LocalGE.INSTANCE}
+     * directly without going through any instrumentation).
+     */
+    public static boolean isHeadlessTemporarilyDisabledForMockConstruction() {
+        return mockConstructionNestingDepth > 0;
     }
 
     /**
@@ -640,6 +728,70 @@ public class GuiSupport {
         return StubGraphicsConfiguration.INSTANCE;
     }
 
+    /**
+     * Returns whether the JVM can safely flip out of headless mode without
+     * triggering an {@code UnsatisfiedLinkError} on the X11 peer init path.
+     *
+     * <p>Probes lazily on first call by attempting to bind the platform AWT
+     * toolkit native library (e.g. {@code libawt_xawt} on Linux/X11); caches
+     * the result for the lifetime of the JVM. {@link System#loadLibrary} is
+     * idempotent — calling it on a library that was already loaded by
+     * {@code XToolkit.<clinit>} (when the JVM started non-headless) returns
+     * silently.
+     *
+     * <p>On Windows, the AWT natives live in {@code awt.dll} itself and are
+     * loaded before any AWT class is reachable, so this trivially returns
+     * {@code true}. On macOS, {@link #disableHeadlessForMockConstruction()}
+     * short-circuits via {@link #IS_MACOS} before consulting this probe, so
+     * its return value there does not matter. On Linux/Unix the probe is the
+     * only signal available — there is no public API to ask whether the
+     * X11 toolkit can be initialized.
+     *
+     * <p>Package-private so unit tests can read the probe's verdict.
+     */
+    static boolean canFlipHeadlessSafely() {
+        Boolean cached = canFlipHeadless;
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (GuiSupport.class) {
+            cached = canFlipHeadless;
+            if (cached != null) {
+                return cached;
+            }
+            boolean result = probeNativeAwtAvailability();
+            canFlipHeadless = result;
+            return result;
+        }
+    }
+
+    private static boolean probeNativeAwtAvailability() {
+        String os = java.lang.System.getProperty("os.name", "").toLowerCase(java.util.Locale.ROOT);
+        if (os.contains("win")) {
+            // Native AWT methods live in awt.dll, already loaded transitively
+            // when any AWT class is reachable.
+            return true;
+        }
+        if (os.contains("mac")) {
+            // Reachable only if a caller bypasses IS_MACOS — which currently
+            // no caller does. Return false so any such caller stays headless
+            // rather than touching AppKit off the main thread.
+            return false;
+        }
+        // Linux / Unix / unknown: assume X11 toolkit and try to bind it.
+        try {
+            java.lang.System.loadLibrary("awt_xawt");
+            return true;
+        } catch (Throwable t) {
+            logger.warn("Cannot bind native AWT toolkit library 'awt_xawt' on this JVM ({}). "
+                    + "EvoSuite will leave headless mode on during GUI test execution; SUTs "
+                    + "extending Frame/JFrame/Window will throw HeadlessException instead of "
+                    + "cascading into UnsatisfiedLinkError that would poison sun.awt.X11.XFramePeer "
+                    + "for the rest of the run.", t.toString());
+            return false;
+        }
+    }
+
     private static boolean isHeadlessSafely() {
         try {
             return GraphicsEnvironment.isHeadless();
@@ -662,6 +814,20 @@ public class GuiSupport {
             Object current = geInstanceField.get(null);
             if (current == null) {
                 setStaticField(geInstanceField, new StubGraphicsEnvironment(null));
+                // Verify the Unsafe write actually took. On some JDK 17 update
+                // builds the static-final write through sun.misc.Unsafe.putObject
+                // is silently rejected, leaving INSTANCE null. If that happens,
+                // log loudly (not at debug) so the next run has a signal in the
+                // log instead of just the downstream "must not be null" AWTError
+                // and the unrelated NoClassDefFoundError cascade it produces in
+                // library <clinit>s (e.g. XmlBeans, log4j-touched paths).
+                if (geInstanceField.get(null) == null) {
+                    logger.warn("Unsafe write to java.awt.GraphicsEnvironment$LocalGE.INSTANCE "
+                            + "did not persist on this JDK build (java.version={}); subsequent AWT calls "
+                            + "may throw AWTError(\"Local GraphicsEnvironment must not be null\") and "
+                            + "leave AWT-touching library class initializers in <failed> state.",
+                            java.lang.System.getProperty("java.version"));
+                }
             }
         } catch (Throwable t) {
             logger.debug("Could not ensure cached GraphicsEnvironment singleton: {}", t.getMessage());

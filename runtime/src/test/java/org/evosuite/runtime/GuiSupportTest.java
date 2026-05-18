@@ -173,17 +173,23 @@ public class GuiSupportTest {
         });
     }
 
+    /**
+     * On macOS, {@link GuiSupport#disableHeadlessForMockConstruction()} is a
+     * deliberate no-op because touching the real {@code CGraphicsEnvironment}
+     * or {@code LWCToolkit} from EvoSuite's worker thread aborts the JVM
+     * through AppKit. As a consequence, mock GUI constructors keep seeing
+     * {@code headless=true} and the JDK super-constructor throws
+     * {@link HeadlessException} — which the SUT treats as a normal test
+     * exception rather than crashing the process. This test pins that
+     * intentional behavior so a future refactor cannot regress it silently.
+     */
     @Test
-    public void testMockJFrameConstructionInHeadlessModeOnMacOs() {
+    public void testMockJFrameConstructionInHeadlessModeOnMacOsThrowsHeadlessException() {
         Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
         Assumptions.assumeTrue(GuiSupport.canForceHeadlessForTests());
         Assumptions.assumeTrue(GuiSupport.isMacOsForTests());
 
-        Assertions.assertDoesNotThrow(() -> {
-            JFrame frame = new MockJFrame("x");
-            Assertions.assertNotNull(frame.getContentPane());
-            frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        });
+        Assertions.assertThrows(HeadlessException.class, () -> new MockJFrame("x"));
     }
 
     @Test
@@ -197,6 +203,69 @@ public class GuiSupportTest {
 
         GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
         Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+    }
+
+    /**
+     * Regression for class-init cascade observed on JDK 17.0.10+ (with the
+     * JDK-8316324 null-check backport): when the cached {@code LocalGE.INSTANCE}
+     * is null during JUnit recheck, the {@code (new JButton()).getFontMetrics(...)}
+     * eager-preload in {@link GuiSupport#initialize()} faulted partway through
+     * Swing's UIManager/Font chain, leaving those classes in permanent
+     * <init-failed> state and propagating {@code NoClassDefFoundError} to
+     * unrelated SUT classes (e.g. XmlBeans via log4j) for the rest of the JVM.
+     * The fix gates the JButton preload on
+     * {@link GuiSupport#isGraphicsEnvironmentUsable()}; this test pins both
+     * sides of that gate: it returns false when {@code LocalGE.INSTANCE} is
+     * null, and {@link GuiSupport#initialize()} stays silent in that state
+     * rather than propagating the AWT error or triggering Swing init.
+     */
+    @Test
+    public void testInitializeSkipsFontPreloadWhenGraphicsEnvironmentIsNull() throws Exception {
+        Assumptions.assumeTrue(GuiSupport.canSwapGeForTests());
+
+        Field geFieldHolder = GuiSupport.class.getDeclaredField("geInstanceField");
+        geFieldHolder.setAccessible(true);
+        Field geField = (Field) geFieldHolder.get(null);
+        Assertions.assertNotNull(geField);
+
+        Method setStaticField = GuiSupport.class.getDeclaredMethod("setStaticField", Field.class, Object.class);
+        setStaticField.setAccessible(true);
+
+        Object original = geField.get(null);
+        try {
+            setStaticField.invoke(null, geField, null);
+            // With INSTANCE == null the usability probe must report unusable…
+            Assertions.assertFalse(GuiSupport.isGraphicsEnvironmentUsable());
+            // …and initialize() must not propagate the resulting AWTError.
+            // Idempotent: calling twice is also safe.
+            Assertions.assertDoesNotThrow(GuiSupport::initialize);
+            Assertions.assertDoesNotThrow(GuiSupport::initialize);
+        } finally {
+            setStaticField.invoke(null, geField, original);
+        }
+    }
+
+    @Test
+    public void testIsHeadlessTemporarilyDisabledTracksDisableRestorePairs() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        Assumptions.assumeTrue(GuiSupport.canForceHeadlessForTests());
+        Assumptions.assumeFalse(GuiSupport.isMacOsForTests());
+
+        Assertions.assertFalse(GuiSupport.isHeadlessTemporarilyDisabledForMockConstruction());
+        GuiSupport.disableHeadlessForMockConstruction();
+        try {
+            Assertions.assertTrue(GuiSupport.isHeadlessTemporarilyDisabledForMockConstruction());
+            GuiSupport.disableHeadlessForMockConstruction();
+            try {
+                Assertions.assertTrue(GuiSupport.isHeadlessTemporarilyDisabledForMockConstruction());
+            } finally {
+                GuiSupport.restoreHeadlessAfterMockConstruction();
+            }
+            Assertions.assertTrue(GuiSupport.isHeadlessTemporarilyDisabledForMockConstruction());
+        } finally {
+            GuiSupport.restoreHeadlessAfterMockConstruction();
+        }
+        Assertions.assertFalse(GuiSupport.isHeadlessTemporarilyDisabledForMockConstruction());
     }
 
     @Test

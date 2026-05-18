@@ -359,6 +359,9 @@ public class TestGeneration {
             cmdLine.add("-Dcom.sun.management.jmxremote.ssl=false");
         }
         cmdLine.add("-XX:MaxJavaStackTraceDepth=1000000");
+        // Without this, HotSpot strips stack traces from repeatedly-thrown exceptions, which
+        // makes diagnosing instrumentation failures essentially impossible.
+        cmdLine.add("-XX:-OmitStackTraceInFastThrow");
         cmdLine.add("-XX:+StartAttachListener");
 
         ExecutionModeUtils.addCommonModuleOpens(cmdLine);

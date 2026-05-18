@@ -408,6 +408,17 @@ public class MSecurityManagerTest {
     }
 
     @Test
+    public void testAllowsLoadLibraryAwtXawtPermission() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                System.getSecurityManager().checkPermission(new RuntimePermission("loadLibrary.awt_xawt"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
+    @Test
     public void testDeniesByteBuddyAgentFilePermissionForNormalClasses() throws Exception {
         Future<?> future = executor.submit(new Runnable() {
             @Override
@@ -454,7 +465,7 @@ public class MSecurityManagerTest {
                 // Test unix-like java path
                 String javaUnix = "/opt/java/openjdk/bin/java";
                 System.getSecurityManager().checkPermission(new java.io.FilePermission(javaUnix, "execute"));
-                
+
                 // Test windows-like java path
                 String javaWin = "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe";
                 System.getSecurityManager().checkPermission(new java.io.FilePermission(javaWin, "execute"));
@@ -463,4 +474,53 @@ public class MSecurityManagerTest {
         future.get(1000, TimeUnit.MILLISECONDS);
     }
 
+    /**
+     * Regression: the loopback identification in {@code checkSocketPermission}
+     * used {@code InetAddress.getLoopbackAddress().toString()} (which renders as
+     * {@code "localhost/127.0.0.1"}), so it never matched a real
+     * {@link java.net.SocketPermission} name like {@code "127.0.0.1"} or
+     * {@code "127.0.0.1:46454"}. That silently denied both pure {@code resolve}
+     * requests for localhost and the compound {@code "accept,resolve"} that
+     * EvoSuite's own RMI server fires when the master invokes a client method.
+     */
+    @Test
+    public void testAllowsLocalhostSocketResolveAndAccept() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                // Resolve-only by IP.
+                System.getSecurityManager().checkPermission(
+                        new java.net.SocketPermission("127.0.0.1", "resolve"));
+                // Accept+resolve as fired by ServerSocket.accept() for a
+                // master->client RMI connection on a random ephemeral port.
+                System.getSecurityManager().checkPermission(
+                        new java.net.SocketPermission("127.0.0.1:46454", "accept,resolve"));
+                // Plain "localhost" hostname form.
+                System.getSecurityManager().checkPermission(
+                        new java.net.SocketPermission("localhost", "resolve"));
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Network access to non-loopback addresses must still be denied: the
+     * loopback fix above must not weaken the sandbox for real hosts.
+     */
+    @Test
+    public void testDeniesNonLocalhostSocketConnect() throws Exception {
+        Future<?> future = executor.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    System.getSecurityManager().checkPermission(
+                            new java.net.SocketPermission("8.8.8.8:53", "connect,resolve"));
+                    Assertions.fail("Expected SecurityException for non-loopback connect");
+                } catch (SecurityException expected) {
+                    // ok
+                }
+            }
+        });
+        future.get(1000, TimeUnit.MILLISECONDS);
+    }
 }

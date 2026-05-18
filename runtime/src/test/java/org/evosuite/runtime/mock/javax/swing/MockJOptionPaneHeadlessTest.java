@@ -44,29 +44,57 @@ public class MockJOptionPaneHeadlessTest {
         JOptionPaneInputs.resetSingleton();
     }
 
+    // MockJOptionPane intentionally consumes queued inputs even in headless
+    // mode so EvoSuite's synthetic user input drives the SUT for coverage and
+    // fitness (see comments in MockJOptionPane.getStringInput /
+    // getOptionSelectionInt). These tests pin both the "queue has an input"
+    // and "queue is empty" behaviors instead of the older "always return
+    // default in headless" assumption.
+
     @Test
-    public void headlessConfirmDialogReturnsClosedOption() {
+    public void headlessConfirmDialogReturnsClosedOptionWhenNoMatchingInputQueued() {
         Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        // showConfirmDialog(parent, msg) routes through YES_NO_CANCEL; a
+        // queued YES_NO selection does not satisfy that queue, so the
+        // fallback CLOSED_OPTION is returned.
         JOptionPaneInputs.enqueueYesNoSelection(JOptionPane.YES_OPTION);
         int result = MockJOptionPane.showConfirmDialog(null, "msg");
         Assertions.assertEquals(JOptionPane.CLOSED_OPTION, result);
     }
 
     @Test
-    public void headlessInputDialogReturnsNull() {
+    public void headlessConfirmDialogReturnsQueuedSelection() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        JOptionPaneInputs.enqueueYesNoCancelSelection(JOptionPane.NO_OPTION);
+        int result = MockJOptionPane.showConfirmDialog(null, "msg");
+        Assertions.assertEquals(JOptionPane.NO_OPTION, result);
+    }
+
+    @Test
+    public void headlessInputDialogReturnsQueuedStringThenNull() {
         Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
         JOptionPaneInputs.enqueueInputString("queued");
+        // First call dequeues the synthetic user input.
+        Assertions.assertEquals("queued", MockJOptionPane.showInputDialog("msg"));
+        // Queue is now empty; subsequent calls fall back to null.
         Assertions.assertNull(MockJOptionPane.showInputDialog("msg"));
     }
 
     @Test
-    public void headlessOptionDialogReturnsClosedOrNull() {
+    public void headlessOptionDialogReturnsQueuedSelectionThenClosed() {
         Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
         JOptionPaneInputs.enqueueOptionSelection(0);
-        int result = MockJOptionPane.showOptionDialog(null, "m", "t",
+        int firstResult = MockJOptionPane.showOptionDialog(null, "m", "t",
                 JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null,
                 new Object[]{"a", "b"}, "a");
-        Assertions.assertEquals(JOptionPane.CLOSED_OPTION, result);
+        Assertions.assertEquals(0, firstResult);
+
+        // No further option is queued, so both the int- and Object-returning
+        // variants now fall back to their "no input" defaults.
+        int secondResult = MockJOptionPane.showOptionDialog(null, "m", "t",
+                JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null,
+                new Object[]{"a", "b"}, "a");
+        Assertions.assertEquals(JOptionPane.CLOSED_OPTION, secondResult);
 
         Object selected = MockJOptionPane.showInputDialog(null, "m", "t",
                 JOptionPane.QUESTION_MESSAGE, null, new Object[]{"x", "y"}, "x");

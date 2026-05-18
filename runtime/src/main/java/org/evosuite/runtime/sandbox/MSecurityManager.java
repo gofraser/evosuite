@@ -889,8 +889,62 @@ public class MSecurityManager extends SecurityManager {
 
                 Furthermore there are some issues with statistics handling if this is not enabled
              */
-        return action.contains("resolve") && (name.equals(LOCALHOST_NAME)
-                || name.contains(InetAddress.getLoopbackAddress().toString()));
+        return action.contains("resolve") && isLocalhostSocketName(name);
+    }
+
+    /**
+     * Returns true if the given {@link SocketPermission} name refers to the
+     * local host or the loopback address.
+     *
+     * <p>{@link SocketPermission} names look like {@code "127.0.0.1"},
+     * {@code "127.0.0.1:46454"}, {@code "[::1]:8080"}, or the local hostname.
+     * The previous check used {@code InetAddress.getLoopbackAddress().toString()},
+     * which returns {@code "localhost/127.0.0.1"} (with the {@code hostname/ip}
+     * prefix) and therefore never matched a real {@code SocketPermission} name —
+     * silently denying both legitimate localhost {@code resolve} requests and
+     * the compound {@code "accept,resolve"} that EvoSuite's own RMI server fires
+     * when the master invokes a method on the client (port-pair logged as
+     * {@code accept,resolve 127.0.0.1:&lt;ephemeral&gt;} in test-execution
+     * permission summaries).
+     */
+    private static boolean isLocalhostSocketName(String name) {
+        if (name == null || name.isEmpty()) {
+            return false;
+        }
+        if (LOCALHOST_NAME != null && name.equals(LOCALHOST_NAME)) {
+            return true;
+        }
+        // Strip optional port (or IPv6 brackets+port) so we can compare to the
+        // bare loopback host. SocketPermission names use either "host:port" for
+        // hostnames/IPv4 or "[ipv6]:port" / "ipv6" for IPv6.
+        String host = name;
+        if (host.startsWith("[")) {
+            int closing = host.indexOf(']');
+            if (closing > 0) {
+                host = host.substring(1, closing);
+            }
+        } else {
+            int colon = host.indexOf(':');
+            if (colon >= 0 && host.indexOf(':', colon + 1) < 0) {
+                // Single colon → IPv4 host:port; strip port.
+                host = host.substring(0, colon);
+            }
+        }
+        if (LOCALHOST_NAME != null && host.equals(LOCALHOST_NAME)) {
+            return true;
+        }
+        if ("localhost".equalsIgnoreCase(host)) {
+            return true;
+        }
+        try {
+            String loopbackIp = InetAddress.getLoopbackAddress().getHostAddress();
+            if (loopbackIp != null && host.equals(loopbackIp)) {
+                return true;
+            }
+        } catch (Throwable ignored) {
+            // ignored: fall through to literal IPv4/IPv6 checks
+        }
+        return host.equals("127.0.0.1") || host.equals("::1");
     }
 
     protected boolean checkAuthPermission(AuthPermission perm) {
@@ -1267,7 +1321,9 @@ public class MSecurityManager extends SecurityManager {
                     || library.equals("management") || library.equals("kcms")
                     || library.equals("dcpr") || library.equals("mlib_image")
                     || library.startsWith("jaybird") || library.equals("instrument")
-                    || library.startsWith("osxui") || library.contains("libawt_lwawt")
+                    || library.startsWith("osxui") || library.equals("awt_lwawt")
+                    || library.equals("awt_headless") || library.equals("awt_xawt")
+                    || library.contains("libawt_lwawt")
                     || library.contains("libawt_headless") || library.contains("libawt_xawt")
                     || library.contains("javalcms") || library.contains("javajpeg")
                     || library.contains("J3D") || library.contains("joal")

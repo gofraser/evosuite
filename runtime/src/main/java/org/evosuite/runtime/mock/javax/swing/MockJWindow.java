@@ -37,9 +37,18 @@ public class MockJWindow extends JWindow implements OverrideMock {
 
     private static final long serialVersionUID = -6548467457949168438L;
 
+    private static Frame prepareOwnerFrame() {
+        // Avoid JWindow's null-owner fallback path through
+        // SwingUtilities.getSharedOwnerFrame(), which creates a plain JDK
+        // SharedOwnerFrame (not our mock) and can fail headless checks before
+        // we reach any overridden behavior.
+        GuiSupport.disableHeadlessForMockConstruction();
+        return new MockJFrame();
+    }
+
     private static Window prepareOwner(Window owner) {
         GuiSupport.disableHeadlessForMockConstruction();
-        return owner;
+        return owner != null ? owner : prepareOwnerFrame();
     }
 
     private static GraphicsConfiguration safeGc(GraphicsConfiguration gc) {
@@ -48,12 +57,12 @@ public class MockJWindow extends JWindow implements OverrideMock {
     }
 
     public MockJWindow() throws HeadlessException {
-        super(prepareOwner((Window) null), GuiSupport.getDefaultOrStubGraphicsConfiguration());
+        super(prepareOwnerFrame(), GuiSupport.getDefaultOrStubGraphicsConfiguration());
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
     public MockJWindow(GraphicsConfiguration gc) {
-        super(prepareOwner((Window) null), safeGc(gc));
+        super(prepareOwnerFrame(), safeGc(gc));
         GuiSupport.restoreHeadlessAfterMockConstruction();
     }
 
@@ -98,4 +107,3 @@ public class MockJWindow extends JWindow implements OverrideMock {
         // no-op
     }
 }
-

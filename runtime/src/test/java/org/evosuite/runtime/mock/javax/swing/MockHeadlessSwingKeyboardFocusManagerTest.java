@@ -19,6 +19,7 @@
  */
 package org.evosuite.runtime.mock.javax.swing;
 
+import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.mock.MockFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -146,6 +147,39 @@ public class MockHeadlessSwingKeyboardFocusManagerTest {
         Assertions.assertNotNull(MockHeadlessSwing.replacement_getLocalGraphicsEnvironment());
         Assertions.assertNotNull(
                 MockHeadlessSwing.replacement_getLocalGraphicsEnvironment().getDefaultScreenDevice());
+    }
+
+    /**
+     * Reproduces the JUnit-recheck scenario that produced
+     * {@code AWTError: Local GraphicsEnvironment must not be null} on JDK 17.0.10+:
+     * EvoSuite has flipped headless to false via
+     * {@link GuiSupport#disableHeadlessForMockConstruction()} for the duration of
+     * the recheck. The instrumented SUT call to
+     * {@code GraphicsEnvironment.getLocalGraphicsEnvironment()} must still return
+     * the safe stub instead of falling through to the JDK call, which can hit
+     * a null cached singleton.
+     */
+    @Test
+    public void graphicsEnvironmentReplacementStaysSafeDuringMockConstructionDisable() {
+        Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
+        // macOS: disableHeadlessForMockConstruction is a deliberate no-op, so
+        // headless stays true and this scenario does not apply.
+        Assumptions.assumeFalse(System.getProperty("os.name", "").toLowerCase().contains("mac"));
+
+        GuiSupport.disableHeadlessForMockConstruction();
+        try {
+            // Sanity: EvoSuite has temporarily disabled headless. The
+            // replacement must still hand back the EvoSuite-controlled stub
+            // and not fall through to the real JDK GraphicsEnvironment.
+            Assumptions.assumeFalse(GraphicsEnvironment.isHeadless());
+            Assertions.assertTrue(GuiSupport.isHeadlessTemporarilyDisabledForMockConstruction());
+            GraphicsEnvironment ge = MockHeadlessSwing.replacement_getLocalGraphicsEnvironment();
+            Assertions.assertNotNull(ge);
+            Assertions.assertNotNull(ge.getDefaultScreenDevice());
+            Assertions.assertNotNull(ge.getDefaultScreenDevice().getDefaultConfiguration());
+        } finally {
+            GuiSupport.restoreHeadlessAfterMockConstruction();
+        }
     }
 
     @Test
