@@ -172,6 +172,12 @@ public class ClientProcess {
         RuntimeSettings.applyUIDTransformation = true;
         RuntimeSettings.isRunningASystemTest = Properties.IS_RUNNING_A_SYSTEM_TEST;
 
+        // Scale the sandbox-lock acquire timeout off the test timeout: any
+        // legitimate holder should release within a few test cycles, so 8x
+        // the per-test timeout is generous but still bounded.
+        org.evosuite.runtime.sandbox.MSecurityManager.setSandboxLockAcquireTimeoutMs(
+                Math.max(60_000L, 8L * Properties.TIMEOUT));
+
         // Set target class prefix so the instrumentation exclusion list can
         // skip problematic libraries (e.g., dom4j) that cause classloader
         // conflicts, while still allowing instrumentation of the CUT itself.

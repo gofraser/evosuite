@@ -50,6 +50,8 @@ import java.security.*;
 import java.sql.SQLPermission;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.FileHandler;
 import java.util.logging.LoggingPermission;
 
@@ -149,6 +151,39 @@ public class MSecurityManager extends SecurityManager {
      * Whether EvoSuite is executing a test case.
      */
     private volatile boolean executingTestCase;
+
+    /**
+     * Serializes the test-case execution window across all threads. Multiple
+     * threads (e.g. the main GA thread and the LLM async producer thread) can
+     * legitimately reach {@link #goingToExecuteTestCase()} via different code
+     * paths (TestCaseExecutor, ClassReInitializeExecutor, CoverageAnalysis…),
+     * but {@link #executingTestCase} is a single process-global flag, so
+     * concurrent entry would otherwise be misdiagnosed as a re-entrant bug and
+     * throw {@link IllegalStateException}. The lock makes the second caller
+     * block until the first calls {@link #goingToEndTestCase()}.
+     */
+    private final ReentrantLock sandboxLock = new ReentrantLock();
+
+    /**
+     * Max time {@link #goingToExecuteTestCase()} will wait for the sandbox
+     * lock before failing fast. A stuck holder (e.g. a leaked release on a
+     * different code path, or an external dependency like a network call that
+     * holds the lock for too long) would otherwise deadlock every subsequent
+     * test execution forever. Five minutes is generous enough to ride out any
+     * legitimate slow test/timeout-cleanup cycle.
+     */
+    private static volatile long sandboxLockAcquireTimeoutMs = TimeUnit.MINUTES.toMillis(5);
+
+    /**
+     * Override the default 5-minute timeout used by {@link #goingToExecuteTestCase()}
+     * when waiting to acquire the sandbox lock. Callers (e.g. the EvoSuite
+     * client side) can tune this based on Properties.TIMEOUT and friends.
+     */
+    public static void setSandboxLockAcquireTimeoutMs(long ms) {
+        if (ms > 0) {
+            sandboxLockAcquireTimeoutMs = ms;
+        }
+    }
 
 
     /**
@@ -379,14 +414,78 @@ public class MSecurityManager extends SecurityManager {
     /**
      * Marks the beginning of a test case execution.
      *
+     * <p>Blocks until any other thread that previously entered the sandbox via
+     * {@link #goingToExecuteTestCase()} has exited via
+     * {@link #goingToEndTestCase()}. This serialization protects the global
+     * {@link #executingTestCase} flag and the rest of the SUT-execution path
+     * (class reset, property restore, mock state) from interleaved access by
+     * concurrent callers such as the LLM async producer.
+     *
      * @throws IllegalStateException if a test case is already being executed
+     *                               on the current thread (re-entrant nesting,
+     *                               which is not supported)
      */
     public void goingToExecuteTestCase() throws IllegalStateException {
+        long timeoutMs = sandboxLockAcquireTimeoutMs;
+        boolean acquired;
+        try {
+            acquired = sandboxLock.tryLock(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for sandbox lock", ie);
+        }
+        if (!acquired) {
+            // Lock holder is stuck (likely a leaked release on a different
+            // code path, or an external dependency that never returns). Surface
+            // this as a hard error so the search can recover rather than
+            // hanging forever; the holder thread name is the next breadcrumb
+            // for diagnosis.
+            String holder = describeSandboxLockHolder();
+            throw new IllegalStateException("Timed out after " + timeoutMs
+                    + "ms waiting for sandbox lock; suspected holder: " + holder);
+        }
         if (executingTestCase) {
+            // Holding the lock should imply the previous holder has cleared the
+            // flag in goingToEndTestCase(). If we get here, something set the
+            // flag without going through the lock — release and surface as a bug.
+            sandboxLock.unlock();
             throw new IllegalStateException("Trying to set up the sandbox while executing a test case");
         }
-
         executingTestCase = true;
+    }
+
+    /**
+     * Returns true if the calling thread currently holds the sandbox lock.
+     * Used as a defensive check in cleanup paths where the global
+     * {@link #executingTestCase} flag and the lock ownership can diverge
+     * (e.g. nested acquire/release on the same thread, or a release path that
+     * cleared the flag without unlocking).
+     */
+    public boolean isSandboxLockHeldByCurrentThread() {
+        return sandboxLock.isHeldByCurrentThread();
+    }
+
+    /**
+     * Safety-net unlock: releases the sandbox lock if and only if the current
+     * thread holds it. Intended for cleanup paths that need to guarantee the
+     * lock is dropped without relying on {@link #executingTestCase} state.
+     */
+    public void forceUnlockSandboxLockIfHeld() {
+        while (sandboxLock.isHeldByCurrentThread()) {
+            sandboxLock.unlock();
+        }
+        // Also clear the flag, since we got here only when the flag and the
+        // lock state had already diverged.
+        executingTestCase = false;
+    }
+
+    private String describeSandboxLockHolder() {
+        // ReentrantLock doesn't expose its owner publicly; subclass the
+        // protected getOwner() via an anonymous accessor would help, but the
+        // straightforward thing is to scan privileged threads for one that
+        // matches. Fall back to "unknown" when we can't tell.
+        return "unknown (use jstack on this PID to find the holder of "
+                + "sandboxLock; grep for 'a java.util.concurrent.locks.ReentrantLock$NonfairSync')";
     }
 
     /**
@@ -405,21 +504,38 @@ public class MSecurityManager extends SecurityManager {
      */
     public void goingToEndTestCase() throws IllegalStateException {
         if (!executingTestCase) {
+            // Should never happen if the caller paired goingToExecuteTestCase()
+            // with goingToEndTestCase(). Release the lock defensively if this
+            // thread happens to hold it, otherwise it would leak.
+            if (sandboxLock.isHeldByCurrentThread()) {
+                sandboxLock.unlock();
+            }
             throw new IllegalStateException("Trying to disable sandbox when not test case was run");
         }
 
-        /*
-         * it is important to call this method here as soon as the test case
-         * has finished executing, because properties could be used by
-         * EvoSuite as well
-         */
-        org.evosuite.runtime.System.restoreProperties();
+        // Always clear the flag and release the lock, even if cleanup throws.
+        // Otherwise an exception from restoreProperties()/deleteOnExit()
+        // (e.g. a SecurityException on a non-privileged caller) would leave
+        // executingTestCase stuck at true and the sandboxLock permanently
+        // held, blocking every subsequent goingToExecuteTestCase() on any
+        // thread.
+        try {
+            /*
+             * it is important to call this method here as soon as the test case
+             * has finished executing, because properties could be used by
+             * EvoSuite as well
+             */
+            org.evosuite.runtime.System.restoreProperties();
 
-        for (File file : filesToDelete) {
-            file.deleteOnExit();
+            for (File file : filesToDelete) {
+                file.deleteOnExit();
+            }
+        } finally {
+            executingTestCase = false;
+            if (sandboxLock.isHeldByCurrentThread()) {
+                sandboxLock.unlock();
+            }
         }
-
-        executingTestCase = false;
     }
 
     /**

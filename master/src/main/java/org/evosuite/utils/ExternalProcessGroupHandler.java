@@ -1023,19 +1023,25 @@ public class ExternalProcessGroupHandler {
                     .redirectErrorStream(true)
                     .start();
 
+            // Capture the full dump separately from the truncated log copy:
+            // a lock-leak diagnosis needs every thread (the holder of a leaked
+            // ReentrantLock appears as "locked <0x...>" in *its* stack), and
+            // 400 lines is not enough for any non-trivial run.
+            StringBuilder full = new StringBuilder();
             StringBuilder output = new StringBuilder();
+            int lines = 0;
+            final int maxLogLines = 5000;
             try (BufferedReader reader = new BufferedReader(new InputStreamReader(dumpProcess.getInputStream()))) {
                 String line;
-                int lines = 0;
-                final int maxLines = 400;
                 while ((line = reader.readLine()) != null) {
-                    if (lines < maxLines) {
+                    full.append(line).append(System.lineSeparator());
+                    if (lines < maxLogLines) {
                         output.append(line).append(System.lineSeparator());
                     }
                     lines++;
                 }
-                if (lines > maxLines) {
-                    output.append("... thread dump truncated after ").append(maxLines).append(" lines")
+                if (lines > maxLogLines) {
+                    output.append("... thread dump truncated after ").append(maxLogLines).append(" lines")
                             .append(System.lineSeparator());
                 }
             }
@@ -1054,7 +1060,13 @@ public class ExternalProcessGroupHandler {
                 return false;
             }
 
-            logger.error("Thread dump from '{}':\n{}", label, output);
+            File dumpFile = writeFullThreadDumpToFile(full.toString(), label);
+            if (dumpFile != null) {
+                logger.error("Thread dump from '{}' ({} lines, full copy at {}):\n{}",
+                        label, lines, dumpFile.getAbsolutePath(), output);
+            } else {
+                logger.error("Thread dump from '{}' ({} lines):\n{}", label, lines, output);
+            }
             return true;
         } catch (Exception e) {
             logger.error("Failed to run thread dump command '{}': {}", label, e.getMessage());
@@ -1074,6 +1086,24 @@ public class ExternalProcessGroupHandler {
                 } catch (Exception expected) {
                 }
             }
+        }
+    }
+
+    private File writeFullThreadDumpToFile(String dump, String label) {
+        try {
+            File dir = new File(Properties.REPORT_DIR);
+            if (!dir.exists() && !dir.mkdirs()) {
+                return null;
+            }
+            String safeLabel = label.replaceAll("[^A-Za-z0-9._-]", "_");
+            File file = new File(dir, "thread-dump-" + safeLabel + "-" + System.currentTimeMillis() + ".txt");
+            try (FileWriter writer = new FileWriter(file)) {
+                writer.write(dump);
+            }
+            return file;
+        } catch (Exception e) {
+            logger.warn("Failed to write full thread dump to file: {}", e.getMessage());
+            return null;
         }
     }
 

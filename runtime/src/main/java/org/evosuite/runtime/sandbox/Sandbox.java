@@ -269,6 +269,18 @@ public class Sandbox {
             // Teardown can race with timeout recovery when stale execution threads are replaced.
             logger.debug("Ignoring sandbox cleanup race while ending test case: {}", e.getMessage());
         } finally {
+            // Safety net: the executingTestCase flag is global while the
+            // sandbox lock is per-thread reentrant. They can desync (e.g. a
+            // nested release clears the flag first, leaving the outer cleanup
+            // to see flag=false and skip goingToEndTestCase()). If the current
+            // thread still holds the lock here, drop it unconditionally —
+            // otherwise it leaks and every subsequent test execution on any
+            // thread deadlocks forever.
+            if (manager.isSandboxLockHeldByCurrentThread()) {
+                logger.warn("Force-releasing leaked sandbox lock on thread '{}'",
+                        Thread.currentThread().getName());
+                manager.forceUnlockSandboxLockIfHeld();
+            }
             restorePrivilegedThreadIfDowngraded();
         }
     }
