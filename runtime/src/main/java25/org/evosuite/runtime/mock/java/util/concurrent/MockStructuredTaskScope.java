@@ -27,7 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.StructuredTaskScope;
 import java.util.concurrent.ThreadFactory;
-import java.util.function.Function;
+import java.util.function.UnaryOperator;
 
 /**
  * Static replacement hooks for Java 25 {@link StructuredTaskScope}.
@@ -49,7 +49,7 @@ public class MockStructuredTaskScope implements StaticReplacementMock {
 
     public static <T, R> StructuredTaskScope<T, R> open(
             StructuredTaskScope.Joiner<? super T, ? extends R> joiner,
-            Function<StructuredTaskScope.Configuration, StructuredTaskScope.Configuration> configFunction) {
+            UnaryOperator<StructuredTaskScope.Configuration> configFunction) {
         Objects.requireNonNull(joiner);
         Objects.requireNonNull(configFunction);
         if (!MockFramework.isEnabled()) {

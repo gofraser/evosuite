@@ -114,12 +114,14 @@ public class EvoDatagramSocketImpl extends DatagramSocketImpl {
         return 0;
     }
 
-    @Override
+    // Note: no @Override — setTTL/getTTL were abstract in DatagramSocketImpl
+    // up to JDK 24 (deprecated since JDK 1.4) but removed in JDK 25+. Keeping
+    // the methods without the annotation lets the same source compile on both:
+    // on older JDKs they still satisfy the abstract contract by signature.
     public void setTTL(byte ttl) throws IOException {
         //TODO
     }
 
-    @Override
     public byte getTTL() throws IOException {
         //TODO
         return 0;
