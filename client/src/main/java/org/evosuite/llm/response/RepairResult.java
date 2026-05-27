@@ -93,11 +93,18 @@ public class RepairResult {
         return expandedClasses;
     }
 
-    /** Returns all successfully parsed test cases contained in this result. */
+    /** Returns all successfully parsed test cases contained in this result.
+     *  Skips any parse result whose test case is {@code null}; such entries
+     *  would otherwise propagate as TestChromosomes with a null {@code test}
+     *  field and crash later code paths (e.g. statistics export) with NPEs. */
     public List<TestCase> getTestCases() {
         List<TestCase> tests = new ArrayList<>();
         for (ParseResult parseResult : parseResults) {
-            tests.add(parseResult.getTestCase());
+            TestCase testCase = parseResult.getTestCase();
+            if (testCase == null) {
+                continue;
+            }
+            tests.add(testCase);
         }
         return tests;
     }

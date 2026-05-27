@@ -30,6 +30,7 @@ import dev.langchain4j.model.output.Response;
 import dev.langchain4j.model.output.TokenUsage;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import javax.tools.ToolProvider;
@@ -64,13 +65,13 @@ public class LlmService implements AutoCloseable {
     private static volatile LlmService instance;
     private static volatile Boolean compilerAvailableOverrideForTesting = null;
 
-    private final ChatLanguageModel model;
+    private volatile ChatLanguageModel model;
     private final LlmBudgetCoordinator budgetCoordinator;
     private final LlmConfiguration configuration;
     private final LlmStatistics statistics;
     private final LlmTraceRecorder traceRecorder;
     private final Random jitterRandom;
-    private final ExecutorService executorService;
+    private volatile ExecutorService executorService;
     private final boolean available;
 
     public LlmService(ChatLanguageModel model,
@@ -147,6 +148,7 @@ public class LlmService implements AutoCloseable {
 
     private static LlmService createDefaultInstance() {
         LlmConfiguration config = LlmConfiguration.fromProperties();
+        warnIfTimeoutTooLarge(config.getTimeoutSeconds());
         LlmBudgetCoordinator budget = LlmBudgetCoordinator.fromProperties();
         LlmStatistics stats = new LlmStatistics();
         LlmTraceRecorder recorder = new LlmTraceRecorder(config);
@@ -170,6 +172,7 @@ public class LlmService implements AutoCloseable {
 
         try {
             ChatLanguageModel model = createProviderModel(config);
+            logActiveLlmConfiguration(config);
             return new LlmService(model, budget, config, stats, recorder, new Random(), true);
         } catch (IllegalArgumentException e) {
             logger.warn("LLM provider '{}' misconfigured: {}", config.getProvider(), e.getMessage());
@@ -177,6 +180,26 @@ public class LlmService implements AutoCloseable {
             logger.warn("Failed to initialize LLM provider '{}': {}", config.getProvider(), e.getMessage());
         }
         return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(), false);
+    }
+
+    private static void logActiveLlmConfiguration(LlmConfiguration config) {
+        String baseUrl = config.getBaseUrl();
+        if (baseUrl == null || baseUrl.trim().isEmpty()) {
+            baseUrl = "<provider default>";
+        }
+        LoggingUtils.getEvoLogger().info("* LLM: provider={}, model={}, baseUrl={}",
+                config.getProvider(), config.getModel(), baseUrl);
+    }
+
+    private static void warnIfTimeoutTooLarge(int timeoutSeconds) {
+        // LangChain4j 0.35.0 maps the single timeout() Duration to all four
+        // OkHttp timeouts (call/connect/read/write). A long value here means
+        // any LLM call can stall a worker — and any sandbox-lock holder —
+        // for that long. 300s is already very generous for a single LLM call.
+        if (timeoutSeconds > 300) {
+            logger.warn("llm_timeout_seconds={} is unusually large; a slow LLM call will block "
+                    + "the calling thread for that long. Recommended <=300s.", timeoutSeconds);
+        }
     }
 
     private static boolean isJdkCompilerAvailable() {
@@ -223,6 +246,14 @@ public class LlmService implements AutoCloseable {
     private static ChatLanguageModel createOpenAiModel(LlmConfiguration config) {
         String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for OPENAI");
         String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for OPENAI");
+        // LangChain4j 0.35.0 fans the single timeout() Duration out to OkHttp's
+        // callTimeout, connectTimeout, readTimeout, writeTimeout — so this one
+        // value bounds the entire HTTP call. pingInterval (which would detect a
+        // silently-dead HTTP/2 connection sooner) is not exposed by this
+        // version of the builder and would require swapping the internal
+        // OkHttpClient AND rebuilding the Retrofit-bound OpenAiApi; that's
+        // out of scope here. invokeWithTimeout() provides the secondary
+        // safety net via FutureTask cancellation + executor replacement.
         OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
                 .modelName(modelName)
                 .apiKey(apiKey)
@@ -471,17 +502,88 @@ public class LlmService implements AutoCloseable {
     }
 
     private LlmResponse invokeWithTimeout(List<LlmMessage> messages, LlmFeature feature) throws Exception {
-        Future<LlmResponse> future = executorService.submit(new Callable<LlmResponse>() {
+        ExecutorService runner = executorService;
+        ChatLanguageModel snapshot = model;
+        Future<LlmResponse> future = runner.submit(new Callable<LlmResponse>() {
             @Override
             public LlmResponse call() throws Exception {
-                return model.generate(messages, feature);
+                return snapshot.generate(messages, feature);
             }
         });
         try {
             return future.get(configuration.getTimeoutSeconds(), TimeUnit.SECONDS);
         } catch (TimeoutException e) {
+            // Interrupt the worker first — OkHttp's Http2Stream.waitForIo uses
+            // Object.wait, which IS interruptible, so this normally tears down
+            // the call.
             future.cancel(true);
+            if (!waitForWorkerToFinish(future, 2_000L)) {
+                // Worker is still running — either OkHttp is in a non-interruptible
+                // path (Net.poll on the dispatcher thread) or langchain4j swallowed
+                // the interrupt. Drop the executor entirely so the leaked worker
+                // can't keep the sandbox lock (or anything else) alive forever.
+                // A fresh executor is created lazily on the next call.
+                logger.warn("LLM worker did not terminate after cancel; shutting down executor to drop the stuck call");
+                replaceExecutorService(runner);
+            }
             throw e;
+        }
+    }
+
+    private boolean waitForWorkerToFinish(Future<?> future, long waitMs) {
+        long deadline = System.currentTimeMillis() + waitMs;
+        while (System.currentTimeMillis() < deadline) {
+            if (future.isDone()) {
+                return true;
+            }
+            try {
+                Thread.sleep(50L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return future.isDone();
+            }
+        }
+        return future.isDone();
+    }
+
+    /**
+     * Replaces the per-service executor with a fresh one when its worker is
+     * stuck inside an unresponsive HTTP call. {@link ExecutorService#shutdownNow()}
+     * interrupts all workers; on the stuck OkHttp threads this won't return
+     * immediately, but the new executor lets subsequent calls proceed
+     * unimpeded.
+     *
+     * <p>Also rebuilds the {@link ChatLanguageModel} so the next call uses a
+     * fresh OkHttpClient/connection pool. Without this, a dead HTTP/2
+     * connection (one whose reader is parked in non-interruptible
+     * {@code Net.poll}) would still be reused by the new executor's workers,
+     * and they would hang the same way.
+     */
+    private synchronized void replaceExecutorService(ExecutorService stuck) {
+        if (this.executorService != stuck) {
+            // Already replaced by a concurrent call.
+            return;
+        }
+        try {
+            stuck.shutdownNow();
+        } catch (Throwable ignored) {
+            // Best effort — even if shutdown throws, we still want a fresh executor below.
+        }
+        this.executorService = Executors.newCachedThreadPool(r -> {
+            Thread t = new Thread(r, "llm-timeout-guard");
+            t.setDaemon(true);
+            return t;
+        });
+        if (available && configuration.getProvider() != Properties.LlmProvider.NONE) {
+            try {
+                this.model = createProviderModel(configuration);
+                LoggingUtils.getEvoLogger().info(
+                        "* LLM: rebuilt {} client after stuck call (model={})",
+                        configuration.getProvider(), configuration.getModel());
+            } catch (Throwable t) {
+                logger.warn("Failed to rebuild LLM model after stuck call; keeping existing instance: {}",
+                        t.getMessage());
+            }
         }
     }
 
