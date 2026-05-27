@@ -283,7 +283,10 @@ public class ArrayStatement extends AbstractStatement {
                     }
                     if (currentVar instanceof ArrayIndex) {
                         ArrayIndex index = (ArrayIndex) currentVar;
-                        maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
+                        List<Integer> indices = index.getArrayIndices();
+                        if (!indices.isEmpty()) {
+                            maxAssignment = Math.max(maxAssignment, indices.get(0));
+                        }
                     }
                 }
             }
@@ -321,7 +324,10 @@ public class ArrayStatement extends AbstractStatement {
                         continue;
                     }
                     ArrayIndex index = (ArrayIndex) currentVar;
-                    maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
+                    List<Integer> indices = index.getArrayIndices();
+                    if (!indices.isEmpty()) {
+                        maxAssignment = Math.max(maxAssignment, indices.get(0));
+                    }
                 }
             }
         }

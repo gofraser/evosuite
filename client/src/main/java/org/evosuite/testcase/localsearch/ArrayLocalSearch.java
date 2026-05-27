@@ -241,7 +241,10 @@ public class ArrayLocalSearch extends StatementLocalSearch {
                     if (currentVar instanceof org.evosuite.testcase.variable.ArrayIndex) {
                         org.evosuite.testcase.variable.ArrayIndex index =
                                 (org.evosuite.testcase.variable.ArrayIndex) currentVar;
-                        maxAssignment = Math.max(maxAssignment, index.getArrayIndex());
+                        java.util.List<Integer> indices = index.getArrayIndices();
+                        if (!indices.isEmpty()) {
+                            maxAssignment = Math.max(maxAssignment, indices.get(0));
+                        }
                     }
                 }
             }

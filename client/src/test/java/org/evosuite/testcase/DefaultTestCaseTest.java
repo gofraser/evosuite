@@ -21,6 +21,7 @@ package org.evosuite.testcase;
 
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
+import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.Arrays;
 import java.util.Collections;
 
 public class DefaultTestCaseTest {
@@ -80,5 +82,23 @@ public class DefaultTestCaseTest {
 
         Assertions.assertDoesNotThrow(() -> tc.hasReferences(target));
         Assertions.assertFalse(tc.hasReferences(target));
+    }
+
+    @Test
+    public void testGetObjectsHandlesMultiDimensionalArrayIndexAssignments() {
+        DefaultTestCase tc = new DefaultTestCase();
+
+        ArrayStatement arrayStmt = new ArrayStatement(tc, String[][].class, new int[]{2, 2});
+        tc.addStatement(arrayStmt);
+
+        StringPrimitiveStatement value = new StringPrimitiveStatement(tc, "x");
+        VariableReference valueRef = tc.addStatement(value);
+
+        ArrayReference arrayRef = (ArrayReference) arrayStmt.getReturnValue();
+        ArrayIndex nestedIndex = new ArrayIndex(tc, arrayRef, Arrays.asList(0, 1));
+        tc.addStatement(new AssignmentStatement(tc, nestedIndex, valueRef));
+
+        Assertions.assertDoesNotThrow(() -> tc.getObjects(Object.class, tc.size()));
+        Assertions.assertTrue(arrayRef.isInitialized(0, tc.size()));
     }
 }

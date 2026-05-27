@@ -182,7 +182,10 @@ public class TestCaseExpander {
                 if (st.getReturnValue() instanceof ArrayIndex) {
                     ArrayIndex arrayIndex = (ArrayIndex) st.getReturnValue();
                     if (arrayIndex.getArray().equals(arrRef)) {
-                        assignments.add(arrayIndex.getArrayIndex());
+                        List<Integer> indices = arrayIndex.getArrayIndices();
+                        if (!indices.isEmpty()) {
+                            assignments.add(indices.get(0));
+                        }
                     }
                 }
             } else if (st instanceof PrimitiveStatement) {

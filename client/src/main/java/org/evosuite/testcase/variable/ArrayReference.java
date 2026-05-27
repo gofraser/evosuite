@@ -220,7 +220,10 @@ public class ArrayReference extends VariableReferenceImpl {
                 if (var instanceof ArrayIndex) {
                     ArrayIndex index = (ArrayIndex) var;
                     if (index.getArray().equals(this)) {
-                        max = Math.max(max, index.getArrayIndex());
+                        List<Integer> indices = index.getArrayIndices();
+                        if (!indices.isEmpty()) {
+                            max = Math.max(max, indices.get(0));
+                        }
                     }
                 }
             }
@@ -256,7 +259,8 @@ public class ArrayReference extends VariableReferenceImpl {
                 VariableReference ret = s.getReturnValue();
                 if (ret instanceof ArrayIndex) {
                     ArrayIndex ai = (ArrayIndex) ret;
-                    if (ai.getArray().equals(this) && ai.getArrayIndex() == index) {
+                    List<Integer> indices = ai.getArrayIndices();
+                    if (ai.getArray().equals(this) && !indices.isEmpty() && indices.get(0) == index) {
                         return true;
                     }
                 }
