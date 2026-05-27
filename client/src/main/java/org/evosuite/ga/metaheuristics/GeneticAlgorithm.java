@@ -38,14 +38,17 @@ import org.evosuite.ga.operators.selection.SelectionFunction;
 import org.evosuite.ga.populationlimit.IndividualPopulationLimit;
 import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
+import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
 import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.StagnationDetector;
+import org.evosuite.llm.search.StagnationLlmHelper;
 import org.evosuite.symbolic.dse.DSEStatistics;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testparser.TestParser;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -192,6 +195,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     protected double localSearchProbability = Properties.LOCAL_SEARCH_PROBABILITY;
     protected transient AsyncLlmTestProducer asyncProducer;
     protected transient StagnationDetector stagnationDetector;
+    protected transient StagnationLlmHelper stagnationLlmHelper;
     protected transient LlmInjectionAdapter<T> llmInjectionAdapter;
 
     /**
@@ -422,6 +426,25 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             return;
         }
         stagnationDetector = new StagnationDetector(maximizationObjective);
+        stagnationLlmHelper = new StagnationLlmHelper(stagnationDetector,
+                this::getRemainingSearchBudgetSeconds);
+    }
+
+    /**
+     * Returns the remaining seconds on the active {@link MaxTimeStoppingCondition}, or
+     * {@code -1L} if no time-bounded stopping condition is active. Used by
+     * {@link StagnationLlmHelper} to skip LLM calls that would outlast the search.
+     */
+    protected long getRemainingSearchBudgetSeconds() {
+        for (StoppingCondition<T> sc : stoppingConditions) {
+            if (sc instanceof MaxTimeStoppingCondition) {
+                long limit = sc.getLimit();
+                long current = sc.getCurrentValue();
+                long remaining = limit - current;
+                return Math.max(0L, remaining);
+            }
+        }
+        return -1L;
     }
 
     protected void shutdownLlmAssistance() {
@@ -429,6 +452,10 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (asyncProducer != null) {
             asyncProducer.stop();
             asyncProducer = null;
+        }
+        if (stagnationLlmHelper != null) {
+            stagnationLlmHelper.shutdown();
+            stagnationLlmHelper = null;
         }
         if (llmWasActive) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
@@ -462,6 +489,14 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
 
     protected void maybeInjectOnStagnationByCoverage(int currentCoveredGoals,
                                                      Collection<TestFitnessFunction> uncoveredGoals) {
+        if (stagnationLlmHelper != null) {
+            List<TestChromosome> pop = getPopulationAsTestChromosomes();
+            stagnationLlmHelper.maybeSubmit(currentCoveredGoals, uncoveredGoals, pop);
+            injectLlmTests(stagnationLlmHelper.drain());
+            return;
+        }
+        // Legacy fallback when only the detector is wired (e.g., test harnesses
+        // that bypass initializeStagnationDetector).
         if (stagnationDetector == null) {
             return;
         }
@@ -469,7 +504,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             return;
         }
         List<TestChromosome> pop = getPopulationAsTestChromosomes();
-        int totalGoals = currentCoveredGoals + uncoveredGoals.size();
+        int totalGoals = currentCoveredGoals + (uncoveredGoals == null ? 0 : uncoveredGoals.size());
         Map<TestFitnessFunction, Double> bestFitness = computeBestFitnessPerGoal(uncoveredGoals, pop);
         injectLlmTests(stagnationDetector.requestHelp(
                 uncoveredGoals, pop, totalGoals, currentCoveredGoals, bestFitness));

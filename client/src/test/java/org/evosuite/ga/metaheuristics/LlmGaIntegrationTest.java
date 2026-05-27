@@ -63,7 +63,7 @@ class LlmGaIntegrationTest {
     private int originalRefreshInterval;
     private int originalProducerDelay;
     private boolean originalOnStagnation;
-    private int originalStagnationGenerations;
+    private int originalStagnationTimeoutSeconds;
     private int originalStagnationTests;
     private int originalPopulation;
 
@@ -74,7 +74,7 @@ class LlmGaIntegrationTest {
         originalRefreshInterval = Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL;
         originalProducerDelay = Properties.LLM_ASYNC_PRODUCER_DELAY_MS;
         originalOnStagnation = Properties.LLM_ON_STAGNATION;
-        originalStagnationGenerations = Properties.LLM_STAGNATION_GENERATIONS;
+        originalStagnationTimeoutSeconds = Properties.LLM_STAGNATION_TIMEOUT_SECONDS;
         originalStagnationTests = Properties.LLM_STAGNATION_TESTS;
         originalPopulation = Properties.POPULATION;
         LlmService.resetInstanceForTesting();
@@ -87,7 +87,7 @@ class LlmGaIntegrationTest {
         Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL = originalRefreshInterval;
         Properties.LLM_ASYNC_PRODUCER_DELAY_MS = originalProducerDelay;
         Properties.LLM_ON_STAGNATION = originalOnStagnation;
-        Properties.LLM_STAGNATION_GENERATIONS = originalStagnationGenerations;
+        Properties.LLM_STAGNATION_TIMEOUT_SECONDS = originalStagnationTimeoutSeconds;
         Properties.LLM_STAGNATION_TESTS = originalStagnationTests;
         Properties.POPULATION = originalPopulation;
         LlmService.resetInstanceForTesting();
@@ -100,7 +100,7 @@ class LlmGaIntegrationTest {
         Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL = 1;
         Properties.LLM_ASYNC_PRODUCER_DELAY_MS = 0;
         Properties.LLM_ON_STAGNATION = true;
-        Properties.LLM_STAGNATION_GENERATIONS = 1;
+        Properties.LLM_STAGNATION_TIMEOUT_SECONDS = 1;
         Properties.LLM_STAGNATION_TESTS = 1;
         Properties.POPULATION = 10;
 

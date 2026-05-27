@@ -753,11 +753,39 @@ public enum RuntimeVariable {
      */
     LLM_Semantic_Crossover_Fallbacks,
     /**
-     * Per-generation species count timeline (speciation_enabled + species_timeline_enabled).
+     * Number of stagnation LLM calls submitted (across both SYNC and ASYNC modes).
+     */
+    LLM_StagnationCalls,
+    /**
+     * Total wall-clock LLM call latency (ms) for stagnation calls — mode-independent
+     * (same LLM, same network). Useful as a sanity check across SYNC/ASYNC arms.
+     */
+    LLM_StagnationLatencyMsTotal,
+    /**
+     * Total time (ms) the GA evolve thread spent blocked on stagnation LLM calls.
+     * Equals latency in SYNC mode, ~0 in ASYNC mode.
+     */
+    LLM_StagnationBlockedMsTotal,
+    /**
+     * ASYNC-only: GA generations evolved while a stagnation LLM call was in flight.
+     * Quantifies the search progress that would have been blocked in SYNC mode.
+     */
+    LLM_StagnationInFlightGenerations,
+    /**
+     * Stagnation submissions skipped because the remaining search budget was below
+     * llm_stagnation_budget_guard_seconds. Counted in both modes.
+     */
+    LLM_StagnationSkippedBudget,
+    /**
+     * ASYNC-only: stagnation submissions skipped because a previous call was still in flight.
+     */
+    LLM_StagnationSkippedInFlight,
+    /**
+     * Per-generation species count timeline.
      */
     Species_Count_Timeline,
     /**
-     * Per-generation largest species share timeline (speciation_enabled + species_largest_share_timeline_enabled).
+     * Per-generation largest species share timeline.
      */
     Species_Largest_Share_Timeline,
 

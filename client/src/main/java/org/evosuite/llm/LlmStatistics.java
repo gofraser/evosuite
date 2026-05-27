@@ -159,6 +159,12 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Semantic_Crossover_Fallbacks, 0);
         ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio, 0.0);
         ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline, 0.0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationCalls, 0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationLatencyMsTotal, 0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationBlockedMsTotal, 0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationInFlightGenerations, 0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationSkippedBudget, 0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationSkippedInFlight, 0);
         ClientServices.track(RuntimeVariable.Species_Largest_Share_Timeline, 0.0);
         ClientServices.track(RuntimeVariable.Species_Count_Timeline, 0);
         ClientServices.track(RuntimeVariable.DiversityTimeline, 0.0);

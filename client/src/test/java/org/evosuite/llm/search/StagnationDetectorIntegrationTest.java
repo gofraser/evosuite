@@ -29,6 +29,8 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
@@ -55,9 +57,12 @@ class StagnationDetectorIntegrationTest {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.toString()).thenReturn("uncovered-goal");
 
-        StagnationDetector detector = new StagnationDetector(service, false, 1, 1);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
         try {
             assertFalse(detector.checkStagnation(1.0));
+            // Advance past the 1s threshold; same fitness → no improvement → fires.
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
             assertTrue(detector.checkStagnation(1.0));
 
             List<TestChromosome> help = detector.requestHelp(

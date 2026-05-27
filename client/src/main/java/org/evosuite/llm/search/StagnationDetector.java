@@ -42,11 +42,18 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /**
  * Detects search stagnation and requests targeted LLM assistance.
+ *
+ * <p>Fires when wall-clock seconds without a fitness/coverage improvement
+ * exceed the configured threshold. The window resets on every improvement
+ * and on every fired call.
  */
 public class StagnationDetector {
 
@@ -55,39 +62,55 @@ public class StagnationDetector {
 
     private final LlmService llmService;
     private final boolean maximizationObjective;
-    private final int stagnationThreshold;
+    private final long stagnationThresholdNanos;
+    private final int thresholdSeconds;
     private final int testsPerRequest;
-    private int stagnantGenerations = 0;
+    private final LongSupplier nanoClock;
+    private long windowStartNanos;
+    private boolean windowStarted = false;
     private Double bestFitness = null;
     private Integer coveredGoals = null;
 
     /** Creates a detector with singleton LLM service and Properties-configured thresholds. */
     public StagnationDetector() {
-        this(LlmService.getInstance(), false, Properties.LLM_STAGNATION_GENERATIONS, Properties.LLM_STAGNATION_TESTS);
+        this(LlmService.getInstance(), false,
+                Properties.LLM_STAGNATION_TIMEOUT_SECONDS, Properties.LLM_STAGNATION_TESTS);
     }
 
     /** Creates a detector with the given maximization flag and Properties-configured thresholds. */
     public StagnationDetector(boolean maximizationObjective) {
         this(LlmService.getInstance(), maximizationObjective,
-                Properties.LLM_STAGNATION_GENERATIONS, Properties.LLM_STAGNATION_TESTS);
+                Properties.LLM_STAGNATION_TIMEOUT_SECONDS, Properties.LLM_STAGNATION_TESTS);
     }
 
     /** Creates a detector with explicit LLM service, maximization flag, and threshold settings. */
     public StagnationDetector(LlmService llmService,
                               boolean maximizationObjective,
-                              int stagnationThreshold,
+                              int stagnationTimeoutSeconds,
                               int testsPerRequest) {
+        this(llmService, maximizationObjective, stagnationTimeoutSeconds, testsPerRequest,
+                System::nanoTime);
+    }
+
+    /** Package-private constructor for tests: allows injecting a clock. */
+    StagnationDetector(LlmService llmService,
+                       boolean maximizationObjective,
+                       int stagnationTimeoutSeconds,
+                       int testsPerRequest,
+                       LongSupplier nanoClock) {
         this.llmService = llmService;
         this.maximizationObjective = maximizationObjective;
-        this.stagnationThreshold = Math.max(1, stagnationThreshold);
+        this.thresholdSeconds = Math.max(1, stagnationTimeoutSeconds);
+        this.stagnationThresholdNanos = TimeUnit.SECONDS.toNanos(this.thresholdSeconds);
         this.testsPerRequest = Math.max(1, testsPerRequest);
+        this.nanoClock = nanoClock;
     }
 
     /** Checks for stagnation based on the current best fitness value, returning true if stagnation detected. */
     public boolean checkStagnation(double currentBestFitness) {
         if (bestFitness == null) {
             bestFitness = currentBestFitness;
-            stagnantGenerations = 0;
+            startWindow();
             return false;
         }
         boolean improved = maximizationObjective
@@ -95,41 +118,88 @@ public class StagnationDetector {
                 : currentBestFitness < (bestFitness - EPSILON);
         if (improved) {
             bestFitness = currentBestFitness;
-            stagnantGenerations = 0;
+            startWindow();
             return false;
         }
-        stagnantGenerations++;
-        if (stagnantGenerations >= stagnationThreshold) {
-            stagnantGenerations = 0;
-            return true;
-        }
-        return false;
+        return checkTimeWindow();
     }
 
     /** Checks for stagnation based on the current covered goals count, returning true if stagnation detected. */
     public boolean checkStagnation(int currentCoveredGoals) {
         if (coveredGoals == null) {
             coveredGoals = currentCoveredGoals;
-            stagnantGenerations = 0;
+            startWindow();
             return false;
         }
         if (currentCoveredGoals > coveredGoals) {
             coveredGoals = currentCoveredGoals;
-            stagnantGenerations = 0;
+            startWindow();
             return false;
         }
-        stagnantGenerations++;
-        if (stagnantGenerations >= stagnationThreshold) {
-            stagnantGenerations = 0;
-            return true;
+        return checkTimeWindow();
+    }
+
+    private void startWindow() {
+        windowStartNanos = nanoClock.getAsLong();
+        windowStarted = true;
+    }
+
+    private boolean checkTimeWindow() {
+        if (!windowStarted) {
+            startWindow();
+            return false;
         }
-        return false;
+        if (nanoClock.getAsLong() - windowStartNanos < stagnationThresholdNanos) {
+            return false;
+        }
+        startWindow();
+        return true;
+    }
+
+    public int getTestsPerRequest() {
+        return testsPerRequest;
+    }
+
+    public LlmService getLlmService() {
+        return llmService;
     }
 
     /** Requests LLM-generated tests targeting uncovered goals when the search has stagnated. */
     public List<TestChromosome> requestHelp(Collection<TestFitnessFunction> uncoveredGoals,
                                             List<TestChromosome> currentPopulation) {
         return requestHelp(uncoveredGoals, currentPopulation, 0, 0, null);
+    }
+
+    /**
+     * Executes the stagnation LLM call for a pre-built prompt: query, parse, and
+     * repair. Returns the tests produced (possibly empty). Performs no
+     * thread-unsafe reads of the population — safe to invoke from a background
+     * worker.
+     */
+    public List<TestChromosome> executeWithPrompt(PromptResult prompt) {
+        if (prompt == null) {
+            return Collections.emptyList();
+        }
+        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+            return Collections.emptyList();
+        }
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
+        try {
+            String response = llmService.query(prompt, LlmFeature.STAGNATION);
+            RepairResult result = TestRepairLoop
+                    .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION);
+            if (!result.isSuccess()) {
+                return Collections.emptyList();
+            }
+            return result.toChromosomes(testsPerRequest);
+        } catch (LlmBudgetExceededException | LlmCallFailedException e) {
+            logger.debug("Stagnation LLM request failed: {}", e.getMessage());
+            return Collections.emptyList();
+        } catch (RuntimeException e) {
+            logger.debug("Stagnation LLM request crashed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
     }
 
     /**
@@ -174,10 +244,67 @@ public class StagnationDetector {
     }
 
     public void reset() {
-        stagnantGenerations = 0;
+        windowStarted = false;
     }
 
-    private PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+    /**
+     * Returns the per-goal best fitness over the given population. Computed on
+     * the caller's thread because it iterates the live population and computes
+     * fitness against each goal.
+     */
+    public static Map<TestFitnessFunction, Double> computeBestFitnessPerGoal(
+            Collection<TestFitnessFunction> uncoveredGoals,
+            List<TestChromosome> population) {
+        Map<TestFitnessFunction, Double> bestFitness = new LinkedHashMap<>();
+        if (uncoveredGoals == null) {
+            return bestFitness;
+        }
+        for (TestFitnessFunction goal : uncoveredGoals) {
+            double best = Double.MAX_VALUE;
+            if (population != null) {
+                for (TestChromosome tc : population) {
+                    double f = goal.getFitness(tc);
+                    if (f < best) {
+                        best = f;
+                    }
+                }
+            }
+            bestFitness.put(goal, best);
+        }
+        return bestFitness;
+    }
+
+    /**
+     * Builds the stagnation prompt for the given snapshot. Public so async
+     * callers can build the prompt on the search thread and then submit the
+     * LLM call on a background worker.
+     *
+     * <p>Branches on {@link Properties#LLM_STAGNATION_PROMPT}: {@code POOL}
+     * sends the full uncovered-goal set plus top-3 relevant tests with
+     * population-wide fitness annotations; {@code TEST_ANCHORED} anchors on
+     * the population's best near-miss and restricts the goal section to the
+     * anchor's K closest uncovered goals with the anchor's own fitness as the
+     * annotation source. Falls back to {@code POOL} when anchor selection
+     * yields no usable signal.
+     */
+    public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                    List<TestChromosome> currentPopulation,
+                                    int totalGoals, int coveredGoalCount,
+                                    Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
+        if (Properties.LLM_STAGNATION_PROMPT == Properties.LlmStagnationPromptMode.TEST_ANCHORED) {
+            PromptResult anchored = buildTestAnchoredPrompt(uncoveredGoals, currentPopulation,
+                    totalGoals, coveredGoalCount);
+            if (anchored != null) {
+                return anchored;
+            }
+            logger.debug("Test-anchored prompt unavailable (no usable anchor fitness); "
+                    + "falling back to pool prompt for this call.");
+        }
+        return buildPoolPrompt(uncoveredGoals, currentPopulation,
+                totalGoals, coveredGoalCount, bestFitnessPerGoal);
+    }
+
+    private PromptResult buildPoolPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                          List<TestChromosome> currentPopulation,
                                          int totalGoals, int coveredGoalCount,
                                          Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
@@ -187,7 +314,7 @@ public class StagnationDetector {
         CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
         String goalsSection = goalFormatter.format(uncoveredGoals, bestFitnessPerGoal);
 
-        String instruction = buildEnrichedInstruction(totalGoals, coveredGoalCount);
+        String instruction = buildPoolInstruction(totalGoals, coveredGoalCount);
 
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
@@ -215,11 +342,45 @@ public class StagnationDetector {
         return builder.buildWithMetadata();
     }
 
-    private String buildEnrichedInstruction(int totalGoals, int coveredGoalCount) {
+    private PromptResult buildTestAnchoredPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                                 List<TestChromosome> currentPopulation,
+                                                 int totalGoals, int coveredGoalCount) {
+        if (currentPopulation == null || currentPopulation.isEmpty()) {
+            return null;
+        }
+        StagnationAnchorSelector.AnchorSelection selection = StagnationAnchorSelector.select(
+                currentPopulation, uncoveredGoals,
+                Properties.LLM_STAGNATION_ANCHOR_RELATED_GOALS_MAX);
+        if (selection == null) {
+            return null;
+        }
+
+        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
+        String goalsSection = goalFormatter.format(selection.getGoals(),
+                selection.getGoalFitness());
+
+        String instruction = buildAnchoredInstruction(totalGoals, coveredGoalCount);
+
+        PromptBuilder builder = new PromptBuilder()
+                .withSystemPrompt()
+                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withExistingTest(selection.getAnchor().getTestCase())
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(
+                        selection.getGoals(),
+                        new ArrayList<>(Collections.singletonList(selection.getAnchor()))))
+                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withInstruction(instruction)
+                .withInstruction("Uncovered goals (annotated with the test's fitness on each; "
+                        + "lower = closer to covering):\n" + goalsSection);
+        return builder.buildWithMetadata();
+    }
+
+    private String buildPoolInstruction(int totalGoals, int coveredGoalCount) {
         StringBuilder sb = new StringBuilder();
-        sb.append("The evolutionary search stagnated after ")
-                .append(stagnationThreshold)
-                .append(" generations with no fitness improvement.");
+        sb.append("The evolutionary search stagnated for at least ")
+                .append(thresholdSeconds)
+                .append(" seconds with no fitness improvement.");
         if (totalGoals > 0) {
             double pct = 100.0 * coveredGoalCount / totalGoals;
             sb.append(String.format(" Current coverage: %d/%d goals (%.1f%%).",
@@ -228,6 +389,27 @@ public class StagnationDetector {
         sb.append(" Goals marked [almost covered] were close to being reached — focus on those first.");
         sb.append(" Generate ").append(testsPerRequest)
                 .append(" JUnit tests targeting the uncovered goals.")
+                .append(LlmAssertionPolicyResolver.instructionSuffix(false));
+        return sb.toString();
+    }
+
+    private String buildAnchoredInstruction(int totalGoals, int coveredGoalCount) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("The evolutionary search stagnated for at least ")
+                .append(thresholdSeconds)
+                .append(" seconds with no fitness improvement.");
+        if (totalGoals > 0) {
+            double pct = 100.0 * coveredGoalCount / totalGoals;
+            sb.append(String.format(" Current coverage: %d/%d goals (%.1f%%).",
+                    coveredGoalCount, totalGoals, pct));
+        }
+        sb.append(" The following test is closest in the population to covering some "
+                + "uncovered goals. The annotated goal list shows this test's fitness "
+                + "on each — the lowest-fitness goal is the most likely near-miss. "
+                + "Modify or extend this test to cover those goals while keeping it "
+                + "valid JUnit. Return up to ")
+                .append(testsPerRequest)
+                .append(" JUnit test methods.")
                 .append(LlmAssertionPolicyResolver.instructionSuffix(false));
         return sb.toString();
     }

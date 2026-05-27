@@ -24,7 +24,6 @@ import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.localsearch.LocalSearch;
 import org.evosuite.ga.localsearch.LocalSearchBudget;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
-import org.evosuite.llm.search.LlmLocalSearch;
 import org.evosuite.testcase.AbstractTestChromosome;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCaseExpander;
@@ -482,13 +481,9 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
             logger.debug("Local search budget not yet used up");
 
             final double tossCoin = Randomness.nextDouble();
-            final boolean llmOnly = Properties.LLM_LOCAL_SEARCH
-                    && Properties.LLM_LOCAL_SEARCH_MODE == Properties.LlmLocalSearchMode.LLM_ONLY;
-            final boolean shouldApplyLlm = Properties.LLM_LOCAL_SEARCH
-                    && (llmOnly || Randomness.nextDouble() <= Properties.LLM_LOCAL_SEARCH_PROBABILITY);
-            final boolean shouldApplyDSE = !llmOnly
-                    && (localSearchType == LocalSearchSuiteType.ALWAYS_DSE
-                    || (localSearchType == LocalSearchSuiteType.DSE_AND_AVM && tossCoin <= Properties.DSE_PROBABILITY));
+            final boolean shouldApplyDSE = localSearchType == LocalSearchSuiteType.ALWAYS_DSE
+                    || (localSearchType == LocalSearchSuiteType.DSE_AND_AVM
+                            && tossCoin <= Properties.DSE_PROBABILITY);
 
             /*
              * We create a cloned test case to play local search with it. This
@@ -499,13 +494,8 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
             final int lastIndex = suite.size() - 1;
 
             final boolean improved;
-            if (shouldApplyLlm) {
-                improved = applyLLM(suite, lastIndex, clonedTest, objective);
-            } else if (shouldApplyDSE) {
+            if (shouldApplyDSE) {
                 improved = applyDSE(suite, lastIndex, clonedTest, objective);
-            } else if (llmOnly) {
-                // LLM_ONLY mode but LLM was not applied (e.g., no budget) — skip AVM/DSE
-                improved = false;
             } else {
                 improved = applyAVM(suite, lastIndex, clonedTest, objective);
             }
@@ -565,16 +555,6 @@ public class TestSuiteLocalSearch implements LocalSearch<TestSuiteChromosome> {
         boolean improved = dseTestCaseLocalSearch.doSearch(test, testSuiteObject);
 
         return improved;
-    }
-
-    protected boolean applyLLM(TestSuiteChromosome suite, int testIndex, TestChromosome test,
-                             LocalSearchObjective<TestSuiteChromosome> objective) {
-
-        TestSuiteLocalSearchObjective testSuiteObject = TestSuiteLocalSearchObjective
-                .buildNewTestSuiteLocalSearchObjective(objective.getFitnessFunctions(), suite, testIndex);
-
-        LlmLocalSearch llmLocalSearch = new LlmLocalSearch();
-        return llmLocalSearch.doSearch(test, testSuiteObject);
     }
 
 }

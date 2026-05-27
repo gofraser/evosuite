@@ -1935,7 +1935,7 @@ public class Properties {
     @Parameter(key = "llm_async_producer_queue_size", group = "LLM",
             description = "Maximum number of buffered tests in async LLM producer")
     @IntValue(min = 1)
-    public static int LLM_ASYNC_PRODUCER_QUEUE_SIZE = 10;
+    public static int LLM_ASYNC_PRODUCER_QUEUE_SIZE = 2;
 
     @Parameter(key = "llm_async_producer_delay_ms", group = "LLM",
             description = "Minimum delay between async LLM calls in milliseconds")
@@ -1951,47 +1951,74 @@ public class Properties {
             description = "Trigger LLM generation when search stagnates")
     public static boolean LLM_ON_STAGNATION = false;
 
-    @Parameter(key = "llm_stagnation_generations", group = "LLM",
-            description = "Generations without progress before stagnation intervention")
+    @Parameter(key = "llm_stagnation_timeout_seconds", group = "LLM",
+            description = "Wall-clock seconds without fitness improvement (and without a "
+                    + "prior LLM stagnation call) before a stagnation intervention fires. "
+                    + "The window resets on both improvement and on each LLM call.")
     @IntValue(min = 1)
-    public static int LLM_STAGNATION_GENERATIONS = 50;
+    public static int LLM_STAGNATION_TIMEOUT_SECONDS = 30;
 
     @Parameter(key = "llm_stagnation_tests", group = "LLM",
             description = "Number of tests requested per stagnation intervention")
     @IntValue(min = 1)
     public static int LLM_STAGNATION_TESTS = 3;
 
-    @Parameter(key = "llm_local_search", group = "LLM",
-            description = "Enable LLM-assisted local search")
-    public static boolean LLM_LOCAL_SEARCH = false;
-
-    /** Dispatch mode for LLM local search. */
-    public enum LlmLocalSearchMode {
-        /** LLM competes with AVM/DSE according to probabilities. */
-        HYBRID,
-        /** Use only LLM local search; never dispatch AVM or DSE. */
-        LLM_ONLY
+    /** Threading mode for stagnation-triggered LLM calls. */
+    public enum LlmStagnationMode {
+        /** Block the GA evolve loop until the LLM call (and any repair) returns. */
+        SYNC,
+        /** Submit to a background worker; the GA continues evolving. */
+        ASYNC
     }
 
-    @Parameter(key = "llm_local_search_mode", group = "LLM",
-            description = "Dispatch mode for local search when llm_local_search=true: "
-                    + "HYBRID lets LLM compete with AVM/DSE; LLM_ONLY skips AVM/DSE entirely")
-    public static LlmLocalSearchMode LLM_LOCAL_SEARCH_MODE = LlmLocalSearchMode.HYBRID;
+    @Parameter(key = "llm_stagnation_mode", group = "LLM",
+            description = "How stagnation LLM calls interact with the search: "
+                    + "SYNC blocks the evolve loop until the call returns; "
+                    + "ASYNC submits to a background worker and the search continues.")
+    public static LlmStagnationMode LLM_STAGNATION_MODE = LlmStagnationMode.ASYNC;
 
-    @Parameter(key = "llm_local_search_probability", group = "LLM",
-            description = "Probability of using LLM local search when local search runs")
-    @DoubleValue(min = 0.0, max = 1.0)
-    public static double LLM_LOCAL_SEARCH_PROBABILITY = 0.1;
+    @Parameter(key = "llm_stagnation_budget_guard_seconds", group = "LLM",
+            description = "Skip new stagnation LLM submissions when the remaining "
+                    + "search budget (seconds) is below this threshold. Use 0 to "
+                    + "disable the guard. Defaults to llm_timeout_seconds if -1.")
+    @IntValue(min = -1)
+    public static int LLM_STAGNATION_BUDGET_GUARD_SECONDS = -1;
 
-    @Parameter(key = "llm_local_search_related_goals_only", group = "LLM",
-            description = "If true, include only goals related to the test under local search "
-                    + "when relation ranking is available; otherwise include all uncovered goals")
-    public static boolean LLM_LOCAL_SEARCH_RELATED_GOALS_ONLY = true;
+    /** Prompt-content strategy for stagnation-triggered LLM calls. */
+    public enum LlmStagnationPromptMode {
+        /**
+         * Pool-level prompt: includes the full uncovered-goal set (with
+         * fitness-distance annotations) and the top-K most relevant tests
+         * from the current population as existing-test context. Asks for
+         * {@code llm_stagnation_tests} fresh tests targeting any uncovered
+         * goal. This is the default stagnation behaviour.
+         */
+        POOL,
+        /**
+         * Test-anchored prompt: picks a single seed test that is closest to
+         * covering an uncovered goal (lowest min-fitness over uncovered
+         * goals), includes that seed as the existing-test anchor, and
+         * restricts the goal section to the top-K goals nearest to that
+         * seed. Asks for a focused modification/extension of the seed
+         * rather than fresh tests covering everything.
+         */
+        TEST_ANCHORED
+    }
 
-    @Parameter(key = "llm_local_search_related_goals_max", group = "LLM",
-            description = "Maximum number of related goals included in LLM local-search prompts")
+    @Parameter(key = "llm_stagnation_prompt", group = "LLM",
+            description = "Prompt-content strategy for stagnation LLM calls: "
+                    + "POOL builds a population-level prompt with the full uncovered "
+                    + "goal set and top-K relevant tests; TEST_ANCHORED anchors the "
+                    + "prompt on a single near-covering seed test and its top-K "
+                    + "closest uncovered goals (subsumes the former LLM local-search "
+                    + "prompt shape).")
+    public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.POOL;
+
+    @Parameter(key = "llm_stagnation_anchor_related_goals_max", group = "LLM",
+            description = "Maximum number of related goals included in test-anchored "
+                    + "stagnation prompts (ignored when llm_stagnation_prompt=POOL).")
     @IntValue(min = 1)
-    public static int LLM_LOCAL_SEARCH_RELATED_GOALS_MAX = 20;
+    public static int LLM_STAGNATION_ANCHOR_RELATED_GOALS_MAX = 20;
 
     @Parameter(key = "llm_enrich_constant_pool", group = "LLM",
             description = "Enable LLM enrichment of constant pools")
