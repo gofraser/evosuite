@@ -731,6 +731,10 @@ public class TestSuiteGenerator {
         Iterator<TestCase> iter = testCases.iterator();
         int removedInSingleTestChecks = 0;
         while (iter.hasNext()) {
+            if (JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()) {
+                logger.warn("Aborting remaining per-test JUnit checks due to prior javac infrastructure failure");
+                break;
+            }
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 break;
             }
@@ -755,11 +759,13 @@ public class TestSuiteGenerator {
          */
         long delta = java.lang.System.currentTimeMillis() - start;
 
-        numUnstable += checkAllTestsIfTime(testCases, delta);
+        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()) {
+            numUnstable += checkAllTestsIfTime(testCases, delta);
+        }
 
         // second passage on reverse order, this is to spot dependencies among
         // tests
-        if (testCases.size() > 1) {
+        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure() && testCases.size() > 1) {
             Collections.reverse(testCases);
             numUnstable += checkAllTestsIfTime(testCases, delta);
         }

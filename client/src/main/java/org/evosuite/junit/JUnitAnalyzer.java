@@ -296,6 +296,9 @@ public abstract class JUnitAnalyzer {
                 logger.warn("Failed to compile the test cases ");
                 return numUnstable;
             }
+            if (shouldSkipCompileDependentExecutionAfterCompile()) {
+                return numUnstable;
+            }
 
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.error("Ran out of time while checking tests");
@@ -628,10 +631,21 @@ public abstract class JUnitAnalyzer {
             return new OrderSensitivityAnalysis(Collections.<String>emptySet(), Collections.<String>emptySet());
         }
         Set<String> forwardFailures = executeAndCollectUnexpectedFailures(cloneTests(tests));
+        if (isInfrastructureOrderSensitivityFailure(forwardFailures)) {
+            logger.warn("Skipping reverse order-sensitivity run after forward infrastructure error: {}",
+                    forwardFailures);
+            return new OrderSensitivityAnalysis(forwardFailures, Collections.<String>emptySet());
+        }
         List<TestCase> reverse = cloneTests(tests);
         Collections.reverse(reverse);
         Set<String> reverseFailures = executeAndCollectUnexpectedFailures(reverse);
         return new OrderSensitivityAnalysis(forwardFailures, reverseFailures);
+    }
+
+    static boolean isInfrastructureOrderSensitivityFailure(Set<String> failures) {
+        return failures != null
+                && failures.size() == 1
+                && failures.iterator().next().endsWith("-error");
     }
 
 
@@ -959,6 +973,9 @@ public abstract class JUnitAnalyzer {
             if (generated == null) {
                 return Collections.singleton("compilation-error");
             }
+            if (shouldSkipCompileDependentExecutionAfterCompile()) {
+                return Collections.emptySet();
+            }
             loader = createInitialJUnitClassLoader(tests);
             Class<?>[] testClasses = loadTests(generated);
             if (testClasses == null) {
@@ -1093,7 +1110,9 @@ public abstract class JUnitAnalyzer {
                 logger.error("evosuiteCP: {}", evosuiteCP);
 
                 if (diagnostics.sawErrorWhileWriting()) {
-                    logger.error("Error is due to file permissions, ignoring...");
+                    disableCompileCheckDueToInfrastructure(
+                            new IllegalStateException("javac could not write compiled test artifacts"),
+                            compilerClasspath);
                     return generated;
                 }
 
@@ -1108,6 +1127,12 @@ public abstract class JUnitAnalyzer {
 
                 logGeneratedSourceExcerptsOnCompilationFailure(generated);
                 return null;
+            }
+            if (!hasCompiledClassFilesForGeneratedSources(generated)) {
+                disableCompileCheckDueToInfrastructure(
+                        new IllegalStateException("javac reported success but produced no .class files for generated tests"),
+                        compilerClasspath);
+                return generated;
             }
             return generated;
 
@@ -1169,6 +1194,10 @@ public abstract class JUnitAnalyzer {
         logFileSystemProviderClasspathDiagnostics(compilerClasspath);
     }
 
+    public static boolean isCompileCheckDisabledDueToInfrastructure() {
+        return COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE;
+    }
+
     private static void logCompileCheckDisabledIfNeeded() {
         if (COMPILE_CHECK_DISABLED_LOGGED) {
             return;
@@ -1185,6 +1214,52 @@ public abstract class JUnitAnalyzer {
         COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED = true;
         logger.warn("Skipping compile-dependent JUnit execution checks because compile check is disabled "
                 + "after a javac infrastructure failure.");
+    }
+
+    private static boolean shouldSkipCompileDependentExecutionAfterCompile() {
+        if (!COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+            return false;
+        }
+        logCompileDependentExecutionSkippedIfNeeded();
+        return true;
+    }
+
+    private static boolean hasCompiledClassFilesForGeneratedSources(List<File> generated) {
+        if (generated == null || generated.isEmpty()) {
+            return true;
+        }
+
+        final int maxLoggedMissing = 5;
+        List<String> missingClassFiles = new ArrayList<>();
+        int missingCount = 0;
+
+        for (File file : generated) {
+            if (file == null) {
+                continue;
+            }
+            String absolutePath = file.getAbsolutePath();
+            if (!absolutePath.endsWith(JAVA)) {
+                continue;
+            }
+            String classPath = absolutePath.substring(0, absolutePath.length() - JAVA.length()) + CLASS;
+            File classFile = new File(classPath);
+            if (classFile.isFile()) {
+                continue;
+            }
+            missingCount++;
+            if (missingClassFiles.size() < maxLoggedMissing) {
+                missingClassFiles.add(classFile.getAbsolutePath());
+            }
+        }
+
+        if (missingCount == 0) {
+            return true;
+        }
+
+        logger.error("Compilation reported success but {} expected class file(s) are missing. "
+                        + "Examples: {}",
+                missingCount, missingClassFiles);
+        return false;
     }
 
     private static boolean isJavacInfrastructureFailure(Throwable throwable) {
@@ -1710,14 +1785,19 @@ public abstract class JUnitAnalyzer {
          * non-instrumenting classloader to re-load the CUT, and so see
          * if the JavaAgent works properly.
          */
-        Class<?>[] testClasses = getClassesFromFiles(tests);
+        Class<?>[] testClasses = getClassesFromFiles(tests, true);
+        if (testClasses == null || testClasses.length == 0) {
+            return null;
+        }
         List<File> otherClasses = listOnlyFiles(tests);
         /*
          * this is important to force the loading of all files generated
          * in the target folder.
          * If we do not do that, then we will miss all the anonymous classes
          */
-        getClassesFromFiles(otherClasses);
+        if (otherClasses != null && !otherClasses.isEmpty()) {
+            getClassesFromFiles(otherClasses, false);
+        }
 
         return testClasses;
     }
@@ -1810,6 +1890,9 @@ public abstract class JUnitAnalyzer {
                 logger.warn("Failed to compile the test cases ");
                 return false;
             }
+            if (shouldSkipCompileDependentExecutionAfterCompile()) {
+                return true;
+            }
 
             //as last step, execute the generated/compiled test cases
 
@@ -1867,12 +1950,17 @@ public abstract class JUnitAnalyzer {
      * @param files collection of files
      * @return array of classes
      */
-    private static Class<?>[] getClassesFromFiles(Collection<File> files) {
+    private static Class<?>[] getClassesFromFiles(Collection<File> files, boolean failOnLoadError) {
+        if (files == null || files.isEmpty()) {
+            return new Class<?>[0];
+        }
         /*
          * Build-tool integration may provide a legacy scaffolding list file.
          */
         for (String className : extractClassesToInitialize(files)) {
-            loadClass(className);
+            if (loadClass(className) == null && failOnLoadError) {
+                return null;
+            }
         }
 
         /*
@@ -1882,7 +1970,9 @@ public abstract class JUnitAnalyzer {
             if (!isScaffolding(file)) {
                 continue;
             }
-            loadClass(file);
+            if (loadClass(file) == null && failOnLoadError) {
+                return null;
+            }
         }
 
         List<Class<?>> classes = new ArrayList<>();
@@ -1896,9 +1986,13 @@ public abstract class JUnitAnalyzer {
                 continue;
             }
             Class<?> clazz = loadClass(file);
-            if (clazz != null) {
-                classes.add(clazz);
+            if (clazz == null) {
+                if (failOnLoadError) {
+                    return null;
+                }
+                continue;
             }
+            classes.add(clazz);
         }
 
         return classes.toArray(new Class<?>[classes.size()]);
@@ -2016,70 +2110,54 @@ public abstract class JUnitAnalyzer {
             if (wasSandboxOn) {
                 privileged = Sandbox.resetDefaultSecurityManager();
             }
-
-            Result result = null;
-            ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
-            boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
-            boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
-                    || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
-            boolean disabledHeadless = false;
-
-            // Skip agent self-attachment during the in-process JUnit check.
-            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
             try {
-                if (shouldEnableMockFramework) {
-                    MockFramework.enable();
+                Result result = null;
+                ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
+                boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
+                boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
+                        || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+                boolean disabledHeadless = false;
+
+                // Skip agent self-attachment during the in-process JUnit check.
+                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
+                try {
+                    if (shouldEnableMockFramework) {
+                        MockFramework.enable();
+                    }
+                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+                        // Align JUnit recheck with search-time constructor execution:
+                        // ConstructorStatement temporarily disables headless mode for GUI
+                        // constructors, but JUnit executes plain Java source directly.
+                        // Without this, GUI-heavy tests can fail only in recheck.
+                        GuiSupport.disableHeadlessForMockConstruction();
+                        disabledHeadless = true;
+                    }
+                    TestGenerationContext.getInstance().goingToExecuteSUTCode();
+                    Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
+                    // be sure we reset it here, otherwise "init" in the test case
+                    // would take current changed state
+                    JDKClassResetter.reset();
+                    result = runner.run(testClasses);
+                } finally {
+                    Thread.currentThread().setContextClassLoader(currentLoader);
+                    TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+                    org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
+                    if (disabledHeadless) {
+                        GuiSupport.restoreHeadlessAfterMockConstruction();
+                    }
+                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+                    }
+                    if (!wasMockFrameworkEnabled) {
+                        MockFramework.disable();
+                    }
                 }
-                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                    // Align JUnit recheck with search-time constructor execution:
-                    // ConstructorStatement temporarily disables headless mode for GUI
-                    // constructors, but JUnit executes plain Java source directly.
-                    // Without this, GUI-heavy tests can fail only in recheck.
-                    GuiSupport.disableHeadlessForMockConstruction();
-                    disabledHeadless = true;
-                }
-                TestGenerationContext.getInstance().goingToExecuteSUTCode();
-                Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
-                // be sure we reset it here, otherwise "init" in the test case
-                // would take current changed state
-                JDKClassResetter.reset();
-                result = runner.run(testClasses);
+                JUnitResultBuilder builder = new JUnitResultBuilder();
+                return builder.build(result);
             } finally {
-                Thread.currentThread().setContextClassLoader(currentLoader);
-                TestGenerationContext.getInstance().doneWithExecutingSUTCode();
-                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
-                if (disabledHeadless) {
-                    GuiSupport.restoreHeadlessAfterMockConstruction();
-                }
-                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                }
-                if (!wasMockFrameworkEnabled) {
-                    MockFramework.disable();
-                }
+                restoreSandboxStateAfterJUnitRun(wasSandboxOn, privileged);
             }
-
-
-            if (wasSandboxOn) {
-                //only activate Sandbox if it was already active before
-                if (!Sandbox.isSecurityManagerInitialized()) {
-                    Sandbox.initializeSecurityManagerForSUT(privileged);
-                    org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
-                            .registerCompilationThreadAsPrivileged();
-                    org.evosuite.llm.response.TestRepairLoop
-                            .registerParseCompileThreadAsPrivileged();
-                }
-            } else {
-                if (Sandbox.isSecurityManagerInitialized()) {
-                    logger.warn("EvoSuite problem: tests set up a security manager, "
-                            + "but they do not remove it after execution");
-                    Sandbox.resetDefaultSecurityManager();
-                }
-            }
-
-            JUnitResultBuilder builder = new JUnitResultBuilder();
-            return builder.build(result);
         }
     }
 
@@ -2098,67 +2176,75 @@ public abstract class JUnitAnalyzer {
             if (wasSandboxOn) {
                 privileged = Sandbox.resetDefaultSecurityManager();
             }
-
-            List<Pair<TestIdentifier, TestExecutionResult>> result = new ArrayList<>();
-            ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
-            boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
-            boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
-                    || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
-            boolean disabledHeadless = false;
-
-
-            // Skip agent self-attachment during the in-process JUnit check.
-            // Classes are already instrumented by InstrumentingClassLoader, and
-            // ByteBuddyAgent.attach() can hang on some JDK/OS combinations.
-            org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
             try {
-                if (shouldEnableMockFramework) {
-                    MockFramework.enable();
-                }
-                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                    // Keep JUnit recheck behavior aligned with search-time execution.
-                    GuiSupport.disableHeadlessForMockConstruction();
-                    disabledHeadless = true;
-                }
-                TestGenerationContext.getInstance().goingToExecuteSUTCode();
-                Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
-                // be sure we reset it here, otherwise "init" in the test case
-                // would take current changed state
-                JDKClassResetter.reset();
-                LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
-                        .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass)
-                                .collect(Collectors.toList()))
-                        .build();
-                Launcher launcher = LauncherFactory.create();
-                TestPlan testPlan = launcher.discover(request);
-                launcher.registerTestExecutionListeners(new TestExecutionListener() {
-                    @Override
-                    public void executionFinished(TestIdentifier testIdentifier,
-                                                  TestExecutionResult testExecutionResult) {
-                        result.add(Pair.of(testIdentifier, testExecutionResult));
+                List<Pair<TestIdentifier, TestExecutionResult>> result = new ArrayList<>();
+                ClassLoader currentLoader = Thread.currentThread().getContextClassLoader();
+                boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
+                boolean shouldEnableMockFramework = RuntimeSettings.mockJVMNonDeterminism
+                        || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+                boolean disabledHeadless = false;
+
+
+                // Skip agent self-attachment during the in-process JUnit check.
+                // Classes are already instrumented by InstrumentingClassLoader, and
+                // ByteBuddyAgent.attach() can hang on some JDK/OS combinations.
+                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(true);
+                try {
+                    if (shouldEnableMockFramework) {
+                        MockFramework.enable();
                     }
-                });
+                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+                        // Keep JUnit recheck behavior aligned with search-time execution.
+                        GuiSupport.disableHeadlessForMockConstruction();
+                        disabledHeadless = true;
+                    }
+                    TestGenerationContext.getInstance().goingToExecuteSUTCode();
+                    Thread.currentThread().setContextClassLoader(testClasses[0].getClassLoader());
+                    // be sure we reset it here, otherwise "init" in the test case
+                    // would take current changed state
+                    JDKClassResetter.reset();
+                    LauncherDiscoveryRequest request = LauncherDiscoveryRequestBuilder.request()
+                            .selectors(Arrays.stream(testClasses).map(DiscoverySelectors::selectClass)
+                                    .collect(Collectors.toList()))
+                            .build();
+                    Launcher launcher = LauncherFactory.create();
+                    TestPlan testPlan = launcher.discover(request);
+                    launcher.registerTestExecutionListeners(new TestExecutionListener() {
+                        @Override
+                        public void executionFinished(TestIdentifier testIdentifier,
+                                                      TestExecutionResult testExecutionResult) {
+                            result.add(Pair.of(testIdentifier, testExecutionResult));
+                        }
+                    });
 
-                launcher.execute(request);
+                    launcher.execute(request);
+                } finally {
+                    Thread.currentThread().setContextClassLoader(currentLoader);
+                    TestGenerationContext.getInstance().doneWithExecutingSUTCode();
+                    org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
+                    if (disabledHeadless) {
+                        GuiSupport.restoreHeadlessAfterMockConstruction();
+                    }
+                    if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
+                        GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
+                    }
+                    if (!wasMockFrameworkEnabled) {
+                        MockFramework.disable();
+                    }
+                }
+                JUnitResultBuilder builder = new JUnitResultBuilder();
+                return builder.build(result);
             } finally {
-                Thread.currentThread().setContextClassLoader(currentLoader);
-                TestGenerationContext.getInstance().doneWithExecutingSUTCode();
-                org.evosuite.runtime.agent.AgentLoader.setSkipAttach(false);
-                if (disabledHeadless) {
-                    GuiSupport.restoreHeadlessAfterMockConstruction();
-                }
-                if (Properties.REPLACE_GUI || RuntimeSettings.mockGUI) {
-                    GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
-                }
-                if (!wasMockFrameworkEnabled) {
-                    MockFramework.disable();
-                }
+                restoreSandboxStateAfterJUnitRun(wasSandboxOn, privileged);
             }
+        }
+    }
 
-
+    private static void restoreSandboxStateAfterJUnitRun(boolean wasSandboxOn, Set<Thread> privileged) {
+        try {
             if (wasSandboxOn) {
-                //only activate Sandbox if it was already active before
+                // only activate Sandbox if it was already active before
                 if (!Sandbox.isSecurityManagerInitialized()) {
                     Sandbox.initializeSecurityManagerForSUT(privileged);
                     org.evosuite.testcase.execution.ExecutableSnippetEngine.INSTANCE
@@ -2166,16 +2252,13 @@ public abstract class JUnitAnalyzer {
                     org.evosuite.llm.response.TestRepairLoop
                             .registerParseCompileThreadAsPrivileged();
                 }
-            } else {
-                if (Sandbox.isSecurityManagerInitialized()) {
-                    logger.warn("EvoSuite problem: tests set up a security manager, "
-                            + "but they do not remove it after execution");
-                    Sandbox.resetDefaultSecurityManager();
-                }
+            } else if (Sandbox.isSecurityManagerInitialized()) {
+                logger.warn("EvoSuite problem: tests set up a security manager, "
+                        + "but they do not remove it after execution");
+                Sandbox.resetDefaultSecurityManager();
             }
-
-            JUnitResultBuilder builder = new JUnitResultBuilder();
-            return builder.build(result);
+        } catch (RuntimeException e) {
+            logger.error("Failed to restore sandbox state after JUnit check", e);
         }
     }
 }

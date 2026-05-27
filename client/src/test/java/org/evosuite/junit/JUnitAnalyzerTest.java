@@ -208,6 +208,59 @@ public class JUnitAnalyzerTest {
     }
 
     @Test
+    public void testInfrastructureOrderSensitivityFailureDetection() {
+        Assertions.assertTrue(JUnitAnalyzer.isInfrastructureOrderSensitivityFailure(
+                Collections.singleton("load-error")));
+        Assertions.assertTrue(JUnitAnalyzer.isInfrastructureOrderSensitivityFailure(
+                Collections.singleton("execution-error")));
+        Assertions.assertFalse(JUnitAnalyzer.isInfrastructureOrderSensitivityFailure(
+                Collections.singleton("test0")));
+        Assertions.assertFalse(JUnitAnalyzer.isInfrastructureOrderSensitivityFailure(
+                new java.util.LinkedHashSet<>(Arrays.asList("load-error", "test0"))));
+        Assertions.assertFalse(JUnitAnalyzer.isInfrastructureOrderSensitivityFailure(Collections.emptySet()));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testLoadTestsReturnsNullWhenClassFileIsMissing() throws Exception {
+        Method loadTests = JUnitAnalyzer.class.getDeclaredMethod("loadTests", List.class);
+        loadTests.setAccessible(true);
+
+        File dir = Files.createTempDirectory("evosuite-missing-class").toFile();
+        File javaFile = new File(dir, "MissingClass_ESTest.java");
+        Files.write(javaFile.toPath(),
+                Collections.singletonList("public class MissingClass_ESTest {}"),
+                StandardCharsets.UTF_8);
+        javaFile.deleteOnExit();
+        dir.deleteOnExit();
+
+        Class<?>[] classes = (Class<?>[]) loadTests.invoke(null, Collections.singletonList(javaFile));
+        Assertions.assertNull(classes);
+    }
+
+    @Test
+    public void testHasCompiledClassFilesForGeneratedSourcesDetectsMissingOutput() throws Exception {
+        Method method = JUnitAnalyzer.class.getDeclaredMethod(
+                "hasCompiledClassFilesForGeneratedSources", List.class);
+        method.setAccessible(true);
+
+        File dir = Files.createTempDirectory("evosuite-missing-output").toFile();
+        File javaFile = new File(dir, "Generated_ESTest.java");
+        Files.write(javaFile.toPath(),
+                Collections.singletonList("public class Generated_ESTest {}"),
+                StandardCharsets.UTF_8);
+        javaFile.deleteOnExit();
+        dir.deleteOnExit();
+
+        Assertions.assertFalse((boolean) method.invoke(null, Collections.singletonList(javaFile)));
+
+        File classFile = new File(dir, "Generated_ESTest.class");
+        Files.write(classFile.toPath(), new byte[]{0});
+        classFile.deleteOnExit();
+        Assertions.assertTrue((boolean) method.invoke(null, Collections.singletonList(javaFile)));
+    }
+
+    @Test
     public void testAnalyzerSelectionFollowsCurrentTestFormat() {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
         Assertions.assertFalse(JUnitAnalyzer.isJUnit5AnalyzerSelectedForCurrentFormat());
@@ -507,6 +560,41 @@ public class JUnitAnalyzerTest {
         } finally {
             disabledField.setBoolean(null, previousDisabled);
             loggedField.setBoolean(null, previousLogged);
+        }
+    }
+
+    @Test
+    public void testShouldSkipCompileDependentExecutionAfterCompileReflectsInfraFlag() throws Exception {
+        java.lang.reflect.Field disabledField = JUnitAnalyzer.class.getDeclaredField(
+                "COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE");
+        disabledField.setAccessible(true);
+        java.lang.reflect.Field skippedLoggedField = JUnitAnalyzer.class.getDeclaredField(
+                "COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED");
+        skippedLoggedField.setAccessible(true);
+
+        Method shouldSkip = JUnitAnalyzer.class.getDeclaredMethod(
+                "shouldSkipCompileDependentExecutionAfterCompile");
+        shouldSkip.setAccessible(true);
+
+        boolean previousDisabled = disabledField.getBoolean(null);
+        boolean previousSkippedLogged = skippedLoggedField.getBoolean(null);
+        try {
+            disabledField.setBoolean(null, false);
+            skippedLoggedField.setBoolean(null, false);
+            Assertions.assertFalse((boolean) shouldSkip.invoke(null));
+            Assertions.assertFalse(skippedLoggedField.getBoolean(null));
+
+            disabledField.setBoolean(null, true);
+            skippedLoggedField.setBoolean(null, false);
+            Assertions.assertTrue((boolean) shouldSkip.invoke(null));
+            Assertions.assertTrue(skippedLoggedField.getBoolean(null));
+
+            skippedLoggedField.setBoolean(null, true);
+            Assertions.assertTrue((boolean) shouldSkip.invoke(null));
+            Assertions.assertTrue(skippedLoggedField.getBoolean(null));
+        } finally {
+            disabledField.setBoolean(null, previousDisabled);
+            skippedLoggedField.setBoolean(null, previousSkippedLogged);
         }
     }
 
