@@ -2203,6 +2203,11 @@ public class Properties {
             description = "If true, emit per-generation species count as a timeline runtime variable")
     public static boolean SPECIES_TIMELINE_ENABLED = true;
 
+    @Parameter(key = "species_track_when_speciation_disabled", group = "Speciation",
+            description = "If true, compute species assignment and emit species timelines even when "
+                    + "speciation_enabled is false (tracking only; does not affect survival or mating)")
+    public static boolean SPECIES_TRACK_WHEN_SPECIATION_DISABLED = false;
+
     @Parameter(key = "species_largest_share_timeline_enabled", group = "Speciation",
             description = "If true, emit per-generation largest species share as a timeline runtime variable")
     public static boolean SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;

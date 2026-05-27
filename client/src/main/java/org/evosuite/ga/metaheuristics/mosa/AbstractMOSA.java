@@ -171,6 +171,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final transient SpeciesPolicy speciesPolicy;
 
     /**
+     * If true, species assignments are computed for timeline tracking even
+     * when speciation survival is disabled.
+     */
+    protected final boolean trackSpeciesWhenSpeciationDisabled;
+
+    /**
+     * Species assigner used only for observability when speciation is disabled.
+     * This never feeds back into survival, ranking, or mating behavior.
+     */
+    protected final transient SpeciesAssigner speciesTrackingAssigner;
+
+    /**
      * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
@@ -208,15 +220,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.speciationEnabled = true;
             this.speciesAssigner = new DefaultSpeciesAssigner();
             this.speciesPolicy = new DefaultSpeciesPolicy();
+            this.trackSpeciesWhenSpeciationDisabled = false;
+            this.speciesTrackingAssigner = this.speciesAssigner;
         } else {
             this.speciationEnabled = false;
             // No-op implementations: groupBySpecies puts all in one species,
             // policy methods return input unchanged.
-            this.speciesAssigner = population -> {
+            SpeciesAssigner singleSpeciesAssigner = population -> {
                 Map<Integer, List<TestChromosome>> single = new HashMap<>();
                 single.put(0, new ArrayList<>(population));
                 return single;
             };
+            this.speciesAssigner = singleSpeciesAssigner;
             this.speciesPolicy = new SpeciesPolicy() {
                 @Override
                 public List<TestChromosome> applySurvivalCaps(
@@ -230,9 +245,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 public List<TestChromosome> balanceParentPool(
                         List<TestChromosome> pop,
                         Map<Integer, List<TestChromosome>> speciesMap) {
-                    return pop;
+                        return pop;
                 }
             };
+            this.trackSpeciesWhenSpeciationDisabled =
+                    Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED;
+            this.speciesTrackingAssigner = this.trackSpeciesWhenSpeciationDisabled
+                    ? new DefaultSpeciesAssigner()
+                    : singleSpeciesAssigner;
         }
     }
 
@@ -603,6 +623,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
         } else {
             this.population.addAll(rankedCandidates);
+            if (trackSpeciesWhenSpeciationDisabled && !this.population.isEmpty()) {
+                try {
+                    Map<Integer, List<TestChromosome>> trackedSpecies =
+                            speciesTrackingAssigner.groupBySpecies(this.population);
+                    emitSpeciesTimeline(trackedSpecies);
+                } catch (Exception e) {
+                    logger.debug("Species tracking failed outside speciation; ignoring", e);
+                }
+            }
         }
     }
 

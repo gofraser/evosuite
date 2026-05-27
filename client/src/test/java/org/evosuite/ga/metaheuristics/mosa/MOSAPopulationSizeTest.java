@@ -50,6 +50,7 @@ class MOSAPopulationSizeTest {
     private boolean savedBalanceParentSelection;
     private double savedSurvivalCap;
     private boolean savedTimelineEnabled;
+    private boolean savedTrackWhenSpeciationDisabled;
     private boolean savedLargestShareTimeline;
 
     @BeforeEach
@@ -58,6 +59,7 @@ class MOSAPopulationSizeTest {
         savedBalanceParentSelection = Properties.SPECIES_BALANCE_PARENT_SELECTION;
         savedSurvivalCap = Properties.SPECIES_SURVIVAL_CAP;
         savedTimelineEnabled = Properties.SPECIES_TIMELINE_ENABLED;
+        savedTrackWhenSpeciationDisabled = Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED;
         savedLargestShareTimeline = Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED;
     }
 
@@ -67,6 +69,7 @@ class MOSAPopulationSizeTest {
         Properties.SPECIES_BALANCE_PARENT_SELECTION = savedBalanceParentSelection;
         Properties.SPECIES_SURVIVAL_CAP = savedSurvivalCap;
         Properties.SPECIES_TIMELINE_ENABLED = savedTimelineEnabled;
+        Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED = savedTrackWhenSpeciationDisabled;
         Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = savedLargestShareTimeline;
     }
 
@@ -199,6 +202,7 @@ class MOSAPopulationSizeTest {
     @Test
     void nonSpeciationPathPreservesPriorBehavior() {
         Properties.SPECIATION_ENABLED = false;
+        Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED = false;
 
         int basePopSize = 4;
         List<TestChromosome> front0 = makeChromosomes(6);
@@ -214,6 +218,27 @@ class MOSAPopulationSizeTest {
         // Non-speciation path: population = rankedCandidates (bounded to candidateLimit)
         assertTrue(mosa.getPopulation().size() <= basePopSize,
                 "Non-speciation path should not exceed base target");
+    }
+
+    @Test
+    void nonSpeciationCanEmitSpeciesTimelineWhenTrackingEnabled() {
+        Properties.SPECIATION_ENABLED = false;
+        Properties.SPECIES_TIMELINE_ENABLED = true;
+        Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED = true;
+
+        int basePopSize = 4;
+        List<TestChromosome> front0 = makeChromosomes(2);
+        List<TestChromosome> front1 = makeChromosomes(3);
+
+        TrackingTimelineMOSA mosa = new TrackingTimelineMOSA(
+                () -> new TestChromosome(), front0, front1, basePopSize);
+
+        mosa.evolve();
+
+        assertTrue(mosa.timelineEmitted,
+                "Timeline should be emitted when tracking is enabled without speciation");
+        assertTrue(mosa.lastSpeciesCount >= 1,
+                "Tracked species map should contain at least one species");
     }
 
     /**
@@ -321,6 +346,25 @@ class MOSAPopulationSizeTest {
         @Override
         protected void emitSpeciesTimeline(Map<Integer, List<TestChromosome>> speciesMap) {
             throw new RuntimeException("forced speciation failure");
+        }
+    }
+
+    private static class TrackingTimelineMOSA extends PopSizeTestMOSA {
+        private static final long serialVersionUID = 1L;
+        private boolean timelineEmitted;
+        private int lastSpeciesCount;
+
+        TrackingTimelineMOSA(ChromosomeFactory<TestChromosome> factory,
+                             List<TestChromosome> front0,
+                             List<TestChromosome> front1,
+                             int initialPopSize) {
+            super(factory, front0, front1, initialPopSize);
+        }
+
+        @Override
+        protected void emitSpeciesTimeline(Map<Integer, List<TestChromosome>> speciesMap) {
+            this.timelineEmitted = true;
+            this.lastSpeciesCount = speciesMap.size();
         }
     }
 

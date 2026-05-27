@@ -48,6 +48,7 @@ class Phase5PropertyDefaultsTest {
         assertFalse(Properties.SPECIES_BALANCE_PARENT_SELECTION);
         assertFalse(Properties.SPECIES_RESTRICT_MATING);
         assertTrue(Properties.SPECIES_TIMELINE_ENABLED);
+        assertFalse(Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED);
         assertFalse(Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED);
         assertEquals(0.7, Properties.SPECIATION_HYBRID_PHENOTYPIC_WEIGHT, 1e-9);
     }
