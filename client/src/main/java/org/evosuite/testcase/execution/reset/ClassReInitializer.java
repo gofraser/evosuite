@@ -32,11 +32,11 @@ import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * This singleton class handles the re-initialization of classes after an
@@ -79,8 +79,8 @@ public class ClassReInitializer {
      * TODO: I think this would be nicer if each type of statement registered
      * the classes to reset as part of their execute() method
      */
-    private static HashSet<String> getMoreClassesToReset(TestCase tc, ExecutionResult result) {
-        HashSet<String> moreClassesForStaticReset = new HashSet<>();
+    private static LinkedHashSet<String> getMoreClassesToReset(TestCase tc, ExecutionResult result) {
+        LinkedHashSet<String> moreClassesForStaticReset = new LinkedHashSet<>();
         for (int position = 0; position < result.getExecutedStatements(); position++) {
             Statement statement = tc.getStatement(position);
 
@@ -189,14 +189,27 @@ public class ClassReInitializer {
                 // reset only classes that were "observed" to have some
                 // GETSTATIC/PUTSTATIC updating their state during test
                 // execution
-                List<String> classesToReset = new LinkedList<>(trace.getClassesWithStaticWrites());
+                Set<String> classesToResetSet = new LinkedHashSet<>(trace.getClassesWithStaticWrites());
                 if (Properties.RESET_STATIC_FIELD_GETS) {
-                    classesToReset.addAll(trace.getClassesWithStaticReads());
+                    classesToResetSet.addAll(trace.getClassesWithStaticReads());
                 }
-                HashSet<String> moreClassesForReset = getMoreClassesToReset(executedTestCase, testCaseResult);
-                classesToReset.addAll(moreClassesForReset);
-                // sort classes to reset
-                Collections.sort(classesToReset);
+                LinkedHashSet<String> moreClassesForReset = getMoreClassesToReset(executedTestCase, testCaseResult);
+                classesToResetSet.addAll(moreClassesForReset);
+                // Order classes by first-touch initialization order rather than
+                // alphabetically. The recheck phase (EvoSuiteExtension.afterEach)
+                // already resets in EVO_INIT_ORDER, which is topologically derived;
+                // matching that here avoids divergent post-reset static state when
+                // class A's __STATIC_RESET reads class B's static field.
+                List<String> classesToReset = new ArrayList<>(classesToResetSet.size());
+                for (String c : initializedClassesSnapshot) {
+                    if (classesToResetSet.remove(c)) {
+                        classesToReset.add(c);
+                    }
+                }
+                // Any classes flagged for reset that weren't recorded in the
+                // first-touch snapshot get appended at the end in their original
+                // discovery order (LinkedHashSet preserves insertion order).
+                classesToReset.addAll(classesToResetSet);
 
                 ClassLoader loader = null;
                 if (executedTestCase instanceof DefaultTestCase) {

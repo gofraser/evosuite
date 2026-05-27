@@ -88,6 +88,18 @@ public class TestCaseExecutor implements ThreadFactory {
      */
     private final Object executionLock = new Object();
 
+    /**
+     * Lock that serializes test executions. Callers that need to perform
+     * pre/post setup of process-wide state (e.g. {@code ClassReInitializer},
+     * {@code MockFramework}, {@code GuiSupport} headless toggles) atomically
+     * with the execution itself can {@code synchronized} on this object around
+     * the whole prep+execute+cleanup block. The monitor is reentrant, so the
+     * nested {@link #execute(TestCase)} call inside the block is safe.
+     */
+    public Object getExecutionLock() {
+        return executionLock;
+    }
+
     private Thread currentThread = null;
 
     private ThreadGroup threadGroup = null;
