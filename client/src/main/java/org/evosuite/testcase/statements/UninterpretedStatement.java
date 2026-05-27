@@ -207,7 +207,12 @@ public class UninterpretedStatement extends AbstractStatement {
 
     @Override
     public boolean isAssignmentStatement() {
-        return !retval.isVoid();
+        // An UninterpretedStatement holds opaque source code (e.g. "a + b");
+        // it is not a Java-level variable aliasing assignment, and callers
+        // of isAssignmentStatement() (TestMutator.deleteStatementGracefully,
+        // AssertionTraceObserver, etc.) cast to AssignmentStatement or skip
+        // alias-only logic. Returning true here caused ClassCastException.
+        return false;
     }
 
     @Override

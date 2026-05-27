@@ -377,6 +377,15 @@ public class TestUsageChecker {
             return false;
         }
 
+        // Field shadowing: when the field is inherited from a superclass but
+        // an intermediate or the owner class itself redeclares a field with
+        // the same name, Java resolves direct access (e.g. `obj.name`) through
+        // the static type of `obj` to the shadowing declaration, not the
+        // inherited one. Emitting direct access in that case would not compile.
+        if (isShadowedInOwner(f, ownerClass)) {
+            return false;
+        }
+
         if (Modifier.isPublic(f.getModifiers())) {
             // It may still be the case that the field is defined in a non-visible superclass of the class
             // we already know we can use. In that case, the compiler would be fine with accessing the
@@ -400,6 +409,27 @@ public class TestUsageChecker {
             }
         }
 
+        return false;
+    }
+
+    private static boolean isShadowedInOwner(Field f, Class<?> ownerClass) {
+        Class<?> declaring = f.getDeclaringClass();
+        if (ownerClass == null || ownerClass.equals(declaring)) {
+            return false;
+        }
+        if (!declaring.isAssignableFrom(ownerClass)) {
+            return false;
+        }
+        Class<?> current = ownerClass;
+        while (current != null && !current.equals(declaring)) {
+            try {
+                current.getDeclaredField(f.getName());
+                return true;
+            } catch (NoSuchFieldException ignored) {
+                // not shadowed at this level
+            }
+            current = current.getSuperclass();
+        }
         return false;
     }
 

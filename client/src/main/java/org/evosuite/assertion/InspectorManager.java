@@ -51,11 +51,15 @@ public class InspectorManager {
     }
 
     private void initializeBlackList() {
-        // These methods will include absolute path names and should not be in assertions
+        // These methods will include absolute path names and should not be in assertions,
+        // and lastModified/getFreeSpace/getTotalSpace/getUsableSpace are tied to the
+        // mocked clock or the host filesystem and vary between runs.
         blackList.put(
                 "java.io.File",
                 Arrays.asList("getPath", "getAbsolutePath",
-                        "getCanonicalPath"));
+                        "getCanonicalPath",
+                        "lastModified",
+                        "getFreeSpace", "getTotalSpace", "getUsableSpace"));
         blackList.put("java.io.DataOutputStream", Arrays.asList("size"));
 
         // These methods will contain locale specific strings

@@ -195,13 +195,31 @@ public abstract class SequenceOutputVariableFactory<T extends Number> {
 
     private int calculateNumberOfIntervals() {
         long interval = Properties.TIMELINE_INTERVAL;
+        if (interval <= 0) {
+            return 0;
+        }
         /*
-         * We cannot just look at the obtained history, because the search might
-         * have finished earlier, eg if 100% coverage
+         * The number of timeline intervals must stay constant across all runs
+         * that share the same configuration, otherwise the timeline columns
+         * in statistics.csv would shift whenever a search terminates early
+         * (e.g. on 100% coverage). We therefore derive the count from the
+         * configured maximum search budget rather than the actual elapsed
+         * search time; getTimeLineValue() pads any interval beyond the end
+         * of the recorded data by returning the last observed value.
          */
-        long totalTime = TimeController.getSearchBudgetInSeconds() * 1000L;
-
-        int numberOfIntervals = (int) (totalTime / interval);
-        return numberOfIntervals;
+        long budgetSeconds;
+        if (Properties.STOPPING_CONDITION == Properties.StoppingCondition.MAXTIME) {
+            budgetSeconds = Properties.SEARCH_BUDGET;
+        } else {
+            budgetSeconds = Properties.GLOBAL_TIMEOUT;
+        }
+        if (budgetSeconds <= 0) {
+            // Fall back to TimeController so we still produce at least the
+            // historically expected number of intervals when budgets are
+            // unset or zero.
+            budgetSeconds = TimeController.getSearchBudgetInSeconds();
+        }
+        long totalTime = budgetSeconds * 1000L;
+        return (int) (totalTime / interval);
     }
 }

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 import javax.swing.JPanel;
@@ -54,6 +55,15 @@ class TestUsageCheckerTest {
         public int getMarker() {
             return 7;
         }
+    }
+
+    static class ShadowParent {
+        protected Object value;
+        protected Object inheritedOnly;
+    }
+
+    static class ShadowChild extends ShadowParent {
+        private Object value;
     }
 
     @AfterEach
@@ -141,5 +151,24 @@ class TestUsageCheckerTest {
 
         Assertions.assertFalse(TestUsageChecker.isUnstableGuiAccessor(marker));
         Assertions.assertTrue(TestUsageChecker.canUse(marker, GuiSubclassFixture.class));
+    }
+
+    @Test
+    void testInheritedFieldShadowedByOwnerIsRejected() throws NoSuchFieldException {
+        Properties.CLASS_PREFIX = "org.evosuite.setup";
+        Properties.TARGET_CLASS = ShadowChild.class.getName();
+
+        Field parentValue = ShadowParent.class.getDeclaredField("value");
+
+        // The parent's protected `value` is accessible by itself in the same
+        // package, but ShadowChild redeclares `value` as private. Direct
+        // access through a ShadowChild-typed variable would resolve to the
+        // shadow and fail to compile.
+        Assertions.assertFalse(TestUsageChecker.canUse(parentValue, ShadowChild.class));
+        // Without shadowing, the inherited field remains usable from the owner.
+        Field inherited = ShadowParent.class.getDeclaredField("inheritedOnly");
+        Assertions.assertTrue(TestUsageChecker.canUse(inherited, ShadowChild.class));
+        // The parent's own field is still usable when accessed via the parent.
+        Assertions.assertTrue(TestUsageChecker.canUse(parentValue, ShadowParent.class));
     }
 }

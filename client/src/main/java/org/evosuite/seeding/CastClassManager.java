@@ -302,8 +302,12 @@ public class CastClassManager {
                                 genericClass, wildcardType, recursiveAssignable);
                         assignableClasses = recursiveAssignable;
                     } else {
-                        logger.warn("Nothing is assignable after adding {} for wildcard {}",
-                                genericClass, wildcardType);
+                        logger.warn("Nothing is assignable after adding {} for wildcard {}. "
+                                        + "Upper bounds: {}, lower bounds: {}, owner var map: {}",
+                                genericClass, wildcardType,
+                                Arrays.toString(wildcardType.getUpperBounds()),
+                                Arrays.toString(wildcardType.getLowerBounds()),
+                                GenericUtils.stableTypeVariableMapToString(ownerVariableMap));
                     }
                     if (assignableClasses.isEmpty()) {
                         throw new ConstructionFailedException("Nothing is assignable to " + wildcardType);
@@ -536,7 +540,27 @@ public class CastClassManager {
         logger.debug("Found {} total assignable classes for wildcard {}", assignableClasses.size(), wildcardType);
 
         // random selection of the assignable classes is added to class map with priority 10
-        return addToClassMapIfNotEmpty(assignableClasses, 10);
+        GenericClass<?> chosen = addToClassMapIfNotEmpty(assignableClasses, 10);
+
+        // Sanity check: the class we just added must itself satisfy the wildcard boundary.
+        // If it does not, the predicates used to admit candidates disagree with the predicate
+        // used by getAssignableClasses(...), which is the root cause of "Nothing is assignable
+        // after adding X" warnings. Dump full provenance so we can locate the offending path.
+        if (chosen != null && !chosen.satisfiesBoundaries(wildcardType, typeMap)) {
+            logger.warn("addAssignableClass picked {} for wildcard {} but it fails the boundary "
+                            + "check on re-evaluation. Upper bounds: {}, lower bounds: {}, "
+                            + "typeMap: {}. Provenance: testCluster={}, typeVarMap={}, "
+                            + "boundsWithTypeVars={}, boundsWithoutTypeVars={}",
+                    chosen, wildcardType,
+                    Arrays.toString(wildcardType.getUpperBounds()),
+                    Arrays.toString(wildcardType.getLowerBounds()),
+                    GenericUtils.stableTypeVariableMapToString(typeMap),
+                    assignableClassesFromTestCluster,
+                    assignableTypeVariables,
+                    assignableBoundariesWithTypeVariables,
+                    assignableBoundariesWithoutTypeVariables);
+        }
+        return chosen;
     }
 
     /**

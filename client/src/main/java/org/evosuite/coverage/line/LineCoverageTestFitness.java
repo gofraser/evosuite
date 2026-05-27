@@ -172,32 +172,35 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         // evaluating will attempt to claim coverage for it in the archive
         boolean archive = Properties.TEST_ARCHIVE;
         Properties.TEST_ARCHIVE = false;
-        if (result.getTrace().getCoveredLines().contains(this.line)) {
-            fitness = 0.0;
-        } else {
-            double r = Double.MAX_VALUE;
+        try {
+            if (result.getTrace().getCoveredLines().contains(this.line)) {
+                fitness = 0.0;
+            } else {
+                double r = Double.MAX_VALUE;
 
-            // Find minimum distance to satisfying any of the control dependencies
-            for (BranchCoverageTestFitness branchFitness : branchFitnesses) {
-                double newFitness = branchFitness.getFitness(individual, result);
-                if (newFitness == 0.0) {
-                    // Although the BranchCoverage goal has been covered, it is not part of the
-                    // optimisation
-                    individual.getTestCase().removeCoveredGoal(branchFitness);
-                    // If the control dependency was covered, then likely
-                    // an exception happened before the line was reached
-                    newFitness = 1.0;
-                } else {
-                    newFitness = 1.0 + normalize(newFitness);
+                // Find minimum distance to satisfying any of the control dependencies
+                for (BranchCoverageTestFitness branchFitness : branchFitnesses) {
+                    double newFitness = branchFitness.getFitness(individual, result);
+                    if (newFitness == 0.0) {
+                        // Although the BranchCoverage goal has been covered, it is not part of the
+                        // optimisation
+                        individual.getTestCase().removeCoveredGoal(branchFitness);
+                        // If the control dependency was covered, then likely
+                        // an exception happened before the line was reached
+                        newFitness = 1.0;
+                    } else {
+                        newFitness = 1.0 + normalize(newFitness);
+                    }
+                    if (newFitness < r) {
+                        r = newFitness;
+                    }
                 }
-                if (newFitness < r) {
-                    r = newFitness;
-                }
+
+                fitness = r;
             }
-
-            fitness = r;
+        } finally {
+            Properties.TEST_ARCHIVE = archive;
         }
-        Properties.TEST_ARCHIVE = archive;
         updateIndividual(individual, fitness);
 
         if (fitness == 0.0) {
@@ -205,7 +208,14 @@ public class LineCoverageTestFitness extends TestFitnessFunction {
         }
 
         if (Properties.TEST_ARCHIVE) {
-            Archive.getArchiveInstance().updateArchive(this, individual, fitness);
+            // Skip when this line goal isn't a registered target — e.g. the line factory
+            // filtered it out (no instruction in the pool / missing debug info) but a
+            // synthetic LineCoverageTestFitness was still constructed elsewhere, or the
+            // archive was reset mid-flight. Mirrors the guard in BranchCoverageTestFitness.
+            Archive archiveInstance = Archive.getArchiveInstance();
+            if (archiveInstance.hasTarget(this)) {
+                archiveInstance.updateArchive(this, individual, fitness);
+            }
         }
 
         return fitness;

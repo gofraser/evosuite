@@ -133,7 +133,14 @@ public class BranchCoverageTestFitness extends TestFitnessFunction {
             // set as coverage criterion to optimize. However, branches are
             // the backbone for all other criteria and thus they are always used in DynaMOSA
             if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.BRANCH)) {
-                Archive.getArchiveInstance().updateArchive(this, individual, fitness);
+                // Skip when this branch goal isn't a registered target — happens when
+                // LineCoverageTestFitness invokes us with a synthetic root-Branch goal
+                // for a non-branchless method as part of control-dependency analysis.
+                // Its static-flag suppression of archive updates is fragile, so guard here.
+                Archive archive = Archive.getArchiveInstance();
+                if (archive.hasTarget(this)) {
+                    archive.updateArchive(this, individual, fitness);
+                }
             }
         }
 

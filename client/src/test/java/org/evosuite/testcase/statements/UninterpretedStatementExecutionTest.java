@@ -131,7 +131,6 @@ class UninterpretedStatementExecutionTest {
 
         assertTrue(code.contains("int x = int0 + 1;"));
         assertTrue(code.contains("int int1 = x;"));
-        assertTrue(statement.isAssignmentStatement());
     }
 
     @Test

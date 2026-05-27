@@ -568,6 +568,31 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     /**
+     * The emitted code calls each stubbed method on the mock
+     * ({@code doReturn(...).when(mock).method(args)}), so its checked
+     * exceptions must be either caught or declared in the surrounding
+     * method signature, even though Mockito intercepts the call at runtime.
+     */
+    @Override
+    public Set<Class<?>> getDeclaredExceptions() {
+        Set<Class<?>> ex = super.getDeclaredExceptions();
+        if (useLenientDefaultAnswer) {
+            return ex;
+        }
+        for (MethodDescriptor md : mockedMethods) {
+            if (!md.shouldBeMocked()) {
+                continue;
+            }
+            Method m = md.getMethod();
+            if (m == null) {
+                continue;
+            }
+            ex.addAll(Arrays.asList(m.getExceptionTypes()));
+        }
+        return ex;
+    }
+
+    /**
      * getParameters for a given method id.
      *
      * @param id the method id
