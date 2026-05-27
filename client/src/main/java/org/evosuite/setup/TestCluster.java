@@ -105,6 +105,18 @@ public class TestCluster {
     private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorCache = new LinkedHashMap<>();
 
     /**
+     * Guards concurrent access to {@link #generators} and {@link #generatorCache}.
+     * The LLM async producer thread can call into {@code ClusterExpansionManager},
+     * which mutates the generators map via {@link #addGenerator}, while the main
+     * GA thread is iterating it in {@link #cacheGenerators}. {@code LinkedHashMap}
+     * is not thread-safe, so without this lock the race surfaces as
+     * {@code generators.get(key)} returning {@code null} for a key that
+     * {@code keySet()} just yielded. The monitor is reentrant, so the
+     * setup-time call chains that re-enter {@code cacheGenerators} remain safe.
+     */
+    private static final Object generatorsLock = new Object();
+
+    /**
      * Static information about how to modify types.
      */
     private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> modifiers = new LinkedHashMap<>();
@@ -380,14 +392,16 @@ public class TestCluster {
             return;
         }
 
-        if (!generators.containsKey(target)) {
-            generators.put(target, new LinkedHashSet<>());
-        }
+        synchronized (generatorsLock) {
+            if (!generators.containsKey(target)) {
+                generators.put(target, new LinkedHashSet<>());
+            }
 
-        logger.debug("Adding generator for class " + target + ": " + call);
-        generators.get(target).add(call);
-        // Make sure cache is up to date
-        generatorCache.entrySet().removeIf(entry -> entry.getKey().isAssignableFrom(target));
+            logger.debug("Adding generator for class " + target + ": " + call);
+            generators.get(target).add(call);
+            // Make sure cache is up to date
+            generatorCache.entrySet().removeIf(entry -> entry.getKey().isAssignableFrom(target));
+        }
     }
 
     /**
@@ -455,6 +469,12 @@ public class TestCluster {
      * @throws ConstructionFailedException if construction fails
      */
     private void cacheGenerators(GenericClass<?> clazz) throws ConstructionFailedException {
+        synchronized (generatorsLock) {
+            cacheGeneratorsLocked(clazz);
+        }
+    }
+
+    private void cacheGeneratorsLocked(GenericClass<?> clazz) throws ConstructionFailedException {
 
         if (generatorCache.containsKey(clazz)) {
             return;

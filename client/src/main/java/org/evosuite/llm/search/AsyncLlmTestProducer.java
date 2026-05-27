@@ -31,6 +31,7 @@ import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -103,7 +104,31 @@ public class AsyncLlmTestProducer {
     /** Starts the background producer thread if not already running. */
     public void start() {
         if (!producerThread.isAlive()) {
+            registerProducerThreadAsPrivileged();
             producerThread.start();
+        }
+    }
+
+    /**
+     * Registers the producer thread with the EvoSuite sandbox so its
+     * test-execution path (via {@link org.evosuite.testcase.execution.TestCaseExecutor})
+     * runs with the same privileges as the main search thread. Without this,
+     * sandbox teardown (e.g. property restore) can throw a SecurityException on
+     * the producer thread and leave MSecurityManager.executingTestCase stuck at
+     * true — which then breaks every subsequent execute() on any thread.
+     */
+    private void registerProducerThreadAsPrivileged() {
+        if (!Sandbox.isSecurityManagerInitialized()) {
+            return;
+        }
+        try {
+            Sandbox.addPrivilegedThread(producerThread);
+        } catch (SecurityException se) {
+            // Caller is not privileged itself; producer will run sandboxed.
+            logger.debug("Could not register async LLM producer thread as privileged from '{}': {}",
+                    Thread.currentThread().getName(), se.getMessage());
+        } catch (Throwable t) {
+            logger.debug("Could not register async LLM producer thread as privileged: {}", t.toString());
         }
     }
 
@@ -167,7 +192,13 @@ public class AsyncLlmTestProducer {
                         response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
                 if (result.isSuccess()) {
                     for (TestChromosome chromosome : result.toChromosomes()) {
-                        testQueue.offer(chromosome);
+                        try {
+                            testQueue.put(chromosome);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            running = false;
+                            return;
+                        }
                     }
                 }
                 generatedSinceRefresh++;
@@ -187,7 +218,10 @@ public class AsyncLlmTestProducer {
     private Collection<TestFitnessFunction> safeGoalsSnapshot() {
         try {
             Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
-            return goals == null ? Collections.emptyList() : goals;
+            if (goals == null || goals.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return new ArrayList<>(goals);
         } catch (RuntimeException e) {
             logger.debug("Async producer goal snapshot failed: {}", e.getMessage());
             return Collections.emptyList();
@@ -204,7 +238,28 @@ public class AsyncLlmTestProducer {
             if (pop == null || pop.isEmpty()) {
                 return Collections.emptyList();
             }
-            List<TestChromosome> ranked = TestRelevanceRanker.rankByRelevance(pop, goals, 2);
+
+            // Work on detached chromosomes to avoid mutating/reading live GA chromosomes
+            // from this background thread (which can race with GA fitness iteration).
+            List<TestChromosome> detached = new ArrayList<>(pop.size());
+            for (TestChromosome tc : pop) {
+                if (tc != null) {
+                    detached.add(tc.clone());
+                }
+            }
+            if (detached.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<TestChromosome> ranked;
+            try {
+                ranked = TestRelevanceRanker.rankByRelevance(detached, goals, 2);
+            } catch (RuntimeException e) {
+                logger.debug("Async producer relevance ranking failed; falling back to first tests: {}",
+                        e.getMessage());
+                ranked = detached.size() <= 2 ? detached : detached.subList(0, 2);
+            }
+
             List<TestCase> result = new ArrayList<>(ranked.size());
             for (TestChromosome tc : ranked) {
                 TestCase test = tc.getTestCase();
