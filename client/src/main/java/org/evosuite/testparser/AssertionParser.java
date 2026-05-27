@@ -185,7 +185,7 @@ class AssertionParser {
         }
 
         Expression preservedAssertion = normalizeAssertionExpressionForPreservation(assertCall);
-        testCase.addStatement(parser.createUninterpretedStatement(
+        parser.addStatement(parser.createUninterpretedStatement(
                 assertCall, preservedAssertion.toString() + ";"));
     }
 
@@ -386,7 +386,7 @@ class AssertionParser {
             parser.rollbackTo(checkpoint);
             return true;
         }
-        testCase.addStatement(parser.createUninterpretedStatement(assertCall, assertCall.toString() + ";"));
+        parser.addStatement(parser.createUninterpretedStatement(assertCall, assertCall.toString() + ";"));
         return true;
     }
 

@@ -150,7 +150,7 @@ class MockitoPatternParser {
                 mockStmt, varName, mockTargetClass, targetGenericClass,
                 allStatements, currentIndex + 1);
 
-        VariableReference varRef = testCase.addStatement(mockStmt);
+        VariableReference varRef = parser.addStatement(mockStmt);
         scope.register(varName, varRef, targetGenericClass);
 
         return 1 + stubbingsConsumed;
@@ -183,14 +183,14 @@ class MockitoPatternParser {
                 if (!FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(mockTargetClass)) {
                     return null;
                 }
-                return testCase.addStatement(new FunctionalMockForAbstractClassStatement(
+                return parser.addStatement(new FunctionalMockForAbstractClassStatement(
                         testCase, mockTargetClass, targetGenericClass));
             }
 
             if (!FunctionalMockStatement.canBeFunctionalMocked(mockTargetClass)) {
                 return null;
             }
-            return testCase.addStatement(new FunctionalMockStatement(
+            return parser.addStatement(new FunctionalMockStatement(
                     testCase, mockTargetClass, targetGenericClass));
         } catch (IllegalArgumentException e) {
             logger.debug("Cannot normalize Mockito.mock({}) into FunctionalMockStatement: {}",
@@ -229,14 +229,14 @@ class MockitoPatternParser {
                 if (!FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(mockTargetClass)) {
                     return null;
                 }
-                return testCase.addStatement(new FunctionalMockForAbstractClassStatement(
+                return parser.addStatement(new FunctionalMockForAbstractClassStatement(
                         testCase, mockTargetClass, targetGenericClass));
             }
 
             if (!FunctionalMockStatement.canBeFunctionalMocked(mockTargetClass)) {
                 return null;
             }
-            return testCase.addStatement(new FunctionalMockStatement(
+            return parser.addStatement(new FunctionalMockStatement(
                     testCase, mockTargetClass, targetGenericClass));
         } catch (IllegalArgumentException e) {
             logger.debug("Cannot normalize pre-resolution Mockito.mock({}) into FunctionalMockStatement: {}",
@@ -269,7 +269,7 @@ class MockitoPatternParser {
                 : GenericClassFactory.get(rawTargetClass);
         parser.addWarning(expr,
                 "Normalized anonymous interface implementation to FunctionalMockStatement; discarded anonymous body");
-        return testCase.addStatement(new FunctionalMockStatement(
+        return parser.addStatement(new FunctionalMockStatement(
                 testCase, rawTargetClass, targetGenericClass));
     }
 
@@ -377,7 +377,7 @@ class MockitoPatternParser {
                     "thenThrow",
                     cloneArguments(methodCall));
             StatementParser.copySyntheticRange(reconstructed, methodCall);
-            testCase.addStatement(parser.createUninterpretedStatement(
+            parser.addStatement(parser.createUninterpretedStatement(
                     reconstructed, reconstructed.toString() + ";"));
             capturedWhenStubbings.remove(aliasName);
             return true;
@@ -481,7 +481,7 @@ class MockitoPatternParser {
         testCase.remove(currentMockPos);
         // After remove, every statement after currentMockPos shifts down by one;
         // inserting at latestValuePos puts the mock immediately after the (shifted) value.
-        testCase.addStatement(mockStmt, latestValuePos);
+        parser.addStatement(mockStmt, latestValuePos);
     }
 
     boolean tryPreserveStandaloneThrowStubbingCall(MethodCallExpr methodCall) {
@@ -493,12 +493,12 @@ class MockitoPatternParser {
         if (rewrittenVoidThrow != null) {
             parser.addWarning(methodCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                     "Rewrote Mockito thenThrow on void method to doThrow(...).when(...) form");
-            testCase.addStatement(parser.createUninterpretedStatement(methodCall, rewrittenVoidThrow));
+            parser.addStatement(parser.createUninterpretedStatement(methodCall, rewrittenVoidThrow));
             return true;
         }
         parser.addWarning(methodCall, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                 "Preserved Mockito throw-stubbing as UninterpretedStatement");
-        testCase.addStatement(parser.createUninterpretedStatement(methodCall, methodCall.toString() + ";"));
+        parser.addStatement(parser.createUninterpretedStatement(methodCall, methodCall.toString() + ";"));
         return true;
     }
 
@@ -523,7 +523,7 @@ class MockitoPatternParser {
         if (rewritten != null) {
             parser.addWarning(parsedExpression, DiagnosticKind.UNSUPPORTED_CONSTRUCT_PRESERVED,
                     "Rewrote Mockito thenThrow chain to doThrow(...).when(...) form");
-            testCase.addStatement(parser.createUninterpretedStatement(parsedExpression, rewritten));
+            parser.addStatement(parser.createUninterpretedStatement(parsedExpression, rewritten));
             return true;
         }
         return false;
@@ -1152,7 +1152,7 @@ class MockitoPatternParser {
             Statement definingStmt = testCase.getStatement(valueRef.getStPosition());
             if (canSafelyHoist(definingStmt, valueRef, mockPos)) {
                 Statement cloned = definingStmt.clone(testCase);
-                VariableReference hoistedRef = testCase.addStatement(cloned, mockPos);
+                VariableReference hoistedRef = parser.addStatement(cloned, mockPos);
                 hoisted.put(valueRef, hoistedRef);
                 mockPos++;
                 adjusted.add(hoistedRef);

@@ -148,6 +148,20 @@ public class StatementParser {
         return markParsedFromLlm;
     }
 
+    VariableReference addStatement(Statement stmt) {
+        if (markParsedFromLlm) {
+            stmt.setParsedFromLlm(true);
+        }
+        return testCase.addStatement(stmt);
+    }
+
+    VariableReference addStatement(Statement stmt, int position) {
+        if (markParsedFromLlm) {
+            stmt.setParsedFromLlm(true);
+        }
+        return testCase.addStatement(stmt, position);
+    }
+
     // ========================================================================
     // Internal API for AssertionParser / MockitoPatternParser
     // These package-private callbacks are intentionally exposed to the helper
@@ -215,7 +229,7 @@ public class StatementParser {
             if (markParsedFromLlm && exprText.contains("thenThrow(")) {
                 String rewrittenThrow = mockitoPatternParser.rewriteThenThrowSource(exprText);
                 if (rewrittenThrow != null) {
-                    testCase.addStatement(createUninterpretedStatement(exprStmt, rewrittenThrow));
+                    addStatement(createUninterpretedStatement(exprStmt, rewrittenThrow));
                     return 1;
                 }
             }
@@ -250,7 +264,7 @@ public class StatementParser {
                             + preserved.getClass().getSimpleName(),
                     line,
                     preserved.toString()));
-            testCase.addStatement(createUninterpretedStatement(preserved, preserved.toString()));
+            addStatement(createUninterpretedStatement(preserved, preserved.toString()));
             return 1;
         }
     }
@@ -302,7 +316,7 @@ public class StatementParser {
                             + expr.getClass().getSimpleName(),
                     line,
                     expr.toString()));
-            testCase.addStatement(createUninterpretedStatement(expr, expr.toString() + ";"));
+            addStatement(createUninterpretedStatement(expr, expr.toString() + ";"));
             return 1;
         }
     }
@@ -399,7 +413,7 @@ public class StatementParser {
                 Expression preservedInitializer = assertionParser.normalizeAssertionExpressionForPreservation(initializer);
                 String code = getFallbackTypeName(declaredType) + " " + emittedVarName
                         + " = " + preservedInitializer + ";";
-                VariableReference preserved = testCase.addStatement(
+                VariableReference preserved = addStatement(
                         createUninterpretedStatement(declaredType, code, emittedVarName, declarator));
                 GenericClass<?> genericType = null;
                 if (declaredType instanceof java.lang.reflect.ParameterizedType) {
@@ -443,7 +457,7 @@ public class StatementParser {
                 }
 
                 String code = getFallbackTypeName(declaredType) + " " + emittedVarName + " = null;";
-                VariableReference declaredNullVar = testCase.addStatement(
+                VariableReference declaredNullVar = addStatement(
                         createUninterpretedStatement(declaredType, code, emittedVarName, declarator));
                 GenericClass<?> genericType = null;
                 if (declaredType instanceof java.lang.reflect.ParameterizedType) {
@@ -549,7 +563,7 @@ public class StatementParser {
 
         addWarning(initializer, DiagnosticKind.INCOMPATIBLE_ALIAS_DECLARATION,
                 "Inserted typed cast to preserve compilability for incompatible alias declaration: " + code);
-        return testCase.addStatement(createUninterpretedStatement(
+        return addStatement(createUninterpretedStatement(
                 declaredType,
                 code,
                 varName,
@@ -757,7 +771,7 @@ public class StatementParser {
             if (varName != null && !varName.trim().isEmpty()) {
                 String code = getFallbackTypeName(effectiveType) + " " + varName + " = " + expr + ";";
                 UninterpretedStatement stmt = createUninterpretedStatement(effectiveType, code, varName, expr);
-                return testCase.addStatement(stmt);
+                return addStatement(stmt);
             }
             String message = "Standalone lambda expression has no declaration target type";
             if (markParsedFromLlm) {
@@ -787,9 +801,9 @@ public class StatementParser {
         if (varName != null && !varName.trim().isEmpty()) {
             Type effectiveType = declaredType == null ? Object.class : declaredType;
             String code = getFallbackTypeName(effectiveType) + " " + varName + " = " + expr + ";";
-            return testCase.addStatement(createUninterpretedStatement(effectiveType, code, varName, expr));
+            return addStatement(createUninterpretedStatement(effectiveType, code, varName, expr));
         }
-        return testCase.addStatement(createUninterpretedStatement(expr, expr + ";"));
+        return addStatement(createUninterpretedStatement(expr, expr + ";"));
     }
 
     // ========================================================================
@@ -803,21 +817,21 @@ public class StatementParser {
 
         if (declaredType == byte.class || declaredType == Byte.class) {
             BytePrimitiveStatement stmt = new BytePrimitiveStatement(testCase, (byte) value);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
         }
         if (declaredType == short.class || declaredType == Short.class) {
             ShortPrimitiveStatement stmt = new ShortPrimitiveStatement(testCase, (short) value);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
         }
         IntPrimitiveStatement stmt = new IntPrimitiveStatement(testCase, (int) value);
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     private VariableReference handleLongLiteral(LongLiteralExpr expr) {
         long value = expr.asNumber().longValue();
         seedConstantPool(value);
         LongPrimitiveStatement stmt = new LongPrimitiveStatement(testCase, value);
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     private VariableReference handleDoubleLiteral(DoubleLiteralExpr expr, Type declaredType) {
@@ -832,34 +846,34 @@ public class StatementParser {
                 && (token.endsWith("f") || token.endsWith("F"));
         if (declaredType == float.class || declaredType == Float.class || hasFloatSuffix) {
             FloatPrimitiveStatement stmt = new FloatPrimitiveStatement(testCase, (float) value);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
         }
         DoublePrimitiveStatement stmt = new DoublePrimitiveStatement(testCase, value);
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     private VariableReference handleBooleanLiteral(BooleanLiteralExpr expr) {
         // Don't seed booleans — only two possible values
         BooleanPrimitiveStatement stmt = new BooleanPrimitiveStatement(testCase, expr.getValue());
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     private VariableReference handleCharLiteral(CharLiteralExpr expr) {
         seedConstantPool((int) expr.asChar());
         CharPrimitiveStatement stmt = new CharPrimitiveStatement(testCase, expr.asChar());
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     private VariableReference handleStringLiteral(StringLiteralExpr expr) {
         seedConstantPool(expr.asString());
         StringPrimitiveStatement stmt = new StringPrimitiveStatement(testCase, expr.asString());
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     private VariableReference handleTextBlockLiteral(TextBlockLiteralExpr expr) {
         seedConstantPool(expr.asString());
         StringPrimitiveStatement stmt = new StringPrimitiveStatement(testCase, expr.asString());
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     private VariableReference handleUnaryExpression(String varName, UnaryExpr expr, Type declaredType) {
@@ -869,27 +883,27 @@ public class StatementParser {
             int value = -((IntegerLiteralExpr) expr.getExpression()).asNumber().intValue();
             seedConstantPool(value);
             if (declaredType == byte.class || declaredType == Byte.class) {
-                return testCase.addStatement(new BytePrimitiveStatement(testCase, (byte) value));
+                return addStatement(new BytePrimitiveStatement(testCase, (byte) value));
             }
             if (declaredType == short.class || declaredType == Short.class) {
-                return testCase.addStatement(new ShortPrimitiveStatement(testCase, (short) value));
+                return addStatement(new ShortPrimitiveStatement(testCase, (short) value));
             }
-            return testCase.addStatement(new IntPrimitiveStatement(testCase, value));
+            return addStatement(new IntPrimitiveStatement(testCase, value));
         }
         if (expr.getOperator() == UnaryExpr.Operator.MINUS
                 && expr.getExpression() instanceof LongLiteralExpr) {
             long value = -((LongLiteralExpr) expr.getExpression()).asNumber().longValue();
             seedConstantPool(value);
-            return testCase.addStatement(new LongPrimitiveStatement(testCase, value));
+            return addStatement(new LongPrimitiveStatement(testCase, value));
         }
         if (expr.getOperator() == UnaryExpr.Operator.MINUS
                 && expr.getExpression() instanceof DoubleLiteralExpr) {
             double value = -((DoubleLiteralExpr) expr.getExpression()).asDouble();
             seedConstantPool(value);
             if (declaredType == float.class || declaredType == Float.class) {
-                return testCase.addStatement(new FloatPrimitiveStatement(testCase, (float) value));
+                return addStatement(new FloatPrimitiveStatement(testCase, (float) value));
             }
-            return testCase.addStatement(new DoublePrimitiveStatement(testCase, value));
+            return addStatement(new DoublePrimitiveStatement(testCase, value));
         }
         // Unary plus: +5 → just the inner expression
         if (expr.getOperator() == UnaryExpr.Operator.PLUS) {
@@ -903,10 +917,10 @@ public class StatementParser {
             Type effectiveType = declaredType == null ? Object.class : declaredType;
             String code = getFallbackTypeName(effectiveType) + " " + varName + " = " + expr.toString() + ";";
             UninterpretedStatement stmt = createUninterpretedStatement(effectiveType, code, varName, expr);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
         }
         UninterpretedStatement stmt = createUninterpretedStatement(expr, expr.toString() + ";");
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     private VariableReference handleNullLiteral(Type declaredType) {
@@ -915,7 +929,7 @@ public class StatementParser {
         // String null → StringPrimitiveStatement(null), not NullStatement
         if (rawClass == String.class) {
             StringPrimitiveStatement stmt = new StringPrimitiveStatement(testCase, null);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
         }
 
         // When the declared type is Object (i.e., unknown — no type hint from
@@ -925,7 +939,7 @@ public class StatementParser {
         // parameter type once the target method/constructor is resolved.
         Type nullType = (rawClass == Object.class) ? Void.class : accessibleNullType(declaredType);
         NullStatement stmt = new NullStatement(testCase, nullType);
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     // ========================================================================
@@ -1019,7 +1033,7 @@ public class StatementParser {
             GenericConstructor genericConstructor = new GenericConstructor(constructor, ownerClass);
 
             ConstructorStatement stmt = new ConstructorStatement(testCase, genericConstructor, argRefs);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
 
         } catch (Exception e) {
             return failOrFallbackWithRollback(expr, declaredType, rawClass,
@@ -1055,11 +1069,11 @@ public class StatementParser {
                 "Preserved anonymous class implementation as raw Java source");
         if (targetVarName != null && !targetVarName.trim().isEmpty()) {
             String code = preservedTypeName + " " + targetVarName + " = " + preservedExpr + ";";
-            return testCase.addStatement(
+            return addStatement(
                     createUninterpretedStatement(preservedType, code, targetVarName, expr));
         }
 
-        return testCase.addStatement(createUninterpretedStatement(expr, preservedExpr + ";"));
+        return addStatement(createUninterpretedStatement(expr, preservedExpr + ";"));
     }
 
     private boolean shouldFallbackAnonymousObjectCreation(Class<?> rawClass, ObjectCreationExpr expr) {
@@ -1203,7 +1217,7 @@ public class StatementParser {
         }
         if (targetVarName != null && !targetVarName.trim().isEmpty()) {
             String code = preservedTypeName + " " + targetVarName + " = null;";
-            return testCase.addStatement(
+            return addStatement(
                     createUninterpretedStatement(preservedType, code, targetVarName, expr));
         }
 
@@ -1435,7 +1449,7 @@ public class StatementParser {
             GenericMethod genericMethod = new GenericMethod(method, ownerClass);
 
             MethodStatement stmt = new MethodStatement(testCase, genericMethod, callee, argRefs);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
 
         } catch (Exception e) {
             rollbackTemporaryStatements(expressionCheckpoint);
@@ -1523,7 +1537,7 @@ public class StatementParser {
         for (int i = 0; i < bestIndices.size(); i++) {
             BooleanPrimitiveStatement booleanStatement =
                     new BooleanPrimitiveStatement(testCase, bestValues.get(i));
-            VariableReference booleanRef = testCase.addStatement(booleanStatement);
+            VariableReference booleanRef = addStatement(booleanStatement);
             coerced.set(bestIndices.get(i), booleanRef);
         }
 
@@ -1691,7 +1705,7 @@ public class StatementParser {
                             "Could not resolve value for legacy setField call: " + expr);
                     return false;
                 }
-                testCase.addStatement(new PrivateFieldStatement(testCase, ownerClass, fieldName, owner, value));
+                addStatement(new PrivateFieldStatement(testCase, ownerClass, fieldName, owner, value));
                 addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
                         "Rewrote legacy helper call setField(...) to reflective field write");
                 return true;
@@ -1712,8 +1726,8 @@ public class StatementParser {
                         "Could not resolve value for legacy setStaticField call: " + expr);
                 return false;
             }
-            VariableReference nullOwner = testCase.addStatement(new NullStatement(testCase, ownerClass));
-            testCase.addStatement(new PrivateFieldStatement(testCase, ownerClass, fieldName, nullOwner, value));
+            VariableReference nullOwner = addStatement(new NullStatement(testCase, ownerClass));
+            addStatement(new PrivateFieldStatement(testCase, ownerClass, fieldName, nullOwner, value));
             addWarning(expr, DiagnosticKind.LEGACY_HELPER_CALL,
                     "Rewrote legacy helper call setStaticField(...) to reflective field write");
             return true;
@@ -1796,7 +1810,7 @@ public class StatementParser {
             if (isStatic) {
                 callee = null;
             }
-            testCase.addStatement(new PrivateMethodStatement(
+            addStatement(new PrivateMethodStatement(
                     testCase,
                     reflectedOwner,
                     reflectedMethod,
@@ -2542,13 +2556,13 @@ public class StatementParser {
     VariableReference createTypedFallbackValue(Type expectedType) {
         Class<?> raw = getRawClass(expectedType);
         if (raw == void.class || raw == Void.class) {
-            return testCase.addStatement(createUninterpretedStatement(new NameExpr("fallback"), ";"));
+            return addStatement(createUninterpretedStatement(new NameExpr("fallback"), ";"));
         }
         Statement primitiveFallback = defaultPrimitiveStatement(testCase, expectedType);
         if (primitiveFallback != null) {
-            return testCase.addStatement(primitiveFallback);
+            return addStatement(primitiveFallback);
         }
-        return testCase.addStatement(new NullStatement(testCase, accessibleNullType(expectedType)));
+        return addStatement(new NullStatement(testCase, accessibleNullType(expectedType)));
     }
 
     private com.github.javaparser.ast.type.ClassOrInterfaceType parseClassOrInterfaceType(String typeName) {
@@ -2628,7 +2642,7 @@ public class StatementParser {
             GenericField genericField = new GenericField(field, ownerClass);
 
             FieldStatement stmt = new FieldStatement(testCase, genericField, source);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
 
         } catch (Exception e) {
             addError(expr, DiagnosticKind.PARSE_FAILURE, "field access: " + e.getMessage());
@@ -2641,7 +2655,7 @@ public class StatementParser {
         try {
             Enum<?> enumValue = Enum.valueOf((Class<Enum>) enumClass, constantName);
             EnumPrimitiveStatement stmt = new EnumPrimitiveStatement(testCase, enumValue);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
         } catch (Exception e) {
             addError(expr, DiagnosticKind.ENUM_CONSTANT_UNRESOLVED,
                     enumClass.getName() + "." + constantName);
@@ -3050,7 +3064,7 @@ public class StatementParser {
 
         Class<?> varArgArrayType = paramTypes[paramTypes.length - 1];
         ArrayStatement arrayStatement = new ArrayStatement(testCase, varArgArrayType, new int[]{varArgCount});
-        VariableReference varArgArrayRef = testCase.addStatement(arrayStatement);
+        VariableReference varArgArrayRef = addStatement(arrayStatement);
 
         if (!(varArgArrayRef instanceof ArrayReference)) {
             return argRefs;
@@ -3060,7 +3074,7 @@ public class StatementParser {
         for (int i = 0; i < varArgCount; i++) {
             VariableReference valueRef = argRefs.get(fixedCount + i);
             ArrayIndex arrayIndex = new ArrayIndex(testCase, arrayReference, i);
-            testCase.addStatement(new AssignmentStatement(testCase, arrayIndex, valueRef));
+            addStatement(new AssignmentStatement(testCase, arrayIndex, valueRef));
         }
 
         List<VariableReference> normalized = new ArrayList<>(paramTypes.length);
@@ -3135,7 +3149,7 @@ public class StatementParser {
         try {
             Class<?> clazz = typeResolver.resolveClass(expr.getTypeAsString());
             ClassPrimitiveStatement stmt = new ClassPrimitiveStatement(testCase, clazz);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
         } catch (ClassNotFoundException e) {
             if (markParsedFromLlm) {
                 return fallbackForUnresolvedExpression(
@@ -3198,7 +3212,7 @@ public class StatementParser {
             }
 
             ArrayStatement stmt = new ArrayStatement(testCase, arrayType, lengths);
-            return testCase.addStatement(stmt);
+            return addStatement(stmt);
 
         } catch (Exception e) {
             addError(expr, DiagnosticKind.PARSE_FAILURE, "array creation: " + e.getMessage());
@@ -3442,7 +3456,7 @@ public class StatementParser {
         List<Expression> values = init.getValues();
         int[] lengths = inferArrayLengthsFromInitializer(init, arrayType);
         ArrayStatement arrayStmt = new ArrayStatement(testCase, arrayType, lengths);
-        VariableReference arrayRef = testCase.addStatement(arrayStmt);
+        VariableReference arrayRef = addStatement(arrayStmt);
 
         for (int i = 0; i < values.size(); i++) {
             VariableReference valueRef = handleExpression(
@@ -3452,7 +3466,7 @@ public class StatementParser {
                         (ArrayReference) arrayRef, i);
                 AssignmentStatement assignStmt = new AssignmentStatement(
                         testCase, arrayIndex, valueRef);
-                testCase.addStatement(assignStmt);
+                addStatement(assignStmt);
             }
         }
         return arrayRef;
@@ -3551,7 +3565,7 @@ public class StatementParser {
             String result = evaluateStringConcat(expr);
             if (result != null) {
                 StringPrimitiveStatement stmt = new StringPrimitiveStatement(testCase, result);
-                return testCase.addStatement(stmt);
+                return addStatement(stmt);
             }
         }
 
@@ -3559,7 +3573,7 @@ public class StatementParser {
         String typeName = getSimpleTypeName(declaredType);
         String code = typeName + " " + varName + " = " + expr.toString() + ";";
         UninterpretedStatement stmt = createUninterpretedStatement(declaredType, code, varName, expr);
-        return testCase.addStatement(stmt);
+        return addStatement(stmt);
     }
 
     /**
@@ -3744,14 +3758,14 @@ public class StatementParser {
                     if (markParsedFromLlm) {
                         addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                                 "variable assignment preserved as uninterpreted: " + assignExpr);
-                        testCase.addStatement(createUninterpretedStatement(assignExpr,
+                        addStatement(createUninterpretedStatement(assignExpr,
                                 assignExpr.toString() + ";"));
                     } else {
                         addError(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT, assignExpr.toString());
                     }
                     return;
                 }
-                testCase.addStatement(stmt);
+                addStatement(stmt);
                 if (markParsedFromLlm) {
                     // In LLM mode, keep subsequent reads bound to the latest assigned value
                     // so assertions parsed after this assignment are emitted in the correct order.
@@ -3765,7 +3779,7 @@ public class StatementParser {
                     if (markParsedFromLlm) {
                         addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                                 "unresolved array assignment preserved as uninterpreted: " + assignExpr);
-                        testCase.addStatement(createUninterpretedStatement(assignExpr,
+                        addStatement(createUninterpretedStatement(assignExpr,
                                 assignExpr.toString() + ";"));
                     }
                     return;
@@ -3785,14 +3799,14 @@ public class StatementParser {
                     if (markParsedFromLlm) {
                         addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                                 "array assignment for modeled bounds preserved as uninterpreted: " + assignExpr);
-                        testCase.addStatement(createUninterpretedStatement(assignExpr,
+                        addStatement(createUninterpretedStatement(assignExpr,
                                 assignExpr.toString() + ";"));
                     } else {
                         addError(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT, assignExpr.toString());
                     }
                     return;
                 }
-                testCase.addStatement(stmt);
+                addStatement(stmt);
             } else if (target instanceof FieldAccessExpr) {
                 // obj.field = value
                 FieldAccessExpr fieldAccess = (FieldAccessExpr) target;
@@ -3851,8 +3865,8 @@ public class StatementParser {
                 // + FieldReference(source=null) can fail position checks during insertion.
                 // Use reflective field-write statement, which is also robust for non-public fields.
                 if (sourceRef == null && isStaticField) {
-                    VariableReference nullOwner = testCase.addStatement(new NullStatement(testCase, ownerClass));
-                    testCase.addStatement(new PrivateFieldStatement(
+                    VariableReference nullOwner = addStatement(new NullStatement(testCase, ownerClass));
+                    addStatement(new PrivateFieldStatement(
                             testCase, ownerClass, field.getName(), nullOwner, valueRef));
                     return;
                 }
@@ -3865,14 +3879,14 @@ public class StatementParser {
                     if (markParsedFromLlm) {
                         addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                                 "field assignment preserved as uninterpreted: " + assignExpr);
-                        testCase.addStatement(createUninterpretedStatement(assignExpr,
+                        addStatement(createUninterpretedStatement(assignExpr,
                                 assignExpr.toString() + ";"));
                     } else {
                         addError(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT, assignExpr.toString());
                     }
                     return;
                 }
-                testCase.addStatement(stmt);
+                addStatement(stmt);
             } else {
                 addWarning(assignExpr, DiagnosticKind.INVALID_ASSIGNMENT,
                         "unsupported assignment target: " + target.getClass().getSimpleName());
@@ -4014,7 +4028,7 @@ public class StatementParser {
             addWarning(expr, diagnostic.withAppendedText(
                     " — preserved full chained call with wrapper cast to keep terminal invocation compilable"));
         }
-        return testCase.addStatement(createUninterpretedStatement(rewritten, rewritten.toString() + ";"));
+        return addStatement(createUninterpretedStatement(rewritten, rewritten.toString() + ";"));
     }
 
     private boolean isPreservableMockitoVerifyChain(MethodCallExpr expr) {
@@ -4126,13 +4140,13 @@ public class StatementParser {
         addWarning(expr, diagnostic.withAppendedText(" — using typed fallback value"));
         Class<?> raw = getRawClass(expectedType);
         if (raw == void.class || raw == Void.class) {
-            return testCase.addStatement(createUninterpretedStatement(expr, ";"));
+            return addStatement(createUninterpretedStatement(expr, ";"));
         }
         Statement primitiveFallback = defaultPrimitiveStatement(testCase, expectedType);
         if (primitiveFallback != null) {
-            return testCase.addStatement(primitiveFallback);
+            return addStatement(primitiveFallback);
         }
-        return testCase.addStatement(new NullStatement(testCase,
+        return addStatement(new NullStatement(testCase,
                 accessibleNullType(expectedType)));
     }
 
@@ -4151,7 +4165,7 @@ public class StatementParser {
         if (raw == void.class || raw == Void.TYPE) {
             // Do not preserve unresolved void expressions as raw source (eg. helper calls
             // with invented types), because that can produce uncompilable output.
-            return testCase.addStatement(createUninterpretedStatement(expr, ";"));
+            return addStatement(createUninterpretedStatement(expr, ";"));
         }
         String fallbackVarName = "__llm_fallback" + syntheticVarCounter++;
         String fallbackValue = getDefaultFallbackLiteral(fallbackType);
@@ -4160,7 +4174,7 @@ public class StatementParser {
         // Do not attach expression bindings to synthetic fallback declarations.
         // They don't reference source variables, and carrying bindings can corrupt
         // fully-qualified type names during later variable-name substitution.
-        return testCase.addStatement(createUninterpretedStatement(
+        return addStatement(createUninterpretedStatement(
                 fallbackType,
                 fallbackCode,
                 fallbackVarName,
@@ -4421,7 +4435,7 @@ public class StatementParser {
                 Class<?> classLiteral = resolveClassFromExpression(scopeExpr);
                 if (classLiteral != null) {
                     ClassPrimitiveStatement stmt = new ClassPrimitiveStatement(testCase, classLiteral);
-                    return testCase.addStatement(stmt);
+                    return addStatement(stmt);
                 }
                 return null;
             }
@@ -4838,7 +4852,7 @@ public class StatementParser {
                         line,
                         resource.toString()));
                 try {
-                    testCase.addStatement(createUninterpretedStatement(resource, resource.toString() + ";"));
+                    addStatement(createUninterpretedStatement(resource, resource.toString() + ";"));
                 } catch (Throwable ignored) {
                     // Keep going to salvage subsequent resources/statements in the try block.
                 }
@@ -4859,7 +4873,7 @@ public class StatementParser {
                         line,
                         stmt.toString()));
                 try {
-                    testCase.addStatement(createUninterpretedStatementFromAst(stmt));
+                    addStatement(createUninterpretedStatementFromAst(stmt));
                 } catch (Throwable ignored) {
                     // Keep going to salvage subsequent statements in the try block.
                 }
