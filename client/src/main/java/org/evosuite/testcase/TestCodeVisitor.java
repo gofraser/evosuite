@@ -610,7 +610,10 @@ public class TestCodeVisitor extends TestVisitor {
 
     private String getReflectiveFieldAccess(Field field, VariableReference source) {
         String receiver = source == null ? "null" : getVariableName(source);
-        return "(" + getClassName(field.getType()) + ") "
+        // Outer parens wrap the cast so callers can use the expression as a method
+        // receiver: `((T) PrivateAccess.getVariable(...)).foo()` rather than the
+        // mis-parsed `(T) PrivateAccess.getVariable(...).foo()`.
+        return "((" + getClassName(field.getType()) + ") "
                 + getClassName(PrivateAccess.class)
                 + ".getVariable("
                 + getClassName(field.getDeclaringClass())
@@ -618,7 +621,7 @@ public class TestCodeVisitor extends TestVisitor {
                 + receiver
                 + ", \""
                 + field.getName()
-                + "\")";
+                + "\"))";
     }
 
     private String getReflectiveFieldWrite(Field field, VariableReference source, String valueExpression) {
@@ -3198,16 +3201,26 @@ public class TestCodeVisitor extends TestVisitor {
         Type ownerTypeForParameterRendering = statement.getCallee() != null
                 ? statement.getCallee().getType()
                 : method.getOwnerType();
+        boolean forceRawReceiverInvocation = shouldForceRawReceiverInvocation(
+                statement, method, parameters);
+        Type[] renderedParameterTypes = forceRawReceiverInvocation
+                ? method.getMethod().getParameterTypes()
+                : method.getParameterTypes();
+        Type parameterRenderingOwnerType = forceRawReceiverInvocation
+                ? method.getMethod().getDeclaringClass()
+                : ownerTypeForParameterRendering;
         boolean overloadedMethodCall = method.isOverloaded(parameters)
                 || requiresNullArgumentDisambiguation(method.getMethod(), parameters, 0);
-        String parameterString = getParameterString(method.getParameterTypes(),
+        String parameterString = getParameterString(renderedParameterTypes,
                 parameters, isGenericMethod,
-                overloadedMethodCall, 0, ownerTypeForParameterRendering);
+                overloadedMethodCall, 0, parameterRenderingOwnerType);
 
         String calleeStr = "";
         boolean requiresReturnCast = !unused
-                && (!retval.isAssignableFrom(method.getReturnType())
+                && ((!retval.isAssignableFrom(method.getReturnType())
                 || requiresReturnValueCastForRawReceiver(statement, method, retval))
+                || (forceRawReceiverInvocation
+                && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType())))
                 && !retval.getVariableClass().isAnonymousClass()
                 // Static generic methods are a special case where we shouldn't add a cast
                 && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic());
@@ -3221,7 +3234,16 @@ public class TestCodeVisitor extends TestVisitor {
             calleeStr += getClassName(method.getMethod().getDeclaringClass());
         } else {
             VariableReference callee = statement.getCallee();
-            if (callee instanceof ConstantValue) {
+            if (forceRawReceiverInvocation) {
+                Class<?> declaringClass = method.getMethod().getDeclaringClass();
+                Class<?> calleeClass = callee.getVariableClass();
+                String calleeName = getVariableName(callee);
+                if (calleeClass != null && !declaringClass.isAssignableFrom(calleeClass)) {
+                    calleeStr += "((" + getTypeName(declaringClass) + ")(Object)" + calleeName + ")";
+                } else {
+                    calleeStr += "((" + getTypeName(declaringClass) + ")" + calleeName + ")";
+                }
+            } else if (callee instanceof ConstantValue) {
                 Class<?> declaringClass = method.getMethod().getDeclaringClass();
                 Class<?> calleeClass = callee.getVariableClass();
                 String calleeName = getVariableName(callee);
@@ -3302,6 +3324,78 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    private boolean shouldForceRawReceiverInvocation(MethodStatement statement,
+                                                     GenericMethod method,
+                                                     List<VariableReference> parameters) {
+        if (statement == null || method == null || method.isStatic()
+                || parameters == null || statement.getCallee() == null) {
+            return false;
+        }
+        Type calleeType = statement.getCallee().getType();
+        if (!(calleeType instanceof ParameterizedType)) {
+            return false;
+        }
+        Type[] declaredParameterTypes = resolveMethodParameterTypesForReceiver(method, calleeType);
+        if (declaredParameterTypes.length != parameters.size()) {
+            return false;
+        }
+
+        for (int i = 0; i < declaredParameterTypes.length; i++) {
+            VariableReference argument = parameters.get(i);
+            if (isRenderedNullArgument(argument)) {
+                continue;
+            }
+
+            Type declaredParameterType = declaredParameterTypes[i];
+            Type actualParameterType = argument.getType();
+            if (GenericClassUtils.isAssignable(declaredParameterType, actualParameterType)) {
+                continue;
+            }
+            if (isUnresolvedTypeVariableOrWildcard(declaredParameterType)) {
+                return true;
+            }
+            if (isDefinitelyInconvertibleReferenceCast(declaredParameterType, actualParameterType)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private Type[] resolveMethodParameterTypesForReceiver(GenericMethod method, Type receiverType) {
+        if (method == null || receiverType == null) {
+            return method != null ? method.getParameterTypes() : new Type[0];
+        }
+        try {
+            GenericMethod resolvedMethod = new GenericMethod(method.getMethod(), receiverType);
+            return resolvedMethod.getParameterTypes();
+        } catch (RuntimeException ignored) {
+            return method.getParameterTypes();
+        }
+    }
+
+    private boolean isDefinitelyInconvertibleReferenceCast(Type declaredType, Type actualType) {
+        Class<?> declaredClass = ClassUtils.primitiveToWrapper(safeErasure(declaredType));
+        Class<?> actualClass = ClassUtils.primitiveToWrapper(safeErasure(actualType));
+        if (declaredClass == null || actualClass == null) {
+            return false;
+        }
+        if (declaredClass.isAssignableFrom(actualClass) || actualClass.isAssignableFrom(declaredClass)) {
+            return false;
+        }
+        if (declaredClass.isInterface()) {
+            return !actualClass.isInterface()
+                    && Modifier.isFinal(actualClass.getModifiers())
+                    && !declaredClass.isAssignableFrom(actualClass);
+        }
+        if (actualClass.isInterface()) {
+            return !declaredClass.isInterface()
+                    && Modifier.isFinal(declaredClass.getModifiers())
+                    && !actualClass.isAssignableFrom(declaredClass);
+        }
+        return true;
     }
 
     private String getMethodReturnDeclarationType(GenericMethod method, VariableReference retval) {

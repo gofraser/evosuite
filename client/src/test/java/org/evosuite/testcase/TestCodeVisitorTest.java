@@ -1486,6 +1486,31 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testParameterizedReceiverWithIncompatibleArgumentUsesRawReceiverInvocation() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type parameterizedArrayList = TypeUtils.parameterize(ArrayList.class, String.class);
+        VariableReference listVar = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), parameterizedArrayList),
+                0,
+                0);
+        VariableReference intVar = tc.addStatement(new IntPrimitiveStatement(tc, 7));
+
+        Method addMethod = ArrayList.class.getMethod("add", Object.class);
+        GenericMethod typedOwnerAdd = new GenericMethod(addMethod, parameterizedArrayList);
+        tc.addStatement(new MethodStatement(tc, typedOwnerAdd, listVar, Arrays.asList(intVar)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("((ArrayList)"),
+                "Incompatible generic receiver argument should fall back to raw receiver invocation:\n" + code);
+        assertFalse(code.contains(".add((String)"),
+                "Incompatible receiver argument must not be cast to inconvertible generic type:\n" + code);
+    }
+
+    @Test
     public void testWildcardParameterizedConstructorUsesDiamondOnInstantiation() throws Exception {
         TestCase tc = new DefaultTestCase();
         Type wildcardType = new WildcardTypeImpl(new Type[]{Object.class}, new Type[]{});
@@ -1792,7 +1817,7 @@ public class TestCodeVisitorTest {
 
         assertTrue(code.contains("Map<String, Integer> "),
                 "Generic field declaration should keep type arguments:\n" + code);
-        assertTrue(code.contains("= (Map) PrivateAccess.getVariable("),
+        assertTrue(code.contains("= ((Map) PrivateAccess.getVariable("),
                 "Reflective field cast should use raw Map type:\n" + code);
         assertFalse(code.contains("(Map<String, Integer>) PrivateAccess.getVariable("),
                 "Reflective field cast must not include type arguments:\n" + code);
