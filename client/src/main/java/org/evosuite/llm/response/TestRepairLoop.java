@@ -664,6 +664,10 @@ public class TestRepairLoop {
             if (parseResult == null) {
                 continue;
             }
+            if (hasOrphanedVariableReferences(parseResult.getTestCase(),
+                    "LLM-parsed test '" + parseResult.getOriginalMethodName() + "'")) {
+                continue;
+            }
             String method = parseResult.getOriginalMethodName();
             String key = (method == null || method.trim().isEmpty())
                     ? "unknown_" + System.identityHashCode(parseResult)
@@ -674,8 +678,39 @@ public class TestRepairLoop {
         }
     }
 
+    /**
+     * Reject test cases whose clone() would throw because some
+     * {@link org.evosuite.testcase.variable.VariableReference} no longer resolves
+     * to a defining statement. Logs at WARN so the next occurrence is
+     * traceable to its parse path, then returns true to signal the caller to
+     * drop the test. Returns false (silently) on a well-formed test case.
+     */
+    private boolean hasOrphanedVariableReferences(TestCase testCase, String context) {
+        if (testCase == null) {
+            return false;
+        }
+        List<String> orphans;
+        try {
+            orphans = TestParser.findOrphanedVariableReferences(testCase);
+        } catch (Throwable t) {
+            logger.warn("Orphan-reference validation crashed for {}; dropping test ({})",
+                    context, t.toString());
+            return true;
+        }
+        if (orphans.isEmpty()) {
+            return false;
+        }
+        logger.warn("Dropping {} due to {} orphaned variable reference(s); details: {}",
+                context, orphans.size(), orphans);
+        return true;
+    }
+
     private Optional<TestCase> performBruteForceSalvage(TestCase failedTestCase) {
         logger.warn("Attempting brute-force salvage for test case: {}", failedTestCase.getID());
+        if (hasOrphanedVariableReferences(failedTestCase,
+                "salvage candidate test " + failedTestCase.getID())) {
+            return Optional.empty();
+        }
         TestCase salvaged = failedTestCase.clone();
 
         // 1. Initial attempt: remove assertions and assertion-only raw snippets.
@@ -4868,37 +4903,42 @@ public class TestRepairLoop {
                     return null;
                 }
             }
-            if (Properties.RESET_STATIC_FIELDS) {
-                // Align repair-time execution with later JUnit rerun behavior by
-                // resetting known initialized classes before execution as well.
-                // Otherwise stale static state from previous checks can mask
-                // failures that only appear during compile/rerun.
-                ClassReInitializer.getInstance().resetAllInitializedClasses(1);
-            }
-            boolean shouldEnableMockFramework =
-                    RuntimeSettings.mockJVMNonDeterminism || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
-            boolean guiGuardEnabled = Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
-            if (!shouldEnableMockFramework && !guiGuardEnabled) {
-                return TestCaseExecutor.runTest(testCase);
-            }
+            // Hold the executor's lock around the whole prep+execute+cleanup so
+            // class-reset and headless/mock toggles cannot race with a concurrent
+            // GA fitness evaluation on the search thread.
+            synchronized (TestCaseExecutor.getInstance().getExecutionLock()) {
+                if (Properties.RESET_STATIC_FIELDS) {
+                    // Align repair-time execution with later JUnit rerun behavior by
+                    // resetting known initialized classes before execution as well.
+                    // Otherwise stale static state from previous checks can mask
+                    // failures that only appear during compile/rerun.
+                    ClassReInitializer.getInstance().resetAllInitializedClasses(1);
+                }
+                boolean shouldEnableMockFramework =
+                        RuntimeSettings.mockJVMNonDeterminism || Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+                boolean guiGuardEnabled = Properties.REPLACE_GUI || RuntimeSettings.mockGUI;
+                if (!shouldEnableMockFramework && !guiGuardEnabled) {
+                    return TestCaseExecutor.runTest(testCase);
+                }
 
-            boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
-            boolean disabledHeadless = false;
-            try {
-                if (shouldEnableMockFramework) {
-                    MockFramework.enable();
-                }
-                if (guiGuardEnabled) {
-                    GuiSupport.disableHeadlessForMockConstruction();
-                    disabledHeadless = true;
-                }
-                return TestCaseExecutor.runTest(testCase);
-            } finally {
-                if (disabledHeadless) {
-                    GuiSupport.restoreHeadlessAfterMockConstruction();
-                }
-                if (!wasMockFrameworkEnabled) {
-                    MockFramework.disable();
+                boolean wasMockFrameworkEnabled = MockFramework.isEnabled();
+                boolean disabledHeadless = false;
+                try {
+                    if (shouldEnableMockFramework) {
+                        MockFramework.enable();
+                    }
+                    if (guiGuardEnabled) {
+                        GuiSupport.disableHeadlessForMockConstruction();
+                        disabledHeadless = true;
+                    }
+                    return TestCaseExecutor.runTest(testCase);
+                } finally {
+                    if (disabledHeadless) {
+                        GuiSupport.restoreHeadlessAfterMockConstruction();
+                    }
+                    if (!wasMockFrameworkEnabled) {
+                        MockFramework.disable();
+                    }
                 }
             }
         }

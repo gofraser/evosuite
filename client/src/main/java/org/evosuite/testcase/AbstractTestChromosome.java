@@ -23,6 +23,8 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 
+import java.util.Objects;
+
 public abstract class AbstractTestChromosome<E extends AbstractTestChromosome<E>> extends ExecutableChromosome<E> {
 
 
@@ -41,7 +43,7 @@ public abstract class AbstractTestChromosome<E extends AbstractTestChromosome<E>
      * @param testCase a {@link org.evosuite.testcase.TestCase} object.
      */
     public void setTestCase(TestCase testCase) {
-        test = testCase;
+        test = Objects.requireNonNull(testCase, "TestChromosome.test must not be null");
         clearCachedResults();
         clearCachedMutationResults();
         setChanged(true);

@@ -723,11 +723,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         for (ExternalCandidateSource source : externalCandidateSources) {
             try {
                 List<TestChromosome> candidates = source.drain();
-                if (candidates != null) {
-                    for (TestChromosome candidate : candidates) {
-                        this.calculateFitness(candidate);
-                        union.add(candidate);
-                    }
+                if (candidates == null || candidates.isEmpty()) {
+                    continue;
+                }
+                List<TestChromosome> safe = filterOrphanedTestChromosomes(
+                        candidates, "external candidate source " + source.getClass().getSimpleName());
+                for (TestChromosome candidate : safe) {
+                    this.calculateFitness(candidate);
+                    union.add(candidate);
                 }
             } catch (Exception e) {
                 logger.debug("External candidate source failed; skipping", e);
@@ -750,29 +753,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         if (asyncProducer != null) {
             externalCandidateSources.add(() -> asyncProducer.drainAvailable());
         }
-        if (stagnationDetector != null) {
+        if (stagnationLlmHelper != null) {
             externalCandidateSources.add(() -> {
-                if (!stagnationDetector.checkStagnation(coveredGoalCountSupplier.getAsInt())) {
-                    return Collections.emptyList();
-                }
+                int coveredCount = coveredGoalCountSupplier.getAsInt();
                 Set<TestFitnessFunction> uncovered = uncoveredGoalsSupplier.get();
                 List<TestChromosome> pop = new ArrayList<>(population);
-                int coveredCount = coveredGoalCountSupplier.getAsInt();
-                int totalGoals = coveredCount + uncovered.size();
-                Map<TestFitnessFunction, Double> bestFitness = new LinkedHashMap<>();
-                for (TestFitnessFunction goal : uncovered) {
-                    double best = Double.MAX_VALUE;
-                    for (TestChromosome tc : pop) {
-                        double f = goal.getFitness(tc);
-                        if (f < best) {
-                            best = f;
-                        }
-                    }
-                    bestFitness.put(goal, best);
-                }
-                List<TestChromosome> tests = stagnationDetector.requestHelp(
-                        uncovered, pop, totalGoals, coveredCount, bestFitness);
-                return tests != null ? tests : Collections.emptyList();
+                stagnationLlmHelper.maybeSubmit(coveredCount, uncovered, pop);
+                return stagnationLlmHelper.drain();
             });
         }
         registerAdditionalCandidateSources();

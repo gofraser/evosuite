@@ -594,7 +594,54 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             logger.debug("No LLM injection adapter configured; dropping {} test(s)", tests.size());
             return;
         }
-        llmInjectionAdapter.inject(tests, population, fitnessFunctions, Properties.POPULATION);
+        List<TestChromosome> safe = filterOrphanedTestChromosomes(tests, "LLM injection adapter");
+        if (safe.isEmpty()) {
+            return;
+        }
+        llmInjectionAdapter.inject(safe, population, fitnessFunctions, Properties.POPULATION);
+    }
+
+    /**
+     * Final tripwire before LLM-derived chromosomes enter the search population.
+     * Drops any test whose variable references no longer resolve to a defining
+     * statement — those tests would crash {@code TestCase.clone()} during
+     * mutation, taking down the entire search. Logged at WARN so the source
+     * path is traceable.
+     */
+    protected static List<TestChromosome> filterOrphanedTestChromosomes(
+            List<TestChromosome> tests, String sourceLabel) {
+        if (tests == null || tests.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<TestChromosome> safe = new ArrayList<>(tests.size());
+        int dropped = 0;
+        for (TestChromosome tc : tests) {
+            if (tc == null) {
+                continue;
+            }
+            List<String> orphans;
+            try {
+                orphans = TestParser.findOrphanedVariableReferences(tc.getTestCase());
+            } catch (Throwable t) {
+                logger.warn("Orphan check crashed for chromosome from {}; dropping ({})",
+                        sourceLabel, t.toString());
+                dropped++;
+                continue;
+            }
+            if (orphans.isEmpty()) {
+                safe.add(tc);
+            } else {
+                logger.warn("Dropping chromosome from {} due to {} orphaned variable "
+                                + "reference(s); details: {}",
+                        sourceLabel, orphans.size(), orphans);
+                dropped++;
+            }
+        }
+        if (dropped > 0) {
+            logger.warn("Dropped {} of {} candidate chromosome(s) from {} due to orphaned references",
+                    dropped, tests.size(), sourceLabel);
+        }
+        return safe;
     }
 
     protected List<TestChromosome> getPopulationAsTestChromosomes() {

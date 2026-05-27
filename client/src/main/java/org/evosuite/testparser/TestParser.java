@@ -24,7 +24,11 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.ast.stmt.ReturnStmt;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.ConstantValue;
+import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -299,9 +303,10 @@ public class TestParser {
     }
 
     /**
-     * Validate that every VariableReference used in the test case points to a valid
-     * statement index. Orphaned references (pos &lt; 0 or pos &gt;= testCase.size())
-     * indicate a parse error and the test should be rejected by the caller.
+     * Validate that every VariableReference used in the test case is the return
+     * value of some statement in the same test case. References that no longer
+     * resolve to a defining statement indicate a parse-time corruption and the
+     * test should be rejected by the caller.
      *
      * <p>All orphans are reported — the loop does not short-circuit on the first
      * one — so the diagnostic list faithfully reflects the full extent of the
@@ -310,28 +315,138 @@ public class TestParser {
      * the test case itself.
      */
     private void validateVariableReferences(DefaultTestCase testCase, ParseResult result) {
+        List<String> orphans = findOrphanedVariableReferences(testCase);
+        if (orphans.isEmpty()) {
+            return;
+        }
+        for (String orphan : orphans) {
+            result.addDiagnostic(new ParseDiagnostic(
+                    ParseDiagnostic.Severity.ERROR,
+                    "Orphaned variable reference: " + orphan,
+                    0, ""));
+        }
+        logger.warn("Parsed test case has {} orphaned variable reference(s) across {} statements",
+                orphans.size(), testCase.size());
+    }
+
+    /**
+     * Returns descriptions of any orphaned {@link VariableReference}s in
+     * {@code testCase}. A reference is "orphaned" when no statement in the
+     * test case can resolve it — either as a return value (for ordinary refs)
+     * or as a referenced parameter (for {@link ConstantValue}). Returns an
+     * empty list when every reference resolves.
+     *
+     * <p>This check is intentionally <em>cache-independent</em>: it does not
+     * call {@link VariableReference#getStPosition()}. The cached
+     * {@code stPosition} can return a stale-but-in-range value if the
+     * change listener was already consumed since the test case mutated, and
+     * that stale value would mask the very orphan we are trying to catch
+     * (it shows up later inside {@code copy()}/{@code clone()} where the
+     * cache is invalidated and recompute throws). Instead, we mirror each
+     * subclass's resolution rule against the current test case directly.
+     */
+    public static List<String> findOrphanedVariableReferences(TestCase testCase) {
+        if (testCase == null) {
+            return Collections.emptyList();
+        }
         int size = testCase.size();
-        int orphanCount = 0;
+        List<String> orphans = new ArrayList<>();
         for (int i = 0; i < size; i++) {
-            Statement stmt = testCase.getStatement(i);
-            Set<VariableReference> refs = stmt.getVariableReferences();
+            Statement stmt;
+            try {
+                stmt = testCase.getStatement(i);
+            } catch (Throwable t) {
+                orphans.add("statement " + i + ": cannot fetch statement (" + describeThrowable(t) + ")");
+                continue;
+            }
+            Set<VariableReference> refs;
+            try {
+                refs = stmt.getVariableReferences();
+            } catch (Throwable t) {
+                orphans.add("statement " + i + " (" + stmt.getClass().getSimpleName()
+                        + "): cannot inspect variable references (" + describeThrowable(t) + ")");
+                continue;
+            }
+            if (refs == null) {
+                continue;
+            }
             for (VariableReference ref : refs) {
-                int pos = ref.getStPosition();
-                if (pos < 0 || pos >= size) {
-                    orphanCount++;
-                    result.addDiagnostic(new ParseDiagnostic(
-                            ParseDiagnostic.Severity.ERROR,
-                            "Orphaned variable reference at statement " + i
-                                    + ": refers to statement " + pos
-                                    + " but test case has " + size + " statements",
-                            0, stmt.getCode()));
+                if (ref == null) {
+                    continue;
+                }
+                if (!isResolvable(ref, testCase, 0)) {
+                    orphans.add(describeOrphan(i, stmt, ref, size,
+                            "no matching defining statement in test case"));
                 }
             }
         }
-        if (orphanCount > 0) {
-            logger.warn("Parsed test case has {} orphaned variable reference(s) across {} statements",
-                    orphanCount, size);
+        return orphans;
+    }
+
+    /**
+     * Mirrors the resolution rules used by each {@code VariableReference}
+     * subclass's {@code getStPosition} but works directly against the current
+     * test case state, without consulting any cached position. Recursion
+     * handles ArrayIndex/FieldReference delegation to their source ref;
+     * depth is bounded to defeat any pathological reference cycle.
+     */
+    private static boolean isResolvable(VariableReference ref, TestCase testCase, int depth) {
+        if (ref == null || depth > 8) {
+            return false;
         }
+        int size = testCase.size();
+        if (ref instanceof ConstantValue) {
+            // ConstantValue resolves when referenced as a parameter by some statement.
+            for (int i = 0; i < size; i++) {
+                try {
+                    if (testCase.getStatement(i).references(ref)) {
+                        return true;
+                    }
+                } catch (Throwable ignored) {
+                    // Fall through; treat as not-here.
+                }
+            }
+            return false;
+        }
+        // Ordinary refs (incl. VariableReferenceImpl, NullReference, ArrayReference)
+        // resolve when they equal some statement's return value.
+        for (int i = 0; i < size; i++) {
+            VariableReference rv;
+            try {
+                rv = testCase.getStatement(i).getReturnValue();
+            } catch (Throwable ignored) {
+                continue;
+            }
+            if (rv != null && rv.equals(ref)) {
+                return true;
+            }
+        }
+        if (ref instanceof ArrayIndex) {
+            return isResolvable(((ArrayIndex) ref).getArray(), testCase, depth + 1);
+        }
+        if (ref instanceof FieldReference) {
+            return isResolvable(((FieldReference) ref).getSource(), testCase, depth + 1);
+        }
+        return false;
+    }
+
+    private static String describeOrphan(int stmtIdx, Statement stmt, VariableReference ref,
+                                         int size, String reason) {
+        String typeName;
+        try {
+            typeName = ref.getType() == null ? "<unknown>" : ref.getType().getTypeName();
+        } catch (Throwable t) {
+            typeName = "<unknown>";
+        }
+        return "statement " + stmtIdx + " (" + stmt.getClass().getSimpleName()
+                + ") references orphan variable of type " + typeName
+                + " [" + ref.getClass().getSimpleName() + "]: " + reason
+                + " (test case size " + size + ")";
+    }
+
+    private static String describeThrowable(Throwable t) {
+        String msg = t.getMessage();
+        return t.getClass().getSimpleName() + (msg == null ? "" : ": " + msg);
     }
 
     private void addLlmHelperMethodDiagnostic(ParseResult result,

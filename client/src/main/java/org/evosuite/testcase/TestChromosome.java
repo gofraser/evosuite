@@ -467,6 +467,19 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             logger.warn("Deletion of statement failed: {}", test.getStatement(num).getCode());
             logger.warn(test.toCode());
             return false; //modifications were on copy
+        } catch (AssertionError e) {
+            // Defense-in-depth: a chromosome with orphaned VariableReferences
+            // (e.g., from an LLM-parsed test that slipped past upstream gates)
+            // throws here from VariableReferenceImpl.getStPosition during
+            // clone(). Surfacing the AssertionError would kill the entire
+            // search; swallowing it lets the search continue minus this
+            // mutation. The chromosome remains in the population — upstream
+            // validation in TestParser/TestRepairLoop/AbstractMOSA should
+            // prevent this from ever firing, so any hit here is a leak worth
+            // chasing in the log.
+            logger.warn("deleteStatement aborted (chromosome has unresolved variable references): {}",
+                    e.getMessage());
+            return false;
         }
     }
 

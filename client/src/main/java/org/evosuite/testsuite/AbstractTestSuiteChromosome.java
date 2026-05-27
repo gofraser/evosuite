@@ -35,6 +35,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 
 import static java.util.stream.Collectors.toList;
 
@@ -283,7 +284,15 @@ public abstract class AbstractTestSuiteChromosome<T extends AbstractTestSuiteChr
      * @return Sum of the lengths of the test cases
      */
     public int totalLengthOfTestCases() {
-        return tests.stream().mapToInt(E::size).sum();
+        // Defensive: a null entry would NPE here and abort statistics export
+        // over RMI. Skip such entries so a single bad chromosome does not
+        // poison the whole stats round-trip. The companion guard in
+        // AbstractTestChromosome.setTestCase rejects a null test field at the
+        // source, so we only need to filter null list entries here.
+        return tests.stream()
+                .filter(Objects::nonNull)
+                .mapToInt(E::size)
+                .sum();
     }
 
     /**

@@ -22,6 +22,7 @@ package org.evosuite.testparser;
 import org.evosuite.Properties;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
@@ -808,6 +809,212 @@ class TestParserTest {
             }
         } finally {
             RuntimeSettings.useVFS = oldUseVfs;
+        }
+    }
+
+    @Test
+    void findOrphanedReferencesReturnsEmptyForWellFormedTest() {
+        String source = "import java.util.ArrayList;\n"
+                + "public class T {\n"
+                + "    @org.junit.Test\n"
+                + "    public void t() {\n"
+                + "        ArrayList list = new ArrayList();\n"
+                + "        list.add(\"x\");\n"
+                + "    }\n"
+                + "}\n";
+        ParseResult pr = parser.parseTestMethod(source, "t");
+        assertFalse(pr.hasErrors(), "Setup parse should succeed: " + pr.getDiagnostics());
+        List<String> orphans = TestParser.findOrphanedVariableReferences(pr.getTestCase());
+        assertTrue(orphans.isEmpty(),
+                "Well-formed parsed test should have no orphans, got: " + orphans);
+    }
+
+    @Test
+    void findOrphanedReferencesDetectsRemovedDefiningStatement() {
+        String source = "import java.util.ArrayList;\n"
+                + "public class T {\n"
+                + "    @org.junit.Test\n"
+                + "    public void t() {\n"
+                + "        ArrayList list = new ArrayList();\n"
+                + "        list.add(\"x\");\n"
+                + "    }\n"
+                + "}\n";
+        ParseResult pr = parser.parseTestMethod(source, "t");
+        assertFalse(pr.hasErrors(), "Setup parse should succeed: " + pr.getDiagnostics());
+
+        // Corrupt the test case the same way an over-aggressive post-processor
+        // could: drop the defining statement while leaving its dependents in
+        // place. The `list.add(...)` callee reference is now orphaned —
+        // clone() would throw an AssertionError from getStPosition.
+        DefaultTestCase tc = (DefaultTestCase) pr.getTestCase();
+        assertTrue(tc.size() >= 2, "Expected at least two statements before corruption");
+        tc.remove(0);
+
+        List<String> orphans = TestParser.findOrphanedVariableReferences(tc);
+        assertFalse(orphans.isEmpty(),
+                "Should detect orphan after removing the defining statement");
+    }
+
+    @Test
+    void findOrphanedReferencesHandlesNullTestCase() {
+        List<String> orphans = TestParser.findOrphanedVariableReferences(null);
+        assertNotNull(orphans);
+        assertTrue(orphans.isEmpty());
+    }
+
+    /**
+     * Reproduces the LLM-parsed test pattern that produced the production
+     * crash: a {@code doReturn(...).when(servletContext0).getAttribute(...)}
+     * stubbing whose return-value name is declared <em>later</em> than the
+     * mock receiver, with another mock between them whose own stubbing
+     * references the receiver — so the parser's
+     * {@code relocateMockAfterStubbingValuesIfNeeded} cannot move the
+     * receiver and {@code ensureStubbingValuesAvailableBeforeMock} has to
+     * hoist a clone instead. Either we end up with a well-formed test case
+     * or {@code findOrphanedVariableReferences} flags the orphan; we must
+     * never silently admit a broken test case.
+     */
+    @Test
+    void llmStubbingWithMidSequenceForwardReferenceLeavesNoOrphans() {
+        // Mirrors the production failure shape: pre-mocks, then mock A,
+        // mock B that stubs to A, redeclarations of earlier names, mock C
+        // (the forward-referenced return value), then a standalone stubbing
+        // doReturn(C).when(A).getAttribute(...). C is declared later than A
+        // in LLM source order, and B sits between them holding a reference
+        // to A.
+        String source = "import java.util.*;\n"
+                + "import static org.mockito.Mockito.*;\n"
+                + "import org.evosuite.runtime.ViolatedAssumptionAnswer;\n"
+                + "public class T {\n"
+                + "    @org.junit.Test\n"
+                + "    public void t() {\n"
+                + "        List preA = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                + "        Map mockA = mock(Map.class, new ViolatedAssumptionAnswer());\n"
+                + "        Set mockB = mock(Set.class, new ViolatedAssumptionAnswer());\n"
+                + "        doReturn(mockA).when(mockB).iterator();\n"
+                + "        List redeclPreA = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                + "        Iterator mockC = mock(Iterator.class, new ViolatedAssumptionAnswer());\n"
+                + "        doReturn(mockC).when(mockA).keySet();\n"
+                + "    }\n"
+                + "}\n";
+        TestParser llmParser = new TestParser(getClass().getClassLoader());
+        llmParser.setMarkParsedFromLlm(true);
+        ParseResult pr = llmParser.parseTestMethod(source, "t");
+        assertNotNull(pr.getTestCase());
+
+        List<String> orphans = TestParser.findOrphanedVariableReferences(pr.getTestCase());
+        assertTrue(orphans.isEmpty(),
+                "Stubbing with mid-sequence forward reference produced orphan(s): " + orphans
+                        + "\nTest case:\n" + safeCode(pr.getTestCase()));
+
+        // Also exercise the code path that the production crash hit: cloning
+        // the test case must succeed without throwing AssertionError from
+        // VariableReferenceImpl.getStPosition.
+        try {
+            pr.getTestCase().clone();
+        } catch (AssertionError ae) {
+            fail("clone() of LLM-parsed test threw: " + ae.getMessage()
+                    + "\nTest case:\n" + safeCode(pr.getTestCase()));
+        }
+    }
+
+    /**
+     * Closer reproduction of the production crash: mock A first, mock B
+     * (whose own stubbing returns A), redeclarations of earlier names, then
+     * mock C (the late-declared return value), and finally a STANDALONE
+     * stubbing on A whose return value is C. This is the exact pattern
+     * from the production trace, modulo concrete class names.
+     */
+    @Test
+    void llmStandaloneStubbingForwardRefAfterIntermediateUseLeavesNoOrphans() {
+        String source = "import java.util.*;\n"
+                + "import static org.mockito.Mockito.*;\n"
+                + "import org.evosuite.runtime.ViolatedAssumptionAnswer;\n"
+                + "public class T {\n"
+                + "    @org.junit.Test\n"
+                + "    public void t() {\n"
+                + "        List warmup0 = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                + "        List warmup1 = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                + "        Map a = mock(Map.class, new ViolatedAssumptionAnswer());\n"
+                + "        Collection b = mock(Collection.class, new ViolatedAssumptionAnswer());\n"
+                + "        doReturn(a).when(b).iterator();\n"
+                + "        List warmup2 = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                + "        List warmup3 = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                + "        Iterator c = mock(Iterator.class, new ViolatedAssumptionAnswer());\n"
+                + "        Object userBean0 = new Object();\n"
+                + "        Set sess = mock(Set.class, new ViolatedAssumptionAnswer());\n"
+                + "        doReturn(userBean0).when(sess).iterator();\n"
+                + "        doReturn(c).when(a).keySet();\n"
+                + "    }\n"
+                + "}\n";
+        TestParser llmParser = new TestParser(getClass().getClassLoader());
+        llmParser.setMarkParsedFromLlm(true);
+        ParseResult pr = llmParser.parseTestMethod(source, "t");
+        assertNotNull(pr.getTestCase());
+
+        List<String> orphans = TestParser.findOrphanedVariableReferences(pr.getTestCase());
+        assertTrue(orphans.isEmpty(),
+                "Standalone forward-ref stubbing produced orphan(s): " + orphans
+                        + "\nTest case:\n" + safeCode(pr.getTestCase()));
+
+        try {
+            pr.getTestCase().clone();
+        } catch (AssertionError ae) {
+            fail("clone() of LLM-parsed test threw: " + ae.getMessage()
+                    + "\nTest case:\n" + safeCode(pr.getTestCase()));
+        }
+    }
+
+    /**
+     * Yet closer to the production failure. The standalone stubbing on `a`
+     * carries a varargs return-value list whose elements include a forward
+     * reference; then a second standalone stubbing follows on a different
+     * mock. The second stubbing's relocate may interact with the first
+     * stubbing's hoisted clone.
+     */
+    @Test
+    void llmStandaloneStubbingChainedForwardRefsLeavesNoOrphans() {
+        String source = "import java.util.*;\n"
+                + "import static org.mockito.Mockito.*;\n"
+                + "import org.evosuite.runtime.ViolatedAssumptionAnswer;\n"
+                + "public class T {\n"
+                + "    @org.junit.Test\n"
+                + "    public void t() {\n"
+                + "        List head = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                + "        Map a = mock(Map.class, new ViolatedAssumptionAnswer());\n"
+                + "        Collection b = mock(Collection.class, new ViolatedAssumptionAnswer());\n"
+                + "        doReturn(a).when(b).iterator();\n"
+                + "        List warmup = mock(List.class, new ViolatedAssumptionAnswer());\n"
+                + "        Set sess = mock(Set.class, new ViolatedAssumptionAnswer());\n"
+                + "        Iterator c = mock(Iterator.class, new ViolatedAssumptionAnswer());\n"
+                + "        doReturn(c).when(a).values();\n"
+                + "        Object payload = new Object();\n"
+                + "        doReturn(payload).when(sess).iterator();\n"
+                + "        doReturn(c).when(a).keySet();\n"
+                + "    }\n"
+                + "}\n";
+        TestParser llmParser = new TestParser(getClass().getClassLoader());
+        llmParser.setMarkParsedFromLlm(true);
+        ParseResult pr = llmParser.parseTestMethod(source, "t");
+        assertNotNull(pr.getTestCase());
+
+        List<String> orphans = TestParser.findOrphanedVariableReferences(pr.getTestCase());
+        assertTrue(orphans.isEmpty(),
+                "Chained standalone stubbings produced orphan(s): " + orphans
+                        + "\nTest case:\n" + safeCode(pr.getTestCase()));
+        try {
+            pr.getTestCase().clone();
+        } catch (AssertionError ae) {
+            fail("clone() of LLM-parsed test threw: " + ae.getMessage()
+                    + "\nTest case:\n" + safeCode(pr.getTestCase()));
+        }
+    }
+
+    private static String safeCode(org.evosuite.testcase.TestCase tc) {
+        try {
+            return tc.toCode();
+        } catch (Throwable t) {
+            return "<getCode failed: " + t + ">";
         }
     }
 }
