@@ -112,6 +112,7 @@ public final class VirtualFileSystem {
         accessedFiles = new CopyOnWriteArraySet<>(); //we only add during test execution, and read after
         leakingResources = new CopyOnWriteArraySet<>();
         classesThatShouldThrowIOException = new CopyOnWriteArraySet<>(); //should only contain very few values
+        root = new VFolder(null, null);
     }
 
     /**
@@ -132,7 +133,7 @@ public final class VirtualFileSystem {
         }
         // Always reset local state as well, otherwise local leaking resources can
         // accumulate when this instance is configured to delegate across classloaders.
-        root = null;
+        root = new VFolder(null, null);
         tmpFileCounter.set(0);
         accessedFiles.clear();
         shouldAllThrowIOException = false;
@@ -586,6 +587,9 @@ public final class VirtualFileSystem {
                 folder = new VFolder(path, parent);
             } else {
                 FSObject child = parent.getChild(name);
+                if (child == null) {
+                    return false;
+                }
                 if (!child.isFolder()) {
                     return false;
                 }

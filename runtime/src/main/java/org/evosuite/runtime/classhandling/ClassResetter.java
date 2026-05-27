@@ -22,6 +22,7 @@ package org.evosuite.runtime.classhandling;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.agent.InstrumentingAgent;
+import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.slf4j.Logger;
@@ -31,8 +32,14 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
  * This class resets the static fields of a given class by invoking the &lt;clinit&gt; class initializer.
@@ -54,12 +61,47 @@ public class ClassResetter {
      */
     private static final ClassResetter instance = new ClassResetter();
 
+    /**
+     * Class-name prefixes whose {@code __STATIC_RESET()} method is never
+     * invoked. Use for libraries whose {@code <clinit>} body is not safe to
+     * replay — typically because it builds a process-wide interned table or
+     * descriptor pool with cross-class invariants that the per-class field
+     * reset cannot restore.
+     *
+     * <p>Skipping the reset means the class keeps the static state populated
+     * during its initial {@code <clinit>}. For these libraries that is the
+     * desired behavior — their descriptor/registry data is effectively
+     * immutable after initial load, so the test cannot meaningfully mutate
+     * it, and a reset attempt would only poison the class via a half-completed
+     * replay.
+     */
+    private static final List<String> SKIP_RESET_PREFIXES = Arrays.asList(
+            // Generated descriptor pools maintain a process-wide singleton
+            // registry in com.google.protobuf.Descriptors. Replaying the
+            // generated DescriptorProtos.<clinit> against a partially-reset
+            // registry throws IndexOutOfBoundsException in the middle of
+            // rebuilding accessor tables, leaving the class half-initialised
+            // for the rest of the run.
+            "com.google.protobuf."
+    );
+
     private ClassLoader loader;
 
     private final Map<ClassLoader, Map<String, Method>> resetMethodCache;
 
+    /**
+     * Classes whose {@code __STATIC_RESET()} has already thrown once. After
+     * the first failure the class is in a half-reset state (fields nulled,
+     * {@code <clinit>} replay aborted mid-way); re-invoking the reset method
+     * does not undo that and only spams warnings. Keyed by class loader so a
+     * fresh load through a new {@code InstrumentingClassLoader} gets a clean
+     * slate.
+     */
+    private final Map<ClassLoader, Set<String>> poisonedClasses;
+
     private ClassResetter() {
         resetMethodCache = new HashMap<>();
+        poisonedClasses = Collections.synchronizedMap(new WeakHashMap<>());
     }
 
     /**
@@ -145,6 +187,13 @@ public class ClassResetter {
             throw new IllegalStateException("No specified loader");
         }
 
+        if (isSkippedByPrefix(classNameWithDots)) {
+            return;
+        }
+        if (isPoisoned(classNameWithDots)) {
+            return;
+        }
+
         Method m = getResetMethod(classNameWithDots);
         if (m == null) {
             return;
@@ -179,6 +228,13 @@ public class ClassResetter {
                 logWarn(classNameWithDots, e + ", caused by: " + cause + "\n" + errors);
                 // we are only interested in the stack trace of the cause
             }
+            // __STATIC_RESET threw mid-replay. The class is now in a half-reset
+            // state (fields zeroed by the prepended reset code, then the
+            // duplicated <clinit> body aborted before reassigning them).
+            // Re-invoking the reset on later tests cannot undo that and only
+            // produces duplicate warnings — record it as poisoned so we stop
+            // trying for the lifetime of this class loader.
+            markPoisoned(classNameWithDots);
         } finally {
             if (!safe) {
                 Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
@@ -187,6 +243,41 @@ public class ClassResetter {
         }
 
         InstrumentingAgent.deactivate();
+    }
+
+    private static boolean isSkippedByPrefix(String classNameWithDots) {
+        String targetPrefix = RuntimeInstrumentation.getTargetClassPrefix();
+        for (String prefix : SKIP_RESET_PREFIXES) {
+            if (classNameWithDots.startsWith(prefix)) {
+                // If the user is generating tests for a class in one of the
+                // skip-listed libraries itself, honor that intent and still
+                // attempt to reset. Mirrors the same bypass pattern used by
+                // ExcludedClasses.getPackagesShouldNotBeInstrumented().
+                if (targetPrefix != null && targetPrefix.startsWith(prefix)) {
+                    return false;
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isPoisoned(String classNameWithDots) {
+        Set<String> set = poisonedClasses.get(loader);
+        return set != null && set.contains(classNameWithDots);
+    }
+
+    private void markPoisoned(String classNameWithDots) {
+        Set<String> set = poisonedClasses.computeIfAbsent(
+                loader, k -> Collections.synchronizedSet(new HashSet<>()));
+        set.add(classNameWithDots);
+    }
+
+    /**
+     * Visible for testing. Clears the poison set for all class loaders.
+     */
+    void clearPoisonedClassesForTests() {
+        poisonedClasses.clear();
     }
 
 }

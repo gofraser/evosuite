@@ -160,6 +160,55 @@ public class ClassStateSupport {
     }
 
 
+    // TODO: investigate temporarily lifting the sandbox around SUT <clinit>.
+    //
+    // Today SUT static initializers run with full sandbox restrictions: this
+    // method (called from EvoSuiteExtension.beforeAll and from the search-time
+    // execution path) calls Sandbox.goingToExecuteUnsafeCodeOnSameThread()
+    // before Class.forName(), so any file/network I/O inside <clinit> hits the
+    // sandbox and throws.  Many real SUTs swallow that exception in a try/catch
+    // around their initialisation (e.g. Weka's GenericObjectEditor.determineClasses()
+    // catches the I/O failure from WekaPackageManager.loadPackages()), which
+    // leaves a static field null when it would normally be populated.
+    //
+    // The recheck phase does not see this: JUnitAnalyzer.runJUnitOnCurrentProcess
+    // calls Sandbox.resetDefaultSecurityManager() before running JUnit, so the
+    // sandbox is off entirely and <clinit> succeeds.  The result is a class of
+    // unstable tests where the search records "constructor X throws NPE
+    // because static field S is null" and the recheck disagrees because S is
+    // now non-null.
+    //
+    // Possible fix: mirror GuiSupport.disableHeadlessForMockConstruction() —
+    // add reference-counted Sandbox.disableForSutClinit() / restoreAfterSutClinit()
+    // and wrap the Class.forName() below (and the equivalent first-touch sites
+    // in ConstructorStatement) so SUT <clinit> sees the same permissions in
+    // search as in recheck.
+    //
+    // Cost: 1–2 days plus careful coverage of every entry point where SUT
+    // <clinit> can fire (lazy class loading can happen inside almost any
+    // statement, not just constructors).
+    //
+    // Security caveats to preserve when lifting restrictions:
+    //   - keep System.setSecurityManager(null) blocked (otherwise an SUT
+    //     <clinit> could permanently disable the sandbox for the rest of the
+    //     run);
+    //   - System.exit() in <clinit> is already intercepted by the
+    //     org.evosuite.runtime.System replacement, so no extra work needed
+    //     there.
+    // Filesystem reads, network connections, and Runtime.exec() inside
+    // <clinit> are low-risk in practice — SUTs are typically benign — and
+    // their occurrence in production paths means the search-phase failure
+    // is non-representative.
+    //
+    // On JDK 18+ SecurityManager is opt-in only and on JDK 24 it is removed,
+    // so this whole question becomes moot there; only worth doing if we still
+    // care about JDK 8/11/17 runs.
+    //
+    // Note: aligning the class reset order (ClassReInitializer.java:199 → use
+    // init order, not alphabetical) has already been done as a partial fix
+    // for the same class of unstable tests.  Dropping the sandbox around
+    // <clinit> addresses the orthogonal "first-touch failed under sandbox"
+    // root cause.
     private static List<Class<?>> loadClasses(ClassLoader classLoader, String... classNames) {
 
         List<Class<?>> classes = new ArrayList<>();

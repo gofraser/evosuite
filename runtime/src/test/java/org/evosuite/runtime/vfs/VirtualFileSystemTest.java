@@ -74,6 +74,15 @@ public class VirtualFileSystemTest {
     }
 
     @Test
+    public void testCreateFolderAfterResetBeforeInitDoesNotThrow() {
+        VirtualFileSystem.getInstance().resetSingleton();
+
+        Assertions.assertDoesNotThrow(() -> {
+            Assertions.assertTrue(VirtualFileSystem.getInstance().createFolder("after-reset-folder"));
+        });
+    }
+
+    @Test
     public void testRename() throws IOException {
         File bla = new MockFile("bla");
         File doh = new MockFile("doh");

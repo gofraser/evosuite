@@ -285,10 +285,13 @@ public class GuiSupport {
         try {
             (new javax.swing.JButton()).getFontMetrics(new java.awt.Font(null));
         } catch (Throwable t) {
-            logger.warn("Failed to eagerly initialize Swing fonts; continuing without GUI pre-initialization: {}",
+            // Demoted from WARN to DEBUG: this is a handled fallback path, not a
+            // correctness issue (see the comment block above). The first SUT use
+            // of fonts will pay the one-time JDK font-loading cost instead.
+            logger.debug("Failed to eagerly initialize Swing fonts; continuing without GUI pre-initialization: {}",
                     t.getMessage());
-            if (logger.isDebugEnabled()) {
-                logger.debug("Swing font pre-initialization failure trace", t);
+            if (logger.isTraceEnabled()) {
+                logger.trace("Swing font pre-initialization failure trace", t);
             }
         }
     }
