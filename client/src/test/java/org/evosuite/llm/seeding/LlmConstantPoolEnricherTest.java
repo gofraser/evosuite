@@ -97,6 +97,17 @@ class LlmConstantPoolEnricherTest {
     }
 
     @Test
+    void parseConstants_intOverflowFallsBackToLong() {
+        // Integer-shaped literal (no L suffix) that doesn't fit in int range
+        // should be kept as Long rather than silently dropped.
+        String response = "2147483648\n-2147483649\n9999999999\n";
+        List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
+        assertTrue(constants.contains(2147483648L));
+        assertTrue(constants.contains(-2147483649L));
+        assertTrue(constants.contains(9999999999L));
+    }
+
+    @Test
     void parseConstants_extractsDoubles() {
         String response = "3.14\n0.0\n-1.5\n1.0e10\n";
         List<Object> constants = LlmConstantPoolEnricher.parseConstants(response);
@@ -253,7 +264,7 @@ class LlmConstantPoolEnricherTest {
     }
 
     @Test
-    void collectNonSutDependencyClasses_excludesSutAndLangAndRespectsCap() {
+    void collectNonSutDependencyClasses_excludesSutAndJdkAndRespectsCap() {
         boolean oldEnrich = Properties.LLM_ENRICH_NON_SUT_CONSTANT_POOL;
         int oldMaxClasses = Properties.LLM_NON_SUT_CONSTANT_CLASSES_MAX;
         Properties.LLM_ENRICH_NON_SUT_CONSTANT_POOL = true;
@@ -261,17 +272,23 @@ class LlmConstantPoolEnricherTest {
         try {
             TestCluster cluster = mock(TestCluster.class);
             Set<Class<?>> analyzed = new LinkedHashSet<>();
-            analyzed.add(String.class);
-            analyzed.add(java.util.ArrayList.class);
-            analyzed.add(java.util.HashMap.class);
+            analyzed.add(String.class);                 // JDK, excluded
+            analyzed.add(java.util.ArrayList.class);    // SUT, excluded
+            analyzed.add(java.util.HashMap.class);      // JDK, excluded
+            // Two non-JDK domain classes (reuse types from this test class's
+            // package — anything non-JDK qualifies as "dependency")
+            analyzed.add(LlmConstantPoolEnricherTest.class);
+            analyzed.add(org.evosuite.llm.LlmService.class);
             when(cluster.getAnalyzedClasses()).thenReturn(analyzed);
 
             LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(createUnavailableService());
             List<String> deps = enricher.collectNonSutDependencyClasses(
                     java.util.ArrayList.class.getName(), cluster);
 
-            assertEquals(1, deps.size());
-            assertEquals(java.util.HashMap.class.getName(), deps.get(0));
+            assertEquals(2, deps.size(), "cap respected");
+            assertFalse(deps.contains(String.class.getName()), "JDK java.lang excluded");
+            assertFalse(deps.contains(java.util.HashMap.class.getName()), "JDK java.util excluded");
+            assertFalse(deps.contains(java.util.ArrayList.class.getName()), "SUT excluded");
         } finally {
             Properties.LLM_ENRICH_NON_SUT_CONSTANT_POOL = oldEnrich;
             Properties.LLM_NON_SUT_CONSTANT_CLASSES_MAX = oldMaxClasses;

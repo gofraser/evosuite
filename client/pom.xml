@@ -168,6 +168,14 @@
             <artifactId>langchain4j-anthropic</artifactId>
             <version>${langchain4j.version}</version>
         </dependency>
+        <!-- Used by LlmCastClassEnricher for robust JSON parsing. Also pulled
+             in transitively via langchain4j; declared explicitly so the build
+             doesn't silently break if langchain4j ever drops the dependency. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.16.1</version>
+        </dependency>
     </dependencies>
 
     <build>

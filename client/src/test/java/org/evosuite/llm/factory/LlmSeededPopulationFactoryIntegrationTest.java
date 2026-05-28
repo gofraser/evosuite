@@ -103,6 +103,53 @@ class LlmSeededPopulationFactoryIntegrationTest {
     }
 
     @Test
+    void afterTimeoutSubsequentCallsFallBackToFallbackFactoryWithoutThrowing() throws Exception {
+        // A model that blocks forever — the factory should time out cleanly and
+        // subsequent calls must NOT propagate CancellationException from the
+        // cancelled future, nor re-log "LLM seeding failed".
+        java.util.concurrent.CountDownLatch released = new java.util.concurrent.CountDownLatch(1);
+        LlmService.ChatLanguageModel blockingModel = (messages, feature) -> {
+            try {
+                released.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return LlmService.LlmResponse.fromText("");
+        };
+        LlmService service = createService(blockingModel, 4);
+
+        TestChromosome fallbackChromosome = new TestChromosome();
+        fallbackChromosome.setTestCase(new DefaultTestCase());
+        ChromosomeFactory<TestChromosome> fallback = () -> fallbackChromosome;
+
+        try {
+            // Use a real async executor so the blocking model runs off the test thread.
+            LlmSeededPopulationFactory factory = new LlmSeededPopulationFactory(
+                    fallback,
+                    service,
+                    Collections::emptyList,
+                    java.util.concurrent.ForkJoinPool.commonPool());
+
+            // First await with a tiny timeout — should time out and cancel.
+            assertTrue(factory.awaitAndDrainSeeds(50L).isEmpty(),
+                    "first call should time out and yield no seeds");
+
+            // Subsequent calls must not throw and must fall back cleanly.
+            for (int i = 0; i < 3; i++) {
+                TestChromosome chromosome = factory.getChromosome();
+                assertSame(fallbackChromosome, chromosome,
+                        "post-timeout calls should return the fallback chromosome");
+            }
+            // A subsequent await must also be a no-op (not throw).
+            assertTrue(factory.awaitAndDrainSeeds(10L).isEmpty(),
+                    "re-await after timeout must not throw");
+        } finally {
+            released.countDown();
+            service.close();
+        }
+    }
+
+    @Test
     void recoverableLinkageErrorsDuringSeedingFallBackToDefaultFactory() {
         LlmService.ChatLanguageModel model = (messages, feature) -> {
             throw new VerifyError("simulated frame verification failure");

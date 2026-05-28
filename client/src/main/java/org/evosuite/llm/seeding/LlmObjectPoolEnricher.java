@@ -29,8 +29,10 @@ import org.evosuite.llm.prompt.TestClusterSummarizer;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -50,18 +52,44 @@ import java.util.Set;
  */
 public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnricher.EnrichmentResult> {
 
-    /** Max type keys per sequence to bound pool pollution. */
-    static final int MAX_KEYS_PER_SEQUENCE = 5;
+    /**
+     * Returns the configured max type-keys per sequence (resolved from
+     * {@link Properties#LLM_OBJECT_POOL_MAX_KEYS_PER_SEQUENCE} at call time).
+     * Reading on each call keeps tests free to override the property without
+     * caring about construction order.
+     */
+    static int maxKeysPerSequence() {
+        return Math.max(1, Properties.LLM_OBJECT_POOL_MAX_KEYS_PER_SEQUENCE);
+    }
 
     private static final String[] JDK_PACKAGE_PREFIXES = {
             "java.", "javax.", "sun.", "com.sun.", "jdk."
     };
 
     private final TestRepairLoop repairLoop;
+    private final boolean keepAssertions;
 
-    public LlmObjectPoolEnricher(LlmService llmService, TestRepairLoop repairLoop) {
+    /**
+     * Primary constructor with explicit repair loop and assertion policy.
+     * Callers must align {@code keepAssertions} with the policy embedded in
+     * {@code repairLoop} — the same flag is used to render the prompt's
+     * assertion-policy suffix, so a mismatch would ask the LLM to keep/drop
+     * assertions while parsing under the opposite rule.
+     */
+    public LlmObjectPoolEnricher(LlmService llmService, TestRepairLoop repairLoop,
+                                  boolean keepAssertions) {
         super(llmService, LlmFeature.OBJECT_POOL_ENRICHMENT);
         this.repairLoop = repairLoop;
+        this.keepAssertions = keepAssertions;
+    }
+
+    /**
+     * Convenience constructor for tests that inject a mock repair loop and
+     * don't care about assertion policy. Defaults to {@code keepAssertions=false},
+     * matching the historical hard-coded behaviour.
+     */
+    public LlmObjectPoolEnricher(LlmService llmService, TestRepairLoop repairLoop) {
+        this(llmService, repairLoop, false);
     }
 
     /**
@@ -71,7 +99,8 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         this(llmService, TestRepairLoop.createDefault(
                 llmService,
                 TestRepairLoop.RepairOptions.forAssertionPolicy(
-                        LlmAssertionPolicyResolver.keepAssertions(false))));
+                        LlmAssertionPolicyResolver.keepAssertions(false))),
+                false);
     }
 
     @Override
@@ -162,8 +191,8 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
      *   <li>Basic exclusions: primitives, wrappers, void, Object</li>
      *   <li>JDK types (java.*, javax.*, sun.*, com.sun.*, jdk.*) excluded
      *       unless present in {@code targetTypeNames}</li>
-     *   <li>Capped at {@link #MAX_KEYS_PER_SEQUENCE} to bound pool pollution</li>
-     *   <li>Both {@code hasObject(T, size())} and {@code getLastObject(T)} must succeed</li>
+     *   <li>Capped at {@link #maxKeysPerSequence()} to bound pool pollution</li>
+     *   <li>{@code getLastObject(T)} must succeed (mirrors ObjectPool retrieval)</li>
      * </ol>
      * This avoids polluting the pool with incidental helper types while preserving
      * Phase 3c's intent of keying by the actual produced type, not always the CUT.
@@ -193,14 +222,9 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         }
 
         for (Class<?> type : candidateTypes) {
-            // Validate with hasObject — mirrors ObjectPool.getPoolFromTestSuite check
-            if (!testCase.hasObject(type, testCase.size())) {
-                rejectedValidation++;
-                diagnostics.add("hasObject failed for type: " + type.getName());
-                continue;
-            }
-
-            // Validate with getLastObject — mirrors ObjectPool retrieval path
+            // getLastObject mirrors the ObjectPool retrieval path and fails iff
+            // no variable assignable to type exists in the case, so it subsumes
+            // the prior hasObject(type, size()) check.
             try {
                 testCase.getLastObject(type);
             } catch (ConstructionFailedException e) {
@@ -260,13 +284,13 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
     /**
      * Filters raw produced types to candidate pool keys.
      * Keeps non-JDK domain types unconditionally; keeps JDK types only if
-     * they appear in the enrichment target set. Capped at {@link #MAX_KEYS_PER_SEQUENCE}.
+     * they appear in the enrichment target set. Capped at {@link #maxKeysPerSequence()}.
      */
     Set<Class<?>> filterCandidateKeyTypes(Set<Class<?>> rawTypes, Set<String> targetTypeNames) {
         Set<String> targets = targetTypeNames != null ? targetTypeNames : Collections.emptySet();
         Set<Class<?>> filtered = new LinkedHashSet<>();
         for (Class<?> type : rawTypes) {
-            if (filtered.size() >= MAX_KEYS_PER_SEQUENCE) {
+            if (filtered.size() >= maxKeysPerSequence()) {
                 break;
             }
             String name = type.getName();
@@ -354,7 +378,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
                         + "Format as a complete JUnit test class with imports.\n"
                         + "Each method should set up one interesting object state.\n"
                         + "Focus on object construction only."
-                        + LlmAssertionPolicyResolver.instructionSuffix(false))
+                        + LlmAssertionPolicyResolver.instructionSuffix(keepAssertions))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();
     }
@@ -409,6 +433,23 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
         public int getRejectedAddFailure() {
             return rejectedAddFailure;
+        }
+
+        @Override
+        public String summarize(String label) {
+            return String.format(
+                    "%s enrichment: attempted=%s, parsed=%d, added=%d%s",
+                    label, isAttempted(), sequencesParsed, sequencesAdded,
+                    getFailureReason() != null ? ", failure=" + getFailureReason() : "");
+        }
+
+        @Override
+        public void trackMetrics() {
+            try {
+                ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, sequencesAdded);
+            } catch (Throwable t) {
+                // best-effort tracking
+            }
         }
     }
 

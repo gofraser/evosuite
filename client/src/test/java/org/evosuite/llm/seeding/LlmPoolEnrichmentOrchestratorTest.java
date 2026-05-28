@@ -44,7 +44,11 @@ class LlmPoolEnrichmentOrchestratorTest {
     private boolean savedEnrichConstants;
     private boolean savedEnrichObjects;
     private boolean savedEnrichCast;
+    private boolean savedEnrichNonSut;
+    private boolean savedSeedInit;
+    private boolean savedTestFactory;
     private int savedTimeout;
+    private Properties.LlmSeedingProfile savedProfile;
 
     @BeforeEach
     void setUp() {
@@ -52,7 +56,11 @@ class LlmPoolEnrichmentOrchestratorTest {
         savedEnrichConstants = Properties.LLM_ENRICH_CONSTANT_POOL;
         savedEnrichObjects = Properties.LLM_ENRICH_OBJECT_POOL;
         savedEnrichCast = Properties.LLM_ENRICH_CAST_CLASSES;
-        savedTimeout = Properties.LLM_ENRICHMENT_TIMEOUT_SECONDS;
+        savedEnrichNonSut = Properties.LLM_ENRICH_NON_SUT_CONSTANT_POOL;
+        savedSeedInit = Properties.LLM_SEED_INITIAL_POPULATION;
+        savedTestFactory = Properties.LLM_TEST_FACTORY;
+        savedTimeout = Properties.LLM_TIMEOUT_SECONDS;
+        savedProfile = Properties.LLM_SEEDING_PROFILE;
         LlmService.resetInstanceForTesting();
     }
 
@@ -62,7 +70,11 @@ class LlmPoolEnrichmentOrchestratorTest {
         Properties.LLM_ENRICH_CONSTANT_POOL = savedEnrichConstants;
         Properties.LLM_ENRICH_OBJECT_POOL = savedEnrichObjects;
         Properties.LLM_ENRICH_CAST_CLASSES = savedEnrichCast;
-        Properties.LLM_ENRICHMENT_TIMEOUT_SECONDS = savedTimeout;
+        Properties.LLM_ENRICH_NON_SUT_CONSTANT_POOL = savedEnrichNonSut;
+        Properties.LLM_SEED_INITIAL_POPULATION = savedSeedInit;
+        Properties.LLM_TEST_FACTORY = savedTestFactory;
+        Properties.LLM_TIMEOUT_SECONDS = savedTimeout;
+        Properties.LLM_SEEDING_PROFILE = savedProfile;
         LlmService.resetInstanceForTesting();
     }
 
@@ -370,6 +382,99 @@ class LlmPoolEnrichmentOrchestratorTest {
     }
 
     // ---- Cooperative cancellation tests ----
+
+    @Test
+    void cancelAll_cancelsAllEnrichersCooperatively() {
+        Properties.LLM_ENRICH_CAST_CLASSES = true;
+        Properties.LLM_ENRICH_CONSTANT_POOL = true;
+        Properties.LLM_ENRICH_OBJECT_POOL = true;
+
+        LlmConstantPoolEnricher realConstant = org.mockito.Mockito.spy(
+                new LlmConstantPoolEnricher(createUnavailableService()));
+        LlmObjectPoolEnricher realObject = org.mockito.Mockito.spy(
+                new LlmObjectPoolEnricher(createUnavailableService()));
+        LlmCastClassEnricher realCast = org.mockito.Mockito.spy(
+                new LlmCastClassEnricher(createUnavailableService()));
+
+        CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> constFut = new CompletableFuture<>();
+        CompletableFuture<LlmObjectPoolEnricher.EnrichmentResult> objFut = new CompletableFuture<>();
+        CompletableFuture<LlmCastClassEnricher.EnrichmentResult> castFut = new CompletableFuture<>();
+        when(realConstant.enrichAsync(anyString(), any())).thenReturn(constFut);
+        when(realObject.enrichAsync(anyString(), any())).thenReturn(objFut);
+        when(realCast.enrichAsync(anyString(), any())).thenReturn(castFut);
+
+        LlmPoolEnrichmentOrchestrator orchestrator =
+                new LlmPoolEnrichmentOrchestrator(realConstant, realObject, realCast, 30);
+        orchestrator.startEnrichment("com.example.Foo", null);
+
+        orchestrator.cancelAll();
+
+        assertTrue(realConstant.isCancelled(), "constant enricher cooperative flag must be set");
+        assertTrue(realObject.isCancelled(), "object enricher cooperative flag must be set");
+        assertTrue(realCast.isCancelled(), "cast enricher cooperative flag must be set");
+        assertTrue(constFut.isCancelled(), "constant future should be cancelled");
+        assertTrue(objFut.isCancelled(), "object future should be cancelled");
+        assertTrue(castFut.isCancelled(), "cast future should be cancelled");
+    }
+
+    @Test
+    void llmSeedingProfile_offDoesNotChangeFlags() {
+        Properties.LLM_ENRICH_CAST_CLASSES = false;
+        Properties.LLM_ENRICH_CONSTANT_POOL = false;
+        Properties.LLM_ENRICH_OBJECT_POOL = false;
+        Properties.LLM_SEEDING_PROFILE = Properties.LlmSeedingProfile.OFF;
+
+        Properties.applyLlmSeedingProfile();
+
+        assertFalse(Properties.LLM_ENRICH_CAST_CLASSES);
+        assertFalse(Properties.LLM_ENRICH_CONSTANT_POOL);
+        assertFalse(Properties.LLM_ENRICH_OBJECT_POOL);
+    }
+
+    @Test
+    void llmSeedingProfile_minEnablesOnlyCastClasses() {
+        Properties.LLM_SEEDING_PROFILE = Properties.LlmSeedingProfile.MIN;
+        Properties.LLM_ENRICH_CONSTANT_POOL = true; // user attempt, will be overridden
+        Properties.LLM_ENRICH_OBJECT_POOL = true;
+
+        Properties.applyLlmSeedingProfile();
+
+        assertTrue(Properties.LLM_ENRICH_CAST_CLASSES);
+        assertFalse(Properties.LLM_ENRICH_CONSTANT_POOL, "MIN profile force-disables constants");
+        assertFalse(Properties.LLM_ENRICH_OBJECT_POOL, "MIN profile force-disables objects");
+        assertFalse(Properties.LLM_SEED_INITIAL_POPULATION);
+        assertFalse(Properties.LLM_TEST_FACTORY);
+    }
+
+    @Test
+    void llmSeedingProfile_fullEnablesEverything() {
+        Properties.LLM_SEEDING_PROFILE = Properties.LlmSeedingProfile.FULL;
+
+        Properties.applyLlmSeedingProfile();
+
+        assertTrue(Properties.LLM_ENRICH_CAST_CLASSES);
+        assertTrue(Properties.LLM_ENRICH_CONSTANT_POOL);
+        assertTrue(Properties.LLM_ENRICH_NON_SUT_CONSTANT_POOL);
+        assertTrue(Properties.LLM_ENRICH_OBJECT_POOL);
+        assertTrue(Properties.LLM_SEED_INITIAL_POPULATION);
+        assertTrue(Properties.LLM_TEST_FACTORY);
+    }
+
+    @Test
+    void cancelAll_isIdempotent() {
+        Properties.LLM_ENRICH_CAST_CLASSES = true;
+        Properties.LLM_ENRICH_CONSTANT_POOL = true;
+        Properties.LLM_ENRICH_OBJECT_POOL = true;
+
+        LlmPoolEnrichmentOrchestrator orchestrator =
+                new LlmPoolEnrichmentOrchestrator(mock(LlmConstantPoolEnricher.class),
+                        mock(LlmObjectPoolEnricher.class), mock(LlmCastClassEnricher.class), 30);
+
+        // Calling cancelAll before startEnrichment should not throw
+        assertDoesNotThrow(orchestrator::cancelAll);
+        // Calling again should be a no-op
+        assertDoesNotThrow(orchestrator::cancelAll);
+    }
 
     @Test
     void castTimeout_setsCancelFlagOnEnricher() {

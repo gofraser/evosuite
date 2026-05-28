@@ -19,15 +19,19 @@
  */
 package org.evosuite.llm.seeding;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.generic.GenericClass;
 
 import java.lang.reflect.Constructor;
@@ -121,22 +125,35 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
         }
     }
 
+    /** Reusable Jackson mapper — thread-safe per Jackson docs. */
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+
     /**
      * Parses class name suggestions from the LLM response.
-     * Tries (in order): JSON object with "suggestions" key, bare JSON array, line-by-line FQCNs.
+     * Tries (in order): proper JSON via Jackson (handles object-with-key or
+     * bare array), regex JSON-shape fallbacks (for responses with prose
+     * around the JSON), line-by-line FQCNs.
      */
     static List<String> parseSuggestions(String response) {
         if (response == null || response.trim().isEmpty()) {
             return Collections.emptyList();
         }
 
-        // Strategy 1: JSON object with "suggestions" key
-        List<String> result = parseJsonSuggestionsObject(response);
+        // Strategy 0: Strict JSON parse via Jackson. Handles nested brackets
+        // inside strings, escape sequences, and unicode that the regex paths miss.
+        List<String> result = parseStrictJson(response);
         if (!result.isEmpty()) {
             return result;
         }
 
-        // Strategy 2: Bare JSON array
+        // Strategy 1: JSON object with "suggestions" key, extracted by regex
+        // (for responses with prose wrapping the JSON object).
+        result = parseJsonSuggestionsObject(response);
+        if (!result.isEmpty()) {
+            return result;
+        }
+
+        // Strategy 2: Bare JSON array, extracted by regex
         result = parseBareJsonArray(response);
         if (!result.isEmpty()) {
             return result;
@@ -144,6 +161,46 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
 
         // Strategy 3: Line-based FQCN extraction
         return parseLineBasedFqcns(response);
+    }
+
+    /**
+     * Attempts a strict JSON parse of the trimmed response. Accepts either a
+     * top-level object with a {@code "suggestions"} array, or a top-level
+     * array of strings. Returns an empty list (without throwing) on any parse
+     * failure so the caller falls through to the regex strategies.
+     */
+    private static List<String> parseStrictJson(String response) {
+        String trimmed = response.trim();
+        // Cheap guard: don't even ask Jackson unless this looks like JSON.
+        if (trimmed.isEmpty() || (trimmed.charAt(0) != '{' && trimmed.charAt(0) != '[')) {
+            return Collections.emptyList();
+        }
+        try {
+            JsonNode root = JSON_MAPPER.readTree(trimmed);
+            JsonNode arrayNode;
+            if (root.isObject() && root.hasNonNull("suggestions")) {
+                arrayNode = root.get("suggestions");
+            } else if (root.isArray()) {
+                arrayNode = root;
+            } else {
+                return Collections.emptyList();
+            }
+            if (!arrayNode.isArray()) {
+                return Collections.emptyList();
+            }
+            List<String> values = new ArrayList<>();
+            for (JsonNode element : arrayNode) {
+                if (element != null && element.isTextual()) {
+                    String value = element.asText().trim();
+                    if (!value.isEmpty()) {
+                        values.add(value);
+                    }
+                }
+            }
+            return values;
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
     }
 
     private static List<String> parseJsonSuggestionsObject(String response) {
@@ -235,8 +292,12 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
                 continue;
             }
 
-            // Validate: TestUsageChecker.canUse
-            if (!TestUsageChecker.canUse(clazz)) {
+            // Validate: TestUsageChecker.canUse — only for concrete classes. For
+            // abstract classes and interfaces we let CastClassManager.addCastClass
+            // expand them to concrete subclasses and validate each subclass there;
+            // skipping here would drop e.g. java.util.List → ArrayList/LinkedList.
+            if (!clazz.isInterface() && !Modifier.isAbstract(clazz.getModifiers())
+                    && !TestUsageChecker.canUse(clazz)) {
                 logger.debug("Cast class enrichment: '{}' cannot be used per TestUsageChecker", suggestion);
                 continue;
             }
@@ -468,6 +529,24 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
 
         public int getAccepted() {
             return accepted;
+        }
+
+        @Override
+        public String summarize(String label) {
+            return String.format(
+                    "%s enrichment: attempted=%s, suggested=%d, validated=%d, added=%d%s",
+                    label, isAttempted(), suggested, validated, accepted,
+                    getFailureReason() != null ? ", failure=" + getFailureReason() : "");
+        }
+
+        @Override
+        public void trackMetrics() {
+            try {
+                ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, suggested);
+                ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, accepted);
+            } catch (Throwable t) {
+                // best-effort tracking
+            }
         }
     }
 }

@@ -45,6 +45,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
@@ -144,11 +145,17 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             }
             mergeProducedSeeds(produced);
         } catch (TimeoutException e) {
-            seedsMerged.set(false);
+            // Commit the decision: we tried, we timed out. Don't reset the
+            // merged flag — a retry would just observe a cancelled future and
+            // re-log the same failure to the operator.
             pendingSeeds.cancel(true);
             LoggingUtils.getEvoLogger().info(
                     "* LLM seeding timed out after {}ms; cancelled pending task", waitMillis);
             logger.warn("Timed out while waiting for async LLM seeds after {}ms", waitMillis);
+        } catch (CancellationException e) {
+            // Future was cancelled (e.g. by a previous timeout). Log once and
+            // leave seedsMerged=true so subsequent calls short-circuit.
+            logger.debug("Async LLM seeds future was cancelled before merge");
         } catch (InterruptedException e) {
             seedsMerged.set(false);
             Thread.currentThread().interrupt();

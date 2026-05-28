@@ -489,6 +489,58 @@ class LlmCastClassEnricherTest {
     }
 
     @Test
+    void parseSuggestions_jacksonHandlesNestedBracketsInsideStrings() {
+        // A JSON value that contains brackets inside a string — the old regex
+        // path would mis-parse this because [^\\]]* would terminate at the
+        // first ']'. Jackson's strict parse handles it correctly.
+        String response = "{\"suggestions\": [\"java.util.HashMap\", \"foo.Bar[baz]Quux\"]}";
+        List<String> result = LlmCastClassEnricher.parseSuggestions(response);
+        assertEquals(2, result.size(), "Jackson should parse both strings even with brackets");
+        assertEquals("java.util.HashMap", result.get(0));
+        assertEquals("foo.Bar[baz]Quux", result.get(1));
+    }
+
+    @Test
+    void parseSuggestions_jacksonHandlesUnicodeEscapes() {
+        // . is a Unicode escape for '.', valid in JSON but not in the regex path.
+        String response = "{\"suggestions\": [\"java\\u002Eutil\\u002EHashMap\"]}";
+        List<String> result = LlmCastClassEnricher.parseSuggestions(response);
+        assertEquals(1, result.size());
+        assertEquals("java.util.HashMap", result.get(0));
+    }
+
+    @Test
+    void parseSuggestions_fallsBackToLineBasedForNonJson() {
+        // Pure FQCN-per-line response — must still work via the line-based fallback.
+        String response = "java.util.HashMap\njava.util.TreeMap\n";
+        List<String> result = LlmCastClassEnricher.parseSuggestions(response);
+        assertTrue(result.contains("java.util.HashMap"));
+        assertTrue(result.contains("java.util.TreeMap"));
+    }
+
+    @Test
+    void validateAndAdd_acceptsInterfaceForConcreteExpansion() {
+        // Interfaces and abstract classes should NOT be rejected by the canUse
+        // precheck — CastClassManager.addCastClass expands them to concrete
+        // subclasses. java.util.List → ArrayList, LinkedList, etc.
+        Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS = 16;
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+
+        int sizeBefore = CastClassManager.getInstance().getCastClasses().size();
+        LlmCastClassEnricher.EnrichmentResult result = enricher.validateAndAdd(
+                Arrays.asList("java.util.List"), "TestTarget");
+        int sizeAfter = CastClassManager.getInstance().getCastClasses().size();
+
+        // We can't assert exactly how many concretes get added (depends on the
+        // inheritance tree the test cluster knows about) — but `validated` must
+        // count the suggestion as passing the precheck.
+        assertEquals(1, result.getSuggested());
+        assertEquals(1, result.getValidated(),
+                "Interface suggestion must pass the precheck so addCastClass can expand it");
+        assertEquals(sizeAfter - sizeBefore, result.getAccepted());
+    }
+
+    @Test
     void validateAndAdd_emptyListReturnsZeroCounts() {
         Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS = 8;
         LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());

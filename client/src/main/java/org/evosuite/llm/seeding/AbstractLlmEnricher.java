@@ -139,5 +139,18 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
         public boolean isSuccess() {
             return attempted && failureReason == null;
         }
+
+        /**
+         * Returns a single-line, human-readable summary suitable for an info
+         * log. The {@code label} is the enrichment label (e.g., "Cast class").
+         */
+        public abstract String summarize(String label);
+
+        /**
+         * Publishes per-enrichment RuntimeVariable metrics via ClientServices.
+         * Best-effort: implementations must swallow exceptions (e.g. when
+         * ClientServices is not initialised in unit tests).
+         */
+        public abstract void trackMetrics();
     }
 }

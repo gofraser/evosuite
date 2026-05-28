@@ -24,8 +24,10 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 
 import java.lang.reflect.Method;
@@ -35,8 +37,6 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Enriches EvoSuite's constant pool with LLM-suggested edge-case literals.
@@ -44,25 +44,13 @@ import java.util.regex.Pattern;
  */
 public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPoolEnricher.EnrichmentResult> {
 
-    // Patterns for extracting typed constants from LLM response
-    static final Pattern STRING_PATTERN = Pattern.compile("\"((?:[^\"\\\\]|\\\\.)*)\"");
-    static final Pattern INT_PATTERN = Pattern.compile(
-            "(?:^|[\\s,;:=\\[({])(-?\\d{1,10})(?=[\\s,;:=\\])}]|$)", Pattern.MULTILINE);
-    static final Pattern LONG_PATTERN = Pattern.compile(
-            "(?:^|[\\s,;:=\\[({])(-?\\d+)[Ll](?=[\\s,;:=\\])}]|$)", Pattern.MULTILINE);
-    static final Pattern DOUBLE_PATTERN = Pattern.compile(
-            "(?:^|[\\s,;:=\\[({])(-?\\d+\\.\\d+(?:[eE][+-]?\\d+)?)[dD]?(?=[\\s,;:=\\])}]|$)", Pattern.MULTILINE);
-    static final Pattern FLOAT_PATTERN = Pattern.compile(
-            "(?:^|[\\s,;:=\\[({])(-?\\d+\\.\\d+(?:[eE][+-]?\\d+)?)[fF](?=[\\s,;:=\\])}]|$)", Pattern.MULTILINE);
-    static final Pattern NAN_PATTERN = Pattern.compile("(?i)\\b(?:double\\.)?nan\\b");
-    static final Pattern INFINITY_PATTERN =
-            Pattern.compile("(?i)(?:double\\.)?(positive_|negative_)?([+-])?infinity\\b");
-
+    // Types that parseConstants can actually produce AND that StaticConstantPool
+    // can store. boolean/char/byte/short have no parser path and no pool slot —
+    // surfacing them in the param-type digest would mislead the LLM into emitting
+    // tokens the parser silently drops.
     private static final Set<Class<?>> CONSTANT_COMPATIBLE_TYPES = new HashSet<>(Arrays.<Class<?>>asList(
             String.class, int.class, Integer.class, long.class, Long.class,
-            double.class, Double.class, float.class, Float.class,
-            boolean.class, Boolean.class, char.class, Character.class,
-            byte.class, Byte.class, short.class, Short.class
+            double.class, Double.class, float.class, Float.class
     ));
 
     public LlmConstantPoolEnricher(LlmService llmService) {
@@ -227,7 +215,9 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                     if (name.equals(sutClassName)) {
                         continue;
                     }
-                    if (name.startsWith("java.lang.")) {
+                    // Exclude JDK types — querying the LLM for constants
+                    // specific to HashMap or File is high-cost, low-signal.
+                    if (LlmObjectPoolEnricher.isJdkType(name)) {
                         continue;
                     }
                     unique.add(name);
@@ -251,84 +241,13 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
     }
 
     /**
-     * Parses typed constants from LLM response text.
-     * Handles strings, ints, longs, doubles, and floats.
+     * Parses typed constants from LLM response text. Delegates to
+     * {@link ConstantResponseParser#parseConstants(String)} — retained as a
+     * static method on the enricher for binary compatibility with existing
+     * tests and call sites.
      */
     static List<Object> parseConstants(String response) {
-        List<Object> constants = new ArrayList<>();
-        if (response == null || response.trim().isEmpty()) {
-            return constants;
-        }
-
-        // Parse strings
-        Matcher stringMatcher = STRING_PATTERN.matcher(response);
-        while (stringMatcher.find()) {
-            String value = unescapeJavaString(stringMatcher.group(1));
-            constants.add(value);
-        }
-
-        // Parse floats (before doubles since float suffix is more specific)
-        Matcher floatMatcher = FLOAT_PATTERN.matcher(response);
-        while (floatMatcher.find()) {
-            try {
-                constants.add(Float.parseFloat(floatMatcher.group(1)));
-            } catch (NumberFormatException e) {
-                // skip malformed
-            }
-        }
-
-        // Parse longs (before ints since long suffix is more specific)
-        Matcher longMatcher = LONG_PATTERN.matcher(response);
-        while (longMatcher.find()) {
-            try {
-                constants.add(Long.parseLong(longMatcher.group(1)));
-            } catch (NumberFormatException e) {
-                // skip malformed
-            }
-        }
-
-        // Parse doubles (numbers with decimal point but no f suffix)
-        Matcher doubleMatcher = DOUBLE_PATTERN.matcher(response);
-        while (doubleMatcher.find()) {
-            try {
-                constants.add(Double.parseDouble(doubleMatcher.group(1)));
-            } catch (NumberFormatException e) {
-                // skip malformed
-            }
-        }
-
-        // Parse special double values from text
-        Matcher nanMatcher = NAN_PATTERN.matcher(response);
-        if (nanMatcher.find()) {
-            constants.add(Double.NaN);
-        }
-
-        Matcher infinityMatcher = INFINITY_PATTERN.matcher(response);
-        while (infinityMatcher.find()) {
-            String qualifier = infinityMatcher.group(1);
-            String sign = infinityMatcher.group(2);
-            if ("negative_".equalsIgnoreCase(qualifier) || "-".equals(sign)) {
-                constants.add(Double.NEGATIVE_INFINITY);
-            } else {
-                constants.add(Double.POSITIVE_INFINITY);
-            }
-        }
-
-        // Parse ints (numbers without decimal or suffix, not already parsed as long)
-        Matcher intMatcher = INT_PATTERN.matcher(response);
-        while (intMatcher.find()) {
-            try {
-                long val = Long.parseLong(intMatcher.group(1));
-                if (val >= Integer.MIN_VALUE && val <= Integer.MAX_VALUE) {
-                    constants.add((int) val);
-                }
-            } catch (NumberFormatException e) {
-                // skip malformed
-            }
-        }
-
-        // Deduplicate while preserving order
-        return new ArrayList<>(new LinkedHashSet<>(constants));
+        return ConstantResponseParser.parseConstants(response);
     }
 
     private int addToPool(List<Object> constants, boolean sutPool) {
@@ -349,53 +268,13 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
         return added;
     }
 
+    /**
+     * Unescapes a Java string literal body. Delegates to
+     * {@link ConstantResponseParser#unescapeJavaString(String)} — retained
+     * here for test/binary compatibility.
+     */
     static String unescapeJavaString(String escaped) {
-        if (escaped == null) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder(escaped.length());
-        for (int i = 0; i < escaped.length(); i++) {
-            char c = escaped.charAt(i);
-            if (c == '\\' && i + 1 < escaped.length()) {
-                char next = escaped.charAt(i + 1);
-                switch (next) {
-                    case 'n':
-                        sb.append('\n');
-                        i++;
-                        break;
-                    case 't':
-                        sb.append('\t');
-                        i++;
-                        break;
-                    case 'r':
-                        sb.append('\r');
-                        i++;
-                        break;
-                    case '\\':
-                        sb.append('\\');
-                        i++;
-                        break;
-                    case '"':
-                        sb.append('"');
-                        i++;
-                        break;
-                    case '\'':
-                        sb.append('\'');
-                        i++;
-                        break;
-                    case '0':
-                        sb.append('\0');
-                        i++;
-                        break;
-                    default:
-                        sb.append(c);
-                        break;
-                }
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
+        return ConstantResponseParser.unescapeJavaString(escaped);
     }
 
     /**
@@ -438,6 +317,24 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
 
         public int getConstantsParsed() {
             return constantsParsed;
+        }
+
+        @Override
+        public String summarize(String label) {
+            return String.format(
+                    "%s enrichment: attempted=%s, parsed=%d, sutAdded=%d, nonSutAdded=%d%s",
+                    label, isAttempted(), constantsParsed, sutConstantsAdded, nonSutConstantsAdded,
+                    getFailureReason() != null ? ", failure=" + getFailureReason() : "");
+        }
+
+        @Override
+        public void trackMetrics() {
+            try {
+                ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, sutConstantsAdded);
+                ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, nonSutConstantsAdded);
+            } catch (Throwable t) {
+                // ClientServices may be unavailable in unit tests — best-effort tracking
+            }
         }
     }
 }

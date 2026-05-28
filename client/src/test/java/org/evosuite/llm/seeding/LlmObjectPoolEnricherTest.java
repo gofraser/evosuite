@@ -257,8 +257,28 @@ class LlmObjectPoolEnricherTest {
         rawTypes.add(LlmObjectPoolEnricher.TypeKeyInsertionResult.class);
 
         Set<Class<?>> filtered = enricher.filterCandidateKeyTypes(rawTypes, Collections.emptySet());
-        assertEquals(LlmObjectPoolEnricher.MAX_KEYS_PER_SEQUENCE, filtered.size(),
-                "Should be capped at MAX_KEYS_PER_SEQUENCE");
+        assertEquals(LlmObjectPoolEnricher.maxKeysPerSequence(), filtered.size(),
+                "Should be capped at maxKeysPerSequence()");
+    }
+
+    @Test
+    void filterCandidateKeyTypes_capRespectsPropertyOverride() {
+        int saved = Properties.LLM_OBJECT_POOL_MAX_KEYS_PER_SEQUENCE;
+        try {
+            Properties.LLM_OBJECT_POOL_MAX_KEYS_PER_SEQUENCE = 2;
+            LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+
+            Set<Class<?>> rawTypes = new LinkedHashSet<>();
+            rawTypes.add(DefaultTestCase.class);
+            rawTypes.add(ObjectPool.class);
+            rawTypes.add(ObjectPoolManager.class);
+            rawTypes.add(LlmObjectPoolEnricher.class);
+
+            Set<Class<?>> filtered = enricher.filterCandidateKeyTypes(rawTypes, Collections.emptySet());
+            assertEquals(2, filtered.size(), "Property override should bound the cap");
+        } finally {
+            Properties.LLM_OBJECT_POOL_MAX_KEYS_PER_SEQUENCE = saved;
+        }
     }
 
     @Test
