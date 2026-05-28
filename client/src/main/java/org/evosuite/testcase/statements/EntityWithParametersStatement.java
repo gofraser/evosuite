@@ -243,6 +243,13 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
         objects.remove(getReturnValue());
 
         NullStatement nullStatement = new NullStatement(test, parameter.getType());
+        // Propagate the enclosing call's LLM-provenance to a freshly created
+        // null substitute. Without this, mutating an LLM-derived call's
+        // non-primitive parameter to null silently dilutes the population's
+        // LLM_Parsed_Statement_Ratio.
+        if (parsedFromLlm) {
+            nullStatement.setParsedFromLlm(true);
+        }
         Statement copy = null;
 
         boolean avoidNull = false;

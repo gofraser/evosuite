@@ -498,22 +498,29 @@ public class TestFactory {
         GenerationContext context = new GenerationContext();
 
         if (statement instanceof ConstructorStatement) {
-            VariableReference inserted = addConstructor(test, ((ConstructorStatement) statement).getConstructor(),
+            int before = test.size();
+            addConstructor(test, ((ConstructorStatement) statement).getConstructor(),
                     test.size(), context);
-            propagateParsedFromLlm(test, statement, inserted);
+            propagateParsedFromLlm(test, statement, before);
         } else if (statement instanceof MethodStatement) {
+            int before = test.size();
             GenericMethod method = ((MethodStatement) statement).getMethod();
-            VariableReference inserted = addMethod(test, method, test.size(), context);
-            propagateParsedFromLlm(test, statement, inserted);
+            addMethod(test, method, test.size(), context);
+            propagateParsedFromLlm(test, statement, before);
         } else if (statement instanceof PrimitiveStatement<?>) {
+            // addPrimitive clones the source primitive, which already carries
+            // the LLM flag through the clone()/copy() path — no extra
+            // propagation needed here.
             addPrimitive(test, (PrimitiveStatement<?>) statement, test.size(), context);
         } else if (statement instanceof FieldStatement) {
-            VariableReference inserted = addField(test, ((FieldStatement) statement).getField(), test.size(), context);
-            propagateParsedFromLlm(test, statement, inserted);
+            int before = test.size();
+            addField(test, ((FieldStatement) statement).getField(), test.size(), context);
+            propagateParsedFromLlm(test, statement, before);
         } else if (statement instanceof FunctionalMockStatement) {
             // FunctionalMockStatement.copy() looks up parameter positions in
             // the source test case, which are invalid in the offspring.
             // Create a fresh mock instead.
+            int before = test.size();
             FunctionalMockStatement mockStmt = (FunctionalMockStatement) statement;
             Type mockType = mockStmt.getReturnType();
             if (mockStmt instanceof FunctionalMockForAbstractClassStatement) {
@@ -522,6 +529,7 @@ public class TestFactory {
             } else {
                 addFunctionalMock(test, mockType, test.size(), context);
             }
+            propagateParsedFromLlm(test, statement, before);
         } else if (statement instanceof AssignmentStatement) {
             // AssignmentStatement references two existing variables (target
             // and value).  During crossover the source parent's variable
@@ -570,17 +578,23 @@ public class TestFactory {
         }
     }
 
-    private void propagateParsedFromLlm(TestCase test, Statement source, VariableReference inserted) {
-        if (inserted == null) {
+    /**
+     * Marks every statement added since {@code firstNewIndex} with the
+     * source statement's LLM-provenance flag. Used by
+     * {@link #appendStatement(TestCase, Statement)} so that recursively
+     * generated parameter satisfiers (and the synthesized callee for
+     * instance method/field calls) inherit the lineage of the top-level
+     * call being spliced in by crossover. Only propagates when the source
+     * actually carries the flag, so non-LLM appends never overwrite an
+     * existing LLM flag on a freshly cloned dependency.
+     */
+    private void propagateParsedFromLlm(TestCase test, Statement source, int firstNewIndex) {
+        if (!source.isParsedFromLlm()) {
             return;
         }
-
-        int statementPosition = inserted.getStPosition();
-        if (statementPosition < 0 || statementPosition >= test.size()) {
-            return;
+        for (int i = firstNewIndex; i < test.size(); i++) {
+            test.getStatement(i).setParsedFromLlm(true);
         }
-
-        test.getStatement(statementPosition).setParsedFromLlm(source.isParsedFromLlm());
     }
 
     /**

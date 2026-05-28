@@ -61,6 +61,19 @@ class LlmProvenanceCopyPathTest {
         public Target(int x) { this.field = x; }
         public int doSomething(int x) { return x; }
         public static int staticDoSomething() { return 1; }
+        public static int staticTakesInt(int x) { return x; }
+    }
+
+    // --- Helper interface used for FunctionalMock crossover tests ---
+    @SuppressWarnings("unused")
+    public interface MockableInterface {
+        int getInt();
+    }
+
+    // --- Helper abstract class used for FunctionalMockForAbstractClass tests ---
+    @SuppressWarnings("unused")
+    public static abstract class MockableAbstractClass {
+        public abstract int compute();
     }
 
     // ----------------------------------------------------------------
@@ -456,5 +469,144 @@ class LlmProvenanceCopyPathTest {
         assertEquals(1, offspring.size());
         assertTrue(offspring.getStatement(0).isParsedFromLlm(),
                 "parsedFromLlm should survive crossover append for MethodStatement");
+    }
+
+    // ----------------------------------------------------------------
+    // 11. Crossover append must propagate provenance to ALL
+    //     statements added during the splice, including the freshly
+    //     created parameter satisfiers — not just the top-level call.
+    // ----------------------------------------------------------------
+
+    @Test
+    void appendMethodWithIntParameterMarksParameterSatisfier() throws Exception {
+        // Source test: static method that takes an int. Both the parameter
+        // primitive and the method call are LLM-derived.
+        DefaultTestCase source = new DefaultTestCase();
+        IntPrimitiveStatement param = new IntPrimitiveStatement(source, 42);
+        param.setParsedFromLlm(true);
+        source.addStatement(param);
+
+        Method m = Target.class.getMethod("staticTakesInt", int.class);
+        GenericMethod gm = new GenericMethod(m, Target.class);
+        List<VariableReference> params = new ArrayList<>();
+        params.add(param.getReturnValue());
+        MethodStatement stmt = new MethodStatement(source, gm, null, params);
+        stmt.setParsedFromLlm(true);
+        source.addStatement(stmt);
+
+        // Offspring is empty: appendStatement of the method must satisfy
+        // the int parameter by inserting a fresh IntPrimitiveStatement.
+        DefaultTestCase offspring = new DefaultTestCase();
+        TestFactory.getInstance().appendStatement(offspring, source.getStatement(1));
+
+        assertTrue(offspring.size() >= 2,
+                "Append should have inserted at least param + method, but got " + offspring.size());
+        // Every statement added during this append represents the LLM call's
+        // lineage and must carry the provenance flag.
+        for (int i = 0; i < offspring.size(); i++) {
+            assertTrue(offspring.getStatement(i).isParsedFromLlm(),
+                    "Statement " + i + " (" + offspring.getStatement(i).getClass().getSimpleName()
+                            + ") added during crossover append of an LLM call should be marked");
+        }
+    }
+
+    @Test
+    void appendConstructorWithIntParameterMarksParameterSatisfier() throws Exception {
+        // Source test: Target(int) constructor with an int argument.
+        DefaultTestCase source = new DefaultTestCase();
+        IntPrimitiveStatement param = new IntPrimitiveStatement(source, 7);
+        param.setParsedFromLlm(true);
+        source.addStatement(param);
+
+        Constructor<?> ctor = Target.class.getConstructor(int.class);
+        GenericConstructor gc = new GenericConstructor(ctor, Target.class);
+        List<VariableReference> params = new ArrayList<>();
+        params.add(param.getReturnValue());
+        ConstructorStatement stmt = new ConstructorStatement(source, gc, params);
+        stmt.setParsedFromLlm(true);
+        source.addStatement(stmt);
+
+        DefaultTestCase offspring = new DefaultTestCase();
+        TestFactory.getInstance().appendStatement(offspring, source.getStatement(1));
+
+        assertTrue(offspring.size() >= 2,
+                "Append should have inserted param + constructor, but got " + offspring.size());
+        for (int i = 0; i < offspring.size(); i++) {
+            assertTrue(offspring.getStatement(i).isParsedFromLlm(),
+                    "Statement " + i + " (" + offspring.getStatement(i).getClass().getSimpleName()
+                            + ") added during crossover append of an LLM constructor should be marked");
+        }
+    }
+
+    @Test
+    void appendInstanceFieldStatementMarksCalleeSatisfier() throws Exception {
+        // Source test: Target instance + access to `field` (instance field).
+        DefaultTestCase source = new DefaultTestCase();
+        Constructor<?> ctor = Target.class.getConstructor();
+        GenericConstructor gc = new GenericConstructor(ctor, Target.class);
+        ConstructorStatement ctorStmt = new ConstructorStatement(source, gc, Collections.emptyList());
+        ctorStmt.setParsedFromLlm(true);
+        source.addStatement(ctorStmt);
+
+        Field f = Target.class.getField("field");
+        GenericField gf = new GenericField(f, Target.class);
+        FieldStatement fieldStmt = new FieldStatement(source, gf, ctorStmt.getReturnValue());
+        fieldStmt.setParsedFromLlm(true);
+        source.addStatement(fieldStmt);
+
+        // Offspring is empty: appendStatement of the field access must
+        // synthesize a fresh Target instance to read from.
+        DefaultTestCase offspring = new DefaultTestCase();
+        TestFactory.getInstance().appendStatement(offspring, source.getStatement(1));
+
+        assertTrue(offspring.size() >= 2,
+                "Append should have inserted callee + field access, but got " + offspring.size());
+        for (int i = 0; i < offspring.size(); i++) {
+            assertTrue(offspring.getStatement(i).isParsedFromLlm(),
+                    "Statement " + i + " (" + offspring.getStatement(i).getClass().getSimpleName()
+                            + ") added during crossover append of an LLM field access should be marked");
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // 12. FunctionalMockStatement crossover must preserve provenance.
+    //     The branch in appendStatement currently rebuilds the mock from
+    //     scratch and forgets to copy the flag — losing it entirely.
+    // ----------------------------------------------------------------
+
+    @Test
+    void appendFunctionalMockStatementPreservesProvenance() throws Exception {
+        DefaultTestCase source = new DefaultTestCase();
+        VariableReference retval = new VariableReferenceImpl(source, MockableInterface.class);
+        FunctionalMockStatement mockStmt = new FunctionalMockStatement(source,
+                retval, org.evosuite.utils.generic.GenericClassFactory.get(MockableInterface.class));
+        mockStmt.setParsedFromLlm(true);
+        source.addStatement(mockStmt);
+
+        DefaultTestCase offspring = new DefaultTestCase();
+        TestFactory.getInstance().appendStatement(offspring, source.getStatement(0));
+
+        assertEquals(1, offspring.size());
+        assertInstanceOf(FunctionalMockStatement.class, offspring.getStatement(0));
+        assertTrue(offspring.getStatement(0).isParsedFromLlm(),
+                "FunctionalMockStatement should retain LLM provenance through crossover append");
+    }
+
+    @Test
+    void appendFunctionalMockForAbstractClassPreservesProvenance() throws Exception {
+        DefaultTestCase source = new DefaultTestCase();
+        VariableReference retval = new VariableReferenceImpl(source, MockableAbstractClass.class);
+        FunctionalMockForAbstractClassStatement mockStmt = new FunctionalMockForAbstractClassStatement(
+                source, retval, org.evosuite.utils.generic.GenericClassFactory.get(MockableAbstractClass.class));
+        mockStmt.setParsedFromLlm(true);
+        source.addStatement(mockStmt);
+
+        DefaultTestCase offspring = new DefaultTestCase();
+        TestFactory.getInstance().appendStatement(offspring, source.getStatement(0));
+
+        assertEquals(1, offspring.size());
+        assertInstanceOf(FunctionalMockForAbstractClassStatement.class, offspring.getStatement(0));
+        assertTrue(offspring.getStatement(0).isParsedFromLlm(),
+                "FunctionalMockForAbstractClassStatement should retain LLM provenance through crossover append");
     }
 }
