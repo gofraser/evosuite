@@ -396,6 +396,41 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         this.llmInjectionAdapter = injectionAdapter;
         initializeAsyncProducer(uncoveredGoalsSupplier);
         initializeStagnationDetector(maximizationObjective);
+        wireUncoveredGoalsIntoLlmTestFactory(uncoveredGoalsSupplier);
+    }
+
+    /**
+     * Walks the chromosome-factory chain and, if it contains an
+     * {@link LlmTestChromosomeFactory}, replaces its default empty-goals
+     * supplier with the live one. The factory is constructed by the strategy
+     * wrappers before the GA exists, so this is the earliest moment we can
+     * bind real goal feedback into per-individual LLM prompts.
+     */
+    private void wireUncoveredGoalsIntoLlmTestFactory(
+            Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
+        if (uncoveredGoalsSupplier == null) {
+            return;
+        }
+        LlmTestChromosomeFactory factory = findLlmTestChromosomeFactory(chromosomeFactory);
+        if (factory != null) {
+            factory.setUncoveredGoalsSupplier(uncoveredGoalsSupplier);
+        }
+    }
+
+    private static LlmTestChromosomeFactory findLlmTestChromosomeFactory(ChromosomeFactory<?> root) {
+        ChromosomeFactory<?> current = root;
+        int guard = 0;
+        while (current != null && guard++ < 8) {
+            if (current instanceof LlmTestChromosomeFactory) {
+                return (LlmTestChromosomeFactory) current;
+            }
+            if (current instanceof TestSuiteChromosomeFactory) {
+                current = ((TestSuiteChromosomeFactory) current).getTestChromosomeFactory();
+                continue;
+            }
+            break;
+        }
+        return null;
     }
 
     protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
@@ -431,20 +466,23 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     }
 
     /**
-     * Returns the remaining seconds on the active {@link MaxTimeStoppingCondition}, or
-     * {@code -1L} if no time-bounded stopping condition is active. Used by
-     * {@link StagnationLlmHelper} to skip LLM calls that would outlast the search.
+     * Returns the smallest remaining seconds across all active
+     * {@link MaxTimeStoppingCondition}s, or {@code -1L} if none is active.
+     * Used by {@link StagnationLlmHelper} to skip LLM calls that would outlast
+     * the search; taking the min is the safe choice when multiple time-based
+     * stopping conditions are stacked.
      */
     protected long getRemainingSearchBudgetSeconds() {
+        long minRemaining = -1L;
         for (StoppingCondition<T> sc : stoppingConditions) {
             if (sc instanceof MaxTimeStoppingCondition) {
-                long limit = sc.getLimit();
-                long current = sc.getCurrentValue();
-                long remaining = limit - current;
-                return Math.max(0L, remaining);
+                long remaining = Math.max(0L, sc.getLimit() - sc.getCurrentValue());
+                if (minRemaining < 0L || remaining < minRemaining) {
+                    minRemaining = remaining;
+                }
             }
         }
-        return -1L;
+        return minRemaining;
     }
 
     protected void shutdownLlmAssistance() {
@@ -471,6 +509,18 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         injectLlmTests(asyncProducer.drainAvailable());
     }
 
+    /**
+     * Fitness-based stagnation trigger used by whole-suite GAs (StandardGA,
+     * MonotonicGA). Bypasses {@link StagnationLlmHelper} and calls
+     * {@link StagnationDetector#requestHelp} directly: <strong>always
+     * synchronous</strong>, regardless of {@link Properties#LLM_STAGNATION_MODE},
+     * and emits none of the {@code LLM_Stagnation*} runtime variables. The
+     * SYNC/ASYNC selector, budget guard, and per-call metrics introduced in
+     * the Phase 3 stagnation plan only apply to the MOSA-family path via
+     * {@link org.evosuite.ga.metaheuristics.mosa.AbstractMOSA}'s external
+     * candidate sources. Do not mix experiment arms across this method and
+     * the helper-based path without normalising metrics.
+     */
     protected void maybeInjectOnStagnationByFitness(double currentBestFitness,
                                                     Collection<TestFitnessFunction> uncoveredGoals) {
         if (stagnationDetector == null) {
@@ -485,29 +535,6 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         Map<TestFitnessFunction, Double> bestFitness = computeBestFitnessPerGoal(uncoveredGoals, pop);
         injectLlmTests(stagnationDetector.requestHelp(
                 uncoveredGoals, pop, totalGoals, coveredCount, bestFitness));
-    }
-
-    protected void maybeInjectOnStagnationByCoverage(int currentCoveredGoals,
-                                                     Collection<TestFitnessFunction> uncoveredGoals) {
-        if (stagnationLlmHelper != null) {
-            List<TestChromosome> pop = getPopulationAsTestChromosomes();
-            stagnationLlmHelper.maybeSubmit(currentCoveredGoals, uncoveredGoals, pop);
-            injectLlmTests(stagnationLlmHelper.drain());
-            return;
-        }
-        // Legacy fallback when only the detector is wired (e.g., test harnesses
-        // that bypass initializeStagnationDetector).
-        if (stagnationDetector == null) {
-            return;
-        }
-        if (!stagnationDetector.checkStagnation(currentCoveredGoals)) {
-            return;
-        }
-        List<TestChromosome> pop = getPopulationAsTestChromosomes();
-        int totalGoals = currentCoveredGoals + (uncoveredGoals == null ? 0 : uncoveredGoals.size());
-        Map<TestFitnessFunction, Double> bestFitness = computeBestFitnessPerGoal(uncoveredGoals, pop);
-        injectLlmTests(stagnationDetector.requestHelp(
-                uncoveredGoals, pop, totalGoals, currentCoveredGoals, bestFitness));
     }
 
     protected Collection<TestFitnessFunction> getUncoveredGoalsForTestChromosomes() {

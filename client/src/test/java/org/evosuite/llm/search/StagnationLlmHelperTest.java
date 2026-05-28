@@ -162,6 +162,129 @@ class StagnationLlmHelperTest {
         }
     }
 
+    @Test
+    void budgetGuardSkip_doesNotConsumeStagnationWindow() {
+        // Phase 3 T1.1: a skipped submission (here: budget guard) must leave the
+        // detector window intact, so the *next* generation still observes
+        // stagnation and can fire once the guard relaxes. Pre-fix behavior
+        // reset the window on every checkStagnation()==true, even when skipped.
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        AtomicLong remainingBudget = new AtomicLong(5L);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        // Guard at 60s; remaining starts at 5s — must skip, then becomes 600s.
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.SYNC, remainingBudget::get, 60);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // not stagnant yet
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // stagnant but skipped (budget)
+            assertEquals(0, helper.drain().size(),
+                    "Budget-guarded submission must not deliver tests");
+
+            // Relax the guard; window should still be expired and the next
+            // call should fire without waiting another stagnation_timeout.
+            remainingBudget.set(600L);
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            List<TestChromosome> tests = helper.drain();
+            assertFalse(tests.isEmpty(),
+                    "After the budget guard relaxes, the helper must fire immediately "
+                            + "instead of waiting for a fresh stagnation window.");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
+    void asyncMode_gracefulShutdown_capturesInFlightCall() throws Exception {
+        // Phase 3 T3.3: stopAcceptingSubmissions + awaitTermination should let
+        // an in-flight call finish and its tests be drained, instead of
+        // cancelling mid-flight like shutdown() would.
+        CountDownLatch responseGate = new CountDownLatch(1);
+        MockChatLanguageModel model = new MockChatLanguageModel() {
+            @Override
+            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                try {
+                    responseGate.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return super.generate(messages, feature);
+            }
+        };
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // not stagnant
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);   // submits async
+
+            // Soft-stop while the worker is blocked on responseGate.
+            helper.stopAcceptingSubmissions();
+
+            // Let the response flow; the worker is still alive, will publish.
+            responseGate.countDown();
+
+            boolean terminated = helper.awaitTermination(2, TimeUnit.SECONDS);
+            assertTrue(terminated, "Worker should finish in-flight call after stopAcceptingSubmissions");
+
+            List<TestChromosome> tests = helper.drain();
+            assertFalse(tests.isEmpty(),
+                    "Graceful shutdown must allow the in-flight call's tests to be drained");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
+    void asyncMode_submitAfterShutdown_isBenignNoOp() {
+        // Phase 3 T2.2 (smoke test): maybeSubmit() and drain() called after
+        // shutdown() must complete cleanly. The true race scenario
+        // (RejectedExecutionException between the shutdown-flag check and
+        // worker.submit) is not deterministically reachable through the
+        // public API, but this test pins down the post-shutdown surface and
+        // catches accidental regressions of the shutdown-flag short-circuit.
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // not stagnant yet
+            helper.shutdown();
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            assertTrue(helper.drain().isEmpty(),
+                    "Post-shutdown maybeSubmit must produce no tests");
+            // Calling shutdown() a second time must be safe.
+            helper.shutdown();
+        } finally {
+            service.close();
+        }
+    }
+
     private static TestFitnessFunction makeGoal(String name) {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.toString()).thenReturn(name);

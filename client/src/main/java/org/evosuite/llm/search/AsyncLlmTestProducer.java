@@ -31,7 +31,6 @@ import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
-import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -104,31 +103,8 @@ public class AsyncLlmTestProducer {
     /** Starts the background producer thread if not already running. */
     public void start() {
         if (!producerThread.isAlive()) {
-            registerProducerThreadAsPrivileged();
+            LlmPrivilegedThreads.registerAsPrivileged(producerThread, "async LLM producer");
             producerThread.start();
-        }
-    }
-
-    /**
-     * Registers the producer thread with the EvoSuite sandbox so its
-     * test-execution path (via {@link org.evosuite.testcase.execution.TestCaseExecutor})
-     * runs with the same privileges as the main search thread. Without this,
-     * sandbox teardown (e.g. property restore) can throw a SecurityException on
-     * the producer thread and leave MSecurityManager.executingTestCase stuck at
-     * true — which then breaks every subsequent execute() on any thread.
-     */
-    private void registerProducerThreadAsPrivileged() {
-        if (!Sandbox.isSecurityManagerInitialized()) {
-            return;
-        }
-        try {
-            Sandbox.addPrivilegedThread(producerThread);
-        } catch (SecurityException se) {
-            // Caller is not privileged itself; producer will run sandboxed.
-            logger.debug("Could not register async LLM producer thread as privileged from '{}': {}",
-                    Thread.currentThread().getName(), se.getMessage());
-        } catch (Throwable t) {
-            logger.debug("Could not register async LLM producer thread as privileged: {}", t.toString());
         }
     }
 

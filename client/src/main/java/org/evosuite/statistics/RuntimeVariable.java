@@ -657,6 +657,14 @@ public enum RuntimeVariable {
      */
     LLM_Latency_Millis,
     /**
+     * Wall-clock milliseconds spent blocking on pre-search LLM pool
+     * enrichment (cast classes, constants, objects). When
+     * {@code LLM_FAIR_BUDGET_ACCOUNTING} is enabled, this value is deducted
+     * from the search budget so seeding strategies can be compared on equal
+     * footing.
+     */
+    LLM_Enrichment_Elapsed_Millis,
+    /**
      * Number of cast-class suggestions parsed from LLM response.
      */
     LLM_Cast_Class_Suggestions,
@@ -799,6 +807,23 @@ public enum RuntimeVariable {
      * Per-iteration or per-generation timeline of the LLM-parsed statement ratio.
      */
     LLM_Parsed_Statement_Ratio_Timeline,
+
+    // ---- ITERATIVE_BUDGETED strategy observability ----
+
+    /** Number of follow-up iterations executed by ITERATIVE_BUDGETED. */
+    LLM_Iterative_Iterations,
+    /**
+     * Why the ITERATIVE_BUDGETED loop terminated.
+     * One of: STOPPING_CONDITION, ALL_GOALS_COVERED, LLM_BUDGET_EXHAUSTED,
+     * MAX_ITERATIONS, NO_PROGRESS, PARSE_FAIL_STREAK, INITIAL_QUERY_FAILED.
+     */
+    LLM_Iterative_Exit_Reason,
+    /** Total iterations that produced zero parsed tests. */
+    LLM_Iterative_Parse_Failures,
+    /** Per-iteration count of newly-covered goals (semicolon-separated). */
+    LLM_Iterative_New_Goals_Timeline,
+    /** Per-iteration cumulative-covered goal count (semicolon-separated). */
+    LLM_Iterative_Coverage_Timeline,
 
     // ---- Phase 8: Diversity Observability ----
 

@@ -191,6 +191,12 @@ public class TestSuiteGenerator {
             LoopCounter.getInstance().setActive(true);
         }
 
+        // Resolve any LLM seeding profile bundle into the individual flags
+        // BEFORE reading isEnrichmentEnabled() — otherwise FULL/STANDARD/MIN
+        // wouldn't have taken effect by the time the orchestrator checks the
+        // per-feature toggles.
+        Properties.applyLlmSeedingProfile();
+
         // LLM enrichment start (async, non-blocking)
         if (LlmPoolEnrichmentOrchestrator.isEnrichmentEnabled()) {
             try {
@@ -234,12 +240,40 @@ public class TestSuiteGenerator {
             // by returning an empty suite while still exposing a GA in results.
         }
 
-        // Wait for structural enrichment (Cast Classes) before search starts
+        // Wait for LLM pool enrichment before search starts. With
+        // LLM_FAIR_BUDGET_ACCOUNTING enabled, block on ALL enrichments
+        // (cast classes, constants, objects) so the four seeding strategies
+        // are evaluated on equal footing, and record the elapsed wall-clock
+        // time so time-based stopping conditions can deduct it from the
+        // search budget. Otherwise, fall back to the original behaviour of
+        // only gating on cast classes while data enrichments run in the
+        // background.
         if (llmOrchestrator != null) {
-            llmOrchestrator.finishStructuralEnrichment();
+            long enrichmentStartNanos = System.nanoTime();
+            if (Properties.LLM_FAIR_BUDGET_ACCOUNTING) {
+                llmOrchestrator.awaitAll(Properties.LLM_TIMEOUT_SECONDS);
+            } else {
+                llmOrchestrator.finishStructuralEnrichment();
+            }
+            long elapsedMs = (System.nanoTime() - enrichmentStartNanos) / 1_000_000L;
+            org.evosuite.llm.LlmStatistics.recordEnrichmentElapsedMs(elapsedMs);
+            logger.info("LLM pool enrichment blocked for {} ms (fair_budget={})",
+                    elapsedMs, Properties.LLM_FAIR_BUDGET_ACCOUNTING);
         }
 
         TestSuiteChromosome testCases = generateTests();
+
+        // Search is over — stop any background LLM enrichment so it can't keep
+        // mutating shared pools (ConstantPoolManager, ObjectPoolManager,
+        // CastClassManager) during post-processing or after RuntimeVariable
+        // snapshots are taken.
+        if (llmOrchestrator != null) {
+            try {
+                llmOrchestrator.cancelAll();
+            } catch (Throwable t) {
+                logger.warn("LLM enrichment cancelAll failed (non-fatal): {}", t.getMessage());
+            }
+        }
 
         // As post process phases such as minimisation, coverage analysis, etc., may call getFitness()
         // of each fitness function, which may try to update the Archive, in here we explicitly disable

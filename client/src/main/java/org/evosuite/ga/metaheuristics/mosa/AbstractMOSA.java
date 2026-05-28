@@ -750,19 +750,40 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected void registerExternalCandidateSources(
             java.util.function.IntSupplier coveredGoalCountSupplier,
             java.util.function.Supplier<Set<TestFitnessFunction>> uncoveredGoalsSupplier) {
+        // Snapshot the LLM helpers into final locals so that
+        // shutdownLlmAssistance() (which nulls the fields) doesn't cause the
+        // lambdas to NPE if collectExternalCandidates runs after teardown.
+        // maybeSubmit/drain are documented to be safe no-ops post-shutdown.
         if (asyncProducer != null) {
-            externalCandidateSources.add(() -> asyncProducer.drainAvailable());
+            final org.evosuite.llm.search.AsyncLlmTestProducer producer = asyncProducer;
+            externalCandidateSources.add(producer::drainAvailable);
         }
         if (stagnationLlmHelper != null) {
-            externalCandidateSources.add(() -> {
-                int coveredCount = coveredGoalCountSupplier.getAsInt();
-                Set<TestFitnessFunction> uncovered = uncoveredGoalsSupplier.get();
-                List<TestChromosome> pop = new ArrayList<>(population);
-                stagnationLlmHelper.maybeSubmit(coveredCount, uncovered, pop);
-                return stagnationLlmHelper.drain();
-            });
+            final org.evosuite.llm.search.StagnationLlmHelper helper = stagnationLlmHelper;
+            externalCandidateSources.add(() ->
+                    driveStagnationHelper(helper, coveredGoalCountSupplier, uncoveredGoalsSupplier));
         }
         registerAdditionalCandidateSources();
+    }
+
+    /**
+     * Single drive step for the stagnation helper: snapshots the search state
+     * (covered count, uncovered goals, population), calls {@code maybeSubmit}
+     * so the helper can decide whether to fire (SYNC) or enqueue (ASYNC) an
+     * LLM call, and drains any tests ready to be merged into the current
+     * generation's union. Factored out of the lambda registered in
+     * {@link #registerExternalCandidateSources} so the snapshot logic lives
+     * in one named place — easier to extend (e.g., tracing) and to test.
+     */
+    private List<TestChromosome> driveStagnationHelper(
+            org.evosuite.llm.search.StagnationLlmHelper helper,
+            java.util.function.IntSupplier coveredGoalCountSupplier,
+            java.util.function.Supplier<Set<TestFitnessFunction>> uncoveredGoalsSupplier) {
+        int coveredCount = coveredGoalCountSupplier.getAsInt();
+        Set<TestFitnessFunction> uncovered = uncoveredGoalsSupplier.get();
+        List<TestChromosome> pop = new ArrayList<>(population);
+        helper.maybeSubmit(coveredCount, uncovered, pop);
+        return helper.drain();
     }
 
     /**

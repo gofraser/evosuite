@@ -52,7 +52,14 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
 
     private final ChromosomeFactory<TestChromosome> fallback;
     private final LlmService llmService;
-    private final Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
+    /**
+     * Non-final so the GA can inject its current uncovered-goal supplier after
+     * construction. The factory is built by the strategy wrappers before the
+     * GA exists, so initial wiring defaults to {@link Collections#emptyList()}
+     * and is upgraded via {@link #setUncoveredGoalsSupplier(Supplier)} once
+     * the GA initialises its LLM assistance hooks.
+     */
+    private volatile Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
 
     public LlmTestChromosomeFactory(ChromosomeFactory<TestChromosome> fallback) {
         this(fallback, LlmService.getInstance(), Collections::emptyList);
@@ -69,6 +76,15 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
 
     public ChromosomeFactory<TestChromosome> getFallbackFactory() {
         return fallback;
+    }
+
+    /**
+     * Replaces the uncovered-goal supplier — typically called once during GA
+     * initialisation to bind this factory to the live goal set so subsequent
+     * LLM prompts can include current uncovered goals.
+     */
+    public void setUncoveredGoalsSupplier(Supplier<Collection<TestFitnessFunction>> supplier) {
+        this.uncoveredGoalsSupplier = supplier == null ? Collections::emptyList : supplier;
     }
 
     @Override

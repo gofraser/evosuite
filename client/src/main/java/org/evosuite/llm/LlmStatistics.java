@@ -33,6 +33,29 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class LlmStatistics {
 
+    /**
+     * Process-wide wall-clock time spent blocking on pre-search LLM pool
+     * enrichment (cast classes, constants, objects). Read by time-based
+     * stopping conditions when {@code LLM_FAIR_BUDGET_ACCOUNTING} is enabled so
+     * that the elapsed enrichment time is deducted from the search budget.
+     */
+    private static final AtomicLong enrichmentElapsedMs = new AtomicLong();
+
+    /** Records the wall-clock time spent on pre-search pool enrichment. */
+    public static void recordEnrichmentElapsedMs(long elapsedMs) {
+        enrichmentElapsedMs.set(Math.max(0L, elapsedMs));
+    }
+
+    /** Returns the recorded pre-search enrichment wall-clock time in ms, or 0 when unset. */
+    public static long getEnrichmentElapsedMs() {
+        return enrichmentElapsedMs.get();
+    }
+
+    /** Resets the process-wide enrichment elapsed counter (test/utility use). */
+    public static void resetEnrichmentElapsedMs() {
+        enrichmentElapsedMs.set(0L);
+    }
+
     private final AtomicLong totalCalls = new AtomicLong();
     private final AtomicLong successfulCalls = new AtomicLong();
     private final AtomicLong failedCalls = new AtomicLong();
@@ -117,6 +140,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Input_Tokens, getInputTokens());
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, getOutputTokens());
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, getTotalLatencyMs());
+        ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, getEnrichmentElapsedMs());
     }
 
     /**
@@ -135,6 +159,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Input_Tokens, 0);
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, 0);
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, 0);
+        ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, 0);
         ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, 0);
         ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, 0);
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, 0);

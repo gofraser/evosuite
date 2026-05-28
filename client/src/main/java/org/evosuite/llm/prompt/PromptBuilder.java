@@ -28,6 +28,7 @@ import org.evosuite.testcase.TestFitnessFunction;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -235,7 +236,22 @@ public class PromptBuilder {
 
     /** Adds the given uncovered coverage goals as a section in the user prompt. */
     public PromptBuilder withUncoveredGoals(Collection<TestFitnessFunction> goals) {
-        userSections.add("Uncovered goals:\n" + coverageGoalFormatter.format(goals));
+        return withUncoveredGoals(goals, null);
+    }
+
+    /**
+     * Adds the given uncovered coverage goals as a section in the user prompt,
+     * with optional fitness-distance annotations. Goals with low non-zero fitness
+     * are highlighted as "almost covered" by {@link CoverageGoalFormatter}.
+     *
+     * @param goals             the uncovered goals
+     * @param fitnessDistances  best-known fitness distance per goal (lower = closer to covered);
+     *                          may be {@code null} or empty
+     */
+    public PromptBuilder withUncoveredGoals(Collection<TestFitnessFunction> goals,
+                                            Map<TestFitnessFunction, Double> fitnessDistances) {
+        userSections.add("Uncovered goals:\n"
+                + coverageGoalFormatter.format(goals, fitnessDistances));
         return this;
     }
 

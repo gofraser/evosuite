@@ -21,9 +21,7 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
-import org.evosuite.llm.search.LlmInjectionAdapter;
 import org.evosuite.llm.search.StagnationDetector;
-import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.Test;
@@ -36,22 +34,6 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LlmMosaIntegrationTest {
-
-    @Test
-    void mosaStagnationInjectionPathAddsChromosomeToPopulation() {
-        // Tests that the base-class maybeInjectOnStagnationByCoverage still
-        // works via the adapter when called directly (backward compat)
-        StagnationAwareMOSA mosa = new StagnationAwareMOSA(() -> new TestChromosome());
-        mosa.seedPopulation();
-        mosa.setDetector(new AlwaysInjectingStagnationDetector());
-        mosa.setAdapter(new TestChromosomeInjectionAdapter());
-
-        int before = mosa.getPopulation().size();
-        mosa.triggerStagnationInjection();
-
-        assertTrue(mosa.getPopulation().size() > before,
-                "MOSA stagnation integration path should inject generated tests into population");
-    }
 
     @Test
     void mosaInEvolveStagnationInjectionAddsToUnion() {
@@ -228,42 +210,6 @@ class LlmMosaIntegrationTest {
                         + "(pop size=" + harness.getPopulation().size() + ")");
         assertTrue(harness.externalCandidatesDrained > 0,
                 "collectExternalCandidates must have drained LS tests into union");
-    }
-
-    private static class StagnationAwareMOSA extends MOSA {
-        private static final long serialVersionUID = 1L;
-
-        private StagnationAwareMOSA(ChromosomeFactory<TestChromosome> factory) {
-            super(factory);
-        }
-
-        @Override
-        public void seedPopulation() {
-            population.clear();
-            population.add(new TestChromosome());
-        }
-
-        private void setDetector(StagnationDetector detector) {
-            this.stagnationDetector = detector;
-        }
-
-        private void setAdapter(LlmInjectionAdapter<TestChromosome> adapter) {
-            this.llmInjectionAdapter = adapter;
-        }
-
-        private void triggerStagnationInjection() {
-            maybeInjectOnStagnationByCoverage(0, Collections.emptyList());
-        }
-
-        @Override
-        protected void evolve() {
-            currentIteration++;
-        }
-
-        @Override
-        protected void calculateFitness(TestChromosome c) {
-            // no-op for this focused integration test
-        }
     }
 
     /**

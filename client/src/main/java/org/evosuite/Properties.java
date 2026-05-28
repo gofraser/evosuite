@@ -1892,6 +1892,66 @@ public class Properties {
             description = "Seed the initial population with LLM-generated tests")
     public static boolean LLM_SEED_INITIAL_POPULATION = false;
 
+    /**
+     * Preset bundle for LLM seeding features. When non-{@code OFF}, the chosen
+     * profile force-overrides the individual {@code LLM_SEED_*}/{@code LLM_ENRICH_*}
+     * flags via {@link #applyLlmSeedingProfile()}. Users who want fine-grained
+     * control should leave this at {@code OFF} and toggle individual flags.
+     */
+    public enum LlmSeedingProfile {
+        /** No bundle — individual flags are honoured as-is. */
+        OFF,
+        /** Cast-class enrichment only (structural gate, single LLM call). */
+        MIN,
+        /** Constant pool + object pool + cast classes — no test factory, no initial seed. */
+        STANDARD,
+        /** Everything: structural + data enrichment + initial seed + test factory + non-SUT constants. */
+        FULL
+    }
+
+    @Parameter(key = "llm_seeding_profile", group = "LLM",
+            description = "Preset bundle of LLM seeding flags. When set to MIN, "
+                    + "STANDARD, or FULL, force-overrides the individual "
+                    + "llm_enrich_* / llm_seed_initial_population / llm_test_factory "
+                    + "flags at orchestrator startup. Set to OFF to retain "
+                    + "fine-grained control over individual flags.")
+    public static LlmSeedingProfile LLM_SEEDING_PROFILE = LlmSeedingProfile.OFF;
+
+    /**
+     * Force-applies the LLM seeding profile bundle to the corresponding
+     * individual flags. Idempotent. Should be called once during EvoSuite
+     * setup — see {@link org.evosuite.TestSuiteGenerator}.
+     */
+    public static void applyLlmSeedingProfile() {
+        switch (LLM_SEEDING_PROFILE) {
+            case OFF:
+                return;
+            case MIN:
+                LLM_ENRICH_CAST_CLASSES = true;
+                LLM_ENRICH_CONSTANT_POOL = false;
+                LLM_ENRICH_NON_SUT_CONSTANT_POOL = false;
+                LLM_ENRICH_OBJECT_POOL = false;
+                LLM_SEED_INITIAL_POPULATION = false;
+                LLM_TEST_FACTORY = false;
+                return;
+            case STANDARD:
+                LLM_ENRICH_CAST_CLASSES = true;
+                LLM_ENRICH_CONSTANT_POOL = true;
+                LLM_ENRICH_NON_SUT_CONSTANT_POOL = false;
+                LLM_ENRICH_OBJECT_POOL = true;
+                LLM_SEED_INITIAL_POPULATION = false;
+                LLM_TEST_FACTORY = false;
+                return;
+            case FULL:
+                LLM_ENRICH_CAST_CLASSES = true;
+                LLM_ENRICH_CONSTANT_POOL = true;
+                LLM_ENRICH_NON_SUT_CONSTANT_POOL = true;
+                LLM_ENRICH_OBJECT_POOL = true;
+                LLM_SEED_INITIAL_POPULATION = true;
+                LLM_TEST_FACTORY = true;
+        }
+    }
+
     /** Controls whether LLM-generated assertions are retained in parsed tests. */
     public enum LlmGeneratedAssertionsPolicy {
         /** Keep assertions for LLMSTRATEGY, drop for search/enrichment integrations. */
@@ -1918,6 +1978,24 @@ public class Properties {
     @Parameter(key = "llm_strategy_mode", group = "LLM",
             description = "Mode for LLMSTRATEGY: one-shot baseline or iterative budgeted querying")
     public static LlmStrategyMode LLM_STRATEGY_MODE = LlmStrategyMode.SINGLE_PROMPT;
+
+    @Parameter(key = "llm_strategy_max_iterations", group = "LLM",
+            description = "Hard cap on follow-up iterations in ITERATIVE_BUDGETED mode "
+                    + "(0 means no cap; the stopping condition / LLM budget still apply)")
+    @IntValue(min = 0)
+    public static int LLM_STRATEGY_MAX_ITERATIONS = 20;
+
+    @Parameter(key = "llm_strategy_no_progress_limit", group = "LLM",
+            description = "Stop iterating in ITERATIVE_BUDGETED mode after this many consecutive "
+                    + "iterations without covering any new goal (0 disables the guard)")
+    @IntValue(min = 0)
+    public static int LLM_STRATEGY_NO_PROGRESS_LIMIT = 3;
+
+    @Parameter(key = "llm_strategy_parse_fail_limit", group = "LLM",
+            description = "Stop iterating in ITERATIVE_BUDGETED mode after this many consecutive "
+                    + "iterations that produced no parsed tests at all (0 disables the guard)")
+    @IntValue(min = 0)
+    public static int LLM_STRATEGY_PARSE_FAIL_LIMIT = 2;
 
     @Parameter(key = "llm_test_factory", group = "LLM",
             description = "Enable LLM test-factory wrapper; fallback factory remains active")
@@ -1974,13 +2052,23 @@ public class Properties {
     @Parameter(key = "llm_stagnation_mode", group = "LLM",
             description = "How stagnation LLM calls interact with the search: "
                     + "SYNC blocks the evolve loop until the call returns; "
-                    + "ASYNC submits to a background worker and the search continues.")
+                    + "ASYNC submits to a background worker and the search continues. "
+                    + "Scope: this setting (and llm_stagnation_budget_guard_seconds, "
+                    + "and the LLM_Stagnation* runtime variables) only applies to "
+                    + "MOSA-family algorithms (MOSA/DynaMOSA) which route stagnation "
+                    + "through StagnationLlmHelper. Whole-suite GAs (StandardGA, "
+                    + "MonotonicGA) trigger stagnation via the fitness-based legacy "
+                    + "path and remain synchronous regardless of this flag.")
     public static LlmStagnationMode LLM_STAGNATION_MODE = LlmStagnationMode.ASYNC;
 
     @Parameter(key = "llm_stagnation_budget_guard_seconds", group = "LLM",
             description = "Skip new stagnation LLM submissions when the remaining "
                     + "search budget (seconds) is below this threshold. Use 0 to "
-                    + "disable the guard. Defaults to llm_timeout_seconds if -1.")
+                    + "disable the guard. When -1 (default), the helper resolves "
+                    + "the guard to llm_timeout_seconds × (1 + llm_repair_attempts) "
+                    + "— the worst-case wall-clock cost of a single SYNC stagnation "
+                    + "call (initial query plus up to llm_repair_attempts repair "
+                    + "turns). Set explicitly to bound differently.")
     @IntValue(min = -1)
     public static int LLM_STAGNATION_BUDGET_GUARD_SECONDS = -1;
 
@@ -2042,10 +2130,22 @@ public class Properties {
             description = "Enable LLM enrichment of object pools")
     public static boolean LLM_ENRICH_OBJECT_POOL = false;
 
-    @Parameter(key = "llm_enrichment_timeout_seconds", group = "LLM",
-            description = "Maximum seconds to wait for pool enrichment before starting search")
+    @Parameter(key = "llm_object_pool_max_keys_per_sequence", group = "LLM",
+            description = "Maximum number of distinct produced-type keys under "
+                    + "which a single LLM-generated construction sequence is "
+                    + "inserted into the object pool. Bounds pool pollution when "
+                    + "a sequence happens to produce many side-effect types.")
     @IntValue(min = 1)
-    public static int LLM_ENRICHMENT_TIMEOUT_SECONDS = 30;
+    public static int LLM_OBJECT_POOL_MAX_KEYS_PER_SEQUENCE = 5;
+
+    @Parameter(key = "llm_fair_budget_accounting", group = "LLM",
+            description = "If true, block on ALL pool enrichments (cast classes, "
+                    + "constants, objects) before search starts and deduct the "
+                    + "elapsed wall-clock time from the search budget so the four "
+                    + "seeding strategies can be compared on equal footing. If "
+                    + "false, only cast classes block (data enrichments run "
+                    + "asynchronously during search) and no deduction is applied.")
+    public static boolean LLM_FAIR_BUDGET_ACCOUNTING = true;
 
     @Parameter(key = "llm_enrich_cast_classes", group = "LLM",
             description = "Use LLM to propose additional cast-relevant classes for CastClassManager")

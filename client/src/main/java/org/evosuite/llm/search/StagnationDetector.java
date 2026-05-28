@@ -70,6 +70,13 @@ public class StagnationDetector {
     private boolean windowStarted = false;
     private Double bestFitness = null;
     private Integer coveredGoals = null;
+    /**
+     * Cached repair loop reused across calls. Lazily initialised on first use
+     * (so a detector that never fires doesn't allocate one). The
+     * {@code keepAssertions} flag is resolved on first use and pinned for the
+     * detector's lifetime, matching {@link AsyncLlmTestProducer}'s pattern.
+     */
+    private transient TestRepairLoop cachedRepairLoop;
 
     /** Creates a detector with singleton LLM service and Properties-configured thresholds. */
     public StagnationDetector() {
@@ -106,8 +113,43 @@ public class StagnationDetector {
         this.nanoClock = nanoClock;
     }
 
-    /** Checks for stagnation based on the current best fitness value, returning true if stagnation detected. */
+    /**
+     * Reports whether the search has stagnated based on the current best fitness,
+     * and consumes the stagnation window if so. Equivalent to
+     * {@link #peekStagnation(double)} followed by {@link #consumeWindow()} when
+     * the peek returns true.
+     */
     public boolean checkStagnation(double currentBestFitness) {
+        boolean stagnated = peekStagnation(currentBestFitness);
+        if (stagnated) {
+            consumeWindow();
+        }
+        return stagnated;
+    }
+
+    /**
+     * Reports whether the search has stagnated based on the current covered goals
+     * count, and consumes the stagnation window if so. Equivalent to
+     * {@link #peekStagnation(int)} followed by {@link #consumeWindow()} when the
+     * peek returns true.
+     */
+    public boolean checkStagnation(int currentCoveredGoals) {
+        boolean stagnated = peekStagnation(currentCoveredGoals);
+        if (stagnated) {
+            consumeWindow();
+        }
+        return stagnated;
+    }
+
+    /**
+     * Non-consuming variant of {@link #checkStagnation(double)}: returns true when
+     * the stagnation window has elapsed but does NOT reset it. Updates the
+     * tracked best-fitness baseline on observed improvement (which always resets
+     * the window). Callers that may decide to skip the actual stagnation action
+     * (budget guard, in-flight de-dup, etc.) should peek first and only call
+     * {@link #consumeWindow()} once they have committed to firing.
+     */
+    public boolean peekStagnation(double currentBestFitness) {
         if (bestFitness == null) {
             bestFitness = currentBestFitness;
             startWindow();
@@ -121,11 +163,18 @@ public class StagnationDetector {
             startWindow();
             return false;
         }
-        return checkTimeWindow();
+        return peekTimeWindow();
     }
 
-    /** Checks for stagnation based on the current covered goals count, returning true if stagnation detected. */
-    public boolean checkStagnation(int currentCoveredGoals) {
+    /**
+     * Non-consuming variant of {@link #checkStagnation(int)}: returns true when
+     * the stagnation window has elapsed but does NOT reset it. Updates the
+     * tracked covered-goals baseline on observed improvement (which always
+     * resets the window). Callers that may decide to skip the actual stagnation
+     * action (budget guard, in-flight de-dup, etc.) should peek first and only
+     * call {@link #consumeWindow()} once they have committed to firing.
+     */
+    public boolean peekStagnation(int currentCoveredGoals) {
         if (coveredGoals == null) {
             coveredGoals = currentCoveredGoals;
             startWindow();
@@ -136,7 +185,17 @@ public class StagnationDetector {
             startWindow();
             return false;
         }
-        return checkTimeWindow();
+        return peekTimeWindow();
+    }
+
+    /**
+     * Resets the stagnation window. Call this only after committing to a
+     * stagnation action (e.g., dispatching an LLM call). Skip-decisions that
+     * do not result in any action should leave the window intact so the next
+     * generation still sees stagnation.
+     */
+    public void consumeWindow() {
+        startWindow();
     }
 
     private void startWindow() {
@@ -144,16 +203,12 @@ public class StagnationDetector {
         windowStarted = true;
     }
 
-    private boolean checkTimeWindow() {
+    private boolean peekTimeWindow() {
         if (!windowStarted) {
             startWindow();
             return false;
         }
-        if (nanoClock.getAsLong() - windowStartNanos < stagnationThresholdNanos) {
-            return false;
-        }
-        startWindow();
-        return true;
+        return nanoClock.getAsLong() - windowStartNanos >= stagnationThresholdNanos;
     }
 
     public int getTestsPerRequest() {
@@ -183,11 +238,9 @@ public class StagnationDetector {
         if (!llmService.isAvailable() || !llmService.hasBudget()) {
             return Collections.emptyList();
         }
-        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         try {
             String response = llmService.query(prompt, LlmFeature.STAGNATION);
-            RepairResult result = TestRepairLoop
-                    .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
+            RepairResult result = repairLoop()
                     .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION);
             if (!result.isSuccess()) {
                 return Collections.emptyList();
@@ -200,6 +253,31 @@ public class StagnationDetector {
             logger.debug("Stagnation LLM request crashed: {}", e.getMessage());
             return Collections.emptyList();
         }
+    }
+
+    /**
+     * Lazily constructs and caches one {@link TestRepairLoop} for the lifetime
+     * of this detector. The {@code keepAssertions} flag is resolved on first
+     * use; subsequent property changes are intentionally ignored to keep the
+     * detector's behaviour stable across a single search (and to match
+     * {@link AsyncLlmTestProducer}'s pattern of building the loop once outside
+     * its main loop).
+     *
+     * <p>Thread-safe enough for our use: a benign race could initialise the
+     * field twice if SYNC and ASYNC callers were to race; both instances are
+     * functionally equivalent and {@link TestRepairLoop#attemptParse} resets
+     * its per-call state at the top of each invocation. In practice
+     * {@code maybeSubmit} dispatches at most one call at a time.
+     */
+    private TestRepairLoop repairLoop() {
+        TestRepairLoop loop = cachedRepairLoop;
+        if (loop == null) {
+            boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
+            loop = TestRepairLoop.createDefault(llmService,
+                    TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions));
+            cachedRepairLoop = loop;
+        }
+        return loop;
     }
 
     /**
@@ -221,14 +299,12 @@ public class StagnationDetector {
         if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {
             return Collections.emptyList();
         }
-        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
 
         PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation,
                 totalGoals, coveredGoalCount, bestFitnessPerGoal);
         try {
             String response = llmService.query(prompt, LlmFeature.STAGNATION);
-            RepairResult result = TestRepairLoop
-                    .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
+            RepairResult result = repairLoop()
                     .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION);
             if (!result.isSuccess()) {
                 return Collections.emptyList();
