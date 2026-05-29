@@ -32,8 +32,10 @@ import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.ga.diversity.DefaultSpeciesPolicy;
 import org.evosuite.ga.diversity.PopulationDiversityComputation;
+import org.evosuite.ga.diversity.PopulationSpeciesRecorder;
 import org.evosuite.ga.diversity.SpeciesAssigner;
 import org.evosuite.ga.diversity.SpeciesPolicy;
+import org.evosuite.ga.diversity.StableSpeciesAssigner;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
 import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
@@ -47,6 +49,7 @@ import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -85,6 +88,35 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     @FunctionalInterface
     protected interface ExternalCandidateSource {
         List<TestChromosome> drain();
+
+        /**
+         * Tag applied to chromosomes drained from this source by
+         * {@link #collectExternalCandidates}. Default {@code null} (no tag) so
+         * existing lambda-style registrations remain valid. Override (typically
+         * via an anonymous class or {@link #taggedSource}) to opt in.
+         */
+        default InjectionSource injectionSource() {
+            return null;
+        }
+    }
+
+    /**
+     * Helper to register an external candidate source whose drained chromosomes
+     * should be tagged with a fixed injection source.
+     */
+    protected static ExternalCandidateSource taggedSource(InjectionSource source,
+                                                          ExternalCandidateSource delegate) {
+        return new ExternalCandidateSource() {
+            @Override
+            public List<TestChromosome> drain() {
+                return delegate.drain();
+            }
+
+            @Override
+            public InjectionSource injectionSource() {
+                return source;
+            }
+        };
     }
 
     /**
@@ -183,6 +215,28 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final transient SpeciesAssigner speciesTrackingAssigner;
 
     /**
+     * Most recent species assignment over {@code this.population}, used by the
+     * population species recorder. Set by both the speciation-enabled and the
+     * tracking-only branches of {@link #applySpeciationSurvival}, distinct from
+     * {@link #currentSpeciesMap} which is only set when speciation is enabled
+     * and feeds mating restriction.
+     */
+    protected transient Map<Integer, List<TestChromosome>> lastTrackedSpeciesMap;
+
+    /**
+     * Per-generation population/species sidecar writer. Non-null when
+     * {@link Properties#SPECIES_POPULATION_TIMELINE_ENABLED} is true.
+     */
+    protected final transient PopulationSpeciesRecorder populationSpeciesRecorder;
+
+    /**
+     * Wall-clock start of the population species recording, captured on the first
+     * snapshot so each row's {@code elapsed_ms} is relative to the first recorded
+     * generation. {@code -1} until set.
+     */
+    private transient long populationSpeciesStartMs = -1L;
+
+    /**
      * Constructor.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
@@ -216,9 +270,17 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.llmCrossover = new LanguageModelCrossover();
         }
 
+        // The population-species sidecar requires stable IDs to be meaningful;
+        // force them on when the sidecar is enabled even if the property was
+        // left false explicitly.
+        boolean useStableIds = Properties.SPECIES_STABLE_IDS
+                || Properties.SPECIES_POPULATION_TIMELINE_ENABLED;
+
         if (Properties.SPECIATION_ENABLED) {
             this.speciationEnabled = true;
-            this.speciesAssigner = new DefaultSpeciesAssigner();
+            this.speciesAssigner = useStableIds
+                    ? new StableSpeciesAssigner()
+                    : new DefaultSpeciesAssigner();
             this.speciesPolicy = new DefaultSpeciesPolicy();
             this.trackSpeciesWhenSpeciationDisabled = false;
             this.speciesTrackingAssigner = this.speciesAssigner;
@@ -248,12 +310,23 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         return pop;
                 }
             };
+            // Sidecar implies tracking-only species assignment too, since we need
+            // a real species map per generation to plot.
             this.trackSpeciesWhenSpeciationDisabled =
-                    Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED;
-            this.speciesTrackingAssigner = this.trackSpeciesWhenSpeciationDisabled
-                    ? new DefaultSpeciesAssigner()
-                    : singleSpeciesAssigner;
+                    Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED
+                            || Properties.SPECIES_POPULATION_TIMELINE_ENABLED;
+            if (this.trackSpeciesWhenSpeciationDisabled) {
+                this.speciesTrackingAssigner = useStableIds
+                        ? new StableSpeciesAssigner()
+                        : new DefaultSpeciesAssigner();
+            } else {
+                this.speciesTrackingAssigner = singleSpeciesAssigner;
+            }
         }
+
+        this.populationSpeciesRecorder = Properties.SPECIES_POPULATION_TIMELINE_ENABLED
+                ? new PopulationSpeciesRecorder()
+                : null;
     }
 
     /**
@@ -604,6 +677,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
                 ensureFront0Preserved(front0, effectiveTarget);
                 this.currentSpeciesMap = speciesAssigner.groupBySpecies(this.population);
+                this.lastTrackedSpeciesMap = this.currentSpeciesMap;
             } catch (Exception e) {
                 logger.debug("Speciation failed; using ranked fallback", e);
                 this.population.clear();
@@ -628,6 +702,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     Map<Integer, List<TestChromosome>> trackedSpecies =
                             speciesTrackingAssigner.groupBySpecies(this.population);
                     emitSpeciesTimeline(trackedSpecies);
+                    this.lastTrackedSpeciesMap = trackedSpecies;
                 } catch (Exception e) {
                     logger.debug("Species tracking failed outside speciation; ignoring", e);
                 }
@@ -682,13 +757,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected void emitGenerationMetrics(int uncoveredGoalCount, int coveredGoalCount) {
         ClientNodeLocal<TestChromosome> cn =
                 ClientServices.<TestChromosome>getInstance().getClientNode();
-                
+
         double parsedRatio = computePopulationParsedRatio(this.population);
         cn.trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline, parsedRatio);
 
+        double diversityForSidecar = Double.NaN;
         if (Properties.TRACK_DIVERSITY) {
             double diversity = PopulationDiversityComputation.computeDiversity(this.population);
             cn.trackOutputVariable(RuntimeVariable.DiversityTimeline, diversity);
+            diversityForSidecar = diversity;
         }
 
         cn.trackOutputVariable(RuntimeVariable.Fronts_Count_Timeline,
@@ -697,6 +774,162 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 uncoveredGoalCount);
         cn.trackOutputVariable(RuntimeVariable.Covered_Goals_Timeline,
                 coveredGoalCount);
+
+        recordPopulationSnapshot(coveredGoalCount, uncoveredGoalCount, diversityForSidecar);
+    }
+
+    /**
+     * Records one row to the population species sidecar (if enabled) and ticks
+     * the stable assigner's dormancy bookkeeping. No-op when neither stable IDs
+     * nor the sidecar are active.
+     */
+    protected void recordPopulationSnapshot(int coveredGoalCount,
+                                            int uncoveredGoalCount,
+                                            double diversity) {
+        SpeciesAssigner trackingAssigner = (speciesTrackingAssigner != null)
+                ? speciesTrackingAssigner : speciesAssigner;
+        if (populationSpeciesRecorder != null && lastTrackedSpeciesMap != null
+                && !this.population.isEmpty()) {
+            try {
+                int[] speciesPerSlot = buildSpeciesPerSlot(this.population, lastTrackedSpeciesMap);
+                int[] rankPerSlot = buildRankPerSlot(this.population);
+                int nInjected = 0;
+                Map<InjectionSource, Integer> sourceCounts = new EnumMap<>(InjectionSource.class);
+                for (TestChromosome tc : this.population) {
+                    InjectionSource src = tc.getInjectionSource();
+                    if (src != null) {
+                        nInjected++;
+                        sourceCounts.merge(src, 1, Integer::sum);
+                    }
+                }
+                InjectionSource dominant = null;
+                int dominantCount = 0;
+                for (Map.Entry<InjectionSource, Integer> e : sourceCounts.entrySet()) {
+                    if (e.getValue() > dominantCount) {
+                        dominantCount = e.getValue();
+                        dominant = e.getKey();
+                    }
+                }
+                double best = Double.POSITIVE_INFINITY;
+                double sum = 0.0;
+                int counted = 0;
+                for (TestChromosome tc : this.population) {
+                    double agg = 0.0;
+                    boolean any = false;
+                    for (FitnessFunction<TestChromosome> ff : fitnessFunctions) {
+                        Double v = tc.getFitnessValues().get(ff);
+                        if (v != null) {
+                            agg += v;
+                            any = true;
+                        }
+                    }
+                    if (any) {
+                        if (agg < best) {
+                            best = agg;
+                        }
+                        sum += agg;
+                        counted++;
+                    }
+                }
+                double bestFitness = (counted > 0) ? best : Double.NaN;
+                double meanFitness = (counted > 0) ? sum / counted : Double.NaN;
+
+                int maxSize = 0;
+                int total = 0;
+                for (List<TestChromosome> members : lastTrackedSpeciesMap.values()) {
+                    maxSize = Math.max(maxSize, members.size());
+                    total += members.size();
+                }
+                double largestShare = total > 0 ? (double) maxSize / total : 0.0;
+
+                long now = System.currentTimeMillis();
+                if (populationSpeciesStartMs < 0) {
+                    populationSpeciesStartMs = now;
+                }
+                long elapsedMs = now - populationSpeciesStartMs;
+                PopulationSpeciesRecorder.GenerationSnapshot snap =
+                        new PopulationSpeciesRecorder.GenerationSnapshot(
+                                this.currentIteration,
+                                elapsedMs,
+                                this.population.size(),
+                                lastTrackedSpeciesMap.size(),
+                                nInjected,
+                                dominant,
+                                coveredGoalCount,
+                                uncoveredGoalCount,
+                                this.rankingFunction.getNumberOfSubfronts(),
+                                bestFitness,
+                                meanFitness,
+                                diversity,
+                                largestShare,
+                                speciesPerSlot,
+                                rankPerSlot);
+                populationSpeciesRecorder.record(snap);
+            } catch (Exception e) {
+                logger.debug("Failed to record population species snapshot for gen {}",
+                        this.currentIteration, e);
+            }
+        }
+
+        if (trackingAssigner instanceof StableSpeciesAssigner) {
+            try {
+                ((StableSpeciesAssigner) trackingAssigner).advanceGeneration();
+            } catch (Exception e) {
+                logger.debug("StableSpeciesAssigner.advanceGeneration() failed", e);
+            }
+        } else if (speciesAssigner instanceof StableSpeciesAssigner
+                && speciesAssigner != trackingAssigner) {
+            try {
+                ((StableSpeciesAssigner) speciesAssigner).advanceGeneration();
+            } catch (Exception e) {
+                logger.debug("StableSpeciesAssigner.advanceGeneration() failed", e);
+            }
+        }
+    }
+
+    /**
+     * Flushes the population species sidecar to disk. Called from MOSA variants'
+     * generateSolution() finally block so the file is written even if the search
+     * exits abnormally.
+     */
+    protected void flushPopulationSpeciesRecorder() {
+        if (populationSpeciesRecorder != null) {
+            populationSpeciesRecorder.flush();
+        }
+    }
+
+    private static int[] buildSpeciesPerSlot(List<TestChromosome> population,
+                                             Map<Integer, List<TestChromosome>> speciesMap) {
+        IdentityHashMap<TestChromosome, Integer> idLookup = new IdentityHashMap<>();
+        for (Map.Entry<Integer, List<TestChromosome>> e : speciesMap.entrySet()) {
+            for (TestChromosome tc : e.getValue()) {
+                idLookup.put(tc, e.getKey());
+            }
+        }
+        int[] out = new int[population.size()];
+        for (int i = 0; i < population.size(); i++) {
+            Integer id = idLookup.get(population.get(i));
+            // -1 marks "unassigned" — should be vanishingly rare given map covers
+            // the same population, but kept for plot robustness.
+            out[i] = (id == null) ? -1 : id;
+        }
+        return out;
+    }
+
+    private int[] buildRankPerSlot(List<TestChromosome> population) {
+        int nFronts = this.rankingFunction.getNumberOfSubfronts();
+        IdentityHashMap<TestChromosome, Integer> rankLookup = new IdentityHashMap<>();
+        for (int r = 0; r < nFronts; r++) {
+            for (TestChromosome tc : this.rankingFunction.getSubfront(r)) {
+                rankLookup.put(tc, r);
+            }
+        }
+        int[] out = new int[population.size()];
+        for (int i = 0; i < population.size(); i++) {
+            Integer r = rankLookup.get(population.get(i));
+            out[i] = (r == null) ? -1 : r;
+        }
+        return out;
     }
 
     /**
@@ -715,6 +948,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // These have already been evaluated through calculateFitness,
         // so we add them directly to the union without re-evaluation.
         if (!pendingLsTests.isEmpty()) {
+            for (TestChromosome ls : pendingLsTests) {
+                ls.setInjectionSource(InjectionSource.LOCAL_SEARCH);
+            }
             union.addAll(pendingLsTests);
             logger.debug("Injected {} LS-improved tests into union", pendingLsTests.size());
             pendingLsTests.clear();
@@ -728,7 +964,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 }
                 List<TestChromosome> safe = filterOrphanedTestChromosomes(
                         candidates, "external candidate source " + source.getClass().getSimpleName());
+                InjectionSource tag = source.injectionSource();
                 for (TestChromosome candidate : safe) {
+                    if (tag != null) {
+                        candidate.setInjectionSource(tag);
+                    }
                     this.calculateFitness(candidate);
                     union.add(candidate);
                 }
@@ -756,12 +996,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // maybeSubmit/drain are documented to be safe no-ops post-shutdown.
         if (asyncProducer != null) {
             final org.evosuite.llm.search.AsyncLlmTestProducer producer = asyncProducer;
-            externalCandidateSources.add(producer::drainAvailable);
+            externalCandidateSources.add(
+                    taggedSource(InjectionSource.LLM_ASYNC, producer::drainAvailable));
         }
         if (stagnationLlmHelper != null) {
             final org.evosuite.llm.search.StagnationLlmHelper helper = stagnationLlmHelper;
-            externalCandidateSources.add(() ->
-                    driveStagnationHelper(helper, coveredGoalCountSupplier, uncoveredGoalsSupplier));
+            externalCandidateSources.add(
+                    taggedSource(InjectionSource.LLM_STAGNATION,
+                            () -> driveStagnationHelper(helper, coveredGoalCountSupplier,
+                                    uncoveredGoalsSupplier)));
         }
         registerAdditionalCandidateSources();
     }

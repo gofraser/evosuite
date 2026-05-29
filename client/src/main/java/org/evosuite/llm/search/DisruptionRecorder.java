@@ -170,7 +170,9 @@ public class DisruptionRecorder {
         if (dir == null || dir.isEmpty()) {
             dir = Properties.REPORT_DIR;
         }
-        return dir + File.separator + "disruption_events.csv";
+        String tc = Properties.TARGET_CLASS;
+        String suffix = (tc == null || tc.isEmpty()) ? "" : "_" + tc.replaceAll("[^A-Za-z0-9_.$-]", "_");
+        return dir + File.separator + "disruption_events" + suffix + ".csv";
     }
 
     // ---- Run-level counter accessors ----

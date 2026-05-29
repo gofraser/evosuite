@@ -29,6 +29,7 @@ import org.evosuite.ga.operators.selection.SelectionFunction;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.Listener;
@@ -208,6 +209,7 @@ public class MOSA extends AbstractMOSA {
             } catch (Exception e) {
                 logger.debug("Failed to emit final stats", e);
             }
+            flushPopulationSpeciesRecorder();
             shutdownLlmAssistance();
         }
         this.notifySearchFinished();
@@ -221,10 +223,10 @@ public class MOSA extends AbstractMOSA {
     protected void registerAdditionalCandidateSources() {
         // Island-model immigrants (MOSA-specific)
         if (Properties.NUM_PARALLEL_CLIENTS > 1) {
-            externalCandidateSources.add(() -> {
+            externalCandidateSources.add(taggedSource(InjectionSource.ISLAND_IMMIGRANT, () -> {
                 List<TestChromosome> batch = immigrants.poll();
                 return batch != null ? batch : Collections.emptyList();
-            });
+            }));
         }
     }
 

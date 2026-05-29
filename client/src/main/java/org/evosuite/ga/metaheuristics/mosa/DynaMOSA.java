@@ -169,6 +169,7 @@ public class DynaMOSA extends AbstractMOSA {
             } catch (Exception e) {
                 logger.debug("Failed to emit Phase 5 stats", e);
             }
+            flushPopulationSpeciesRecorder();
             shutdownLlmAssistance();
         }
         this.notifySearchFinished();

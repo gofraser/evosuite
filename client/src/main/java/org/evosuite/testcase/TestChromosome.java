@@ -72,6 +72,18 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     private static final List<SecondaryObjective<TestChromosome>> secondaryObjectives =
             new ArrayList<>();
 
+    /**
+     * Marks the external source that introduced this chromosome into the MOSA
+     * union (set in {@code collectExternalCandidates}). Cleared on {@code clone()}
+     * so offspring of an injected parent are not themselves flagged as injected:
+     * the marker reflects fresh arrivals only, used by the population species
+     * recorder to annotate disruption events.
+     *
+     * <p>Transient because the marker is only meaningful within a single
+     * generation on the client side; it has no role after RMI transfer.
+     */
+    private transient InjectionSource injectionSource;
+
 
     /**
      * {@inheritDoc}
@@ -99,6 +111,16 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     @Override
     public TestChromosome self() {
         return this;
+    }
+
+    /** @return the injection source, or null if this chromosome originated from the GA itself. */
+    public InjectionSource getInjectionSource() {
+        return injectionSource;
+    }
+
+    /** Tags this chromosome with the external source that introduced it. */
+    public void setInjectionSource(InjectionSource source) {
+        this.injectionSource = source;
     }
 
     /**

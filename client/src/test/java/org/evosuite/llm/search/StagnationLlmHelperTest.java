@@ -203,6 +203,56 @@ class StagnationLlmHelperTest {
     }
 
     @Test
+    void syncMode_truncatesWaitToRemainingBudget() throws Exception {
+        // The SYNC arm wraps the LLM call in a Future and waits at most
+        // min(LLM_TIMEOUT_SECONDS, remaining) seconds — so a late-firing
+        // stagnation call cannot block the search loop past the deadline,
+        // even if the LLM itself hangs.
+        CountDownLatch responseGate = new CountDownLatch(1);
+        MockChatLanguageModel model = new MockChatLanguageModel() {
+            @Override
+            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                try {
+                    responseGate.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return super.generate(messages, feature);
+            }
+        };
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        // Guard 0 (no skip) + remaining=1s makes the wait cap at 1s, even
+        // though LLM_TIMEOUT_SECONDS would normally allow much longer.
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.SYNC, () -> 1L, 0);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // not stagnant
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+
+            long t0 = System.nanoTime();
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // SYNC fires, hangs
+            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+
+            assertTrue(elapsedMs < 4_000,
+                    "SYNC must abort the wait near the truncated deadline, "
+                            + "not block on the full LLM timeout. Took " + elapsedMs + "ms");
+            assertEquals(0, helper.drain().size(),
+                    "Aborted SYNC call must not deliver tests");
+        } finally {
+            responseGate.countDown();
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
     void asyncMode_gracefulShutdown_capturesInFlightCall() throws Exception {
         // Phase 3 T3.3: stopAcceptingSubmissions + awaitTermination should let
         // an in-flight call finish and its tests be drained, instead of
