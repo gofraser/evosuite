@@ -47,7 +47,7 @@ import java.util.Map;
  * by the most central member of its species (minimum mean intra-species distance),
  * preventing the leader from drifting out of the cluster as it evolves.
  */
-public class StableSpeciesAssigner implements SpeciesAssigner {
+public class StableSpeciesAssigner implements SpeciesAssigner, SpeciesBirthRegistry {
 
     private static final Logger logger = LoggerFactory.getLogger(StableSpeciesAssigner.class);
 
@@ -58,6 +58,7 @@ public class StableSpeciesAssigner implements SpeciesAssigner {
     /** Species registry. Insertion order matches mint order (monotonic IDs). */
     private final Map<Integer, SpeciesEntry> registry = new LinkedHashMap<>();
     private int nextId = 0;
+    private int currentGeneration = 0;
 
     public StableSpeciesAssigner() {
         this(new JaccardSpeciesDistance(),
@@ -124,6 +125,7 @@ public class StableSpeciesAssigner implements SpeciesAssigner {
             logger.debug("StableSpeciesAssigner: retired {} dormant species (registry now {})",
                     toRetire.size(), registry.size());
         }
+        currentGeneration++;
     }
 
     /**
@@ -149,10 +151,19 @@ public class StableSpeciesAssigner implements SpeciesAssigner {
 
     private int mintNew(TestChromosome individual) {
         int id = nextId++;
-        SpeciesEntry entry = new SpeciesEntry(individual);
+        SpeciesEntry entry = new SpeciesEntry(individual, currentGeneration);
         entry.lastMembers.add(individual);
         registry.put(id, entry);
         return id;
+    }
+
+    @Override
+    public Map<Integer, Integer> getSpeciesBirthGenerations() {
+        Map<Integer, Integer> out = new LinkedHashMap<>();
+        for (Map.Entry<Integer, SpeciesEntry> e : registry.entrySet()) {
+            out.put(e.getKey(), e.getValue().birthGeneration);
+        }
+        return out;
     }
 
     /**
@@ -187,11 +198,13 @@ public class StableSpeciesAssigner implements SpeciesAssigner {
 
     private static final class SpeciesEntry {
         TestChromosome leader;
+        final int birthGeneration;
         int dormantGens;
         final List<TestChromosome> lastMembers = new ArrayList<>();
 
-        SpeciesEntry(TestChromosome leader) {
+        SpeciesEntry(TestChromosome leader, int birthGeneration) {
             this.leader = leader;
+            this.birthGeneration = birthGeneration;
             this.dormantGens = 0;
         }
     }

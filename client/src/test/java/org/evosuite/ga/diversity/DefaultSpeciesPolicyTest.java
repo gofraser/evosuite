@@ -297,6 +297,59 @@ class DefaultSpeciesPolicyTest {
         }
     }
 
+    @Test
+    void protectedSurvivalReservesOnePerSpeciesWhenFeasible() {
+        List<TestChromosome> s0 = makeChromosomes(5);
+        List<TestChromosome> s1 = makeChromosomes(1);
+        List<TestChromosome> s2 = makeChromosomes(1);
+        List<TestChromosome> ranked = new ArrayList<>();
+        ranked.addAll(s0);
+        ranked.addAll(s1);
+        ranked.addAll(s2);
+
+        Map<Integer, List<TestChromosome>> speciesMap = new LinkedHashMap<>();
+        speciesMap.put(0, s0);
+        speciesMap.put(1, s1);
+        speciesMap.put(2, s2);
+
+        Map<Integer, Integer> birth = new HashMap<>();
+        birth.put(0, 0);
+        birth.put(1, 0);
+        birth.put(2, 0);
+
+        List<TestChromosome> result = policy.applyProtectedSurvival(
+                ranked, speciesMap, 3, 1.0, 10, 1, 0, birth);
+
+        assertEquals(3, result.size());
+        assertTrue(result.contains(s0.get(0)));
+        assertTrue(result.contains(s1.get(0)));
+        assertTrue(result.contains(s2.get(0)));
+    }
+
+    @Test
+    void protectedSurvivalPrioritizesNewbornSpecies() {
+        List<TestChromosome> oldSpecies = makeChromosomes(4);
+        List<TestChromosome> newbornSpecies = makeChromosomes(2);
+        List<TestChromosome> ranked = new ArrayList<>();
+        ranked.addAll(oldSpecies);
+        ranked.addAll(newbornSpecies);
+
+        Map<Integer, List<TestChromosome>> speciesMap = new LinkedHashMap<>();
+        speciesMap.put(0, oldSpecies);
+        speciesMap.put(1, newbornSpecies);
+
+        Map<Integer, Integer> birth = new HashMap<>();
+        birth.put(0, 0);
+        birth.put(1, 9);
+
+        List<TestChromosome> result = policy.applyProtectedSurvival(
+                ranked, speciesMap, 2, 1.0, 10, 0, 3, birth);
+
+        assertEquals(2, result.size());
+        assertTrue(result.contains(newbornSpecies.get(0)),
+                "Newborn species should receive protected admission");
+    }
+
     private List<TestChromosome> makeChromosomes(int n) {
         List<TestChromosome> list = new ArrayList<>();
         for (int i = 0; i < n; i++) {

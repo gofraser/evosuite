@@ -89,9 +89,12 @@ public class DynaMOSA extends AbstractMOSA {
         int candidateLimit = speciationEnabled
                 ? Math.min(union.size(), populationSize * 2)
                 : populationSize;
+        Map<Integer, List<TestChromosome>> speciesMapForSelection =
+                speciationEnabled ? speciesAssigner.groupBySpecies(union) : Collections.emptyMap();
 
         List<TestChromosome> rankedCandidates =
-                selectByRankingAndCrowding(union, this.goalsManager.getCurrentGoals(), candidateLimit);
+                selectByRankingAndCrowding(union, this.goalsManager.getCurrentGoals(),
+                        candidateLimit, speciesMapForSelection);
 
         applySpeciationSurvival(rankedCandidates, populationSize);
 

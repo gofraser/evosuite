@@ -57,4 +57,34 @@ public interface SpeciesPolicy {
     List<TestChromosome> balanceParentPool(
             List<TestChromosome> population,
             Map<Integer, List<TestChromosome>> speciesMap);
+
+    /**
+     * Adjust crowding-distance-like density scores inside a front to penalize
+     * crowded species (fitness sharing). Implementations may leave the front
+     * unchanged when sharing is disabled.
+     */
+    default void applyFitnessSharing(
+            List<TestChromosome> front,
+            Map<Integer, List<TestChromosome>> speciesMap) {
+        // no-op
+    }
+
+    /**
+     * Applies species-level protection (quotas + age protection + caps) to the
+     * ranked survivor list.
+     *
+     * <p>The default implementation keeps backward compatibility by delegating
+     * to {@link #applySurvivalCaps(List, Map, int, double)}.
+     */
+    default List<TestChromosome> applyProtectedSurvival(
+            List<TestChromosome> rankedSurvivors,
+            Map<Integer, List<TestChromosome>> speciesMap,
+            int targetSize,
+            double survivalCap,
+            int currentGeneration,
+            int minSurvivorsPerSpecies,
+            int newbornProtectionGenerations,
+            Map<Integer, Integer> speciesBirthGeneration) {
+        return applySurvivalCaps(rankedSurvivors, speciesMap, targetSize, survivalCap);
+    }
 }

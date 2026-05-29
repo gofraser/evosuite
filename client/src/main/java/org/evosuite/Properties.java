@@ -2292,6 +2292,20 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double SPECIES_SURVIVAL_CAP = 0.5;
 
+    @Parameter(key = "species_min_survivors_per_species", group = "Speciation",
+            description = "Minimum non-front0 survivors reserved per species when feasible")
+    @IntValue(min = 0)
+    public static int SPECIES_MIN_SURVIVORS_PER_SPECIES = 1;
+
+    @Parameter(key = "species_newborn_protection_generations", group = "Speciation",
+            description = "Number of generations a newly created species receives extra survival protection")
+    @IntValue(min = 0)
+    public static int SPECIES_NEWBORN_PROTECTION_GENERATIONS = 5;
+
+    @Parameter(key = "species_fitness_sharing_enabled", group = "Speciation",
+            description = "If true, apply species-density fitness sharing in crowding tie-breaking")
+    public static boolean SPECIES_FITNESS_SHARING_ENABLED = true;
+
     @Parameter(key = "species_balance_parent_selection", group = "Speciation",
             description = "If true, balance parent selection across species to promote diversity")
     public static boolean SPECIES_BALANCE_PARENT_SELECTION = false;

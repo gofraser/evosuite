@@ -34,6 +34,7 @@ import org.evosuite.ga.diversity.DefaultSpeciesPolicy;
 import org.evosuite.ga.diversity.PopulationDiversityComputation;
 import org.evosuite.ga.diversity.PopulationSpeciesRecorder;
 import org.evosuite.ga.diversity.SpeciesAssigner;
+import org.evosuite.ga.diversity.SpeciesBirthRegistry;
 import org.evosuite.ga.diversity.SpeciesPolicy;
 import org.evosuite.ga.diversity.StableSpeciesAssigner;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
@@ -273,8 +274,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // The population-species sidecar requires stable IDs to be meaningful;
         // force them on when the sidecar is enabled even if the property was
         // left false explicitly.
+        boolean requiresStableIdsForProtection = Properties.SPECIATION_ENABLED
+                && Properties.SPECIES_NEWBORN_PROTECTION_GENERATIONS > 0;
         boolean useStableIds = Properties.SPECIES_STABLE_IDS
-                || Properties.SPECIES_POPULATION_TIMELINE_ENABLED;
+                || Properties.SPECIES_POPULATION_TIMELINE_ENABLED
+                || requiresStableIdsForProtection;
 
         if (Properties.SPECIATION_ENABLED) {
             this.speciationEnabled = true;
@@ -589,7 +593,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected List<TestChromosome> selectByRankingAndCrowding(
             List<TestChromosome> union,
             Set<? extends FitnessFunction<TestChromosome>> goals,
-            int capacity) {
+            int capacity,
+            Map<Integer, List<TestChromosome>> speciesMap) {
 
         int remain = capacity;
         int index = 0;
@@ -599,6 +604,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
         while ((remain > 0) && (remain >= front.size()) && !front.isEmpty()) {
             this.distance.fastEpsilonDominanceAssignment(front, goals);
+            if (speciationEnabled && speciesMap != null && !speciesMap.isEmpty()) {
+                this.speciesPolicy.applyFitnessSharing(front, speciesMap);
+            }
             rankedCandidates.addAll(front);
             remain -= front.size();
             index++;
@@ -609,6 +617,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
         if (remain > 0 && !front.isEmpty()) {
             this.distance.fastEpsilonDominanceAssignment(front, goals);
+            if (speciationEnabled && speciesMap != null && !speciesMap.isEmpty()) {
+                this.speciesPolicy.applyFitnessSharing(front, speciesMap);
+            }
             front.sort(new OnlyCrowdingComparator<>());
             for (int k = 0; k < remain; k++) {
                 rankedCandidates.add(front.get(k));
@@ -658,9 +669,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 }
 
                 if (remainingSlots > 0 && !nonFront0.isEmpty()) {
-                    List<TestChromosome> capped = speciesPolicy.applySurvivalCaps(
+                    List<TestChromosome> capped = speciesPolicy.applyProtectedSurvival(
                             nonFront0, speciesMap, remainingSlots,
-                            Properties.SPECIES_SURVIVAL_CAP);
+                            Properties.SPECIES_SURVIVAL_CAP,
+                            this.currentIteration,
+                            Properties.SPECIES_MIN_SURVIVORS_PER_SPECIES,
+                            Properties.SPECIES_NEWBORN_PROTECTION_GENERATIONS,
+                            resolveSpeciesBirthGeneration());
                     this.population.addAll(capped);
                 }
 
@@ -708,6 +723,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 }
             }
         }
+    }
+
+    private Map<Integer, Integer> resolveSpeciesBirthGeneration() {
+        if (speciesAssigner instanceof SpeciesBirthRegistry) {
+            return ((SpeciesBirthRegistry) speciesAssigner).getSpeciesBirthGenerations();
+        }
+        return Collections.emptyMap();
     }
 
     /**

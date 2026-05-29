@@ -108,9 +108,11 @@ public class MOSA extends AbstractMOSA {
         int candidateLimit = speciationEnabled
                 ? Math.min(union.size(), baseTarget * 2)
                 : baseTarget;
+        Map<Integer, List<TestChromosome>> speciesMapForSelection =
+                speciationEnabled ? speciesAssigner.groupBySpecies(union) : Collections.emptyMap();
 
         List<TestChromosome> rankedCandidates =
-                selectByRankingAndCrowding(union, uncoveredGoals, candidateLimit);
+                selectByRankingAndCrowding(union, uncoveredGoals, candidateLimit, speciesMapForSelection);
 
         applySpeciationSurvival(rankedCandidates, baseTarget);
 

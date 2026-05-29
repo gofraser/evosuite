@@ -45,6 +45,9 @@ class Phase5PropertyDefaultsTest {
         assertEquals(SpeciationMetric.TRACE_BRANCH_JACCARD, Properties.SPECIATION_METRIC);
         assertEquals(0.3, Properties.SPECIATION_THRESHOLD, 1e-9);
         assertEquals(0.5, Properties.SPECIES_SURVIVAL_CAP, 1e-9);
+        assertEquals(1, Properties.SPECIES_MIN_SURVIVORS_PER_SPECIES);
+        assertEquals(5, Properties.SPECIES_NEWBORN_PROTECTION_GENERATIONS);
+        assertTrue(Properties.SPECIES_FITNESS_SHARING_ENABLED);
         assertFalse(Properties.SPECIES_BALANCE_PARENT_SELECTION);
         assertFalse(Properties.SPECIES_RESTRICT_MATING);
         assertTrue(Properties.SPECIES_TIMELINE_ENABLED);
