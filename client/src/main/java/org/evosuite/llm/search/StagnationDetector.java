@@ -20,6 +20,7 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
@@ -42,9 +43,12 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 
@@ -59,6 +63,8 @@ public class StagnationDetector {
 
     private static final Logger logger = LoggerFactory.getLogger(StagnationDetector.class);
     private static final double EPSILON = 1e-12;
+    private static final int EXISTING_TESTS_CONTEXT_MAX = 3;
+    private static final int EXISTING_TESTS_RELEVANCE_CANDIDATE_MULTIPLIER = 4;
 
     private final LlmService llmService;
     private final boolean maximizationObjective;
@@ -245,7 +251,7 @@ public class StagnationDetector {
             if (!result.isSuccess()) {
                 return Collections.emptyList();
             }
-            return result.toChromosomes(testsPerRequest);
+            return result.toChromosomes();
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             logger.debug("Stagnation LLM request failed: {}", e.getMessage());
             return Collections.emptyList();
@@ -309,7 +315,7 @@ public class StagnationDetector {
             if (!result.isSuccess()) {
                 return Collections.emptyList();
             }
-            return result.toChromosomes(testsPerRequest);
+            return result.toChromosomes();
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             logger.debug("Stagnation LLM request failed: {}", e.getMessage());
             return Collections.emptyList();
@@ -405,17 +411,116 @@ public class StagnationDetector {
         // include fitness annotations)
         builder.withInstruction("Uncovered goals:\n" + goalsSection);
 
-        List<TestCase> existingTests = new ArrayList<>();
-        if (currentPopulation != null) {
-            TestRelevanceRanker.rankByRelevance(currentPopulation, uncoveredGoals, 3)
-                    .stream()
-                    .map(TestChromosome::getTestCase)
-                    .forEach(existingTests::add);
-        }
+        List<TestCase> existingTests = selectExistingTestsForPoolPrompt(currentPopulation, uncoveredGoals);
         if (!existingTests.isEmpty()) {
             builder.withExistingTests(existingTests);
         }
         return builder.buildWithMetadata();
+    }
+
+    private List<TestCase> selectExistingTestsForPoolPrompt(
+            List<TestChromosome> currentPopulation,
+            Collection<TestFitnessFunction> uncoveredGoals) {
+        if (currentPopulation == null || currentPopulation.isEmpty()) {
+            return Collections.emptyList();
+        }
+        int candidateCount = Math.max(
+                EXISTING_TESTS_CONTEXT_MAX,
+                EXISTING_TESTS_CONTEXT_MAX * EXISTING_TESTS_RELEVANCE_CANDIDATE_MULTIPLIER);
+        List<TestChromosome> ranked = TestRelevanceRanker.rankByRelevance(
+                currentPopulation, uncoveredGoals, candidateCount);
+        List<TestChromosome> deduped = deduplicateByRenderedCode(ranked);
+        List<TestChromosome> selected = shouldDiversifyExistingTestsBySpecies()
+                ? diversifyAcrossSpecies(deduped, EXISTING_TESTS_CONTEXT_MAX)
+                : deduped.subList(0, Math.min(EXISTING_TESTS_CONTEXT_MAX, deduped.size()));
+        List<TestCase> existingTests = new ArrayList<>(selected.size());
+        for (TestChromosome selectedChromosome : selected) {
+            if (selectedChromosome != null && selectedChromosome.getTestCase() != null) {
+                existingTests.add(selectedChromosome.getTestCase());
+            }
+        }
+        return existingTests;
+    }
+
+    private boolean shouldDiversifyExistingTestsBySpecies() {
+        return Properties.SPECIATION_ENABLED || Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED;
+    }
+
+    private List<TestChromosome> deduplicateByRenderedCode(List<TestChromosome> ranked) {
+        if (ranked == null || ranked.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<TestChromosome> unique = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (TestChromosome chromosome : ranked) {
+            if (chromosome == null || chromosome.getTestCase() == null) {
+                continue;
+            }
+            String key = canonicalTestKey(chromosome.getTestCase());
+            if (seen.add(key)) {
+                unique.add(chromosome);
+            }
+        }
+        return unique;
+    }
+
+    private List<TestChromosome> diversifyAcrossSpecies(List<TestChromosome> ranked, int maxCount) {
+        if (ranked == null || ranked.isEmpty() || maxCount <= 0) {
+            return Collections.emptyList();
+        }
+        if (ranked.size() <= maxCount) {
+            return ranked;
+        }
+        Map<Integer, List<TestChromosome>> speciesMap =
+                new DefaultSpeciesAssigner().groupBySpecies(ranked);
+        if (speciesMap.size() <= 1) {
+            return new ArrayList<>(ranked.subList(0, maxCount));
+        }
+        List<TestChromosome> diversified = new ArrayList<>(maxCount);
+        Map<Integer, Integer> nextIndexBySpecies = new LinkedHashMap<>();
+        for (Integer species : speciesMap.keySet()) {
+            nextIndexBySpecies.put(species, 0);
+        }
+        while (diversified.size() < maxCount) {
+            boolean addedThisRound = false;
+            for (Map.Entry<Integer, List<TestChromosome>> entry : speciesMap.entrySet()) {
+                Integer species = entry.getKey();
+                List<TestChromosome> members = entry.getValue();
+                int next = nextIndexBySpecies.get(species);
+                if (next >= members.size()) {
+                    continue;
+                }
+                diversified.add(members.get(next));
+                nextIndexBySpecies.put(species, next + 1);
+                addedThisRound = true;
+                if (diversified.size() >= maxCount) {
+                    break;
+                }
+            }
+            if (!addedThisRound) {
+                break;
+            }
+        }
+        if (diversified.size() < maxCount) {
+            Set<TestChromosome> included = new HashSet<>(diversified);
+            for (TestChromosome chromosome : ranked) {
+                if (included.add(chromosome)) {
+                    diversified.add(chromosome);
+                    if (diversified.size() >= maxCount) {
+                        break;
+                    }
+                }
+            }
+        }
+        return diversified;
+    }
+
+    private String canonicalTestKey(TestCase testCase) {
+        try {
+            return testCase.toCode().replaceAll("\\s+", " ").trim();
+        } catch (RuntimeException e) {
+            return "id_" + System.identityHashCode(testCase);
+        }
     }
 
     private PromptResult buildTestAnchoredPrompt(Collection<TestFitnessFunction> uncoveredGoals,

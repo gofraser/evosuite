@@ -2064,11 +2064,13 @@ public class Properties {
     @Parameter(key = "llm_stagnation_budget_guard_seconds", group = "LLM",
             description = "Skip new stagnation LLM submissions when the remaining "
                     + "search budget (seconds) is below this threshold. Use 0 to "
-                    + "disable the guard. When -1 (default), the helper resolves "
-                    + "the guard to llm_timeout_seconds × (1 + llm_repair_attempts) "
-                    + "— the worst-case wall-clock cost of a single SYNC stagnation "
-                    + "call (initial query plus up to llm_repair_attempts repair "
-                    + "turns). Set explicitly to bound differently.")
+                    + "disable the guard entirely. When -1 (default), the helper "
+                    + "uses a small minimum (~5s): just enough time for any LLM "
+                    + "response to plausibly arrive. SYNC mode additionally caps "
+                    + "the per-call wait at min(llm_timeout_seconds, remaining "
+                    + "budget) so a late-firing call cannot block past the search "
+                    + "deadline. Set explicitly to require a larger remaining "
+                    + "budget before stagnation fires.")
     @IntValue(min = -1)
     public static int LLM_STAGNATION_BUDGET_GUARD_SECONDS = -1;
 
@@ -2100,7 +2102,7 @@ public class Properties {
                     + "prompt on a single near-covering seed test and its top-K "
                     + "closest uncovered goals (subsumes the former LLM local-search "
                     + "prompt shape).")
-    public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.POOL;
+    public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.TEST_ANCHORED;
 
     @Parameter(key = "llm_stagnation_anchor_related_goals_max", group = "LLM",
             description = "Maximum number of related goals included in test-anchored "
@@ -2311,6 +2313,23 @@ public class Properties {
     @Parameter(key = "species_largest_share_timeline_enabled", group = "Speciation",
             description = "If true, emit per-generation largest species share as a timeline runtime variable")
     public static boolean SPECIES_LARGEST_SHARE_TIMELINE_ENABLED = false;
+
+    @Parameter(key = "species_stable_ids", group = "Speciation",
+            description = "If true, use leader-carry-over assignment so species IDs persist across generations. "
+                    + "Required for the population species timeline; otherwise IDs are reallocated per generation.")
+    public static boolean SPECIES_STABLE_IDS = false;
+
+    @Parameter(key = "species_dormant_generations", group = "Speciation",
+            description = "When SPECIES_STABLE_IDS is enabled, a species ID whose membership drops to zero is "
+                    + "retained for this many generations so a re-emerging cluster keeps the same ID. "
+                    + "Set to 0 to retire IDs immediately on emptying.")
+    @IntValue(min = 0)
+    public static int SPECIES_DORMANT_GENERATIONS = 5;
+
+    @Parameter(key = "species_population_timeline_enabled", group = "Speciation",
+            description = "If true, write per-generation, per-individual species and rank assignments to "
+                    + "population_species_timeline_<TARGET_CLASS>.csv under REPORT_DIR. Implies SPECIES_STABLE_IDS.")
+    public static boolean SPECIES_POPULATION_TIMELINE_ENABLED = false;
 
     @Parameter(key = "speciation_hybrid_phenotypic_weight", group = "Speciation",
             description = "Weight for phenotypic component in HYBRID speciation metric (0.0-1.0)")

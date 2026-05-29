@@ -450,24 +450,57 @@ public class TestRepairLoop {
         for (int attempt = 0; attempt <= maxAttempts; attempt++) {
             attemptsUsed = attempt + 1;
             List<ParseResult> parseResults;
-            String extractedClass;
+            String extractedClassForDiagnostics;
             try {
                 String sutPackage = getSutPackage();
-                LlmResponseParser.ExtractionResult extraction = responseParser.extractTestClassWithMetadata(
-                        currentResponse, "GeneratedLlmTest", sutPackage);
-                extractedClass = extraction.getSource();
-                if (extraction.isRecoveryApplied()) {
-                    diagnostics.add("Applied truncation recovery: " + extraction.getRecoveryReason());
-                    validateRecoveredSource(extractedClass);
+                List<LlmResponseParser.ExtractionResult> extractions =
+                        responseParser.extractAllTestClassesWithMetadata(
+                                currentResponse, "GeneratedLlmTest", sutPackage);
+                parseResults = new ArrayList<>();
+                List<String> extractedSources = new ArrayList<>();
+                List<String> parserFailures = new ArrayList<>();
+                int blockIndex = 0;
+                for (LlmResponseParser.ExtractionResult extraction : extractions) {
+                    blockIndex++;
+                    String extractedClass = extraction.getSource();
+                    if (extraction.isRecoveryApplied()) {
+                        diagnostics.add("Applied truncation recovery (block #" + blockIndex + "): "
+                                + extraction.getRecoveryReason());
+                        validateRecoveredSource(extractedClass);
+                    }
+                    ReflectiveAssertThrowsRewriteResult rewriteResult =
+                            rewriteReflectiveAssertThrowsAssertions(extractedClass);
+                    extractedClass = rewriteResult.source;
+                    if (rewriteResult.rewrites > 0) {
+                        diagnostics.add("Normalized " + rewriteResult.rewrites
+                                + " reflective assertThrows invocation(s) to unwrap "
+                                + "InvocationTargetException (block #" + blockIndex + ")");
+                    }
+                    extractedSources.add(extractedClass);
+                    try {
+                        List<ParseResult> parsedBlock = testParser.parseTestClass(extractedClass);
+                        if (parsedBlock != null && !parsedBlock.isEmpty()) {
+                            parseResults.addAll(parsedBlock);
+                        }
+                    } catch (Throwable blockParserFailure) {
+                        parserFailures.add("Parser failure in code block #" + blockIndex + ": "
+                                + formatThrowable(blockParserFailure));
+                    }
                 }
-                ReflectiveAssertThrowsRewriteResult rewriteResult =
-                        rewriteReflectiveAssertThrowsAssertions(extractedClass);
-                extractedClass = rewriteResult.source;
-                if (rewriteResult.rewrites > 0) {
-                    diagnostics.add("Normalized " + rewriteResult.rewrites
-                            + " reflective assertThrows invocation(s) to unwrap InvocationTargetException");
+                extractedClassForDiagnostics = joinExtractedSources(extractedSources);
+                if (parseResults.isEmpty() && !parserFailures.isEmpty()) {
+                    String parserFailureText = String.join("\n", parserFailures);
+                    diagnostics.add(parserFailureText);
+                    String next = tryRepair(parserFailureText, attempt, previousError, diagnostics,
+                            conversation, currentResponse, feature, expandedClasses,
+                            Collections.<ParseResult, ExecutionFailureContext>emptyMap());
+                    if (next == null) {
+                        break;
+                    }
+                    previousError = parserFailureText;
+                    currentResponse = next;
+                    continue;
                 }
-                parseResults = testParser.parseTestClass(extractedClass);
             } catch (Throwable parserFailure) {
                 String parserFailureText = "Parser failure: " + formatThrowable(parserFailure);
                 diagnostics.add(parserFailureText);
@@ -483,7 +516,7 @@ public class TestRepairLoop {
             }
 
             if (parseResults == null || parseResults.isEmpty()) {
-                String parseErrorText = buildNoTestMethodsParseError(extractedClass);
+                String parseErrorText = buildNoTestMethodsParseError(extractedClassForDiagnostics);
                 diagnostics.add(parseErrorText);
                 String next = tryRepair(parseErrorText, attempt, previousError, diagnostics,
                         conversation, currentResponse, feature, expandedClasses,
@@ -668,14 +701,61 @@ public class TestRepairLoop {
                     "LLM-parsed test '" + parseResult.getOriginalMethodName() + "'")) {
                 continue;
             }
-            String method = parseResult.getOriginalMethodName();
-            String key = (method == null || method.trim().isEmpty())
-                    ? "unknown_" + System.identityHashCode(parseResult)
-                    : method.trim();
+            String key = buildSalvageDedupKey(parseResult);
             if (!salvaged.containsKey(key)) {
                 salvaged.put(key, parseResult);
             }
         }
+    }
+
+    private String buildSalvageDedupKey(ParseResult parseResult) {
+        String method = parseResult.getOriginalMethodName();
+        String methodPart = (method == null || method.trim().isEmpty())
+                ? "unknown"
+                : method.trim();
+        String codeFingerprint = fingerprintTestCode(parseResult.getTestCase());
+        return methodPart + "|" + codeFingerprint;
+    }
+
+    private String fingerprintTestCode(TestCase testCase) {
+        if (testCase == null) {
+            return "null";
+        }
+        try {
+            String normalized = normalizeForDedup(testCase.toCode());
+            if (!normalized.isEmpty()) {
+                return Integer.toHexString(normalized.hashCode());
+            }
+        } catch (Throwable ignored) {
+            // Fall through to identity-based key if rendering fails.
+        }
+        return "id_" + System.identityHashCode(testCase);
+    }
+
+    private String normalizeForDedup(String source) {
+        if (source == null || source.isEmpty()) {
+            return "";
+        }
+        return source.replaceAll("\\s+", " ").trim();
+    }
+
+    private String joinExtractedSources(List<String> extractedSources) {
+        if (extractedSources == null || extractedSources.isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < extractedSources.size(); i++) {
+            if (i > 0) {
+                sb.append(System.lineSeparator())
+                        .append(System.lineSeparator())
+                        .append("// --- extracted code block #")
+                        .append(i + 1)
+                        .append(" ---")
+                        .append(System.lineSeparator());
+            }
+            sb.append(extractedSources.get(i));
+        }
+        return sb.toString();
     }
 
     /**

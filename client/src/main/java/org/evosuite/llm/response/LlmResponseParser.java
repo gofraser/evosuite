@@ -22,6 +22,7 @@ package org.evosuite.llm.response;
 import org.evosuite.Properties;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -158,23 +159,43 @@ public class LlmResponseParser {
      * Extracts or synthesises a complete Java class and returns recovery metadata.
      */
     public ExtractionResult extractTestClassWithMetadata(String response, String className, String packageName) {
+        List<ExtractionResult> extractions =
+                extractAllTestClassesWithMetadata(response, className, packageName);
+        if (extractions.isEmpty()) {
+            return maybeRecover(emptyFallbackClass(className, packageName));
+        }
+        return extractions.get(0);
+    }
+
+    /**
+     * Extracts or synthesises complete Java classes from all detected code blocks
+     * and returns recovery metadata for each block.
+     */
+    public List<ExtractionResult> extractAllTestClassesWithMetadata(String response,
+                                                                    String className,
+                                                                    String packageName) {
         List<String> blocks = extractCodeBlocks(response);
-        String code = blocks.isEmpty() ? "" : blocks.get(0);
+        if (blocks.isEmpty()) {
+            return Collections.singletonList(
+                    maybeRecover(emptyFallbackClass(className, packageName)));
+        }
+        List<ExtractionResult> results = new ArrayList<>();
+        for (String block : blocks) {
+            results.add(extractFromCodeBlockWithMetadata(block, className, packageName));
+        }
+        return results;
+    }
+
+    private ExtractionResult extractFromCodeBlockWithMetadata(String code,
+                                                              String className,
+                                                              String packageName) {
         code = sanitizeAliasImports(code);
-        String extractedSource;
         if (code.isEmpty()) {
-            extractedSource = packageDeclaration(packageName)
-                    + "public class " + className + " {\n"
-                    + "    " + getTestAnnotation() + "\n"
-                    + "    public void generatedTest() {\n"
-                    + "    }\n"
-                    + "}";
-            return maybeRecover(extractedSource);
+            return maybeRecover(emptyFallbackClass(className, packageName));
         }
 
         if (code.contains("class ")) {
-            extractedSource = ensurePackageDeclaration(code, packageName);
-            return maybeRecover(extractedSource);
+            return maybeRecover(ensurePackageDeclaration(code, packageName));
         }
 
         StringBuilder imports = new StringBuilder();
@@ -193,12 +214,21 @@ public class LlmResponseParser {
             bodyCode = getTestAnnotation() + "\npublic void generatedTest() {\n" + bodyCode + "\n}";
         }
 
-        extractedSource = packageDeclaration(packageName)
+        String extractedSource = packageDeclaration(packageName)
                 + imports.toString()
                 + "public class " + className + " {\n"
                 + indent(bodyCode)
                 + "\n}";
         return maybeRecover(extractedSource);
+    }
+
+    private String emptyFallbackClass(String className, String packageName) {
+        return packageDeclaration(packageName)
+                + "public class " + className + " {\n"
+                + "    " + getTestAnnotation() + "\n"
+                + "    public void generatedTest() {\n"
+                + "    }\n"
+                + "}";
     }
 
     /**

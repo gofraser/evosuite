@@ -34,13 +34,16 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
@@ -66,18 +69,17 @@ public final class StagnationLlmHelper {
     private final int budgetGuardSeconds;
 
     /**
-     * Capacity rationale: at most one LLM call is in flight (de-duped by
-     * {@link #inFlight}). Each call publishes at most {@code testsPerRequest}
-     * tests, and the drain runs every generation in
-     * {@code collectExternalCandidates}. Worst case the queue therefore holds
-     * one batch of tests between publish and drain. Cap at
-     * {@code max(testsPerRequest, MIN_QUEUE_CAPACITY)} so a transient drain
-     * skip doesn't immediately drop tests, and log on overflow so a real
-     * drain stall is observable.
+     * Default budget guard when {@link Properties#LLM_STAGNATION_BUDGET_GUARD_SECONDS}
+     * is left at -1. A small floor — enough for any LLM response to plausibly
+     * arrive — rather than the full per-call timeout, so stagnation can still
+     * fire late in the run. SYNC mode separately truncates its per-call wait
+     * to the remaining budget, so blocking past the search deadline is
+     * bounded regardless of this floor.
      */
-    private static final int MIN_QUEUE_CAPACITY = 16;
+    private static final int DEFAULT_BUDGET_GUARD_SECONDS = 5;
+
     private final BlockingQueue<TestChromosome> resultQueue;
-    private final ExecutorService worker;                  // null in SYNC mode
+    private final ExecutorService worker;
     private final AtomicReference<Future<?>> inFlight = new AtomicReference<>();
     private volatile boolean shutdown = false;
 
@@ -108,21 +110,23 @@ public final class StagnationLlmHelper {
         this.remainingBudgetSecondsSupplier = remainingBudgetSecondsSupplier == null
                 ? () -> -1L : remainingBudgetSecondsSupplier;
         this.budgetGuardSeconds = Math.max(0, budgetGuardSeconds);
-        int capacity = Math.max(MIN_QUEUE_CAPACITY, detector.getTestsPerRequest());
-        this.resultQueue = new ArrayBlockingQueue<>(capacity);
-        if (this.mode == LlmStagnationMode.ASYNC) {
-            this.worker = Executors.newSingleThreadExecutor(r -> {
-                Thread t = new Thread(r, "llm-stagnation-async");
-                t.setDaemon(true);
-                // Register with the sandbox so test execution from the worker
-                // doesn't get sandboxed and corrupt MSecurityManager state.
-                // See AsyncLlmTestProducer for the original justification.
-                LlmPrivilegedThreads.registerAsPrivileged(t, "llm-stagnation-async");
-                return t;
-            });
-        } else {
-            this.worker = null;
-        }
+        // Stagnation accepts all parsed tests from the LLM response, including
+        // over-production beyond the requested count.
+        this.resultQueue = new LinkedBlockingQueue<>();
+        // A single-thread daemon executor is allocated for both modes. ASYNC
+        // submits and returns immediately; SYNC submits and waits with a
+        // truncated timeout so the call can be interrupted via Future.cancel
+        // if it would otherwise outlast the search budget.
+        String threadName = "llm-stagnation-" + this.mode.name().toLowerCase();
+        this.worker = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, threadName);
+            t.setDaemon(true);
+            // Register with the sandbox so test execution from the worker
+            // doesn't get sandboxed and corrupt MSecurityManager state.
+            // See AsyncLlmTestProducer for the original justification.
+            LlmPrivilegedThreads.registerAsPrivileged(t, threadName);
+            return t;
+        });
     }
 
     private static int resolveBudgetGuardSeconds() {
@@ -130,15 +134,11 @@ public final class StagnationLlmHelper {
         if (configured >= 0) {
             return configured;
         }
-        // Default guard = per-call timeout × (1 + repair attempts), the
-        // worst-case wall-clock cost of a single stagnation call in SYNC mode
-        // (one initial query plus up to LLM_REPAIR_ATTEMPTS repair turns).
-        // Using just LLM_TIMEOUT_SECONDS would let calls overrun the remaining
-        // search budget by up to LLM_REPAIR_ATTEMPTS × LLM_TIMEOUT_SECONDS.
-        int timeout = Math.max(0, Properties.LLM_TIMEOUT_SECONDS);
-        int repairAttempts = Math.max(0, Properties.LLM_REPAIR_ATTEMPTS);
-        long worstCase = (long) timeout * (1L + repairAttempts);
-        return (int) Math.min(worstCase, Integer.MAX_VALUE);
+        // Small floor: just enough for any response to plausibly arrive.
+        // The per-call wait in runSync caps the actual blocking time at
+        // min(timeout, remaining), so we no longer need a guard equal to
+        // the full LLM timeout. ASYNC drops late results via shutdown().
+        return DEFAULT_BUDGET_GUARD_SECONDS;
     }
 
     public LlmStagnationMode getMode() {
@@ -148,7 +148,7 @@ public final class StagnationLlmHelper {
     /**
      * Inspects stagnation state and, if triggered, runs the LLM call now (SYNC)
      * or submits it to the background worker (ASYNC). Non-blocking in ASYNC,
-     * blocking-for-up-to-{@code llm_timeout_seconds × (1 + repairAttempts)}
+     * blocking-for-up-to-{@code llm_timeout_seconds × (1 + repairAttempts)} (worst case, full repair chain)
      * in SYNC. The {@code populationSnapshot} should be a defensive copy: it
      * is read from the worker thread in ASYNC mode.
      */
@@ -233,33 +233,29 @@ public final class StagnationLlmHelper {
      * still {@link #drain()} those results. Use
      * {@link #awaitTermination(long, java.util.concurrent.TimeUnit)} to wait
      * for the in-flight call to finish, then {@link #shutdown()} to release
-     * the worker. SYNC mode has no in-flight state, so this is just a
-     * "no more submissions" flag.
+     * the worker. In SYNC mode there is nothing in flight by the time the
+     * caller can invoke this (runSync is synchronous), so it just sets the
+     * "no more submissions" flag and quiesces the worker.
      */
     public void stopAcceptingSubmissions() {
         shutdown = true;
-        if (worker != null) {
-            // shutdown() (not shutdownNow()) — keeps the in-flight task running.
-            worker.shutdown();
-        }
+        // shutdown() (not shutdownNow()) — keeps any in-flight task running.
+        worker.shutdown();
     }
 
     /**
-     * Waits up to {@code timeout} for the ASYNC worker to finish any in-flight
-     * call after {@link #stopAcceptingSubmissions()}. Returns {@code true} if
-     * the worker terminated within the timeout (or is SYNC-only, i.e. nothing
-     * to wait for); {@code false} if the timeout elapsed first.
+     * Waits up to {@code timeout} for the worker to finish any in-flight call
+     * after {@link #stopAcceptingSubmissions()}. Returns {@code true} if the
+     * worker terminated within the timeout; {@code false} if the timeout
+     * elapsed first.
      */
     public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
-        if (worker == null) {
-            return true;
-        }
         return worker.awaitTermination(timeout, unit);
     }
 
     /**
-     * Hard-stop: cancels any in-flight async call and forcibly stops the
-     * worker. Safe to call multiple times, and safe to call after
+     * Hard-stop: cancels any in-flight call and forcibly stops the worker.
+     * Safe to call multiple times, and safe to call after
      * {@link #stopAcceptingSubmissions()} (in which case it is mostly a
      * cleanup no-op).
      */
@@ -269,24 +265,67 @@ public final class StagnationLlmHelper {
         if (current != null) {
             current.cancel(true);
         }
-        if (worker != null) {
-            worker.shutdownNow();
-            try {
-                worker.awaitTermination(500, TimeUnit.MILLISECONDS);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+        worker.shutdownNow();
+        try {
+            worker.awaitTermination(500, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 
     private void runSync(PromptResult prompt, int coveredCount, int uncoveredSize) {
         long t0 = System.nanoTime();
-        List<TestChromosome> tests = detector.executeWithPrompt(prompt);
+        long waitSeconds = computeSyncWaitSeconds();
+        Future<List<TestChromosome>> future;
+        try {
+            future = worker.submit(() -> detector.executeWithPrompt(prompt));
+        } catch (RejectedExecutionException e) {
+            // Worker shut down between our shutdown-flag check and submit.
+            logger.debug("Sync stagnation submission rejected (shutting down): {}",
+                    e.getMessage());
+            return;
+        }
+        inFlight.set(future);
+        List<TestChromosome> tests;
+        try {
+            tests = future.get(waitSeconds, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+            traceOutcome("timeout:sync", coveredCount, uncoveredSize, elapsedMs, 0);
+            return;
+        } catch (CancellationException e) {
+            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+            traceOutcome("cancelled:sync", coveredCount, uncoveredSize, elapsedMs, 0);
+            return;
+        } catch (InterruptedException e) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+            traceOutcome("interrupted:sync", coveredCount, uncoveredSize, elapsedMs, 0);
+            return;
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            logger.debug("Sync stagnation call failed: {}",
+                    cause == null ? e.toString() : cause.toString());
+            long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+            traceOutcome("error:sync", coveredCount, uncoveredSize, elapsedMs, 0);
+            return;
+        }
         long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
         recordCallCompleted(elapsedMs, elapsedMs);
         int produced = tests == null ? 0 : tests.size();
         traceOutcome("completed:sync", coveredCount, uncoveredSize, elapsedMs, produced);
         publishTests(tests);
+    }
+
+    private long computeSyncWaitSeconds() {
+        long timeout = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS);
+        long remaining = remainingBudgetSecondsSupplier.getAsLong();
+        if (remaining < 0) {
+            return timeout;
+        }
+        return Math.max(1L, Math.min(timeout, remaining));
     }
 
     private void runAsync(PromptResult prompt) {
@@ -338,15 +377,8 @@ public final class StagnationLlmHelper {
         if (tests == null || tests.isEmpty()) {
             return;
         }
-        int dropped = 0;
         for (TestChromosome tc : tests) {
-            if (!resultQueue.offer(tc)) {
-                dropped++;
-            }
-        }
-        if (dropped > 0) {
-            logger.debug("Stagnation result queue full (capacity {}); dropped {} test(s) — "
-                    + "drain side stalled?", resultQueue.remainingCapacity() + resultQueue.size(), dropped);
+            resultQueue.offer(tc);
         }
     }
 

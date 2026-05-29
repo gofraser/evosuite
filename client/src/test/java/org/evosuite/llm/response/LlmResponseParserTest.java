@@ -56,6 +56,24 @@ class LlmResponseParserTest {
     }
 
     @Test
+    void extractsAllDetectedCodeBlocksAsClasses() {
+        String response = "```java\n"
+                + "@org.junit.Test public void first(){ int a = 1; }\n"
+                + "```\n"
+                + "Some prose in between\n"
+                + "```java\n"
+                + "@org.junit.Test public void second(){ int b = 2; }\n"
+                + "```";
+
+        List<LlmResponseParser.ExtractionResult> results =
+                parser.extractAllTestClassesWithMetadata(response, "GeneratedLlmTest", null);
+
+        assertEquals(2, results.size());
+        assertTrue(results.get(0).getSource().contains("public void first()"));
+        assertTrue(results.get(1).getSource().contains("public void second()"));
+    }
+
+    @Test
     void emptyFallbackUsesJUnit4ByDefault() {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
         String code = parser.extractTestClass("", "MyGeneratedTest");

@@ -47,6 +47,25 @@ class StagnationDetectorIntegrationTest {
                     "  }\n" +
                     "}\n" +
                     "```";
+    private static final String MULTI_BLOCK_RESPONSE =
+            "```java\n" +
+                    "import org.junit.Test;\n" +
+                    "public class GeneratedLlmTest {\n" +
+                    "  @Test\n" +
+                    "  public void firstGeneratedTest() {\n" +
+                    "    int x = 1;\n" +
+                    "  }\n" +
+                    "}\n" +
+                    "```\n" +
+                    "```java\n" +
+                    "import org.junit.Test;\n" +
+                    "public class GeneratedLlmTest {\n" +
+                    "  @Test\n" +
+                    "  public void secondGeneratedTest() {\n" +
+                    "    int y = 2;\n" +
+                    "  }\n" +
+                    "}\n" +
+                    "```";
 
     @Test
     void triggersAndRequestsHelpAfterStagnation() {
@@ -69,6 +88,29 @@ class StagnationDetectorIntegrationTest {
                     Collections.singleton(goal),
                     Collections.singletonList(new TestChromosome()));
             assertFalse(help.isEmpty(), "stagnation detector should inject at least one chromosome");
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void returnsAllParsedTestsEvenWhenLlmOverProduces() {
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, MULTI_BLOCK_RESPONSE);
+        LlmService service = createService(model, 2);
+
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("uncovered-goal");
+
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        try {
+            List<TestChromosome> help = detector.requestHelp(
+                    Collections.singleton(goal),
+                    Collections.singletonList(new TestChromosome()));
+
+            assertEquals(2, help.size(),
+                    "stagnation detector should keep all tests parsed from all code blocks");
         } finally {
             service.close();
         }
