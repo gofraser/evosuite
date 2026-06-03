@@ -21,6 +21,7 @@ package org.evosuite.llm.seeding;
 
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.setup.TestCluster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.LongSupplier;
 
 /**
  * Orchestrates async constant pool, object pool, and cast class enrichment.
@@ -45,7 +47,13 @@ public class LlmPoolEnrichmentOrchestrator {
     private final LlmConstantPoolEnricher constantPoolEnricher;
     private final LlmObjectPoolEnricher objectPoolEnricher;
     private final LlmCastClassEnricher castClassEnricher;
-    private final int timeoutSeconds;
+    /**
+     * Wall-clock seconds the orchestrator may block on any one
+     * repair-capable enricher. Derived from {@link LlmWaitBudget} when the
+     * orchestrator is built from properties; an explicit value can be passed
+     * to the constructor for tests.
+     */
+    private final int maxWaitSeconds;
 
     private CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> constantFuture;
     private CompletableFuture<LlmObjectPoolEnricher.EnrichmentResult> objectFuture;
@@ -56,26 +64,36 @@ public class LlmPoolEnrichmentOrchestrator {
     private final AtomicBoolean objectResultTracked = new AtomicBoolean(false);
     private final AtomicBoolean castResultTracked = new AtomicBoolean(false);
 
-    /** Constructs an orchestrator with explicit enricher instances and timeout setting. */
+    /**
+     * Constructs an orchestrator with explicit enricher instances and a
+     * fixed orchestrator-level wait cap. Primarily used by tests that need
+     * deterministic wait values; production code paths should use
+     * {@link #fromProperties(LlmService)} so the cap is derived consistently
+     * via {@link LlmWaitBudget}.
+     */
     public LlmPoolEnrichmentOrchestrator(LlmConstantPoolEnricher constantPoolEnricher,
                                          LlmObjectPoolEnricher objectPoolEnricher,
                                          LlmCastClassEnricher castClassEnricher,
-                                         int timeoutSeconds) {
+                                         int maxWaitSeconds) {
         this.constantPoolEnricher = constantPoolEnricher;
         this.objectPoolEnricher = objectPoolEnricher;
         this.castClassEnricher = castClassEnricher;
-        this.timeoutSeconds = Math.max(1, timeoutSeconds);
+        this.maxWaitSeconds = Math.max(1, maxWaitSeconds);
     }
 
     /**
-     * Creates an orchestrator from Properties-based configuration.
+     * Creates an orchestrator from Properties-based configuration. The
+     * structural-gate wait inside {@link #finishStructuralEnrichment()} is
+     * derived from {@link LlmWaitBudget} so it accounts for the repair loop
+     * inside the cast/constant/object enrichers.
      */
     public static LlmPoolEnrichmentOrchestrator fromProperties(LlmService llmService) {
         LlmConstantPoolEnricher constantEnricher = new LlmConstantPoolEnricher(llmService);
         LlmObjectPoolEnricher objectEnricher = new LlmObjectPoolEnricher(llmService);
         LlmCastClassEnricher castEnricher = new LlmCastClassEnricher(llmService);
+        int derivedCap = (int) Math.min(Integer.MAX_VALUE, LlmWaitBudget.repairAwareWaitSeconds());
         return new LlmPoolEnrichmentOrchestrator(
-                constantEnricher, objectEnricher, castEnricher, Properties.LLM_TIMEOUT_SECONDS);
+                constantEnricher, objectEnricher, castEnricher, derivedCap);
     }
 
     /**
@@ -88,8 +106,8 @@ public class LlmPoolEnrichmentOrchestrator {
         boolean enrichObjects = Properties.LLM_ENRICH_OBJECT_POOL;
         boolean enrichCastClasses = Properties.LLM_ENRICH_CAST_CLASSES;
 
-        logger.info("LLM pool enrichment starting (constants={}, objects={}, castClasses={}, timeout={}s)",
-                enrichConstants, enrichObjects, enrichCastClasses, timeoutSeconds);
+        logger.info("LLM pool enrichment starting (constants={}, objects={}, castClasses={}, maxWait={}s)",
+                enrichConstants, enrichObjects, enrichCastClasses, maxWaitSeconds);
 
         constantFuture = enrichConstants ? constantPoolEnricher.enrichAsync(className, cluster)
                 : CompletableFuture.completedFuture(null);
@@ -136,10 +154,10 @@ public class LlmPoolEnrichmentOrchestrator {
             // Block for cast classes (Structural Gate). The result is also
             // delivered to the whenComplete callback registered in startEnrichment,
             // so we don't log here — the callback's compareAndSet wins exactly once.
-            castFuture.get(timeoutSeconds, TimeUnit.SECONDS);
+            castFuture.get(maxWaitSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             logger.warn("LLM cast class enrichment timed out after {}s, cancelling and opening structural gate",
-                    timeoutSeconds);
+                    maxWaitSeconds);
             // Cooperative cancel — sets the enricher's cancelled flag so it won't
             // mutate CastClassManager even if the underlying thread is still running.
             castClassEnricher.cancel();
@@ -177,16 +195,53 @@ public class LlmPoolEnrichmentOrchestrator {
     }
 
     /**
-     * Blocks until all enrichment futures (structural + data) complete or timeout.
-     * Use this when the caller needs all enrichment to finish before proceeding.
+     * Blocks until all enrichment futures (structural + data) complete or
+     * the shared deadline elapses. All three futures share a single wall-clock
+     * deadline (Policy (b)) — a slow first enricher no longer starves the
+     * other two. Any future that has not completed by the deadline is
+     * cancelled cooperatively.
      *
      * @param maxWaitSeconds maximum seconds to wait for all futures combined
      */
     public void awaitAll(int maxWaitSeconds) {
-        long deadline = System.currentTimeMillis() + maxWaitSeconds * 1000L;
-        awaitFuture(castFuture, deadline, castClassEnricher);
-        awaitFuture(constantFuture, deadline, constantPoolEnricher);
-        awaitFuture(objectFuture, deadline, objectPoolEnricher);
+        awaitAll(() -> maxWaitSeconds * 1000L);
+    }
+
+    /**
+     * Like {@link #awaitAll(int)}, but the maximum wait is derived from
+     * {@link LlmWaitBudget} and clamped to the remaining-budget value
+     * returned by {@code remainingBudgetMillisSupplier}. Use this in
+     * production call sites that have a search-budget deadline; pass a
+     * supplier returning a negative value to opt out of clamping.
+     */
+    public void awaitAll(LongSupplier remainingBudgetMillisSupplier) {
+        long maxWaitMs = LlmWaitBudget.repairAwareWaitMillis(remainingBudgetMillisSupplier);
+        long derivedMs = LlmWaitBudget.repairAwareWaitMillis();
+        long remainingMs = remainingBudgetMillisSupplier == null
+                ? -1L : remainingBudgetMillisSupplier.getAsLong();
+        logger.info("LLM pool enrichment awaitAll: effective={}ms (derived={}ms, remaining={}ms)",
+                maxWaitMs, derivedMs, remainingMs);
+        CompletableFuture<Void> all = CompletableFuture.allOf(
+                castFuture == null ? CompletableFuture.completedFuture(null) : castFuture,
+                constantFuture == null ? CompletableFuture.completedFuture(null) : constantFuture,
+                objectFuture == null ? CompletableFuture.completedFuture(null) : objectFuture);
+        try {
+            all.get(maxWaitMs, TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            logger.warn("LLM pool enrichment awaitAll: deadline reached after {}ms; cancelling outstanding enrichers",
+                    maxWaitMs);
+            cancelEnricher(castFuture, castClassEnricher);
+            cancelEnricher(constantFuture, constantPoolEnricher);
+            cancelEnricher(objectFuture, objectPoolEnricher);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            cancelEnricher(castFuture, castClassEnricher);
+            cancelEnricher(constantFuture, constantPoolEnricher);
+            cancelEnricher(objectFuture, objectPoolEnricher);
+        } catch (ExecutionException | CancellationException | CompletionException e) {
+            // Per-future outcomes are tracked via whenComplete callbacks
+            // registered in startEnrichment.
+        }
     }
 
     /**
@@ -212,25 +267,6 @@ public class LlmPoolEnrichmentOrchestrator {
         }
         if (future != null && !future.isDone()) {
             future.cancel(true);
-        }
-    }
-
-    private void awaitFuture(CompletableFuture<?> future, long deadline,
-                             AbstractLlmEnricher<?> enricher) {
-        if (future == null || future.isDone()) {
-            return;
-        }
-        long remaining = deadline - System.currentTimeMillis();
-        if (remaining <= 0) {
-            cancelEnricher(future, enricher);
-            return;
-        }
-        try {
-            future.get(remaining, TimeUnit.MILLISECONDS);
-        } catch (TimeoutException e) {
-            cancelEnricher(future, enricher);
-        } catch (Throwable e) {
-            logger.debug("Enrichment future failed during awaitAll: {}", e.getMessage());
         }
     }
 

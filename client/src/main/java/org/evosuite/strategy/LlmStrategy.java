@@ -27,6 +27,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
@@ -152,9 +153,8 @@ public class LlmStrategy extends TestGenerationStrategy {
     private TestSuiteChromosome runSinglePrompt(
             List<TestSuiteFitnessFunction> fitnessFunctions) {
         LlmSeededPopulationFactory seededFactory = createSeededFactory();
-        long llmTimeout = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS * 1000L);
-        long phaseRemaining = TimeController.getInstance().getRemainingTimeInPhaseMs();
-        long waitMillis = Math.min(llmTimeout, phaseRemaining);
+        long waitMillis = LlmWaitBudget.repairAwareWaitMillis(
+                () -> TimeController.getInstance().getRemainingTimeInPhaseMs());
         List<TestChromosome> llmSeeds = seededFactory.awaitAndDrainSeeds(waitMillis);
         LoggingUtils.getEvoLogger().info("* Received {} LLM seeds",
                 llmSeeds.size());

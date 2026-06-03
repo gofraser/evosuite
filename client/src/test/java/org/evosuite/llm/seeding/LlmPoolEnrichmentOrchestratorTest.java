@@ -357,6 +357,49 @@ class LlmPoolEnrichmentOrchestratorTest {
     }
 
     @Test
+    void awaitAll_sharesDeadlineAcrossFutures() {
+        Properties.LLM_ENRICH_CAST_CLASSES = true;
+        Properties.LLM_ENRICH_CONSTANT_POOL = true;
+        Properties.LLM_ENRICH_OBJECT_POOL = true;
+
+        // Cast enricher is slow and exhausts most of the deadline.
+        CompletableFuture<LlmCastClassEnricher.EnrichmentResult> slowCastFut = new CompletableFuture<>();
+        // Constant and object enrichers complete quickly after a short delay.
+        CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> constFut = new CompletableFuture<>();
+        CompletableFuture<LlmObjectPoolEnricher.EnrichmentResult> objFut = new CompletableFuture<>();
+
+        LlmCastClassEnricher castEnricher = mock(LlmCastClassEnricher.class);
+        when(castEnricher.enrichAsync(anyString(), any())).thenReturn(slowCastFut);
+        LlmConstantPoolEnricher constEnricher = mock(LlmConstantPoolEnricher.class);
+        when(constEnricher.enrichAsync(anyString(), any())).thenReturn(constFut);
+        LlmObjectPoolEnricher objEnricher = mock(LlmObjectPoolEnricher.class);
+        when(objEnricher.enrichAsync(anyString(), any())).thenReturn(objFut);
+
+        LlmPoolEnrichmentOrchestrator orchestrator =
+                new LlmPoolEnrichmentOrchestrator(constEnricher, objEnricher, castEnricher, 3);
+        orchestrator.startEnrichment("com.example.Foo", null);
+
+        // Complete constants and objects shortly after awaitAll begins. Cast stays
+        // outstanding to verify it does not gate the others' result delivery.
+        new Thread(() -> {
+            try { Thread.sleep(100); } catch (InterruptedException ignored) {}
+            constFut.complete(new LlmConstantPoolEnricher.EnrichmentResult(true, 1, 0, 1, null));
+            objFut.complete(new LlmObjectPoolEnricher.EnrichmentResult(true, 1, 1, 0, 0, 0, null));
+        }).start();
+
+        long start = System.currentTimeMillis();
+        orchestrator.awaitAll(3);
+        long elapsed = System.currentTimeMillis() - start;
+
+        // awaitAll waits for the shared deadline (or all-complete). Since the slow
+        // cast never completes, it blocks the full 3s and then cancels.
+        assertTrue(elapsed >= 2500, "awaitAll should wait for shared deadline, took " + elapsed + "ms");
+        assertTrue(constFut.isDone(), "constant should have completed");
+        assertTrue(objFut.isDone(), "object should have completed");
+        assertTrue(slowCastFut.isCancelled(), "slow cast should have been cancelled at the deadline");
+    }
+
+    @Test
     void awaitAll_cancelsOnTimeout() {
         Properties.LLM_ENRICH_CAST_CLASSES = false;
         Properties.LLM_ENRICH_CONSTANT_POOL = true;
