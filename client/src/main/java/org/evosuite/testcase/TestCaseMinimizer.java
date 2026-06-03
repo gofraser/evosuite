@@ -45,6 +45,14 @@ public class TestCaseMinimizer {
     private final TestFitnessFunction fitnessFunction;
 
     /**
+     * Per-call wall-clock deadline. Set at the top of {@link #minimize(TestChromosome)} so
+     * a single slow re-execution (e.g., triggered by OOM mitigation) can't dominate the
+     * phase budget. {@code Long.MAX_VALUE} means no local cap (only the phase deadline
+     * via {@link TimeController#isThereStillTimeInThisPhase()} applies).
+     */
+    private long perTestDeadlineMillis = Long.MAX_VALUE;
+
+    /**
      * Constructor.
      *
      * @param fitnessFunction Fitness function with which to measure whether a statement is
@@ -103,7 +111,10 @@ public class TestCaseMinimizer {
     }
 
     private boolean isTimeoutReached() {
-        return !TimeController.getInstance().isThereStillTimeInThisPhase();
+        if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            return true;
+        }
+        return System.currentTimeMillis() >= perTestDeadlineMillis;
     }
 
     /**
@@ -117,6 +128,11 @@ public class TestCaseMinimizer {
             return;
         }
         logger.info("Minimizing test case");
+
+        int perTestCapMs = Properties.MINIMIZATION_PER_TEST_TIMEOUT_MS;
+        perTestDeadlineMillis = perTestCapMs > 0
+                ? System.currentTimeMillis() + perTestCapMs
+                : Long.MAX_VALUE;
 
         // Re-execute the test to get a fresh fitness value.
         // The cached result may be null (archive entries whose results were

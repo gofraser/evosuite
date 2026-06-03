@@ -235,6 +235,37 @@ public class StatementFactory {
             java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     /**
+     * Listeners notified the first time a class is registered as allocation-sensitive
+     * at runtime. The GA subscribes to chop existing tests in its current best
+     * suite/archive — by the time we learn a class is dangerous, the search may have
+     * already produced thousands of statements using it, which then dominate
+     * minimization runtime if left in place.
+     */
+    private static final java.util.List<java.util.function.Consumer<String>>
+            allocationSensitiveListeners = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /**
+     * Subscribe to be notified when a new class is added to the dynamic
+     * allocation-sensitive set. The callback is invoked once per newly added class,
+     * on the thread that observed the OOM. Implementations should be cheap and
+     * non-throwing.
+     */
+    public static void addAllocationSensitiveListener(java.util.function.Consumer<String> listener) {
+        if (listener != null) {
+            allocationSensitiveListeners.add(listener);
+        }
+    }
+
+    /**
+     * Remove a previously registered listener. Safe to call multiple times.
+     */
+    public static void removeAllocationSensitiveListener(java.util.function.Consumer<String> listener) {
+        if (listener != null) {
+            allocationSensitiveListeners.remove(listener);
+        }
+    }
+
+    /**
      * Registers a class as allocation-sensitive at runtime, after observing an
      * OutOfMemoryError while executing code on that class. Future constructor and
      * method calls for this class will have their int parameters capped.
@@ -245,6 +276,14 @@ public class StatementFactory {
         if (className != null && dynamicAllocationSensitiveClasses.add(className)) {
             LoggerFactory.getLogger(StatementFactory.class)
                     .warn("Registered {} as allocation-sensitive after OOM during execution", className);
+            for (java.util.function.Consumer<String> listener : allocationSensitiveListeners) {
+                try {
+                    listener.accept(className);
+                } catch (Throwable t) {
+                    LoggerFactory.getLogger(StatementFactory.class)
+                            .warn("Allocation-sensitive listener failed (non-fatal): {}", t.toString());
+                }
+            }
         }
     }
 
@@ -328,6 +367,24 @@ public class StatementFactory {
             String name = c.getName();
             if (ALLOCATION_SENSITIVE_CLASSES.contains(name)
                     || dynamicAllocationSensitiveClasses.contains(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Returns true if the given class (or any superclass) has been registered as
+     * allocation-sensitive at runtime — i.e., a constructor or method on it previously
+     * caused an OutOfMemoryError. Used to apply tighter input-size caps that wouldn't
+     * make sense for the static list of Collection/Map etc.
+     */
+    public static boolean isDynamicallyAllocationSensitive(Class<?> clazz) {
+        if (clazz == null) {
+            return false;
+        }
+        for (Class<?> c = clazz; c != null; c = c.getSuperclass()) {
+            if (dynamicAllocationSensitiveClasses.contains(c.getName())) {
                 return true;
             }
         }

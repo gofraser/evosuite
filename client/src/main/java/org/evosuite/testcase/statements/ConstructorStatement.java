@@ -215,6 +215,7 @@ public class ConstructorStatement extends EntityWithParametersStatement {
                     rejectAbsurdIntInputs(inputs);
                     rejectLargeIntInputs(inputs);
                     rejectDynamicMethodThreshold(inputs);
+                    rejectLargeNonIntInputs(inputs);
 
                     // If the SUT is a GUI component, disable headless mode
                     // for the entire constructor execution.  This is necessary
@@ -419,6 +420,63 @@ public class ConstructorStatement extends EntityWithParametersStatement {
      * Rejects constructor calls whose int args exceed a dynamically learned threshold.
      * Uses the same mechanism as MethodStatement — the key is className.&lt;init&gt;.
      */
+    /**
+     * Rejects constructor calls whose non-int inputs (byte[], String, InputStream)
+     * exceed configured size caps when the declaring class has been dynamically
+     * registered as allocation-sensitive. This handles classes like
+     * {@code org.objectweb.asm.ClassReader} whose constructors take a byte[]/String/
+     * InputStream and where allocation is driven by the input size, not by an int
+     * arg — so {@link #rejectDynamicMethodThreshold} can't cap them.
+     */
+    private void rejectLargeNonIntInputs(Object[] inputs) throws CodeUnderTestException {
+        Class<?> declaring = constructor.getDeclaringClass();
+        if (!org.evosuite.testcase.StatementFactory.isDynamicallyAllocationSensitive(declaring)) {
+            return;
+        }
+        int byteLimit = Properties.ALLOCATION_SENSITIVE_BYTE_INPUT_LIMIT;
+        int stringLimit = Properties.ALLOCATION_SENSITIVE_STRING_INPUT_LIMIT;
+        String className = declaring.getName();
+        for (int i = 0; i < inputs.length; i++) {
+            Object arg = inputs[i];
+            if (arg == null) {
+                continue;
+            }
+            if (byteLimit > 0 && arg instanceof byte[]) {
+                int len = ((byte[]) arg).length;
+                if (len > byteLimit) {
+                    logger.info("Rejecting allocation-sensitive constructor {}: byte[] arg {} "
+                            + "length {} exceeds limit {}", className, i, len, byteLimit);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+            } else if (stringLimit > 0 && arg instanceof String) {
+                int len = ((String) arg).length();
+                if (len > stringLimit) {
+                    logger.info("Rejecting allocation-sensitive constructor {}: String arg {} "
+                            + "length {} exceeds limit {}", className, i, len, stringLimit);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+            } else if (byteLimit > 0 && arg instanceof java.io.InputStream) {
+                // Best-effort: only inspect streams that cheaply report their length.
+                // Skip the size check otherwise — reading the stream here would consume
+                // it and break the actual constructor call.
+                try {
+                    int available = ((java.io.InputStream) arg).available();
+                    if (available > byteLimit) {
+                        logger.info("Rejecting allocation-sensitive constructor {}: InputStream "
+                                + "arg {} available {} exceeds byte limit {}",
+                                className, i, available, byteLimit);
+                        throw new CodeUnderTestException(
+                                new TestCaseExecutor.TimeoutExceeded());
+                    }
+                } catch (java.io.IOException ignored) {
+                    // can't bound it — let the constructor try
+                }
+            }
+        }
+    }
+
     private void rejectDynamicMethodThreshold(Object[] inputs) throws CodeUnderTestException {
         String className = constructor.getDeclaringClass().getName();
         int threshold = org.evosuite.testcase.StatementFactory

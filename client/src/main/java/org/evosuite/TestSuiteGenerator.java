@@ -218,6 +218,7 @@ public class TestSuiteGenerator {
                 + Properties.TARGET_CLASS);
         sanitizeDebugInfoDependentCriteria();
         TestSuiteGeneratorHelper.printTestCriterion();
+        org.evosuite.testcase.AllocationSensitiveSuitePruner.install();
 
         if (Properties.CRITERION.length == 0) {
             return TestGenerationResultBuilder.buildErrorResult("No testable code found (no coverage goals)");
@@ -251,7 +252,10 @@ public class TestSuiteGenerator {
         if (llmOrchestrator != null) {
             long enrichmentStartNanos = System.nanoTime();
             if (Properties.LLM_FAIR_BUDGET_ACCOUNTING) {
-                llmOrchestrator.awaitAll(Properties.LLM_TIMEOUT_SECONDS);
+                // Pre-search call site: clamp the repair-aware wait by the
+                // configured search budget so a slow LLM cannot consume more
+                // wall-clock than the search would have run for.
+                llmOrchestrator.awaitAll(() -> Properties.SEARCH_BUDGET * 1000L);
             } else {
                 llmOrchestrator.finishStructuralEnrichment();
             }
@@ -283,14 +287,31 @@ public class TestSuiteGenerator {
 
         TestGenerationResult result = null;
         if (ClientProcess.DEFAULT_CLIENT_NAME.equals(ClientProcess.getIdentifier())) {
-            postProcessTests(testCases);
-            ClientServices.getInstance().getClientNode().publishPermissionStatistics();
-            PermissionStatistics.getInstance().printStatistics(LoggingUtils.getEvoLogger());
+            // Post-processing (minimization, assertion generation, JUnit check) can blow
+            // its time budget, OOM, or throw on pathological SUTs. Catch everything so the
+            // write step still runs — losing minimization/assertions is far better than
+            // producing no tests at all.
+            try {
+                postProcessTests(testCases);
+            } catch (Throwable t) {
+                logger.error("Post-processing failed; falling back to direct write of un-processed suite", t);
+                System.gc();
+            }
+            try {
+                ClientServices.getInstance().getClientNode().publishPermissionStatistics();
+                PermissionStatistics.getInstance().printStatistics(LoggingUtils.getEvoLogger());
+            } catch (Throwable t) {
+                logger.warn("Publishing permission statistics failed (non-fatal): {}", t.toString());
+            }
 
             // progressMonitor.setCurrentPhase("Writing JUnit test cases");
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing tests to file");
             result = writeJUnitTestsAndCreateResult(testCases);
-            writeJUnitFailingTests();
+            try {
+                writeJUnitFailingTests();
+            } catch (Throwable t) {
+                logger.warn("Writing failing tests failed (non-fatal): {}", t.toString());
+            }
         }
         TestCaseExecutor.pullDown();
         /*

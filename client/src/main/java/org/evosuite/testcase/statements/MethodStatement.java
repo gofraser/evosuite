@@ -414,6 +414,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     rejectAbsurdIntInputs(inputs);
                     rejectLargeAllocation(calleeObject, inputs);
                     rejectDynamicMethodThreshold(inputs);
+                    rejectLargeNonIntInputs(inputs);
 
                     Object ret = method.getMethod().invoke(calleeObject, inputs);
                     // Try exact return type
@@ -593,6 +594,62 @@ public class MethodStatement extends EntityWithParametersStatement {
      * The threshold is set after a previous OOM from the same method, starting at
      * half the smallest arg that caused OOM, and halving on each subsequent OOM.
      */
+    /**
+     * Rejects method calls whose non-int inputs (byte[], String, InputStream) exceed
+     * configured size caps when the declaring class has been dynamically registered
+     * as allocation-sensitive. Counterpart to ConstructorStatement.rejectLargeNonIntInputs
+     * for cases like {@code ClassReader.accept(...)} where the OOM is driven by data
+     * already loaded into the receiver, not by an int arg.
+     */
+    private void rejectLargeNonIntInputs(Object[] inputs) throws CodeUnderTestException {
+        Class<?> declaring = method.getMethod().getDeclaringClass();
+        if (!org.evosuite.testcase.StatementFactory.isDynamicallyAllocationSensitive(declaring)) {
+            return;
+        }
+        int byteLimit = Properties.ALLOCATION_SENSITIVE_BYTE_INPUT_LIMIT;
+        int stringLimit = Properties.ALLOCATION_SENSITIVE_STRING_INPUT_LIMIT;
+        String className = declaring.getName();
+        String methodName = method.getName();
+        for (int i = 0; i < inputs.length; i++) {
+            Object arg = inputs[i];
+            if (arg == null) {
+                continue;
+            }
+            if (byteLimit > 0 && arg instanceof byte[]) {
+                int len = ((byte[]) arg).length;
+                if (len > byteLimit) {
+                    logger.info("Rejecting allocation-sensitive {}.{}: byte[] arg {} "
+                            + "length {} exceeds limit {}",
+                            className, methodName, i, len, byteLimit);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+            } else if (stringLimit > 0 && arg instanceof String) {
+                int len = ((String) arg).length();
+                if (len > stringLimit) {
+                    logger.info("Rejecting allocation-sensitive {}.{}: String arg {} "
+                            + "length {} exceeds limit {}",
+                            className, methodName, i, len, stringLimit);
+                    throw new CodeUnderTestException(
+                            new TestCaseExecutor.TimeoutExceeded());
+                }
+            } else if (byteLimit > 0 && arg instanceof java.io.InputStream) {
+                try {
+                    int available = ((java.io.InputStream) arg).available();
+                    if (available > byteLimit) {
+                        logger.info("Rejecting allocation-sensitive {}.{}: InputStream "
+                                + "arg {} available {} exceeds byte limit {}",
+                                className, methodName, i, available, byteLimit);
+                        throw new CodeUnderTestException(
+                                new TestCaseExecutor.TimeoutExceeded());
+                    }
+                } catch (java.io.IOException ignored) {
+                    // can't bound it — let the method try
+                }
+            }
+        }
+    }
+
     private void rejectDynamicMethodThreshold(Object[] inputs) throws CodeUnderTestException {
         String className = method.getMethod().getDeclaringClass().getName();
         String methodName = method.getName();

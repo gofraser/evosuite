@@ -102,10 +102,26 @@ public class TestSuiteMinimizer {
 
         logger.info("Minimization Strategy: " + strategy + ", " + suite.size() + " tests");
 
-        if (minimizePerTest) {
-            minimizeTests(suite);
-        } else {
-            minimizeSuite(suite);
+        // Snapshot the input suite so that, if the inner work OOMs or otherwise throws,
+        // we can revert to the pre-minimization suite. The un-minimized suite covers a
+        // strict superset of the minimized one, so this preserves coverage at the cost
+        // of giving up on minimization for this run. (We intentionally do NOT revert
+        // when minimization legitimately produces an empty suite — e.g., when no
+        // statements covered any goal on re-execution — only when it throws.)
+        final List<TestChromosome> snapshot = new ArrayList<>(suite.tests);
+
+        try {
+            if (minimizePerTest) {
+                minimizeTests(suite);
+            } else {
+                minimizeSuite(suite);
+            }
+        } catch (Throwable t) {
+            logger.error("Minimization failed ({}); reverting to pre-minimization snapshot of {} tests.",
+                    t.getClass().getSimpleName(), snapshot.size(), t);
+            suite.tests.clear();
+            suite.tests.addAll(snapshot);
+            System.gc();
         }
 
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Size,

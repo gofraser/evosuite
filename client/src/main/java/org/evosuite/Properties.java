@@ -1072,6 +1072,13 @@ public class Properties {
     @IntValue(min = 0)
     public static int MINIMIZATION_TIMEOUT = 60;
 
+    @Parameter(key = "minimization_per_test_timeout_ms", group = "Search Algorithm",
+            description = "Maximum milliseconds spent minimizing a single test case before "
+                    + "returning the best-so-far. 0 disables the per-test cap (only the global "
+                    + "minimization_timeout applies).")
+    @IntValue(min = 0)
+    public static int MINIMIZATION_PER_TEST_TIMEOUT_MS = 5000;
+
     @Parameter(key = "assertion_timeout", group = "Search Algorithm",
             description = "Seconds allowed for assertion generation at the end")
     @IntValue(min = 0)
@@ -1714,7 +1721,12 @@ public class Properties {
     public static int LLM_MAX_TOKENS = 32768;
 
     @Parameter(key = "llm_timeout_seconds", group = "LLM",
-            description = "Timeout in seconds for each LLM request attempt")
+            description = "Per-LLM-call HTTP timeout in seconds (applies to one request to the model). "
+                    + "Orchestrator-level waits for repair-capable producers (initial seeding, pool enrichment, "
+                    + "stagnation injection, single-prompt strategy) are derived as "
+                    + "llm_timeout_seconds * (llm_repair_attempts + 1) via LlmWaitBudget, then clamped to the "
+                    + "remaining search budget. To change the per-call cap, change this; to change the orchestrator "
+                    + "wait, change llm_repair_attempts.")
     @IntValue(min = 1)
     public static int LLM_TIMEOUT_SECONDS = 60;
 
@@ -2065,12 +2077,13 @@ public class Properties {
             description = "Skip new stagnation LLM submissions when the remaining "
                     + "search budget (seconds) is below this threshold. Use 0 to "
                     + "disable the guard entirely. When -1 (default), the helper "
-                    + "uses a small minimum (~5s): just enough time for any LLM "
-                    + "response to plausibly arrive. SYNC mode additionally caps "
-                    + "the per-call wait at min(llm_timeout_seconds, remaining "
-                    + "budget) so a late-firing call cannot block past the search "
-                    + "deadline. Set explicitly to require a larger remaining "
-                    + "budget before stagnation fires.")
+                    + "uses a conservative minimum (~45s) to avoid late-run calls "
+                    + "that are likely to be interrupted at search shutdown. SYNC mode additionally caps "
+                    + "the prompt+repair wait at min(llm_timeout_seconds * "
+                    + "(1 + llm_repair_attempts), remaining budget) so a "
+                    + "late-firing call cannot block past the search deadline. "
+                    + "Set explicitly to require a larger remaining budget before "
+                    + "stagnation fires.")
     @IntValue(min = -1)
     public static int LLM_STAGNATION_BUDGET_GUARD_SECONDS = -1;
 
@@ -2638,6 +2651,16 @@ public class Properties {
     @Parameter(key = "map_capacity_limit", group = "Test Execution",
             description = "Hard limit on map constructor capacity in the code")
     public static int MAP_CAPACITY_LIMIT = 1000000;
+
+    @Parameter(key = "allocation_sensitive_byte_input_limit", group = "Test Execution",
+            description = "Maximum length of byte[]/InputStream inputs to constructors of"
+                    + " classes that have been registered as allocation-sensitive at runtime")
+    public static int ALLOCATION_SENSITIVE_BYTE_INPUT_LIMIT = 4096;
+
+    @Parameter(key = "allocation_sensitive_string_input_limit", group = "Test Execution",
+            description = "Maximum length of String inputs to constructors of classes that have"
+                    + " been registered as allocation-sensitive at runtime")
+    public static int ALLOCATION_SENSITIVE_STRING_INPUT_LIMIT = 256;
 
     @Parameter(key = "max_mutants", group = "Test Execution",
             description = "Maximum number of mutants to target at the same time")
