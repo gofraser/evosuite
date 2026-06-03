@@ -47,6 +47,12 @@ class Phase5PropertyDefaultsTest {
         assertEquals(0.5, Properties.SPECIES_SURVIVAL_CAP, 1e-9);
         assertEquals(1, Properties.SPECIES_MIN_SURVIVORS_PER_SPECIES);
         assertEquals(5, Properties.SPECIES_NEWBORN_PROTECTION_GENERATIONS);
+        assertFalse(Properties.SPECIES_INCUBATOR_ENABLED);
+        assertEquals(5, Properties.SPECIES_INCUBATOR_GENERATIONS);
+        assertEquals(2, Properties.SPECIES_INCUBATOR_QUOTA_INITIAL);
+        assertEquals(1, Properties.SPECIES_INCUBATOR_QUOTA_MIN);
+        assertEquals(0.6, Properties.SPECIES_INCUBATOR_QUOTA_DECAY, 1e-9);
+        assertTrue(Properties.SPECIES_INCUBATOR_ONLY_LLM_STAGNATION);
         assertTrue(Properties.SPECIES_FITNESS_SHARING_ENABLED);
         assertFalse(Properties.SPECIES_BALANCE_PARENT_SELECTION);
         assertFalse(Properties.SPECIES_RESTRICT_MATING);
@@ -54,6 +60,7 @@ class Phase5PropertyDefaultsTest {
         assertFalse(Properties.SPECIES_TRACK_WHEN_SPECIATION_DISABLED);
         assertFalse(Properties.SPECIES_LARGEST_SHARE_TIMELINE_ENABLED);
         assertEquals(0.7, Properties.SPECIATION_HYBRID_PHENOTYPIC_WEIGHT, 1e-9);
+        assertEquals(0.0, Properties.SPECIATION_EMPTY_PROFILE_DISTANCE, 1e-9);
     }
 
     @Test
@@ -75,5 +82,10 @@ class Phase5PropertyDefaultsTest {
         assertNotNull(RuntimeVariable.valueOf("LLM_Semantic_Crossover_Fallbacks"));
         assertNotNull(RuntimeVariable.valueOf("Species_Count_Timeline"));
         assertNotNull(RuntimeVariable.valueOf("Species_Largest_Share_Timeline"));
+        assertNotNull(RuntimeVariable.valueOf("Species_Quota_Protected_Timeline"));
+        assertNotNull(RuntimeVariable.valueOf("Species_Newborn_Protected_Timeline"));
+        assertNotNull(RuntimeVariable.valueOf("Species_Incubator_Protected_Timeline"));
+        assertNotNull(RuntimeVariable.valueOf("Species_Sharing_Adjusted_Timeline"));
+        assertNotNull(RuntimeVariable.valueOf("LLM_Diagnostic_Cards_IndirectReachabilityBarrier"));
     }
 }

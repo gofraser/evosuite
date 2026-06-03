@@ -38,10 +38,14 @@ import java.util.List;
  *
  * <p>Output schema (one row per generation):
  * <pre>
- *   gen,elapsed_ms,pop_size,n_species,n_injected,injection_source,
+ *   gen,elapsed_ms,pop_size,n_species,n_injected,n_injected_incubator,
+ *   n_injected_post_incubator,injection_source,
+ *   n_injected_attempts,injection_attempt_source,
+ *   n_injected_attempts_llm_stagnation,n_injected_attempts_llm_async,
+ *   n_injected_attempts_island_immigrant,n_injected_attempts_local_search,
  *   covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,
- *   diversity,largest_species_share,
- *   species_per_slot,rank_per_slot
+ *   diversity,largest_species_share,n_quota_protected,n_newborn_protected,
+ *   n_incubator_protected,n_sharing_adjusted,species_per_slot,rank_per_slot
  * </pre>
  * Per-slot columns are semicolon-separated integers in {@code this.population} order.
  */
@@ -52,8 +56,13 @@ public final class PopulationSpeciesRecorder {
     public static final String FILENAME = "population_species_timeline.csv";
 
     private static final String HEADER = "gen,elapsed_ms,pop_size,n_species,n_injected,"
-            + "injection_source,covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,"
-            + "diversity,largest_species_share,species_per_slot,rank_per_slot";
+            + "n_injected_incubator,n_injected_post_incubator,"
+            + "injection_source,n_injected_attempts,injection_attempt_source,"
+            + "n_injected_attempts_llm_stagnation,n_injected_attempts_llm_async,"
+            + "n_injected_attempts_island_immigrant,n_injected_attempts_local_search,"
+            + "covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,"
+            + "diversity,largest_species_share,n_quota_protected,n_newborn_protected,"
+            + "n_incubator_protected,n_sharing_adjusted,species_per_slot,rank_per_slot";
 
     private final List<GenerationSnapshot> snapshots = new ArrayList<>();
     private final String sidecarPath;
@@ -121,7 +130,15 @@ public final class PopulationSpeciesRecorder {
         public final int popSize;
         public final int nSpecies;
         public final int nInjected;
+        public final int nInjectedIncubator;
+        public final int nInjectedPostIncubator;
         public final InjectionSource dominantInjectionSource;
+        public final int nInjectedAttempts;
+        public final InjectionSource dominantAttemptSource;
+        public final int nInjectedAttemptsLlmStagnation;
+        public final int nInjectedAttemptsLlmAsync;
+        public final int nInjectedAttemptsIslandImmigrant;
+        public final int nInjectedAttemptsLocalSearch;
         public final int coveredGoals;
         public final int remainingGoals;
         public final int nFronts;
@@ -129,6 +146,10 @@ public final class PopulationSpeciesRecorder {
         public final double meanFitness;
         public final double diversity;
         public final double largestSpeciesShare;
+        public final int nQuotaProtected;
+        public final int nNewbornProtected;
+        public final int nIncubatorProtected;
+        public final int nSharingAdjusted;
         public final int[] speciesPerSlot;
         public final int[] rankPerSlot;
 
@@ -137,7 +158,15 @@ public final class PopulationSpeciesRecorder {
                                   int popSize,
                                   int nSpecies,
                                   int nInjected,
+                                  int nInjectedIncubator,
+                                  int nInjectedPostIncubator,
                                   InjectionSource dominantInjectionSource,
+                                  int nInjectedAttempts,
+                                  InjectionSource dominantAttemptSource,
+                                  int nInjectedAttemptsLlmStagnation,
+                                  int nInjectedAttemptsLlmAsync,
+                                  int nInjectedAttemptsIslandImmigrant,
+                                  int nInjectedAttemptsLocalSearch,
                                   int coveredGoals,
                                   int remainingGoals,
                                   int nFronts,
@@ -145,6 +174,10 @@ public final class PopulationSpeciesRecorder {
                                   double meanFitness,
                                   double diversity,
                                   double largestSpeciesShare,
+                                  int nQuotaProtected,
+                                  int nNewbornProtected,
+                                  int nIncubatorProtected,
+                                  int nSharingAdjusted,
                                   int[] speciesPerSlot,
                                   int[] rankPerSlot) {
             this.gen = gen;
@@ -152,7 +185,15 @@ public final class PopulationSpeciesRecorder {
             this.popSize = popSize;
             this.nSpecies = nSpecies;
             this.nInjected = nInjected;
+            this.nInjectedIncubator = nInjectedIncubator;
+            this.nInjectedPostIncubator = nInjectedPostIncubator;
             this.dominantInjectionSource = dominantInjectionSource;
+            this.nInjectedAttempts = nInjectedAttempts;
+            this.dominantAttemptSource = dominantAttemptSource;
+            this.nInjectedAttemptsLlmStagnation = nInjectedAttemptsLlmStagnation;
+            this.nInjectedAttemptsLlmAsync = nInjectedAttemptsLlmAsync;
+            this.nInjectedAttemptsIslandImmigrant = nInjectedAttemptsIslandImmigrant;
+            this.nInjectedAttemptsLocalSearch = nInjectedAttemptsLocalSearch;
             this.coveredGoals = coveredGoals;
             this.remainingGoals = remainingGoals;
             this.nFronts = nFronts;
@@ -160,6 +201,10 @@ public final class PopulationSpeciesRecorder {
             this.meanFitness = meanFitness;
             this.diversity = diversity;
             this.largestSpeciesShare = largestSpeciesShare;
+            this.nQuotaProtected = nQuotaProtected;
+            this.nNewbornProtected = nNewbornProtected;
+            this.nIncubatorProtected = nIncubatorProtected;
+            this.nSharingAdjusted = nSharingAdjusted;
             this.speciesPerSlot = speciesPerSlot;
             this.rankPerSlot = rankPerSlot;
         }
@@ -171,14 +216,26 @@ public final class PopulationSpeciesRecorder {
               .append(popSize).append(',')
               .append(nSpecies).append(',')
               .append(nInjected).append(',')
+              .append(nInjectedIncubator).append(',')
+              .append(nInjectedPostIncubator).append(',')
               .append(dominantInjectionSource == null ? "" : dominantInjectionSource.name()).append(',')
+              .append(nInjectedAttempts).append(',')
+              .append(dominantAttemptSource == null ? "" : dominantAttemptSource.name()).append(',')
+              .append(nInjectedAttemptsLlmStagnation).append(',')
+              .append(nInjectedAttemptsLlmAsync).append(',')
+              .append(nInjectedAttemptsIslandImmigrant).append(',')
+              .append(nInjectedAttemptsLocalSearch).append(',')
               .append(coveredGoals).append(',')
               .append(remainingGoals).append(',')
               .append(nFronts).append(',')
               .append(formatDouble(bestFitness)).append(',')
               .append(formatDouble(meanFitness)).append(',')
               .append(formatDouble(diversity)).append(',')
-              .append(formatDouble(largestSpeciesShare)).append(',');
+              .append(formatDouble(largestSpeciesShare)).append(',')
+              .append(nQuotaProtected).append(',')
+              .append(nNewbornProtected).append(',')
+              .append(nIncubatorProtected).append(',')
+              .append(nSharingAdjusted).append(',');
             appendIntArray(sb, speciesPerSlot);
             sb.append(',');
             appendIntArray(sb, rankPerSlot);

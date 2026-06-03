@@ -161,11 +161,11 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
 
     /**
      * Compute Jaccard distance = 1 - |A ∩ B| / |A ∪ B|.
-     * Returns 1.0 when both sets are empty (maximally uninformative).
+     * Returns a configurable value when both sets are empty.
      */
     public static <T> double jaccardDistance(Set<T> a, Set<T> b) {
         if (a.isEmpty() && b.isEmpty()) {
-            return 1.0;
+            return Math.max(0.0, Math.min(1.0, Properties.SPECIATION_EMPTY_PROFILE_DISTANCE));
         }
         int intersectionSize = 0;
         // iterate over the smaller set for efficiency

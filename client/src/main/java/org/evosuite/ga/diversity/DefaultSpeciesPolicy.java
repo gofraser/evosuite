@@ -125,6 +125,13 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
     @Override
     public void applyFitnessSharing(List<TestChromosome> front,
                                     Map<Integer, List<TestChromosome>> speciesMap) {
+        applyFitnessSharing(front, speciesMap, null);
+    }
+
+    @Override
+    public void applyFitnessSharing(List<TestChromosome> front,
+                                    Map<Integer, List<TestChromosome>> speciesMap,
+                                    SpeciesProtectionStats stats) {
         if (!Properties.SPECIES_FITNESS_SHARING_ENABLED
                 || front == null
                 || front.isEmpty()
@@ -159,6 +166,9 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
             }
             int size = Math.max(1, speciesSizes.getOrDefault(species, 1));
             tc.setDistance(distance / size);
+            if (stats != null) {
+                stats.incrementSharingAdjusted();
+            }
         }
     }
 
@@ -172,6 +182,22 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
             int minSurvivorsPerSpecies,
             int newbornProtectionGenerations,
             Map<Integer, Integer> speciesBirthGeneration) {
+        return applyProtectedSurvival(rankedSurvivors, speciesMap, targetSize, survivalCap,
+                currentGeneration, minSurvivorsPerSpecies, newbornProtectionGenerations,
+                speciesBirthGeneration, null);
+    }
+
+    @Override
+    public List<TestChromosome> applyProtectedSurvival(
+            List<TestChromosome> rankedSurvivors,
+            Map<Integer, List<TestChromosome>> speciesMap,
+            int targetSize,
+            double survivalCap,
+            int currentGeneration,
+            int minSurvivorsPerSpecies,
+            int newbornProtectionGenerations,
+            Map<Integer, Integer> speciesBirthGeneration,
+            SpeciesProtectionStats stats) {
 
         if (speciesMap.isEmpty()) {
             return rankedSurvivors.size() <= targetSize
@@ -229,13 +255,24 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
                     break;
                 }
                 List<TestChromosome> candidates = candidatesBySpecies.get(species);
-                int want = Math.min(quota, Math.min(candidates.size(), maxPerSpecies));
+                int speciesQuota = quota;
+                if (Properties.SPECIES_INCUBATOR_ENABLED && isIncubatorSpecies(species)) {
+                    int age = speciesAge(species, currentGeneration, speciesBirthGeneration);
+                    speciesQuota = computeIncubatorQuota(age, quota);
+                }
+                int want = Math.min(speciesQuota, Math.min(candidates.size(), maxPerSpecies));
                 for (int i = 0; i < want && accepted.size() < targetSize; i++) {
                     TestChromosome pick = candidates.get(i);
                     if (acceptedSet.add(pick)) {
                         accepted.add(pick);
                         speciesCount.merge(species, 1, Integer::sum);
                         cursor.put(species, i + 1);
+                        if (stats != null) {
+                            stats.incrementQuotaProtected();
+                            if (isIncubatorSpecies(species)) {
+                                stats.incrementIncubatorProtected();
+                            }
+                        }
                     }
                 }
             }
@@ -272,6 +309,12 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
                         accepted.add(pick);
                         speciesCount.put(species, count + 1);
                         progressed = true;
+                        if (stats != null) {
+                            stats.incrementNewbornProtected();
+                            if (isIncubatorSpecies(species)) {
+                                stats.incrementIncubatorProtected();
+                            }
+                        }
                     }
                 }
             } while (progressed && accepted.size() < targetSize);
@@ -328,6 +371,28 @@ public class DefaultSpeciesPolicy implements SpeciesPolicy {
             return Integer.MAX_VALUE / 2;
         }
         return Math.max(0, currentGeneration - birth);
+    }
+
+    private static boolean isIncubatorSpecies(Integer speciesId) {
+        return speciesId != null && speciesId < 0;
+    }
+
+    private static int computeIncubatorQuota(int age, int fallbackQuota) {
+        int base = Math.max(0, Properties.SPECIES_INCUBATOR_QUOTA_INITIAL);
+        int floor = Math.max(0, Properties.SPECIES_INCUBATOR_QUOTA_MIN);
+        if (base == 0 && fallbackQuota > 0) {
+            base = fallbackQuota;
+        }
+        if (base < floor) {
+            base = floor;
+        }
+        if (base == 0) {
+            return 0;
+        }
+
+        double decay = Math.max(0.0, Math.min(1.0, Properties.SPECIES_INCUBATOR_QUOTA_DECAY));
+        int decayed = (int) Math.ceil(base * Math.pow(decay, Math.max(0, age)));
+        return Math.max(floor, decayed);
     }
 
     @Override

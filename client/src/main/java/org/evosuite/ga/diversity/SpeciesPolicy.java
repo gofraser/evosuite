@@ -70,6 +70,16 @@ public interface SpeciesPolicy {
     }
 
     /**
+     * Overload that records sharing-related counters.
+     */
+    default void applyFitnessSharing(
+            List<TestChromosome> front,
+            Map<Integer, List<TestChromosome>> speciesMap,
+            SpeciesProtectionStats stats) {
+        applyFitnessSharing(front, speciesMap);
+    }
+
+    /**
      * Applies species-level protection (quotas + age protection + caps) to the
      * ranked survivor list.
      *
@@ -86,5 +96,23 @@ public interface SpeciesPolicy {
             int newbornProtectionGenerations,
             Map<Integer, Integer> speciesBirthGeneration) {
         return applySurvivalCaps(rankedSurvivors, speciesMap, targetSize, survivalCap);
+    }
+
+    /**
+     * Overload that records protection counters.
+     */
+    default List<TestChromosome> applyProtectedSurvival(
+            List<TestChromosome> rankedSurvivors,
+            Map<Integer, List<TestChromosome>> speciesMap,
+            int targetSize,
+            double survivalCap,
+            int currentGeneration,
+            int minSurvivorsPerSpecies,
+            int newbornProtectionGenerations,
+            Map<Integer, Integer> speciesBirthGeneration,
+            SpeciesProtectionStats stats) {
+        return applyProtectedSurvival(rankedSurvivors, speciesMap, targetSize, survivalCap,
+                currentGeneration, minSurvivorsPerSpecies, newbornProtectionGenerations,
+                speciesBirthGeneration);
     }
 }

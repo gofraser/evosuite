@@ -43,12 +43,18 @@ class PopulationSpeciesRecorderTest {
         PopulationSpeciesRecorder recorder = new PopulationSpeciesRecorder(file.toString());
 
         recorder.record(new GenerationSnapshot(
-                0, 100L, 4, 2, 1, InjectionSource.LLM_STAGNATION,
+                0, 100L, 4, 2, 1, 1, 0, InjectionSource.LLM_STAGNATION,
+                3, InjectionSource.LLM_STAGNATION,
+                3, 0, 0, 0,
                 3, 7, 1, 0.5, 0.75, 0.3, 0.5,
+                1, 2, 1, 3,
                 new int[]{0, 0, 1, 1}, new int[]{0, 0, 1, 1}));
         recorder.record(new GenerationSnapshot(
-                1, 250L, 4, 2, 0, null,
+                1, 250L, 4, 2, 0, 0, 0, null,
+                0, null,
+                0, 0, 0, 0,
                 4, 6, 2, 0.25, 0.4, Double.NaN, 0.5,
+                0, 0, 0, 0,
                 new int[]{0, 0, 1, 2}, new int[]{0, 1, 1, 2}));
         recorder.flush();
 
@@ -58,15 +64,17 @@ class PopulationSpeciesRecorderTest {
         assertTrue(lines.get(0).startsWith("gen,elapsed_ms"), "header present");
 
         String row0 = lines.get(1);
-        // gen,elapsed_ms,pop_size,n_species,n_injected,injection_source,...
-        assertTrue(row0.startsWith("0,100,4,2,1,LLM_STAGNATION,"),
+        // gen,...,injection_source,n_injected_attempts,injection_attempt_source,<per-source-attempts>,...
+        assertTrue(row0.startsWith("0,100,4,2,1,1,0,LLM_STAGNATION,3,LLM_STAGNATION,3,0,0,0,"),
                 "row 0 metadata prefix mismatch: " + row0);
+        assertTrue(row0.contains(",0.5,1,2,1,3,"),
+                "row 0 should contain protection counters: " + row0);
         assertTrue(row0.endsWith(",0;0;1;1,0;0;1;1"),
                 "row 0 per-slot suffix mismatch: " + row0);
 
         String row1 = lines.get(2);
-        // injection_source empty; diversity NaN → empty
-        assertTrue(row1.startsWith("1,250,4,2,0,,"),
+        // injection_source / injection_attempt_source empty; diversity NaN → empty
+        assertTrue(row1.startsWith("1,250,4,2,0,0,0,,0,,0,0,0,0,"),
                 "row 1 should have empty injection_source: " + row1);
         assertTrue(row1.contains(",,0.5,"),
                 "row 1 should have empty diversity field: " + row1);
@@ -79,7 +87,8 @@ class PopulationSpeciesRecorderTest {
         Path file = tmp.resolve("idem.csv");
         PopulationSpeciesRecorder recorder = new PopulationSpeciesRecorder(file.toString());
         recorder.record(new GenerationSnapshot(
-                0, 0L, 1, 1, 0, null, 0, 1, 1, 0.0, 0.0, 0.0, 1.0,
+                0, 0L, 1, 1, 0, 0, 0, null, 0, null, 0, 0, 0, 0, 0, 1, 1, 0.0, 0.0, 0.0, 1.0,
+                0, 0, 0, 0,
                 new int[]{0}, new int[]{0}));
 
         recorder.flush();

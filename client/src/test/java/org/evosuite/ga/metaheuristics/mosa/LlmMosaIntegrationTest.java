@@ -20,8 +20,12 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
+import org.evosuite.llm.search.InjectionAttemptMetadata;
+import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.StagnationDetector;
+import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.Test;
@@ -30,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -91,6 +96,124 @@ class LlmMosaIntegrationTest {
         // 2 parent + 0 offspring + 1 from working source = 3
         assertEquals(3, mosa.lastUnionSize,
                 "union should include candidates from working source despite earlier failure");
+    }
+
+    @Test
+    void externalCandidateAttemptsCountDrainedItemsEvenWhenNoCandidateSurvives() {
+        LlmStatistics.resetDiagnosticCardCounters();
+        InEvolveTestMOSA mosa = new InEvolveTestMOSA(() -> new TestChromosome());
+        mosa.seedPopulation();
+
+        // One drained candidate attempt that is later discarded by filtering.
+        mosa.externalCandidateSources.add(AbstractMOSA.taggedSource(
+                InjectionSource.LLM_STAGNATION,
+                () -> java.util.Collections.singletonList(null)));
+
+        mosa.evolve();
+
+        assertEquals(2, mosa.lastUnionSize,
+                "null candidate should be filtered and not enter the union");
+        assertEquals(1, mosa.lastGenInjectedAttemptsCount,
+                "attempt count should reflect drained candidates before filtering");
+        assertEquals(InjectionSource.LLM_STAGNATION, mosa.lastGenDominantAttemptSource,
+                "dominant attempt source should reflect the drained source");
+        assertEquals(1, mosa.lastGenAttemptsLlmStagnationCount,
+                "per-source attempt count should include the drained stagnation candidate");
+        assertEquals(1, mosa.lastGenInjectedCandidatesOrphanFilteredCount,
+                "orphan-filtered telemetry should classify null stagnation candidates");
+        assertEquals(0, mosa.lastGenInjectedCandidatesAdmittedCount,
+                "null stagnation candidates must not be admitted");
+        assertEquals(0, mosa.lastGenAttemptsLlmAsyncCount,
+                "no async attempts should be recorded");
+        assertEquals(0, mosa.lastGenAttemptsIslandImmigrantCount,
+                "no island attempts should be recorded");
+        assertEquals(0, mosa.lastGenAttemptsLocalSearchCount,
+                "no local-search attempts should be recorded");
+    }
+
+    @Test
+    void realEvolveRecordsDiagnosticAdmissionsAndFreshSurvivors() {
+        LlmStatistics.resetDiagnosticCardCounters();
+        org.evosuite.Properties.POPULATION = 1;
+
+        RealEvolveDynaMOSA harness = new RealEvolveDynaMOSA();
+        new MOSATestSuiteAdapter(harness);
+        harness.goalsManager.getCurrentGoals().add(simpleGoal());
+
+        TestChromosome injected = new TestChromosome();
+        harness.seedPopulation();
+        harness.externalCandidateSources.add(new AbstractMOSA.ExternalCandidateSource() {
+            @Override
+            public List<TestChromosome> drain() {
+                return Collections.singletonList(injected);
+            }
+
+            @Override
+            public InjectionSource injectionSource() {
+                return InjectionSource.LLM_STAGNATION;
+            }
+
+            @Override
+            public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
+                    List<TestChromosome> candidates) {
+                return Collections.singletonMap(injected, new InjectionAttemptMetadata(
+                        "attempt-1",
+                        Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP)));
+            }
+        });
+
+        harness.evolve();
+
+        assertEquals(1, harness.getPopulation().size(),
+                "population should contain exactly the injected candidate in this harness setup");
+        assertTrue(harness.getPopulation().stream().anyMatch(tc -> tc == injected),
+                "diagnostic injected candidate should survive by identity");
+        assertEquals(1, harness.lastGenInjectedCandidatesSurvivedCount,
+                "fresh-survivor telemetry should count same-generation survivors");
+        assertEquals(Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP),
+                injected.getDiagnosticCardTypes(),
+                "diagnostic card types should be carried onto the injected chromosome");
+        assertEquals(1L, LlmStatistics.getDiagnosticCandidatesAdmitted(
+                ProblemCardType.STATE_DIVERSIFICATION_GAP));
+        assertEquals(1L, LlmStatistics.getDiagnosticCandidatesSurvived(
+                ProblemCardType.STATE_DIVERSIFICATION_GAP));
+    }
+
+    @Test
+    void collectExternalCandidatesRecordsDiagnosticAdmissions() {
+        LlmStatistics.resetDiagnosticCardCounters();
+
+        InEvolveTestMOSA mosa = new InEvolveTestMOSA(() -> new TestChromosome());
+        TestChromosome injected = new TestChromosome();
+        mosa.externalCandidateSources.add(new AbstractMOSA.ExternalCandidateSource() {
+            @Override
+            public List<TestChromosome> drain() {
+                return Collections.singletonList(injected);
+            }
+
+            @Override
+            public InjectionSource injectionSource() {
+                return InjectionSource.LLM_STAGNATION;
+            }
+
+            @Override
+            public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
+                    List<TestChromosome> candidates) {
+                return Collections.singletonMap(injected, new InjectionAttemptMetadata(
+                        "attempt-1",
+                        Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP)));
+            }
+        });
+
+        mosa.evolve();
+
+        assertEquals(1, mosa.lastGenInjectedCandidatesAdmittedCount,
+                "admission telemetry should count diagnostic injected candidates");
+        assertEquals(Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP),
+                injected.getDiagnosticCardTypes(),
+                "admitted candidates should retain their diagnostic card attribution");
+        assertEquals(1L, LlmStatistics.getDiagnosticCandidatesAdmitted(
+                ProblemCardType.STATE_DIVERSIFICATION_GAP));
     }
 
     @Test
@@ -477,5 +600,20 @@ class LlmMosaIntegrationTest {
                 this.activeSuite = null;
             }
         }
+    }
+
+    private static TestFitnessFunction simpleGoal() {
+        return new TestFitnessFunction() {
+            @Override public double getFitness(TestChromosome individual,
+                                               org.evosuite.testcase.execution.ExecutionResult result) {
+                return 1.0;
+            }
+            @Override public int compareTo(TestFitnessFunction o) { return 0; }
+            @Override public boolean isMaximizationFunction() { return false; }
+            @Override public String getTargetClass() { return "Test"; }
+            @Override public String getTargetMethod() { return "goal"; }
+            @Override public int hashCode() { return 1; }
+            @Override public boolean equals(Object o) { return this == o; }
+        };
     }
 }

@@ -22,6 +22,7 @@ package org.evosuite.ga.metaheuristics.mosa;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
+import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
@@ -91,10 +92,11 @@ public class DynaMOSA extends AbstractMOSA {
                 : populationSize;
         Map<Integer, List<TestChromosome>> speciesMapForSelection =
                 speciationEnabled ? speciesAssigner.groupBySpecies(union) : Collections.emptyMap();
+        SpeciesProtectionStats sharingStats = new SpeciesProtectionStats();
 
         List<TestChromosome> rankedCandidates =
                 selectByRankingAndCrowding(union, this.goalsManager.getCurrentGoals(),
-                        candidateLimit, speciesMapForSelection);
+                        candidateLimit, speciesMapForSelection, sharingStats);
 
         applySpeciationSurvival(rankedCandidates, populationSize);
 

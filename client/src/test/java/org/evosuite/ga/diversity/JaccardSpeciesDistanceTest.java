@@ -64,9 +64,19 @@ class JaccardSpeciesDistanceTest {
     }
 
     @Test
-    void jaccardDistanceBothEmptyIsOne() {
-        assertEquals(1.0, JaccardSpeciesDistance.jaccardDistance(
-                Collections.emptySet(), Collections.emptySet()), 1e-9);
+    void jaccardDistanceBothEmptyUsesConfiguredDistance() {
+        double old = Properties.SPECIATION_EMPTY_PROFILE_DISTANCE;
+        try {
+            Properties.SPECIATION_EMPTY_PROFILE_DISTANCE = 0.0;
+            assertEquals(0.0, JaccardSpeciesDistance.jaccardDistance(
+                    Collections.emptySet(), Collections.emptySet()), 1e-9);
+
+            Properties.SPECIATION_EMPTY_PROFILE_DISTANCE = 1.0;
+            assertEquals(1.0, JaccardSpeciesDistance.jaccardDistance(
+                    Collections.emptySet(), Collections.emptySet()), 1e-9);
+        } finally {
+            Properties.SPECIATION_EMPTY_PROFILE_DISTANCE = old;
+        }
     }
 
     @Test
@@ -81,8 +91,8 @@ class JaccardSpeciesDistanceTest {
                 SpeciationMetric.TRACE_BRANCH_JACCARD, 0.7);
         TestChromosome a = makeChromosomeWithBranches(null);
         TestChromosome b = makeChromosomeWithBranches(null);
-        // Both null execution results → both empty sets → distance=1.0
-        assertEquals(1.0, dist.distance(a, b), 1e-9);
+        // Both null execution results -> both empty sets -> default configured empty-profile distance.
+        assertEquals(0.0, dist.distance(a, b), 1e-9);
     }
 
     @Test

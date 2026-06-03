@@ -35,6 +35,7 @@ import org.evosuite.ga.diversity.PopulationDiversityComputation;
 import org.evosuite.ga.diversity.PopulationSpeciesRecorder;
 import org.evosuite.ga.diversity.SpeciesAssigner;
 import org.evosuite.ga.diversity.SpeciesBirthRegistry;
+import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.diversity.SpeciesPolicy;
 import org.evosuite.ga.diversity.StableSpeciesAssigner;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
@@ -43,9 +44,11 @@ import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
 import org.evosuite.llm.search.BreedingDisruptionObserver;
 import org.evosuite.llm.search.DisruptionHelper;
 import org.evosuite.llm.search.DisruptionRecorder;
+import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.OperatorAttemptResult;
+import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
@@ -98,6 +101,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
          */
         default InjectionSource injectionSource() {
             return null;
+        }
+
+        default Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
+                List<TestChromosome> candidates) {
+            return Collections.emptyMap();
+        }
+
+        default void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
+            // no-op
         }
     }
 
@@ -236,6 +248,46 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * generation. {@code -1} until set.
      */
     private transient long populationSpeciesStartMs = -1L;
+
+    /** Per-generation counters for species-protection observability. */
+    private transient int lastSpeciesQuotaProtectedCount;
+    private transient int lastSpeciesNewbornProtectedCount;
+    private transient int lastSpeciesIncubatorProtectedCount;
+    private transient int lastSpeciesSharingAdjustedCount;
+
+    /**
+     * Number of externally supplied candidates drained during the current
+     * generation's {@link #collectExternalCandidates(List)} call, before
+     * filtering/ranking decides what survives into the population snapshot.
+     */
+    protected transient int lastGenInjectedAttemptsCount;
+
+    /**
+     * Dominant source among the current generation's drained external
+     * candidates (by attempt count). Null when no tagged attempts occurred.
+     */
+    protected transient InjectionSource lastGenDominantAttemptSource;
+
+    /** Per-source attempt counters for the current generation. */
+    protected transient int lastGenAttemptsLlmStagnationCount;
+    protected transient int lastGenAttemptsLlmAsyncCount;
+    protected transient int lastGenAttemptsIslandImmigrantCount;
+    protected transient int lastGenAttemptsLocalSearchCount;
+    protected transient int lastGenInjectedCandidatesOrphanFilteredCount;
+    protected transient int lastGenInjectedCandidatesDeduplicatedCount;
+    protected transient int lastGenInjectedCandidatesAdmittedCount;
+    protected transient int lastGenInjectedCandidatesSurvivedCount;
+
+    /**
+     * Monotonic lineage id counter used to tag freshly injected candidates.
+     * Zero means "first injected lineage in this run".
+     */
+    private transient long nextInjectionLineageId;
+    private transient long llmInjectedCandidatesOrphanFilteredTotal;
+    private transient long llmInjectedCandidatesDeduplicatedTotal;
+    private transient long llmInjectedCandidatesAdmittedTotal;
+    private transient long llmInjectedCandidatesSurvivedTotal;
+    private transient int lastRecordedInjectedSurvivorGeneration = Integer.MIN_VALUE;
 
     /**
      * Constructor.
@@ -594,7 +646,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             List<TestChromosome> union,
             Set<? extends FitnessFunction<TestChromosome>> goals,
             int capacity,
-            Map<Integer, List<TestChromosome>> speciesMap) {
+            Map<Integer, List<TestChromosome>> speciesMap,
+            SpeciesProtectionStats stats) {
+        if (stats != null) {
+            stats.clear();
+        }
+        lastSpeciesSharingAdjustedCount = 0;
 
         int remain = capacity;
         int index = 0;
@@ -605,7 +662,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         while ((remain > 0) && (remain >= front.size()) && !front.isEmpty()) {
             this.distance.fastEpsilonDominanceAssignment(front, goals);
             if (speciationEnabled && speciesMap != null && !speciesMap.isEmpty()) {
-                this.speciesPolicy.applyFitnessSharing(front, speciesMap);
+                this.speciesPolicy.applyFitnessSharing(front, speciesMap, stats);
             }
             rankedCandidates.addAll(front);
             remain -= front.size();
@@ -618,7 +675,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         if (remain > 0 && !front.isEmpty()) {
             this.distance.fastEpsilonDominanceAssignment(front, goals);
             if (speciationEnabled && speciesMap != null && !speciesMap.isEmpty()) {
-                this.speciesPolicy.applyFitnessSharing(front, speciesMap);
+                this.speciesPolicy.applyFitnessSharing(front, speciesMap, stats);
             }
             front.sort(new OnlyCrowdingComparator<>());
             for (int k = 0; k < remain; k++) {
@@ -626,6 +683,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
         }
 
+        if (stats != null) {
+            lastSpeciesSharingAdjustedCount = stats.getSharingAdjustedCount();
+        }
         return rankedCandidates;
     }
 
@@ -641,6 +701,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     protected void applySpeciationSurvival(List<TestChromosome> rankedCandidates,
                                            int populationSize) {
+        lastSpeciesQuotaProtectedCount = 0;
+        lastSpeciesNewbornProtectedCount = 0;
+        lastSpeciesIncubatorProtectedCount = 0;
         this.population.clear();
         List<TestChromosome> front0 = this.rankingFunction.getSubfront(0);
         int effectiveTarget = Math.max(populationSize, front0.size());
@@ -659,6 +722,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
                 Map<Integer, List<TestChromosome>> speciesMap =
                         speciesAssigner.groupBySpecies(rankedCandidates);
+                Map<Integer, List<TestChromosome>> effectiveSpeciesMap =
+                        applyIncubatorSpeciesOverlay(rankedCandidates, speciesMap);
+                Map<Integer, Integer> effectiveBirthGeneration =
+                        resolveEffectiveSpeciesBirthGeneration(effectiveSpeciesMap);
 
                 int remainingSlots = effectiveTarget - front0.size();
                 this.population.addAll(front0);
@@ -669,17 +736,22 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 }
 
                 if (remainingSlots > 0 && !nonFront0.isEmpty()) {
+                    SpeciesProtectionStats stats = new SpeciesProtectionStats();
                     List<TestChromosome> capped = speciesPolicy.applyProtectedSurvival(
-                            nonFront0, speciesMap, remainingSlots,
+                            nonFront0, effectiveSpeciesMap, remainingSlots,
                             Properties.SPECIES_SURVIVAL_CAP,
                             this.currentIteration,
                             Properties.SPECIES_MIN_SURVIVORS_PER_SPECIES,
                             Properties.SPECIES_NEWBORN_PROTECTION_GENERATIONS,
-                            resolveSpeciesBirthGeneration());
+                            effectiveBirthGeneration,
+                            stats);
+                    this.lastSpeciesQuotaProtectedCount = stats.getQuotaProtectedCount();
+                    this.lastSpeciesNewbornProtectedCount = stats.getNewbornProtectedCount();
+                    this.lastSpeciesIncubatorProtectedCount = stats.getIncubatorProtectedCount();
                     this.population.addAll(capped);
                 }
 
-                emitSpeciesTimeline(speciesMap);
+                emitSpeciesTimeline(effectiveSpeciesMap);
 
                 if (Properties.SPECIES_BALANCE_PARENT_SELECTION) {
                     Map<Integer, List<TestChromosome>> survivingSpecies =
@@ -692,7 +764,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
                 ensureFront0Preserved(front0, effectiveTarget);
                 this.currentSpeciesMap = speciesAssigner.groupBySpecies(this.population);
-                this.lastTrackedSpeciesMap = this.currentSpeciesMap;
+                if (Properties.SPECIES_INCUBATOR_ENABLED && !this.currentSpeciesMap.isEmpty()) {
+                    this.lastTrackedSpeciesMap =
+                            applyIncubatorSpeciesOverlay(this.population, this.currentSpeciesMap);
+                } else {
+                    this.lastTrackedSpeciesMap = this.currentSpeciesMap;
+                }
             } catch (Exception e) {
                 logger.debug("Speciation failed; using ranked fallback", e);
                 this.population.clear();
@@ -712,6 +789,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
         } else {
             this.population.addAll(rankedCandidates);
+            lastSpeciesQuotaProtectedCount = 0;
+            lastSpeciesNewbornProtectedCount = 0;
+            lastSpeciesIncubatorProtectedCount = 0;
             if (trackSpeciesWhenSpeciationDisabled && !this.population.isEmpty()) {
                 try {
                     Map<Integer, List<TestChromosome>> trackedSpecies =
@@ -730,6 +810,89 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             return ((SpeciesBirthRegistry) speciesAssigner).getSpeciesBirthGenerations();
         }
         return Collections.emptyMap();
+    }
+
+    private Map<Integer, Integer> resolveEffectiveSpeciesBirthGeneration(
+            Map<Integer, List<TestChromosome>> effectiveSpeciesMap) {
+        Map<Integer, Integer> merged = new LinkedHashMap<>(resolveSpeciesBirthGeneration());
+        if (effectiveSpeciesMap == null || effectiveSpeciesMap.isEmpty()) {
+            return merged;
+        }
+        for (Map.Entry<Integer, List<TestChromosome>> entry : effectiveSpeciesMap.entrySet()) {
+            Integer speciesId = entry.getKey();
+            if (speciesId == null || speciesId >= 0) {
+                continue;
+            }
+            int birth = Integer.MAX_VALUE;
+            for (TestChromosome tc : entry.getValue()) {
+                int g = tc == null ? -1 : tc.getInjectionGeneration();
+                if (g >= 0 && g < birth) {
+                    birth = g;
+                }
+            }
+            if (birth != Integer.MAX_VALUE) {
+                merged.put(speciesId, birth);
+            }
+        }
+        return merged;
+    }
+
+    private Map<Integer, List<TestChromosome>> applyIncubatorSpeciesOverlay(
+            List<TestChromosome> orderedPopulation,
+            Map<Integer, List<TestChromosome>> baseSpeciesMap) {
+        if (!Properties.SPECIES_INCUBATOR_ENABLED
+                || baseSpeciesMap == null
+                || baseSpeciesMap.isEmpty()
+                || orderedPopulation == null
+                || orderedPopulation.isEmpty()) {
+            return baseSpeciesMap;
+        }
+
+        IdentityHashMap<TestChromosome, Integer> individualToSpecies = new IdentityHashMap<>();
+        for (Map.Entry<Integer, List<TestChromosome>> entry : baseSpeciesMap.entrySet()) {
+            for (TestChromosome tc : entry.getValue()) {
+                individualToSpecies.put(tc, entry.getKey());
+            }
+        }
+
+        Map<Integer, List<TestChromosome>> effective = new LinkedHashMap<>();
+        Map<Long, Integer> lineageToIncubatorSpecies = new HashMap<>();
+        int nextIncubatorSpeciesId = -1;
+
+        for (TestChromosome tc : orderedPopulation) {
+            Integer baseSpecies = individualToSpecies.get(tc);
+            if (baseSpecies == null) {
+                continue;
+            }
+
+            Integer effectiveSpecies = baseSpecies;
+            if (isIncubatorActive(tc)) {
+                long lineageId = tc.getInjectionLineageId();
+                if (lineageId >= 0L) {
+                    Integer mapped = lineageToIncubatorSpecies.get(lineageId);
+                    if (mapped == null) {
+                        mapped = nextIncubatorSpeciesId--;
+                        lineageToIncubatorSpecies.put(lineageId, mapped);
+                    }
+                    effectiveSpecies = mapped;
+                }
+            }
+            effective.computeIfAbsent(effectiveSpecies, k -> new ArrayList<>()).add(tc);
+        }
+
+        return effective.isEmpty() ? baseSpeciesMap : effective;
+    }
+
+    private boolean isIncubatorActive(TestChromosome tc) {
+        if (tc == null || !tc.isIncubatorEligible()) {
+            return false;
+        }
+        int injectedAt = tc.getInjectionGeneration();
+        if (injectedAt < 0) {
+            return false;
+        }
+        int age = Math.max(0, this.currentIteration - injectedAt);
+        return age <= Math.max(0, Properties.SPECIES_INCUBATOR_GENERATIONS);
     }
 
     /**
@@ -796,6 +959,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 uncoveredGoalCount);
         cn.trackOutputVariable(RuntimeVariable.Covered_Goals_Timeline,
                 coveredGoalCount);
+        cn.trackOutputVariable(RuntimeVariable.Species_Quota_Protected_Timeline,
+                lastSpeciesQuotaProtectedCount);
+        cn.trackOutputVariable(RuntimeVariable.Species_Newborn_Protected_Timeline,
+                lastSpeciesNewbornProtectedCount);
+        cn.trackOutputVariable(RuntimeVariable.Species_Incubator_Protected_Timeline,
+                lastSpeciesIncubatorProtectedCount);
+        cn.trackOutputVariable(RuntimeVariable.Species_Sharing_Adjusted_Timeline,
+                lastSpeciesSharingAdjustedCount);
 
         recordPopulationSnapshot(coveredGoalCount, uncoveredGoalCount, diversityForSidecar);
     }
@@ -808,6 +979,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected void recordPopulationSnapshot(int coveredGoalCount,
                                             int uncoveredGoalCount,
                                             double diversity) {
+        recordFreshInjectedSurvivorMetrics();
         SpeciesAssigner trackingAssigner = (speciesTrackingAssigner != null)
                 ? speciesTrackingAssigner : speciesAssigner;
         if (populationSpeciesRecorder != null && lastTrackedSpeciesMap != null
@@ -816,11 +988,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 int[] speciesPerSlot = buildSpeciesPerSlot(this.population, lastTrackedSpeciesMap);
                 int[] rankPerSlot = buildRankPerSlot(this.population);
                 int nInjected = 0;
+                int nInjectedIncubator = 0;
+                int nInjectedPostIncubator = 0;
                 Map<InjectionSource, Integer> sourceCounts = new EnumMap<>(InjectionSource.class);
                 for (TestChromosome tc : this.population) {
                     InjectionSource src = tc.getInjectionSource();
                     if (src != null) {
                         nInjected++;
+                        if (isIncubatorActive(tc)) {
+                            nInjectedIncubator++;
+                        } else {
+                            nInjectedPostIncubator++;
+                        }
                         sourceCounts.merge(src, 1, Integer::sum);
                     }
                 }
@@ -876,7 +1055,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 this.population.size(),
                                 lastTrackedSpeciesMap.size(),
                                 nInjected,
+                                nInjectedIncubator,
+                                nInjectedPostIncubator,
                                 dominant,
+                                lastGenInjectedAttemptsCount,
+                                lastGenDominantAttemptSource,
+                                lastGenAttemptsLlmStagnationCount,
+                                lastGenAttemptsLlmAsyncCount,
+                                lastGenAttemptsIslandImmigrantCount,
+                                lastGenAttemptsLocalSearchCount,
                                 coveredGoalCount,
                                 uncoveredGoalCount,
                                 this.rankingFunction.getNumberOfSubfronts(),
@@ -884,6 +1071,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 meanFitness,
                                 diversity,
                                 largestShare,
+                                lastSpeciesQuotaProtectedCount,
+                                lastSpeciesNewbornProtectedCount,
+                                lastSpeciesIncubatorProtectedCount,
+                                lastSpeciesSharingAdjustedCount,
                                 speciesPerSlot,
                                 rankPerSlot);
                 populationSpeciesRecorder.record(snap);
@@ -966,12 +1157,38 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * @param union the parent+offspring union to extend
      */
     protected void collectExternalCandidates(List<TestChromosome> union) {
+        int attempts = 0;
+        Map<InjectionSource, Integer> attemptCounts = new EnumMap<>(InjectionSource.class);
+        Set<TestFitnessFunction> remainingUncoveredBeforeInjection = getUncoveredGoals();
+        Set<String> seenInjectedCallSignatures = new HashSet<>();
+        int deduplicatedInjectedCandidates = 0;
+        for (TestChromosome existing : union) {
+            String existingSignature = injectedCallSequenceSignature(existing);
+            if (!existingSignature.isEmpty()) {
+                seenInjectedCallSignatures.add(existingSignature);
+            }
+        }
+        // Reset per-generation attempt observability for this drain step.
+        lastGenInjectedAttemptsCount = 0;
+        lastGenDominantAttemptSource = null;
+        lastGenAttemptsLlmStagnationCount = 0;
+        lastGenAttemptsLlmAsyncCount = 0;
+        lastGenAttemptsIslandImmigrantCount = 0;
+        lastGenAttemptsLocalSearchCount = 0;
+        lastGenInjectedCandidatesOrphanFilteredCount = 0;
+        lastGenInjectedCandidatesDeduplicatedCount = 0;
+        lastGenInjectedCandidatesAdmittedCount = 0;
+        lastGenInjectedCandidatesSurvivedCount = 0;
+        lastRecordedInjectedSurvivorGeneration = Integer.MIN_VALUE;
+
         // Drain LS-improved tests staged by applyLocalSearch.
         // These have already been evaluated through calculateFitness,
         // so we add them directly to the union without re-evaluation.
         if (!pendingLsTests.isEmpty()) {
+            attempts += pendingLsTests.size();
+            attemptCounts.merge(InjectionSource.LOCAL_SEARCH, pendingLsTests.size(), Integer::sum);
             for (TestChromosome ls : pendingLsTests) {
-                ls.setInjectionSource(InjectionSource.LOCAL_SEARCH);
+                tagInjectedCandidate(ls, InjectionSource.LOCAL_SEARCH);
             }
             union.addAll(pendingLsTests);
             logger.debug("Injected {} LS-improved tests into union", pendingLsTests.size());
@@ -984,20 +1201,246 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 if (candidates == null || candidates.isEmpty()) {
                     continue;
                 }
+                attempts += candidates.size();
+                InjectionSource tag = source.injectionSource();
+                if (tag != null) {
+                    attemptCounts.merge(tag, candidates.size(), Integer::sum);
+                }
+                Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate =
+                        source.consumeAttemptMetadata(candidates);
+                Map<String, Integer> gainsByAttemptId =
+                        initializeAttemptOutcomeMap(attemptMetadataByCandidate);
                 List<TestChromosome> safe = filterOrphanedTestChromosomes(
                         candidates, "external candidate source " + source.getClass().getSimpleName());
-                InjectionSource tag = source.injectionSource();
+                if (isLlmInjectionSource(tag)) {
+                    int orphanFiltered = Math.max(0, candidates.size() - safe.size());
+                    if (orphanFiltered > 0) {
+                        lastGenInjectedCandidatesOrphanFilteredCount += orphanFiltered;
+                        llmInjectedCandidatesOrphanFilteredTotal += orphanFiltered;
+                        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_OrphanFiltered,
+                                llmInjectedCandidatesOrphanFilteredTotal);
+                    }
+                }
                 for (TestChromosome candidate : safe) {
+                    boolean enableLlmDedup = tag == InjectionSource.LLM_STAGNATION
+                            || tag == InjectionSource.LLM_ASYNC;
+                    if (enableLlmDedup) {
+                        String candidateSignature = injectedCallSequenceSignature(candidate);
+                        if (!candidateSignature.isEmpty()
+                                && !seenInjectedCallSignatures.add(candidateSignature)) {
+                            deduplicatedInjectedCandidates++;
+                            lastGenInjectedCandidatesDeduplicatedCount++;
+                            llmInjectedCandidatesDeduplicatedTotal++;
+                            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Deduplicated,
+                                    llmInjectedCandidatesDeduplicatedTotal);
+                            continue;
+                        }
+                    }
+                    InjectionAttemptMetadata metadata = attemptMetadataByCandidate.get(candidate);
+                    candidate.setDiagnosticCardTypes(metadata == null
+                            ? Collections.<ProblemCardType>emptyList()
+                            : metadata.getDiagnosticCardTypes());
                     if (tag != null) {
-                        candidate.setInjectionSource(tag);
+                        tagInjectedCandidate(candidate, tag);
                     }
                     this.calculateFitness(candidate);
+                    int gained = coveredGoalsAndRemove(candidate, remainingUncoveredBeforeInjection);
+                    maybeRecordDiagnosticAttribution(tag, metadata, gained);
+                    if (metadata != null && metadata.getAttemptId() != null
+                            && !metadata.getAttemptId().trim().isEmpty()) {
+                        gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
+                    }
                     union.add(candidate);
+                    if (isLlmInjectionSource(tag)) {
+                        lastGenInjectedCandidatesAdmittedCount++;
+                        llmInjectedCandidatesAdmittedTotal++;
+                        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
+                                llmInjectedCandidatesAdmittedTotal);
+                    }
+                    if (tag == InjectionSource.LLM_STAGNATION && metadata != null) {
+                        org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesAdmitted(
+                                metadata.getDiagnosticCardTypes(), 1);
+                    }
                 }
+                source.reportAttemptOutcomes(gainsByAttemptId);
             } catch (Exception e) {
                 logger.debug("External candidate source failed; skipping", e);
             }
         }
+        if (deduplicatedInjectedCandidates > 0) {
+            logger.debug("Deduplicated {} injected candidate(s) by call-sequence signature in generation {}",
+                    deduplicatedInjectedCandidates, this.currentIteration);
+        }
+
+        lastGenInjectedAttemptsCount = attempts;
+        InjectionSource dominantAttemptSource = null;
+        int dominantAttemptCount = 0;
+        for (Map.Entry<InjectionSource, Integer> e : attemptCounts.entrySet()) {
+            if (e.getValue() > dominantAttemptCount) {
+                dominantAttemptCount = e.getValue();
+                dominantAttemptSource = e.getKey();
+            }
+        }
+        lastGenDominantAttemptSource = dominantAttemptSource;
+        lastGenAttemptsLlmStagnationCount = attemptCounts.getOrDefault(
+                InjectionSource.LLM_STAGNATION, 0);
+        lastGenAttemptsLlmAsyncCount = attemptCounts.getOrDefault(
+                InjectionSource.LLM_ASYNC, 0);
+        lastGenAttemptsIslandImmigrantCount = attemptCounts.getOrDefault(
+                InjectionSource.ISLAND_IMMIGRANT, 0);
+        lastGenAttemptsLocalSearchCount = attemptCounts.getOrDefault(
+                InjectionSource.LOCAL_SEARCH, 0);
+    }
+
+    private String injectedCallSequenceSignature(TestChromosome candidate) {
+        if (candidate == null || candidate.getTestCase() == null) {
+            return "";
+        }
+        TestCase testCase = candidate.getTestCase();
+        StringBuilder signature = new StringBuilder();
+        int callCount = 0;
+        for (int i = 0; i < testCase.size(); i++) {
+            Statement statement = testCase.getStatement(i);
+            if (statement instanceof ConstructorStatement) {
+                ConstructorStatement constructorStatement = (ConstructorStatement) statement;
+                if (constructorStatement.getConstructor() == null
+                        || constructorStatement.getConstructor().getDeclaringClass() == null) {
+                    continue;
+                }
+                signature.append("NEW:")
+                        .append(constructorStatement.getConstructor().getDeclaringClass().getName())
+                        .append('#')
+                        .append(constructorStatement.getNumParameters())
+                        .append(';');
+                callCount++;
+                continue;
+            }
+            if (statement instanceof MethodStatement) {
+                MethodStatement methodStatement = (MethodStatement) statement;
+                if (methodStatement.getMethod() == null || methodStatement.getMethod().getMethod() == null) {
+                    continue;
+                }
+                java.lang.reflect.Method method = methodStatement.getMethod().getMethod();
+                signature.append("CALL:")
+                        .append(method.getDeclaringClass().getName())
+                        .append('.')
+                        .append(method.getName())
+                        .append('#')
+                        .append(method.getParameterTypes().length)
+                        .append(';');
+                callCount++;
+            }
+        }
+        if (callCount == 0) {
+            try {
+                return "CODE:" + testCase.toCode().replaceAll("\\s+", " ").trim();
+            } catch (RuntimeException ignored) {
+                return "";
+            }
+        }
+        return signature.toString();
+    }
+
+    private void tagInjectedCandidate(TestChromosome candidate, InjectionSource source) {
+        if (candidate == null || source == null) {
+            return;
+        }
+        candidate.setInjectionSource(source);
+        candidate.setInjectionLineageId(nextInjectionLineageId++);
+        candidate.setInjectionGeneration(this.currentIteration);
+        boolean eligible = !Properties.SPECIES_INCUBATOR_ONLY_LLM_STAGNATION
+                || source == InjectionSource.LLM_STAGNATION;
+        candidate.setIncubatorEligible(Properties.SPECIES_INCUBATOR_ENABLED && eligible);
+    }
+
+    private int coveredGoalsAndRemove(TestChromosome candidate,
+                                      Set<TestFitnessFunction> remainingUncovered) {
+        if (candidate == null || remainingUncovered == null || remainingUncovered.isEmpty()) {
+            return 0;
+        }
+        int gained = 0;
+        java.util.Iterator<TestFitnessFunction> it = remainingUncovered.iterator();
+        while (it.hasNext()) {
+            TestFitnessFunction goal = it.next();
+            if (goal != null && goal.isCovered(candidate)) {
+                gained++;
+                it.remove();
+            }
+        }
+        return gained;
+    }
+
+    private void maybeRecordDiagnosticAttribution(InjectionSource tag,
+                                                  InjectionAttemptMetadata metadata,
+                                                  int gained) {
+        if (tag != InjectionSource.LLM_STAGNATION || stagnationLlmHelper == null || metadata == null) {
+            return;
+        }
+        List<ProblemCardType> selectedTypes = metadata.getDiagnosticCardTypes();
+        if (selectedTypes == null || selectedTypes.isEmpty()) {
+            return;
+        }
+        if (gained <= 0) {
+            return;
+        }
+        if (selectedTypes.size() != 1) {
+            org.evosuite.llm.LlmStatistics.recordDiagnosticCoverageGainAttributionAmbiguous(selectedTypes, gained);
+            // Preserve per-card signal by attributing ambiguous multi-card gains
+            // to the primary (highest-ranked) selected card type.
+            org.evosuite.llm.LlmStatistics.recordDiagnosticCoverageGain(selectedTypes.get(0), gained);
+            logger.debug("Ambiguous diagnostic attribution for attempt {}; "
+                            + "selected card types={}, primary_type={}, gained_goals={}",
+                    metadata.getAttemptId(), selectedTypes, selectedTypes.get(0), gained);
+            return;
+        }
+        org.evosuite.llm.LlmStatistics.recordDiagnosticCoverageGain(selectedTypes.get(0), gained);
+    }
+
+    private void recordFreshInjectedSurvivorMetrics() {
+        if (lastRecordedInjectedSurvivorGeneration == this.currentIteration) {
+            return;
+        }
+        lastRecordedInjectedSurvivorGeneration = this.currentIteration;
+        int llmSurvivors = 0;
+        for (TestChromosome candidate : this.population) {
+            if (candidate == null || candidate.getInjectionGeneration() != this.currentIteration) {
+                continue;
+            }
+            InjectionSource source = candidate.getInjectionSource();
+            if (!isLlmInjectionSource(source)) {
+                continue;
+            }
+            llmSurvivors++;
+            if (source == InjectionSource.LLM_STAGNATION) {
+                org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesSurvived(
+                        candidate.getDiagnosticCardTypes(), 1);
+            }
+        }
+        lastGenInjectedCandidatesSurvivedCount = llmSurvivors;
+        if (llmSurvivors > 0) {
+            llmInjectedCandidatesSurvivedTotal += llmSurvivors;
+            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Survived,
+                    llmInjectedCandidatesSurvivedTotal);
+        }
+    }
+
+    private static boolean isLlmInjectionSource(InjectionSource source) {
+        return source == InjectionSource.LLM_STAGNATION || source == InjectionSource.LLM_ASYNC;
+    }
+
+    private Map<String, Integer> initializeAttemptOutcomeMap(
+            Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate) {
+        if (attemptMetadataByCandidate == null || attemptMetadataByCandidate.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, Integer> gainsByAttemptId = new LinkedHashMap<>();
+        for (InjectionAttemptMetadata metadata : attemptMetadataByCandidate.values()) {
+            if (metadata != null && metadata.getAttemptId() != null
+                    && !metadata.getAttemptId().trim().isEmpty()) {
+                gainsByAttemptId.put(metadata.getAttemptId(), 0);
+            }
+        }
+        return gainsByAttemptId;
     }
 
     /**
@@ -1018,15 +1461,83 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // maybeSubmit/drain are documented to be safe no-ops post-shutdown.
         if (asyncProducer != null) {
             final org.evosuite.llm.search.AsyncLlmTestProducer producer = asyncProducer;
-            externalCandidateSources.add(
-                    taggedSource(InjectionSource.LLM_ASYNC, producer::drainAvailable));
+            externalCandidateSources.add(new ExternalCandidateSource() {
+                @Override
+                public List<TestChromosome> drain() {
+                    return producer.drainAvailable();
+                }
+
+                @Override
+                public InjectionSource injectionSource() {
+                    return InjectionSource.LLM_ASYNC;
+                }
+
+                @Override
+                public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
+                        List<TestChromosome> candidates) {
+                    if (candidates == null || candidates.isEmpty()) {
+                        return Collections.emptyMap();
+                    }
+                    Map<TestChromosome, InjectionAttemptMetadata> byCandidate = new IdentityHashMap<>();
+                    for (TestChromosome candidate : candidates) {
+                        InjectionAttemptMetadata metadata = producer.consumeAttemptMetadata(candidate);
+                        if (metadata != null) {
+                            byCandidate.put(candidate, metadata);
+                        }
+                    }
+                    return byCandidate;
+                }
+
+                @Override
+                public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
+                    if (gainsByAttemptId == null) {
+                        return;
+                    }
+                    for (Map.Entry<String, Integer> entry : gainsByAttemptId.entrySet()) {
+                        producer.reportAttemptOutcome(entry.getKey(), entry.getValue());
+                    }
+                }
+            });
         }
         if (stagnationLlmHelper != null) {
             final org.evosuite.llm.search.StagnationLlmHelper helper = stagnationLlmHelper;
-            externalCandidateSources.add(
-                    taggedSource(InjectionSource.LLM_STAGNATION,
-                            () -> driveStagnationHelper(helper, coveredGoalCountSupplier,
-                                    uncoveredGoalsSupplier)));
+            externalCandidateSources.add(new ExternalCandidateSource() {
+                @Override
+                public List<TestChromosome> drain() {
+                    return driveStagnationHelper(helper, coveredGoalCountSupplier, uncoveredGoalsSupplier);
+                }
+
+                @Override
+                public InjectionSource injectionSource() {
+                    return InjectionSource.LLM_STAGNATION;
+                }
+
+                @Override
+                public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
+                        List<TestChromosome> candidates) {
+                    if (candidates == null || candidates.isEmpty()) {
+                        return Collections.emptyMap();
+                    }
+                    Map<TestChromosome, InjectionAttemptMetadata> byCandidate = new IdentityHashMap<>();
+                    for (TestChromosome candidate : candidates) {
+                        InjectionAttemptMetadata metadata = helper.consumeAttemptMetadata(candidate);
+                        if (metadata != null) {
+                            byCandidate.put(candidate, metadata);
+                        }
+                    }
+                    return byCandidate;
+                }
+
+                @Override
+                public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
+                    if (gainsByAttemptId == null) {
+                        return;
+                    }
+                    for (Map.Entry<String, Integer> entry : gainsByAttemptId.entrySet()) {
+                        helper.reportAttemptOutcome(entry.getKey(), entry.getValue());
+                    }
+                }
+            });
         }
         registerAdditionalCandidateSources();
     }

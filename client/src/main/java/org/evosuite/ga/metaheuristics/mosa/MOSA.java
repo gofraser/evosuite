@@ -26,6 +26,7 @@ import org.evosuite.ga.operators.selection.BestKSelection;
 import org.evosuite.ga.operators.selection.RandomKSelection;
 import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.ga.operators.selection.SelectionFunction;
+import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.statistics.RuntimeVariable;
@@ -110,9 +111,11 @@ public class MOSA extends AbstractMOSA {
                 : baseTarget;
         Map<Integer, List<TestChromosome>> speciesMapForSelection =
                 speciationEnabled ? speciesAssigner.groupBySpecies(union) : Collections.emptyMap();
+        SpeciesProtectionStats sharingStats = new SpeciesProtectionStats();
 
         List<TestChromosome> rankedCandidates =
-                selectByRankingAndCrowding(union, uncoveredGoals, candidateLimit, speciesMapForSelection);
+                selectByRankingAndCrowding(union, uncoveredGoals, candidateLimit,
+                        speciesMapForSelection, sharingStats);
 
         applySpeciationSurvival(rankedCandidates, baseTarget);
 

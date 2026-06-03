@@ -1148,6 +1148,23 @@ public enum RuntimeVariable {
      * Per-generation largest species share timeline.
      */
     Species_Largest_Share_Timeline,
+    /**
+     * Per-generation count of survivors admitted via species minimum-quota protection.
+     */
+    Species_Quota_Protected_Timeline,
+    /**
+     * Per-generation count of survivors admitted via newborn age protection.
+     */
+    Species_Newborn_Protected_Timeline,
+    /**
+     * Per-generation count of survivors admitted via incubator-species protection.
+     */
+    Species_Incubator_Protected_Timeline,
+    /**
+     * Per-generation count of individuals whose crowding score was adjusted by
+     * species-density fitness sharing.
+     */
+    Species_Sharing_Adjusted_Timeline,
 
     // ---- Phase 6: Parsed-Statement Provenance ----
 

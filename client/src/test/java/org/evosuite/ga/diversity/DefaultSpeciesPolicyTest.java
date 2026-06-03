@@ -350,6 +350,57 @@ class DefaultSpeciesPolicyTest {
                 "Newborn species should receive protected admission");
     }
 
+    @Test
+    void protectedSurvivalIncubatorQuotaDecaysByAge() {
+        boolean prevEnabled = Properties.SPECIES_INCUBATOR_ENABLED;
+        int prevWindow = Properties.SPECIES_INCUBATOR_GENERATIONS;
+        int prevInitial = Properties.SPECIES_INCUBATOR_QUOTA_INITIAL;
+        int prevMin = Properties.SPECIES_INCUBATOR_QUOTA_MIN;
+        double prevDecay = Properties.SPECIES_INCUBATOR_QUOTA_DECAY;
+        try {
+            Properties.SPECIES_INCUBATOR_ENABLED = true;
+            Properties.SPECIES_INCUBATOR_GENERATIONS = 5;
+            Properties.SPECIES_INCUBATOR_QUOTA_INITIAL = 3;
+            Properties.SPECIES_INCUBATOR_QUOTA_MIN = 1;
+            Properties.SPECIES_INCUBATOR_QUOTA_DECAY = 0.5;
+
+            List<TestChromosome> incubator = makeChromosomes(3);
+            List<TestChromosome> incumbent = makeChromosomes(3);
+            List<TestChromosome> ranked = new ArrayList<>();
+            ranked.addAll(incubator);
+            ranked.addAll(incumbent);
+
+            Map<Integer, List<TestChromosome>> speciesMap = new LinkedHashMap<>();
+            speciesMap.put(-1, incubator);
+            speciesMap.put(1, incumbent);
+
+            Map<Integer, Integer> birth = new HashMap<>();
+            birth.put(-1, 10);
+            birth.put(1, 0);
+
+            SpeciesProtectionStats youngStats = new SpeciesProtectionStats();
+            List<TestChromosome> youngResult = policy.applyProtectedSurvival(
+                    ranked, speciesMap, 3, 1.0, 10, 1, 0, birth, youngStats);
+
+            SpeciesProtectionStats oldStats = new SpeciesProtectionStats();
+            List<TestChromosome> oldResult = policy.applyProtectedSurvival(
+                    ranked, speciesMap, 3, 1.0, 13, 1, 0, birth, oldStats);
+
+            assertEquals(3, youngResult.size());
+            assertEquals(3, oldResult.size());
+            assertEquals(3, youngStats.getIncubatorProtectedCount());
+            assertEquals(1, oldStats.getIncubatorProtectedCount());
+            assertTrue(youngStats.getIncubatorProtectedCount() > oldStats.getIncubatorProtectedCount(),
+                    "Decayed incubator quota should protect fewer individuals at older ages");
+        } finally {
+            Properties.SPECIES_INCUBATOR_ENABLED = prevEnabled;
+            Properties.SPECIES_INCUBATOR_GENERATIONS = prevWindow;
+            Properties.SPECIES_INCUBATOR_QUOTA_INITIAL = prevInitial;
+            Properties.SPECIES_INCUBATOR_QUOTA_MIN = prevMin;
+            Properties.SPECIES_INCUBATOR_QUOTA_DECAY = prevDecay;
+        }
+    }
+
     private List<TestChromosome> makeChromosomes(int n) {
         List<TestChromosome> list = new ArrayList<>();
         for (int i = 0; i < n; i++) {

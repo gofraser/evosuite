@@ -21,6 +21,7 @@ package org.evosuite.ga.metaheuristics;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.Algorithm;
+import org.evosuite.TimeController;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
@@ -40,10 +41,12 @@ import org.evosuite.ga.populationlimit.PopulationLimit;
 import org.evosuite.ga.stoppingconditions.MaxGenerationStoppingCondition;
 import org.evosuite.ga.stoppingconditions.MaxTimeStoppingCondition;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
+import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.factory.LlmTestChromosomeFactory;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
 import org.evosuite.llm.search.LlmInjectionAdapter;
+import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.llm.search.StagnationLlmHelper;
 import org.evosuite.symbolic.dse.DSEStatistics;
@@ -124,7 +127,8 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (seededFactory == null) {
             return Collections.emptyList();
         }
-        long waitMillis = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS * 1000L);
+        long waitMillis = LlmWaitBudget.repairAwareWaitMillis(
+                () -> TimeController.getInstance().getRemainingTimeInPhaseMs());
         return seededFactory.awaitAndDrainSeeds(waitMillis);
     }
 
@@ -196,6 +200,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     protected transient AsyncLlmTestProducer asyncProducer;
     protected transient StagnationDetector stagnationDetector;
     protected transient StagnationLlmHelper stagnationLlmHelper;
+    protected transient RepeatedInjectionMemory repeatedInjectionMemory;
     protected transient LlmInjectionAdapter<T> llmInjectionAdapter;
 
     /**
@@ -450,9 +455,17 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (!Properties.LLM_ASYNC_PRODUCER || uncoveredGoalsSupplier == null) {
             return;
         }
+        if (repeatedInjectionMemory == null) {
+            repeatedInjectionMemory = new RepeatedInjectionMemory();
+        }
         Supplier<List<TestChromosome>> popSupplier = Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS
                 ? this::getPopulationAsTestChromosomes : null;
-        asyncProducer = new AsyncLlmTestProducer(uncoveredGoalsSupplier, popSupplier);
+        asyncProducer = new AsyncLlmTestProducer(uncoveredGoalsSupplier, popSupplier,
+                org.evosuite.llm.LlmService.getInstance(),
+                Properties.LLM_ASYNC_PRODUCER_QUEUE_SIZE,
+                Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL,
+                Properties.LLM_ASYNC_PRODUCER_DELAY_MS,
+                repeatedInjectionMemory);
         asyncProducer.start();
     }
 
@@ -460,7 +473,15 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (!Properties.LLM_ON_STAGNATION) {
             return;
         }
-        stagnationDetector = new StagnationDetector(maximizationObjective);
+        if (repeatedInjectionMemory == null) {
+            repeatedInjectionMemory = new RepeatedInjectionMemory();
+        }
+        stagnationDetector = new StagnationDetector(
+                org.evosuite.llm.LlmService.getInstance(),
+                maximizationObjective,
+                Properties.LLM_STAGNATION_TIMEOUT_SECONDS,
+                Properties.LLM_STAGNATION_TESTS,
+                repeatedInjectionMemory);
         stagnationLlmHelper = new StagnationLlmHelper(stagnationDetector,
                 this::getRemainingSearchBudgetSeconds);
     }
@@ -495,6 +516,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             stagnationLlmHelper.shutdown();
             stagnationLlmHelper = null;
         }
+        repeatedInjectionMemory = null;
         if (llmWasActive) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
         } else {
