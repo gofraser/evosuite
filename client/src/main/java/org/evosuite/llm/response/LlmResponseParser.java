@@ -19,6 +19,12 @@
  */
 package org.evosuite.llm.response;
 
+import com.github.javaparser.ParseProblemException;
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.BodyDeclaration;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import org.evosuite.Properties;
 
 import java.util.ArrayList;
@@ -194,6 +200,11 @@ public class LlmResponseParser {
             return maybeRecover(emptyFallbackClass(className, packageName));
         }
 
+        ExtractionResult normalizedWrapper = normalizeSingleWrapperClass(code, className, packageName);
+        if (normalizedWrapper != null) {
+            return normalizedWrapper;
+        }
+
         if (code.contains("class ")) {
             return maybeRecover(ensurePackageDeclaration(code, packageName));
         }
@@ -220,6 +231,69 @@ public class LlmResponseParser {
                 + indent(bodyCode)
                 + "\n}";
         return maybeRecover(extractedSource);
+    }
+
+    /**
+     * Safely normalizes a single wrapper class into the generated-class shape.
+     *
+     * <p>Only applies when the code contains exactly one top-level concrete class
+     * whose members are exclusively {@code @Test} methods (no fields, nested
+     * types, constructors, or helper methods). This keeps the transformation
+     * deterministic and avoids unsafe rewrites.
+     */
+    private ExtractionResult normalizeSingleWrapperClass(String code,
+                                                         String className,
+                                                         String packageName) {
+        if (code == null || !code.contains("class ")) {
+            return null;
+        }
+        final CompilationUnit cu;
+        try {
+            cu = StaticJavaParser.parse(code);
+        } catch (ParseProblemException parserFailure) {
+            return null;
+        } catch (RuntimeException parserFailure) {
+            return null;
+        }
+        if (cu.getTypes().size() != 1 || !(cu.getType(0) instanceof ClassOrInterfaceDeclaration)) {
+            return null;
+        }
+        ClassOrInterfaceDeclaration wrapper = (ClassOrInterfaceDeclaration) cu.getType(0);
+        if (wrapper.isInterface() || wrapper.isAbstract()) {
+            return null;
+        }
+        if (wrapper.getMembers().isEmpty() || !wrapper.getConstructors().isEmpty()) {
+            return null;
+        }
+        List<MethodDeclaration> testMethods = new ArrayList<>();
+        for (BodyDeclaration<?> member : wrapper.getMembers()) {
+            if (!(member instanceof MethodDeclaration)) {
+                return null;
+            }
+            MethodDeclaration method = (MethodDeclaration) member;
+            if (!method.getBody().isPresent() || !isTestAnnotated(method)) {
+                return null;
+            }
+            testMethods.add(method);
+        }
+        if (testMethods.isEmpty()) {
+            return null;
+        }
+        String resolvedPackage = cu.getPackageDeclaration().isPresent()
+                ? cu.getPackageDeclaration().get().getNameAsString()
+                : packageName;
+        StringBuilder source = new StringBuilder();
+        source.append(packageDeclaration(resolvedPackage));
+        cu.getImports().forEach(importDecl -> source.append(importDecl.toString()));
+        if (!cu.getImports().isEmpty()) {
+            source.append(System.lineSeparator());
+        }
+        source.append("public class ").append(className).append(" {").append(System.lineSeparator());
+        for (MethodDeclaration method : testMethods) {
+            source.append(indent(method.toString())).append(System.lineSeparator());
+        }
+        source.append("}");
+        return maybeRecover(source.toString(), true, "wrapper-normalized");
     }
 
     private String emptyFallbackClass(String className, String packageName) {
@@ -284,6 +358,25 @@ public class LlmResponseParser {
         return new ExtractionResult(recovery.getSource(), recovery.isRecovered(), recovery.getReason());
     }
 
+    private ExtractionResult maybeRecover(String source, boolean normalizationApplied, String normalizationReason) {
+        ExtractionResult base = maybeRecover(source);
+        if (!normalizationApplied) {
+            return base;
+        }
+        StringBuilder reason = new StringBuilder();
+        if (normalizationReason != null && !normalizationReason.isEmpty()) {
+            reason.append(normalizationReason);
+        }
+        if (base.getRecoveryReason() != null && !base.getRecoveryReason().isEmpty()
+                && !"disabled".equals(base.getRecoveryReason())) {
+            if (reason.length() > 0) {
+                reason.append(";");
+            }
+            reason.append(base.getRecoveryReason());
+        }
+        return new ExtractionResult(base.getSource(), true, reason.toString());
+    }
+
     /**
      * Returns a package declaration string, or empty string if packageName is null/empty.
      */
@@ -319,6 +412,18 @@ public class LlmResponseParser {
         return bodyCode.contains("@Test")
                 || bodyCode.contains("@org.junit.Test")
                 || bodyCode.contains("@org.junit.jupiter.api.Test");
+    }
+
+    private boolean isTestAnnotated(MethodDeclaration declaration) {
+        if (declaration == null || declaration.getAnnotations() == null) {
+            return false;
+        }
+        return declaration.getAnnotations().stream().anyMatch(annotation -> {
+            String name = annotation == null ? "" : annotation.getNameAsString();
+            return "Test".equals(name)
+                    || "org.junit.Test".equals(name)
+                    || "org.junit.jupiter.api.Test".equals(name);
+        });
     }
 
     private boolean looksLikeJava(String snippet) {

@@ -30,6 +30,7 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -72,6 +73,44 @@ class AsyncLlmTestProducerIntegrationTest {
                 produced = producer.drainAvailable();
             }
             assertFalse(produced.isEmpty(), "producer should provide at least one chromosome");
+        } finally {
+            producer.stop();
+            service.close();
+        }
+    }
+
+    @Test
+    void asyncProducerPreservesAttemptMetadataForDrainedChromosomes() throws Exception {
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.ASYNC_PRODUCER, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("goal-1");
+        when(goal.getTargetClass()).thenReturn("com.example.Foo");
+        when(goal.getTargetMethod()).thenReturn("work()V");
+
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                () -> Collections.singleton(goal),
+                null,
+                service,
+                5,
+                1,
+                0,
+                new RepeatedInjectionMemory());
+
+        try {
+            producer.start();
+            List<TestChromosome> produced = Collections.emptyList();
+            long deadline = System.currentTimeMillis() + 3000L;
+            while (produced.isEmpty() && System.currentTimeMillis() < deadline) {
+                Thread.sleep(50L);
+                produced = producer.drainAvailable();
+            }
+            assertFalse(produced.isEmpty(), "producer should provide at least one chromosome");
+            InjectionAttemptMetadata metadata = producer.consumeAttemptMetadata(produced.get(0));
+            assertNotNull(metadata);
+            assertFalse(metadata.getAttemptId().isEmpty());
         } finally {
             producer.stop();
             service.close();

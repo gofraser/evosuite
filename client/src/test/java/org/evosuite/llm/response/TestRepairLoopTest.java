@@ -335,6 +335,43 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void deadlineSkipReturnsPartialExecutableTestsWithoutRepairCall() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult executable = new ParseResult(new DefaultTestCase(), "kept");
+                ParseResult dropped = new ParseResult(new DefaultTestCase(), "dropped");
+                dropped.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Arrays.asList(executable, dropped);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                2);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR,
+                System.nanoTime() + 1L);
+
+        assertTrue(result.isSuccess());
+        assertEquals(1, result.getParseResults().size());
+        assertTrue(result.getDiagnostics().stream()
+                .anyMatch(d -> d.contains("sync deadline too close")));
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
     void parserExceptionIsCapturedAndRepairAttempted() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))

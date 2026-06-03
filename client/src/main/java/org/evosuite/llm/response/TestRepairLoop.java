@@ -77,6 +77,7 @@ import java.util.regex.Pattern;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import org.evosuite.runtime.sandbox.Sandbox;
@@ -87,6 +88,8 @@ import org.evosuite.runtime.sandbox.Sandbox;
 public class TestRepairLoop {
 
     private static final Logger logger = LoggerFactory.getLogger(TestRepairLoop.class);
+    private static final long NO_REPAIR_DEADLINE = Long.MAX_VALUE;
+    private static final long REPAIR_DEADLINE_RETURN_MARGIN_NANOS = TimeUnit.SECONDS.toNanos(2);
     private static final int MAX_STACK_EXCERPT_FRAMES = 4;
     private static final int MAX_TEST_CODE_EXCERPT_CHARS = 1600;
     private static final int MAX_FALLBACK_DIAGNOSTIC_CHARS = 1200;
@@ -424,6 +427,19 @@ public class TestRepairLoop {
     public RepairResult attemptParse(String llmResponse,
                                      List<LlmMessage> conversationHistory,
                                      LlmFeature feature) {
+        return attemptParse(llmResponse, conversationHistory, feature, NO_REPAIR_DEADLINE);
+    }
+
+    /**
+     * Attempts to parse the LLM response and repair it iteratively if parsing
+     * fails, stopping before {@code repairDeadlineNanos} when another repair
+     * request would risk losing already parsed or salvaged tests to the caller's
+     * outer timeout.
+     */
+    public RepairResult attemptParse(String llmResponse,
+                                     List<LlmMessage> conversationHistory,
+                                     LlmFeature feature,
+                                     long repairDeadlineNanos) {
         List<String> diagnostics = new ArrayList<>();
         List<String> expandedClasses = new ArrayList<>();
         Map<String, ParseResult> salvagedExecutableTests = new LinkedHashMap<>();
@@ -439,6 +455,7 @@ public class TestRepairLoop {
         identicalErrorEscalated = false;
         pendingTopOfMessageEscalationHint = null;
         boolean observedExecutionDrop = false;
+        boolean strictContractReaskUsed = false;
         String previousError = null;
 
         // Accumulate the full conversation so repair requests include prior turns
@@ -451,6 +468,7 @@ public class TestRepairLoop {
             attemptsUsed = attempt + 1;
             List<ParseResult> parseResults;
             String extractedClassForDiagnostics;
+            boolean wrapperNormalizationApplied = false;
             try {
                 String sutPackage = getSutPackage();
                 List<LlmResponseParser.ExtractionResult> extractions =
@@ -464,8 +482,16 @@ public class TestRepairLoop {
                     blockIndex++;
                     String extractedClass = extraction.getSource();
                     if (extraction.isRecoveryApplied()) {
-                        diagnostics.add("Applied truncation recovery (block #" + blockIndex + "): "
-                                + extraction.getRecoveryReason());
+                        String recoveryReason = extraction.getRecoveryReason() == null
+                                ? "" : extraction.getRecoveryReason();
+                        if (recoveryReason.contains("wrapper-normalized")) {
+                            wrapperNormalizationApplied = true;
+                            diagnostics.add("Applied wrapper normalization (block #" + blockIndex + "): "
+                                    + recoveryReason);
+                        } else {
+                            diagnostics.add("Applied truncation recovery (block #" + blockIndex + "): "
+                                    + recoveryReason);
+                        }
                         validateRecoveredSource(extractedClass);
                     }
                     ReflectiveAssertThrowsRewriteResult rewriteResult =
@@ -493,7 +519,8 @@ public class TestRepairLoop {
                     diagnostics.add(parserFailureText);
                     String next = tryRepair(parserFailureText, attempt, previousError, diagnostics,
                             conversation, currentResponse, feature, expandedClasses,
-                            Collections.<ParseResult, ExecutionFailureContext>emptyMap());
+                            Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
+                            repairDeadlineNanos);
                     if (next == null) {
                         break;
                     }
@@ -506,7 +533,8 @@ public class TestRepairLoop {
                 diagnostics.add(parserFailureText);
                 String next = tryRepair(parserFailureText, attempt, previousError, diagnostics,
                         conversation, currentResponse, feature, expandedClasses,
-                        Collections.<ParseResult, ExecutionFailureContext>emptyMap());
+                        Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
+                        repairDeadlineNanos);
                 if (next == null) {
                     break;
                 }
@@ -518,9 +546,27 @@ public class TestRepairLoop {
             if (parseResults == null || parseResults.isEmpty()) {
                 String parseErrorText = buildNoTestMethodsParseError(extractedClassForDiagnostics);
                 diagnostics.add(parseErrorText);
+                OutputContractStatus contractStatus = classifyOutputContractStatus(
+                        currentResponse, extractedClassForDiagnostics, wrapperNormalizationApplied);
+                if (contractStatus == OutputContractStatus.HARD_REJECT && !strictContractReaskUsed) {
+                    strictContractReaskUsed = true;
+                    String strictContractError = buildStrictContractRepairRequest(
+                            parseErrorText, extractedClassForDiagnostics);
+                    diagnostics.add("Detected hard output-contract violation; issuing strict contract re-ask.");
+                    String next = tryStrictContractRepair(strictContractError, attempt, diagnostics,
+                            conversation, currentResponse, feature, expandedClasses,
+                            repairDeadlineNanos);
+                    if (next == null) {
+                        break;
+                    }
+                    previousError = strictContractError;
+                    currentResponse = next;
+                    continue;
+                }
                 String next = tryRepair(parseErrorText, attempt, previousError, diagnostics,
                         conversation, currentResponse, feature, expandedClasses,
-                        Collections.<ParseResult, ExecutionFailureContext>emptyMap());
+                        Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
+                        repairDeadlineNanos);
                 if (next == null) {
                     break;
                 }
@@ -638,7 +684,7 @@ public class TestRepairLoop {
 
             String next = tryRepair(combinedError, attempt, previousError, diagnostics,
                     conversation, currentResponse, feature, expandedClasses,
-                    executionErrorByTest);
+                    executionErrorByTest, repairDeadlineNanos);
             if (next == null) {
                 // Final-resort: perform brute-force salvage on failed tests
                 List<ParseResult> allFailedTests = new ArrayList<>(droppedAtParse);
@@ -785,6 +831,36 @@ public class TestRepairLoop {
         return true;
     }
 
+    /**
+     * Reject test cases that contain {@code AssignmentStatement}s whose
+     * positional copy would crash with "wrong position N, total N" — the
+     * symptom is invisible to {@link #hasOrphanedVariableReferences} because
+     * the AssignmentStatement is itself the only matching definition for its
+     * retval. ObjectPool sequence insertion and certain crossover-driven
+     * paths trigger {@code Statement.copy(newTestCase, offset)} and would
+     * kill the master process; dropping the salvaged test here keeps the
+     * search alive.
+     */
+    private boolean hasUnsafelyCopyableStatements(TestCase testCase, String context) {
+        if (testCase == null) {
+            return false;
+        }
+        List<String> issues;
+        try {
+            issues = TestParser.findUnsafelyCopyableStatements(testCase);
+        } catch (Throwable t) {
+            logger.warn("Copy-safety validation crashed for {}; dropping test ({})",
+                    context, t.toString());
+            return true;
+        }
+        if (issues.isEmpty()) {
+            return false;
+        }
+        logger.warn("Dropping {} due to {} unsafe-to-copy statement(s); details: {}",
+                context, issues.size(), issues);
+        return true;
+    }
+
     private Optional<TestCase> performBruteForceSalvage(TestCase failedTestCase) {
         logger.warn("Attempting brute-force salvage for test case: {}", failedTestCase.getID());
         if (hasOrphanedVariableReferences(failedTestCase,
@@ -802,6 +878,10 @@ public class TestRepairLoop {
 
         if (result.noThrownExceptions()) {
             if (isMeaningful(salvaged)) {
+                if (hasUnsafelyCopyableStatements(salvaged,
+                        "salvaged-no-assertions test " + failedTestCase.getID())) {
+                    return Optional.empty();
+                }
                 logger.warn("Successfully salvaged test {} by removing assertions.", failedTestCase.getID());
                 return Optional.of(salvaged);
             }
@@ -834,6 +914,11 @@ public class TestRepairLoop {
 
             if (result.noThrownExceptions()) {
                 if (isMeaningful(salvaged)) {
+                    if (hasUnsafelyCopyableStatements(salvaged,
+                            "salvaged-truncated test " + failedTestCase.getID()
+                                    + " (chop@" + failIndex + ")")) {
+                        return Optional.empty();
+                    }
                     logger.warn("Successfully salvaged test {} by truncation at index {}.", failedTestCase.getID(), failIndex);
                     return Optional.of(salvaged);
                 }
@@ -876,6 +961,11 @@ public class TestRepairLoop {
         // Strip any assertions that may now be dangling.
         LlmAssertionSanitizer.sanitize(salvaged);
         if (!isMeaningful(salvaged)) {
+            return Optional.empty();
+        }
+        if (hasUnsafelyCopyableStatements(salvaged,
+                "covering-throw salvage test " + failedTestCase.getID()
+                        + " (chop@" + (failIndex + 1) + ")")) {
             return Optional.empty();
         }
         Throwable thrown = exceptionMapping.get(failIndex);
@@ -2276,6 +2366,54 @@ public class TestRepairLoop {
         return error.toString();
     }
 
+    private enum OutputContractStatus {
+        OK,
+        RECOVERED,
+        HARD_REJECT
+    }
+
+    private OutputContractStatus classifyOutputContractStatus(String rawResponse,
+                                                              String extractedClass,
+                                                              boolean wrapperRecovered) {
+        if (wrapperRecovered) {
+            return OutputContractStatus.RECOVERED;
+        }
+        String raw = rawResponse == null ? "" : rawResponse.trim();
+        String extracted = extractedClass == null ? "" : extractedClass.trim();
+        if (raw.isEmpty() || extracted.isEmpty()) {
+            return OutputContractStatus.HARD_REJECT;
+        }
+        boolean mentionsTest = raw.contains("@Test")
+                || raw.contains("@org.junit.Test")
+                || raw.contains("@org.junit.jupiter.api.Test");
+        boolean mentionsClass = raw.contains(" class ") || raw.startsWith("class ");
+        boolean extractedHasTests = extracted.contains("@Test")
+                || extracted.contains("@org.junit.Test")
+                || extracted.contains("@org.junit.jupiter.api.Test");
+        if (!extractedHasTests && !mentionsTest && !mentionsClass) {
+            return OutputContractStatus.HARD_REJECT;
+        }
+        return OutputContractStatus.OK;
+    }
+
+    private String buildStrictContractRepairRequest(String parseErrorText, String extractedClass) {
+        StringBuilder strict = new StringBuilder();
+        strict.append("OUTPUT CONTRACT VIOLATION (hard reject).\n");
+        strict.append("Return ONLY a complete Java test class containing @Test methods.\n");
+        strict.append("Do NOT return explanations, bytecode context, or prose.\n");
+        strict.append("Required shape:\n");
+        strict.append("- one Java class\n");
+        strict.append("- one or more methods annotated with @Test\n");
+        strict.append("- compilable Java source\n\n");
+        strict.append("Previous parser diagnostics:\n").append(parseErrorText);
+        if (extractedClass != null && !extractedClass.trim().isEmpty()) {
+            strict.append("\n\nExtracted source snippet that failed contract:\n```java\n")
+                    .append(truncate(extractedClass, MAX_TEST_CODE_EXCERPT_CHARS))
+                    .append("\n```");
+        }
+        return strict.toString();
+    }
+
     private List<String> extractMalformedImportLines(String sourceText) {
         if (sourceText == null || sourceText.isEmpty()) {
             return Collections.emptyList();
@@ -3389,12 +3527,47 @@ public class TestRepairLoop {
                              String currentResponse,
                              LlmFeature feature,
                              List<String> expandedClasses,
-                             Map<ParseResult, ExecutionFailureContext> executionFailures) {
+                             Map<ParseResult, ExecutionFailureContext> executionFailures,
+                             long repairDeadlineNanos) {
         if (attempt == maxAttempts || shouldSkipRepair(errorText, previousError, diagnostics)) {
+            return null;
+        }
+        if (!hasTimeForAnotherRepairRequest(repairDeadlineNanos)) {
+            diagnostics.add("Skipped repair: sync deadline too close; returning partial/salvaged tests if available");
             return null;
         }
         return requestRepairSafely(conversation, currentResponse, errorText,
                 feature, expandedClasses, diagnostics, attempt + 2, executionFailures);
+    }
+
+    private String tryStrictContractRepair(String errorText,
+                                           int attempt,
+                                           List<String> diagnostics,
+                                           List<LlmMessage> conversation,
+                                           String currentResponse,
+                                           LlmFeature feature,
+                                           List<String> expandedClasses,
+                                           long repairDeadlineNanos) {
+        if (attempt == maxAttempts) {
+            return null;
+        }
+        if (!hasTimeForAnotherRepairRequest(repairDeadlineNanos)) {
+            diagnostics.add("Skipped strict contract repair: sync deadline too close; returning partial/salvaged tests if available");
+            return null;
+        }
+        return requestRepairSafely(conversation, currentResponse, errorText,
+                feature, expandedClasses, diagnostics, attempt + 2,
+                Collections.<ParseResult, ExecutionFailureContext>emptyMap());
+    }
+
+    private boolean hasTimeForAnotherRepairRequest(long repairDeadlineNanos) {
+        if (repairDeadlineNanos == NO_REPAIR_DEADLINE || repairDeadlineNanos <= 0L) {
+            return true;
+        }
+        long remainingNanos = repairDeadlineNanos - System.nanoTime();
+        long minRepairCallNanos = TimeUnit.SECONDS.toNanos(
+                Math.max(1L, Properties.LLM_TIMEOUT_SECONDS));
+        return remainingNanos > minRepairCallNanos + REPAIR_DEADLINE_RETURN_MARGIN_NANOS;
     }
 
     private String requestRepairSafely(List<LlmMessage> conversation,

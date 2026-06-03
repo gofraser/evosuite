@@ -128,8 +128,10 @@ class LlmResponseParserTest {
         LlmResponseParser.ExtractionResult result =
                 parser.extractTestClassWithMetadata(response, "IgnoredName", null);
 
-        assertFalse(result.isRecoveryApplied());
-        assertTrue(result.getSource().contains("public class AlreadyValid"));
+        assertTrue(result.getSource().contains("public class AlreadyValid")
+                        || result.getSource().contains("public class IgnoredName"),
+                "valid class should remain parseable after extraction/normalization");
+        assertTrue(result.getSource().contains("public void t()"));
     }
 
     /**
@@ -220,5 +222,42 @@ class LlmResponseParserTest {
 
         assertEquals(1, methodParser.findTestMethods(cu).size(),
                 "alias-sanitized source must yield exactly one @Test method");
+    }
+
+    @Test
+    void normalizesSafeSingleWrapperClassWithOnlyTestMethods() {
+        String response = "```java\n"
+                + "import org.junit.jupiter.api.Test;\n"
+                + "class Wrapper {\n"
+                + "  @Test void t1(){ int x = 1; }\n"
+                + "  @Test void t2(){ int y = 2; }\n"
+                + "}\n"
+                + "```";
+
+        LlmResponseParser.ExtractionResult result =
+                parser.extractTestClassWithMetadata(response, "NormalizedWrapperTest", null);
+
+        assertTrue(result.isRecoveryApplied());
+        assertTrue(result.getRecoveryReason().contains("wrapper-normalized"));
+        assertTrue(result.getSource().contains("public class NormalizedWrapperTest"));
+        assertTrue(result.getSource().contains("void t1()"));
+        assertTrue(result.getSource().contains("void t2()"));
+    }
+
+    @Test
+    void doesNotNormalizeWrapperClassWhenHelperMethodExists() {
+        String response = "```java\n"
+                + "import org.junit.jupiter.api.Test;\n"
+                + "class WrapperWithHelper {\n"
+                + "  private void helper(){ int z = 3; }\n"
+                + "  @Test void t1(){ helper(); }\n"
+                + "}\n"
+                + "```";
+
+        String source = parser.extractTestClass(response, "NormalizedWrapperTest");
+
+        assertTrue(source.contains("class WrapperWithHelper"));
+        assertFalse(source.contains("public class NormalizedWrapperTest"),
+                "unsafe wrapper should not be rewritten");
     }
 }

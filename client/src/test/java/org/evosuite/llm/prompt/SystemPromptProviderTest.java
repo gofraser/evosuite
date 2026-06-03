@@ -54,6 +54,8 @@ class SystemPromptProviderTest {
                 "System prompt should discourage unnecessary reflection");
         assertTrue(prompt.contains("Method.invoke wraps user exceptions in InvocationTargetException"),
                 "System prompt should explain reflective exception wrapping");
+        assertTrue(prompt.contains("omit assertions entirely"),
+                "System prompt must defer to coverage-guidance prompts that forbid assertions");
         assertTrue(prompt.contains("Do NOT install, replace, reset, or restore a SecurityManager"),
                 "System prompt must forbid SecurityManager mutation in sandboxed tests");
         assertTrue(prompt.contains("System.setSecurityManager(...)"),
@@ -78,6 +80,8 @@ class SystemPromptProviderTest {
                 "System prompt should discourage unnecessary reflection");
         assertTrue(prompt.contains("Method.invoke wraps user exceptions in InvocationTargetException"),
                 "System prompt should explain reflective exception wrapping");
+        assertTrue(prompt.contains("omit assertions entirely"),
+                "System prompt must defer to coverage-guidance prompts that forbid assertions");
         assertTrue(prompt.contains("Do NOT install, replace, reset, or restore a SecurityManager"),
                 "System prompt must forbid SecurityManager mutation in sandboxed tests");
         assertTrue(prompt.contains("System.setSecurityManager(...)"),

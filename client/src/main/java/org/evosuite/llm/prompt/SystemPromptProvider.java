@@ -40,7 +40,8 @@ public class SystemPromptProvider {
                 + "Do NOT use try/catch/finally blocks. "
                 + "Do NOT use any control-flow statements: no if/else, switch, for, while, do-while, "
                 + "enhanced for loops, conditional (?:) expressions, break, or continue. "
-                + "Tests must be straight-line code only (plus assertThrows lambdas when needed). "
+                + "Tests must be straight-line code only. If assertions are explicitly allowed and an exception assertion is truly needed, "
+                + "an assertThrows lambda is acceptable. "
                 + "Do NOT define anonymous classes or anonymous implementations of interfaces/abstract classes. If an interface or abstract class is required, you MUST use Mockito.mock(Class.class) instead of writing an anonymous class body. "
                 + "Do NOT use Mockito.spy(...) or spy-based stubbing patterns such as doReturn(...).when(spy)...; these are not reliably representable in EvoSuite parsed statements. Prefer real instances or Mockito.mock(...). "
                 + "ACCESS & STRATEGY: You have access to both public and package-private members (methods, constructors, and fields) because tests are generated in the same package as the SUT. If a public factory or constructor is too complex to instantiate (e.g., requires many dependencies), PREFER using a package-private constructor or method to create the SUT instance directly. This is often the simplest way to bypass heavyweight setup logic. "
@@ -73,13 +74,17 @@ public class SystemPromptProvider {
                     + "Generate only valid Java JUnit5 test code using org.junit.jupiter.api annotations. "
                     + "Return code only. Follow method signatures and generic types from the "
                     + "provided context strictly. "
-                    + "Use assertThrows() for exception testing instead of @Test(expected=...)."
+                    + "When assertions are allowed and exception behavior must be checked, use assertThrows() "
+                    + "instead of @Test(expected=...). If a later instruction explicitly says coverage-guidance "
+                    + "tests should not include assertions, obey that instruction and omit assertions entirely."
                     + structuralDirectives
                     + coverageDirective;
         }
         return "You are an expert Java test generation assistant integrated into EvoSuite. "
                 + "Generate only valid Java JUnit4 test code using org.junit.Test annotations. "
-                + "Return code only. Follow method signatures and generic types from the provided context strictly."
+                + "Return code only. Follow method signatures and generic types from the provided context strictly. "
+                + "If a later instruction explicitly says coverage-guidance tests should not include assertions, "
+                + "obey that instruction and omit assertions entirely."
                 + structuralDirectives
                 + coverageDirective;
     }

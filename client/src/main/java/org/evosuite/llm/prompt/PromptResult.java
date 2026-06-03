@@ -21,6 +21,8 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.search.ProblemCardType;
+import org.evosuite.llm.search.RepeatedInjectionTarget;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -145,6 +147,8 @@ public final class PromptResult {
     private final boolean clusterSummaryTruncated;
     private final int clusterSummaryChars;
     private final DependencySummaryMetadata dependencySummaryMetadata;
+    private final List<ProblemCardType> diagnosticCardTypes;
+    private final List<RepeatedInjectionTarget> repeatedInjectionTargets;
 
     public static final class Builder {
         private List<LlmMessage> messages = Collections.emptyList();
@@ -156,6 +160,8 @@ public final class PromptResult {
         private boolean clusterSummaryTruncated;
         private int clusterSummaryChars;
         private DependencySummaryMetadata dependencySummaryMetadata = DependencySummaryMetadata.empty();
+        private List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
+        private List<RepeatedInjectionTarget> repeatedInjectionTargets = Collections.emptyList();
 
         public Builder messages(List<LlmMessage> messages) {
             this.messages = messages;
@@ -202,6 +208,16 @@ public final class PromptResult {
             return this;
         }
 
+        public Builder diagnosticCardTypes(List<ProblemCardType> diagnosticCardTypes) {
+            this.diagnosticCardTypes = diagnosticCardTypes;
+            return this;
+        }
+
+        public Builder repeatedInjectionTargets(List<RepeatedInjectionTarget> repeatedInjectionTargets) {
+            this.repeatedInjectionTargets = repeatedInjectionTargets;
+            return this;
+        }
+
         public PromptResult build() {
             return new PromptResult(this);
         }
@@ -220,6 +236,12 @@ public final class PromptResult {
         this.clusterSummaryChars = builder.clusterSummaryChars;
         this.dependencySummaryMetadata = builder.dependencySummaryMetadata == null
                 ? DependencySummaryMetadata.empty() : builder.dependencySummaryMetadata;
+        this.diagnosticCardTypes = builder.diagnosticCardTypes == null
+                ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(builder.diagnosticCardTypes));
+        this.repeatedInjectionTargets = builder.repeatedInjectionTargets == null
+                ? Collections.<RepeatedInjectionTarget>emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(builder.repeatedInjectionTargets));
     }
 
     public List<LlmMessage> getMessages() {
@@ -268,5 +290,32 @@ public final class PromptResult {
 
     public DependencySummaryMetadata getDependencySummaryMetadata() {
         return dependencySummaryMetadata;
+    }
+
+    /**
+     * Ordered diagnostic card types selected for this prompt, if any.
+     * Empty for non-diagnostic stagnation prompts.
+     */
+    public List<ProblemCardType> getDiagnosticCardTypes() {
+        return diagnosticCardTypes;
+    }
+
+    public List<RepeatedInjectionTarget> getRepeatedInjectionTargets() {
+        return repeatedInjectionTargets;
+    }
+
+    public Builder toBuilder() {
+        return new Builder()
+                .messages(messages)
+                .sutContextMode(sutContextMode)
+                .contextUnavailable(contextUnavailable)
+                .contextTruncated(contextTruncated)
+                .contextCommentsStripped(contextCommentsStripped)
+                .contextSelectivelyTruncated(contextSelectivelyTruncated)
+                .clusterSummaryTruncated(clusterSummaryTruncated)
+                .clusterSummaryChars(clusterSummaryChars)
+                .dependencySummaryMetadata(dependencySummaryMetadata)
+                .diagnosticCardTypes(diagnosticCardTypes)
+                .repeatedInjectionTargets(repeatedInjectionTargets);
     }
 }

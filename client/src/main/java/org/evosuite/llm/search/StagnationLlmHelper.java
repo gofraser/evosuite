@@ -21,6 +21,8 @@ package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmStagnationMode;
+import org.evosuite.llm.LlmStatistics;
+import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
@@ -32,6 +34,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -69,16 +72,15 @@ public final class StagnationLlmHelper {
     private final int budgetGuardSeconds;
 
     /**
-     * Default budget guard when {@link Properties#LLM_STAGNATION_BUDGET_GUARD_SECONDS}
-     * is left at -1. A small floor — enough for any LLM response to plausibly
-     * arrive — rather than the full per-call timeout, so stagnation can still
-     * fire late in the run. SYNC mode separately truncates its per-call wait
-     * to the remaining budget, so blocking past the search deadline is
-     * bounded regardless of this floor.
+     * When the guard is left at -1, use a conservative late-run floor to avoid
+     * launching stagnation calls that are likely to be interrupted by search
+     * shutdown before any response can be consumed.
      */
-    private static final int DEFAULT_BUDGET_GUARD_SECONDS = 5;
+    private static final int DEFAULT_BUDGET_GUARD_SECONDS = 45;
+    private static final long SYNC_RETURN_MARGIN_NANOS = TimeUnit.SECONDS.toNanos(2);
 
     private final BlockingQueue<TestChromosome> resultQueue;
+    private final Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate;
     private final ExecutorService worker;
     private final AtomicReference<Future<?>> inFlight = new AtomicReference<>();
     private volatile boolean shutdown = false;
@@ -89,6 +91,9 @@ public final class StagnationLlmHelper {
     private final AtomicLong stagnationInFlightGenerations = new AtomicLong();
     private final AtomicLong stagnationSkippedBudget = new AtomicLong();
     private final AtomicLong stagnationSkippedInFlight = new AtomicLong();
+    private final AtomicLong stagnationPromptsSubmitted = new AtomicLong();
+    private final AtomicLong stagnationResponsesReceived = new AtomicLong();
+    private final AtomicLong stagnationTestsPublished = new AtomicLong();
 
     public StagnationLlmHelper(StagnationDetector detector,
                                LongSupplier remainingBudgetSecondsSupplier) {
@@ -113,6 +118,7 @@ public final class StagnationLlmHelper {
         // Stagnation accepts all parsed tests from the LLM response, including
         // over-production beyond the requested count.
         this.resultQueue = new LinkedBlockingQueue<>();
+        this.attemptMetadataByCandidate = Collections.synchronizedMap(new IdentityHashMap<>());
         // A single-thread daemon executor is allocated for both modes. ASYNC
         // submits and returns immediately; SYNC submits and waits with a
         // truncated timeout so the call can be interrupted via Future.cancel
@@ -134,10 +140,10 @@ public final class StagnationLlmHelper {
         if (configured >= 0) {
             return configured;
         }
-        // Small floor: just enough for any response to plausibly arrive.
-        // The per-call wait in runSync caps the actual blocking time at
-        // min(timeout, remaining), so we no longer need a guard equal to
-        // the full LLM timeout. ASYNC drops late results via shutdown().
+        // Conservative floor: avoid firing prompts in the final seconds where
+        // the call is likely to be interrupted by end-of-search teardown.
+        // The per-call wait in runSync still caps actual blocking at
+        // min(timeout, remaining). ASYNC drops late results via shutdown().
         return DEFAULT_BUDGET_GUARD_SECONDS;
     }
 
@@ -197,13 +203,14 @@ public final class StagnationLlmHelper {
         }
         // Committed: consume the stagnation window now.
         detector.consumeWindow();
+        recordPromptSubmitted();
         traceOutcome("fired:" + mode.name().toLowerCase(), coveredCount, uncoveredSize, -1L, 0);
 
         int totalGoals = coveredCount + uncoveredGoals.size();
         Map<TestFitnessFunction, Double> bestFitness =
                 StagnationDetector.computeBestFitnessPerGoal(uncoveredGoals, populationSnapshot);
         PromptResult prompt = detector.buildPrompt(uncoveredGoals, populationSnapshot,
-                totalGoals, coveredCount, bestFitness);
+                totalGoals, coveredCount, bestFitness, mode == LlmStagnationMode.ASYNC);
 
         switch (mode) {
             case SYNC:
@@ -276,13 +283,19 @@ public final class StagnationLlmHelper {
     private void runSync(PromptResult prompt, int coveredCount, int uncoveredSize) {
         long t0 = System.nanoTime();
         long waitSeconds = computeSyncWaitSeconds();
+        long deadlineNanos = System.nanoTime()
+                + TimeUnit.SECONDS.toNanos(waitSeconds)
+                - SYNC_RETURN_MARGIN_NANOS;
+        RepeatedInjectionMemory.PromptAttemptRegistration registration =
+                detector.registerRepeatedAttempt(prompt, false);
         Future<List<TestChromosome>> future;
         try {
-            future = worker.submit(() -> detector.executeWithPrompt(prompt));
+            future = worker.submit(() -> detector.executeWithPrompt(prompt, deadlineNanos));
         } catch (RejectedExecutionException e) {
             // Worker shut down between our shutdown-flag check and submit.
             logger.debug("Sync stagnation submission rejected (shutting down): {}",
                     e.getMessage());
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
             return;
         }
         inFlight.set(future);
@@ -291,16 +304,19 @@ public final class StagnationLlmHelper {
             tests = future.get(waitSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             future.cancel(true);
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
             traceOutcome("timeout:sync", coveredCount, uncoveredSize, elapsedMs, 0);
             return;
         } catch (CancellationException e) {
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
             traceOutcome("cancelled:sync", coveredCount, uncoveredSize, elapsedMs, 0);
             return;
         } catch (InterruptedException e) {
             future.cancel(true);
             Thread.currentThread().interrupt();
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
             traceOutcome("interrupted:sync", coveredCount, uncoveredSize, elapsedMs, 0);
             return;
@@ -308,24 +324,21 @@ public final class StagnationLlmHelper {
             Throwable cause = e.getCause();
             logger.debug("Sync stagnation call failed: {}",
                     cause == null ? e.toString() : cause.toString());
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
             traceOutcome("error:sync", coveredCount, uncoveredSize, elapsedMs, 0);
             return;
         }
         long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+        recordResponseReceived();
         recordCallCompleted(elapsedMs, elapsedMs);
         int produced = tests == null ? 0 : tests.size();
         traceOutcome("completed:sync", coveredCount, uncoveredSize, elapsedMs, produced);
-        publishTests(tests);
+        publishTests(tests, prompt, registration);
     }
 
     private long computeSyncWaitSeconds() {
-        long timeout = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS);
-        long remaining = remainingBudgetSecondsSupplier.getAsLong();
-        if (remaining < 0) {
-            return timeout;
-        }
-        return Math.max(1L, Math.min(timeout, remaining));
+        return LlmWaitBudget.repairAwareWaitSeconds(remainingBudgetSecondsSupplier);
     }
 
     private void runAsync(PromptResult prompt) {
@@ -333,12 +346,16 @@ public final class StagnationLlmHelper {
         // sufficient — we don't need to CAS-to-null when the worker completes.
         // The de-dup check in maybeSubmit (current != null && !current.isDone())
         // already treats a completed Future the same as a null one.
+        RepeatedInjectionMemory.PromptAttemptRegistration registration =
+                detector.registerRepeatedAttempt(prompt, true);
         try {
             inFlight.set(worker.submit(() -> {
                 long t0 = System.nanoTime();
                 List<TestChromosome> tests;
+                boolean responseReceived = false;
                 try {
                     tests = detector.executeWithPrompt(prompt);
+                    responseReceived = true;
                 } catch (Throwable t) {
                     // Swallow Throwable (not just RuntimeException) so that an
                     // OutOfMemoryError or other Error doesn't silently kill the
@@ -349,16 +366,20 @@ public final class StagnationLlmHelper {
                     tests = Collections.emptyList();
                 }
                 long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
+                if (responseReceived) {
+                    recordResponseReceived();
+                }
                 recordCallCompleted(elapsedMs, 0L);
                 int produced = tests == null ? 0 : tests.size();
                 traceOutcome("completed:async", -1, -1, elapsedMs, produced);
-                publishTests(tests);
+                publishTests(tests, prompt, registration);
             }));
         } catch (RejectedExecutionException e) {
             // Race with shutdown(): the executor was shut down between our
             // shutdown-flag check and submit. Treat as a benign skip.
             logger.debug("Async stagnation submission rejected (shutting down): {}",
                     e.getMessage());
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
         }
     }
 
@@ -373,13 +394,81 @@ public final class StagnationLlmHelper {
                 stagnationBlockedMsTotal.get());
     }
 
-    private void publishTests(List<TestChromosome> tests) {
+    private void recordPromptSubmitted() {
+        ClientServices.track(RuntimeVariable.LLM_StagnationPromptsSubmitted,
+                stagnationPromptsSubmitted.incrementAndGet());
+    }
+
+    private void recordResponseReceived() {
+        ClientServices.track(RuntimeVariable.LLM_StagnationResponsesReceived,
+                stagnationResponsesReceived.incrementAndGet());
+    }
+
+    private void publishTests(List<TestChromosome> tests,
+                              PromptResult prompt,
+                              RepeatedInjectionMemory.PromptAttemptRegistration registration) {
         if (tests == null || tests.isEmpty()) {
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
             return;
         }
+        List<ProblemCardType> cardTypes = prompt == null
+                ? Collections.emptyList() : prompt.getDiagnosticCardTypes();
+        int published = 0;
         for (TestChromosome tc : tests) {
+            if (tc == null) {
+                continue;
+            }
+            tc.setDiagnosticCardTypes(cardTypes);
             resultQueue.offer(tc);
+            attemptMetadataByCandidate.put(tc, new InjectionAttemptMetadata(
+                    registration.getAttemptId(),
+                    cardTypes == null ? Collections.<ProblemCardType>emptyList()
+                            : new ArrayList<>(cardTypes)));
+            published++;
         }
+        if (published <= 0) {
+            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+            return;
+        }
+        ClientServices.track(RuntimeVariable.LLM_StagnationTestsPublished,
+                stagnationTestsPublished.addAndGet(published));
+        LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, published);
+    }
+
+    /**
+     * Returns and clears diagnostic-card attribution for a drained stagnation candidate.
+     *
+     * <p>Empty when the candidate did not come from a diagnostic prompt.
+     */
+    public List<ProblemCardType> consumeDiagnosticCardTypes(TestChromosome candidate) {
+        InjectionAttemptMetadata metadata = consumeAttemptMetadata(candidate);
+        if (metadata != null) {
+            return metadata.getDiagnosticCardTypes();
+        }
+        return candidate == null ? Collections.<ProblemCardType>emptyList() : candidate.getDiagnosticCardTypes();
+    }
+
+    public InjectionAttemptMetadata consumeAttemptMetadata(TestChromosome candidate) {
+        if (candidate == null) {
+            return null;
+        }
+        return attemptMetadataByCandidate.remove(candidate);
+    }
+
+    public void reportAttemptOutcome(String attemptId, int gainedGoals) {
+        detector.recordRepeatedAttemptOutcome(attemptId, gainedGoals);
+    }
+
+    long getPromptsSubmitted() {
+        return stagnationPromptsSubmitted.get();
+    }
+
+    long getResponsesReceived() {
+        return stagnationResponsesReceived.get();
+    }
+
+    long getTestsPublished() {
+        return stagnationTestsPublished.get();
     }
 
     private void tickInFlightGeneration() {

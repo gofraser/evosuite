@@ -70,16 +70,20 @@ class CoverageGoalFormatterTest {
 
         TestFitnessFunction goal1 = mock(TestFitnessFunction.class);
         when(goal1.toString()).thenReturn("goal-1");
+        when(goal1.getTargetClass()).thenReturn("com.example.Foo");
         when(goal1.getTargetMethod()).thenReturn("foo(I)V");
 
         TestFitnessFunction goal2 = mock(TestFitnessFunction.class);
         when(goal2.toString()).thenReturn("goal-2");
+        when(goal2.getTargetClass()).thenReturn("com.example.Bar");
         when(goal2.getTargetMethod()).thenReturn("bar(Z)V");
 
         CoverageGoalFormatter formatter = new CoverageGoalFormatter();
         String result = formatter.format(Arrays.asList(goal1, goal2));
 
         assertTrue(result.contains("## Method:"), "should have method headers");
+        assertTrue(result.contains("## Method: com.example.Foo.foo(int)"));
+        assertTrue(result.contains("## Method: com.example.Bar.bar(boolean)"));
         // Two distinct method groups
         int count = 0;
         int idx = 0;
@@ -137,9 +141,11 @@ class CoverageGoalFormatterTest {
     @Test
     void groupByMethod_separatesGoals() {
         TestFitnessFunction goal1 = mock(TestFitnessFunction.class);
+        when(goal1.getTargetClass()).thenReturn("com.example.Foo");
         when(goal1.getTargetMethod()).thenReturn("foo(I)V");
 
         TestFitnessFunction goal2 = mock(TestFitnessFunction.class);
+        when(goal2.getTargetClass()).thenReturn("com.example.Bar");
         when(goal2.getTargetMethod()).thenReturn("bar(Z)V");
 
         CoverageGoalFormatter formatter = new CoverageGoalFormatter();
@@ -147,6 +153,8 @@ class CoverageGoalFormatterTest {
                 formatter.groupByMethod(Arrays.asList(goal1, goal2));
 
         assertEquals(2, grouped.size(), "should have 2 method groups");
+        assertTrue(grouped.containsKey("com.example.Foo.foo(int)"));
+        assertTrue(grouped.containsKey("com.example.Bar.bar(boolean)"));
     }
 
     @Test

@@ -36,8 +36,11 @@ import org.evosuite.coverage.method.MethodNoExceptionCoverageTestFitness;
 import org.evosuite.coverage.mutation.MutationTestFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.objectweb.asm.Type;
 
+import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -136,11 +139,200 @@ public class GoalDescriptionMapper {
      * @return the clean method name, or empty string if not extractable
      */
     public String extractMethodName(TestFitnessFunction goal) {
-        String raw = goal.getTargetMethod();
-        if (raw == null || raw.isEmpty()) {
-            return "";
+        return describeTarget(goal).getMethodName();
+    }
+
+    /**
+     * Extracts a class-qualified method label from a goal when available.
+     *
+     * @param goal the fitness function
+     * @return class-qualified method label, method name, or empty string
+     */
+    public String extractQualifiedMethodLabel(TestFitnessFunction goal) {
+        return describeTarget(goal).getQualifiedMethodName();
+    }
+
+    /**
+     * Builds structured prompt-facing target metadata for a coverage goal.
+     *
+     * @param goal the fitness function
+     * @return immutable target metadata
+     */
+    public GoalTarget describeTarget(TestFitnessFunction goal) {
+        if (goal == null) {
+            return GoalTarget.empty();
         }
-        return cleanMethodName(raw);
+        return describeTarget(goal.getTargetClass(), goal.getTargetMethod());
+    }
+
+    /**
+     * Builds structured prompt-facing target metadata from raw class and method identifiers.
+     *
+     * @param className target class name
+     * @param rawMethodName target method identifier
+     * @return immutable target metadata
+     */
+    public GoalTarget describeTarget(String className, String rawMethodName) {
+        return new GoalTarget(safeTrim(className),
+                cleanMethodName(rawMethodName),
+                baseMethodName(rawMethodName));
+    }
+
+    /**
+     * Builds structured prompt-facing metadata for a method-like operation identified by a goal.
+     *
+     * @param goal the goal
+     * @return immutable operation metadata
+     */
+    public OperationTarget describeMethodOperation(TestFitnessFunction goal) {
+        GoalTarget target = describeTarget(goal);
+        return describeMethodOperation(target.getClassName(), target.getMethodName(), target.getExecutionKey(),
+                target.getBaseMethodName());
+    }
+
+    /**
+     * Builds structured prompt-facing metadata for a class-qualified method identifier.
+     *
+     * @param qualifiedMethodName class-qualified method identifier
+     * @return immutable operation metadata
+     */
+    public OperationTarget describeQualifiedMethodOperation(String qualifiedMethodName) {
+        String raw = safeTrim(qualifiedMethodName);
+        if (raw.isEmpty()) {
+            return OperationTarget.empty();
+        }
+        int lastDot = raw.lastIndexOf('.');
+        if (lastDot <= 0 || lastDot >= raw.length() - 1) {
+            return describeMethodOperation("", raw);
+        }
+        return describeMethodOperation(raw.substring(0, lastDot), raw.substring(lastDot + 1));
+    }
+
+    /**
+     * Builds structured prompt-facing metadata for a method-like operation.
+     *
+     * @param className declaring class
+     * @param rawMethodName raw method identifier, optionally with descriptor
+     * @return immutable operation metadata
+     */
+    public OperationTarget describeMethodOperation(String className, String rawMethodName) {
+        return describeMethodOperation(className, cleanMethodName(rawMethodName),
+                qualifiedExecutionKey(className, baseMethodName(rawMethodName)),
+                baseMethodName(rawMethodName));
+    }
+
+    /**
+     * Builds structured prompt-facing metadata for an observed direct method invocation.
+     *
+     * @param statement the method statement
+     * @return immutable operation metadata
+     */
+    public OperationTarget describeMethodOperation(MethodStatement statement) {
+        if (statement == null || statement.getMethod() == null || statement.getMethod().getMethod() == null) {
+            return OperationTarget.empty();
+        }
+        Method method = statement.getMethod().getMethod();
+        String className = observedMethodOwner(statement, method);
+        String rawMethodName = statement.getMethod().getNameWithDescriptor();
+        if (rawMethodName == null || rawMethodName.isEmpty()) {
+            rawMethodName = method.getName() + Type.getMethodDescriptor(method);
+        }
+        return describeMethodOperation(className, rawMethodName);
+    }
+
+    private String observedMethodOwner(MethodStatement statement, Method method) {
+        if (statement != null && statement.getMethod() != null && !statement.getMethod().isStatic()
+                && statement.getCallee() != null && statement.getCallee().getVariableClass() != null) {
+            return statement.getCallee().getVariableClass().getName();
+        }
+        Class<?> declaringClass = method == null ? null : method.getDeclaringClass();
+        return declaringClass == null ? "" : declaringClass.getName();
+    }
+
+    /**
+     * Builds structured prompt-facing metadata for an observed constructor acquisition step.
+     *
+     * @param statement the constructor statement
+     * @return immutable operation metadata
+     */
+    public OperationTarget describeConstructorOperation(ConstructorStatement statement) {
+        if (statement == null || statement.getConstructor() == null
+                || statement.getConstructor().getDeclaringClass() == null) {
+            return OperationTarget.empty();
+        }
+        String className = statement.getConstructor().getDeclaringClass().getName();
+        String rawConstructor = statement.getConstructor().getNameWithDescriptor();
+        if (rawConstructor == null || rawConstructor.isEmpty()) {
+            rawConstructor = statement.getConstructor().getDescriptor();
+        }
+        return describeConstructorOperation(className, rawConstructor);
+    }
+
+    /**
+     * Builds structured prompt-facing metadata for a constructor acquisition step.
+     *
+     * @param className declaring class
+     * @param rawConstructorName raw constructor identifier or descriptor
+     * @return immutable operation metadata
+     */
+    public OperationTarget describeConstructorOperation(String className, String rawConstructorName) {
+        String owner = safeTrim(className);
+        if (owner.isEmpty()) {
+            return OperationTarget.empty();
+        }
+        return new OperationTarget(owner,
+                cleanConstructorLabel(owner, rawConstructorName),
+                owner + ".<init>",
+                "<init>");
+    }
+
+    /**
+     * Builds structured prompt-facing metadata for a branch goal.
+     *
+     * @param goal the branch goal
+     * @return immutable branch metadata
+     */
+    public BranchTarget describeBranchTarget(BranchCoverageGoal goal) {
+        if (goal == null) {
+            return BranchTarget.empty();
+        }
+        Branch branch = goal.getBranch();
+        GoalTarget target = branch == null
+                ? describeTarget(null, goal.getMethodName())
+                : describeTarget(branch.getClassName(), branch.getMethodName());
+        int lineNumber = goal.getLineNumber();
+        if (branch == null) {
+            return BranchTarget.root(target, lineNumber);
+        }
+        boolean switchCaseBranch = branch.isSwitchCaseBranch();
+        return BranchTarget.regular(target,
+                lineNumber,
+                goal.getValue(),
+                switchCaseBranch,
+                switchCaseBranch && branch.isDefaultCase(),
+                switchCaseBranch ? branch.getTargetCaseValue() : null);
+    }
+
+    /**
+     * Builds structured prompt-facing metadata for a branch when only the branch instance is available.
+     *
+     * @param branch the branch
+     * @param desiredValue desired branch outcome
+     * @return immutable branch metadata
+     */
+    public BranchTarget describeBranchTarget(Branch branch, boolean desiredValue) {
+        if (branch == null) {
+            return BranchTarget.empty();
+        }
+        GoalTarget target = describeTarget(branch.getClassName(), branch.getMethodName());
+        int lineNumber = branch.getInstruction() == null ? -1 : branch.getInstruction().getLineNumber();
+        boolean switchCaseBranch = branch.isSwitchCaseBranch();
+        return BranchTarget.regular(target,
+                lineNumber,
+                desiredValue,
+                switchCaseBranch,
+                switchCaseBranch && branch.isDefaultCase(),
+                switchCaseBranch ? branch.getTargetCaseValue() : null);
     }
 
     private String describeBranch(BranchCoverageTestFitness goal) {
@@ -152,27 +344,7 @@ public class GoalDescriptionMapper {
     }
 
     private String describeBranchGoal(BranchCoverageGoal goal) {
-        String method = cleanMethodName(goal.getMethodName());
-        Branch branch = goal.getBranch();
-        if (branch == null) {
-            return "Branch in " + method + ": method entry (root branch)";
-        }
-        int line = goal.getLineNumber();
-        boolean value = goal.getValue();
-        String direction = value ? "TRUE" : "FALSE";
-
-        if (branch.isSwitchCaseBranch()) {
-            Integer caseValue = branch.getTargetCaseValue();
-            if (caseValue != null) {
-                return "Branch in " + method + " at line " + line
-                        + ": switch case " + caseValue;
-            } else {
-                return "Branch in " + method + " at line " + line
-                        + ": switch default case";
-            }
-        }
-        return "Branch in " + method + " at line " + line
-                + " — " + direction + " path";
+        return describeBranchTarget(goal).asGoalDescription();
     }
 
     private String describeCBranch(CBranchTestFitness goal) {
@@ -290,14 +462,7 @@ public class GoalDescriptionMapper {
         if (rawMethodName == null || rawMethodName.isEmpty()) {
             return "";
         }
-        // Strip leading class name (e.g., "com.example.Foo.bar(I)V" → "bar(I)V")
-        int lastDot = rawMethodName.lastIndexOf('.');
-        if (lastDot >= 0 && lastDot < rawMethodName.length() - 1) {
-            char afterDot = rawMethodName.charAt(lastDot + 1);
-            if (Character.isLowerCase(afterDot) || afterDot == '<') {
-                rawMethodName = rawMethodName.substring(lastDot + 1);
-            }
-        }
+        rawMethodName = stripOwningClass(rawMethodName);
 
         Matcher m = METHOD_DESC_PATTERN.matcher(rawMethodName);
         if (!m.matches()) {
@@ -328,6 +493,18 @@ public class GoalDescriptionMapper {
         } catch (Exception e) {
             return rawMethodName;
         }
+    }
+
+    static String baseMethodName(String rawMethodName) {
+        String stripped = stripOwningClass(rawMethodName);
+        if (stripped.isEmpty()) {
+            return "";
+        }
+        int descriptorStart = stripped.indexOf('(');
+        if (descriptorStart > 0) {
+            return stripped.substring(0, descriptorStart);
+        }
+        return stripped;
     }
 
     /**
@@ -392,5 +569,246 @@ public class GoalDescriptionMapper {
         }
         String human = MUTATION_NAME_MAP.get(name);
         return human != null ? human : name;
+    }
+
+    private static String safeTrim(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static String stripOwningClass(String rawMethodName) {
+        String trimmed = safeTrim(rawMethodName);
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        int lastDot = trimmed.lastIndexOf('.');
+        if (lastDot >= 0 && lastDot < trimmed.length() - 1) {
+            char afterDot = trimmed.charAt(lastDot + 1);
+            if (Character.isLowerCase(afterDot) || afterDot == '<') {
+                return trimmed.substring(lastDot + 1);
+            }
+        }
+        return trimmed;
+    }
+
+    private static String qualifiedExecutionKey(String className, String baseMethodName) {
+        String owner = safeTrim(className);
+        String method = safeTrim(baseMethodName);
+        if (!owner.isEmpty() && !method.isEmpty()) {
+            return owner + "." + method;
+        }
+        return method.isEmpty() ? owner : method;
+    }
+
+    private static String qualifyDisplayLabel(String className, String displayName) {
+        String owner = safeTrim(className);
+        String name = safeTrim(displayName);
+        if (!owner.isEmpty() && !name.isEmpty()) {
+            return owner + "." + name;
+        }
+        return name.isEmpty() ? owner : name;
+    }
+
+    private static String cleanConstructorLabel(String className, String rawConstructorName) {
+        String owner = safeTrim(className);
+        if (owner.isEmpty()) {
+            return "";
+        }
+        String raw = safeTrim(rawConstructorName);
+        if (raw.isEmpty()) {
+            return owner + " constructor";
+        }
+        if (raw.startsWith("(")) {
+            raw = "<init>" + raw;
+        }
+        String cleaned = cleanMethodName(raw);
+        if (cleaned.startsWith("<init>(")) {
+            return owner + cleaned.substring("<init>".length());
+        }
+        return owner + " constructor";
+    }
+
+    public static final class GoalTarget {
+        private static final GoalTarget EMPTY = new GoalTarget("", "", "");
+
+        private final String className;
+        private final String methodName;
+        private final String baseMethodName;
+
+        private GoalTarget(String className, String methodName, String baseMethodName) {
+            this.className = safeTrim(className);
+            this.methodName = safeTrim(methodName);
+            this.baseMethodName = safeTrim(baseMethodName);
+        }
+
+        static GoalTarget empty() {
+            return EMPTY;
+        }
+
+        public String getClassName() {
+            return className;
+        }
+
+        public String getMethodName() {
+            return methodName;
+        }
+
+        public String getBaseMethodName() {
+            return baseMethodName;
+        }
+
+        public String getExecutionKey() {
+            return qualifiedExecutionKey(className, baseMethodName);
+        }
+
+        public String getQualifiedMethodName() {
+            return qualifyDisplayLabel(className, methodName);
+        }
+    }
+
+    public static final class OperationTarget {
+        private static final OperationTarget EMPTY = new OperationTarget("", "", "", "");
+
+        private final String className;
+        private final String displayLabel;
+        private final String executionKey;
+        private final String baseName;
+
+        private OperationTarget(String className, String displayLabel, String executionKey, String baseName) {
+            this.className = safeTrim(className);
+            this.displayLabel = safeTrim(displayLabel);
+            this.executionKey = safeTrim(executionKey);
+            this.baseName = safeTrim(baseName);
+        }
+
+        static OperationTarget empty() {
+            return EMPTY;
+        }
+
+        public String getClassName() {
+            return className;
+        }
+
+        public String getDisplayLabel() {
+            return displayLabel;
+        }
+
+        public String getExecutionKey() {
+            return executionKey;
+        }
+
+        public String getBaseName() {
+            return baseName;
+        }
+    }
+
+    private OperationTarget describeMethodOperation(String className,
+                                                    String displayMethodName,
+                                                    String executionKey,
+                                                    String baseMethodName) {
+        return new OperationTarget(safeTrim(className),
+                qualifyDisplayLabel(className, displayMethodName),
+                executionKey,
+                baseMethodName);
+    }
+
+    public static final class BranchTarget {
+        private static final BranchTarget EMPTY = new BranchTarget(GoalTarget.empty(), -1, false, false, false, null, false);
+
+        private final GoalTarget target;
+        private final int lineNumber;
+        private final boolean desiredValue;
+        private final boolean switchCaseBranch;
+        private final boolean defaultCase;
+        private final Integer caseValue;
+        private final boolean rootBranch;
+
+        private BranchTarget(GoalTarget target,
+                             int lineNumber,
+                             boolean desiredValue,
+                             boolean switchCaseBranch,
+                             boolean defaultCase,
+                             Integer caseValue,
+                             boolean rootBranch) {
+            this.target = target == null ? GoalTarget.empty() : target;
+            this.lineNumber = lineNumber;
+            this.desiredValue = desiredValue;
+            this.switchCaseBranch = switchCaseBranch;
+            this.defaultCase = defaultCase;
+            this.caseValue = caseValue;
+            this.rootBranch = rootBranch;
+        }
+
+        static BranchTarget empty() {
+            return EMPTY;
+        }
+
+        static BranchTarget root(GoalTarget target, int lineNumber) {
+            return new BranchTarget(target, lineNumber, false, false, false, null, true);
+        }
+
+        static BranchTarget regular(GoalTarget target,
+                                    int lineNumber,
+                                    boolean desiredValue,
+                                    boolean switchCaseBranch,
+                                    boolean defaultCase,
+                                    Integer caseValue) {
+            return new BranchTarget(target, lineNumber, desiredValue, switchCaseBranch, defaultCase, caseValue, false);
+        }
+
+        public GoalTarget getTarget() {
+            return target;
+        }
+
+        public int getLineNumber() {
+            return lineNumber;
+        }
+
+        public String getLocationLabel() {
+            String qualifiedMethod = target.getQualifiedMethodName();
+            if (qualifiedMethod.isEmpty()) {
+                return lineNumber > 0 ? "line " + lineNumber : "unknown location";
+            }
+            if (lineNumber > 0) {
+                return qualifiedMethod + " at line " + lineNumber;
+            }
+            return qualifiedMethod;
+        }
+
+        public String getOutcomeLabel() {
+            if (switchCaseBranch) {
+                return defaultCase ? "switch default case" : "switch case " + caseValue;
+            }
+            return desiredValue ? "TRUE path" : "FALSE path";
+        }
+
+        public boolean isSwitchCaseBranch() {
+            return switchCaseBranch;
+        }
+
+        public boolean isDefaultCase() {
+            return defaultCase;
+        }
+
+        public String getNeedLabel() {
+            return "need " + getOutcomeLabel();
+        }
+
+        public String asGoalDescription() {
+            String methodName = target.getMethodName();
+            if (methodName.isEmpty()) {
+                methodName = target.getQualifiedMethodName();
+            }
+            if (methodName.isEmpty()) {
+                methodName = "unknown method";
+            }
+            String lineSuffix = lineNumber > 0 ? " at line " + lineNumber : "";
+            if (rootBranch) {
+                return "Branch in " + methodName + ": method entry (root branch)";
+            }
+            if (switchCaseBranch) {
+                return "Branch in " + methodName + lineSuffix + ": " + getOutcomeLabel();
+            }
+            return "Branch in " + methodName + lineSuffix + " — " + getOutcomeLabel();
+        }
     }
 }

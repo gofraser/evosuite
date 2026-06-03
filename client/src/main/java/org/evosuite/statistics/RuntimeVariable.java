@@ -765,6 +765,18 @@ public enum RuntimeVariable {
      */
     LLM_StagnationCalls,
     /**
+     * Number of stagnation prompt attempts committed after consuming the stagnation window.
+     */
+    LLM_StagnationPromptsSubmitted,
+    /**
+     * Number of stagnation prompt executions that returned a response payload.
+     */
+    LLM_StagnationResponsesReceived,
+    /**
+     * Number of parsed stagnation tests published to the MOSA intake queue.
+     */
+    LLM_StagnationTestsPublished,
+    /**
      * Total wall-clock LLM call latency (ms) for stagnation calls — mode-independent
      * (same LLM, same network). Useful as a sanity check across SYNC/ASYNC arms.
      */
@@ -788,6 +800,346 @@ public enum RuntimeVariable {
      * ASYNC-only: stagnation submissions skipped because a previous call was still in flight.
      */
     LLM_StagnationSkippedInFlight,
+    /**
+     * LLM-injected candidates filtered out before fitness evaluation because they were null or orphaned.
+     */
+    LLM_Injected_Candidates_OrphanFiltered,
+    /**
+     * LLM-injected candidates deduplicated before fitness evaluation.
+     */
+    LLM_Injected_Candidates_Deduplicated,
+    /**
+     * LLM-injected candidates admitted into the MOSA union after evaluation.
+     */
+    LLM_Injected_Candidates_Admitted,
+    /**
+     * Freshly injected LLM candidates that survived the same generation's selection step.
+     */
+    LLM_Injected_Candidates_Survived,
+    /**
+     * Total number of diagnostic problem cards extracted before prompt selection.
+     */
+    LLM_Diagnostic_Cards_Extracted,
+    /**
+     * Number of extracted diagnostic cards of type UNREACHED_METHOD.
+     */
+    LLM_Diagnostic_Cards_Extracted_UnreachedMethod,
+    /**
+     * Number of extracted diagnostic cards of type BRANCH_POLARITY_GAP.
+     */
+    LLM_Diagnostic_Cards_Extracted_BranchPolarityGap,
+    /**
+     * Number of extracted diagnostic cards of type STATE_DIVERSIFICATION_GAP.
+     */
+    LLM_Diagnostic_Cards_Extracted_StateDiversificationGap,
+    /**
+     * Number of extracted diagnostic cards of type EXCEPTION_BARRIER.
+     */
+    LLM_Diagnostic_Cards_Extracted_ExceptionBarrier,
+    /**
+     * Number of extracted diagnostic cards of type CDG_BOTTLENECK.
+     */
+    LLM_Diagnostic_Cards_Extracted_CdgBottleneck,
+    /**
+     * Number of extracted diagnostic cards of type UNINSTANTIABLE_TYPE.
+     */
+    LLM_Diagnostic_Cards_Extracted_UninstantiableType,
+    /**
+     * Number of extracted diagnostic cards of type STATE_SETUP_BARRIER.
+     */
+    LLM_Diagnostic_Cards_Extracted_StateSetupBarrier,
+    /**
+     * Number of extracted diagnostic cards of type INDIRECT_REACHABILITY_BARRIER.
+     */
+    LLM_Diagnostic_Cards_Extracted_IndirectReachabilityBarrier,
+    /**
+     * Upstream throwing helper/bootstrap calls that could not be attributed to a downstream blocked goal.
+     */
+    LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
+    /**
+     * UNINSTANTIABLE_TYPE candidates suppressed because meaningful same-type or goal-bearing progress exists.
+     */
+    LLM_Diagnostic_Extractor_Rejects_UninstantiableProgressBeyondCreation,
+    /**
+     * STATE_SETUP_BARRIER candidates suppressed because successful executions broke failure dominance.
+     */
+    LLM_Diagnostic_Extractor_Rejects_StateSetupDilutedSuccess,
+    /**
+     * Bootstrap/setup observations that could not be mapped onto a more specific blocked goal-bearing type.
+     */
+    LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure,
+    /**
+     * Repeated upstream throwing helper/bootstrap sources observed before downstream blocked-goal attribution.
+     */
+    LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionRepeatedSources,
+    /**
+     * Distinct downstream blocked goal methods discovered behind upstream throwing helper/bootstrap calls.
+     */
+    LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionBlockedGoalMethods,
+    /**
+     * Direct exception-barrier candidates that met method-level consistency thresholds.
+     */
+    LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierMethodCandidates,
+    /**
+     * Context-local exception-barrier candidates that met per-context consistency thresholds.
+     */
+    LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierContextCandidates,
+    /**
+     * Upstream exception-barrier candidates that met blocked-goal attribution and consistency thresholds.
+     */
+    LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierUpstreamCandidates,
+    /**
+     * Exception-barrier candidates suppressed because attempts or exception counts stayed below threshold.
+     */
+    LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedInsufficientAttempts,
+    /**
+     * Exception-barrier candidates suppressed because exception dominance stayed below threshold.
+     */
+    LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedLowFailureRate,
+    /**
+     * Goal-bearing types that showed construction/factory failures before any blocker card extraction.
+     */
+    LLM_Diagnostic_Extractor_Candidates_TypeBarrierSignalsWithConstructionFailure,
+    /**
+     * Goal-bearing types that showed setup/lifecycle failures before any blocker card extraction.
+     */
+    LLM_Diagnostic_Extractor_Candidates_TypeBarrierSignalsWithSetupFailure,
+    /**
+     * UNINSTANTIABLE_TYPE candidate types that cleared the minimum-attempt gate.
+     */
+    LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeCandidates,
+    /**
+     * UNINSTANTIABLE_TYPE candidates suppressed because acquisition failures were too sparse.
+     */
+    LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeSuppressedInsufficientAttempts,
+    /**
+     * UNINSTANTIABLE_TYPE candidates suppressed because acquisition failures were not dominant enough.
+     */
+    LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeSuppressedLowFailureRate,
+    /**
+     * STATE_SETUP_BARRIER candidate types that cleared the basic acquisition and setup-attempt gates.
+     */
+    LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierCandidates,
+    /**
+     * STATE_SETUP_BARRIER candidates suppressed because no successful acquisition was observed first.
+     */
+    LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedNoSuccessfulAcquisition,
+    /**
+     * STATE_SETUP_BARRIER candidates suppressed because setup failures were too sparse.
+     */
+    LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInsufficientAttempts,
+    /**
+     * STATE_SETUP_BARRIER candidates suppressed because no failing setup step was consistent enough.
+     */
+    LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInconsistentFailingStep,
+    /**
+     * Total number of diagnostic problem cards selected into stagnation prompts.
+     */
+    LLM_Diagnostic_Cards_Selected,
+    /**
+     * Total number of extracted diagnostic cards discarded by selector policy.
+     */
+    LLM_Diagnostic_Cards_Discarded,
+    /**
+     * Number of discarded cards removed specifically due to root-cause overlap.
+     */
+    LLM_Diagnostic_Cards_Deduplicated,
+    /**
+     * Prompt targets skipped because the same evidence was selected too recently.
+     */
+    LLM_Repeated_Prompt_Targets_Suppressed_Recent,
+    /**
+     * Prompt targets skipped because an async attempt for them is still outstanding.
+     */
+    LLM_Repeated_Prompt_Targets_Suppressed_InFlight,
+    /**
+     * Prompt targets retried because the observed evidence fingerprint changed.
+     */
+    LLM_Repeated_Prompt_Targets_Retried_Changed,
+    /**
+     * Number of selected diagnostic cards of type UNREACHED_METHOD.
+     */
+    LLM_Diagnostic_Cards_UnreachedMethod,
+    /**
+     * Number of selected diagnostic cards of type BRANCH_POLARITY_GAP.
+     */
+    LLM_Diagnostic_Cards_BranchPolarityGap,
+    /**
+     * Number of selected diagnostic cards of type STATE_DIVERSIFICATION_GAP.
+     */
+    LLM_Diagnostic_Cards_StateDiversificationGap,
+    /**
+     * Number of selected diagnostic cards of type EXCEPTION_BARRIER.
+     */
+    LLM_Diagnostic_Cards_ExceptionBarrier,
+    /**
+     * Number of selected diagnostic cards of type CDG_BOTTLENECK.
+     */
+    LLM_Diagnostic_Cards_CdgBottleneck,
+    /**
+     * Number of selected diagnostic cards of type UNINSTANTIABLE_TYPE.
+     */
+    LLM_Diagnostic_Cards_UninstantiableType,
+    /**
+     * Number of selected diagnostic cards of type STATE_SETUP_BARRIER.
+     */
+    LLM_Diagnostic_Cards_StateSetupBarrier,
+    /**
+     * Number of selected diagnostic cards of type INDIRECT_REACHABILITY_BARRIER.
+     */
+    LLM_Diagnostic_Cards_IndirectReachabilityBarrier,
+    /**
+     * Total diagnostic-prompt candidates published by the stagnation helper.
+     */
+    LLM_Diagnostic_Candidates_Published,
+    /**
+     * Published diagnostic-prompt candidates associated with UNREACHED_METHOD.
+     */
+    LLM_Diagnostic_Candidates_Published_UnreachedMethod,
+    /**
+     * Published diagnostic-prompt candidates associated with BRANCH_POLARITY_GAP.
+     */
+    LLM_Diagnostic_Candidates_Published_BranchPolarityGap,
+    /**
+     * Published diagnostic-prompt candidates associated with STATE_DIVERSIFICATION_GAP.
+     */
+    LLM_Diagnostic_Candidates_Published_StateDiversificationGap,
+    /**
+     * Published diagnostic-prompt candidates associated with EXCEPTION_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Published_ExceptionBarrier,
+    /**
+     * Published diagnostic-prompt candidates associated with CDG_BOTTLENECK.
+     */
+    LLM_Diagnostic_Candidates_Published_CdgBottleneck,
+    /**
+     * Published diagnostic-prompt candidates associated with UNINSTANTIABLE_TYPE.
+     */
+    LLM_Diagnostic_Candidates_Published_UninstantiableType,
+    /**
+     * Published diagnostic-prompt candidates associated with STATE_SETUP_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Published_StateSetupBarrier,
+    /**
+     * Published diagnostic-prompt candidates associated with INDIRECT_REACHABILITY_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Published_IndirectReachabilityBarrier,
+    /**
+     * Total diagnostic-prompt candidates admitted into the MOSA union.
+     */
+    LLM_Diagnostic_Candidates_Admitted,
+    /**
+     * Admitted diagnostic-prompt candidates associated with UNREACHED_METHOD.
+     */
+    LLM_Diagnostic_Candidates_Admitted_UnreachedMethod,
+    /**
+     * Admitted diagnostic-prompt candidates associated with BRANCH_POLARITY_GAP.
+     */
+    LLM_Diagnostic_Candidates_Admitted_BranchPolarityGap,
+    /**
+     * Admitted diagnostic-prompt candidates associated with STATE_DIVERSIFICATION_GAP.
+     */
+    LLM_Diagnostic_Candidates_Admitted_StateDiversificationGap,
+    /**
+     * Admitted diagnostic-prompt candidates associated with EXCEPTION_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Admitted_ExceptionBarrier,
+    /**
+     * Admitted diagnostic-prompt candidates associated with CDG_BOTTLENECK.
+     */
+    LLM_Diagnostic_Candidates_Admitted_CdgBottleneck,
+    /**
+     * Admitted diagnostic-prompt candidates associated with UNINSTANTIABLE_TYPE.
+     */
+    LLM_Diagnostic_Candidates_Admitted_UninstantiableType,
+    /**
+     * Admitted diagnostic-prompt candidates associated with STATE_SETUP_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Admitted_StateSetupBarrier,
+    /**
+     * Admitted diagnostic-prompt candidates associated with INDIRECT_REACHABILITY_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Admitted_IndirectReachabilityBarrier,
+    /**
+     * Total diagnostic-prompt candidates that survived the generation they were injected.
+     */
+    LLM_Diagnostic_Candidates_Survived,
+    /**
+     * Surviving diagnostic-prompt candidates associated with UNREACHED_METHOD.
+     */
+    LLM_Diagnostic_Candidates_Survived_UnreachedMethod,
+    /**
+     * Surviving diagnostic-prompt candidates associated with BRANCH_POLARITY_GAP.
+     */
+    LLM_Diagnostic_Candidates_Survived_BranchPolarityGap,
+    /**
+     * Surviving diagnostic-prompt candidates associated with STATE_DIVERSIFICATION_GAP.
+     */
+    LLM_Diagnostic_Candidates_Survived_StateDiversificationGap,
+    /**
+     * Surviving diagnostic-prompt candidates associated with EXCEPTION_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Survived_ExceptionBarrier,
+    /**
+     * Surviving diagnostic-prompt candidates associated with CDG_BOTTLENECK.
+     */
+    LLM_Diagnostic_Candidates_Survived_CdgBottleneck,
+    /**
+     * Surviving diagnostic-prompt candidates associated with UNINSTANTIABLE_TYPE.
+     */
+    LLM_Diagnostic_Candidates_Survived_UninstantiableType,
+    /**
+     * Surviving diagnostic-prompt candidates associated with STATE_SETUP_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Survived_StateSetupBarrier,
+    /**
+     * Surviving diagnostic-prompt candidates associated with INDIRECT_REACHABILITY_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Survived_IndirectReachabilityBarrier,
+    /**
+     * Total uncovered-goal gains attributed to diagnostic stagnation prompts.
+     */
+    LLM_Diagnostic_Coverage_Gains,
+    /**
+     * Diagnostic attempts whose gains could not be assigned to a single card type.
+     */
+    LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous,
+    /**
+     * Uncovered goals gained by ambiguous diagnostic attempts.
+     */
+    LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous_Goals,
+    /**
+     * Attributed uncovered-goal gains for UNREACHED_METHOD diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_UnreachedMethod,
+    /**
+     * Attributed uncovered-goal gains for BRANCH_POLARITY_GAP diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_BranchPolarityGap,
+    /**
+     * Attributed uncovered-goal gains for STATE_DIVERSIFICATION_GAP diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_StateDiversificationGap,
+    /**
+     * Attributed uncovered-goal gains for EXCEPTION_BARRIER diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_ExceptionBarrier,
+    /**
+     * Attributed uncovered-goal gains for CDG_BOTTLENECK diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_CdgBottleneck,
+    /**
+     * Attributed uncovered-goal gains for UNINSTANTIABLE_TYPE diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_UninstantiableType,
+    /**
+     * Attributed uncovered-goal gains for STATE_SETUP_BARRIER diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_StateSetupBarrier,
+    /**
+     * Attributed uncovered-goal gains for INDIRECT_REACHABILITY_BARRIER diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_IndirectReachabilityBarrier,
     /**
      * Per-generation species count timeline.
      */

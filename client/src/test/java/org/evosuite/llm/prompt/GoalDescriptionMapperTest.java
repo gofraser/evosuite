@@ -19,12 +19,20 @@
  */
 package org.evosuite.llm.prompt;
 
+import org.evosuite.coverage.branch.Branch;
+import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.coverage.method.MethodCoverageTestFitness;
+import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Type;
+
+import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -174,6 +182,98 @@ class GoalDescriptionMapperTest {
     }
 
     @Test
+    void extractQualifiedMethodLabel_includesClassName() {
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.getTargetClass()).thenReturn("com.example.Foo");
+        when(goal.getTargetMethod()).thenReturn("bar(I)V");
+
+        assertEquals("com.example.Foo.bar(int)", mapper.extractQualifiedMethodLabel(goal));
+    }
+
+    @Test
+    void describeMethodOperation_exposesDisplayLabelAndExecutionKey() {
+        GoalDescriptionMapper.OperationTarget target =
+                mapper.describeMethodOperation("com.example.Foo", "bar(I)V");
+
+        assertEquals("com.example.Foo.bar(int)", target.getDisplayLabel());
+        assertEquals("com.example.Foo.bar", target.getExecutionKey());
+        assertEquals("bar", target.getBaseName());
+    }
+
+    @Test
+    void describeMethodOperation_usesObservedReceiverTypeForInheritedInstanceCalls() throws Exception {
+        MethodStatement statement = mock(MethodStatement.class);
+        GenericMethod genericMethod = mock(GenericMethod.class);
+        VariableReference callee = mock(VariableReference.class);
+        Method inherited = InheritedBase.class.getDeclaredMethod("work", String.class);
+
+        when(statement.getMethod()).thenReturn(genericMethod);
+        when(genericMethod.getMethod()).thenReturn(inherited);
+        when(genericMethod.isStatic()).thenReturn(false);
+        when(genericMethod.getNameWithDescriptor()).thenReturn(null);
+        when(statement.getCallee()).thenReturn(callee);
+        doReturn(InheritedLeaf.class).when(callee).getVariableClass();
+
+        GoalDescriptionMapper.OperationTarget target = mapper.describeMethodOperation(statement);
+
+        assertEquals(InheritedLeaf.class.getName() + ".work(String)", target.getDisplayLabel());
+        assertEquals(InheritedLeaf.class.getName() + ".work", target.getExecutionKey());
+    }
+
+    @Test
+    void describeConstructorOperation_formatsConstructorDisplayLabel() {
+        GoalDescriptionMapper.OperationTarget target =
+                mapper.describeConstructorOperation("com.example.Foo", "<init>(Ljava/lang/String;I)V");
+
+        assertEquals("com.example.Foo(String, int)", target.getDisplayLabel());
+        assertEquals("com.example.Foo.<init>", target.getExecutionKey());
+        assertEquals("<init>", target.getBaseName());
+    }
+
+    @Test
+    void describeQualifiedMethodOperation_normalizesDescriptorFreeTraceLabels() {
+        GoalDescriptionMapper.OperationTarget target =
+                mapper.describeQualifiedMethodOperation("com.example.Foo.bar");
+
+        assertEquals("com.example.Foo.bar", target.getDisplayLabel());
+        assertEquals("com.example.Foo.bar", target.getExecutionKey());
+        assertEquals("bar", target.getBaseName());
+    }
+
+    @Test
+    void describeBranchTarget_includesLineAndOutcome() {
+        BranchCoverageGoal goal = mock(BranchCoverageGoal.class);
+        Branch branch = mock(Branch.class);
+        when(goal.getBranch()).thenReturn(branch);
+        when(goal.getMethodName()).thenReturn("bar(I)V");
+        when(goal.getLineNumber()).thenReturn(42);
+        when(goal.getValue()).thenReturn(true);
+        when(branch.getClassName()).thenReturn("com.example.Foo");
+        when(branch.getMethodName()).thenReturn("bar(I)V");
+
+        GoalDescriptionMapper.BranchTarget target = mapper.describeBranchTarget(goal);
+
+        assertEquals("com.example.Foo.bar(int) at line 42", target.getLocationLabel());
+        assertEquals("TRUE path", target.getOutcomeLabel());
+        assertEquals("Branch in bar(int) at line 42 — TRUE path", target.asGoalDescription());
+    }
+
+    @Test
+    void describeBranchTarget_withoutLineFallsBackToQualifiedMethod() {
+        Branch branch = mock(Branch.class);
+        BytecodeInstruction instruction = mock(BytecodeInstruction.class);
+        when(branch.getClassName()).thenReturn("com.example.Foo");
+        when(branch.getMethodName()).thenReturn("baz()V");
+        when(branch.getInstruction()).thenReturn(instruction);
+        when(instruction.getLineNumber()).thenReturn(-1);
+
+        GoalDescriptionMapper.BranchTarget target = mapper.describeBranchTarget(branch, false);
+
+        assertEquals("com.example.Foo.baz()", target.getLocationLabel());
+        assertEquals("FALSE path", target.getOutcomeLabel());
+    }
+
+    @Test
     void describe_unknownSubtype() {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.toString()).thenReturn("unknown-goal-repr");
@@ -181,5 +281,15 @@ class GoalDescriptionMapperTest {
         String desc = mapper.describe(goal);
 
         assertEquals("unknown-goal-repr", desc);
+    }
+
+    private static class InheritedBase {
+        void work(String input) {
+            // no-op
+        }
+    }
+
+    private static final class InheritedLeaf extends InheritedBase {
+        // inherits work(String)
     }
 }

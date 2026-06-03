@@ -1904,6 +1904,11 @@ public class Properties {
             description = "Seed the initial population with LLM-generated tests")
     public static boolean LLM_SEED_INITIAL_POPULATION = false;
 
+    @Parameter(key = "llm_diagnostic_extractor_trace_targets", group = "LLM",
+            description = "Comma-separated target classes for verbose blocker-signal extraction tracing in "
+                    + "ProblemCardExtractor debug logs; use '*' or 'all' to trace every target class")
+    public static String LLM_DIAGNOSTIC_EXTRACTOR_TRACE_TARGETS = "";
+
     /**
      * Preset bundle for LLM seeding features. When non-{@code OFF}, the chosen
      * profile force-overrides the individual {@code LLM_SEED_*}/{@code LLM_ENRICH_*}
@@ -2094,7 +2099,7 @@ public class Properties {
          * fitness-distance annotations) and the top-K most relevant tests
          * from the current population as existing-test context. Asks for
          * {@code llm_stagnation_tests} fresh tests targeting any uncovered
-         * goal. This is the default stagnation behaviour.
+         * goal.
          */
         POOL,
         /**
@@ -2105,7 +2110,17 @@ public class Properties {
          * seed. Asks for a focused modification/extension of the seed
          * rather than fresh tests covering everything.
          */
-        TEST_ANCHORED
+        TEST_ANCHORED,
+        /**
+         * Diagnostic prompt: builds a ranked set of "problem cards" from the
+         * current population snapshot (e.g., unreached methods, consistent
+         * exception barriers) and asks the LLM to prioritize and address the
+         * most pressing blockers in a single call.
+         *
+         * <p>If no reliable cards can be extracted, the detector falls back to
+         * {@link #POOL} for that call.
+         */
+        DIAGNOSTIC
     }
 
     @Parameter(key = "llm_stagnation_prompt", group = "LLM",
@@ -2114,12 +2129,14 @@ public class Properties {
                     + "goal set and top-K relevant tests; TEST_ANCHORED anchors the "
                     + "prompt on a single near-covering seed test and its top-K "
                     + "closest uncovered goals (subsumes the former LLM local-search "
-                    + "prompt shape).")
-    public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.TEST_ANCHORED;
+                    + "prompt shape); DIAGNOSTIC builds one unified prompt around "
+                    + "ranked problem cards inferred from the current population, "
+                    + "falling back to POOL when no cards are available.")
+    public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.DIAGNOSTIC;
 
     @Parameter(key = "llm_stagnation_anchor_related_goals_max", group = "LLM",
             description = "Maximum number of related goals included in test-anchored "
-                    + "stagnation prompts (ignored when llm_stagnation_prompt=POOL).")
+                    + "stagnation prompts (ignored unless llm_stagnation_prompt=TEST_ANCHORED).")
     @IntValue(min = 1)
     public static int LLM_STAGNATION_ANCHOR_RELATED_GOALS_MAX = 20;
 
@@ -2315,6 +2332,34 @@ public class Properties {
     @IntValue(min = 0)
     public static int SPECIES_NEWBORN_PROTECTION_GENERATIONS = 5;
 
+    @Parameter(key = "species_incubator_enabled", group = "Speciation",
+            description = "If true, route fresh injected individuals through temporary incubator species")
+    public static boolean SPECIES_INCUBATOR_ENABLED = false;
+
+    @Parameter(key = "species_incubator_generations", group = "Speciation",
+            description = "Number of generations injected individuals remain eligible for incubator protection")
+    @IntValue(min = 0)
+    public static int SPECIES_INCUBATOR_GENERATIONS = 5;
+
+    @Parameter(key = "species_incubator_quota_initial", group = "Speciation",
+            description = "Initial minimum survivors reserved for an incubator species (before decay)")
+    @IntValue(min = 0)
+    public static int SPECIES_INCUBATOR_QUOTA_INITIAL = 2;
+
+    @Parameter(key = "species_incubator_quota_min", group = "Speciation",
+            description = "Minimum survivors reserved for an incubator species after decay")
+    @IntValue(min = 0)
+    public static int SPECIES_INCUBATOR_QUOTA_MIN = 1;
+
+    @Parameter(key = "species_incubator_quota_decay", group = "Speciation",
+            description = "Per-generation decay factor for incubator quota (0.0-1.0)")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double SPECIES_INCUBATOR_QUOTA_DECAY = 0.6;
+
+    @Parameter(key = "species_incubator_only_llm_stagnation", group = "Speciation",
+            description = "If true, incubator protection applies only to LLM stagnation injections")
+    public static boolean SPECIES_INCUBATOR_ONLY_LLM_STAGNATION = true;
+
     @Parameter(key = "species_fitness_sharing_enabled", group = "Speciation",
             description = "If true, apply species-density fitness sharing in crowding tie-breaking")
     public static boolean SPECIES_FITNESS_SHARING_ENABLED = true;
@@ -2362,6 +2407,12 @@ public class Properties {
             description = "Weight for phenotypic component in HYBRID speciation metric (0.0-1.0)")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double SPECIATION_HYBRID_PHENOTYPIC_WEIGHT = 0.7;
+
+    @Parameter(key = "speciation_empty_profile_distance", group = "Speciation",
+            description = "Distance to use when both compared speciation profiles are empty "
+                    + "(0.0 groups empty profiles together, 1.0 forces them apart)")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double SPECIATION_EMPTY_PROFILE_DISTANCE = 0.0;
 
     // ---- Diversity tracking (Phase 8) ----
 

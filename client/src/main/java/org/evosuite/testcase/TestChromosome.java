@@ -25,6 +25,7 @@ import org.evosuite.coverage.mutation.MutationExecutionResult;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
+import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.symbolic.BranchCondition;
@@ -84,6 +85,30 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      */
     private transient InjectionSource injectionSource;
 
+    /**
+     * Monotonic lineage identifier assigned when this chromosome is injected
+     * from an external source. Negative when unset.
+     */
+    private transient long injectionLineageId = -1L;
+
+    /**
+     * Generation at which this chromosome was injected. Negative when unset.
+     */
+    private transient int injectionGeneration = -1;
+
+    /**
+     * Whether this chromosome is eligible for incubator-species protection.
+     * Eligibility is set at injection time and evaluated in survival selection.
+     */
+    private transient boolean incubatorEligible = false;
+
+    /**
+     * Diagnostic card types associated with the prompt that produced this
+     * chromosome. Cleared on clone so descendants are not treated as fresh
+     * prompt outputs.
+     */
+    private transient List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
+
 
     /**
      * {@inheritDoc}
@@ -121,6 +146,50 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /** Tags this chromosome with the external source that introduced it. */
     public void setInjectionSource(InjectionSource source) {
         this.injectionSource = source;
+    }
+
+    public long getInjectionLineageId() {
+        return injectionLineageId;
+    }
+
+    public void setInjectionLineageId(long injectionLineageId) {
+        this.injectionLineageId = injectionLineageId;
+    }
+
+    public int getInjectionGeneration() {
+        return injectionGeneration;
+    }
+
+    public void setInjectionGeneration(int injectionGeneration) {
+        this.injectionGeneration = injectionGeneration;
+    }
+
+    public boolean isIncubatorEligible() {
+        return incubatorEligible;
+    }
+
+    public void setIncubatorEligible(boolean incubatorEligible) {
+        this.incubatorEligible = incubatorEligible;
+    }
+
+    public List<ProblemCardType> getDiagnosticCardTypes() {
+        return diagnosticCardTypes;
+    }
+
+    public void setDiagnosticCardTypes(Collection<ProblemCardType> types) {
+        if (types == null || types.isEmpty()) {
+            this.diagnosticCardTypes = Collections.emptyList();
+            return;
+        }
+        LinkedHashSet<ProblemCardType> uniqueTypes = new LinkedHashSet<>();
+        for (ProblemCardType type : types) {
+            if (type != null) {
+                uniqueTypes.add(type);
+            }
+        }
+        this.diagnosticCardTypes = uniqueTypes.isEmpty()
+                ? Collections.<ProblemCardType>emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(uniqueTypes));
     }
 
     /**

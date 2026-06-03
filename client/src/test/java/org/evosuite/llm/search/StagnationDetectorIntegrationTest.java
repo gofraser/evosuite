@@ -27,6 +27,7 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
+import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -111,6 +112,28 @@ class StagnationDetectorIntegrationTest {
 
             assertEquals(2, help.size(),
                     "stagnation detector should keep all tests parsed from all code blocks");
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void diagnosticPromptRequestsExplorationMatrixWithoutNumericBudget() throws Exception {
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        LlmService service = createService(model, 2);
+        StagnationDetector detector = new StagnationDetector(service, false, 5, 1, System::nanoTime);
+        try {
+            Method method = StagnationDetector.class
+                    .getDeclaredMethod("buildDiagnosticInstruction", int.class, int.class, int.class);
+            method.setAccessible(true);
+            String prompt = (String) method.invoke(detector, 18, 17, 3);
+
+            assertTrue(prompt.contains("Generate the smallest useful exploration matrix needed to cover distinct regimes."));
+            assertTrue(prompt.contains("Prefer a few short variants that each change exactly one axis."));
+            assertTrue(prompt.contains("Stop when additional tests would only duplicate an already-covered regime."));
+            assertFalse(prompt.contains("Return up to "));
+            assertFalse(prompt.contains("Generate 3 JUnit tests"));
+            assertFalse(prompt.contains("Generate 5 JUnit tests"));
         } finally {
             service.close();
         }

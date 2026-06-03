@@ -60,6 +60,7 @@ class StagnationLlmHelperTest {
 
     @Test
     void syncMode_returnsTestsImmediatelyOnDrain() {
+        LlmStatistics.resetDiagnosticCardCounters();
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
         LlmService service = createService(model, 2);
@@ -81,6 +82,9 @@ class StagnationLlmHelperTest {
             helper.maybeSubmit(0, Collections.singleton(goal), pop);
             List<TestChromosome> tests = helper.drain();
             assertFalse(tests.isEmpty(), "SYNC mode should produce tests on the same call");
+            assertEquals(1L, helper.getPromptsSubmitted());
+            assertEquals(1L, helper.getResponsesReceived());
+            assertEquals(tests.size(), helper.getTestsPublished());
         } finally {
             helper.shutdown();
             service.close();
@@ -89,6 +93,7 @@ class StagnationLlmHelperTest {
 
     @Test
     void asyncMode_returnsEmptyImmediately_thenDeliversLater() throws Exception {
+        LlmStatistics.resetDiagnosticCardCounters();
         CountDownLatch responseGate = new CountDownLatch(1);
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
@@ -130,6 +135,9 @@ class StagnationLlmHelperTest {
             List<TestChromosome> tests = drainWithTimeout(helper, 2_000);
             assertFalse(tests.isEmpty(),
                     "ASYNC mode should eventually deliver tests via drain()");
+            assertEquals(1L, helper.getPromptsSubmitted());
+            assertEquals(1L, helper.getResponsesReceived());
+            assertEquals(tests.size(), helper.getTestsPublished());
         } finally {
             helper.shutdown();
             service.close();
@@ -204,10 +212,9 @@ class StagnationLlmHelperTest {
 
     @Test
     void syncMode_truncatesWaitToRemainingBudget() throws Exception {
-        // The SYNC arm wraps the LLM call in a Future and waits at most
-        // min(LLM_TIMEOUT_SECONDS, remaining) seconds — so a late-firing
-        // stagnation call cannot block the search loop past the deadline,
-        // even if the LLM itself hangs.
+        // The SYNC arm wraps the LLM call in a Future and waits at most the
+        // remaining search budget, even though the normal wait can cover the
+        // full prompt+repair chain.
         CountDownLatch responseGate = new CountDownLatch(1);
         MockChatLanguageModel model = new MockChatLanguageModel() {
             @Override
@@ -335,10 +342,63 @@ class StagnationLlmHelperTest {
         }
     }
 
+    @Test
+    void drainPreservesDiagnosticCardAttributionMetadata() {
+        Properties.LlmStagnationPromptMode oldPromptMode = Properties.LLM_STAGNATION_PROMPT;
+        String oldTargetClass = Properties.TARGET_CLASS;
+        try {
+            Properties.LLM_STAGNATION_PROMPT = Properties.LlmStagnationPromptMode.DIAGNOSTIC;
+            Properties.TARGET_CLASS = "com.example.Foo";
+
+            MockChatLanguageModel model = new MockChatLanguageModel();
+            model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+            LlmService service = createService(model, 2);
+            AtomicLong clock = new AtomicLong(0L);
+            StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+            StagnationLlmHelper helper = new StagnationLlmHelper(
+                    detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+            try {
+                TestFitnessFunction goal = makeGoal("g", "com.example.Foo", "doWork()V");
+                TestChromosome popEntry = mock(TestChromosome.class);
+                org.evosuite.testcase.execution.ExecutionResult result =
+                        mock(org.evosuite.testcase.execution.ExecutionResult.class);
+                org.evosuite.testcase.execution.ExecutionTrace trace =
+                        mock(org.evosuite.testcase.execution.ExecutionTrace.class);
+                when(trace.getCoveredMethods()).thenReturn(Collections.singleton("com.example.Foo.other"));
+                when(result.getTrace()).thenReturn(trace);
+                when(result.hasTimeout()).thenReturn(false);
+                when(result.hasTestException()).thenReturn(false);
+                when(popEntry.getLastExecutionResult()).thenReturn(result);
+
+                helper.maybeSubmit(0, Collections.singleton(goal), Collections.singletonList(popEntry));
+                clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+                helper.maybeSubmit(0, Collections.singleton(goal), Collections.singletonList(popEntry));
+                List<TestChromosome> drained = helper.drain();
+                assertFalse(drained.isEmpty());
+                assertTrue(helper.consumeDiagnosticCardTypes(drained.get(0))
+                                .contains(ProblemCardType.UNREACHED_METHOD),
+                        "Expected diagnostic card metadata to be available for drained candidates");
+            } finally {
+                helper.shutdown();
+                service.close();
+            }
+        } finally {
+            Properties.LLM_STAGNATION_PROMPT = oldPromptMode;
+            Properties.TARGET_CLASS = oldTargetClass;
+        }
+    }
+
     private static TestFitnessFunction makeGoal(String name) {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.toString()).thenReturn(name);
         when(goal.getFitness(org.mockito.ArgumentMatchers.any(TestChromosome.class))).thenReturn(1.0);
+        return goal;
+    }
+
+    private static TestFitnessFunction makeGoal(String name, String className, String methodName) {
+        TestFitnessFunction goal = makeGoal(name);
+        when(goal.getTargetClass()).thenReturn(className);
+        when(goal.getTargetMethod()).thenReturn(methodName);
         return goal;
     }
 

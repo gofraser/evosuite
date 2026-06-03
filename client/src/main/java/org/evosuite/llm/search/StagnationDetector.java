@@ -24,9 +24,11 @@ import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
+import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
+import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
@@ -65,6 +67,7 @@ public class StagnationDetector {
     private static final double EPSILON = 1e-12;
     private static final int EXISTING_TESTS_CONTEXT_MAX = 3;
     private static final int EXISTING_TESTS_RELEVANCE_CANDIDATE_MULTIPLIER = 4;
+    private static final int DIAGNOSTIC_PROBLEM_CARDS_MAX = 3;
 
     private final LlmService llmService;
     private final boolean maximizationObjective;
@@ -72,6 +75,11 @@ public class StagnationDetector {
     private final int thresholdSeconds;
     private final int testsPerRequest;
     private final LongSupplier nanoClock;
+    private final ProblemCardExtractor problemCardExtractor = new ProblemCardExtractor();
+    private final DiagnosticCardSelector diagnosticCardSelector = new DiagnosticCardSelector();
+    private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
+    private final GoalDescriptionMapper goalDescriptionMapper = new GoalDescriptionMapper();
+    private final RepeatedInjectionMemory repeatedInjectionMemory;
     private long windowStartNanos;
     private boolean windowStarted = false;
     private Double bestFitness = null;
@@ -87,13 +95,15 @@ public class StagnationDetector {
     /** Creates a detector with singleton LLM service and Properties-configured thresholds. */
     public StagnationDetector() {
         this(LlmService.getInstance(), false,
-                Properties.LLM_STAGNATION_TIMEOUT_SECONDS, Properties.LLM_STAGNATION_TESTS);
+                Properties.LLM_STAGNATION_TIMEOUT_SECONDS, Properties.LLM_STAGNATION_TESTS,
+                (RepeatedInjectionMemory) null);
     }
 
     /** Creates a detector with the given maximization flag and Properties-configured thresholds. */
     public StagnationDetector(boolean maximizationObjective) {
         this(LlmService.getInstance(), maximizationObjective,
-                Properties.LLM_STAGNATION_TIMEOUT_SECONDS, Properties.LLM_STAGNATION_TESTS);
+                Properties.LLM_STAGNATION_TIMEOUT_SECONDS, Properties.LLM_STAGNATION_TESTS,
+                (RepeatedInjectionMemory) null);
     }
 
     /** Creates a detector with explicit LLM service, maximization flag, and threshold settings. */
@@ -102,7 +112,16 @@ public class StagnationDetector {
                               int stagnationTimeoutSeconds,
                               int testsPerRequest) {
         this(llmService, maximizationObjective, stagnationTimeoutSeconds, testsPerRequest,
-                System::nanoTime);
+                (RepeatedInjectionMemory) null);
+    }
+
+    public StagnationDetector(LlmService llmService,
+                              boolean maximizationObjective,
+                              int stagnationTimeoutSeconds,
+                              int testsPerRequest,
+                              RepeatedInjectionMemory repeatedInjectionMemory) {
+        this(llmService, maximizationObjective, stagnationTimeoutSeconds, testsPerRequest,
+                System::nanoTime, repeatedInjectionMemory);
     }
 
     /** Package-private constructor for tests: allows injecting a clock. */
@@ -111,12 +130,23 @@ public class StagnationDetector {
                        int stagnationTimeoutSeconds,
                        int testsPerRequest,
                        LongSupplier nanoClock) {
+        this(llmService, maximizationObjective, stagnationTimeoutSeconds, testsPerRequest,
+                nanoClock, null);
+    }
+
+    StagnationDetector(LlmService llmService,
+                       boolean maximizationObjective,
+                       int stagnationTimeoutSeconds,
+                       int testsPerRequest,
+                       LongSupplier nanoClock,
+                       RepeatedInjectionMemory repeatedInjectionMemory) {
         this.llmService = llmService;
         this.maximizationObjective = maximizationObjective;
         this.thresholdSeconds = Math.max(1, stagnationTimeoutSeconds);
         this.stagnationThresholdNanos = TimeUnit.SECONDS.toNanos(this.thresholdSeconds);
         this.testsPerRequest = Math.max(1, testsPerRequest);
         this.nanoClock = nanoClock;
+        this.repeatedInjectionMemory = repeatedInjectionMemory;
     }
 
     /**
@@ -238,6 +268,16 @@ public class StagnationDetector {
      * worker.
      */
     public List<TestChromosome> executeWithPrompt(PromptResult prompt) {
+        return executeWithPrompt(prompt, Long.MAX_VALUE);
+    }
+
+    /**
+     * Executes the stagnation LLM call with a soft parse/repair deadline. The
+     * deadline is intentionally enforced before launching additional repair
+     * requests so already parsed or salvaged tests can be returned to the SYNC
+     * caller before the outer future timeout cancels the worker.
+     */
+    public List<TestChromosome> executeWithPrompt(PromptResult prompt, long repairDeadlineNanos) {
         if (prompt == null) {
             return Collections.emptyList();
         }
@@ -247,7 +287,8 @@ public class StagnationDetector {
         try {
             String response = llmService.query(prompt, LlmFeature.STAGNATION);
             RepairResult result = repairLoop()
-                    .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION);
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION,
+                            repairDeadlineNanos);
             if (!result.isSuccess()) {
                 return Collections.emptyList();
             }
@@ -307,26 +348,41 @@ public class StagnationDetector {
         }
 
         PromptResult prompt = buildPrompt(uncoveredGoals, currentPopulation,
-                totalGoals, coveredGoalCount, bestFitnessPerGoal);
+                totalGoals, coveredGoalCount, bestFitnessPerGoal, false);
+        RepeatedInjectionMemory.PromptAttemptRegistration registration =
+                registerRepeatedAttempt(prompt, false);
         try {
             String response = llmService.query(prompt, LlmFeature.STAGNATION);
             RepairResult result = repairLoop()
                     .attemptParse(response, prompt.getMessages(), LlmFeature.STAGNATION);
             if (!result.isSuccess()) {
+                if (registration != null && !registration.isEmpty()) {
+                    repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+                }
                 return Collections.emptyList();
+            }
+            if (registration != null && !registration.isEmpty()) {
+                repeatedInjectionMemory.clearAttempt(registration.getAttemptId());
             }
             return result.toChromosomes();
         } catch (LlmBudgetExceededException | LlmCallFailedException e) {
             logger.debug("Stagnation LLM request failed: {}", e.getMessage());
+            if (registration != null && !registration.isEmpty()) {
+                repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+            }
             return Collections.emptyList();
         } catch (RuntimeException e) {
             logger.debug("Stagnation LLM request crashed: {}", e.getMessage());
+            if (registration != null && !registration.isEmpty()) {
+                repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+            }
             return Collections.emptyList();
         }
     }
 
     public void reset() {
         windowStarted = false;
+        exceptionBarrierTracker.reset();
     }
 
     /**
@@ -366,24 +422,182 @@ public class StagnationDetector {
      * population-wide fitness annotations; {@code TEST_ANCHORED} anchors on
      * the population's best near-miss and restricts the goal section to the
      * anchor's K closest uncovered goals with the anchor's own fitness as the
-     * annotation source. Falls back to {@code POOL} when anchor selection
-     * yields no usable signal.
+     * annotation source; {@code DIAGNOSTIC} adds a ranked set of inferred
+     * blocker cards. Signal-sparse {@code TEST_ANCHORED}/{@code DIAGNOSTIC}
+     * calls fall back to {@code POOL}.
      */
     public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                     List<TestChromosome> currentPopulation,
                                     int totalGoals, int coveredGoalCount,
                                     Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-        if (Properties.LLM_STAGNATION_PROMPT == Properties.LlmStagnationPromptMode.TEST_ANCHORED) {
+        return buildPrompt(uncoveredGoals, currentPopulation, totalGoals, coveredGoalCount,
+                bestFitnessPerGoal, false);
+    }
+
+    public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                    List<TestChromosome> currentPopulation,
+                                    int totalGoals, int coveredGoalCount,
+                                    Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                    boolean suppressInFlightRepeats) {
+        Properties.LlmStagnationPromptMode requestedMode = Properties.LLM_STAGNATION_PROMPT;
+        if (requestedMode == Properties.LlmStagnationPromptMode.TEST_ANCHORED) {
             PromptResult anchored = buildTestAnchoredPrompt(uncoveredGoals, currentPopulation,
                     totalGoals, coveredGoalCount);
             if (anchored != null) {
+                logPromptSelection(requestedMode, Properties.LlmStagnationPromptMode.TEST_ANCHORED,
+                        0, "none");
                 return anchored;
             }
             logger.debug("Test-anchored prompt unavailable (no usable anchor fitness); "
                     + "falling back to pool prompt for this call.");
+            logPromptSelection(requestedMode, Properties.LlmStagnationPromptMode.POOL,
+                    0, "no_usable_anchor_fitness");
+        } else if (requestedMode == Properties.LlmStagnationPromptMode.DIAGNOSTIC) {
+            PromptResult diagnostic = buildDiagnosticPrompt(uncoveredGoals, currentPopulation,
+                    totalGoals, coveredGoalCount, bestFitnessPerGoal, suppressInFlightRepeats);
+            if (diagnostic != null) {
+                int selectedCards = diagnostic.getDiagnosticCardTypes() == null
+                        ? 0 : diagnostic.getDiagnosticCardTypes().size();
+                logPromptSelection(requestedMode, Properties.LlmStagnationPromptMode.DIAGNOSTIC,
+                        selectedCards, "none");
+                return diagnostic;
+            }
+            logger.debug("Diagnostic prompt unavailable (no usable problem cards); "
+                    + "falling back to pool prompt for this call.");
+            logPromptSelection(requestedMode, Properties.LlmStagnationPromptMode.POOL,
+                    0, "no_usable_problem_cards");
+        } else {
+            logPromptSelection(requestedMode, Properties.LlmStagnationPromptMode.POOL,
+                    0, "none");
         }
         return buildPoolPrompt(uncoveredGoals, currentPopulation,
                 totalGoals, coveredGoalCount, bestFitnessPerGoal);
+    }
+
+    private PromptResult buildDiagnosticPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                               List<TestChromosome> currentPopulation,
+                                               int totalGoals, int coveredGoalCount,
+                                               Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                               boolean suppressInFlightRepeats) {
+        Set<String> goalMethods = collectGoalMethodKeys(uncoveredGoals);
+        exceptionBarrierTracker.observe(currentPopulation, goalMethods);
+        Map<String, ExceptionBarrierTracker.AggregatedStats> historicalStats =
+                exceptionBarrierTracker.snapshot(goalMethods);
+        ProblemCardExtractor.ExtractionResult extraction = problemCardExtractor.extractWithTelemetry(
+                uncoveredGoals, currentPopulation, Integer.MAX_VALUE, historicalStats);
+        List<ProblemCard> extractedCards = extraction.getCards();
+        LlmStatistics.recordDiagnosticExtractorCandidates(extraction.getCandidateCounts());
+        LlmStatistics.recordDiagnosticExtractorRejects(extraction.getRejectCounts());
+        if (extractedCards.isEmpty()) {
+            logDiagnosticExtractionTelemetry(extraction.getRejectCounts(), extraction.getCandidateCounts());
+            return null;
+        }
+        DiagnosticCardSelector.SelectionResult selection = diagnosticCardSelector.select(
+                extractedCards, DIAGNOSTIC_PROBLEM_CARDS_MAX,
+                repeatedInjectionMemory, suppressInFlightRepeats);
+        logDiagnosticCardSelection(extractedCards, selection,
+                extraction.getRejectCounts(), extraction.getCandidateCounts());
+        List<ProblemCard> cards = selection.getSelectedCards();
+        if (cards.isEmpty()) {
+            return null;
+        }
+        LlmStatistics.recordDiagnosticCardsExtracted(extractedCards);
+        LlmStatistics.recordDiagnosticCardsSelected(cards);
+        LlmStatistics.recordDiagnosticCardsDiscarded(selection.getDiscardedCards());
+        List<TestChromosome> popCandidates = currentPopulation != null
+                ? currentPopulation : Collections.emptyList();
+        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
+        String goalsSection = goalFormatter.format(uncoveredGoals, bestFitnessPerGoal);
+
+        PromptBuilder builder = new PromptBuilder()
+                .withSystemPrompt()
+                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(
+                        uncoveredGoals, new ArrayList<>(popCandidates)))
+                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withInstruction(buildDiagnosticInstruction(totalGoals, coveredGoalCount, cards.size()))
+                .withInstruction("Priority problem cards:\n" + ProblemCardFormatter.format(cards))
+                .withInstruction("Uncovered goals:\n" + goalsSection);
+
+        List<TestCase> existingTests = selectExistingTestsForPoolPrompt(currentPopulation, uncoveredGoals);
+        if (!existingTests.isEmpty()) {
+            builder.withExistingTests(existingTests);
+        }
+        PromptResult prompt = builder.buildWithMetadata();
+        return new PromptResult.Builder()
+                .messages(prompt.getMessages())
+                .sutContextMode(prompt.getSutContextMode())
+                .contextUnavailable(prompt.isContextUnavailable())
+                .contextTruncated(prompt.isContextTruncated())
+                .contextCommentsStripped(prompt.isContextCommentsStripped())
+                .contextSelectivelyTruncated(prompt.isContextSelectivelyTruncated())
+                .clusterSummaryTruncated(prompt.isClusterSummaryTruncated())
+                .clusterSummaryChars(prompt.getClusterSummaryChars())
+                .dependencySummaryMetadata(prompt.getDependencySummaryMetadata())
+                .diagnosticCardTypes(extractCardTypes(cards))
+                .repeatedInjectionTargets(extractRepeatedTargets(cards))
+                .build();
+    }
+
+    private List<ProblemCardType> extractCardTypes(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<ProblemCardType> types = new ArrayList<>(cards.size());
+        for (ProblemCard card : cards) {
+            if (card != null && card.getType() != null) {
+                types.add(card.getType());
+            }
+        }
+        return types;
+    }
+
+    private List<RepeatedInjectionTarget> extractRepeatedTargets(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<RepeatedInjectionTarget> targets = new ArrayList<>(cards.size());
+        for (ProblemCard card : cards) {
+            if (card != null) {
+                targets.add(card.toRepeatedInjectionTarget());
+            }
+        }
+        return targets;
+    }
+
+    public RepeatedInjectionMemory.PromptAttemptRegistration registerRepeatedAttempt(PromptResult prompt,
+                                                                                     boolean asyncInFlight) {
+        if (repeatedInjectionMemory == null || prompt == null
+                || prompt.getRepeatedInjectionTargets() == null
+                || prompt.getRepeatedInjectionTargets().isEmpty()) {
+            return RepeatedInjectionMemory.PromptAttemptRegistration.empty();
+        }
+        return repeatedInjectionMemory.registerAttempt(prompt.getRepeatedInjectionTargets(), asyncInFlight);
+    }
+
+    public void recordRepeatedAttemptOutcome(String attemptId, int gainedGoals) {
+        if (repeatedInjectionMemory == null || attemptId == null || attemptId.trim().isEmpty()) {
+            return;
+        }
+        repeatedInjectionMemory.recordAttemptOutcome(attemptId, gainedGoals);
+    }
+
+    private Set<String> collectGoalMethodKeys(Collection<TestFitnessFunction> uncoveredGoals) {
+        if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<String> keys = new LinkedHashSet<>();
+        for (TestFitnessFunction goal : uncoveredGoals) {
+            if (goal == null) {
+                continue;
+            }
+            String key = goalDescriptionMapper.describeMethodOperation(goal).getExecutionKey();
+            if (!key.isEmpty()) {
+                keys.add(key);
+            }
+        }
+        return keys;
     }
 
     private PromptResult buildPoolPrompt(Collection<TestFitnessFunction> uncoveredGoals,
@@ -593,6 +807,161 @@ public class StagnationDetector {
                 .append(" JUnit test methods.")
                 .append(LlmAssertionPolicyResolver.instructionSuffix(false));
         return sb.toString();
+    }
+
+    private String buildDiagnosticInstruction(int totalGoals, int coveredGoalCount,
+                                              int cardCount) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("The evolutionary search stagnated for at least ")
+                .append(thresholdSeconds)
+                .append(" seconds with no fitness improvement.");
+        if (totalGoals > 0) {
+            double pct = 100.0 * coveredGoalCount / totalGoals;
+            sb.append(String.format(" Current coverage: %d/%d goals (%.1f%%).",
+                    coveredGoalCount, totalGoals, pct));
+        }
+        sb.append(" Below is a ranked list of ")
+                .append(cardCount)
+                .append(" diagnostic problem cards inferred from the current population.");
+        sb.append(" Generate focused, executable JUnit tests that address as many of these cards as feasible "
+                + "while targeting uncovered goals. Prefer compact, clean tests, and if not all cards can be "
+                + "addressed cleanly, prioritize the highest-ranked ones. A single test may address multiple cards.");
+        sb.append(" Generate the smallest useful exploration matrix needed to cover distinct regimes. Prefer a few "
+                + "short variants that each change exactly one axis. Stop when additional tests would only duplicate "
+                + "an already-covered regime.");
+        sb.append(" These injected tests are for coverage guidance during search, so focus on executable call "
+                + "sequences, branch-driving inputs, and reaching the target methods; assertions are unnecessary.")
+                .append(LlmAssertionPolicyResolver.instructionSuffix(false));
+        return sb.toString();
+    }
+
+    private void logDiagnosticCardSelection(List<ProblemCard> extractedCards,
+                                            DiagnosticCardSelector.SelectionResult selection,
+                                            Map<ExtractorRejectReason, Integer> rejectCounts,
+                                            Map<ExtractorCandidateMetric, Integer> candidateCounts) {
+        List<ProblemCard> selectedCards = selection == null
+                ? Collections.<ProblemCard>emptyList()
+                : selection.getSelectedCards();
+        List<DiagnosticCardSelector.DiscardedCard> discardedCards = selection == null
+                ? Collections.<DiagnosticCardSelector.DiscardedCard>emptyList()
+                : selection.getDiscardedCards();
+        int selectedCount = selectedCards == null ? 0 : selectedCards.size();
+        logDiagnosticTrace("diagnostic_problem_cards",
+                "extracted_count={} selected_count={} extracted_by_type={} selected_by_type={} "
+                        + "extracted_top={} selected_top={} extractor_candidates={} extractor_rejects={} "
+                        + "discarded_by_reason={} discarded_top={}",
+                extractedCards == null ? 0 : extractedCards.size(),
+                selectedCount,
+                summarizeCardTypes(extractedCards),
+                summarizeCardTypes(selectedCards),
+                summarizeCards(extractedCards),
+                summarizeCards(selectedCards),
+                candidateCounts == null || candidateCounts.isEmpty() ? "{}" : candidateCounts.toString(),
+                rejectCounts == null || rejectCounts.isEmpty() ? "{}" : rejectCounts.toString(),
+                selection == null ? "{}" : selection.summarizeDiscardReasons(),
+                summarizeDiscardedCards(discardedCards));
+    }
+
+    private void logDiagnosticExtractionTelemetry(Map<ExtractorRejectReason, Integer> rejectCounts,
+                                                  Map<ExtractorCandidateMetric, Integer> candidateCounts) {
+        if ((rejectCounts == null || rejectCounts.isEmpty())
+                && (candidateCounts == null || candidateCounts.isEmpty())) {
+            return;
+        }
+        logDiagnosticTrace("diagnostic_problem_cards",
+                "extracted_count=0 selected_count=0 extracted_by_type={} selected_by_type={} "
+                        + "extracted_top=[] selected_top=[] extractor_candidates={} extractor_rejects={} "
+                        + "discarded_by_reason={} discarded_top=[]",
+                "{}",
+                "{}",
+                candidateCounts == null || candidateCounts.isEmpty() ? "{}" : candidateCounts.toString(),
+                rejectCounts == null || rejectCounts.isEmpty() ? "{}" : rejectCounts.toString(),
+                "{}");
+    }
+
+    private String summarizeCardTypes(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return "{}";
+        }
+        java.util.EnumMap<ProblemCardType, Integer> counts = new java.util.EnumMap<>(ProblemCardType.class);
+        for (ProblemCard card : cards) {
+            if (card == null || card.getType() == null) {
+                continue;
+            }
+            counts.put(card.getType(), counts.getOrDefault(card.getType(), 0) + 1);
+        }
+        return counts.toString();
+    }
+
+    private String summarizeCards(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder sb = new StringBuilder("[");
+        for (int i = 0; i < cards.size(); i++) {
+            ProblemCard card = cards.get(i);
+            if (card == null) {
+                continue;
+            }
+            if (sb.length() > 1) {
+                sb.append(", ");
+            }
+            sb.append(card.getType())
+                    .append("@")
+                    .append(String.format("%.3f", card.getPriority()));
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    private String summarizeDiscardedCards(List<DiagnosticCardSelector.DiscardedCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return "[]";
+        }
+        StringBuilder sb = new StringBuilder("[");
+        int emitted = 0;
+        for (DiagnosticCardSelector.DiscardedCard discarded : cards) {
+            if (discarded == null || discarded.getCard() == null) {
+                continue;
+            }
+            if (emitted++ >= 3) {
+                break;
+            }
+            if (sb.length() > 1) {
+                sb.append(", ");
+            }
+            sb.append(discarded.getCard().getType())
+                    .append("@")
+                    .append(String.format("%.3f", discarded.getCard().getPriority()))
+                    .append(":")
+                    .append(discarded.getReason());
+        }
+        sb.append("]");
+        return sb.toString();
+    }
+
+    private void logPromptSelection(Properties.LlmStagnationPromptMode requestedMode,
+                                    Properties.LlmStagnationPromptMode selectedMode,
+                                    int selectedCards,
+                                    String fallbackReason) {
+        logDiagnosticTrace("stagnation_prompt",
+                "requested_mode={} selected_mode={} selected_cards={} fallback_reason={}",
+                requestedMode, selectedMode, Math.max(0, selectedCards),
+                fallbackReason == null ? "none" : fallbackReason);
+    }
+
+    private void logDiagnosticTrace(String prefix, String message, Object... args) {
+        if (DiagnosticTraceSupport.shouldWarnForCurrentTarget(logger)) {
+            Object[] prefixed = new Object[args.length + 1];
+            prefixed[0] = DiagnosticTraceSupport.currentTargetClass();
+            System.arraycopy(args, 0, prefixed, 1, args.length);
+            logger.warn(prefix + " target={} " + message, prefixed);
+            return;
+        }
+        if (!logger.isDebugEnabled()) {
+            return;
+        }
+        logger.debug(prefix + " " + message, args);
     }
 
 }

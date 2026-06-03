@@ -30,13 +30,14 @@ import java.util.stream.Collectors;
  * Formats uncovered goals into readable lines for prompts.
  *
  * <p>When {@code LLM_GOAL_FORMAT} is {@code LLM_FRIENDLY}, goals are rendered
- * using {@link GoalDescriptionMapper}, grouped by method, optionally annotated
- * with fitness distance, and capped with overflow indicators.
+ * using {@link GoalDescriptionMapper}, grouped by class-qualified target method
+ * when available, optionally annotated with fitness distance, and capped with
+ * overflow indicators.
  * When {@code RAW}, the original {@code goal.toString()} output is used.
  */
 public class CoverageGoalFormatter {
 
-    /** Default maximum goals to display per method group before overflow. */
+    /** Default maximum goals to display per target-method group before overflow. */
     static final int DEFAULT_MAX_GOALS_PER_METHOD = 20;
 
     private static final double ALMOST_COVERED_THRESHOLD = 0.1;
@@ -115,8 +116,8 @@ public class CoverageGoalFormatter {
     }
 
     /**
-     * LLM-friendly format: goals grouped by method, sorted by fitness distance
-     * within each group, with "almost covered" annotations and overflow caps.
+     * LLM-friendly format: goals grouped by target method, sorted by fitness
+     * distance within each group, with "almost covered" annotations and overflow caps.
      */
     private String formatLlmFriendly(Collection<TestFitnessFunction> goals,
                                      Map<TestFitnessFunction, Double> fitnessDistances) {
@@ -177,11 +178,14 @@ public class CoverageGoalFormatter {
             Collection<TestFitnessFunction> goals) {
         Map<String, List<TestFitnessFunction>> grouped = new LinkedHashMap<>();
         for (TestFitnessFunction goal : goals) {
-            String method = mapper.extractMethodName(goal);
-            if (method.isEmpty()) {
-                method = "(other)";
+            String methodLabel = mapper.extractQualifiedMethodLabel(goal);
+            if (methodLabel.isEmpty()) {
+                methodLabel = mapper.extractMethodName(goal);
             }
-            grouped.computeIfAbsent(method, k -> new ArrayList<>()).add(goal);
+            if (methodLabel.isEmpty()) {
+                methodLabel = "(other)";
+            }
+            grouped.computeIfAbsent(methodLabel, k -> new ArrayList<>()).add(goal);
         }
         return grouped;
     }

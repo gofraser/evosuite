@@ -20,10 +20,17 @@
 package org.evosuite.llm;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.search.DiagnosticCardSelector;
+import org.evosuite.llm.search.ExtractorCandidateMetric;
+import org.evosuite.llm.search.ExtractorRejectReason;
+import org.evosuite.llm.search.ProblemCard;
+import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
 
+import java.util.Collection;
 import java.util.EnumMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -40,6 +47,49 @@ public class LlmStatistics {
      * that the elapsed enrichment time is deducted from the search budget.
      */
     private static final AtomicLong enrichmentElapsedMs = new AtomicLong();
+    private static final AtomicLong diagnosticCardsExtracted = new AtomicLong();
+    private static final AtomicLong diagnosticCardsSelected = new AtomicLong();
+    private static final AtomicLong diagnosticCardsDiscarded = new AtomicLong();
+    private static final AtomicLong diagnosticCardsDeduplicated = new AtomicLong();
+    private static final AtomicLong diagnosticCoverageGains = new AtomicLong();
+    private static final AtomicLong diagnosticCandidatesPublished = new AtomicLong();
+    private static final AtomicLong diagnosticCandidatesAdmitted = new AtomicLong();
+    private static final AtomicLong diagnosticCandidatesSurvived = new AtomicLong();
+    private static final AtomicLong diagnosticCoverageGainAttributionAmbiguous = new AtomicLong();
+    private static final AtomicLong diagnosticCoverageGainAttributionAmbiguousGoals = new AtomicLong();
+    private static final Map<ExtractorCandidateMetric, AtomicLong> diagnosticExtractorCandidates =
+            new EnumMap<>(ExtractorCandidateMetric.class);
+    private static final Map<ExtractorRejectReason, AtomicLong> diagnosticExtractorRejects =
+            new EnumMap<>(ExtractorRejectReason.class);
+    private static final Map<ProblemCardType, AtomicLong> diagnosticCardsExtractedByType =
+            new EnumMap<>(ProblemCardType.class);
+    private static final Map<ProblemCardType, AtomicLong> diagnosticCardsByType =
+            new EnumMap<>(ProblemCardType.class);
+    private static final Map<ProblemCardType, AtomicLong> diagnosticCoverageGainsByType =
+            new EnumMap<>(ProblemCardType.class);
+    private static final Map<ProblemCardType, AtomicLong> diagnosticCandidatesPublishedByType =
+            new EnumMap<>(ProblemCardType.class);
+    private static final Map<ProblemCardType, AtomicLong> diagnosticCandidatesAdmittedByType =
+            new EnumMap<>(ProblemCardType.class);
+    private static final Map<ProblemCardType, AtomicLong> diagnosticCandidatesSurvivedByType =
+            new EnumMap<>(ProblemCardType.class);
+
+    static {
+        for (ProblemCardType type : ProblemCardType.values()) {
+            diagnosticCardsExtractedByType.put(type, new AtomicLong());
+            diagnosticCardsByType.put(type, new AtomicLong());
+            diagnosticCoverageGainsByType.put(type, new AtomicLong());
+            diagnosticCandidatesPublishedByType.put(type, new AtomicLong());
+            diagnosticCandidatesAdmittedByType.put(type, new AtomicLong());
+            diagnosticCandidatesSurvivedByType.put(type, new AtomicLong());
+        }
+        for (ExtractorCandidateMetric metric : ExtractorCandidateMetric.values()) {
+            diagnosticExtractorCandidates.put(metric, new AtomicLong());
+        }
+        for (ExtractorRejectReason reason : ExtractorRejectReason.values()) {
+            diagnosticExtractorRejects.put(reason, new AtomicLong());
+        }
+    }
 
     /** Records the wall-clock time spent on pre-search pool enrichment. */
     public static void recordEnrichmentElapsedMs(long elapsedMs) {
@@ -54,6 +104,289 @@ public class LlmStatistics {
     /** Resets the process-wide enrichment elapsed counter (test/utility use). */
     public static void resetEnrichmentElapsedMs() {
         enrichmentElapsedMs.set(0L);
+    }
+
+    /** Records all extracted problem cards before selection/truncation. */
+    public static void recordDiagnosticCardsExtracted(Collection<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return;
+        }
+        long added = 0L;
+        for (ProblemCard card : cards) {
+            if (card == null || card.getType() == null) {
+                continue;
+            }
+            added++;
+            AtomicLong byType = diagnosticCardsExtractedByType.get(card.getType());
+            if (byType != null) {
+                ClientServices.track(toExtractedRuntimeVariable(card.getType()), byType.incrementAndGet());
+            }
+        }
+        if (added > 0L) {
+            ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted,
+                    diagnosticCardsExtracted.addAndGet(added));
+        }
+    }
+
+    /** Returns the total number of extracted diagnostic cards. */
+    public static long getDiagnosticCardsExtracted() {
+        return diagnosticCardsExtracted.get();
+    }
+
+    /** Returns extracted-card count for a specific problem-card type. */
+    public static long getDiagnosticCardsExtracted(ProblemCardType type) {
+        AtomicLong counter = diagnosticCardsExtractedByType.get(type);
+        return counter == null ? 0L : counter.get();
+    }
+
+    /** Records selected problem cards from a diagnostic stagnation prompt. */
+    public static void recordDiagnosticCardsSelected(Collection<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return;
+        }
+        long added = 0L;
+        for (ProblemCard card : cards) {
+            if (card == null || card.getType() == null) {
+                continue;
+            }
+            added++;
+            AtomicLong byType = diagnosticCardsByType.get(card.getType());
+            if (byType != null) {
+                ClientServices.track(toRuntimeVariable(card.getType()), byType.incrementAndGet());
+            }
+        }
+        if (added > 0L) {
+            ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Selected,
+                    diagnosticCardsSelected.addAndGet(added));
+        }
+    }
+
+    /** Returns the total number of selected diagnostic cards. */
+    public static long getDiagnosticCardsSelected() {
+        return diagnosticCardsSelected.get();
+    }
+
+    /** Returns selected-card count for a specific problem-card type. */
+    public static long getDiagnosticCardsSelected(ProblemCardType type) {
+        AtomicLong counter = diagnosticCardsByType.get(type);
+        return counter == null ? 0L : counter.get();
+    }
+
+    /** Records discarded cards after selector deduplication/diversification. */
+    public static void recordDiagnosticCardsDiscarded(
+            Collection<DiagnosticCardSelector.DiscardedCard> discardedCards) {
+        if (discardedCards == null || discardedCards.isEmpty()) {
+            return;
+        }
+        long discarded = 0L;
+        long deduplicated = 0L;
+        for (DiagnosticCardSelector.DiscardedCard discardedCard : discardedCards) {
+            if (discardedCard == null || discardedCard.getCard() == null) {
+                continue;
+            }
+            discarded++;
+            if (discardedCard.getReason() == DiagnosticCardSelector.DiscardReason.ROOT_CAUSE_OVERLAP) {
+                deduplicated++;
+            }
+        }
+        if (discarded > 0L) {
+            ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Discarded,
+                    diagnosticCardsDiscarded.addAndGet(discarded));
+        }
+        if (deduplicated > 0L) {
+            ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Deduplicated,
+                    diagnosticCardsDeduplicated.addAndGet(deduplicated));
+        }
+    }
+
+    public static long getDiagnosticCardsDiscarded() {
+        return diagnosticCardsDiscarded.get();
+    }
+
+    public static long getDiagnosticCardsDeduplicated() {
+        return diagnosticCardsDeduplicated.get();
+    }
+
+    public static void recordDiagnosticCandidatesPublished(Collection<ProblemCardType> cardTypes, int candidateCount) {
+        recordDiagnosticCandidateStage(cardTypes, candidateCount,
+                diagnosticCandidatesPublished,
+                RuntimeVariable.LLM_Diagnostic_Candidates_Published,
+                diagnosticCandidatesPublishedByType,
+                StageRuntimeVariable.PUBLISHED);
+    }
+
+    public static long getDiagnosticCandidatesPublished() {
+        return diagnosticCandidatesPublished.get();
+    }
+
+    public static long getDiagnosticCandidatesPublished(ProblemCardType type) {
+        return getCounterValue(diagnosticCandidatesPublishedByType, type);
+    }
+
+    public static void recordDiagnosticCandidatesAdmitted(Collection<ProblemCardType> cardTypes, int candidateCount) {
+        recordDiagnosticCandidateStage(cardTypes, candidateCount,
+                diagnosticCandidatesAdmitted,
+                RuntimeVariable.LLM_Diagnostic_Candidates_Admitted,
+                diagnosticCandidatesAdmittedByType,
+                StageRuntimeVariable.ADMITTED);
+    }
+
+    public static long getDiagnosticCandidatesAdmitted() {
+        return diagnosticCandidatesAdmitted.get();
+    }
+
+    public static long getDiagnosticCandidatesAdmitted(ProblemCardType type) {
+        return getCounterValue(diagnosticCandidatesAdmittedByType, type);
+    }
+
+    public static void recordDiagnosticCandidatesSurvived(Collection<ProblemCardType> cardTypes, int candidateCount) {
+        recordDiagnosticCandidateStage(cardTypes, candidateCount,
+                diagnosticCandidatesSurvived,
+                RuntimeVariable.LLM_Diagnostic_Candidates_Survived,
+                diagnosticCandidatesSurvivedByType,
+                StageRuntimeVariable.SURVIVED);
+    }
+
+    public static long getDiagnosticCandidatesSurvived() {
+        return diagnosticCandidatesSurvived.get();
+    }
+
+    public static long getDiagnosticCandidatesSurvived(ProblemCardType type) {
+        return getCounterValue(diagnosticCandidatesSurvivedByType, type);
+    }
+
+    public static void recordDiagnosticExtractorRejects(Map<ExtractorRejectReason, Integer> rejectCounts) {
+        if (rejectCounts == null || rejectCounts.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<ExtractorRejectReason, Integer> entry : rejectCounts.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null || entry.getValue() <= 0) {
+                continue;
+            }
+            AtomicLong counter = diagnosticExtractorRejects.get(entry.getKey());
+            if (counter == null) {
+                continue;
+            }
+            ClientServices.track(toExtractorRejectRuntimeVariable(entry.getKey()),
+                    counter.addAndGet(entry.getValue()));
+        }
+    }
+
+    public static void recordDiagnosticExtractorCandidates(Map<ExtractorCandidateMetric, Integer> candidateCounts) {
+        if (candidateCounts == null || candidateCounts.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<ExtractorCandidateMetric, Integer> entry : candidateCounts.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null || entry.getValue() <= 0) {
+                continue;
+            }
+            AtomicLong counter = diagnosticExtractorCandidates.get(entry.getKey());
+            if (counter == null) {
+                continue;
+            }
+            ClientServices.track(toExtractorCandidateRuntimeVariable(entry.getKey()),
+                    counter.addAndGet(entry.getValue()));
+        }
+    }
+
+    public static long getDiagnosticExtractorCandidates(ExtractorCandidateMetric metric) {
+        AtomicLong counter = diagnosticExtractorCandidates.get(metric);
+        return counter == null ? 0L : counter.get();
+    }
+
+    public static long getDiagnosticExtractorRejects(ExtractorRejectReason reason) {
+        AtomicLong counter = diagnosticExtractorRejects.get(reason);
+        return counter == null ? 0L : counter.get();
+    }
+
+    /** Resets diagnostic-card counters (test/utility use). */
+    public static void resetDiagnosticCardCounters() {
+        diagnosticCardsExtracted.set(0L);
+        diagnosticCardsSelected.set(0L);
+        diagnosticCardsDiscarded.set(0L);
+        diagnosticCardsDeduplicated.set(0L);
+        diagnosticCoverageGains.set(0L);
+        diagnosticCandidatesPublished.set(0L);
+        diagnosticCandidatesAdmitted.set(0L);
+        diagnosticCandidatesSurvived.set(0L);
+        diagnosticCoverageGainAttributionAmbiguous.set(0L);
+        diagnosticCoverageGainAttributionAmbiguousGoals.set(0L);
+        for (AtomicLong counter : diagnosticCardsExtractedByType.values()) {
+            counter.set(0L);
+        }
+        for (AtomicLong counter : diagnosticCardsByType.values()) {
+            counter.set(0L);
+        }
+        for (AtomicLong counter : diagnosticCoverageGainsByType.values()) {
+            counter.set(0L);
+        }
+        for (AtomicLong counter : diagnosticCandidatesPublishedByType.values()) {
+            counter.set(0L);
+        }
+        for (AtomicLong counter : diagnosticCandidatesAdmittedByType.values()) {
+            counter.set(0L);
+        }
+        for (AtomicLong counter : diagnosticCandidatesSurvivedByType.values()) {
+            counter.set(0L);
+        }
+        for (AtomicLong counter : diagnosticExtractorCandidates.values()) {
+            counter.set(0L);
+        }
+        for (AtomicLong counter : diagnosticExtractorRejects.values()) {
+            counter.set(0L);
+        }
+    }
+
+    /**
+     * Records uncovered-goal gains attributed to a diagnostic-card type.
+     * Gains are ignored when type is null or gain <= 0.
+     */
+    public static void recordDiagnosticCoverageGain(ProblemCardType type, int gain) {
+        if (type == null || gain <= 0) {
+            return;
+        }
+        AtomicLong byType = diagnosticCoverageGainsByType.get(type);
+        if (byType == null) {
+            return;
+        }
+        long added = gain;
+        ClientServices.track(toCoverageGainRuntimeVariable(type), byType.addAndGet(added));
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gains,
+                diagnosticCoverageGains.addAndGet(added));
+    }
+
+    /** Returns the total number of uncovered-goal gains attributed to diagnostic cards. */
+    public static long getDiagnosticCoverageGains() {
+        return diagnosticCoverageGains.get();
+    }
+
+    /** Returns attributed uncovered-goal gains for a specific diagnostic-card type. */
+    public static long getDiagnosticCoverageGains(ProblemCardType type) {
+        AtomicLong counter = diagnosticCoverageGainsByType.get(type);
+        return counter == null ? 0L : counter.get();
+    }
+
+    public static void recordDiagnosticCoverageGainAttributionAmbiguous(
+            Collection<ProblemCardType> selectedTypes,
+            int gainedGoals) {
+        if (gainedGoals <= 0) {
+            return;
+        }
+        if (normalizeDiagnosticCardTypes(selectedTypes).size() <= 1) {
+            return;
+        }
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous,
+                diagnosticCoverageGainAttributionAmbiguous.incrementAndGet());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous_Goals,
+                diagnosticCoverageGainAttributionAmbiguousGoals.addAndGet(gainedGoals));
+    }
+
+    public static long getDiagnosticCoverageGainAttributionAmbiguous() {
+        return diagnosticCoverageGainAttributionAmbiguous.get();
+    }
+
+    public static long getDiagnosticCoverageGainAttributionAmbiguousGoals() {
+        return diagnosticCoverageGainAttributionAmbiguousGoals.get();
     }
 
     private final AtomicLong totalCalls = new AtomicLong();
@@ -129,7 +462,8 @@ public class LlmStatistics {
 
     /** Publishes collected LLM statistics as EvoSuite runtime variables. */
     public void publishRuntimeVariables() {
-        initializeRuntimeVariables();
+        // Do not reset counters here: they are accumulated during the run and
+        // must be published as-is at shutdown.
         String model = Properties.LLM_PROVIDER != Properties.LlmProvider.NONE
                 ? Properties.LLM_MODEL : "";
         ClientServices.track(RuntimeVariable.LLM_Model, model);
@@ -141,6 +475,38 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, getOutputTokens());
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, getTotalLatencyMs());
         ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, getEnrichmentElapsedMs());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted, getDiagnosticCardsExtracted());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
+                getDiagnosticExtractorRejects(ExtractorRejectReason.UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL));
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UninstantiableProgressBeyondCreation,
+                getDiagnosticExtractorRejects(ExtractorRejectReason.UNINSTANTIABLE_PROGRESS_BEYOND_CREATION));
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_StateSetupDilutedSuccess,
+                getDiagnosticExtractorRejects(ExtractorRejectReason.STATE_SETUP_DILUTED_SUCCESS));
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure,
+                getDiagnosticExtractorRejects(ExtractorRejectReason.BLOCKED_TYPE_MAPPING_FAILURE));
+        for (ExtractorCandidateMetric metric : ExtractorCandidateMetric.values()) {
+            ClientServices.track(toExtractorCandidateRuntimeVariable(metric), getDiagnosticExtractorCandidates(metric));
+        }
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Selected, getDiagnosticCardsSelected());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Discarded, getDiagnosticCardsDiscarded());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Deduplicated,
+                getDiagnosticCardsDeduplicated());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Published, getDiagnosticCandidatesPublished());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Admitted, getDiagnosticCandidatesAdmitted());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Survived, getDiagnosticCandidatesSurvived());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gains, getDiagnosticCoverageGains());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous,
+                getDiagnosticCoverageGainAttributionAmbiguous());
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous_Goals,
+                getDiagnosticCoverageGainAttributionAmbiguousGoals());
+        for (ProblemCardType type : ProblemCardType.values()) {
+            ClientServices.track(toExtractedRuntimeVariable(type), getDiagnosticCardsExtracted(type));
+            ClientServices.track(toRuntimeVariable(type), getDiagnosticCardsSelected(type));
+            ClientServices.track(toPublishedCandidateRuntimeVariable(type), getDiagnosticCandidatesPublished(type));
+            ClientServices.track(toAdmittedCandidateRuntimeVariable(type), getDiagnosticCandidatesAdmitted(type));
+            ClientServices.track(toSurvivedCandidateRuntimeVariable(type), getDiagnosticCandidatesSurvived(type));
+            ClientServices.track(toCoverageGainRuntimeVariable(type), getDiagnosticCoverageGains(type));
+        }
     }
 
     /**
@@ -151,6 +517,7 @@ public class LlmStatistics {
      * <p>Safe to call regardless of whether LLM mode is enabled.
      */
     public static void initializeRuntimeVariables() {
+        resetDiagnosticCardCounters();
         ClientServices.track(RuntimeVariable.LLM_Model, "");
         ClientServices.track(RuntimeVariable.LLM_Calls, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);
@@ -185,13 +552,49 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio, 0.0);
         ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline, 0.0);
         ClientServices.track(RuntimeVariable.LLM_StagnationCalls, 0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationPromptsSubmitted, 0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationResponsesReceived, 0);
+        ClientServices.track(RuntimeVariable.LLM_StagnationTestsPublished, 0);
         ClientServices.track(RuntimeVariable.LLM_StagnationLatencyMsTotal, 0);
         ClientServices.track(RuntimeVariable.LLM_StagnationBlockedMsTotal, 0);
         ClientServices.track(RuntimeVariable.LLM_StagnationInFlightGenerations, 0);
         ClientServices.track(RuntimeVariable.LLM_StagnationSkippedBudget, 0);
         ClientServices.track(RuntimeVariable.LLM_StagnationSkippedInFlight, 0);
+        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_OrphanFiltered, 0);
+        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Deduplicated, 0);
+        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted, 0);
+        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Survived, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UninstantiableProgressBeyondCreation, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_StateSetupDilutedSuccess, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure, 0);
+        for (ExtractorCandidateMetric metric : ExtractorCandidateMetric.values()) {
+            ClientServices.track(toExtractorCandidateRuntimeVariable(metric), 0);
+        }
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Selected, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Discarded, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Deduplicated, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Published, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Admitted, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Candidates_Survived, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gains, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous, 0);
+        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Coverage_Gain_Attribution_Ambiguous_Goals, 0);
+        for (ProblemCardType type : ProblemCardType.values()) {
+            ClientServices.track(toExtractedRuntimeVariable(type), 0);
+            ClientServices.track(toRuntimeVariable(type), 0);
+            ClientServices.track(toPublishedCandidateRuntimeVariable(type), 0);
+            ClientServices.track(toAdmittedCandidateRuntimeVariable(type), 0);
+            ClientServices.track(toSurvivedCandidateRuntimeVariable(type), 0);
+            ClientServices.track(toCoverageGainRuntimeVariable(type), 0);
+        }
         ClientServices.track(RuntimeVariable.Species_Largest_Share_Timeline, 0.0);
         ClientServices.track(RuntimeVariable.Species_Count_Timeline, 0);
+        ClientServices.track(RuntimeVariable.Species_Quota_Protected_Timeline, 0);
+        ClientServices.track(RuntimeVariable.Species_Newborn_Protected_Timeline, 0);
+        ClientServices.track(RuntimeVariable.Species_Incubator_Protected_Timeline, 0);
+        ClientServices.track(RuntimeVariable.Species_Sharing_Adjusted_Timeline, 0);
         ClientServices.track(RuntimeVariable.DiversityTimeline, 0.0);
         ClientServices.track(RuntimeVariable.Covered_Goals_Timeline, 0);
         ClientServices.track(RuntimeVariable.Remaining_Goals_Timeline, 0);
@@ -202,6 +605,285 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.Disruption_Standard_Crossovers, 0);
         ClientServices.track(RuntimeVariable.Disruption_Semantic_Crossovers, 0);
         ClientServices.track(RuntimeVariable.Disruption_Semantic_Fallbacks, 0);
+    }
+
+    private static RuntimeVariable toExtractedRuntimeVariable(ProblemCardType type) {
+        if (type == null) {
+            return RuntimeVariable.LLM_Diagnostic_Cards_Extracted;
+        }
+        switch (type) {
+            case UNREACHED_METHOD:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_UnreachedMethod;
+            case BRANCH_POLARITY_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_BranchPolarityGap;
+            case STATE_DIVERSIFICATION_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_StateDiversificationGap;
+            case EXCEPTION_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_ExceptionBarrier;
+            case CDG_BOTTLENECK:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_CdgBottleneck;
+            case UNINSTANTIABLE_TYPE:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_UninstantiableType;
+            case STATE_SETUP_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_StateSetupBarrier;
+            case INDIRECT_REACHABILITY_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_IndirectReachabilityBarrier;
+            default:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted;
+        }
+    }
+
+    private static RuntimeVariable toExtractorRejectRuntimeVariable(ExtractorRejectReason reason) {
+        if (reason == null) {
+            return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal;
+        }
+        switch (reason) {
+            case UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal;
+            case UNINSTANTIABLE_PROGRESS_BEYOND_CREATION:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UninstantiableProgressBeyondCreation;
+            case STATE_SETUP_DILUTED_SUCCESS:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_StateSetupDilutedSuccess;
+            case BLOCKED_TYPE_MAPPING_FAILURE:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure;
+            default:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal;
+        }
+    }
+
+    private static RuntimeVariable toExtractorCandidateRuntimeVariable(ExtractorCandidateMetric metric) {
+        if (metric == null) {
+            return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionRepeatedSources;
+        }
+        switch (metric) {
+            case UPSTREAM_EXCEPTION_REPEATED_SOURCES:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionRepeatedSources;
+            case UPSTREAM_EXCEPTION_BLOCKED_GOAL_METHODS:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionBlockedGoalMethods;
+            case EXCEPTION_BARRIER_METHOD_CANDIDATES:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierMethodCandidates;
+            case EXCEPTION_BARRIER_CONTEXT_CANDIDATES:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierContextCandidates;
+            case EXCEPTION_BARRIER_UPSTREAM_CANDIDATES:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierUpstreamCandidates;
+            case EXCEPTION_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedInsufficientAttempts;
+            case EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedLowFailureRate;
+            case TYPE_BARRIER_SIGNALS_WITH_CONSTRUCTION_FAILURE:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_TypeBarrierSignalsWithConstructionFailure;
+            case TYPE_BARRIER_SIGNALS_WITH_SETUP_FAILURE:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_TypeBarrierSignalsWithSetupFailure;
+            case UNINSTANTIABLE_TYPE_CANDIDATES:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeCandidates;
+            case UNINSTANTIABLE_TYPE_SUPPRESSED_INSUFFICIENT_ATTEMPTS:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeSuppressedInsufficientAttempts;
+            case UNINSTANTIABLE_TYPE_SUPPRESSED_LOW_FAILURE_RATE:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeSuppressedLowFailureRate;
+            case STATE_SETUP_BARRIER_CANDIDATES:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierCandidates;
+            case STATE_SETUP_BARRIER_SUPPRESSED_NO_SUCCESSFUL_ACQUISITION:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedNoSuccessfulAcquisition;
+            case STATE_SETUP_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInsufficientAttempts;
+            case STATE_SETUP_BARRIER_SUPPRESSED_INCONSISTENT_FAILING_STEP:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInconsistentFailingStep;
+            default:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionRepeatedSources;
+        }
+    }
+
+    private static RuntimeVariable toRuntimeVariable(ProblemCardType type) {
+        if (type == null) {
+            return RuntimeVariable.LLM_Diagnostic_Cards_Selected;
+        }
+        switch (type) {
+            case UNREACHED_METHOD:
+                return RuntimeVariable.LLM_Diagnostic_Cards_UnreachedMethod;
+            case BRANCH_POLARITY_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Cards_BranchPolarityGap;
+            case STATE_DIVERSIFICATION_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Cards_StateDiversificationGap;
+            case EXCEPTION_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Cards_ExceptionBarrier;
+            case CDG_BOTTLENECK:
+                return RuntimeVariable.LLM_Diagnostic_Cards_CdgBottleneck;
+            case UNINSTANTIABLE_TYPE:
+                return RuntimeVariable.LLM_Diagnostic_Cards_UninstantiableType;
+            case STATE_SETUP_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Cards_StateSetupBarrier;
+            case INDIRECT_REACHABILITY_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Cards_IndirectReachabilityBarrier;
+            default:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Selected;
+        }
+    }
+
+    private static RuntimeVariable toCoverageGainRuntimeVariable(ProblemCardType type) {
+        if (type == null) {
+            return RuntimeVariable.LLM_Diagnostic_Coverage_Gains;
+        }
+        switch (type) {
+            case UNREACHED_METHOD:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_UnreachedMethod;
+            case BRANCH_POLARITY_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_BranchPolarityGap;
+            case STATE_DIVERSIFICATION_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_StateDiversificationGap;
+            case EXCEPTION_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_ExceptionBarrier;
+            case CDG_BOTTLENECK:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_CdgBottleneck;
+            case UNINSTANTIABLE_TYPE:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_UninstantiableType;
+            case STATE_SETUP_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_StateSetupBarrier;
+            case INDIRECT_REACHABILITY_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_IndirectReachabilityBarrier;
+            default:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains;
+        }
+    }
+
+    private static void recordDiagnosticCandidateStage(Collection<ProblemCardType> cardTypes,
+                                                       int candidateCount,
+                                                       AtomicLong totalCounter,
+                                                       RuntimeVariable totalVariable,
+                                                       Map<ProblemCardType, AtomicLong> byTypeCounters,
+                                                       StageRuntimeVariable stage) {
+        if (candidateCount <= 0) {
+            return;
+        }
+        Collection<ProblemCardType> normalizedTypes = normalizeDiagnosticCardTypes(cardTypes);
+        if (normalizedTypes.isEmpty()) {
+            return;
+        }
+        ClientServices.track(totalVariable, totalCounter.addAndGet(candidateCount));
+        for (ProblemCardType type : normalizedTypes) {
+            AtomicLong counter = byTypeCounters.get(type);
+            if (counter != null) {
+                ClientServices.track(stage.toRuntimeVariable(type), counter.addAndGet(candidateCount));
+            }
+        }
+    }
+
+    private static Collection<ProblemCardType> normalizeDiagnosticCardTypes(Collection<ProblemCardType> cardTypes) {
+        if (cardTypes == null || cardTypes.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+        LinkedHashSet<ProblemCardType> uniqueTypes = new LinkedHashSet<>();
+        for (ProblemCardType type : cardTypes) {
+            if (type != null) {
+                uniqueTypes.add(type);
+            }
+        }
+        return uniqueTypes;
+    }
+
+    private static long getCounterValue(Map<ProblemCardType, AtomicLong> counters, ProblemCardType type) {
+        AtomicLong counter = counters.get(type);
+        return counter == null ? 0L : counter.get();
+    }
+
+    private enum StageRuntimeVariable {
+        PUBLISHED {
+            @Override
+            RuntimeVariable toRuntimeVariable(ProblemCardType type) {
+                return toPublishedCandidateRuntimeVariable(type);
+            }
+        },
+        ADMITTED {
+            @Override
+            RuntimeVariable toRuntimeVariable(ProblemCardType type) {
+                return toAdmittedCandidateRuntimeVariable(type);
+            }
+        },
+        SURVIVED {
+            @Override
+            RuntimeVariable toRuntimeVariable(ProblemCardType type) {
+                return toSurvivedCandidateRuntimeVariable(type);
+            }
+        };
+
+        abstract RuntimeVariable toRuntimeVariable(ProblemCardType type);
+    }
+
+    private static RuntimeVariable toPublishedCandidateRuntimeVariable(ProblemCardType type) {
+        if (type == null) {
+            return RuntimeVariable.LLM_Diagnostic_Candidates_Published;
+        }
+        switch (type) {
+            case UNREACHED_METHOD:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_UnreachedMethod;
+            case BRANCH_POLARITY_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_BranchPolarityGap;
+            case STATE_DIVERSIFICATION_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_StateDiversificationGap;
+            case EXCEPTION_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_ExceptionBarrier;
+            case CDG_BOTTLENECK:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_CdgBottleneck;
+            case UNINSTANTIABLE_TYPE:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_UninstantiableType;
+            case STATE_SETUP_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_StateSetupBarrier;
+            case INDIRECT_REACHABILITY_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_IndirectReachabilityBarrier;
+            default:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published;
+        }
+    }
+
+    private static RuntimeVariable toAdmittedCandidateRuntimeVariable(ProblemCardType type) {
+        if (type == null) {
+            return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted;
+        }
+        switch (type) {
+            case UNREACHED_METHOD:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_UnreachedMethod;
+            case BRANCH_POLARITY_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_BranchPolarityGap;
+            case STATE_DIVERSIFICATION_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_StateDiversificationGap;
+            case EXCEPTION_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_ExceptionBarrier;
+            case CDG_BOTTLENECK:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_CdgBottleneck;
+            case UNINSTANTIABLE_TYPE:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_UninstantiableType;
+            case STATE_SETUP_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_StateSetupBarrier;
+            case INDIRECT_REACHABILITY_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_IndirectReachabilityBarrier;
+            default:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted;
+        }
+    }
+
+    private static RuntimeVariable toSurvivedCandidateRuntimeVariable(ProblemCardType type) {
+        if (type == null) {
+            return RuntimeVariable.LLM_Diagnostic_Candidates_Survived;
+        }
+        switch (type) {
+            case UNREACHED_METHOD:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_UnreachedMethod;
+            case BRANCH_POLARITY_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_BranchPolarityGap;
+            case STATE_DIVERSIFICATION_GAP:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_StateDiversificationGap;
+            case EXCEPTION_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_ExceptionBarrier;
+            case CDG_BOTTLENECK:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_CdgBottleneck;
+            case UNINSTANTIABLE_TYPE:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_UninstantiableType;
+            case STATE_SETUP_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_StateSetupBarrier;
+            case INDIRECT_REACHABILITY_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_IndirectReachabilityBarrier;
+            default:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived;
+        }
     }
 
     private static final class FeatureStats {
