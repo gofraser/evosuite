@@ -1010,6 +1010,111 @@ class TestParserTest {
         }
     }
 
+    /**
+     * Reproduces the production crash from the LLM enrichment path: an
+     * AssignmentStatement reuses an earlier variable as its retval (the
+     * LLM {@code x = y} pattern at StatementParser line 3756), and a
+     * downstream chop removes the original declaration. The retval's
+     * only matching defining statement is now the AssignmentStatement
+     * itself, so {@code VariableReferenceImpl.getStPosition} returns the
+     * AssignmentStatement's own index. ObjectPool sequence insertion then
+     * calls {@code Statement.copy(newTest, offset)} and crashes with
+     * "wrong position N, total N" — the symptom in the master process stack
+     * trace from {@code llm_phase4_20260602_213344}. The orphan check
+     * (existing) cannot catch this because the AssignmentStatement does
+     * match — only the new structural check does.
+     */
+    @Test
+    void findUnsafelyCopyableStatementsDetectsAssignmentAfterChop() {
+        String source = "import java.util.ArrayList;\n"
+                + "public class T {\n"
+                + "    @org.junit.Test\n"
+                + "    public void t() {\n"
+                + "        int x = 5;\n"
+                + "        x = 10;\n"
+                + "    }\n"
+                + "}\n";
+        TestParser llmParser = new TestParser(getClass().getClassLoader());
+        llmParser.setMarkParsedFromLlm(true);
+        ParseResult pr = llmParser.parseTestMethod(source, "t");
+        assertNotNull(pr.getTestCase());
+
+        DefaultTestCase tc = (DefaultTestCase) pr.getTestCase();
+        // Sanity: well-formed before corruption.
+        assertTrue(TestParser.findUnsafelyCopyableStatements(tc).isEmpty(),
+                "Pre-corruption test should be safe to copy");
+
+        // Simulate the salvage path: remove the original declaration of x
+        // while leaving the assignment in place.
+        tc.remove(0);
+
+        List<String> issues = TestParser.findUnsafelyCopyableStatements(tc);
+        assertFalse(issues.isEmpty(),
+                "Should detect unsafe AssignmentStatement after defining stmt removed; got: "
+                        + issues + "\nTest case:\n" + safeCode(tc));
+
+        // Existing orphan check passes — it cannot see the issue, which is
+        // exactly why the production bug slipped through.
+        List<String> orphans = TestParser.findOrphanedVariableReferences(tc);
+        assertTrue(orphans.isEmpty(),
+                "Orphan check should not detect this (the AssignmentStatement "
+                        + "is the only match for retval); got: " + orphans);
+    }
+
+    @Test
+    void findUnsafelyCopyableStatementsHandlesNullAndWellFormed() {
+        assertTrue(TestParser.findUnsafelyCopyableStatements(null).isEmpty());
+
+        String source = "import java.util.ArrayList;\n"
+                + "public class T {\n"
+                + "    @org.junit.Test\n"
+                + "    public void t() {\n"
+                + "        ArrayList list = new ArrayList();\n"
+                + "        list.add(\"x\");\n"
+                + "    }\n"
+                + "}\n";
+        ParseResult pr = parser.parseTestMethod(source, "t");
+        assertFalse(pr.hasErrors(), "Setup parse should succeed: " + pr.getDiagnostics());
+        assertTrue(TestParser.findUnsafelyCopyableStatements(pr.getTestCase()).isEmpty(),
+                "Well-formed parsed test should be safe to copy");
+    }
+
+    /**
+     * Regression: DefaultTestCase.clone() must preserve the LHS-identity link
+     * of AssignmentStatements. The natural AssignmentStatement.copy() resolves
+     * its retval to the preseeded retval of the defining position (e.g., P_2
+     * for `x = ...` when x was declared at position 2). The clone loop
+     * previously then re-overrode that retval with the AS's own slot's
+     * placeholder (P_p), severing the link and producing a sequence that
+     * crashes inside Statement.copy(newTest, offset) once the broken clone is
+     * read back out of the object pool ("wrong position N, total N").
+     */
+    @Test
+    void cloneRetainsAssignmentStatementRetvalIdentity() {
+        String source = "import java.util.ArrayList;\n"
+                + "public class T {\n"
+                + "    @org.junit.Test\n"
+                + "    public void t() {\n"
+                + "        int x = 5;\n"
+                + "        x = 10;\n"
+                + "    }\n"
+                + "}\n";
+        TestParser llmParser = new TestParser(getClass().getClassLoader());
+        llmParser.setMarkParsedFromLlm(true);
+        ParseResult pr = llmParser.parseTestMethod(source, "t");
+        assertNotNull(pr.getTestCase());
+
+        DefaultTestCase original = (DefaultTestCase) pr.getTestCase();
+        assertTrue(TestParser.findUnsafelyCopyableStatements(original).isEmpty(),
+                "Pre-clone test should be safe to copy");
+
+        DefaultTestCase clone = original.clone();
+        List<String> cloneIssues = TestParser.findUnsafelyCopyableStatements(clone);
+        assertTrue(cloneIssues.isEmpty(),
+                "Cloning must preserve the AS->definition identity link; got: "
+                        + cloneIssues + "\nClone code:\n" + safeCode(clone));
+    }
+
     private static String safeCode(org.evosuite.testcase.TestCase tc) {
         try {
             return tc.toCode();

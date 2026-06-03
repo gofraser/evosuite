@@ -430,6 +430,120 @@ public class TestParser {
         return false;
     }
 
+    /**
+     * Returns descriptions of any statements whose used VariableReferences
+     * resolve only via the statement itself (or a later statement), and would
+     * therefore crash inside {@code Statement.copy(newTestCase, offset)} when
+     * the test case is replayed positionally — most commonly during
+     * ObjectPool sequence insertion or crossover-driven appends. Returns an
+     * empty list when every used reference has an earlier defining statement.
+     *
+     * <p>Background: {@link AssignmentStatement#copy(TestCase, int)} resolves
+     * each used reference via {@code getStatement(getStPosition() + offset)}
+     * on the destination test case. That destination only holds positions
+     * {@code [0, P + offset)} at the moment statement {@code P} is being
+     * copied, so the lookup is safe only when the reference's first defining
+     * statement sits strictly before {@code P}. For plain
+     * {@link org.evosuite.testcase.variable.VariableReferenceImpl} retvals
+     * (the LLM parser's {@code x = y} variable-assignment path), salvage
+     * pipelines that {@code chop} or remove the original declaration leave
+     * the AssignmentStatement as the only match — the lookup then lands at
+     * {@code P + offset == destination.size()} and throws
+     * {@code IllegalArgumentException} ("wrong position N, total N").
+     */
+    public static List<String> findUnsafelyCopyableStatements(TestCase testCase) {
+        if (testCase == null) {
+            return Collections.emptyList();
+        }
+        int size = testCase.size();
+        List<String> issues = new ArrayList<>();
+        for (int p = 0; p < size; p++) {
+            Statement stmt;
+            try {
+                stmt = testCase.getStatement(p);
+            } catch (Throwable t) {
+                issues.add("statement " + p + ": cannot fetch statement (" + describeThrowable(t) + ")");
+                continue;
+            }
+            if (!(stmt instanceof org.evosuite.testcase.statements.AssignmentStatement)) {
+                // Other statement copies derive their retval freshly and only
+                // consult parameter/callee positions, which are checked by
+                // findOrphanedVariableReferences. The strict-ordering hazard
+                // is unique to AssignmentStatement's reuse of an existing
+                // VariableReference as its retval.
+                continue;
+            }
+            org.evosuite.testcase.statements.AssignmentStatement as =
+                    (org.evosuite.testcase.statements.AssignmentStatement) stmt;
+            VariableReference param = as.getValue();
+            if (param != null && !hasDefiningStatementBefore(param, testCase, p)) {
+                issues.add(describeUnsafeRef(p, stmt, param, "parameter"));
+            }
+            VariableReference retval = stmt.getReturnValue();
+            VariableReference resolvable = retvalLookupReference(retval);
+            if (resolvable != null && !hasDefiningStatementBefore(resolvable, testCase, p)) {
+                String label = (resolvable == retval) ? "retval" :
+                        (retval instanceof ArrayIndex ? "array source of retval"
+                                : "source of retval field");
+                issues.add(describeUnsafeRef(p, stmt, resolvable, label));
+            }
+        }
+        return issues;
+    }
+
+    /**
+     * Returns the reference whose {@code getStPosition()} drives the
+     * destination lookup inside {@code retval.copy()}. ArrayIndex and
+     * FieldReference delegate to their underlying array/source position; a
+     * plain VariableReference is consulted directly.
+     */
+    private static VariableReference retvalLookupReference(VariableReference retval) {
+        if (retval == null) {
+            return null;
+        }
+        if (retval instanceof ArrayIndex) {
+            return ((ArrayIndex) retval).getArray();
+        }
+        if (retval instanceof FieldReference) {
+            return ((FieldReference) retval).getSource();
+        }
+        return retval;
+    }
+
+    private static boolean hasDefiningStatementBefore(VariableReference ref,
+                                                      TestCase testCase, int boundary) {
+        if (ref == null || ref instanceof ConstantValue) {
+            return true;
+        }
+        for (int i = 0; i < boundary; i++) {
+            VariableReference rv;
+            try {
+                rv = testCase.getStatement(i).getReturnValue();
+            } catch (Throwable ignored) {
+                continue;
+            }
+            if (rv != null && rv.equals(ref)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String describeUnsafeRef(int stmtIdx, Statement stmt, VariableReference ref,
+                                            String role) {
+        String typeName;
+        try {
+            typeName = ref.getType() == null ? "<unknown>" : ref.getType().getTypeName();
+        } catch (Throwable t) {
+            typeName = "<unknown>";
+        }
+        return "statement " + stmtIdx + " (" + stmt.getClass().getSimpleName()
+                + ") " + role + " of type " + typeName
+                + " [" + ref.getClass().getSimpleName()
+                + "] has no defining statement before position " + stmtIdx
+                + " (Statement.copy would fail at this position)";
+    }
+
     private static String describeOrphan(int stmtIdx, Statement stmt, VariableReference ref,
                                          int size, String reason) {
         String typeName;

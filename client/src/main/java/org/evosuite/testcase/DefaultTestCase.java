@@ -387,9 +387,17 @@ public class DefaultTestCase implements TestCase, Serializable {
         for (int i = 0; i < statements.size(); i++) {
             Statement s = statements.get(i);
             Statement copy = s.clone(t);
-            VariableReference preSeededRetval = t.getStatement(i).getReturnValue();
-            copy.setRetval(preSeededRetval);
-            preSeededRetval.setOriginalCode(s.getReturnValue().getOriginalCode());
+            // AssignmentStatement reuses an EXISTING variable as its retval (the
+            // LHS). AS.copy() already resolves that to the preseeded retval at
+            // the defining position; overriding it with this slot's placeholder
+            // severs the LHS identity link and makes the clone unsafe to copy
+            // (Statement.copy(test, offset) then throws "wrong position N, total N"
+            // when the sequence is replayed via the object pool path).
+            if (!s.isAssignmentStatement()) {
+                VariableReference preSeededRetval = t.getStatement(i).getReturnValue();
+                copy.setRetval(preSeededRetval);
+                preSeededRetval.setOriginalCode(s.getReturnValue().getOriginalCode());
+            }
             t.statements.set(i, copy);
         }
 
