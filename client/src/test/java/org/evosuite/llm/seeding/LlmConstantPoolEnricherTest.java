@@ -346,6 +346,42 @@ class LlmConstantPoolEnricherTest {
                 "Constant pool enricher prompt must not contain FEW_SHOT examples");
     }
 
+    // ---- Prompt sharpening: structured-data persona, no test-code reminders, no dep summary ----
+
+    @Test
+    void buildPrompt_usesEnrichmentSystemPromptNotTestGenerationPersona() {
+        LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(createUnavailableService());
+        PromptResult result = enricher.buildPrompt("com.example.MyClass", null);
+
+        String systemContent = result.getMessages().get(0).getContent();
+        assertTrue(systemContent.contains("data-extraction assistant"),
+                "Expected enrichment system prompt, got: " + systemContent);
+        assertFalse(systemContent.contains("expert Java test generation assistant"),
+                "Test-generation persona must not leak into enrichment prompts: " + systemContent);
+        assertFalse(systemContent.contains("Generate only valid Java JUnit"),
+                "Test-code generation directive must not appear in enrichment prompts");
+    }
+
+    @Test
+    void buildPrompt_omitsTestGenerationRemindersAndDependencyContext() {
+        // Mock a non-null cluster so the dependency-context code path would normally run
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getTestCalls()).thenReturn(new ArrayList<GenericAccessibleObject<?>>());
+        when(cluster.getGeneratorsByType()).thenReturn(new java.util.HashMap<>());
+        when(cluster.getAnalyzedClasses()).thenReturn(new LinkedHashSet<Class<?>>());
+
+        LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(createUnavailableService());
+        PromptResult result = enricher.buildPrompt("com.example.MyClass", cluster);
+
+        String userContent = result.getMessages().get(1).getContent();
+        assertFalse(userContent.contains("Ensure that all generic types"),
+                "Generic-type reminder is a test-code guardrail; should be omitted: " + userContent);
+        assertFalse(userContent.contains("Do NOT access private or protected"),
+                "Visibility reminder is a test-code guardrail; should be omitted: " + userContent);
+        assertFalse(userContent.contains("Available dependency types"),
+                "Dependency cluster summary should be omitted from constants prompt: " + userContent);
+    }
+
     // ---- buildParameterTypeDigest tests ----
 
     @Test

@@ -159,10 +159,17 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
 
     PromptResult buildPrompt(String className, TestCluster cluster) {
         String paramDigest = buildParameterTypeDigest(cluster);
+        String vocabularyHint = SutConstantVocabulary.buildVocabularyHint();
 
         PromptBuilder builder = new PromptBuilder();
-        builder.withSystemPrompt()
-                .withSutContext(className, cluster)
+        builder.withEnrichmentSystemPrompt()
+                // Skip the test-code reminders and the dependency-cluster summary:
+                // both reinforce a "write a JUnit class" interpretation and dilute
+                // the literal-extraction instruction. The CUT signature alone is
+                // sufficient context for picking edge-case constants.
+                .withSutContext(className, cluster,
+                        /* includeTestGenerationReminders= */ false,
+                        /* includeDependencyContext= */ false)
                 .withInstruction(
                         "For testing the class " + className + ", suggest useful constant values that would exercise "
                         + "edge cases, boundary conditions, and interesting code paths.\n\n"
@@ -181,7 +188,8 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                         + "0L\n"
                         + "3.14\n"
                         + "1.0f\n"
-                        + paramDigest + "\n"
+                        + paramDigest
+                        + vocabularyHint + "\n"
                         + "Only provide the literal values, no explanations needed.")
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();
@@ -189,8 +197,10 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
 
     PromptResult buildDependencyPrompt(String sutClassName, String dependencyClassName, TestCluster cluster) {
         PromptBuilder builder = new PromptBuilder();
-        builder.withSystemPrompt()
-                .withSutContext(sutClassName, cluster)
+        builder.withEnrichmentSystemPrompt()
+                .withSutContext(sutClassName, cluster,
+                        /* includeTestGenerationReminders= */ false,
+                        /* includeDependencyContext= */ false)
                 .withInstruction(
                         "For testing class " + sutClassName + ", suggest useful constant values specifically for "
                         + "interactions with dependency class " + dependencyClassName + ".\n\n"

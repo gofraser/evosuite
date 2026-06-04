@@ -21,8 +21,11 @@ package org.evosuite.seeding;
 
 import org.evosuite.utils.Randomness;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 
@@ -71,6 +74,11 @@ public class FrequencyBasedPool<T> {
 
     public synchronized boolean isEmpty() {
         return numConstants == 0;
+    }
+
+    /** Returns an unmodifiable snapshot of the distinct constants currently in the pool. */
+    public synchronized List<T> snapshot() {
+        return Collections.unmodifiableList(new ArrayList<>(constants.keySet()));
     }
 
     public synchronized int removeIf(Predicate<? super T> predicate) {

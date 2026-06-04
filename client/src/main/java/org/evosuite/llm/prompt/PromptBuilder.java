@@ -106,10 +106,45 @@ public class PromptBuilder {
     }
 
     /**
+     * Uses the enrichment-specific system prompt (structured-data extraction,
+     * no test-code generation). Intended for pre-search pool enrichers; see
+     * {@link SystemPromptProvider#getEnrichmentSystemPrompt()}.
+     */
+    public PromptBuilder withEnrichmentSystemPrompt() {
+        this.systemPrompt = systemPromptProvider.getEnrichmentSystemPrompt();
+        return this;
+    }
+
+    /** Sets a fully custom system prompt. Use sparingly — prefer the named variants above. */
+    public PromptBuilder withSystemPrompt(String systemPrompt) {
+        this.systemPrompt = systemPrompt;
+        return this;
+    }
+
+    /**
      * Add CUT context using the configured {@code LLM_SUT_CONTEXT_MODE}.
      * This replaces separate {@code withTestClusterContext} and {@code withSourceCode} calls.
      */
     public PromptBuilder withSutContext(String className, TestCluster cluster) {
+        return withSutContext(className, cluster, true, true);
+    }
+
+    /**
+     * Add CUT context with explicit control over the test-generation reminders
+     * and dependency cluster summary. Both are useful for code generation but
+     * are noise (and a test-code bias signal) for structured-data extraction
+     * tasks like constant-pool enrichment.
+     *
+     * @param includeTestGenerationReminders emit the two "IMPORTANT" reminders
+     *     about generic-type fidelity and visibility (only meaningful when the
+     *     model is asked to produce Java test code)
+     * @param includeDependencyContext add the test-cluster dependency summary
+     *     (constructors / factories / modifiers); useful for test code, not
+     *     for picking literal constants
+     */
+    public PromptBuilder withSutContext(String className, TestCluster cluster,
+                                        boolean includeTestGenerationReminders,
+                                        boolean includeDependencyContext) {
         SutContextProviderFactory.ContextResult result =
                 sutContextProviderFactory.getContext(className, cluster);
         this.sutContextModeUsed = result.getModeUsed();
@@ -120,14 +155,18 @@ public class PromptBuilder {
         String text = result.getText();
         if (text != null && !text.trim().isEmpty()) {
             userSections.add("CLASS UNDER TEST (SUT): " + className + "\n\n" + result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
-            userSections.add("IMPORTANT: Ensure that all generic types "
-                    + "(e.g., Vector<Character>, List<String>) match the "
-                    + "class definition exactly. Do not use generic types like Vector<String> if the class "
-                    + "expects Vector<Character>.");
-            userSections.add("IMPORTANT: Do NOT access private or protected fields or methods. "
-                    + "Only use public and package-private members in the generated tests.");
+            if (includeTestGenerationReminders) {
+                userSections.add("IMPORTANT: Ensure that all generic types "
+                        + "(e.g., Vector<Character>, List<String>) match the "
+                        + "class definition exactly. Do not use generic types like Vector<String> if the class "
+                        + "expects Vector<Character>.");
+                userSections.add("IMPORTANT: Do NOT access private or protected fields or methods. "
+                        + "Only use public and package-private members in the generated tests.");
+            }
         }
-        addDependencyContext(className, cluster);
+        if (includeDependencyContext) {
+            addDependencyContext(className, cluster);
+        }
         return this;
     }
 

@@ -45,6 +45,17 @@ class LlmSeededPopulationFactoryIntegrationTest {
                     "}\n" +
                     "```";
 
+    private static final String JUNIT_RESPONSE_WITH_STATEMENT =
+            "```java\n" +
+                    "import org.junit.Test;\n" +
+                    "public class GeneratedLlmTest {\n" +
+                    "  @Test\n" +
+                    "  public void generatedTest() {\n" +
+                    "    String value = \"llm-seed\";\n" +
+                    "  }\n" +
+                    "}\n" +
+                    "```";
+
     @Test
     void seedsAreConsumedBeforeFallbackFactory() {
         MockChatLanguageModel model = new MockChatLanguageModel();
@@ -67,6 +78,36 @@ class LlmSeededPopulationFactoryIntegrationTest {
 
             assertNotSame(fallbackChromosome, first, "first chromosome should come from LLM seeding");
             assertSame(fallbackChromosome, second, "second chromosome should use fallback after seeds are consumed");
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void initialPopulationSeedStatementsAreMarkedAsParsedFromLlm() {
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.SEEDING, JUNIT_RESPONSE_WITH_STATEMENT);
+        LlmService service = createService(model, 4);
+
+        TestChromosome fallbackChromosome = new TestChromosome();
+        fallbackChromosome.setTestCase(new DefaultTestCase());
+        ChromosomeFactory<TestChromosome> fallback = () -> fallbackChromosome;
+
+        try {
+            LlmSeededPopulationFactory factory = new LlmSeededPopulationFactory(
+                    fallback,
+                    service,
+                    Collections::emptyList,
+                    Runnable::run);
+
+            TestChromosome seed = factory.getChromosome();
+
+            assertNotSame(fallbackChromosome, seed, "chromosome should come from LLM seeding");
+            assertTrue(seed.getTestCase().size() > 0, "seed should contain parsed statements");
+            for (int i = 0; i < seed.getTestCase().size(); i++) {
+                assertTrue(seed.getTestCase().getStatement(i).isParsedFromLlm(),
+                        "initial population seed statement " + i + " should carry LLM provenance");
+            }
         } finally {
             service.close();
         }
@@ -151,16 +192,28 @@ class LlmSeededPopulationFactoryIntegrationTest {
 
     @Test
     void timeoutRetainsValidatedPartialSeedsFromEarlierRepairTurn() throws Exception {
+        // brokenTest instantiates the abstract SUT via an anonymous body that
+        // does NOT implement the required abstract method. The SUT-aware
+        // parser cannot synthesize the body and substitutes a typed null,
+        // which it demotes to an ERROR-severity diagnostic
+        // (ANONYMOUS_ABSTRACT_TYPED_NULL_FALLBACK). That lands the test in
+        // `droppedAtParse`, which triggers the repair turn this test verifies.
+        // We avoid java.* abstract classes here so the in-memory parse-compile
+        // probe doesn't collide with sealed JDK module packages (java.base).
         String partialResponse =
                 "```java\n" +
                         "import org.junit.Test;\n" +
+                        "import org.junit.runner.Runner;\n" +
                         "public class GeneratedLlmTest {\n" +
                         "  @Test\n" +
                         "  public void keptTest() {\n" +
+                        "    String marker = \"keptTest-marker\";\n" +
                         "  }\n" +
                         "  @Test\n" +
                         "  public void brokenTest() {\n" +
-                        "    doesNotExist();\n" +
+                        "    Runner r = new Runner() {\n" +
+                        "    };\n" +
+                        "    r.testCount();\n" +
                         "  }\n" +
                         "}\n" +
                         "```";
@@ -186,7 +239,10 @@ class LlmSeededPopulationFactoryIntegrationTest {
         fallbackChromosome.setTestCase(new DefaultTestCase());
         ChromosomeFactory<TestChromosome> fallback = () -> fallbackChromosome;
 
+        String previousTargetClass = Properties.TARGET_CLASS;
         try {
+            Properties.TARGET_CLASS = "org.junit.runner.Runner";
+
             LlmSeededPopulationFactory factory = new LlmSeededPopulationFactory(
                     fallback,
                     service,
@@ -200,8 +256,10 @@ class LlmSeededPopulationFactoryIntegrationTest {
             assertEquals(1, seeds.size(),
                     "orchestrator timeout should retain the already validated partial seed");
             assertNotSame(fallbackChromosome, seeds.get(0));
-            assertTrue(seeds.get(0).getTestCase().toCode().contains("keptTest"));
+            assertTrue(seeds.get(0).getTestCase().toCode().contains("keptTest-marker"),
+                    "Retained partial seed should be the kept test, identified by its marker literal");
         } finally {
+            Properties.TARGET_CLASS = previousTargetClass;
             released.countDown();
             executor.shutdownNow();
             service.close();

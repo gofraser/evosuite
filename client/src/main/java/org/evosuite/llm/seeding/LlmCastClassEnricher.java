@@ -463,8 +463,10 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
         String existingCastContext = buildExistingCastContext();
 
         PromptBuilder builder = new PromptBuilder();
-        builder.withSystemPrompt()
-                .withSutContext(className, cluster)
+        builder.withEnrichmentSystemPrompt()
+                .withSutContext(className, cluster,
+                        /* includeTestGenerationReminders= */ false,
+                        /* includeDependencyContext= */ true)
                 .withInstruction(
                         "For the Java class " + className + ", suggest additional concrete classes that would be "
                         + "useful as cast targets when generating tests.\n\n"

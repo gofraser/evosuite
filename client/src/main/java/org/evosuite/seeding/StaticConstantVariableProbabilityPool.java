@@ -23,6 +23,8 @@ import org.evosuite.Properties;
 import org.evosuite.utils.LoggingUtils;
 import org.objectweb.asm.Type;
 
+import java.util.Collection;
+
 /**
  * Created by gordon on 06/01/2017.
  */
@@ -205,6 +207,31 @@ public class StaticConstantVariableProbabilityPool implements ConstantPool {
         }
 
         return removed;
+    }
+
+    @Override
+    public Collection<String> getStrings() {
+        return stringPool.snapshot();
+    }
+
+    @Override
+    public Collection<Integer> getInts() {
+        return intPool.snapshot();
+    }
+
+    @Override
+    public Collection<Long> getLongs() {
+        return longPool.snapshot();
+    }
+
+    @Override
+    public Collection<Float> getFloats() {
+        return floatPool.snapshot();
+    }
+
+    @Override
+    public Collection<Double> getDoubles() {
+        return doublePool.snapshot();
     }
 
 }

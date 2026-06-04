@@ -220,6 +220,15 @@ public class ConstantPoolManager {
         return pools[DYNAMIC_POOL_INDEX];
     }
 
+    /**
+     * Returns the static SUT constant pool (constants collected from the SUT's
+     * own bytecode). Used by LLM enrichment to seed the model with the SUT's
+     * existing vocabulary.
+     */
+    public ConstantPool getSUTConstantPool() {
+        return pools[SUT_POOL_INDEX];
+    }
+
     public synchronized AdaptiveSeedLimitUpdate tightenSeededNumericLimitAfterOom() {
         if (!Properties.ADAPTIVE_SEEDED_CONSTANTS_ON_OOM) {
             return AdaptiveSeedLimitUpdate.disabled();

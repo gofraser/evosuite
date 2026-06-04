@@ -25,7 +25,11 @@ import org.objectweb.asm.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -84,6 +88,10 @@ public class StaticConstantPool implements ConstantPool {
 
         public synchronized int size() {
             return list.size();
+        }
+
+        public synchronized List<T> snapshot() {
+            return Collections.unmodifiableList(new ArrayList<>(list));
         }
     }
 
@@ -265,6 +273,31 @@ public class StaticConstantPool implements ConstantPool {
             doublePool.add(0.0);
         }
         return removed;
+    }
+
+    @Override
+    public Collection<String> getStrings() {
+        return stringPool.snapshot();
+    }
+
+    @Override
+    public Collection<Integer> getInts() {
+        return intPool.snapshot();
+    }
+
+    @Override
+    public Collection<Long> getLongs() {
+        return longPool.snapshot();
+    }
+
+    @Override
+    public Collection<Float> getFloats() {
+        return floatPool.snapshot();
+    }
+
+    @Override
+    public Collection<Double> getDoubles() {
+        return doublePool.snapshot();
     }
 
 }

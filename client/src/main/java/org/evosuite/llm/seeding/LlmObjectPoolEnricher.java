@@ -381,17 +381,32 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
         PromptBuilder builder = new PromptBuilder();
         builder.withSystemPrompt()
-                .withSutContext(className, cluster)
+                .withSutContext(className, cluster, true, false)
                 .withInstruction(
-                        "Generate Java test methods that construct objects useful for testing " + className + ".\n\n"
+                        "Generate Java construction sequences for the types listed below. These are seed "
+                        + "objects EvoSuite will sample from during search — not coverage tests for "
+                        + className + ".\n\n"
                         + typeContext + "\n"
-                        + "For each type, create a @Test method that:\n"
-                        + "1. Constructs an instance with interesting state\n"
-                        + "2. Exercises constructors, setters, and builder patterns\n"
-                        + "3. Creates edge-case configurations (empty, null fields, boundary values)\n\n"
-                        + "Format as a complete JUnit test class with imports.\n"
-                        + "Each method should set up one interesting object state.\n"
-                        + "Focus on object construction only."
+                        + "OBJECT-POOL TASK OVERRIDE — this differs from regular test generation:\n"
+                        + "- Sequences do NOT need to invoke any method on " + className + " (the SUT). "
+                        + "Many targets are dependency types whose constructed instances are consumed by "
+                        + "SUT methods elsewhere; ignore the \"every test must call an SUT method\" rule "
+                        + "for this prompt.\n"
+                        + "- The final statement of each @Test method MUST leave a local variable "
+                        + "holding an instance of the target type — EvoSuite keys the pool entry by "
+                        + "that variable's runtime type.\n"
+                        + "- Assertions add no value here; omit them unless explicitly allowed below.\n\n"
+                        + "For each target type, write one or more @Test methods that:\n"
+                        + "1. Instantiate the type via a constructor, static factory, or builder shown "
+                        + "in the context above.\n"
+                        + "2. Across methods for the same type, vary internal state by choosing "
+                        + "different constructor overloads or by chaining setter/builder calls — "
+                        + "produce distinct seed objects, not boilerplate clones.\n"
+                        + "3. Cover edge configurations where relevant (empty collections, null fields, "
+                        + "boundary values).\n\n"
+                        + "Output one @Test method per construction. Do NOT include a class declaration; "
+                        + "start with imports or the first @Test method.\n"
+                        + "Focus on construction only — no SUT exercise, no control flow, no helper methods."
                         + LlmAssertionPolicyResolver.instructionSuffix(keepAssertions))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE);
         return builder.buildWithMetadata();

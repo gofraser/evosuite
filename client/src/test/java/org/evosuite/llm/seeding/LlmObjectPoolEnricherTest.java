@@ -36,6 +36,7 @@ import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testparser.ParseResult;
+import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
@@ -428,6 +429,30 @@ class LlmObjectPoolEnricherTest {
     }
 
     @Test
+    void objectPoolInsertedSequenceStatementsAreMarkedAsParsedFromLlm() throws Exception {
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+
+        DefaultTestCase tc = new DefaultTestCase();
+        GenericConstructor gc = new GenericConstructor(
+                ArrayList.class.getConstructor(),
+                GenericClassFactory.get(ArrayList.class));
+        tc.addStatement(new ConstructorStatement(tc, gc, Collections.emptyList()));
+
+        LlmObjectPoolEnricher.TypeKeyInsertionResult result =
+                enricher.addSequenceToPoolByProducedTypes(tc, Set.of("java.util.ArrayList"));
+
+        assertEquals(1, result.insertions);
+        TestCase retrieved = ObjectPoolManager.getInstance()
+                .getRandomSequence(GenericClassFactory.get(ArrayList.class));
+        assertNotNull(retrieved, "inserted object-pool sequence should be retrievable");
+        assertTrue(retrieved.size() > 0, "retrieved sequence should contain statements");
+        for (int i = 0; i < retrieved.size(); i++) {
+            assertTrue(retrieved.getStatement(i).isParsedFromLlm(),
+                    "object-pool seed statement " + i + " should carry LLM provenance");
+        }
+    }
+
+    @Test
     void endToEnd_supertypeRetrieval_exactMatchAlwaysWorks() throws Exception {
         LlmObjectPoolEnricher enricher = createEnricherWithMocks();
 
@@ -530,6 +555,66 @@ class LlmObjectPoolEnricherTest {
                 .reduce("", String::concat);
         assertFalse(combined.contains("Existing tests:"),
                 "Object pool enricher prompt must not contain FEW_SHOT examples");
+    }
+
+    @Test
+    void buildPrompt_includesObjectPoolTaskOverrideAndSutOptOut() {
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+        List<String> types = Arrays.asList("com.example.Widget");
+        PromptResult result = enricher.buildPrompt("com.example.Foo", null, types);
+
+        String userContent = result.getMessages().get(1).getContent();
+        assertTrue(userContent.contains("OBJECT-POOL TASK OVERRIDE"),
+                "Override section header must be present: " + userContent);
+        assertTrue(userContent.contains("do NOT need to invoke any method on com.example.Foo"),
+                "Explicit SUT-call opt-out must be present and name the CUT: " + userContent);
+        assertTrue(userContent.contains("every test must call an SUT method"),
+                "Must explicitly suppress the system-prompt REAL INTERACTION rule: " + userContent);
+    }
+
+    @Test
+    void buildPrompt_statesParserContractForTargetTypeLocalVariable() {
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+        List<String> types = Arrays.asList("com.example.Widget");
+        PromptResult result = enricher.buildPrompt("com.example.Foo", null, types);
+
+        String userContent = result.getMessages().get(1).getContent();
+        assertTrue(userContent.contains("final statement of each @Test method MUST leave a local variable"),
+                "Parser contract must state final-statement local-variable requirement: " + userContent);
+        assertTrue(userContent.contains("vary internal state"),
+                "Diversity steer for distinct seed objects must be present: " + userContent);
+    }
+
+    @Test
+    void buildPrompt_omitsCompleteJUnitTestClassFormattingAndAlignsWithSystemPrompt() {
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+        List<String> types = Arrays.asList("com.example.Widget");
+        PromptResult result = enricher.buildPrompt("com.example.Foo", null, types);
+
+        String userContent = result.getMessages().get(1).getContent();
+        assertFalse(userContent.contains("Format as a complete JUnit test class with imports"),
+                "Old class-declaration ask contradicted the system prompt and must be gone: " + userContent);
+        assertFalse(userContent.contains("complete JUnit test class"),
+                "Any 'complete JUnit test class' phrasing must be gone: " + userContent);
+        assertTrue(userContent.contains("Do NOT include a class declaration"),
+                "User instruction must match system-prompt STRUCTURE rule: " + userContent);
+    }
+
+    @Test
+    void buildPrompt_omitsDependencyClusterSummary() {
+        // A mocked cluster whose dependency closure would otherwise be summarized.
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getTestCalls()).thenReturn(new ArrayList<GenericAccessibleObject<?>>());
+        when(cluster.getGeneratorsByType()).thenReturn(new HashMap<>());
+        when(cluster.getAnalyzedClasses()).thenReturn(new LinkedHashSet<Class<?>>());
+
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+        List<String> types = Arrays.asList("com.example.Widget");
+        PromptResult result = enricher.buildPrompt("com.example.Foo", cluster, types);
+
+        String userContent = result.getMessages().get(1).getContent();
+        assertFalse(userContent.contains("Available dependency types"),
+                "Dependency cluster summary is redundant with 'Key types to construct'; must be omitted: " + userContent);
     }
 
     // ---- Helper methods ----

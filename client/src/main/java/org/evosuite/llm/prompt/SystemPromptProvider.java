@@ -26,6 +26,26 @@ import org.evosuite.Properties;
  */
 public class SystemPromptProvider {
 
+    /**
+     * Returns a system prompt for pre-search pool-enrichment queries (constants,
+     * cast-class suggestions, object-pool seeds). These tasks want structured
+     * data — typed literals or JSON — not JUnit test code, so the test-generation
+     * persona used by {@link #getSystemPrompt()} is actively harmful (it pushes
+     * the model toward emitting full @Test classes whose embedded literals then
+     * pollute the constant pool).
+     */
+    public String getEnrichmentSystemPrompt() {
+        return "You are a data-extraction assistant for an automated test-generation tool. "
+                + "Your job is to emit STRUCTURED DATA only — typed Java literals one per line, "
+                + "or strict JSON, as the user instruction specifies. "
+                + "Do NOT generate Java test code, JUnit classes, @Test methods, imports, "
+                + "Mockito setup, assertions, helper methods, or any executable code. "
+                + "Do NOT wrap your answer in markdown code fences. "
+                + "Do NOT add explanations, prose, or commentary. "
+                + "If a class declaration, method declaration, @Test annotation, or import statement "
+                + "appears in your response, your response is INVALID.";
+    }
+
     /** Returns the system prompt string configured for the current output format. */
     public String getSystemPrompt() {
         String coverageDirective = " Your goal is to maximize code coverage of the class under test: "

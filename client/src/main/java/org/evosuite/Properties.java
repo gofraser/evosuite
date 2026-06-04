@@ -2141,6 +2141,13 @@ public class Properties {
     @IntValue(min = 1)
     public static int LLM_NON_SUT_CONSTANTS_PER_CLASS_MAX = 10;
 
+    @Parameter(key = "llm_constant_vocabulary_max_per_type", group = "LLM",
+            description = "Maximum number of existing SUT constants of each type "
+                    + "(string/int/long/float/double) shown to the LLM in the constants-enrichment "
+                    + "prompt as a 'domain vocabulary' hint. 0 disables the hint.")
+    @IntValue(min = 0)
+    public static int LLM_CONSTANT_VOCABULARY_MAX_PER_TYPE = 12;
+
     @Parameter(key = "llm_enrich_object_pool", group = "LLM",
             description = "Enable LLM enrichment of object pools")
     public static boolean LLM_ENRICH_OBJECT_POOL = false;

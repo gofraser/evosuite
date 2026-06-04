@@ -29,13 +29,16 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmTraceRecorder;
 import org.evosuite.llm.mock.MockChatLanguageModel;
+import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -344,6 +347,13 @@ class StagnationLlmHelperTest {
 
     @Test
     void drainPreservesDiagnosticCardAttributionMetadata() {
+        // Intent: when the diagnostic-prompt pathway produces card types, those
+        // types must flow through prompt -> publishTests -> drained candidates so
+        // attribution telemetry can read them via consumeDiagnosticCardTypes.
+        // The extractor's card-emission heuristics have their own dedicated
+        // coverage in ProblemCardExtractorTest; here we stub buildPrompt to
+        // pin the metadata-propagation path without rebuilding the full
+        // extractor input (TestCase + Statements + ExecutionTrace mocks).
         Properties.LlmStagnationPromptMode oldPromptMode = Properties.LLM_STAGNATION_PROMPT;
         String oldTargetClass = Properties.TARGET_CLASS;
         try {
@@ -354,7 +364,20 @@ class StagnationLlmHelperTest {
             model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
             LlmService service = createService(model, 2);
             AtomicLong clock = new AtomicLong(0L);
-            StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+            StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get) {
+                @Override
+                public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                                List<TestChromosome> currentPopulation,
+                                                int totalGoals, int coveredGoalCount,
+                                                Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                                boolean suppressInFlightRepeats) {
+                    PromptResult base = super.buildPrompt(uncoveredGoals, currentPopulation,
+                            totalGoals, coveredGoalCount, bestFitnessPerGoal, suppressInFlightRepeats);
+                    return base.toBuilder()
+                            .diagnosticCardTypes(Collections.singletonList(ProblemCardType.UNREACHED_METHOD))
+                            .build();
+                }
+            };
             StagnationLlmHelper helper = new StagnationLlmHelper(
                     detector, LlmStagnationMode.SYNC, () -> -1L, 0);
             try {

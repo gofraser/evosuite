@@ -338,6 +338,32 @@ class LlmCastClassEnricherTest {
         assertTrue(combined.contains("5"), "Prompt should include the max suggestions count");
     }
 
+    @Test
+    void buildPrompt_usesEnrichmentSystemPromptNotTestGenerationPersona() {
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+        PromptResult result = enricher.buildPrompt("com.example.MyClass", null);
+
+        String systemContent = result.getMessages().get(0).getContent();
+        assertTrue(systemContent.contains("data-extraction assistant"),
+                "Expected enrichment system prompt, got: " + systemContent);
+        assertFalse(systemContent.contains("expert Java test generation assistant"),
+                "Test-generation persona must not leak into enrichment prompts: " + systemContent);
+        assertFalse(systemContent.contains("Generate only valid Java JUnit"),
+                "Test-code generation directive must not appear in enrichment prompts");
+    }
+
+    @Test
+    void buildPrompt_omitsTestCodeReminders() {
+        LlmCastClassEnricher enricher = new LlmCastClassEnricher(createUnavailableService());
+        PromptResult result = enricher.buildPrompt("com.example.MyClass", null);
+
+        String userContent = result.getMessages().get(1).getContent();
+        assertFalse(userContent.contains("Ensure that all generic types"),
+                "Generic-type reminder is a test-code guardrail; should be omitted for cast enrichment");
+        assertFalse(userContent.contains("Do NOT access private or protected"),
+                "Visibility reminder is a test-code guardrail; should be omitted for cast enrichment");
+    }
+
     // ---- Priority value ----
 
     @Test

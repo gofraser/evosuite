@@ -21,6 +21,9 @@ package org.evosuite.seeding;
 
 import org.objectweb.asm.Type;
 
+import java.util.Collection;
+import java.util.Collections;
+
 /**
  * Interface for constant pools.
  *
@@ -85,6 +88,34 @@ public interface ConstantPool {
      */
     default int pruneOversizedNumericConstants(long maxAbsExclusive) {
         return 0;
+    }
+
+    /**
+     * Snapshot of strings currently in the pool. Default returns empty so
+     * implementations without efficient iteration don't have to opt in.
+     */
+    default Collection<String> getStrings() {
+        return Collections.emptyList();
+    }
+
+    /** Snapshot of int constants currently in the pool. */
+    default Collection<Integer> getInts() {
+        return Collections.emptyList();
+    }
+
+    /** Snapshot of long constants currently in the pool. */
+    default Collection<Long> getLongs() {
+        return Collections.emptyList();
+    }
+
+    /** Snapshot of float constants currently in the pool. */
+    default Collection<Float> getFloats() {
+        return Collections.emptyList();
+    }
+
+    /** Snapshot of double constants currently in the pool. */
+    default Collection<Double> getDoubles() {
+        return Collections.emptyList();
     }
 
     String toString();
