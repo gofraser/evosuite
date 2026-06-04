@@ -302,9 +302,11 @@ public class TestSuiteGenerator {
             // its time budget, OOM, or throw on pathological SUTs. Catch everything so the
             // write step still runs — losing minimization/assertions is far better than
             // producing no tests at all.
+            boolean postProcessFailed = false;
             try {
                 postProcessTests(testCases);
             } catch (Throwable t) {
+                postProcessFailed = true;
                 logger.error("Post-processing failed; falling back to direct write of un-processed suite", t);
                 System.gc();
             }
@@ -313,6 +315,27 @@ public class TestSuiteGenerator {
                 PermissionStatistics.getInstance().printStatistics(LoggingUtils.getEvoLogger());
             } catch (Throwable t) {
                 logger.warn("Publishing permission statistics failed (non-fatal): {}", t.toString());
+            }
+
+            // If post-processing died (typically OOM or hard timeout) the JVM is
+            // likely degraded — heap full, GC thrashing, executor threads possibly
+            // still draining work from the previous phase.  Recycle the executor
+            // so any residual SUT worker is gone before the writer starts running
+            // tests of its own, and surface the diagnostic state to the log so we
+            // can see how much budget we have left going into the write.
+            if (postProcessFailed) {
+                Runtime rt = Runtime.getRuntime();
+                long freeMb = (rt.maxMemory() - rt.totalMemory() + rt.freeMemory()) / 1024 / 1024;
+                long phaseMsLeft = TimeController.getInstance().getRemainingTimeInPhaseMs();
+                LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Proceeding to write with degraded state: freeMem=" + freeMb
+                        + " MB, phaseTimeLeft=" + phaseMsLeft + " ms");
+                try {
+                    TestCaseExecutor.pullDown();
+                    TestCaseExecutor.initExecutor();
+                } catch (Throwable t) {
+                    logger.debug("Could not recycle test executor after postProcess failure", t);
+                }
             }
 
             // progressMonitor.setCurrentPhase("Writing JUnit test cases");

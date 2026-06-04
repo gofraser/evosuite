@@ -229,9 +229,18 @@ public class TestSuiteWriter implements Opcodes {
         LoopCounter.getInstance().setActive(true);
 
         List<ExecutionResult> results = new ArrayList<>();
+        boolean lowMemoryLogged = false;
         for (TestCase test : testCases) {
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                // Try to use a cached result; if none exists, skip the test
+            boolean budgetExhausted = !TimeController.getInstance().hasTimeToExecuteATestCase();
+            boolean memoryCritical = !budgetExhausted && isMemoryCriticalForWrite();
+            if (budgetExhausted || memoryCritical) {
+                if (memoryCritical && !lowMemoryLogged) {
+                    logger.warn("Test execution during JUnit write skipped: free memory below {} MB threshold; "
+                                    + "falling back to cached results to avoid OOM",
+                            (Properties.MIN_FREE_MEM * 2L) / 1024 / 1024);
+                    lowMemoryLogged = true;
+                }
+                // Try to use a cached result; if none exists, fall back to placeholder
                 boolean added = false;
                 for (ExecutionResult result : cachedResults) {
                     if (result != null && result.test == test) {
@@ -242,7 +251,9 @@ public class TestSuiteWriter implements Opcodes {
                     }
                 }
                 if (!added) {
-                    logger.info("No time left and no cached result; using empty result");
+                    logger.info("{}; using empty result",
+                            budgetExhausted ? "No time left and no cached result"
+                                    : "Memory critical and no cached result");
                     // Keep results parallel-indexed to testCases for downstream
                     // strategies (e.g. NumberedTestNameGenerationStrategy).
                     // Set a non-null empty trace so goal.isCovered(result) and
@@ -446,6 +457,25 @@ public class TestSuiteWriter implements Opcodes {
         builder.append(getFooter());
 
         return builder.toString();
+    }
+
+    /**
+     * Check whether free heap has dropped below the safety threshold used for
+     * post-processing.  When the writer is invoked after a postProcess failure
+     * the JVM may already be near OOM; re-executing more tests here can push
+     * it over the edge.  Mirrors {@code TestSuiteGenerator#isMemoryTooLowForPhase}
+     * but kept inline to avoid a cross-module dependency.
+     */
+    private boolean isMemoryCriticalForWrite() {
+        java.lang.Runtime runtime = java.lang.Runtime.getRuntime();
+        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        long threshold = Properties.MIN_FREE_MEM * 2L;
+        if (freeMem >= threshold) {
+            return false;
+        }
+        java.lang.System.gc();
+        freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        return freeMem < threshold;
     }
 
     /**

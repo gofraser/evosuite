@@ -199,6 +199,12 @@ public class TestSuiteMinimizer {
         int testsWithExceptions = 0;
         String firstExceptionType = null;
         for (int i = 0; i < suite.getTestChromosomes().size(); i++) {
+            if (shouldStop()) {
+                logger.warn("Minimization preflight aborted at test {}/{} due to time/memory exhaustion. "
+                                + "Skipping minimization to preserve original archive tests.",
+                        i, suite.getTestChromosomes().size());
+                return;
+            }
             TestChromosome test = suite.getTestChromosomes().get(i);
             ExecutionResult result = TestCaseExecutor.runTest(test.getTestCase());
             if (!result.getTrace().getCoveredTrueBranches().isEmpty()
@@ -268,8 +274,8 @@ public class TestSuiteMinimizer {
         for (TestFitnessFunction goal : goals) {
             updateClientStatus(numGoals > 0 ? 100 * currentGoal / numGoals : 100);
             currentGoal++;
-            if (isTimeoutReached()) {
-                logger.warn("Minimization timeout. Using partial results.");
+            if (shouldStop()) {
+                logger.warn("Minimization timeout/low-memory. Using partial results.");
                 timeout = true;
                 break;
             }
@@ -277,8 +283,8 @@ public class TestSuiteMinimizer {
             if (Properties.MINIMIZE_SKIP_COINCIDENTAL) {
                 boolean innerTimeout = false;
                 for (TestChromosome test : minimizedTests) {
-                    if (isTimeoutReached()) {
-                        logger.warn("Minimization timeout. Using partial results.");
+                    if (shouldStop()) {
+                        logger.warn("Minimization timeout/low-memory. Using partial results.");
                         timeout = true;
                         innerTimeout = true;
                         break;
@@ -301,10 +307,24 @@ public class TestSuiteMinimizer {
             }
 
             List<TestChromosome> coveringTests = new ArrayList<>();
+            boolean innerTimeout = false;
             for (TestChromosome test : suite.getTestChromosomes()) {
+                // Each isCovered() may re-execute the test; under memory
+                // pressure these can take seconds each, so re-check between
+                // iterations rather than only at the goal boundary.
+                if (shouldStop()) {
+                    logger.warn("Minimization timeout/low-memory while scanning covering tests. "
+                            + "Using partial results.");
+                    timeout = true;
+                    innerTimeout = true;
+                    break;
+                }
                 if (goal.isCovered(test)) {
                     coveringTests.add(test);
                 }
+            }
+            if (innerTimeout) {
+                break;
             }
             Collections.sort(coveringTests);
             if (!coveringTests.isEmpty()) {
@@ -313,8 +333,8 @@ public class TestSuiteMinimizer {
                         goal);
                 TestChromosome copy = test.clone();
                 minimizer.minimize(copy);
-                if (isTimeoutReached()) {
-                    logger.warn("Minimization timeout. Using partial results.");
+                if (shouldStop()) {
+                    logger.warn("Minimization timeout/low-memory. Using partial results.");
                     timeout = true;
                     break;
                 }
@@ -325,12 +345,20 @@ public class TestSuiteMinimizer {
                 // Add ALL goals covered by the minimized test
                 int coveredBefore = covered.size();
                 for (TestFitnessFunction g : goals) {
+                    // With thousands of goals, this scan dominates the
+                    // per-goal cost; break out if we ran out of budget.
+                    if (shouldStop()) {
+                        logger.warn("Minimization timeout/low-memory while scanning goals "
+                                + "for coverage of minimized test. Using partial results.");
+                        timeout = true;
+                        innerTimeout = true;
+                        break;
+                    }
                     if (g.isCovered(copy)) { // isCovered(copy) adds the goal
                         covered.add(g);
                         logger.info("Goal covered by minimized test: " + g);
                     }
                 }
-
                 // Only keep the minimized test if it actually covers goals
                 // on re-execution.  Stale archive entries may no longer
                 // reproduce their coverage, and an empty/failing test would
@@ -349,6 +377,11 @@ public class TestSuiteMinimizer {
                 logger.info("After new test the suite covers " + covered.size() + "/"
                         + goals.size() + " goals");
 
+                if (innerTimeout) {
+                    // Aborted mid-goal-scan — kept whatever this iteration
+                    // contributed, now exit the outer loop too.
+                    break;
+                }
             } else {
                 goalsWithoutCoveringTests++;
                 logger.info("Goal is not covered: " + goal);
@@ -410,6 +443,44 @@ public class TestSuiteMinimizer {
 
     private boolean isTimeoutReached() {
         return !TimeController.getInstance().isThereStillTimeInThisPhase();
+    }
+
+    /**
+     * Check whether free heap has dropped below the safety threshold used for
+     * post-processing phases.  Mirrors {@code TestSuiteGenerator#isMemoryTooLowForPhase}
+     * so the minimizer can self-abort instead of waiting for an OOM to be
+     * caught by the caller — by which point the phase budget is typically
+     * blown by minutes (GC thrashing makes the cooperative time checks fire
+     * far too late).
+     *
+     * Returns true if memory remains critically low even after a hint GC.
+     * Callers should treat this like a timeout and break out of long loops,
+     * preserving partial results.
+     */
+    private boolean isMemoryCritical() {
+        Runtime runtime = Runtime.getRuntime();
+        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        long threshold = Properties.MIN_FREE_MEM * 2L;
+        if (freeMem >= threshold) {
+            return false;
+        }
+        System.gc();
+        freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        if (freeMem >= threshold) {
+            return false;
+        }
+        logger.warn("Minimization aborting: free memory {} MB below threshold {} MB",
+                freeMem / 1024 / 1024, threshold / 1024 / 1024);
+        return true;
+    }
+
+    /**
+     * Convenience: stop minimizing when either the phase time budget is
+     * exhausted or free memory is critically low.  Used in the hot inner
+     * loops to keep iteration cost bounded even under GC pressure.
+     */
+    private boolean shouldStop() {
+        return isTimeoutReached() || isMemoryCritical();
     }
 
     /**
