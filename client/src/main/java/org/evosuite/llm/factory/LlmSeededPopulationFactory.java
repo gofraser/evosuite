@@ -33,6 +33,7 @@ import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
@@ -45,8 +46,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -69,8 +72,10 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private final Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
     private final boolean llmStrategyContext;
     private final Queue<TestChromosome> llmSeeds = new ConcurrentLinkedQueue<>();
+    private final Set<String> llmSeedKeys = ConcurrentHashMap.newKeySet();
     private final CompletableFuture<List<TestChromosome>> pendingSeeds;
     private final AtomicBoolean seedsMerged = new AtomicBoolean(false);
+    private volatile long repairDeadlineNanos = Long.MAX_VALUE;
 
     /** Creates a factory using the singleton LLM service and an empty goals supplier. */
     public LlmSeededPopulationFactory(ChromosomeFactory<TestChromosome> fallback) {
@@ -119,6 +124,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
      * Drains seeds from the pending future and waits up to {@code timeoutMs} milliseconds.
      */
     public List<TestChromosome> awaitAndDrainSeeds(long timeoutMs) {
+        long waitMillis = Math.max(1L, timeoutMs);
+        repairDeadlineNanos = computeDeadlineNanos(waitMillis);
         mergePendingSeeds(true, timeoutMs);
         List<TestChromosome> drained = new ArrayList<>();
         TestChromosome current;
@@ -145,13 +152,13 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             }
             mergeProducedSeeds(produced);
         } catch (TimeoutException e) {
-            // Commit the decision: we tried, we timed out. Don't reset the
-            // merged flag — a retry would just observe a cancelled future and
-            // re-log the same failure to the operator.
+            int retained = llmSeeds.size();
             pendingSeeds.cancel(true);
             LoggingUtils.getEvoLogger().info(
-                    "* LLM seeding timed out after {}ms; cancelled pending task", waitMillis);
-            logger.warn("Timed out while waiting for async LLM seeds after {}ms", waitMillis);
+                    "* LLM seeding timed out after {}ms; cancelled pending task; retaining {} partial seed(s)",
+                    waitMillis, retained);
+            logger.warn("Timed out while waiting for async LLM seeds after {}ms; retaining {} partial seed(s)",
+                    waitMillis, retained);
         } catch (CancellationException e) {
             // Future was cancelled (e.g. by a previous timeout). Log once and
             // leave seedsMerged=true so subsequent calls short-circuit.
@@ -171,8 +178,14 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             LoggingUtils.getEvoLogger().info("* LLM produced 0 valid test chromosomes.");
             return;
         }
-        LoggingUtils.getEvoLogger().info("* LLM produced " + produced.size() + " valid test chromosomes.");
-        llmSeeds.addAll(produced);
+        int accepted = enqueueSeeds(produced);
+        if (accepted == produced.size()) {
+            LoggingUtils.getEvoLogger().info("* LLM produced " + accepted + " valid test chromosomes.");
+        } else {
+            LoggingUtils.getEvoLogger().info(
+                    "* LLM produced {} valid test chromosomes ({} new after partial retention).",
+                    produced.size(), accepted);
+        }
     }
 
     private List<TestChromosome> generateSeeds() {
@@ -200,7 +213,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                     .createDefault(llmService,
                             TestRepairLoop.RepairOptions.forAssertionPolicy(
                                     LlmAssertionPolicyResolver.keepAssertions(llmStrategyContext)))
-                    .attemptParse(response, prompt.getMessages(), LlmFeature.SEEDING);
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.SEEDING,
+                            repairDeadlineNanos, this::publishPartialSeeds);
             if (!repairResult.isSuccess()) {
                 LoggingUtils.getEvoLogger().info(
                         "* LLM seeding failed after {} attempt(s)",
@@ -259,6 +273,65 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             builder.withUncoveredGoals(goals);
         }
         return builder.buildWithMetadata();
+    }
+
+    private void publishPartialSeeds(List<ParseResult> partialResults) {
+        if (partialResults == null || partialResults.isEmpty()) {
+            return;
+        }
+        List<TestChromosome> partialSeeds = new ArrayList<>(partialResults.size());
+        for (ParseResult parseResult : partialResults) {
+            if (parseResult == null || parseResult.getTestCase() == null) {
+                continue;
+            }
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(parseResult.getTestCase());
+            partialSeeds.add(chromosome);
+        }
+        int accepted = enqueueSeeds(partialSeeds);
+        if (accepted > 0) {
+            LoggingUtils.getEvoLogger().info(
+                    "* LLM seeding retained {} partial valid test chromosome(s)", accepted);
+        }
+    }
+
+    private int enqueueSeeds(List<TestChromosome> seeds) {
+        if (seeds == null || seeds.isEmpty()) {
+            return 0;
+        }
+        int accepted = 0;
+        for (TestChromosome seed : seeds) {
+            if (seed == null || seed.getTestCase() == null) {
+                continue;
+            }
+            if (llmSeedKeys.add(fingerprint(seed.getTestCase()))) {
+                llmSeeds.add(seed);
+                accepted++;
+            }
+        }
+        return accepted;
+    }
+
+    private String fingerprint(TestCase testCase) {
+        try {
+            String code = testCase.toCode();
+            if (code != null && !code.trim().isEmpty()) {
+                return code.replaceAll("\\s+", " ").trim();
+            }
+        } catch (RuntimeException ignored) {
+            // Fall back to identity below if the test cannot be rendered.
+        }
+        return "id_" + System.identityHashCode(testCase);
+    }
+
+    private long computeDeadlineNanos(long waitMillis) {
+        long now = System.nanoTime();
+        long waitNanos = TimeUnit.MILLISECONDS.toNanos(Math.max(1L, waitMillis));
+        long maxAdd = Long.MAX_VALUE - now;
+        if (waitNanos >= maxAdd) {
+            return Long.MAX_VALUE;
+        }
+        return now + waitNanos;
     }
 
     private static boolean isRecoverableSeedingError(Throwable throwable) {

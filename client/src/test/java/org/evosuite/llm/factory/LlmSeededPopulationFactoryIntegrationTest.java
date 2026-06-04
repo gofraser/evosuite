@@ -150,6 +150,65 @@ class LlmSeededPopulationFactoryIntegrationTest {
     }
 
     @Test
+    void timeoutRetainsValidatedPartialSeedsFromEarlierRepairTurn() throws Exception {
+        String partialResponse =
+                "```java\n" +
+                        "import org.junit.Test;\n" +
+                        "public class GeneratedLlmTest {\n" +
+                        "  @Test\n" +
+                        "  public void keptTest() {\n" +
+                        "  }\n" +
+                        "  @Test\n" +
+                        "  public void brokenTest() {\n" +
+                        "    doesNotExist();\n" +
+                        "  }\n" +
+                        "}\n" +
+                        "```";
+        java.util.concurrent.CountDownLatch repairRequested = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch released = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicInteger calls = new java.util.concurrent.atomic.AtomicInteger();
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            if (calls.incrementAndGet() == 1) {
+                return LlmService.LlmResponse.fromText(partialResponse);
+            }
+            repairRequested.countDown();
+            try {
+                released.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            return LlmService.LlmResponse.fromText("");
+        };
+        LlmService service = createService(model, 4);
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+
+        TestChromosome fallbackChromosome = new TestChromosome();
+        fallbackChromosome.setTestCase(new DefaultTestCase());
+        ChromosomeFactory<TestChromosome> fallback = () -> fallbackChromosome;
+
+        try {
+            LlmSeededPopulationFactory factory = new LlmSeededPopulationFactory(
+                    fallback,
+                    service,
+                    Collections::emptyList,
+                    executor);
+
+            assertTrue(repairRequested.await(5, java.util.concurrent.TimeUnit.SECONDS),
+                    "repair query should be reached after the valid test is retained");
+            java.util.List<TestChromosome> seeds = factory.awaitAndDrainSeeds(50L);
+
+            assertEquals(1, seeds.size(),
+                    "orchestrator timeout should retain the already validated partial seed");
+            assertNotSame(fallbackChromosome, seeds.get(0));
+            assertTrue(seeds.get(0).getTestCase().toCode().contains("keptTest"));
+        } finally {
+            released.countDown();
+            executor.shutdownNow();
+            service.close();
+        }
+    }
+
+    @Test
     void recoverableLinkageErrorsDuringSeedingFallBackToDefaultFactory() {
         LlmService.ChatLanguageModel model = (messages, feature) -> {
             throw new VerifyError("simulated frame verification failure");

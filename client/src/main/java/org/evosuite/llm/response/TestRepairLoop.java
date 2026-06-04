@@ -73,6 +73,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -440,6 +441,20 @@ public class TestRepairLoop {
                                      List<LlmMessage> conversationHistory,
                                      LlmFeature feature,
                                      long repairDeadlineNanos) {
+        return attemptParse(llmResponse, conversationHistory, feature, repairDeadlineNanos, null);
+    }
+
+    /**
+     * Variant of {@link #attemptParse(String, List, LlmFeature, long)} that
+     * publishes newly validated executable tests as soon as they are salvaged.
+     * This lets async orchestrators retain partial results if an outer future
+     * timeout interrupts a later repair turn before the final result returns.
+     */
+    public RepairResult attemptParse(String llmResponse,
+                                     List<LlmMessage> conversationHistory,
+                                     LlmFeature feature,
+                                     long repairDeadlineNanos,
+                                     Consumer<List<ParseResult>> salvagedTestsConsumer) {
         List<String> diagnostics = new ArrayList<>();
         List<String> expandedClasses = new ArrayList<>();
         Map<String, ParseResult> salvagedExecutableTests = new LinkedHashMap<>();
@@ -661,7 +676,9 @@ public class TestRepairLoop {
             }
 
             // Record any executable tests we have so far so they survive later repair turns.
-            mergeSalvagedTests(salvagedExecutableTests, finalTests);
+            publishSalvagedTests(
+                    mergeSalvagedTests(salvagedExecutableTests, finalTests),
+                    salvagedTestsConsumer);
 
             boolean hasDropped = !droppedAtParse.isEmpty() || !droppedAtExecution.isEmpty();
             if (!hasDropped) {
@@ -695,7 +712,10 @@ public class TestRepairLoop {
                         ParseResult salvagedResult = new ParseResult(salvaged.get(), 
                                                                      pr.getOriginalMethodName(), 
                                                                      pr.getDiagnostics());
-                        mergeSalvagedTests(salvagedExecutableTests, Collections.singletonList(salvagedResult));
+                        publishSalvagedTests(
+                                mergeSalvagedTests(salvagedExecutableTests,
+                                        Collections.singletonList(salvagedResult)),
+                                salvagedTestsConsumer);
                     }
                 }
 
@@ -735,9 +755,10 @@ public class TestRepairLoop {
         return RepairResult.failure(diagnostics, attemptsUsed, expandedClasses);
     }
 
-    private void mergeSalvagedTests(Map<String, ParseResult> salvaged, List<ParseResult> newResults) {
+    private List<ParseResult> mergeSalvagedTests(Map<String, ParseResult> salvaged, List<ParseResult> newResults) {
+        List<ParseResult> accepted = new ArrayList<>();
         if (newResults == null || newResults.isEmpty()) {
-            return;
+            return accepted;
         }
         for (ParseResult parseResult : newResults) {
             if (parseResult == null) {
@@ -750,7 +771,21 @@ public class TestRepairLoop {
             String key = buildSalvageDedupKey(parseResult);
             if (!salvaged.containsKey(key)) {
                 salvaged.put(key, parseResult);
+                accepted.add(parseResult);
             }
+        }
+        return accepted;
+    }
+
+    private void publishSalvagedTests(List<ParseResult> newlySalvaged,
+                                      Consumer<List<ParseResult>> salvagedTestsConsumer) {
+        if (salvagedTestsConsumer == null || newlySalvaged == null || newlySalvaged.isEmpty()) {
+            return;
+        }
+        try {
+            salvagedTestsConsumer.accept(Collections.unmodifiableList(new ArrayList<>(newlySalvaged)));
+        } catch (RuntimeException e) {
+            logger.debug("LLM salvage publication failed; continuing repair loop", e);
         }
     }
 
