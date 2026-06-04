@@ -419,12 +419,9 @@ public class StagnationDetector {
      *
      * <p>Branches on {@link Properties#LLM_STAGNATION_PROMPT}: {@code POOL}
      * sends the full uncovered-goal set plus top-3 relevant tests with
-     * population-wide fitness annotations; {@code TEST_ANCHORED} anchors on
-     * the population's best near-miss and restricts the goal section to the
-     * anchor's K closest uncovered goals with the anchor's own fitness as the
-     * annotation source; {@code DIAGNOSTIC} adds a ranked set of inferred
-     * blocker cards. Signal-sparse {@code TEST_ANCHORED}/{@code DIAGNOSTIC}
-     * calls fall back to {@code POOL}.
+     * population-wide fitness annotations; {@code DIAGNOSTIC} adds a ranked
+     * set of inferred blocker cards. Signal-sparse {@code DIAGNOSTIC} calls
+     * fall back to {@code POOL}.
      */
     public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
                                     List<TestChromosome> currentPopulation,
@@ -440,19 +437,7 @@ public class StagnationDetector {
                                     Map<TestFitnessFunction, Double> bestFitnessPerGoal,
                                     boolean suppressInFlightRepeats) {
         Properties.LlmStagnationPromptMode requestedMode = Properties.LLM_STAGNATION_PROMPT;
-        if (requestedMode == Properties.LlmStagnationPromptMode.TEST_ANCHORED) {
-            PromptResult anchored = buildTestAnchoredPrompt(uncoveredGoals, currentPopulation,
-                    totalGoals, coveredGoalCount);
-            if (anchored != null) {
-                logPromptSelection(requestedMode, Properties.LlmStagnationPromptMode.TEST_ANCHORED,
-                        0, "none");
-                return anchored;
-            }
-            logger.debug("Test-anchored prompt unavailable (no usable anchor fitness); "
-                    + "falling back to pool prompt for this call.");
-            logPromptSelection(requestedMode, Properties.LlmStagnationPromptMode.POOL,
-                    0, "no_usable_anchor_fitness");
-        } else if (requestedMode == Properties.LlmStagnationPromptMode.DIAGNOSTIC) {
+        if (requestedMode == Properties.LlmStagnationPromptMode.DIAGNOSTIC) {
             PromptResult diagnostic = buildDiagnosticPrompt(uncoveredGoals, currentPopulation,
                     totalGoals, coveredGoalCount, bestFitnessPerGoal, suppressInFlightRepeats);
             if (diagnostic != null) {
@@ -737,40 +722,6 @@ public class StagnationDetector {
         }
     }
 
-    private PromptResult buildTestAnchoredPrompt(Collection<TestFitnessFunction> uncoveredGoals,
-                                                 List<TestChromosome> currentPopulation,
-                                                 int totalGoals, int coveredGoalCount) {
-        if (currentPopulation == null || currentPopulation.isEmpty()) {
-            return null;
-        }
-        StagnationAnchorSelector.AnchorSelection selection = StagnationAnchorSelector.select(
-                currentPopulation, uncoveredGoals,
-                Properties.LLM_STAGNATION_ANCHOR_RELATED_GOALS_MAX);
-        if (selection == null) {
-            return null;
-        }
-
-        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
-        String goalsSection = goalFormatter.format(selection.getGoals(),
-                selection.getGoalFitness());
-
-        String instruction = buildAnchoredInstruction(totalGoals, coveredGoalCount);
-
-        PromptBuilder builder = new PromptBuilder()
-                .withSystemPrompt()
-                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withExistingTest(selection.getAnchor().getTestCase())
-                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(
-                        selection.getGoals(),
-                        new ArrayList<>(Collections.singletonList(selection.getAnchor()))))
-                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                .withInstruction(instruction)
-                .withInstruction("Uncovered goals (annotated with the test's fitness on each; "
-                        + "lower = closer to covering):\n" + goalsSection);
-        return builder.buildWithMetadata();
-    }
-
     private String buildPoolInstruction(int totalGoals, int coveredGoalCount) {
         StringBuilder sb = new StringBuilder();
         sb.append("The evolutionary search stagnated for at least ")
@@ -784,27 +735,6 @@ public class StagnationDetector {
         sb.append(" Goals marked [almost covered] were close to being reached — focus on those first.");
         sb.append(" Generate ").append(testsPerRequest)
                 .append(" JUnit tests targeting the uncovered goals.")
-                .append(LlmAssertionPolicyResolver.instructionSuffix(false));
-        return sb.toString();
-    }
-
-    private String buildAnchoredInstruction(int totalGoals, int coveredGoalCount) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("The evolutionary search stagnated for at least ")
-                .append(thresholdSeconds)
-                .append(" seconds with no fitness improvement.");
-        if (totalGoals > 0) {
-            double pct = 100.0 * coveredGoalCount / totalGoals;
-            sb.append(String.format(" Current coverage: %d/%d goals (%.1f%%).",
-                    coveredGoalCount, totalGoals, pct));
-        }
-        sb.append(" The following test is closest in the population to covering some "
-                + "uncovered goals. The annotated goal list shows this test's fitness "
-                + "on each — the lowest-fitness goal is the most likely near-miss. "
-                + "Modify or extend this test to cover those goals while keeping it "
-                + "valid JUnit. Return up to ")
-                .append(testsPerRequest)
-                .append(" JUnit test methods.")
                 .append(LlmAssertionPolicyResolver.instructionSuffix(false));
         return sb.toString();
     }

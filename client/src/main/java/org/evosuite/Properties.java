@@ -2103,15 +2103,6 @@ public class Properties {
          */
         POOL,
         /**
-         * Test-anchored prompt: picks a single seed test that is closest to
-         * covering an uncovered goal (lowest min-fitness over uncovered
-         * goals), includes that seed as the existing-test anchor, and
-         * restricts the goal section to the top-K goals nearest to that
-         * seed. Asks for a focused modification/extension of the seed
-         * rather than fresh tests covering everything.
-         */
-        TEST_ANCHORED,
-        /**
          * Diagnostic prompt: builds a ranked set of "problem cards" from the
          * current population snapshot (e.g., unreached methods, consistent
          * exception barriers) and asks the LLM to prioritize and address the
@@ -2126,19 +2117,11 @@ public class Properties {
     @Parameter(key = "llm_stagnation_prompt", group = "LLM",
             description = "Prompt-content strategy for stagnation LLM calls: "
                     + "POOL builds a population-level prompt with the full uncovered "
-                    + "goal set and top-K relevant tests; TEST_ANCHORED anchors the "
-                    + "prompt on a single near-covering seed test and its top-K "
-                    + "closest uncovered goals (subsumes the former LLM local-search "
-                    + "prompt shape); DIAGNOSTIC builds one unified prompt around "
-                    + "ranked problem cards inferred from the current population, "
-                    + "falling back to POOL when no cards are available.")
+                    + "goal set and top-K relevant tests; DIAGNOSTIC builds one "
+                    + "unified prompt around ranked problem cards inferred from the "
+                    + "current population, falling back to POOL when no cards are "
+                    + "available.")
     public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.DIAGNOSTIC;
-
-    @Parameter(key = "llm_stagnation_anchor_related_goals_max", group = "LLM",
-            description = "Maximum number of related goals included in test-anchored "
-                    + "stagnation prompts (ignored unless llm_stagnation_prompt=TEST_ANCHORED).")
-    @IntValue(min = 1)
-    public static int LLM_STAGNATION_ANCHOR_RELATED_GOALS_MAX = 20;
 
     @Parameter(key = "llm_enrich_constant_pool", group = "LLM",
             description = "Enable LLM enrichment of constant pools")
