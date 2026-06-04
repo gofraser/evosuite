@@ -47,6 +47,11 @@ public class LlmStatistics {
      * that the elapsed enrichment time is deducted from the search budget.
      */
     private static final AtomicLong enrichmentElapsedMs = new AtomicLong();
+    private static final AtomicLong sutConstantsAdded = new AtomicLong();
+    private static final AtomicLong nonSutConstantsAdded = new AtomicLong();
+    private static final AtomicLong objectPoolSequencesAdded = new AtomicLong();
+    private static final AtomicLong castClassSuggestions = new AtomicLong();
+    private static final AtomicLong castClassesAccepted = new AtomicLong();
     private static final AtomicLong diagnosticCardsExtracted = new AtomicLong();
     private static final AtomicLong diagnosticCardsSelected = new AtomicLong();
     private static final AtomicLong diagnosticCardsDiscarded = new AtomicLong();
@@ -104,6 +109,78 @@ public class LlmStatistics {
     /** Resets the process-wide enrichment elapsed counter (test/utility use). */
     public static void resetEnrichmentElapsedMs() {
         enrichmentElapsedMs.set(0L);
+    }
+
+    /** Records accepted constants added to the SUT constant pool. */
+    public static void recordSutConstantsAdded(long count) {
+        addPositive(sutConstantsAdded, count);
+    }
+
+    /** Records accepted constants added to the non-SUT constant pool. */
+    public static void recordNonSutConstantsAdded(long count) {
+        addPositive(nonSutConstantsAdded, count);
+    }
+
+    /** Records accepted object-pool construction sequences. */
+    public static void recordObjectPoolSequencesAdded(long count) {
+        addPositive(objectPoolSequencesAdded, count);
+    }
+
+    /** Records class-name suggestions produced for cast-class enrichment. */
+    public static void recordCastClassSuggestions(long count) {
+        addPositive(castClassSuggestions, count);
+    }
+
+    /** Records cast classes actually accepted into the cast-class manager. */
+    public static void recordCastClassesAccepted(long count) {
+        addPositive(castClassesAccepted, count);
+    }
+
+    private static void addPositive(AtomicLong counter, long count) {
+        if (count > 0L) {
+            counter.addAndGet(count);
+        }
+    }
+
+    public static long getSutConstantsAdded() {
+        return sutConstantsAdded.get();
+    }
+
+    public static long getNonSutConstantsAdded() {
+        return nonSutConstantsAdded.get();
+    }
+
+    public static long getObjectPoolSequencesAdded() {
+        return objectPoolSequencesAdded.get();
+    }
+
+    public static long getCastClassSuggestions() {
+        return castClassSuggestions.get();
+    }
+
+    public static long getCastClassesAccepted() {
+        return castClassesAccepted.get();
+    }
+
+    /** Resets run-level seeding counters (test/utility use). */
+    public static void resetSeedingCounters() {
+        sutConstantsAdded.set(0L);
+        nonSutConstantsAdded.set(0L);
+        objectPoolSequencesAdded.set(0L);
+        castClassSuggestions.set(0L);
+        castClassesAccepted.set(0L);
+    }
+
+    /**
+     * Publishes the current monotonic seeding counters. These counters are kept
+     * outside the mutable seed managers so cleanup cannot erase accepted counts.
+     */
+    public static void flushSeedingMetrics() {
+        ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, getCastClassSuggestions());
+        ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, getCastClassesAccepted());
+        ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, getSutConstantsAdded());
+        ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, getNonSutConstantsAdded());
+        ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, getObjectPoolSequencesAdded());
     }
 
     /** Records all extracted problem cards before selection/truncation. */
@@ -475,6 +552,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, getOutputTokens());
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, getTotalLatencyMs());
         ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, getEnrichmentElapsedMs());
+        flushSeedingMetrics();
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted, getDiagnosticCardsExtracted());
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
                 getDiagnosticExtractorRejects(ExtractorRejectReason.UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL));
@@ -518,6 +596,7 @@ public class LlmStatistics {
      */
     public static void initializeRuntimeVariables() {
         resetDiagnosticCardCounters();
+        resetSeedingCounters();
         ClientServices.track(RuntimeVariable.LLM_Model, "");
         ClientServices.track(RuntimeVariable.LLM_Calls, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);

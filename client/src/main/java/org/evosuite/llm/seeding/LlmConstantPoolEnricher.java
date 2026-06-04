@@ -22,12 +22,11 @@ package org.evosuite.llm.seeding;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.rmi.ClientServices;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 
 import java.lang.reflect.Method;
@@ -257,8 +256,10 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
             try {
                 if (sutPool) {
                     poolManager.addSUTConstant(constant);
+                    LlmStatistics.recordSutConstantsAdded(1);
                 } else {
                     poolManager.addNonSUTConstant(constant);
+                    LlmStatistics.recordNonSutConstantsAdded(1);
                 }
                 added++;
             } catch (Throwable t) {
@@ -329,12 +330,7 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
 
         @Override
         public void trackMetrics() {
-            try {
-                ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, sutConstantsAdded);
-                ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, nonSutConstantsAdded);
-            } catch (Throwable t) {
-                // ClientServices may be unavailable in unit tests — best-effort tracking
-            }
+            LlmStatistics.flushSeedingMetrics();
         }
     }
 }

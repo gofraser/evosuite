@@ -57,6 +57,7 @@ class LlmCastClassEnricherTest {
         savedUseParsed = Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT;
         savedUseArchive = Properties.LLM_FEW_SHOT_USE_ARCHIVE;
         LlmService.resetInstanceForTesting();
+        LlmStatistics.resetSeedingCounters();
         CastClassManager.getInstance().clear();
     }
 
@@ -70,6 +71,7 @@ class LlmCastClassEnricherTest {
         Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = savedUseParsed;
         Properties.LLM_FEW_SHOT_USE_ARCHIVE = savedUseArchive;
         LlmService.resetInstanceForTesting();
+        LlmStatistics.resetSeedingCounters();
         CastClassManager.getInstance().clear();
     }
 
@@ -364,6 +366,8 @@ class LlmCastClassEnricherTest {
         assertEquals(2, result.getSuggested());
         assertTrue(result.getValidated() >= 2, "Both JDK classes should pass validation");
         assertTrue(result.getAccepted() >= 2, "Both JDK classes should be added");
+        assertEquals(2L, LlmStatistics.getCastClassSuggestions());
+        assertEquals(result.getAccepted(), LlmStatistics.getCastClassesAccepted());
     }
 
     @Test

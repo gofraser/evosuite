@@ -55,6 +55,7 @@ class LlmConstantPoolEnricherTest {
         savedUseArchive = Properties.LLM_FEW_SHOT_USE_ARCHIVE;
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
         LlmService.resetInstanceForTesting();
+        LlmStatistics.resetSeedingCounters();
     }
 
     @AfterEach
@@ -63,6 +64,7 @@ class LlmConstantPoolEnricherTest {
         Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = savedUseParsed;
         Properties.LLM_FEW_SHOT_USE_ARCHIVE = savedUseArchive;
         LlmService.resetInstanceForTesting();
+        LlmStatistics.resetSeedingCounters();
     }
 
     // ---- Constant parsing tests ----
@@ -208,6 +210,20 @@ class LlmConstantPoolEnricherTest {
         // Should complete quickly, not hang
         LlmConstantPoolEnricher.EnrichmentResult result = future.get(5, TimeUnit.SECONDS);
         assertNotNull(result);
+    }
+
+    @Test
+    void doEnrich_recordsConstantsAtInsertionTime() {
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.CONSTANT_POOL_ENRICHMENT, "\"edge\"\n42\n7L\n");
+        LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(createService(model, 1));
+
+        LlmConstantPoolEnricher.EnrichmentResult result =
+                enricher.doEnrich("com.example.Foo", null);
+
+        assertEquals(3, result.getSutConstantsAdded());
+        assertEquals(3L, LlmStatistics.getSutConstantsAdded());
+        assertEquals(0L, LlmStatistics.getNonSutConstantsAdded());
     }
 
     @Test
@@ -383,6 +399,10 @@ class LlmConstantPoolEnricherTest {
     // ---- Helper methods ----
 
     private static LlmService createUnavailableService() {
+        return createService(new MockChatLanguageModel(), 0);
+    }
+
+    private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {
         LlmConfiguration configuration = new LlmConfiguration(
                 Properties.LlmProvider.NONE,
                 "mock",
@@ -396,10 +416,9 @@ class LlmConstantPoolEnricherTest {
                 false,
                 Paths.get("target/llm-test-traces"),
                 "test-constant-enrichment");
-        // Use public constructor (available=true) but budget=0 so hasBudget() returns false
         return new LlmService(
-                new MockChatLanguageModel(),
-                new LlmBudgetCoordinator.Local(0),
+                model,
+                new LlmBudgetCoordinator.Local(budget),
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));

@@ -34,6 +34,7 @@ import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.junit.JUnitAnalyzer;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.llm.seeding.LlmPoolEnrichmentOrchestrator;
 import org.evosuite.result.TestGenerationResult;
@@ -273,9 +274,19 @@ public class TestSuiteGenerator {
         // snapshots are taken.
         if (llmOrchestrator != null) {
             try {
+                LlmStatistics.flushSeedingMetrics();
+            } catch (Throwable t) {
+                logger.warn("LLM seeding metric flush failed before cancelAll (non-fatal): {}", t.getMessage());
+            }
+            try {
                 llmOrchestrator.cancelAll();
             } catch (Throwable t) {
                 logger.warn("LLM enrichment cancelAll failed (non-fatal): {}", t.getMessage());
+            }
+            try {
+                LlmStatistics.flushSeedingMetrics();
+            } catch (Throwable t) {
+                logger.warn("LLM seeding metric flush failed after cancelAll (non-fatal): {}", t.getMessage());
             }
         }
 

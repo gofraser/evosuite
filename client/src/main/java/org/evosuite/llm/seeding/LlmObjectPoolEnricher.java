@@ -23,16 +23,15 @@ import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
-import org.evosuite.rmi.ClientServices;
 import org.evosuite.seeding.ObjectPoolManager;
 import org.evosuite.setup.TestCluster;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -236,6 +235,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
             try {
                 GenericClass<?> genericClass = GenericClassFactory.get(type);
                 ObjectPoolManager.getInstance().addSequence(genericClass, testCase.clone());
+                LlmStatistics.recordObjectPoolSequencesAdded(1);
                 insertions++;
                 logger.debug("Inserted sequence under type key: {}", type.getName());
             } catch (Throwable t) {
@@ -445,11 +445,7 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
         @Override
         public void trackMetrics() {
-            try {
-                ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, sequencesAdded);
-            } catch (Throwable t) {
-                // best-effort tracking
-            }
+            LlmStatistics.flushSeedingMetrics();
         }
     }
 

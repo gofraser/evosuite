@@ -35,6 +35,33 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class LlmStatisticsDiagnosticAttributionTest {
 
     @Test
+    void recordsAndResetsSeedingCounters() {
+        LlmStatistics.resetSeedingCounters();
+
+        LlmStatistics.recordSutConstantsAdded(2);
+        LlmStatistics.recordNonSutConstantsAdded(3);
+        LlmStatistics.recordObjectPoolSequencesAdded(4);
+        LlmStatistics.recordCastClassSuggestions(5);
+        LlmStatistics.recordCastClassesAccepted(6);
+        LlmStatistics.recordSutConstantsAdded(0);
+        LlmStatistics.recordCastClassesAccepted(-1);
+
+        assertEquals(2L, LlmStatistics.getSutConstantsAdded());
+        assertEquals(3L, LlmStatistics.getNonSutConstantsAdded());
+        assertEquals(4L, LlmStatistics.getObjectPoolSequencesAdded());
+        assertEquals(5L, LlmStatistics.getCastClassSuggestions());
+        assertEquals(6L, LlmStatistics.getCastClassesAccepted());
+
+        LlmStatistics.resetSeedingCounters();
+
+        assertEquals(0L, LlmStatistics.getSutConstantsAdded());
+        assertEquals(0L, LlmStatistics.getNonSutConstantsAdded());
+        assertEquals(0L, LlmStatistics.getObjectPoolSequencesAdded());
+        assertEquals(0L, LlmStatistics.getCastClassSuggestions());
+        assertEquals(0L, LlmStatistics.getCastClassesAccepted());
+    }
+
+    @Test
     void recordsCoverageGainsByDiagnosticCardType() {
         LlmStatistics.resetDiagnosticCardCounters();
 

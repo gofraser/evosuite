@@ -25,13 +25,12 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.rmi.ClientServices;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.utils.generic.GenericClass;
 
 import java.lang.reflect.Constructor;
@@ -247,6 +246,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
 
     EnrichmentResult validateAndAdd(List<String> suggestions, String className) {
         int suggested = suggestions.size();
+        LlmStatistics.recordCastClassSuggestions(suggested);
         int validated = 0;
         int classesAdded = 0;
         int cap = Properties.LLM_CAST_CLASS_MAX_SUGGESTIONS;
@@ -323,6 +323,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
             int added = CastClassManager.getInstance().getCastClasses().size() - sizeBefore;
             classesAdded += added;
             if (added > 0) {
+                LlmStatistics.recordCastClassesAccepted(added);
                 logger.debug("Cast class enrichment: accepted '{}' ({} class(es) added)", suggestion, added);
             }
 
@@ -541,12 +542,7 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
 
         @Override
         public void trackMetrics() {
-            try {
-                ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, suggested);
-                ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, accepted);
-            } catch (Throwable t) {
-                // best-effort tracking
-            }
+            LlmStatistics.flushSeedingMetrics();
         }
     }
 }

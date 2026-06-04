@@ -66,6 +66,7 @@ class LlmObjectPoolEnricherTest {
         savedUseArchive = Properties.LLM_FEW_SHOT_USE_ARCHIVE;
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
         LlmService.resetInstanceForTesting();
+        LlmStatistics.resetSeedingCounters();
     }
 
     @AfterEach
@@ -74,6 +75,7 @@ class LlmObjectPoolEnricherTest {
         Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = savedUseParsed;
         Properties.LLM_FEW_SHOT_USE_ARCHIVE = savedUseArchive;
         LlmService.resetInstanceForTesting();
+        LlmStatistics.resetSeedingCounters();
         ObjectPoolManager.getInstance().reset();
     }
 
@@ -329,6 +331,7 @@ class LlmObjectPoolEnricherTest {
                 enricher.addSequenceToPoolByProducedTypes(tc, targets);
 
         assertEquals(1, result.insertions, "Targeted JDK type should be inserted");
+        assertEquals(1L, LlmStatistics.getObjectPoolSequencesAdded());
 
         // End-to-end: verify retrievable
         GenericClass<?> arrayListClass = GenericClassFactory.get(ArrayList.class);
@@ -356,6 +359,7 @@ class LlmObjectPoolEnricherTest {
                 enricher.addSequenceToPoolByProducedTypes(tc, targets);
 
         assertEquals(2, result.insertions);
+        assertEquals(2L, LlmStatistics.getObjectPoolSequencesAdded());
 
         ObjectPoolManager pool = ObjectPoolManager.getInstance();
         assertTrue(pool.hasSequence(GenericClassFactory.get(HashMap.class)));
