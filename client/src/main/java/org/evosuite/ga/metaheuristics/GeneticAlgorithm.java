@@ -517,7 +517,11 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
             stagnationLlmHelper = null;
         }
         repeatedInjectionMemory = null;
-        if (llmWasActive) {
+        // Pre-search enrichment (constants, object pool, cast classes) can run
+        // even when stagnation assistance never activates. Publish whenever any
+        // LLM mode is enabled so those counters survive into the statistics
+        // output; only zero-initialise when LLM is fully off.
+        if (llmWasActive || Properties.LLM_PROVIDER != Properties.LlmProvider.NONE) {
             org.evosuite.llm.LlmService.getInstance().getStatistics().publishRuntimeVariables();
         } else {
             org.evosuite.llm.LlmStatistics.initializeRuntimeVariables();

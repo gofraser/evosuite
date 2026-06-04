@@ -35,6 +35,7 @@ import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testparser.ParseDiagnostic;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.utils.LoggingUtils;
@@ -304,12 +305,19 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
             if (seed == null || seed.getTestCase() == null) {
                 continue;
             }
+            markParsedFromLlm(seed.getTestCase());
             if (llmSeedKeys.add(fingerprint(seed.getTestCase()))) {
                 llmSeeds.add(seed);
                 accepted++;
             }
         }
         return accepted;
+    }
+
+    private void markParsedFromLlm(TestCase testCase) {
+        for (Statement statement : testCase) {
+            statement.setParsedFromLlm(true);
+        }
     }
 
     private String fingerprint(TestCase testCase) {

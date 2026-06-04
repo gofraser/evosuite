@@ -248,7 +248,9 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
             try {
                 GenericClass<?> genericClass = GenericClassFactory.get(type);
-                ObjectPoolManager.getInstance().addSequence(genericClass, testCase.clone());
+                TestCase sequence = testCase.clone();
+                markParsedFromLlm(sequence);
+                ObjectPoolManager.getInstance().addSequence(genericClass, sequence);
                 LlmStatistics.recordObjectPoolSequencesAdded(1);
                 insertions++;
                 logger.debug("Inserted sequence under type key: {}", type.getName());
@@ -260,6 +262,12 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
         return new TypeKeyInsertionResult(insertions, rejectedNoType,
                 rejectedValidation, rejectedAddFailure, diagnostics);
+    }
+
+    private void markParsedFromLlm(TestCase testCase) {
+        for (Statement statement : testCase) {
+            statement.setParsedFromLlm(true);
+        }
     }
 
     /**

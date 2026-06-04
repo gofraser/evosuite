@@ -593,10 +593,14 @@ public class LlmStatistics {
      * even if the corresponding features are disabled or never triggered.
      *
      * <p>Safe to call regardless of whether LLM mode is enabled.
+     *
+     * <p>Does NOT reset the in-process accumulators (the static {@code AtomicLong}s
+     * and per-type maps). Pre-search enrichment populates those before the GA's
+     * shutdown hook runs; clearing them here would erase the counts recorded by
+     * constant-pool, object-pool, and cast-class enrichers — see the
+     * {@code shutdownLlmAssistance()} path in {@code GeneticAlgorithm}.
      */
     public static void initializeRuntimeVariables() {
-        resetDiagnosticCardCounters();
-        resetSeedingCounters();
         ClientServices.track(RuntimeVariable.LLM_Model, "");
         ClientServices.track(RuntimeVariable.LLM_Calls, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);
