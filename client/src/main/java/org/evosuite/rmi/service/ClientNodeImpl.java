@@ -27,15 +27,15 @@ import org.evosuite.coverage.ClassStatisticsPrinter;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.junit.CoverageAnalysis;
+import org.evosuite.result.LightweightTestGenerationResult;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
-import org.evosuite.result.LightweightTestGenerationResult;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.TestCluster;
-import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.FileIOUtils;
 import org.evosuite.utils.Listener;
 import org.evosuite.utils.LoggingUtils;
@@ -684,11 +684,13 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             double coverage = -1.0;
             int coveredGoals = -1;
             int totalGoals = -1;
+            TestGenerationResult.Status status = null;
 
             for (TestGenerationResult<?> result : results) {
                 if (result == null) {
                     continue;
                 }
+                status = worseStatus(status, result.getTestGenerationStatus());
                 if (result.getGeneticAlgorithm() != null
                         && result.getGeneticAlgorithm().getBestIndividual() instanceof TestSuiteChromosome) {
                     TestSuiteChromosome best = (TestSuiteChromosome) result.getGeneticAlgorithm().getBestIndividual();
@@ -703,10 +705,12 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                         : lineCovered + (result.getUncoveredLines() == null ? 0 : result.getUncoveredLines().size());
                 int branchCovered = result.getCoveredBranches() == null ? -1 : result.getCoveredBranches().size();
                 int branchTotal = branchCovered < 0 ? -1
-                        : branchCovered + (result.getUncoveredBranches() == null ? 0 : result.getUncoveredBranches().size());
+                        : branchCovered + (result.getUncoveredBranches() == null
+                        ? 0 : result.getUncoveredBranches().size());
                 int mutantCovered = result.getCoveredMutants() == null ? -1 : result.getCoveredMutants().size();
                 int mutantTotal = mutantCovered < 0 ? -1
-                        : mutantCovered + (result.getUncoveredMutants() == null ? 0 : result.getUncoveredMutants().size());
+                        : mutantCovered + (result.getUncoveredMutants() == null
+                        ? 0 : result.getUncoveredMutants().size());
 
                 int candidateCovered = lineCovered;
                 int candidateTotal = lineTotal;
@@ -727,6 +731,10 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             if (coverage >= 0.0) {
                 masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Coverage, coverage);
             }
+            if (status != null) {
+                masterNode.evosuite_collectStatistics(clientRmiIdentifier,
+                        RuntimeVariable.Test_Generation_Status, status.name());
+            }
             if (coveredGoals >= 0 && totalGoals >= 0) {
                 masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Covered_Goals, coveredGoals);
                 masterNode.evosuite_collectStatistics(clientRmiIdentifier, RuntimeVariable.Total_Goals, totalGoals);
@@ -735,6 +743,27 @@ public class ClientNodeImpl<T extends Chromosome<T>>
         } catch (Throwable t) {
             logger.warn("Failed to export lightweight coverage summary after result export failure", t);
         }
+    }
+
+    private static TestGenerationResult.Status worseStatus(TestGenerationResult.Status left,
+                                                           TestGenerationResult.Status right) {
+        if (left == null) {
+            return right;
+        }
+        if (right == null) {
+            return left;
+        }
+        return statusRank(right) > statusRank(left) ? right : left;
+    }
+
+    private static int statusRank(TestGenerationResult.Status status) {
+        if (status == TestGenerationResult.Status.ERROR) {
+            return 2;
+        }
+        if (status == TestGenerationResult.Status.TIMEOUT) {
+            return 1;
+        }
+        return 0;
     }
 
     protected void fallbackSetOutputVariable(RuntimeVariable variable, Object value) {

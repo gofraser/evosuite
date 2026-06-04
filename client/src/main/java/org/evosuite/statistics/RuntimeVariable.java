@@ -114,6 +114,11 @@ public enum RuntimeVariable {
      */
     Covered_Goals,
     /**
+     * Final test generation status. Values mirror TestGenerationResult.Status
+     * when available, with CLIENT_CRASH for master-observed client termination.
+     */
+    Test_Generation_Status,
+    /**
      * Number of mutants.
      */
     Mutants,

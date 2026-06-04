@@ -82,6 +82,15 @@ public class StatisticsValidator {
 
             Double coverage = getDoubleValue(map, RuntimeVariable.Coverage);
             Double branchCoverage = getDoubleValue(map, RuntimeVariable.BranchCoverage);
+            String generationStatus = getStringValue(map, RuntimeVariable.Test_Generation_Status);
+            if (generationStatus != null
+                    && !generationStatus.equals("SUCCESS")
+                    && !generationStatus.equals("TIMEOUT")
+                    && !generationStatus.equals("ERROR")
+                    && !generationStatus.equals("CLIENT_CRASH")) {
+                logger.error("Obtained invalid test generation status: " + generationStatus);
+                valid = false;
+            }
 
             if (criteria != null && criteria.length == 1 && criteria[0].equalsIgnoreCase(Criterion.BRANCH.toString())
                     && coverage != null && branchCoverage != null) {
@@ -129,6 +138,14 @@ public class StatisticsValidator {
             } else if (val instanceof Number) {
                 return ((Number) val).doubleValue();
             }
+        }
+        return null;
+    }
+
+    private static String getStringValue(Map<String, OutputVariable<?>> map, RuntimeVariable variable) {
+        OutputVariable<?> out = map.get(variable.toString());
+        if (out != null && out.getValue() != null) {
+            return String.valueOf(out.getValue()).trim();
         }
         return null;
     }

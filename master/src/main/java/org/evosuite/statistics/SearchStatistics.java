@@ -75,6 +75,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
     private static final Logger logger = LoggerFactory.getLogger(SearchStatistics.class);
 
+    public static final String STATUS_CLIENT_CRASH = "CLIENT_CRASH";
+
     /**
      * Map of client id to best individual received from that client so far.
      */
@@ -297,6 +299,13 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * @param variable the variable to set
      */
     public void setOutputVariable(OutputVariable<?> variable) {
+        if (RuntimeVariable.Test_Generation_Status.toString().equals(variable.getName())) {
+            if (variable.getValue() != null) {
+                setGenerationStatus(String.valueOf(variable.getValue()));
+            }
+            return;
+        }
+
         /*
          * if the output variable is contained in sequenceOutputVariableFactories,
          * then it must be a DirectSequenceOutputVariableFactory, hence we set its
@@ -318,6 +327,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      */
     public void addTestGenerationResult(List<TestGenerationResult> result) {
         results.add(result);
+        setGenerationStatus(getWorstStatus(result));
     }
 
     /**
@@ -358,6 +368,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
         String[] essentials = new String[]{  //TODO maybe add some more
                 "TARGET_CLASS", "criterion",
+                RuntimeVariable.Test_Generation_Status.toString(),
                 RuntimeVariable.Coverage.toString(),
                 //TODO: why is this fixed?
                 //RuntimeVariable.BranchCoverage.toString(),
@@ -494,6 +505,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
 
         TestSuiteChromosome individual = bestIndividual != null ? bestIndividual : new TestSuiteChromosome();
+        if (bestIndividual != null && !outputVariables.containsKey(RuntimeVariable.Test_Generation_Status.toString())) {
+            setGenerationStatus(TestGenerationResult.Status.SUCCESS.name());
+        }
         Map<String, OutputVariable<?>> map = bestIndividual == null
                 ? getOutputVariables(individual, true)
                 : getOutputVariables(individual);
@@ -571,6 +585,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 new OutputVariable<Object>(RuntimeVariable.Total_Time.name(), System.currentTimeMillis() - startTime));
 
         TestSuiteChromosome individual = new TestSuiteChromosome();
+        if (!outputVariables.containsKey(RuntimeVariable.Test_Generation_Status.toString())) {
+            setGenerationStatus(TestGenerationResult.Status.SUCCESS.name());
+        }
         Map<String, OutputVariable<?>> map = getOutputVariables(individual);
         if (map == null) {
             map = getOutputVariables(individual, true);
@@ -661,6 +678,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
         Double totalGoals = totalGoalsVar == null ? null : toDouble(totalGoalsVar.getValue());
         Double coveredGoals = coveredGoalsVar == null ? null : toDouble(coveredGoalsVar.getValue());
+        boolean failedGeneration = isFailedGenerationStatus(map);
 
         // Only normalize missing counters to 0/0. Do not derive from chromosome internals,
         // as that can conflict with criterion-specific coverage semantics.
@@ -683,12 +701,21 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             }
             // Preserve already computed aggregate coverage (e.g., averages across multiple criteria).
             if (existingCoverage != null) {
+                if (failedGeneration && totalGoals == 0.0 && coveredGoals == 0.0) {
+                    setCoverageUnavailable(map);
+                    return backend instanceof CSVStatisticsBackend ? null : 0.0;
+                }
                 if (totalGoals == 0.0 && coveredGoals == 0.0 && existingCoverage == 0.0) {
                     map.put(RuntimeVariable.Coverage.toString(),
                             new OutputVariable<>(RuntimeVariable.Coverage.toString(), 1.0));
                     return 1.0;
                 }
                 return existingCoverage;
+            }
+
+            if (failedGeneration && totalGoals == 0.0 && coveredGoals == 0.0) {
+                setCoverageUnavailable(map);
+                return backend instanceof CSVStatisticsBackend ? null : 0.0;
             }
 
             Double coverageValue = totalGoals == 0.0 ? 1.0 : coveredGoals / totalGoals;
@@ -721,14 +748,84 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     private void setCoverageUnavailableIfMissing(Map<String, OutputVariable<?>> map) {
         OutputVariable<?> coverageVar = map.get(RuntimeVariable.Coverage.toString());
         if (coverageVar == null || toDouble(coverageVar.getValue()) == null) {
-            if (backend instanceof CSVStatisticsBackend) {
-                map.put(RuntimeVariable.Coverage.toString(),
-                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), "N/A"));
-            } else {
-                map.put(RuntimeVariable.Coverage.toString(),
-                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), 0.0));
-            }
+            setCoverageUnavailable(map);
         }
+    }
+
+    private void setCoverageUnavailable(Map<String, OutputVariable<?>> map) {
+        if (backend instanceof CSVStatisticsBackend) {
+            map.put(RuntimeVariable.Coverage.toString(),
+                    new OutputVariable<>(RuntimeVariable.Coverage.toString(), "N/A"));
+        } else {
+            map.put(RuntimeVariable.Coverage.toString(),
+                    new OutputVariable<>(RuntimeVariable.Coverage.toString(), 0.0));
+        }
+    }
+
+    private boolean isFailedGenerationStatus(Map<String, OutputVariable<?>> map) {
+        OutputVariable<?> statusVar = map.get(RuntimeVariable.Test_Generation_Status.toString());
+        if (statusVar == null) {
+            statusVar = outputVariables.get(RuntimeVariable.Test_Generation_Status.toString());
+        }
+        if (statusVar == null || statusVar.getValue() == null) {
+            return false;
+        }
+        String status = String.valueOf(statusVar.getValue()).trim();
+        return STATUS_CLIENT_CRASH.equals(status)
+                || TestGenerationResult.Status.ERROR.name().equals(status)
+                || TestGenerationResult.Status.TIMEOUT.name().equals(status);
+    }
+
+    private void setGenerationStatus(String status) {
+        if (status == null || status.trim().isEmpty()) {
+            return;
+        }
+        String normalized = status.trim();
+        OutputVariable<?> current = outputVariables.get(RuntimeVariable.Test_Generation_Status.toString());
+        String merged = mergeGenerationStatus(
+                current == null || current.getValue() == null ? null : String.valueOf(current.getValue()),
+                normalized);
+        if (merged != null) {
+            outputVariables.put(RuntimeVariable.Test_Generation_Status.toString(),
+                    new OutputVariable<>(RuntimeVariable.Test_Generation_Status.toString(), merged));
+        }
+    }
+
+    private static String getWorstStatus(List<TestGenerationResult> results) {
+        String status = null;
+        if (results == null) {
+            return null;
+        }
+        for (TestGenerationResult result : results) {
+            if (result == null || result.getTestGenerationStatus() == null) {
+                continue;
+            }
+            status = mergeGenerationStatus(status, result.getTestGenerationStatus().name());
+        }
+        return status;
+    }
+
+    private static String mergeGenerationStatus(String left, String right) {
+        if (left == null || left.trim().isEmpty()) {
+            return right;
+        }
+        if (right == null || right.trim().isEmpty()) {
+            return left;
+        }
+        return statusRank(right) > statusRank(left) ? right : left;
+    }
+
+    private static int statusRank(String status) {
+        if (STATUS_CLIENT_CRASH.equals(status)) {
+            return 3;
+        }
+        if (TestGenerationResult.Status.ERROR.name().equals(status)) {
+            return 2;
+        }
+        if (TestGenerationResult.Status.TIMEOUT.name().equals(status)) {
+            return 1;
+        }
+        return 0;
     }
 
     /**

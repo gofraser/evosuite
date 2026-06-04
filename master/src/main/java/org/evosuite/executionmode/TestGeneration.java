@@ -38,6 +38,7 @@ import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.runtime.util.JavaExecCmdUtil;
 import org.evosuite.statistics.SearchStatistics;
@@ -613,6 +614,8 @@ public class TestGeneration {
         if (handler.hasClientFailureDetected()) {
             logger.warn("One or more client processes terminated unexpectedly; "
                     + "attempting to write statistics anyway.");
+            SearchStatistics.getInstance().setOutputVariable(RuntimeVariable.Test_Generation_Status,
+                    SearchStatistics.STATUS_CLIENT_CRASH);
         }
         hasFailed = writeStatistics();
 
