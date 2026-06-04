@@ -52,6 +52,7 @@ import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
+import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
@@ -60,6 +61,7 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.ArrayUtil;
@@ -288,6 +290,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private transient long llmInjectedCandidatesAdmittedTotal;
     private transient long llmInjectedCandidatesSurvivedTotal;
     private transient int lastRecordedInjectedSurvivorGeneration = Integer.MIN_VALUE;
+    /**
+     * Running total of offspring chromosomes dropped by the orphan tripwire in
+     * {@link #processOffspringMutation(TestChromosome, TestChromosome, List,
+     * BreedingDisruptionObserver, boolean)}. Exported as
+     * {@link RuntimeVariable#Orphaned_Offspring_Dropped} after every increment.
+     */
+    private transient long orphanedOffspringDroppedTotal;
 
     /**
      * Constructor.
@@ -501,8 +510,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.removeUnusedVariables(offspring1);
             this.removeUnusedVariables(offspring2);
 
-            processOffspringMutation(offspring1, parent1, offspringPopulation, observer);
-            processOffspringMutation(offspring2, parent2, offspringPopulation, observer);
+            processOffspringMutation(offspring1, parent1, offspringPopulation, observer,
+                    crossoverApplied);
+            processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
+                    crossoverApplied);
         }
         // Add new randomly generate tests
         for (int i = 0; i < Properties.POPULATION * Properties.P_TEST_INSERTION; i++) {
@@ -531,7 +542,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     private void processOffspringMutation(TestChromosome offspring, TestChromosome parent,
                                            List<TestChromosome> offspringPopulation,
-                                           BreedingDisruptionObserver observer) {
+                                           BreedingDisruptionObserver observer,
+                                           boolean crossoverApplied) {
         int preMutStmts = observer.isEnabled() ? DisruptionHelper.statementCount(offspring) : 0;
 
         // Isolated probe: evaluate post-crossover state before mutation
@@ -565,6 +577,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.mutate(offspring, parent);
         }
         if (offspring.isChanged()) {
+            if (isOffspringOrphaned(offspring, parent, crossoverApplied, mutResult)) {
+                return;
+            }
             this.clearCachedResults(offspring);
             offspring.updateAge(this.currentIteration);
             this.calculateFitness(offspring);
@@ -582,6 +597,64 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         false, this.currentIteration, postCrossoverSnapshot,
                         isolatedFitnessPostCrossover, crossoverProbeFailure);
             }
+        }
+    }
+
+    /**
+     * Orphan tripwire. After all operators have run, scan the offspring for
+     * VariableReferences with no defining statement in the test case. Such
+     * chromosomes crash {@code TestCase.clone()} during fitness evaluation
+     * (most often inside {@code CoverageArchive.addToArchive}), which would
+     * tear down the entire search. Dropping the offspring here keeps the
+     * search alive at the cost of one wasted mutation.
+     *
+     * <p>The WARN log includes the operator flags and a snippet of parent /
+     * offspring code so the introducing operator can be identified offline
+     * without a deterministic repro. Counted via
+     * {@link RuntimeVariable#Orphaned_Offspring_Dropped}.
+     */
+    private boolean isOffspringOrphaned(TestChromosome offspring, TestChromosome parent,
+                                        boolean crossoverApplied,
+                                        OperatorAttemptResult mutResult) {
+        List<String> orphans;
+        try {
+            orphans = TestParser.findOrphanedVariableReferences(offspring.getTestCase());
+        } catch (Throwable t) {
+            // The orphan check itself crashed — treat as unsafe; drop and log.
+            orphans = Collections.singletonList(
+                    "orphan check crashed: " + t.getClass().getSimpleName()
+                            + (t.getMessage() == null ? "" : ": " + t.getMessage()));
+        }
+        if (orphans.isEmpty()) {
+            return false;
+        }
+        orphanedOffspringDroppedTotal++;
+        try {
+            ClientServices.track(RuntimeVariable.Orphaned_Offspring_Dropped,
+                    orphanedOffspringDroppedTotal);
+        } catch (Throwable ignored) {
+            // best-effort tracking
+        }
+        boolean llmMut = mutResult != null && mutResult.isAppliedSemantic();
+        boolean stdMut = !llmMut;
+        AtMostOnceLogger.warn(logger,
+                "Dropping orphaned offspring (crossover=" + crossoverApplied
+                        + ", llmMutation=" + llmMut
+                        + ", standardMutation=" + stdMut
+                        + "); " + orphans.size() + " orphan ref(s): " + orphans
+                        + "\nParent test:\n" + safeToCode(parent)
+                        + "\nOffspring test:\n" + safeToCode(offspring));
+        return true;
+    }
+
+    private static String safeToCode(TestChromosome tc) {
+        if (tc == null) {
+            return "<null>";
+        }
+        try {
+            return tc.getTestCase().toCode();
+        } catch (Throwable t) {
+            return "<toCode failed: " + t.getClass().getSimpleName() + ">";
         }
     }
 

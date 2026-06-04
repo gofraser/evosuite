@@ -1696,7 +1696,14 @@ public class TestFactory {
                 }
             }
 
-            assert !(!paramConfig.isAllowNull() && ConstraintHelper.isNull(var, test));
+            if (!paramConfig.isAllowNull() && ConstraintHelper.isNull(var, test)) {
+                // Mirror of the check in VariableResolver.createVariable: a primitive
+                // statement carrying a null value (e.g. enum with no constants, or a
+                // failed Class.forName) must not be returned for a non-null parameter.
+                throw new ConstructionFailedException(
+                        "Generated variable " + var + " is null but null is not allowed for parameter type "
+                                + parameterType);
+            }
 
             parameters.add(var);
 

@@ -23,7 +23,9 @@ import org.evosuite.Properties;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.coverage.exception.TryCatchCoverageTestFitness;
 import org.evosuite.ga.FitnessFunction;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.util.AtMostOnceLogger;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -58,6 +60,13 @@ public class CoverageArchive extends Archive {
      * Set used to store all targets that have not been covered yet.
      */
     private final Set<TestFitnessFunction> uncovered = new LinkedHashSet<>();
+
+    /**
+     * Running total of archive add operations aborted because cloning the
+     * candidate solution threw. Exported as
+     * {@link RuntimeVariable#Archive_Clone_Failures}.
+     */
+    private transient long cloneFailureTotal;
 
     public static final CoverageArchive instance = new CoverageArchive();
 
@@ -129,8 +138,37 @@ public class CoverageArchive extends Archive {
 
     private void addToArchive(TestFitnessFunction target, TestChromosome solution) {
         logger.debug("Adding test case for goal {}: {}", target, solution);
+        TestChromosome clone;
+        try {
+            clone = solution.clone();
+        } catch (AssertionError | RuntimeException e) {
+            // Defense-in-depth: a malformed chromosome (e.g., orphaned
+            // VariableReference) that slipped past the offspring tripwire
+            // would otherwise tear down the entire search inside clone().
+            // Drop this archive update; the search continues without the
+            // candidate. Non-zero Archive_Clone_Failures indicates a leak
+            // worth investigating from the offspring tripwire's WARN logs.
+            cloneFailureTotal++;
+            try {
+                ClientServices.track(RuntimeVariable.Archive_Clone_Failures, cloneFailureTotal);
+            } catch (Throwable ignored) {
+                // best-effort tracking
+            }
+            String code;
+            try {
+                code = solution.getTestCase().toCode();
+            } catch (Throwable t) {
+                code = "<toCode failed: " + t.getClass().getSimpleName() + ">";
+            }
+            AtMostOnceLogger.warn(logger,
+                    "Archive add aborted for goal " + target + " (clone failed: "
+                            + e.getClass().getSimpleName()
+                            + (e.getMessage() == null ? "" : ": " + e.getMessage())
+                            + "). Solution code:\n" + code);
+            return;
+        }
         this.uncovered.remove(target);
-        this.covered.put(target, solution.clone());
+        this.covered.put(target, clone);
         this.removeNonCoveredTargetOfAMethod(target);
         this.hasBeenUpdated = true;
 

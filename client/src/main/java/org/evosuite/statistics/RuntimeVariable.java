@@ -1243,7 +1243,22 @@ public enum RuntimeVariable {
     /**
      * Path to sidecar disruption CSV artifact for this run.
      */
-    Disruption_Sidecar_Path;
+    Disruption_Sidecar_Path,
+    /**
+     * Number of offspring chromosomes dropped after operators because they
+     * contained orphaned VariableReferences (would crash TestCase.clone()
+     * during fitness evaluation). Bumped by the tripwire in
+     * {@code AbstractMOSA.processOffspringMutation}.
+     */
+    Orphaned_Offspring_Dropped,
+    /**
+     * Number of archive add operations aborted because cloning the candidate
+     * solution threw (e.g., an orphaned VariableReference that slipped past
+     * the offspring tripwire). Bumped by the defensive guard in
+     * {@code CoverageArchive.addToArchive}; non-zero values indicate a
+     * malformed chromosome reached fitness evaluation despite earlier checks.
+     */
+    Archive_Clone_Failures;
 
     /* -------------------------------------------------- */
 

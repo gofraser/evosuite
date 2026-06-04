@@ -281,7 +281,16 @@ public class VariableResolver {
                         + reference.getType() + " is not assignable to expected type " + expectedType);
             }
 
-            assert !(!config.isAllowNull() && ConstraintHelper.isNull(reference, test));
+            if (!config.isAllowNull() && ConstraintHelper.isNull(reference, test)) {
+                // Some primitive statements (e.g. EnumPrimitiveStatement for an enum
+                // whose class failed to load, or ClassPrimitiveStatement when Class.forName
+                // throws) carry a null value. Reject them here so the mutation/insertion
+                // callers can recover via the standard ConstructionFailedException path,
+                // instead of an AssertionError tearing down the entire generation.
+                throw new ConstructionFailedException(
+                        "Generated variable " + reference + " is null but null is not allowed for type "
+                                + parameterType);
+            }
             assert config.isCanUseMocks()
                     || !(test.getStatement(reference.getStPosition()) instanceof FunctionalMockStatement);
 

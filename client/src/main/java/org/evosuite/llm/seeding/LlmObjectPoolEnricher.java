@@ -220,6 +220,20 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
                     rejectedValidation, rejectedAddFailure, diagnostics);
         }
 
+        // Defense-in-depth: skip any sequence whose statements would crash
+        // ObjectPool sequence insertion via Statement.copy(newTest, offset).
+        // The salvage path already validates, but tests can reach this method
+        // from non-salvage paths too — a single bad sequence kills the master
+        // process during crossover, so reject before adding to the pool.
+        List<String> copyIssues = org.evosuite.testparser.TestParser
+                .findUnsafelyCopyableStatements(testCase);
+        if (!copyIssues.isEmpty()) {
+            rejectedValidation++;
+            diagnostics.add("Sequence rejected — unsafe-to-copy statements: " + copyIssues);
+            return new TypeKeyInsertionResult(insertions, rejectedNoType,
+                    rejectedValidation, rejectedAddFailure, diagnostics);
+        }
+
         for (Class<?> type : candidateTypes) {
             // getLastObject mirrors the ObjectPool retrieval path and fails iff
             // no variable assignable to type exists in the case, so it subsumes

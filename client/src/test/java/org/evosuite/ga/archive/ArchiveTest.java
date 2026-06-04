@@ -119,6 +119,28 @@ public class ArchiveTest {
         assertFalse(archive.hasSolution(target));
     }
 
+    /**
+     * Regression: a solution whose clone() throws (e.g., an orphaned
+     * VariableReference that survived earlier checks) must not tear down the
+     * search. The archive guard catches the throw, leaves the goal uncovered,
+     * and lets the run continue.
+     */
+    @Test
+    public void testCoverageArchiveSwallowsCloneFailure() {
+        CoverageArchive archive = new CoverageArchive();
+        archive.addTarget(target);
+        when(chromosome.clone())
+                .thenThrow(new AssertionError("simulated orphan: VariableReference not found"));
+        when(chromosome.getTestCase()).thenReturn(testCase);
+        lenient().when(testCase.toCode()).thenReturn("// orphaned");
+
+        archive.updateArchive(target, chromosome, 0.0); // must not throw
+
+        assertEquals(0, archive.getNumberOfCoveredTargets());
+        assertEquals(1, archive.getNumberOfUncoveredTargets());
+        assertFalse(archive.hasSolution(target));
+    }
+
     @Test
     public void testCoverageArchiveAcceptsExceptionThrowingCandidateForExceptionTarget() throws Exception {
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.EXCEPTION};
