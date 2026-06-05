@@ -187,7 +187,8 @@ public class GoalDescriptionMapper {
     public OperationTarget describeMethodOperation(TestFitnessFunction goal) {
         GoalTarget target = describeTarget(goal);
         return describeMethodOperation(target.getClassName(), target.getMethodName(), target.getExecutionKey(),
-                target.getBaseMethodName());
+                target.getBaseMethodName(),
+                qualifiedSignatureKey(target.getClassName(), target.getMethodName()));
     }
 
     /**
@@ -218,7 +219,8 @@ public class GoalDescriptionMapper {
     public OperationTarget describeMethodOperation(String className, String rawMethodName) {
         return describeMethodOperation(className, cleanMethodName(rawMethodName),
                 qualifiedExecutionKey(className, baseMethodName(rawMethodName)),
-                baseMethodName(rawMethodName));
+                baseMethodName(rawMethodName),
+                qualifiedSignatureKey(className, rawMethodName));
     }
 
     /**
@@ -283,7 +285,20 @@ public class GoalDescriptionMapper {
         return new OperationTarget(owner,
                 cleanConstructorLabel(owner, rawConstructorName),
                 owner + ".<init>",
-                "<init>");
+                "<init>",
+                qualifiedSignatureKey(owner, "<init>" + safeTrim(extractDescriptor(rawConstructorName))));
+    }
+
+    private static String extractDescriptor(String raw) {
+        String stripped = stripOwningClass(raw);
+        if (stripped.isEmpty()) {
+            return "";
+        }
+        int start = stripped.indexOf('(');
+        if (start < 0) {
+            return "";
+        }
+        return stripped.substring(start);
     }
 
     /**
@@ -599,6 +614,32 @@ public class GoalDescriptionMapper {
         return method.isEmpty() ? owner : method;
     }
 
+    /**
+     * Builds an overload-disambiguating identifier of the form
+     * {@code owner.name(descriptor)} when the raw method name carries a JVM
+     * descriptor, e.g. {@code com.example.Foo.bar(Ljava/lang/String;)V}. Falls
+     * back to {@link #qualifiedExecutionKey(String, String)} when no descriptor
+     * is available so the signature key never differs from the execution key
+     * for sources that don't expose one.
+     */
+    private static String qualifiedSignatureKey(String className, String rawMethodName) {
+        String stripped = stripOwningClass(rawMethodName);
+        String base = baseMethodName(stripped);
+        String owner = safeTrim(className);
+        if (base.isEmpty()) {
+            return qualifiedExecutionKey(owner, base);
+        }
+        int descriptorStart = stripped.indexOf('(');
+        if (descriptorStart <= 0 || descriptorStart >= stripped.length()) {
+            return qualifiedExecutionKey(owner, base);
+        }
+        String descriptor = stripped.substring(descriptorStart);
+        if (owner.isEmpty()) {
+            return base + descriptor;
+        }
+        return owner + "." + base + descriptor;
+    }
+
     private static String qualifyDisplayLabel(String className, String displayName) {
         String owner = safeTrim(className);
         String name = safeTrim(displayName);
@@ -666,18 +707,31 @@ public class GoalDescriptionMapper {
     }
 
     public static final class OperationTarget {
-        private static final OperationTarget EMPTY = new OperationTarget("", "", "", "");
+        private static final OperationTarget EMPTY = new OperationTarget("", "", "", "", "");
 
         private final String className;
         private final String displayLabel;
         private final String executionKey;
         private final String baseName;
+        /**
+         * Parameter-descriptor-disambiguated identifier, so overloaded methods
+         * can be bucketed apart. Falls back to {@link #executionKey} when the
+         * descriptor is unknown.
+         */
+        private final String signatureKey;
 
         private OperationTarget(String className, String displayLabel, String executionKey, String baseName) {
+            this(className, displayLabel, executionKey, baseName, executionKey);
+        }
+
+        private OperationTarget(String className, String displayLabel, String executionKey,
+                                String baseName, String signatureKey) {
             this.className = safeTrim(className);
             this.displayLabel = safeTrim(displayLabel);
             this.executionKey = safeTrim(executionKey);
             this.baseName = safeTrim(baseName);
+            String trimmedSignature = safeTrim(signatureKey);
+            this.signatureKey = trimmedSignature.isEmpty() ? this.executionKey : trimmedSignature;
         }
 
         static OperationTarget empty() {
@@ -699,16 +753,30 @@ public class GoalDescriptionMapper {
         public String getBaseName() {
             return baseName;
         }
+
+        public String getSignatureKey() {
+            return signatureKey;
+        }
     }
 
     private OperationTarget describeMethodOperation(String className,
                                                     String displayMethodName,
                                                     String executionKey,
                                                     String baseMethodName) {
+        return describeMethodOperation(className, displayMethodName, executionKey,
+                baseMethodName, executionKey);
+    }
+
+    private OperationTarget describeMethodOperation(String className,
+                                                    String displayMethodName,
+                                                    String executionKey,
+                                                    String baseMethodName,
+                                                    String signatureKey) {
         return new OperationTarget(safeTrim(className),
                 qualifyDisplayLabel(className, displayMethodName),
                 executionKey,
-                baseMethodName);
+                baseMethodName,
+                signatureKey);
     }
 
     public static final class BranchTarget {

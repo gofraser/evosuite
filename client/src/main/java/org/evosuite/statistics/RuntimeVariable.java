@@ -770,6 +770,16 @@ public enum RuntimeVariable {
      */
     LLM_StagnationCalls,
     /**
+     * Number of async-producer iterations where the diagnostic-card path was attempted
+     * (cards were extracted and ranked from the cached snapshot).
+     */
+    LLM_AsyncProducer_DiagnosticCalls,
+    /**
+     * Number of async-producer iterations where the diagnostic-card path actually
+     * built the prompt (cards were available after selection).
+     */
+    LLM_AsyncProducer_Cards_Used,
+    /**
      * Number of stagnation prompt attempts committed after consuming the stagnation window.
      */
     LLM_StagnationPromptsSubmitted,

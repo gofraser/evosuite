@@ -35,6 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -442,9 +443,9 @@ class LlmPoolEnrichmentOrchestratorTest {
         CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> constFut = new CompletableFuture<>();
         CompletableFuture<LlmObjectPoolEnricher.EnrichmentResult> objFut = new CompletableFuture<>();
         CompletableFuture<LlmCastClassEnricher.EnrichmentResult> castFut = new CompletableFuture<>();
-        when(realConstant.enrichAsync(anyString(), any())).thenReturn(constFut);
-        when(realObject.enrichAsync(anyString(), any())).thenReturn(objFut);
-        when(realCast.enrichAsync(anyString(), any())).thenReturn(castFut);
+        doReturn(constFut).when(realConstant).enrichAsync(anyString(), any());
+        doReturn(objFut).when(realObject).enrichAsync(anyString(), any());
+        doReturn(castFut).when(realCast).enrichAsync(anyString(), any());
 
         LlmPoolEnrichmentOrchestrator orchestrator =
                 new LlmPoolEnrichmentOrchestrator(realConstant, realObject, realCast, 30);

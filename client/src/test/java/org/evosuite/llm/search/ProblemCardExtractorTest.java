@@ -75,6 +75,41 @@ class ProblemCardExtractorTest {
     }
 
     @Test
+    void extractsTypeNeverAttemptedCardWhenGoalTypeHasNoActivityAtAll() {
+        ProblemCardExtractor extractor = new ProblemCardExtractor();
+
+        TestFitnessFunction goal = goal("com.example.Untouched", "doWork()V");
+
+        // Empty population — no test ever touched the goal-bearing type.
+        List<ProblemCard> cards = extractor.extract(Collections.singleton(goal),
+                Collections.<TestChromosome>emptyList(), 3);
+
+        ProblemCard card = findCard(cards, ProblemCardType.TYPE_NEVER_ATTEMPTED);
+        assertNotNull(card,
+                "Expected TYPE_NEVER_ATTEMPTED when the goal type is not touched by any test");
+        assertTrue(card.getTitle().contains("com.example.Untouched"),
+                "TYPE_NEVER_ATTEMPTED title should expose the never-attempted type");
+        assertEquals(ProblemCardFamily.STRUCTURAL, card.getFamily(),
+                "TYPE_NEVER_ATTEMPTED should sit in the STRUCTURAL family");
+        assertFalse(cards.stream().anyMatch(c -> c.getType() == ProblemCardType.UNREACHED_METHOD),
+                "UNREACHED_METHOD must not double-emit when TYPE_NEVER_ATTEMPTED already covers the type");
+    }
+
+    @Test
+    void doesNotExtractTypeNeverAttemptedWhenSomeTestReferencedThatType() {
+        ProblemCardExtractor extractor = new ProblemCardExtractor();
+
+        TestFitnessFunction goal = goal("com.example.Foo", "doWork()V");
+        TestChromosome test = chromosomeWithCoveredMethods(Collections.singleton("com.example.Foo.other"));
+
+        List<ProblemCard> cards = extractor.extract(Collections.singleton(goal),
+                Collections.singletonList(test), 3);
+
+        assertFalse(cards.stream().anyMatch(c -> c.getType() == ProblemCardType.TYPE_NEVER_ATTEMPTED),
+                "Covered method traces touching the type must suppress TYPE_NEVER_ATTEMPTED");
+    }
+
+    @Test
     void extractsIndirectReachabilityBarrierForSyntheticHelperMethods() {
         ProblemCardExtractor extractor = new ProblemCardExtractor();
 
@@ -107,6 +142,33 @@ class ProblemCardExtractorTest {
                 "INDIRECT_REACHABILITY_BARRIER evidence should infer the outer type");
         assertTrue(card.getEvidence().stream().anyMatch(line -> line.contains("Most frequent successful outer entrypoint:")),
                 "INDIRECT_REACHABILITY_BARRIER should expose a reusable successful outer entrypoint");
+    }
+
+    @Test
+    void extractsIndirectReachabilityBarrierForNamedNestedHelperType() {
+        ProblemCardExtractor extractor = new ProblemCardExtractor();
+
+        // Named nested helper — the old digit-prefix matcher missed this and would have routed
+        // the case through UNREACHED_METHOD / TYPE_NEVER_ATTEMPTED instead of indirect-reachability.
+        String namedHelperType = ExampleIndirectReachabilityTarget.class.getName() + "$ZipBuilder";
+        TestFitnessFunction goal = goal(namedHelperType, "deleteFiles()V");
+        Statement outerEntrypoint = methodStatementFor(
+                ExampleIndirectReachabilityTarget.class.getName(),
+                declaredMethod(ExampleIndirectReachabilityTarget.class, "driveZipWorkflow"),
+                false);
+
+        TestChromosome successful = chromosomeWithSuccessfulStatements(
+                Collections.singletonList(outerEntrypoint),
+                Collections.emptySet());
+
+        List<ProblemCard> cards = extractor.extract(Collections.singleton(goal),
+                Collections.singletonList(successful), 3);
+
+        ProblemCard card = findCard(cards, ProblemCardType.INDIRECT_REACHABILITY_BARRIER);
+        assertNotNull(card,
+                "Expected INDIRECT_REACHABILITY_BARRIER when the blocked goals live in a named Builder helper");
+        assertTrue(card.getTitle().contains(namedHelperType),
+                "INDIRECT_REACHABILITY_BARRIER title should expose the named helper type");
     }
 
     @Test
@@ -226,6 +288,39 @@ class ProblemCardExtractorTest {
                 "State-diversification evidence should expose the dominant observed regime");
         assertEquals(ProblemCardFamily.LOCAL, card.getFamily(),
                 "STATE_DIVERSIFICATION_GAP should behave as a local diversification card");
+    }
+
+    @Test
+    void extractsStateDiversificationGapWhenSuccessesDominateDespiteRareFailure()
+            throws NoSuchMethodException {
+        ProblemCardExtractor extractor = new ProblemCardExtractor();
+
+        String typeName = ExampleStateType.class.getName();
+        String coveredMethod = typeName + ".targetMethod";
+        TestFitnessFunction goal = goal(typeName, "targetMethod()V");
+        Statement targetCall = methodStatementFor(typeName,
+                declaredMethod(ExampleStateType.class, "targetMethod"), false);
+
+        List<TestChromosome> population = new java.util.ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            population.add(chromosomeWithSuccessfulStatements(
+                    Collections.singletonList(targetCall),
+                    Collections.singleton(coveredMethod)));
+        }
+        // One rare exception (success share = 5/6 ≈ 0.83 > 0.8 → still emit the card).
+        population.add(chromosomeWithThrownStatements(
+                Collections.singletonList(targetCall), 0,
+                new RuntimeException("flake"),
+                Collections.singleton(coveredMethod)));
+
+        ProblemCard card = findCard(
+                extractor.extract(Collections.singleton(goal), population, 4),
+                ProblemCardType.STATE_DIVERSIFICATION_GAP);
+        assertNotNull(card,
+                "STATE_DIVERSIFICATION_GAP must survive a rare exception when successes still dominate");
+        assertTrue(card.getEvidence().stream()
+                        .anyMatch(line -> line.contains("exceptions=1")),
+                "Evidence should report the observed exception count rather than hard-coding zero");
     }
 
     @Test
@@ -416,6 +511,99 @@ class ProblemCardExtractorTest {
 
         assertFalse(cards.stream().anyMatch(c -> c.getType() == ProblemCardType.EXCEPTION_BARRIER),
                 "Covered methods in failing tests should not count as direct exception-barrier evidence");
+    }
+
+    @Test
+    void extractsExceptionBarrierForDominantOverloadWhenMethodWideRateIsDiluted() {
+        ProblemCardExtractor extractor = new ProblemCardExtractor();
+
+        TestFitnessFunction goal = goal(ExampleExceptionTarget.class.getName(), "withInput(Ljava/lang/String;)V");
+        Statement stringOverloadCall = methodStatementFor(
+                ExampleExceptionTarget.class.getName(),
+                declaredMethod(ExampleExceptionTarget.class, "withInput", String.class),
+                false);
+        Statement intOverloadCall = methodStatementFor(
+                ExampleExceptionTarget.class.getName(),
+                declaredMethod(ExampleExceptionTarget.class, "withInput", int.class),
+                false);
+        Set<String> traceCoveringInput = Collections.singleton(
+                ExampleExceptionTarget.class.getName() + ".withInput");
+
+        // 5 failing tests where the String overload is the throw site.
+        List<TestChromosome> population = new java.util.ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            population.add(chromosomeWithThrownStatements(
+                    Collections.singletonList(stringOverloadCall), 0,
+                    new NullPointerException("boom"), traceCoveringInput));
+        }
+        // 5 successful tests on the int overload — these dilute method-wide failure rate (50%)
+        // below the 2/3 threshold, so the old method-level check would suppress the card.
+        for (int i = 0; i < 5; i++) {
+            population.add(chromosomeWithSuccessfulStatements(
+                    Collections.singletonList(intOverloadCall), traceCoveringInput));
+        }
+
+        ProblemCard card = findCard(
+                extractor.extract(Collections.singleton(goal), population, 3),
+                ProblemCardType.EXCEPTION_BARRIER);
+        assertNotNull(card,
+                "Per-signature evidence must rescue the EXCEPTION_BARRIER when one overload always throws "
+                        + "and another always succeeds");
+        assertTrue(card.getTitle().contains("Overload is exception-dominated"),
+                "Title must call out the overload axis when signature evidence wins");
+        assertTrue(card.getEvidence().stream().anyMatch(line -> line.startsWith("Blocked overload: ")),
+                "Evidence should expose the dominant failing overload");
+        assertTrue(card.getSelectionFingerprint().contains("|signature="),
+                "Selection fingerprint should record the signature-level discrimination");
+    }
+
+    @Test
+    void doesNotDoubleCreditDirectlySuccessfulGoalMethodAsCoveredInFailingTest() {
+        ProblemCardExtractor extractor = new ProblemCardExtractor();
+
+        TestFitnessFunction goal = goal(ExampleExceptionTarget.class.getName(), "withInput(Ljava/lang/String;)V");
+        Statement targetCall = methodStatementFor(
+                ExampleExceptionTarget.class.getName(),
+                declaredMethod(ExampleExceptionTarget.class, "withInput", String.class),
+                false);
+        Statement helperCall = methodStatementFor(
+                ExampleExceptionTarget.class.getName(),
+                declaredMethod(ExampleExceptionTarget.class, "helper"),
+                false);
+        Set<String> traceCoveringTarget = Collections.singleton(
+                ExampleExceptionTarget.class.getName() + ".withInput");
+
+        // 5 failing tests where the target is the throw site.
+        TestChromosome directFail1 = chromosomeWithThrownStatements(
+                Collections.singletonList(targetCall), 0,
+                new NullPointerException("boom"), traceCoveringTarget);
+        TestChromosome directFail2 = chromosomeWithThrownStatements(
+                Collections.singletonList(targetCall), 0,
+                new NullPointerException("boom"), traceCoveringTarget);
+        TestChromosome directFail3 = chromosomeWithThrownStatements(
+                Collections.singletonList(targetCall), 0,
+                new NullPointerException("boom"), traceCoveringTarget);
+        TestChromosome directFail4 = chromosomeWithThrownStatements(
+                Collections.singletonList(targetCall), 0,
+                new NullPointerException("boom"), traceCoveringTarget);
+        TestChromosome directFail5 = chromosomeWithThrownStatements(
+                Collections.singletonList(targetCall), 0,
+                new NullPointerException("boom"), traceCoveringTarget);
+        // 1 failing test where the target runs successfully at stmt 0 and the helper throws at stmt 1.
+        // Under the old whole-trace credit, this would still bump coveredInFailingTests for the target.
+        TestChromosome successThenHelperFail = chromosomeWithThrownStatements(
+                java.util.Arrays.asList(targetCall, helperCall), 1,
+                new IllegalStateException("helper boom"), traceCoveringTarget);
+
+        List<ProblemCard> cards = extractor.extract(Collections.singleton(goal),
+                java.util.Arrays.asList(directFail1, directFail2, directFail3, directFail4, directFail5,
+                        successThenHelperFail), 3);
+
+        ProblemCard card = findCard(cards, ProblemCardType.EXCEPTION_BARRIER);
+        assertNotNull(card, "Expected EXCEPTION_BARRIER from the directly throwing invocations");
+        assertFalse(card.getEvidence().stream().anyMatch(line -> line.contains("Covered in failing tests")),
+                "Methods directly invoked in a failing test should not also be counted as "
+                        + "indirectly covered in that same failing test");
     }
 
     @Test
@@ -1256,36 +1444,36 @@ class ProblemCardExtractorTest {
 
     @Test
     void formatterAddsSpecializedSuggestedActionsForTypeBarriers() {
-        ProblemCard unreached = new ProblemCard(
-                ProblemCardType.UNREACHED_METHOD,
-                "Method not reached",
-                Collections.singletonList("e0"),
-                Collections.emptyList(),
-                0.8, 0.9, 0.9);
-        ProblemCard polarityGap = new ProblemCard(
-                ProblemCardType.BRANCH_POLARITY_GAP,
-                "Branch polarity gap",
-                Collections.singletonList("e-1"),
-                Collections.emptyList(),
-                0.8, 0.9, 0.9);
-        ProblemCard uninstantiable = new ProblemCard(
-                ProblemCardType.UNINSTANTIABLE_TYPE,
-                "Cannot instantiate",
-                Collections.singletonList("e1"),
-                Collections.emptyList(),
-                0.8, 0.9, 0.9);
-        ProblemCard setupBarrier = new ProblemCard(
-                ProblemCardType.STATE_SETUP_BARRIER,
-                "Setup fails",
-                Collections.singletonList("e2"),
-                Collections.emptyList(),
-                0.8, 0.9, 0.9);
-        ProblemCard indirect = new ProblemCard(
-                ProblemCardType.INDIRECT_REACHABILITY_BARRIER,
-                "Indirect helper barrier",
-                Collections.singletonList("e3"),
-                Collections.emptyList(),
-                0.8, 0.9, 0.9);
+        ProblemCard unreached = ProblemCard.builder(ProblemCardType.UNREACHED_METHOD)
+                .title("Method not reached")
+                .evidence(Collections.singletonList("e0"))
+                .relatedGoals(Collections.emptyList())
+                .impact(0.8).blockage(0.9).confidence(0.9)
+                .build();
+        ProblemCard polarityGap = ProblemCard.builder(ProblemCardType.BRANCH_POLARITY_GAP)
+                .title("Branch polarity gap")
+                .evidence(Collections.singletonList("e-1"))
+                .relatedGoals(Collections.emptyList())
+                .impact(0.8).blockage(0.9).confidence(0.9)
+                .build();
+        ProblemCard uninstantiable = ProblemCard.builder(ProblemCardType.UNINSTANTIABLE_TYPE)
+                .title("Cannot instantiate")
+                .evidence(Collections.singletonList("e1"))
+                .relatedGoals(Collections.emptyList())
+                .impact(0.8).blockage(0.9).confidence(0.9)
+                .build();
+        ProblemCard setupBarrier = ProblemCard.builder(ProblemCardType.STATE_SETUP_BARRIER)
+                .title("Setup fails")
+                .evidence(Collections.singletonList("e2"))
+                .relatedGoals(Collections.emptyList())
+                .impact(0.8).blockage(0.9).confidence(0.9)
+                .build();
+        ProblemCard indirect = ProblemCard.builder(ProblemCardType.INDIRECT_REACHABILITY_BARRIER)
+                .title("Indirect helper barrier")
+                .evidence(Collections.singletonList("e3"))
+                .relatedGoals(Collections.emptyList())
+                .impact(0.8).blockage(0.9).confidence(0.9)
+                .build();
 
         String text = ProblemCardFormatter.format(
                 java.util.Arrays.asList(unreached, polarityGap, uninstantiable, setupBarrier, indirect));
@@ -1616,6 +1804,11 @@ class ProblemCardExtractorTest {
 
         void withInput(String input) {
             // no-op
+        }
+
+        @SuppressWarnings("unused")
+        void withInput(int input) {
+            // overload used by overload-bucketing tests
         }
 
         void withDependency(Object dependency) {

@@ -83,15 +83,6 @@ public class ExceptionBarrierTracker {
             if (result == null) {
                 continue;
             }
-            ExecutionTrace trace = result.getTrace();
-            if (result.hasTestException() && trace != null && trace.getCoveredMethods() != null) {
-                for (String coveredMethod : trace.getCoveredMethods()) {
-                    MethodObservation obs = current.get(coveredMethodKey(coveredMethod));
-                    if (obs != null) {
-                        obs.coveredInFailingTests++;
-                    }
-                }
-            }
             TestCase test = chromosome.getTestCase() != null ? chromosome.getTestCase() : result.test;
             if (test == null) {
                 continue;
@@ -111,6 +102,10 @@ public class ExceptionBarrierTracker {
                 executedStatements = safeSize;
             }
             String exceptionType = result.hasTestException() ? exceptionType(result) : "";
+            // Track goal methods directly invoked in this test's prefix so we don't double-credit
+            // them as "covered in failing tests" — their direct outcome already shows up in
+            // attempts/successes/exceptions.
+            Set<String> directlyInvokedGoalMethods = new LinkedHashSet<>();
             for (int i = 0; i < executedStatements; i++) {
                 Statement statement = statementAt(test, i);
                 if (!(statement instanceof MethodStatement)) {
@@ -121,6 +116,7 @@ public class ExceptionBarrierTracker {
                         goalDescriptionMapper.describeMethodOperation((MethodStatement) statement);
                 boolean exceptionOutcome = result.hasTestException() && thrownPosition == i;
                 if (obs != null) {
+                    directlyInvokedGoalMethods.add(directMethodKey((MethodStatement) statement));
                     InvocationContextClassifier.InvocationContext context =
                             InvocationContextClassifier.classify((MethodStatement) statement);
                     ContextObservation contextObservation = obs.context(context);
@@ -171,6 +167,21 @@ public class ExceptionBarrierTracker {
                         }
                     } else if (!result.hasTimeout()) {
                         upstream.successes++;
+                    }
+                }
+            }
+            if (result.hasTestException()) {
+                ExecutionTrace trace = result.getTrace();
+                if (trace != null && trace.getCoveredMethods() != null) {
+                    for (String coveredMethod : trace.getCoveredMethods()) {
+                        String key = coveredMethodKey(coveredMethod);
+                        if (directlyInvokedGoalMethods.contains(key)) {
+                            continue;
+                        }
+                        MethodObservation obs = current.get(key);
+                        if (obs != null) {
+                            obs.coveredInFailingTests++;
+                        }
                     }
                 }
             }

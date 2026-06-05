@@ -135,7 +135,9 @@ public class DiagnosticCardSelector {
             }
             ranked.add(new RankedCard(card, priority, discardReason));
         }
-        ranked.sort(Comparator.comparingDouble(RankedCard::effectivePriority).reversed());
+        ranked.sort(Comparator.comparingDouble(RankedCard::effectivePriority).reversed()
+                .thenComparingInt(RankedCard::typeOrdinal)
+                .thenComparing(RankedCard::tieBreakKey));
         return ranked;
     }
 
@@ -248,13 +250,25 @@ public class DiagnosticCardSelector {
                 if (candidate.getFamily() == selectedCard.getFamily()) {
                     return true;
                 }
-                if (candidate.getType() == ProblemCardType.UNREACHED_METHOD
-                        && selectedCard.getFamily() == ProblemCardFamily.STRUCTURAL) {
+                if (unreachedMethodSubsumedByStructural(candidate, selectedCard)
+                        || unreachedMethodSubsumedByStructural(selectedCard, candidate)) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    private boolean unreachedMethodSubsumedByStructural(ProblemCard unreachedCandidate,
+                                                        ProblemCard structuralCandidate) {
+        if (unreachedCandidate == null || structuralCandidate == null) {
+            return false;
+        }
+        if (unreachedCandidate.getType() != ProblemCardType.UNREACHED_METHOD
+                || structuralCandidate.getFamily() != ProblemCardFamily.STRUCTURAL) {
+            return false;
+        }
+        return true;
     }
 
     private boolean sameNonEmptyKey(String left, String right) {
@@ -283,6 +297,21 @@ public class DiagnosticCardSelector {
 
         private double effectivePriority() {
             return effectivePriority;
+        }
+
+        private int typeOrdinal() {
+            return card == null || card.getType() == null
+                    ? Integer.MAX_VALUE
+                    : card.getType().ordinal();
+        }
+
+        private String tieBreakKey() {
+            if (card == null) {
+                return "";
+            }
+            String scope = card.getScopeKey() == null ? "" : card.getScopeKey();
+            String root = card.getRootCauseKey() == null ? "" : card.getRootCauseKey();
+            return scope + "\0" + root;
         }
     }
 

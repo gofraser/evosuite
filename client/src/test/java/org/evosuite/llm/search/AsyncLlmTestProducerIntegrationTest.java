@@ -117,6 +117,42 @@ class AsyncLlmTestProducerIntegrationTest {
         }
     }
 
+    @Test
+    void asyncProducerFallsBackToPoolPromptWhenDiagnosticModeHasNoCards() throws Exception {
+        Properties.LlmAsyncProducerPromptMode previousMode = Properties.LLM_ASYNC_PRODUCER_PROMPT;
+        Properties.LLM_ASYNC_PRODUCER_PROMPT = Properties.LlmAsyncProducerPromptMode.DIAGNOSTIC;
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.ASYNC_PRODUCER, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("goal-1");
+
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                () -> Collections.singleton(goal),
+                null,
+                service,
+                5,
+                1,
+                0);
+
+        try {
+            producer.start();
+            List<TestChromosome> produced = Collections.emptyList();
+            long deadline = System.currentTimeMillis() + 3000L;
+            while (produced.isEmpty() && System.currentTimeMillis() < deadline) {
+                Thread.sleep(50L);
+                produced = producer.drainAvailable();
+            }
+            assertFalse(produced.isEmpty(),
+                    "DIAGNOSTIC mode must fall back to the pool prompt when no cards can be extracted");
+        } finally {
+            producer.stop();
+            service.close();
+            Properties.LLM_ASYNC_PRODUCER_PROMPT = previousMode;
+        }
+    }
+
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {
         LlmConfiguration configuration = new LlmConfiguration(
                 Properties.LlmProvider.NONE,

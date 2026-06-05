@@ -213,7 +213,13 @@ class LlmStatisticsDiagnosticAttributionTest {
     }
 
     private static ProblemCard problemCard(ProblemCardType type) {
-        return new ProblemCard(type, "title", Collections.singletonList("e"),
-                Collections.emptyList(), 0.7, 0.8, 0.9);
+        return ProblemCard.builder(type)
+                .title("title")
+                .evidence(Collections.singletonList("e"))
+                .relatedGoals(Collections.emptyList())
+                .impact(0.7)
+                .blockage(0.8)
+                .confidence(0.9)
+                .build();
     }
 }

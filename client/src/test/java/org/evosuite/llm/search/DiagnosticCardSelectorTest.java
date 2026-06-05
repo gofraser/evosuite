@@ -131,6 +131,63 @@ class DiagnosticCardSelectorTest {
     }
 
     @Test
+    void selectorDropsStructuralBarrierCoveredByAlreadySelectedUnreachedMethod() {
+        DiagnosticCardSelector selector = new DiagnosticCardSelector();
+
+        ProblemCard structuralOther = card(ProblemCardType.UNINSTANTIABLE_TYPE, 0.95,
+                "com.example.A", "acquisition:com.example.A");
+        ProblemCard unreached = card(ProblemCardType.UNREACHED_METHOD, 0.90,
+                "com.example.B", "com.example.B.work");
+        ProblemCard structuralOverlap = card(ProblemCardType.STATE_SETUP_BARRIER, 0.70,
+                "com.example.B", "setup:com.example.B");
+        ProblemCard localPrimary = card(ProblemCardType.BRANCH_POLARITY_GAP, 0.60,
+                "branch:7:true", "branch:7:true");
+        ProblemCard localBackup = card(ProblemCardType.CDG_BOTTLENECK, 0.50,
+                "branch:9:false", "branch:9:false");
+
+        DiagnosticCardSelector.SelectionResult result = selector.select(
+                Arrays.asList(structuralOther, unreached, structuralOverlap, localPrimary, localBackup), 4);
+
+        List<ProblemCard> selected = result.getSelectedCards();
+        assertEquals(4, selected.size());
+        assertTrue(selected.stream().anyMatch(c -> c == structuralOther));
+        assertTrue(selected.stream().anyMatch(c -> c == unreached));
+        assertTrue(selected.stream().anyMatch(c -> c == localPrimary));
+        assertTrue(selected.stream().anyMatch(c -> c == localBackup));
+        assertFalse(selected.stream().anyMatch(c -> c == structuralOverlap),
+                "Symmetric dedup must drop a STRUCTURAL card sharing rootCauseKey with a selected UNREACHED_METHOD");
+        assertEquals(1L, result.countDiscardReason(DiagnosticCardSelector.DiscardReason.ROOT_CAUSE_OVERLAP));
+    }
+
+    @Test
+    void selectorRanksEqualPriorityCardsDeterministicallyByTypeThenScope() {
+        DiagnosticCardSelector selector = new DiagnosticCardSelector();
+
+        ProblemCard scopeA = card(ProblemCardType.BRANCH_POLARITY_GAP, 0.30,
+                "branch:a:true", "branch:a:true");
+        ProblemCard scopeB = card(ProblemCardType.BRANCH_POLARITY_GAP, 0.30,
+                "branch:b:true", "branch:b:true");
+        ProblemCard scopeC = card(ProblemCardType.BRANCH_POLARITY_GAP, 0.30,
+                "branch:c:true", "branch:c:true");
+
+        DiagnosticCardSelector.SelectionResult first = selector.select(
+                Arrays.asList(scopeC, scopeA, scopeB), 3);
+        DiagnosticCardSelector.SelectionResult shuffled = selector.select(
+                Arrays.asList(scopeB, scopeC, scopeA), 3);
+
+        List<ProblemCard> firstSelected = first.getSelectedCards();
+        List<ProblemCard> shuffledSelected = shuffled.getSelectedCards();
+        assertEquals(3, firstSelected.size());
+        assertEquals(3, shuffledSelected.size());
+        // Same priority and same type ordinal → tie-break by (scopeKey, rootCauseKey)
+        // lexicographically; the order must not depend on input ordering.
+        assertEquals(scopeA, firstSelected.get(0));
+        assertEquals(scopeB, firstSelected.get(1));
+        assertEquals(scopeC, firstSelected.get(2));
+        assertEquals(firstSelected, shuffledSelected);
+    }
+
+    @Test
     void selectorSuppressesLowSteerabilityBranchGapWhenBlockerCardsExist() {
         DiagnosticCardSelector selector = new DiagnosticCardSelector();
 
@@ -160,16 +217,16 @@ class DiagnosticCardSelectorTest {
                                     String rootCauseKey,
                                     String scopeKey,
                                     String fingerprint) {
-        return new ProblemCard(type,
-                type.name(),
-                Collections.singletonList("evidence"),
-                Collections.emptyList(),
-                priority,
-                1.0,
-                1.0,
-                null,
-                rootCauseKey,
-                scopeKey,
-                fingerprint);
+        return ProblemCard.builder(type)
+                .title(type.name())
+                .evidence(Collections.singletonList("evidence"))
+                .relatedGoals(Collections.emptyList())
+                .impact(priority)
+                .blockage(1.0)
+                .confidence(1.0)
+                .rootCauseKey(rootCauseKey)
+                .scopeKey(scopeKey)
+                .selectionFingerprint(fingerprint)
+                .build();
     }
 }

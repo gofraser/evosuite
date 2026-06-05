@@ -55,10 +55,16 @@ class AsyncLlmTestProducerThreadSafetyTest {
                     1,
                     0);
 
-            Method method = AsyncLlmTestProducer.class
-                    .getDeclaredMethod("safePopulationSnapshot", Collection.class);
-            method.setAccessible(true);
-            List<TestCase> tests = (List<TestCase>) method.invoke(producer, Collections.singleton(goal));
+            Method snapshotMethod = AsyncLlmTestProducer.class
+                    .getDeclaredMethod("safeChromosomeSnapshot");
+            snapshotMethod.setAccessible(true);
+            List<TestChromosome> detached = (List<TestChromosome>) snapshotMethod.invoke(producer);
+
+            Method projectMethod = AsyncLlmTestProducer.class
+                    .getDeclaredMethod("projectTestCases", List.class, Collection.class);
+            projectMethod.setAccessible(true);
+            List<TestCase> tests = (List<TestCase>) projectMethod.invoke(
+                    producer, detached, Collections.singleton(goal));
 
             assertEquals(1, tests.size(), "Expected one test from population snapshot");
             assertTrue(live.getFitnessValues().isEmpty(),

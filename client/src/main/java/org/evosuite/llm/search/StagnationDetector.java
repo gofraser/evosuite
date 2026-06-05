@@ -49,6 +49,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -568,6 +569,17 @@ public class StagnationDetector {
         repeatedInjectionMemory.recordAttemptOutcome(attemptId, gainedGoals);
     }
 
+    /**
+     * Release an attempt that never completed (timeout, cancellation, interrupt) so
+     * the repeated-injection cooldown does not treat it as a "no gain" outcome.
+     */
+    public void releaseUndeliveredRepeatedAttempt(String attemptId) {
+        if (repeatedInjectionMemory == null || attemptId == null || attemptId.trim().isEmpty()) {
+            return;
+        }
+        repeatedInjectionMemory.releaseUndeliveredAttempt(attemptId);
+    }
+
     private Set<String> collectGoalMethodKeys(Collection<TestFitnessFunction> uncoveredGoals) {
         if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {
             return Collections.emptySet();
@@ -729,7 +741,7 @@ public class StagnationDetector {
                 .append(" seconds with no fitness improvement.");
         if (totalGoals > 0) {
             double pct = 100.0 * coveredGoalCount / totalGoals;
-            sb.append(String.format(" Current coverage: %d/%d goals (%.1f%%).",
+            sb.append(String.format(Locale.ROOT, " Current coverage: %d/%d goals (%.1f%%).",
                     coveredGoalCount, totalGoals, pct));
         }
         sb.append(" Goals marked [almost covered] were close to being reached — focus on those first.");
@@ -747,7 +759,7 @@ public class StagnationDetector {
                 .append(" seconds with no fitness improvement.");
         if (totalGoals > 0) {
             double pct = 100.0 * coveredGoalCount / totalGoals;
-            sb.append(String.format(" Current coverage: %d/%d goals (%.1f%%).",
+            sb.append(String.format(Locale.ROOT, " Current coverage: %d/%d goals (%.1f%%).",
                     coveredGoalCount, totalGoals, pct));
         }
         sb.append(" Below is a ranked list of ")
@@ -838,7 +850,7 @@ public class StagnationDetector {
             }
             sb.append(card.getType())
                     .append("@")
-                    .append(String.format("%.3f", card.getPriority()));
+                    .append(String.format(Locale.ROOT, "%.3f", card.getPriority()));
         }
         sb.append("]");
         return sb.toString();
@@ -862,7 +874,7 @@ public class StagnationDetector {
             }
             sb.append(discarded.getCard().getType())
                     .append("@")
-                    .append(String.format("%.3f", discarded.getCard().getPriority()))
+                    .append(String.format(Locale.ROOT, "%.3f", discarded.getCard().getPriority()))
                     .append(":")
                     .append(discarded.getReason());
         }

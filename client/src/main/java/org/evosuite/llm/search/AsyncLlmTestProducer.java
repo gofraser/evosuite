@@ -24,6 +24,8 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmStatistics;
+import org.evosuite.llm.prompt.CoverageGoalFormatter;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
@@ -32,7 +34,9 @@ import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -43,10 +47,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 
 /**
@@ -65,10 +72,16 @@ public class AsyncLlmTestProducer {
     private final int delayMs;
     private final RepeatedInjectionMemory repeatedInjectionMemory;
     private final GoalDescriptionMapper goalDescriptionMapper = new GoalDescriptionMapper();
+    private final ProblemCardExtractor problemCardExtractor = new ProblemCardExtractor();
+    private final DiagnosticCardSelector diagnosticCardSelector = new DiagnosticCardSelector();
+    private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
     private final Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate =
             Collections.synchronizedMap(new IdentityHashMap<>());
+    private final AtomicLong diagnosticCallsAttempted = new AtomicLong();
+    private final AtomicLong diagnosticCallsUsed = new AtomicLong();
     private volatile boolean running = true;
     private static final int GOALS_PER_PROMPT = 3;
+    private static final int ASYNC_DIAGNOSTIC_PROBLEM_CARDS_MAX = 2;
 
     /** Creates a producer using singleton LLM service and Properties-configured settings. */
     public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
@@ -168,6 +181,7 @@ public class AsyncLlmTestProducer {
         int generatedSinceRefresh = refreshInterval;
         Collection<TestFitnessFunction> currentGoals = Collections.emptyList();
         List<TestCase> currentTests = Collections.emptyList();
+        List<ProblemCard> cachedDiagnosticCards = Collections.emptyList();
 
         while (running) {
             if (!llmService.isAvailable() || !llmService.hasBudget()) {
@@ -176,35 +190,34 @@ public class AsyncLlmTestProducer {
 
             if (generatedSinceRefresh >= refreshInterval || currentGoals.isEmpty()) {
                 currentGoals = safeGoalsSnapshot();
-                currentTests = safePopulationSnapshot(currentGoals);
+                List<TestChromosome> populationChromosomes = safeChromosomeSnapshot();
+                currentTests = projectTestCases(populationChromosomes, currentGoals);
+                cachedDiagnosticCards = maybeComputeDiagnosticCards(currentGoals, populationChromosomes);
                 generatedSinceRefresh = 0;
                 if (currentGoals.isEmpty()) {
                     break;
                 }
             }
-            Collection<TestFitnessFunction> promptGoals = selectPromptGoals(currentGoals);
-            if (promptGoals.isEmpty()) {
-                generatedSinceRefresh++;
-                sleepDelay();
-                continue;
+
+            PromptResult prompt;
+            List<ProblemCardType> cardTypes;
+            if (shouldUseDiagnosticPrompt() && !cachedDiagnosticCards.isEmpty()) {
+                ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls,
+                        diagnosticCallsAttempted.incrementAndGet());
+                prompt = buildDiagnosticPromptForAsync(currentGoals, currentTests, cachedDiagnosticCards);
+                cardTypes = extractCardTypes(cachedDiagnosticCards);
+                ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used,
+                        diagnosticCallsUsed.incrementAndGet());
+            } else {
+                Collection<TestFitnessFunction> promptGoals = selectPromptGoals(currentGoals);
+                if (promptGoals.isEmpty()) {
+                    generatedSinceRefresh++;
+                    sleepDelay();
+                    continue;
+                }
+                prompt = buildPoolPromptForAsync(promptGoals, currentTests);
+                cardTypes = Collections.emptyList();
             }
-
-            PromptBuilder builder = new PromptBuilder()
-                    .withSystemPrompt()
-                    .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                    .withUncoveredGoals(promptGoals)
-                    .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(promptGoals, null))
-                    .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                    .withInstruction("Generate one JUnit test that targets one uncovered goal."
-                            + LlmAssertionPolicyResolver.instructionSuffix(false));
-
-            if (Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS && !currentTests.isEmpty()) {
-                builder.withExistingTests(currentTests);
-            }
-
-            PromptResult prompt = builder.buildWithMetadata().toBuilder()
-                    .repeatedInjectionTargets(toRepeatedTargets(promptGoals))
-                    .build();
             RepeatedInjectionMemory.PromptAttemptRegistration registration = repeatedInjectionMemory == null
                     ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
                     : repeatedInjectionMemory.registerAttempt(prompt.getRepeatedInjectionTargets(), true);
@@ -214,12 +227,20 @@ public class AsyncLlmTestProducer {
                         response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
                 if (result.isSuccess()) {
                     boolean producedAny = false;
+                    int published = 0;
                     for (TestChromosome chromosome : result.toChromosomes()) {
                         try {
+                            if (!cardTypes.isEmpty()) {
+                                chromosome.setDiagnosticCardTypes(cardTypes);
+                            }
                             testQueue.put(chromosome);
                             attemptMetadataByCandidate.put(chromosome, new InjectionAttemptMetadata(
-                                    registration.getAttemptId(), Collections.<ProblemCardType>emptyList()));
+                                    registration.getAttemptId(),
+                                    cardTypes.isEmpty()
+                                            ? Collections.<ProblemCardType>emptyList()
+                                            : new ArrayList<>(cardTypes)));
                             producedAny = true;
+                            published++;
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                             if (repeatedInjectionMemory != null && !registration.isEmpty()) {
@@ -231,6 +252,8 @@ public class AsyncLlmTestProducer {
                     }
                     if (!producedAny && repeatedInjectionMemory != null && !registration.isEmpty()) {
                         repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+                    } else if (published > 0 && !cardTypes.isEmpty()) {
+                        LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, published);
                     }
                 } else if (repeatedInjectionMemory != null && !registration.isEmpty()) {
                     repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
@@ -256,6 +279,173 @@ public class AsyncLlmTestProducer {
                 sleepDelay();
             }
         }
+    }
+
+    private boolean shouldUseDiagnosticPrompt() {
+        return Properties.LLM_ASYNC_PRODUCER_PROMPT == Properties.LlmAsyncProducerPromptMode.DIAGNOSTIC;
+    }
+
+    private List<ProblemCard> maybeComputeDiagnosticCards(Collection<TestFitnessFunction> goals,
+                                                          List<TestChromosome> population) {
+        if (!shouldUseDiagnosticPrompt() || goals == null || goals.isEmpty()
+                || population == null || population.isEmpty()) {
+            return Collections.emptyList();
+        }
+        try {
+            Set<String> goalMethods = new LinkedHashSet<>();
+            for (TestFitnessFunction goal : goals) {
+                if (goal == null) {
+                    continue;
+                }
+                String key = goalDescriptionMapper.describeMethodOperation(goal).getExecutionKey();
+                if (!key.isEmpty()) {
+                    goalMethods.add(key);
+                }
+            }
+            exceptionBarrierTracker.observe(population, goalMethods);
+            Map<String, ExceptionBarrierTracker.AggregatedStats> historicalStats =
+                    exceptionBarrierTracker.snapshot(goalMethods);
+            ProblemCardExtractor.ExtractionResult extraction =
+                    problemCardExtractor.extractWithTelemetry(goals, population,
+                            Integer.MAX_VALUE, historicalStats);
+            List<ProblemCard> extracted = extraction.getCards();
+            if (extracted.isEmpty()) {
+                return Collections.emptyList();
+            }
+            DiagnosticCardSelector.SelectionResult selection = diagnosticCardSelector.select(
+                    extracted, ASYNC_DIAGNOSTIC_PROBLEM_CARDS_MAX, repeatedInjectionMemory, true);
+            return selection.getSelectedCards();
+        } catch (RuntimeException e) {
+            logger.debug("Async producer diagnostic-card extraction failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    private PromptResult buildPoolPromptForAsync(Collection<TestFitnessFunction> promptGoals,
+                                                 List<TestCase> currentTests) {
+        PromptBuilder builder = new PromptBuilder()
+                .withSystemPrompt()
+                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withUncoveredGoals(promptGoals)
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(promptGoals, null))
+                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withInstruction("Generate one JUnit test that targets one uncovered goal."
+                        + LlmAssertionPolicyResolver.instructionSuffix(false));
+        if (Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS && !currentTests.isEmpty()) {
+            builder.withExistingTests(currentTests);
+        }
+        return builder.buildWithMetadata().toBuilder()
+                .repeatedInjectionTargets(toRepeatedTargets(promptGoals))
+                .build();
+    }
+
+    private PromptResult buildDiagnosticPromptForAsync(Collection<TestFitnessFunction> currentGoals,
+                                                       List<TestCase> currentTests,
+                                                       List<ProblemCard> cards) {
+        CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
+        // Restrict the goals section to the goals related to the selected cards so the prompt
+        // stays small. Falls back to the full uncovered-goal set when card relations are empty.
+        Set<TestFitnessFunction> cardRelatedGoals = new LinkedHashSet<>();
+        for (ProblemCard card : cards) {
+            if (card != null) {
+                cardRelatedGoals.addAll(card.getRelatedGoals());
+            }
+        }
+        Collection<TestFitnessFunction> goalsForPrompt = cardRelatedGoals.isEmpty()
+                ? currentGoals : cardRelatedGoals;
+        String goalsSection = goalFormatter.format(goalsForPrompt, null);
+
+        PromptBuilder builder = new PromptBuilder()
+                .withSystemPrompt()
+                .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goalsForPrompt, null))
+                .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                .withInstruction("Generate one focused JUnit test that addresses one of the diagnostic "
+                        + "problem cards below while targeting uncovered goals. Prefer compact, "
+                        + "executable call sequences over assertions."
+                        + LlmAssertionPolicyResolver.instructionSuffix(false))
+                .withInstruction("Priority problem cards:\n" + ProblemCardFormatter.format(cards))
+                .withInstruction("Uncovered goals:\n" + goalsSection);
+        if (Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS && !currentTests.isEmpty()) {
+            builder.withExistingTests(currentTests);
+        }
+        return builder.buildWithMetadata().toBuilder()
+                .diagnosticCardTypes(extractCardTypes(cards))
+                .repeatedInjectionTargets(extractRepeatedTargetsFromCards(cards))
+                .build();
+    }
+
+    private List<ProblemCardType> extractCardTypes(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<ProblemCardType> types = new ArrayList<>(cards.size());
+        for (ProblemCard card : cards) {
+            if (card != null && card.getType() != null) {
+                types.add(card.getType());
+            }
+        }
+        return types;
+    }
+
+    private List<RepeatedInjectionTarget> extractRepeatedTargetsFromCards(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<RepeatedInjectionTarget> targets = new ArrayList<>(cards.size());
+        for (ProblemCard card : cards) {
+            if (card != null) {
+                targets.add(card.toRepeatedInjectionTarget());
+            }
+        }
+        return targets;
+    }
+
+    /** Snapshots the population as detached chromosomes so the extractor can read traces safely. */
+    private List<TestChromosome> safeChromosomeSnapshot() {
+        if (populationSupplier == null) {
+            return Collections.emptyList();
+        }
+        try {
+            List<TestChromosome> pop = populationSupplier.get();
+            if (pop == null || pop.isEmpty()) {
+                return Collections.emptyList();
+            }
+            List<TestChromosome> detached = new ArrayList<>(pop.size());
+            for (TestChromosome tc : pop) {
+                if (tc != null) {
+                    detached.add(tc.clone());
+                }
+            }
+            return detached;
+        } catch (RuntimeException e) {
+            logger.debug("Async producer chromosome snapshot failed: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /** Ranks detached chromosomes by relevance and projects to TestCases for existing-test context. */
+    private List<TestCase> projectTestCases(List<TestChromosome> detached,
+                                            Collection<TestFitnessFunction> goals) {
+        if (detached == null || detached.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<TestChromosome> ranked;
+        try {
+            ranked = TestRelevanceRanker.rankByRelevance(detached, goals, 2);
+        } catch (RuntimeException e) {
+            logger.debug("Async producer relevance ranking failed; falling back to first tests: {}",
+                    e.getMessage());
+            ranked = detached.size() <= 2 ? detached : detached.subList(0, 2);
+        }
+        List<TestCase> result = new ArrayList<>(ranked.size());
+        for (TestChromosome tc : ranked) {
+            TestCase test = tc.getTestCase();
+            if (test != null) {
+                result.add(test);
+            }
+        }
+        return result;
     }
 
     private Collection<TestFitnessFunction> selectPromptGoals(Collection<TestFitnessFunction> currentGoals) {
@@ -325,52 +515,6 @@ public class AsyncLlmTestProducer {
             return new ArrayList<>(goals);
         } catch (RuntimeException e) {
             logger.debug("Async producer goal snapshot failed: {}", e.getMessage());
-            return Collections.emptyList();
-        }
-    }
-
-    /** Snapshots up to 2 relevant tests from the population supplier. */
-    private List<TestCase> safePopulationSnapshot(Collection<TestFitnessFunction> goals) {
-        if (populationSupplier == null) {
-            return Collections.emptyList();
-        }
-        try {
-            List<TestChromosome> pop = populationSupplier.get();
-            if (pop == null || pop.isEmpty()) {
-                return Collections.emptyList();
-            }
-
-            // Work on detached chromosomes to avoid mutating/reading live GA chromosomes
-            // from this background thread (which can race with GA fitness iteration).
-            List<TestChromosome> detached = new ArrayList<>(pop.size());
-            for (TestChromosome tc : pop) {
-                if (tc != null) {
-                    detached.add(tc.clone());
-                }
-            }
-            if (detached.isEmpty()) {
-                return Collections.emptyList();
-            }
-
-            List<TestChromosome> ranked;
-            try {
-                ranked = TestRelevanceRanker.rankByRelevance(detached, goals, 2);
-            } catch (RuntimeException e) {
-                logger.debug("Async producer relevance ranking failed; falling back to first tests: {}",
-                        e.getMessage());
-                ranked = detached.size() <= 2 ? detached : detached.subList(0, 2);
-            }
-
-            List<TestCase> result = new ArrayList<>(ranked.size());
-            for (TestChromosome tc : ranked) {
-                TestCase test = tc.getTestCase();
-                if (test != null) {
-                    result.add(test);
-                }
-            }
-            return result;
-        } catch (RuntimeException e) {
-            logger.debug("Async producer population snapshot failed: {}", e.getMessage());
             return Collections.emptyList();
         }
     }

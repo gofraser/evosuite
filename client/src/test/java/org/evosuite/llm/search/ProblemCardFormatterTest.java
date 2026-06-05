@@ -49,13 +49,29 @@ class ProblemCardFormatterTest {
                 "STATE_DIVERSIFICATION_GAP should follow stagnation-mode no-assertion guidance");
     }
 
+    @Test
+    void everyCardTypeExposesAStableActionHintExceptCdgBottleneck() {
+        for (ProblemCardType type : ProblemCardType.values()) {
+            String hint = type.getActionHint();
+            if (type == ProblemCardType.CDG_BOTTLENECK) {
+                assertTrue(hint != null && hint.isEmpty(),
+                        "CDG_BOTTLENECK historically had no action hint; preserve that contract: " + type);
+            } else {
+                assertTrue(hint != null && !hint.isEmpty(),
+                        "Every non-CDG card type must define an action hint so new types don't silently "
+                                + "ship without LLM guidance: " + type);
+            }
+        }
+    }
+
     private static ProblemCard card(ProblemCardType type, String title) {
-        return new ProblemCard(type,
-                title,
-                Collections.singletonList("evidence"),
-                Collections.emptyList(),
-                0.7,
-                0.8,
-                0.9);
+        return ProblemCard.builder(type)
+                .title(title)
+                .evidence(Collections.singletonList("evidence"))
+                .relatedGoals(Collections.emptyList())
+                .impact(0.7)
+                .blockage(0.8)
+                .confidence(0.9)
+                .build();
     }
 }

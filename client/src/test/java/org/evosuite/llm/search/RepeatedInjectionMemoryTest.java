@@ -65,6 +65,49 @@ class RepeatedInjectionMemoryTest {
     }
 
     @Test
+    void releasingUndeliveredAttemptDoesNotBumpNoGainCooldown() {
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:bar", "goal:bar:v1");
+
+        // Sync call registers and then times out without ever returning.
+        RepeatedInjectionMemory.PromptAttemptRegistration registration =
+                memory.registerAttempt(Collections.singletonList(target), false);
+        memory.releaseUndeliveredAttempt(registration.getAttemptId());
+
+        // Advance ordinal so the same-fingerprint cooldown window has elapsed.
+        RepeatedInjectionTarget dummy = new RepeatedInjectionTarget("dummy:key", "dummy:fingerprint");
+        memory.registerAttempt(Collections.singletonList(dummy), false);
+        memory.registerAttempt(Collections.singletonList(dummy), false);
+
+        RepeatedInjectionMemory.SelectionAdjustment retry =
+                memory.adjustPriority(target, 1.0, false);
+        assertFalse(retry.isSuppressed(),
+                "An undelivered attempt must not consume the no-gain cooldown for the next selection");
+    }
+
+    @Test
+    void releasingUndeliveredInflightAttemptClearsInFlightCounter() {
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        RepeatedInjectionTarget target = new RepeatedInjectionTarget("goal:baz", "goal:baz:v1");
+
+        RepeatedInjectionMemory.PromptAttemptRegistration registration =
+                memory.registerAttempt(Collections.singletonList(target), true);
+        memory.releaseUndeliveredAttempt(registration.getAttemptId());
+
+        // While the in-flight gate is cleared by release, the same-fingerprint cooldown still
+        // applies for one ordinal step. Advance past it so we can assert the in-flight gate is open.
+        RepeatedInjectionTarget dummy = new RepeatedInjectionTarget("dummy:key", "dummy:fingerprint");
+        memory.registerAttempt(Collections.singletonList(dummy), false);
+        memory.registerAttempt(Collections.singletonList(dummy), false);
+
+        RepeatedInjectionMemory.SelectionAdjustment afterRelease =
+                memory.adjustPriority(target, 1.0, true);
+        assertFalse(afterRelease.isSuppressed(),
+                "Releasing an undelivered async attempt must clear the in-flight gate so the target "
+                        + "can be selected again once the same-fingerprint cooldown elapses");
+    }
+
+    @Test
     void lowSteerabilityBranchTargetsGetLongerRepeatCooldownAfterNoGain() {
         RepeatedInjectionMemory normalMemory = new RepeatedInjectionMemory();
         RepeatedInjectionTarget normal = new RepeatedInjectionTarget(

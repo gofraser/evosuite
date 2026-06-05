@@ -2042,6 +2042,29 @@ public class Properties {
     @IntValue(min = 1)
     public static int LLM_ASYNC_PRODUCER_REFRESH_INTERVAL = 5;
 
+    /** Prompt-content strategy for the asynchronous LLM producer. */
+    public enum LlmAsyncProducerPromptMode {
+        /**
+         * Goal-driven prompt: picks a few uncovered goals each iteration and
+         * asks the LLM for a JUnit test targeting them. This is the historical
+         * behaviour and stays the default while we A/B the diagnostic path.
+         */
+        POOL,
+        /**
+         * Diagnostic prompt: when ranked problem cards can be extracted from the
+         * cached population snapshot, the producer sends a card-driven prompt
+         * (mirroring the stagnation diagnostic mode). Falls back to POOL on any
+         * iteration where no cards are available.
+         */
+        DIAGNOSTIC
+    }
+
+    @Parameter(key = "llm_async_producer_prompt", group = "LLM",
+            description = "Prompt-content strategy for the async producer: POOL builds a goal-driven "
+                    + "prompt; DIAGNOSTIC builds a card-driven prompt from the cached population "
+                    + "snapshot and falls back to POOL when no cards can be extracted.")
+    public static LlmAsyncProducerPromptMode LLM_ASYNC_PRODUCER_PROMPT = LlmAsyncProducerPromptMode.POOL;
+
     @Parameter(key = "llm_on_stagnation", group = "LLM",
             description = "Trigger LLM generation when search stagnates")
     public static boolean LLM_ON_STAGNATION = false;

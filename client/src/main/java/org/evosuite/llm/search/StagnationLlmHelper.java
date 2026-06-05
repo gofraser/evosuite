@@ -304,23 +304,30 @@ public final class StagnationLlmHelper {
             tests = future.get(waitSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
             future.cancel(true);
-            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+            // Wall-clock timeout: the call never produced a response — don't penalize
+            // the repeated-injection cooldown for what is effectively a non-delivery.
+            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
             traceOutcome("timeout:sync", coveredCount, uncoveredSize, elapsedMs, 0);
             return;
         } catch (CancellationException e) {
-            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+            // Cancelled before completion — treat as non-delivery.
+            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
             traceOutcome("cancelled:sync", coveredCount, uncoveredSize, elapsedMs, 0);
             return;
         } catch (InterruptedException e) {
             future.cancel(true);
             Thread.currentThread().interrupt();
-            detector.recordRepeatedAttemptOutcome(registration.getAttemptId(), 0);
+            // Interrupt during the wait — non-delivery.
+            detector.releaseUndeliveredRepeatedAttempt(registration.getAttemptId());
             long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
             traceOutcome("interrupted:sync", coveredCount, uncoveredSize, elapsedMs, 0);
             return;
         } catch (ExecutionException e) {
+            // Worker raised an exception while executing the call — the call was
+            // "delivered" in the sense that it reached the LLM service path and
+            // failed there, so the cooldown should reflect "no gain" as before.
             Throwable cause = e.getCause();
             logger.debug("Sync stagnation call failed: {}",
                     cause == null ? e.toString() : cause.toString());
