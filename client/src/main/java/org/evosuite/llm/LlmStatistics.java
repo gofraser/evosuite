@@ -786,6 +786,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
                 return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_TypeNeverAttempted;
+            case MOCK_NEEDED_DEPENDENCY:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_MockNeededDependency;
+            case ENVIRONMENT_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_EnvironmentBarrier;
             default:
                 throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
@@ -846,6 +850,12 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInsufficientAttempts;
             case STATE_SETUP_BARRIER_SUPPRESSED_INCONSISTENT_FAILING_STEP:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInconsistentFailingStep;
+            case MOCK_NEEDED_DEPENDENCY_CANDIDATES:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_MockNeededDependencyCandidates;
+            case MOCK_NEEDED_DEPENDENCY_SUPPRESSED_MATERIALIZED:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_MockNeededDependencySuppressedMaterialized;
+            case ENVIRONMENT_BARRIER_CANDIDATES:
+                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_EnvironmentBarrierCandidates;
             default:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UpstreamExceptionRepeatedSources;
         }
@@ -874,6 +884,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Cards_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
                 return RuntimeVariable.LLM_Diagnostic_Cards_TypeNeverAttempted;
+            case MOCK_NEEDED_DEPENDENCY:
+                return RuntimeVariable.LLM_Diagnostic_Cards_MockNeededDependency;
+            case ENVIRONMENT_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Cards_EnvironmentBarrier;
             default:
                 throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
@@ -902,6 +916,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
                 return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_TypeNeverAttempted;
+            case MOCK_NEEDED_DEPENDENCY:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_MockNeededDependency;
+            case ENVIRONMENT_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_EnvironmentBarrier;
             default:
                 throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
@@ -993,6 +1011,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Published_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Published_TypeNeverAttempted;
+            case MOCK_NEEDED_DEPENDENCY:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_MockNeededDependency;
+            case ENVIRONMENT_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_EnvironmentBarrier;
             default:
                 throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
@@ -1021,6 +1043,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_TypeNeverAttempted;
+            case MOCK_NEEDED_DEPENDENCY:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_MockNeededDependency;
+            case ENVIRONMENT_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_EnvironmentBarrier;
             default:
                 throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
@@ -1049,6 +1075,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_TypeNeverAttempted;
+            case MOCK_NEEDED_DEPENDENCY:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_MockNeededDependency;
+            case ENVIRONMENT_BARRIER:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_EnvironmentBarrier;
             default:
                 throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }

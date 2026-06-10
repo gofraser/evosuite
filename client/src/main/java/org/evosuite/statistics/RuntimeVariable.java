@@ -903,6 +903,14 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Cards_Extracted_TypeNeverAttempted,
     /**
+     * Number of extracted diagnostic cards of type MOCK_NEEDED_DEPENDENCY.
+     */
+    LLM_Diagnostic_Cards_Extracted_MockNeededDependency,
+    /**
+     * Number of extracted diagnostic cards of type ENVIRONMENT_BARRIER.
+     */
+    LLM_Diagnostic_Cards_Extracted_EnvironmentBarrier,
+    /**
      * Upstream throwing helper/bootstrap calls that could not be attributed to a downstream blocked goal.
      */
     LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
@@ -983,6 +991,19 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInconsistentFailingStep,
     /**
+     * Distinct interface/abstract collaborators flagged as never supplied to a goal method.
+     */
+    LLM_Diagnostic_Extractor_Candidates_MockNeededDependencyCandidates,
+    /**
+     * MOCK_NEEDED_DEPENDENCY candidates suppressed because a concrete instance or functional mock
+     * of the collaborator was materialized in the population.
+     */
+    LLM_Diagnostic_Extractor_Candidates_MockNeededDependencySuppressedMaterialized,
+    /**
+     * Goal methods flagged as sitting behind an external-environment read (file/network/property).
+     */
+    LLM_Diagnostic_Extractor_Candidates_EnvironmentBarrierCandidates,
+    /**
      * Total number of diagnostic problem cards selected into stagnation prompts.
      */
     LLM_Diagnostic_Cards_Selected,
@@ -1043,6 +1064,14 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Cards_TypeNeverAttempted,
     /**
+     * Number of selected diagnostic cards of type MOCK_NEEDED_DEPENDENCY.
+     */
+    LLM_Diagnostic_Cards_MockNeededDependency,
+    /**
+     * Number of selected diagnostic cards of type ENVIRONMENT_BARRIER.
+     */
+    LLM_Diagnostic_Cards_EnvironmentBarrier,
+    /**
      * Total diagnostic-prompt candidates published by the stagnation helper.
      */
     LLM_Diagnostic_Candidates_Published,
@@ -1082,6 +1111,14 @@ public enum RuntimeVariable {
      * Published diagnostic-prompt candidates associated with TYPE_NEVER_ATTEMPTED.
      */
     LLM_Diagnostic_Candidates_Published_TypeNeverAttempted,
+    /**
+     * Published diagnostic-prompt candidates associated with MOCK_NEEDED_DEPENDENCY.
+     */
+    LLM_Diagnostic_Candidates_Published_MockNeededDependency,
+    /**
+     * Published diagnostic-prompt candidates associated with ENVIRONMENT_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Published_EnvironmentBarrier,
     /**
      * Total diagnostic-prompt candidates admitted into the MOSA union.
      */
@@ -1123,6 +1160,14 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Candidates_Admitted_TypeNeverAttempted,
     /**
+     * Admitted diagnostic-prompt candidates associated with MOCK_NEEDED_DEPENDENCY.
+     */
+    LLM_Diagnostic_Candidates_Admitted_MockNeededDependency,
+    /**
+     * Admitted diagnostic-prompt candidates associated with ENVIRONMENT_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Admitted_EnvironmentBarrier,
+    /**
      * Total diagnostic-prompt candidates that survived the generation they were injected.
      */
     LLM_Diagnostic_Candidates_Survived,
@@ -1162,6 +1207,14 @@ public enum RuntimeVariable {
      * Surviving diagnostic-prompt candidates associated with TYPE_NEVER_ATTEMPTED.
      */
     LLM_Diagnostic_Candidates_Survived_TypeNeverAttempted,
+    /**
+     * Surviving diagnostic-prompt candidates associated with MOCK_NEEDED_DEPENDENCY.
+     */
+    LLM_Diagnostic_Candidates_Survived_MockNeededDependency,
+    /**
+     * Surviving diagnostic-prompt candidates associated with ENVIRONMENT_BARRIER.
+     */
+    LLM_Diagnostic_Candidates_Survived_EnvironmentBarrier,
     /**
      * Total uncovered-goal gains attributed to diagnostic stagnation prompts.
      */
@@ -1210,6 +1263,14 @@ public enum RuntimeVariable {
      * Attributed uncovered-goal gains for TYPE_NEVER_ATTEMPTED diagnostics.
      */
     LLM_Diagnostic_Coverage_Gains_TypeNeverAttempted,
+    /**
+     * Attributed uncovered-goal gains for MOCK_NEEDED_DEPENDENCY diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_MockNeededDependency,
+    /**
+     * Attributed uncovered-goal gains for ENVIRONMENT_BARRIER diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_EnvironmentBarrier,
     /**
      * Per-generation species count timeline.
      */

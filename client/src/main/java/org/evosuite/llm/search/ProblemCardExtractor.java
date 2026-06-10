@@ -126,6 +126,10 @@ public class ProblemCardExtractor {
         Map<String, TypeBarrierSignal> typeBarrierSignals =
                 new TypeBarrierObserver(traceSink).observe(goalsByMethod, snapshot, telemetry);
         Map<String, OuterTypeAttemptSignal> outerTypeSignals = new OuterTypeObserver().observe(snapshot);
+        Map<String, MockDependencySignal> mockDependencySignals =
+                new MockDependencyObserver().observe(goalsByMethod, snapshot, telemetry);
+        Map<String, EnvironmentBarrierSignal> environmentBarrierSignals =
+                new EnvironmentBarrierObserver().observe(goalsByMethod, snapshot, telemetry);
         Set<String> touchedTypes = new TouchedTypesObserver().observe(snapshot, coveredMethods);
         CardBuildContext context = new CardBuildContext(
                 uncoveredGoals,
@@ -138,6 +142,8 @@ public class ProblemCardExtractor {
                 cdgSignals,
                 typeBarrierSignals,
                 outerTypeSignals,
+                mockDependencySignals,
+                environmentBarrierSignals,
                 persistentExceptionStats,
                 thresholds,
                 traceSink,
@@ -146,6 +152,8 @@ public class ProblemCardExtractor {
 
         List<ProblemCard> cards = new ArrayList<>();
         new TypeNeverAttemptedCardBuilder().emit(cards, context);
+        new MockNeededDependencyCardBuilder().emit(cards, context);
+        new EnvironmentBarrierCardBuilder().emit(cards, context);
         new IndirectReachabilityCardBuilder().emit(cards, context);
         new UnreachedMethodCardBuilder().emit(cards, context);
         new TypeBarrierCardBuilder().emit(cards, context);

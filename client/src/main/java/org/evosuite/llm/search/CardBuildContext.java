@@ -38,6 +38,8 @@ final class CardBuildContext {
     final Map<String, CdgDependencySignal> cdgSignals;
     final Map<String, TypeBarrierSignal> typeBarrierSignals;
     final Map<String, OuterTypeAttemptSignal> outerTypeSignals;
+    final Map<String, MockDependencySignal> mockDependencySignals;
+    final Map<String, EnvironmentBarrierSignal> environmentBarrierSignals;
     final Map<String, ExceptionBarrierTracker.AggregatedStats> historicalExceptionStats;
     final ProblemCardThresholds thresholds;
     final ExtractorTraceSink traceSink;
@@ -54,6 +56,8 @@ final class CardBuildContext {
                      Map<String, CdgDependencySignal> cdgSignals,
                      Map<String, TypeBarrierSignal> typeBarrierSignals,
                      Map<String, OuterTypeAttemptSignal> outerTypeSignals,
+                     Map<String, MockDependencySignal> mockDependencySignals,
+                     Map<String, EnvironmentBarrierSignal> environmentBarrierSignals,
                      Map<String, ExceptionBarrierTracker.AggregatedStats> historicalExceptionStats,
                      ProblemCardThresholds thresholds,
                      ExtractorTraceSink traceSink,
@@ -69,6 +73,8 @@ final class CardBuildContext {
         this.cdgSignals = cdgSignals;
         this.typeBarrierSignals = typeBarrierSignals;
         this.outerTypeSignals = outerTypeSignals;
+        this.mockDependencySignals = mockDependencySignals;
+        this.environmentBarrierSignals = environmentBarrierSignals;
         this.historicalExceptionStats = historicalExceptionStats;
         this.thresholds = thresholds;
         this.traceSink = traceSink;

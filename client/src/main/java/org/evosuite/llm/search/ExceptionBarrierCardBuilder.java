@@ -29,6 +29,13 @@ import java.util.Map;
 
 final class ExceptionBarrierCardBuilder implements CardBuilder {
 
+    // GUARD (Phase 8/9, exception coverage): the EXCEPTION_BARRIER action hint
+    // ("avoid previously failing call patterns / try guarded preconditions") is
+    // written for goals blocked *by* exceptions on the path to other coverage.
+    // It is WRONG for goals that *require* triggering an exception — those want
+    // the failing call pattern reproduced, not avoided. When exception-coverage
+    // criteria are enabled, revisit this builder: gate it off (or emit an
+    // inverted hint) for goals whose target is the thrown exception itself.
     @Override
     public void emit(List<ProblemCard> out, CardBuildContext context) {
         if (context == null || context.methodStats == null || context.methodStats.isEmpty()) {

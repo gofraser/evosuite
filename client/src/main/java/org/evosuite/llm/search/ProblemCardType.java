@@ -59,7 +59,29 @@ public enum ProblemCardType {
      */
     TYPE_NEVER_ATTEMPTED(
             "Construct an instance of this type via any visible constructor or factory; "
-                    + "one test that simply reaches the type is sufficient — assertions are unnecessary.");
+                    + "one test that simply reaches the type is sufficient — assertions are unnecessary."),
+    /**
+     * A goal method depends on an interface/abstract collaborator that the
+     * search never managed to supply: no concrete instance and no functional
+     * mock of that type was ever materialized in any test. This includes the
+     * indirect case where a concrete parameter could not be built because its
+     * own construction transitively requires such a collaborator.
+     */
+    MOCK_NEEDED_DEPENDENCY(
+            "Supply the missing collaborator: pass a concrete implementation of the required "
+                    + "interface/abstract type, or an EvoSuite functional mock of it, then invoke the "
+                    + "target method; assertions are unnecessary."),
+    /**
+     * A goal sits behind a read of the external environment (file system,
+     * network, or system property) that the search never seeded with the
+     * content needed to drive the goal: tests reach the method and touch the
+     * environment, yet the goal stays uncovered. Detected from EvoSuite's
+     * per-test runtime-mock instrumentation.
+     */
+    ENVIRONMENT_BARRIER(
+            "Seed the mocked environment before the call: set the required virtual file contents, "
+                    + "system-property values, or network responses, then invoke the target so it reads the "
+                    + "seeded data; assertions are unnecessary.");
 
     private final String actionHint;
 
@@ -81,6 +103,8 @@ public enum ProblemCardType {
             case STATE_SETUP_BARRIER:
             case INDIRECT_REACHABILITY_BARRIER:
             case TYPE_NEVER_ATTEMPTED:
+            case MOCK_NEEDED_DEPENDENCY:
+            case ENVIRONMENT_BARRIER:
                 return ProblemCardFamily.STRUCTURAL;
             case UNREACHED_METHOD:
             case EXCEPTION_BARRIER:
