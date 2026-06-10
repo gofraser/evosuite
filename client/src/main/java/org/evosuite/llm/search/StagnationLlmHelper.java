@@ -61,6 +61,19 @@ import java.util.function.LongSupplier;
  *
  * <p>Per-call metrics are emitted as {@link RuntimeVariable} totals so the
  * cost of blocking (vs. async drift) is visible in statistics output.
+ *
+ * <p><b>Stagnation cadence (T2):</b> the detector's stagnation window is
+ * re-armed when a stagnation call <i>completes</i>, not when it is
+ * submitted. In SYNC mode {@link #maybeSubmit} blocks until completion, so
+ * submission and completion coincide. In ASYNC mode the window stays armed
+ * (pending) for the whole in-flight duration of a call and is only reset
+ * once that call's results are computed and published, regardless of
+ * whether it produced any tests. This keeps ASYNC stagnation reactive:
+ * successive calls require a fresh {@code llm_stagnation_timeout_seconds}
+ * of no covered-goal improvement measured after the previous call's
+ * results were integrated, rather than degenerating into a fixed-interval
+ * producer driven by call latency. Contrast with {@link AsyncLlmTestProducer}
+ * (continuous async injection), whose fixed-interval cadence is unaffected.
  */
 public final class StagnationLlmHelper {
 
@@ -201,8 +214,16 @@ public final class StagnationLlmHelper {
                 return;
             }
         }
-        // Committed: consume the stagnation window now.
-        detector.consumeWindow();
+        // Committed to firing. SYNC's runSync blocks until the call returns
+        // (and publishes its results) before maybeSubmit returns, so submit
+        // and completion are effectively simultaneous -- consume the window
+        // now. ASYNC instead re-arms the window when the call *completes*
+        // (see runAsync): a ~50s call would otherwise let a 60s window
+        // elapse again before its results are even available, degenerating
+        // ASYNC stagnation into a fixed-interval producer (T2).
+        if (mode == LlmStagnationMode.SYNC) {
+            detector.consumeWindow();
+        }
         recordPromptSubmitted();
         traceOutcome("fired:" + mode.name().toLowerCase(), coveredCount, uncoveredSize, -1L, 0);
 
@@ -372,6 +393,13 @@ public final class StagnationLlmHelper {
                     logger.debug("Async stagnation worker crashed: {}", t.toString());
                     tests = Collections.emptyList();
                 }
+                // Re-arm the stagnation window now that this call has
+                // completed, regardless of whether it produced any tests:
+                // the next ASYNC submission requires a fresh stagnation
+                // period measured from this point, not from submit time
+                // (T2). A failed/empty call still re-arms — it does not
+                // leave the window permanently consumed.
+                detector.consumeWindow();
                 long elapsedMs = (System.nanoTime() - t0) / 1_000_000L;
                 if (responseReceived) {
                     recordResponseReceived();

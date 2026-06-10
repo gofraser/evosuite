@@ -148,6 +148,142 @@ class StagnationLlmHelperTest {
     }
 
     @Test
+    void asyncMode_reArmsWindowOnCompletion_notOnSubmit() throws Exception {
+        // T2: the stagnation window must be re-armed when an ASYNC call
+        // *completes*, not when it is submitted. Otherwise a slow call lets
+        // the (consumed-at-submit) window elapse again before its results
+        // are even available, and the next maybeSubmit fires immediately.
+        LlmStatistics.resetDiagnosticCardCounters();
+        CountDownLatch responseGate = new CountDownLatch(1);
+        MockChatLanguageModel model = new MockChatLanguageModel() {
+            @Override
+            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                try {
+                    responseGate.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return super.generate(messages, feature);
+            }
+        };
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        // Threshold = 1s.
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // baseline; window starts at t=0
+            clock.set(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // stagnant: submits async (gated)
+            assertEquals(1L, helper.getPromptsSubmitted());
+
+            // The window is NOT consumed at submit time: even though the
+            // pre-submit window (started at t=0) has long elapsed by t=5,
+            // the in-flight call dedups the next submission instead of
+            // firing again.
+            clock.set(TimeUnit.SECONDS.toNanos(5));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            assertEquals(1L, helper.getPromptsSubmitted(),
+                    "An in-flight ASYNC call must dedup, not fire a second prompt");
+
+            // Let the call complete at t=5; consumeWindow() re-arms the
+            // window from this completion time, not from t=0 or t=2.
+            responseGate.countDown();
+            List<TestChromosome> tests = drainWithTimeout(helper, 2_000);
+            assertFalse(tests.isEmpty(), "ASYNC mode should eventually deliver tests via drain()");
+
+            // Just past completion (t=5.5 < 5+threshold): must not fire again.
+            clock.set(TimeUnit.SECONDS.toNanos(5) + TimeUnit.MILLISECONDS.toNanos(500));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            assertEquals(1L, helper.getPromptsSubmitted(),
+                    "maybeSubmit must not fire before completion + threshold");
+
+            // At completion + threshold (t=6s): fires again, absent improvement.
+            clock.set(TimeUnit.SECONDS.toNanos(6));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            assertEquals(2L, helper.getPromptsSubmitted(),
+                    "maybeSubmit must fire at completion + threshold absent improvement");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
+    void asyncMode_completionReArm_doesNotFireIfCoveredGoalsIncreaseBeforeThreshold() throws Exception {
+        // T2: covered-goal improvement observed after an ASYNC completion
+        // resets the window via peekStagnation's existing
+        // improvement-detection, so the next fire is measured from the
+        // improvement, not from the prior completion.
+        LlmStatistics.resetDiagnosticCardCounters();
+        CountDownLatch responseGate = new CountDownLatch(1);
+        MockChatLanguageModel model = new MockChatLanguageModel() {
+            @Override
+            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                try {
+                    responseGate.await();
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+                return super.generate(messages, feature);
+            }
+        };
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        // Threshold = 1s.
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // baseline covered=0, window starts at t=0
+            clock.set(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);  // stagnant: submits async (gated)
+            assertEquals(1L, helper.getPromptsSubmitted());
+
+            // Complete the call at t=2; consumeWindow() re-arms the window to t=2.
+            responseGate.countDown();
+            List<TestChromosome> tests = drainWithTimeout(helper, 2_000);
+            assertFalse(tests.isEmpty());
+
+            // Covered goals increase before completion + threshold (t=2.5 < 3).
+            clock.set(TimeUnit.SECONDS.toNanos(2) + TimeUnit.MILLISECONDS.toNanos(500));
+            helper.maybeSubmit(1, Collections.singleton(goal), pop);
+            assertEquals(1L, helper.getPromptsSubmitted(),
+                    "Covered-goal improvement must not itself trigger a call");
+
+            // The OLD completion+threshold (t=3) must NOT fire: the
+            // improvement at t=2.5 reset the window, so 3 - 2.5 = 0.5s is
+            // still below the 1s threshold.
+            clock.set(TimeUnit.SECONDS.toNanos(3));
+            helper.maybeSubmit(1, Collections.singleton(goal), pop);
+            assertEquals(1L, helper.getPromptsSubmitted(),
+                    "Covered-goal improvement after completion must defer the next fire");
+
+            // A full threshold after the improvement (t=3.5) fires.
+            clock.set(TimeUnit.SECONDS.toNanos(3) + TimeUnit.MILLISECONDS.toNanos(500));
+            helper.maybeSubmit(1, Collections.singleton(goal), pop);
+            assertEquals(2L, helper.getPromptsSubmitted(),
+                    "maybeSubmit must fire a full threshold after the improvement-driven reset");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
     void budgetGuard_skipsSubmissionWhenRemainingBelowThreshold() {
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);

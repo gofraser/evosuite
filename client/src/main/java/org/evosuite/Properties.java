@@ -2070,9 +2070,14 @@ public class Properties {
     public static boolean LLM_ON_STAGNATION = false;
 
     @Parameter(key = "llm_stagnation_timeout_seconds", group = "LLM",
-            description = "Wall-clock seconds without fitness improvement (and without a "
-                    + "prior LLM stagnation call) before a stagnation intervention fires. "
-                    + "The window resets on both improvement and on each LLM call.")
+            description = "Wall-clock seconds without fitness/coverage improvement before a "
+                    + "stagnation intervention fires. The window resets on improvement and "
+                    + "on each stagnation LLM call: in SYNC mode (llm_stagnation_mode) when "
+                    + "the call returns, since submission and completion are effectively "
+                    + "simultaneous; in ASYNC mode when the call completes and its results "
+                    + "are published, not when it is submitted -- so a long-running ASYNC "
+                    + "call still requires a fresh stagnation period afterwards before the "
+                    + "next one fires.")
     @IntValue(min = 1)
     public static int LLM_STAGNATION_TIMEOUT_SECONDS = 30;
 

@@ -81,8 +81,13 @@ public class StagnationDetector {
     private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
     private final GoalDescriptionMapper goalDescriptionMapper = new GoalDescriptionMapper();
     private final RepeatedInjectionMemory repeatedInjectionMemory;
-    private long windowStartNanos;
-    private boolean windowStarted = false;
+    /**
+     * Volatile: in ASYNC stagnation mode, {@link #consumeWindow()} is called
+     * from the background worker thread on call completion (T2), while
+     * {@link #peekStagnation} is polled from the GA evolve thread.
+     */
+    private volatile long windowStartNanos;
+    private volatile boolean windowStarted = false;
     private Double bestFitness = null;
     private Integer coveredGoals = null;
     /**
@@ -230,6 +235,11 @@ public class StagnationDetector {
      * stagnation action (e.g., dispatching an LLM call). Skip-decisions that
      * do not result in any action should leave the window intact so the next
      * generation still sees stagnation.
+     *
+     * <p>Safe to call from a background worker thread: in ASYNC stagnation
+     * mode, {@code StagnationLlmHelper} re-arms the window from the worker
+     * thread once an async call completes, so that the next stagnation
+     * cadence is measured from completion rather than submission (T2).
      */
     public void consumeWindow() {
         startWindow();
