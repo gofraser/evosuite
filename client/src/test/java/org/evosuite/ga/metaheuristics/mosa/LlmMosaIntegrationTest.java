@@ -25,12 +25,19 @@ import org.evosuite.llm.search.AsyncLlmTestProducer;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.StagnationDetector;
+import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.InjectionSource;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.generic.GenericConstructor;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -217,6 +224,65 @@ class LlmMosaIntegrationTest {
     }
 
     @Test
+    void dedupSignatureAdmitsDifferentLiteralsButDedupsExactDuplicate() throws Exception {
+        // Same call shape (`new ArrayList<>(int)`) with different int literals
+        // must be treated as distinct candidates (a), while a byte-identical
+        // duplicate of an already-admitted candidate must still be deduplicated (b).
+        InEvolveTestMOSA mosa = new InEvolveTestMOSA(() -> new TestChromosome());
+        mosa.seedPopulation();
+
+        TestChromosome candidateA = arrayListConstructorChromosome(5);
+        TestChromosome candidateB = arrayListConstructorChromosome(7);
+        TestChromosome duplicateOfA = arrayListConstructorChromosome(5);
+
+        mosa.externalCandidateSources.add(AbstractMOSA.taggedSource(InjectionSource.LLM_STAGNATION,
+                () -> Arrays.asList(candidateA, candidateB, duplicateOfA)));
+
+        mosa.evolve();
+
+        assertEquals(2, mosa.lastGenInjectedCandidatesAdmittedCount,
+                "candidates with the same call shape but different literal arguments "
+                        + "must both be admitted");
+        assertEquals(1, mosa.lastGenInjectedCandidatesDeduplicatedCount,
+                "a byte-identical duplicate (same call shape and literal) must be deduplicated");
+    }
+
+    @Test
+    void dedupSignatureDoesNotBlockLlmCandidateBehindGaEvolvedUnionMember() throws Exception {
+        // A GA-evolved (never injected/tagged) union member with the same call
+        // shape and literal as an incoming LLM candidate must not seed the
+        // dedup set: only previously-injected LLM candidates should do so.
+        InEvolveTestMOSA mosa = new InEvolveTestMOSA(() -> new TestChromosome());
+        mosa.seedPopulation();
+        mosa.replacePopulationMember(0, arrayListConstructorChromosome(5));
+
+        TestChromosome candidate = arrayListConstructorChromosome(5);
+        mosa.externalCandidateSources.add(AbstractMOSA.taggedSource(InjectionSource.LLM_STAGNATION,
+                () -> Collections.singletonList(candidate)));
+
+        mosa.evolve();
+
+        assertEquals(1, mosa.lastGenInjectedCandidatesAdmittedCount,
+                "LLM candidate must be admitted even though an untagged GA-evolved "
+                        + "union member has the same call shape and literal value");
+        assertEquals(0, mosa.lastGenInjectedCandidatesDeduplicatedCount,
+                "untagged GA-evolved union members must not seed the dedup set");
+    }
+
+    /** Builds a {@code new ArrayList<>(capacity)} chromosome for dedup-signature tests. */
+    private static TestChromosome arrayListConstructorChromosome(int capacity) throws Exception {
+        TestCase test = new DefaultTestCase();
+        VariableReference capacityRef = test.addStatement(new IntPrimitiveStatement(test, capacity));
+        GenericConstructor constructor = new GenericConstructor(
+                ArrayList.class.getConstructor(int.class), ArrayList.class);
+        test.addStatement(new ConstructorStatement(test, constructor,
+                Collections.singletonList(capacityRef)));
+        TestChromosome chromosome = new TestChromosome();
+        chromosome.setTestCase(test);
+        return chromosome;
+    }
+
+    @Test
     void mosaShutsDownLlmAssistanceWhenGenerationThrows() {
         ThrowingMOSA mosa = new ThrowingMOSA(() -> new TestChromosome());
 
@@ -359,6 +425,11 @@ class LlmMosaIntegrationTest {
 
         private void setDetector(StagnationDetector detector) {
             this.stagnationDetector = detector;
+        }
+
+        /** Replaces a population member, e.g. with a synthetic GA-evolved chromosome. */
+        void replacePopulationMember(int index, TestChromosome chromosome) {
+            population.set(index, chromosome);
         }
 
         @Override

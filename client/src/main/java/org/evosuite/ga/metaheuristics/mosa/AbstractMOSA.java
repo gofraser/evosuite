@@ -526,6 +526,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 tch.mutate();
             }
             if (tch.isChanged()) {
+                if (isOffspringOrphaned(tch, null,
+                        /*crossoverApplied=*/false,
+                        OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.NOT_CONFIGURED))) {
+                    continue;
+                }
                 tch.updateAge(this.currentIteration);
                 this.calculateFitness(tch);
                 offspringPopulation.add(tch);
@@ -1235,7 +1240,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         Set<TestFitnessFunction> remainingUncoveredBeforeInjection = getUncoveredGoals();
         Set<String> seenInjectedCallSignatures = new HashSet<>();
         int deduplicatedInjectedCandidates = 0;
+        // Only previously-injected LLM candidates seed the dedup set: a
+        // GA-evolved union member that happens to share a call shape with an
+        // LLM candidate must not block that candidate from being admitted.
         for (TestChromosome existing : union) {
+            if (!isLlmInjectionSource(existing.getInjectionSource())) {
+                continue;
+            }
             String existingSignature = injectedCallSequenceSignature(existing);
             if (!existingSignature.isEmpty()) {
                 seenInjectedCallSignatures.add(existingSignature);
@@ -1384,6 +1395,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         .append(constructorStatement.getConstructor().getDeclaringClass().getName())
                         .append('#')
                         .append(constructorStatement.getNumParameters())
+                        .append(literalArgumentsSignature(testCase, constructorStatement))
                         .append(';');
                 callCount++;
                 continue;
@@ -1400,6 +1412,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         .append(method.getName())
                         .append('#')
                         .append(method.getParameterTypes().length)
+                        .append(literalArgumentsSignature(testCase, methodStatement))
                         .append(';');
                 callCount++;
             }
@@ -1412,6 +1425,30 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
         }
         return signature.toString();
+    }
+
+    /**
+     * Renders the primitive/String literal values feeding the parameters of
+     * {@code statement}, so that two calls with the same target but different
+     * argument literals (e.g. the single-axis variants requested by
+     * diagnostic prompts) produce distinct dedup signatures. Parameters that
+     * are themselves the result of another statement (constructor/method
+     * return values) are not rendered here; their shape is already captured
+     * by that statement's own signature segment.
+     */
+    private String literalArgumentsSignature(TestCase testCase, EntityWithParametersStatement statement) {
+        StringBuilder literals = new StringBuilder();
+        for (VariableReference parameter : statement.getParameterReferences()) {
+            int position = parameter.getStPosition();
+            if (position < 0 || position >= testCase.size()) {
+                continue;
+            }
+            Statement source = testCase.getStatement(position);
+            if (source instanceof PrimitiveStatement) {
+                literals.append('|').append(String.valueOf(((PrimitiveStatement<?>) source).getValue()));
+            }
+        }
+        return literals.length() == 0 ? "" : "(" + literals + ")";
     }
 
     private void tagInjectedCandidate(TestChromosome candidate, InjectionSource source) {
@@ -1784,11 +1821,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     public void initializePopulation() {
         logger.info("executing initializePopulation function");
 
-        this.notifySearchStarted();
         this.currentIteration = 0;
 
         // Seed with LLM tests if enabled
         this.seedPopulation();
+
+        this.notifySearchStarted();
 
         // Create a random parent population P0
         this.generateInitialPopulation(Properties.POPULATION);
@@ -1799,17 +1837,20 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     @Override
-    protected void injectInitialSeeds(List<TestChromosome> llmSeeds) {
+    protected int injectInitialSeeds(List<TestChromosome> llmSeeds) {
         if (llmSeeds == null || llmSeeds.isEmpty()) {
-            return;
+            return 0;
         }
+        int injected = 0;
         for (TestChromosome seed : llmSeeds) {
             if (population.size() >= Properties.POPULATION) {
                 break;
             }
             this.fitnessFunctions.forEach(seed::addFitness);
             population.add(seed);
+            injected++;
         }
+        return injected;
     }
 
     /**
