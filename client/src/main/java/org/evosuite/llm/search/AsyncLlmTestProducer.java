@@ -54,6 +54,7 @@ import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 /**
@@ -78,10 +79,25 @@ public class AsyncLlmTestProducer {
     private final Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate =
             Collections.synchronizedMap(new IdentityHashMap<>());
     private final AtomicLong diagnosticCallsAttempted = new AtomicLong();
-    private final AtomicLong diagnosticCallsUsed = new AtomicLong();
+    private final AtomicLong diagnosticCardsUsed = new AtomicLong();
+    private final AtomicLong loopIterations = new AtomicLong();
+    private final AtomicReference<StopReason> stoppedReason =
+            new AtomicReference<>(StopReason.NONE);
     private volatile boolean running = true;
     private static final int GOALS_PER_PROMPT = 3;
     private static final int ASYNC_DIAGNOSTIC_PROBLEM_CARDS_MAX = 2;
+    private static final int CONFIRMED_EMPTY_SNAPSHOTS_BEFORE_STOP = 3;
+    private static final int MIN_SNAPSHOT_RETRY_DELAY_MS = 10;
+    private static final int MAX_SNAPSHOT_RETRY_DELAY_MS = 1000;
+
+    public enum StopReason {
+        NONE,
+        STOP_REQUESTED,
+        INTERRUPTED,
+        LLM_UNAVAILABLE,
+        BUDGET_EXHAUSTED,
+        CONFIRMED_NO_GOALS
+    }
 
     /** Creates a producer using singleton LLM service and Properties-configured settings. */
     public AsyncLlmTestProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
@@ -144,6 +160,7 @@ public class AsyncLlmTestProducer {
 
     /** Stops the producer thread and waits up to 2 seconds for it to terminate. */
     public void stop() {
+        recordStopReason(StopReason.STOP_REQUESTED);
         running = false;
         producerThread.interrupt();
         try {
@@ -151,6 +168,14 @@ public class AsyncLlmTestProducer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    public StopReason getStoppedReason() {
+        return stoppedReason.get();
+    }
+
+    public long getLoopIterations() {
+        return loopIterations.get();
     }
 
     /** Drains and returns all currently queued test chromosomes without blocking. */
@@ -182,32 +207,57 @@ public class AsyncLlmTestProducer {
         Collection<TestFitnessFunction> currentGoals = Collections.emptyList();
         List<TestCase> currentTests = Collections.emptyList();
         List<ProblemCard> cachedDiagnosticCards = Collections.emptyList();
+        int consecutiveConfirmedEmptySnapshots = 0;
+        int consecutiveSnapshotFailures = 0;
 
         while (running) {
-            if (!llmService.isAvailable() || !llmService.hasBudget()) {
+            long iterations = loopIterations.incrementAndGet();
+            ClientServices.track(RuntimeVariable.LLM_AsyncProducer_LoopIterations, iterations);
+            if (!llmService.isAvailable()) {
+                recordStopReason(StopReason.LLM_UNAVAILABLE);
+                break;
+            }
+            if (!llmService.hasBudget()) {
+                recordStopReason(StopReason.BUDGET_EXHAUSTED);
                 break;
             }
 
             if (generatedSinceRefresh >= refreshInterval || currentGoals.isEmpty()) {
-                currentGoals = safeGoalsSnapshot();
+                GoalsSnapshot snapshot = safeGoalsSnapshot();
+                if (snapshot.failed()) {
+                    consecutiveSnapshotFailures++;
+                    sleepSnapshotRetry(consecutiveSnapshotFailures);
+                    continue;
+                }
+                consecutiveSnapshotFailures = 0;
+                currentGoals = snapshot.goals();
+                if (currentGoals.isEmpty()) {
+                    consecutiveConfirmedEmptySnapshots++;
+                    if (consecutiveConfirmedEmptySnapshots >= CONFIRMED_EMPTY_SNAPSHOTS_BEFORE_STOP) {
+                        recordStopReason(StopReason.CONFIRMED_NO_GOALS);
+                        break;
+                    }
+                    sleepSnapshotRetry(consecutiveConfirmedEmptySnapshots);
+                    continue;
+                }
+                consecutiveConfirmedEmptySnapshots = 0;
                 List<TestChromosome> populationChromosomes = safeChromosomeSnapshot();
                 currentTests = projectTestCases(populationChromosomes, currentGoals);
                 cachedDiagnosticCards = maybeComputeDiagnosticCards(currentGoals, populationChromosomes);
                 generatedSinceRefresh = 0;
-                if (currentGoals.isEmpty()) {
-                    break;
-                }
             }
 
             PromptResult prompt;
             List<ProblemCardType> cardTypes;
-            if (shouldUseDiagnosticPrompt() && !cachedDiagnosticCards.isEmpty()) {
+            if (shouldUseDiagnosticPrompt()) {
                 ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls,
                         diagnosticCallsAttempted.incrementAndGet());
+            }
+            if (shouldUseDiagnosticPrompt() && !cachedDiagnosticCards.isEmpty()) {
                 prompt = buildDiagnosticPromptForAsync(currentGoals, currentTests, cachedDiagnosticCards);
                 cardTypes = extractCardTypes(cachedDiagnosticCards);
                 ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used,
-                        diagnosticCallsUsed.incrementAndGet());
+                        diagnosticCardsUsed.addAndGet(cardTypes.size()));
             } else {
                 Collection<TestFitnessFunction> promptGoals = selectPromptGoals(currentGoals);
                 if (promptGoals.isEmpty()) {
@@ -222,13 +272,11 @@ public class AsyncLlmTestProducer {
                     ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
                     : repeatedInjectionMemory.registerAttempt(prompt.getRepeatedInjectionTargets(), true);
             try {
-                String response = llmService.query(prompt, LlmFeature.ASYNC_PRODUCER);
-                RepairResult result = repairLoop.attemptParse(
-                        response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
-                if (result.isSuccess()) {
+                List<TestChromosome> candidates = requestCandidates(prompt, repairLoop);
+                if (!candidates.isEmpty()) {
                     boolean producedAny = false;
                     int published = 0;
-                    for (TestChromosome chromosome : result.toChromosomes()) {
+                    for (TestChromosome chromosome : candidates) {
                         try {
                             if (!cardTypes.isEmpty()) {
                                 chromosome.setDiagnosticCardTypes(cardTypes);
@@ -243,6 +291,7 @@ public class AsyncLlmTestProducer {
                             published++;
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
+                            recordStopReason(StopReason.INTERRUPTED);
                             if (repeatedInjectionMemory != null && !registration.isEmpty()) {
                                 repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
                             }
@@ -264,6 +313,7 @@ public class AsyncLlmTestProducer {
                 if (repeatedInjectionMemory != null && !registration.isEmpty()) {
                     repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
                 }
+                recordStopReason(StopReason.BUDGET_EXHAUSTED);
                 break;
             } catch (LlmCallFailedException e) {
                 logger.debug("Async LLM producer call failed: {}", e.getMessage());
@@ -279,6 +329,18 @@ public class AsyncLlmTestProducer {
                 sleepDelay();
             }
         }
+        if (stoppedReason.get() == StopReason.NONE && !running) {
+            recordStopReason(Thread.currentThread().isInterrupted()
+                    ? StopReason.INTERRUPTED : StopReason.STOP_REQUESTED);
+        }
+    }
+
+    /** Queries the LLM and parses candidate tests for one producer iteration. */
+    protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
+        String response = llmService.query(prompt, LlmFeature.ASYNC_PRODUCER);
+        RepairResult result = repairLoop.attemptParse(
+                response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
+        return result.isSuccess() ? result.toChromosomes() : Collections.emptyList();
     }
 
     private boolean shouldUseDiagnosticPrompt() {
@@ -506,28 +568,73 @@ public class AsyncLlmTestProducer {
         return new RepeatedInjectionTarget(key, fingerprint);
     }
 
-    private Collection<TestFitnessFunction> safeGoalsSnapshot() {
+    private GoalsSnapshot safeGoalsSnapshot() {
         try {
             Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
             if (goals == null || goals.isEmpty()) {
-                return Collections.emptyList();
+                return GoalsSnapshot.success(Collections.emptyList());
             }
-            return new ArrayList<>(goals);
+            return GoalsSnapshot.success(new ArrayList<>(goals));
         } catch (RuntimeException e) {
             logger.debug("Async producer goal snapshot failed: {}", e.getMessage());
-            return Collections.emptyList();
+            return GoalsSnapshot.failure();
+        }
+    }
+
+    private void recordStopReason(StopReason reason) {
+        if (reason != null && reason != StopReason.NONE
+                && stoppedReason.compareAndSet(StopReason.NONE, reason)) {
+            ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Stopped_Reason, reason.name());
         }
     }
 
     private void sleepDelay() {
-        if (delayMs <= 0) {
+        sleep(delayMs);
+    }
+
+    private void sleepSnapshotRetry(int consecutiveAttempts) {
+        int exponent = Math.min(6, Math.max(0, consecutiveAttempts - 1));
+        long baseDelay = Math.max(MIN_SNAPSHOT_RETRY_DELAY_MS, delayMs);
+        long retryDelay = Math.min(MAX_SNAPSHOT_RETRY_DELAY_MS, baseDelay << exponent);
+        sleep((int) retryDelay);
+    }
+
+    private void sleep(int millis) {
+        if (millis <= 0) {
             return;
         }
         try {
-            Thread.sleep(delayMs);
+            Thread.sleep(millis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            recordStopReason(StopReason.INTERRUPTED);
             running = false;
+        }
+    }
+
+    private static final class GoalsSnapshot {
+        private final Collection<TestFitnessFunction> goals;
+        private final boolean failed;
+
+        private GoalsSnapshot(Collection<TestFitnessFunction> goals, boolean failed) {
+            this.goals = goals;
+            this.failed = failed;
+        }
+
+        private static GoalsSnapshot success(Collection<TestFitnessFunction> goals) {
+            return new GoalsSnapshot(goals, false);
+        }
+
+        private static GoalsSnapshot failure() {
+            return new GoalsSnapshot(Collections.emptyList(), true);
+        }
+
+        private Collection<TestFitnessFunction> goals() {
+            return goals;
+        }
+
+        private boolean failed() {
+            return failed;
         }
     }
 }

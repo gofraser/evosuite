@@ -704,6 +704,10 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio, 0.0);
         ClientServices.track(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline, 0.0);
         ClientServices.track(RuntimeVariable.LLM_StagnationCalls, 0);
+        ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls, 0);
+        ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used, 0);
+        ClientServices.track(RuntimeVariable.LLM_AsyncProducer_LoopIterations, 0);
+        ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Stopped_Reason, "");
         ClientServices.track(RuntimeVariable.LLM_StagnationPromptsSubmitted, 0);
         ClientServices.track(RuntimeVariable.LLM_StagnationResponsesReceived, 0);
         ClientServices.track(RuntimeVariable.LLM_StagnationTestsPublished, 0);

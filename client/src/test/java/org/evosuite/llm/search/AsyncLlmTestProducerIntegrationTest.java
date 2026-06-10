@@ -30,8 +30,9 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -150,6 +151,34 @@ class AsyncLlmTestProducerIntegrationTest {
             producer.stop();
             service.close();
             Properties.LLM_ASYNC_PRODUCER_PROMPT = previousMode;
+        }
+    }
+
+    @Test
+    void asyncProducerStopsAfterConsecutiveConfirmedEmptySnapshots() throws Exception {
+        LlmService service = mock(LlmService.class);
+        when(service.isAvailable()).thenReturn(true);
+        when(service.hasBudget()).thenReturn(true);
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                Collections::emptyList,
+                null,
+                service,
+                1,
+                1,
+                1);
+
+        try {
+            producer.start();
+            long deadline = System.currentTimeMillis() + 2000L;
+            while (producer.getStoppedReason() == AsyncLlmTestProducer.StopReason.NONE
+                    && System.currentTimeMillis() < deadline) {
+                Thread.sleep(10L);
+            }
+            assertEquals(AsyncLlmTestProducer.StopReason.CONFIRMED_NO_GOALS,
+                    producer.getStoppedReason());
+            assertEquals(3L, producer.getLoopIterations());
+        } finally {
+            producer.stop();
         }
     }
 

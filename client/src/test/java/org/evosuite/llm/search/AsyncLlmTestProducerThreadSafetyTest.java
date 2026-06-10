@@ -21,6 +21,8 @@ package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -31,10 +33,14 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class AsyncLlmTestProducerThreadSafetyTest {
 
@@ -71,6 +77,51 @@ class AsyncLlmTestProducerThreadSafetyTest {
                     "Live chromosome fitness cache must not be mutated by async snapshot ranking");
         } finally {
             Properties.LLM_RELEVANCE_BASED_TEST_SELECTION = oldSelection;
+        }
+    }
+
+    @Test
+    void transientGoalSnapshotFailureDoesNotStopProduction() throws Exception {
+        LlmService service = mock(LlmService.class);
+        when(service.isAvailable()).thenReturn(true);
+        when(service.hasBudget()).thenReturn(true);
+        TestFitnessFunction goal = new FixedFitnessGoal("example.Target", "method()V", 1.0);
+        AtomicInteger snapshots = new AtomicInteger();
+        AsyncLlmTestProducer producer = new StubProducingAsyncLlmTestProducer(
+                () -> {
+                    if (snapshots.getAndIncrement() == 0) {
+                        throw new java.util.ConcurrentModificationException("transient snapshot race");
+                    }
+                    return Collections.singleton(goal);
+                },
+                service);
+
+        try {
+            producer.start();
+            List<TestChromosome> produced = Collections.emptyList();
+            long deadline = System.currentTimeMillis() + 2000L;
+            while (produced.isEmpty() && System.currentTimeMillis() < deadline) {
+                Thread.sleep(10L);
+                produced = producer.drainAvailable();
+            }
+            assertFalse(produced.isEmpty(), "transient snapshot failure must not kill the producer");
+            assertTrue(snapshots.get() >= 2);
+        } finally {
+            producer.stop();
+        }
+    }
+
+    private static final class StubProducingAsyncLlmTestProducer extends AsyncLlmTestProducer {
+
+        private StubProducingAsyncLlmTestProducer(
+                Supplier<Collection<TestFitnessFunction>> goalsSupplier,
+                LlmService service) {
+            super(goalsSupplier, null, service, 1, 1, 1);
+        }
+
+        @Override
+        protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
+            return Collections.singletonList(new TestChromosome());
         }
     }
 
