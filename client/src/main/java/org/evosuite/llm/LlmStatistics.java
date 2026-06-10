@@ -46,7 +46,11 @@ public class LlmStatistics {
      * stopping conditions when {@code LLM_FAIR_BUDGET_ACCOUNTING} is enabled so
      * that the elapsed enrichment time is deducted from the search budget.
      */
-    private static final AtomicLong enrichmentElapsedMs = new AtomicLong();
+    private static final AtomicLong poolEnrichmentElapsedMs = new AtomicLong();
+    private static final AtomicLong initialPopulationElapsedMs = new AtomicLong();
+    private static final AtomicLong initialPopulationCandidatesValidated = new AtomicLong();
+    private static final AtomicLong initialPopulationCandidatesQueued = new AtomicLong();
+    private static final AtomicLong initialPopulationCandidatesInjected = new AtomicLong();
     private static final AtomicLong sutConstantsAdded = new AtomicLong();
     private static final AtomicLong nonSutConstantsAdded = new AtomicLong();
     private static final AtomicLong objectPoolSequencesAdded = new AtomicLong();
@@ -96,19 +100,64 @@ public class LlmStatistics {
         }
     }
 
-    /** Records the wall-clock time spent on pre-search pool enrichment. */
+    /** Records the wall-clock time spent blocking on pre-search pool enrichment. */
     public static void recordEnrichmentElapsedMs(long elapsedMs) {
-        enrichmentElapsedMs.set(Math.max(0L, elapsedMs));
+        recordPoolEnrichmentElapsedMs(elapsedMs);
     }
 
-    /** Returns the recorded pre-search enrichment wall-clock time in ms, or 0 when unset. */
+    /** Returns the pool-enrichment blocking time; retained for source compatibility. */
     public static long getEnrichmentElapsedMs() {
-        return enrichmentElapsedMs.get();
+        return getPoolEnrichmentElapsedMs();
     }
 
-    /** Resets the process-wide enrichment elapsed counter (test/utility use). */
+    /** Resets all pre-search timing counters (test/utility use). */
     public static void resetEnrichmentElapsedMs() {
-        enrichmentElapsedMs.set(0L);
+        poolEnrichmentElapsedMs.set(0L);
+        initialPopulationElapsedMs.set(0L);
+    }
+
+    public static void recordPoolEnrichmentElapsedMs(long elapsedMs) {
+        poolEnrichmentElapsedMs.set(Math.max(0L, elapsedMs));
+    }
+
+    public static long getPoolEnrichmentElapsedMs() {
+        return poolEnrichmentElapsedMs.get();
+    }
+
+    public static void recordInitialPopulationElapsedMs(long elapsedMs) {
+        initialPopulationElapsedMs.set(Math.max(0L, elapsedMs));
+    }
+
+    public static long getInitialPopulationElapsedMs() {
+        return initialPopulationElapsedMs.get();
+    }
+
+    public static long getTotalPreSearchElapsedMs() {
+        return getPoolEnrichmentElapsedMs() + getInitialPopulationElapsedMs();
+    }
+
+    public static void recordInitialPopulationCandidatesValidated(long count) {
+        addPositive(initialPopulationCandidatesValidated, count);
+    }
+
+    public static void recordInitialPopulationCandidatesQueued(long count) {
+        addPositive(initialPopulationCandidatesQueued, count);
+    }
+
+    public static void recordInitialPopulationCandidatesInjected(long count) {
+        addPositive(initialPopulationCandidatesInjected, count);
+    }
+
+    public static long getInitialPopulationCandidatesValidated() {
+        return initialPopulationCandidatesValidated.get();
+    }
+
+    public static long getInitialPopulationCandidatesQueued() {
+        return initialPopulationCandidatesQueued.get();
+    }
+
+    public static long getInitialPopulationCandidatesInjected() {
+        return initialPopulationCandidatesInjected.get();
     }
 
     /** Records accepted constants added to the SUT constant pool. */
@@ -169,6 +218,9 @@ public class LlmStatistics {
         objectPoolSequencesAdded.set(0L);
         castClassSuggestions.set(0L);
         castClassesAccepted.set(0L);
+        initialPopulationCandidatesValidated.set(0L);
+        initialPopulationCandidatesQueued.set(0L);
+        initialPopulationCandidatesInjected.set(0L);
     }
 
     /**
@@ -181,6 +233,12 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, getSutConstantsAdded());
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_NonSUT, getNonSutConstantsAdded());
         ClientServices.track(RuntimeVariable.LLM_Object_Pool_Sequences_Added, getObjectPoolSequencesAdded());
+        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Validated,
+                getInitialPopulationCandidatesValidated());
+        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Queued,
+                getInitialPopulationCandidatesQueued());
+        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Injected,
+                getInitialPopulationCandidatesInjected());
     }
 
     /** Records all extracted problem cards before selection/truncation. */
@@ -551,7 +609,12 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Input_Tokens, getInputTokens());
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, getOutputTokens());
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, getTotalLatencyMs());
-        ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, getEnrichmentElapsedMs());
+        ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, getPoolEnrichmentElapsedMs());
+        ClientServices.track(RuntimeVariable.LLM_Pool_Enrichment_Elapsed_Millis, getPoolEnrichmentElapsedMs());
+        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Elapsed_Millis,
+                getInitialPopulationElapsedMs());
+        ClientServices.track(RuntimeVariable.LLM_Total_Pre_Search_Elapsed_Millis,
+                getTotalPreSearchElapsedMs());
         flushSeedingMetrics();
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted, getDiagnosticCardsExtracted());
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
@@ -610,6 +673,12 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Output_Tokens, 0);
         ClientServices.track(RuntimeVariable.LLM_Latency_Millis, 0);
         ClientServices.track(RuntimeVariable.LLM_Enrichment_Elapsed_Millis, 0);
+        ClientServices.track(RuntimeVariable.LLM_Pool_Enrichment_Elapsed_Millis, 0);
+        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Elapsed_Millis, 0);
+        ClientServices.track(RuntimeVariable.LLM_Total_Pre_Search_Elapsed_Millis, 0);
+        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Validated, 0);
+        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Queued, 0);
+        ClientServices.track(RuntimeVariable.LLM_Initial_Population_Candidates_Injected, 0);
         ClientServices.track(RuntimeVariable.LLM_Cast_Class_Suggestions, 0);
         ClientServices.track(RuntimeVariable.LLM_Cast_Class_Accepted, 0);
         ClientServices.track(RuntimeVariable.LLM_Constants_Added_SUT, 0);
@@ -711,8 +780,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_IndirectReachabilityBarrier;
+            case TYPE_NEVER_ATTEMPTED:
+                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_TypeNeverAttempted;
             default:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted;
+                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
     }
 
@@ -797,8 +868,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Cards_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Cards_IndirectReachabilityBarrier;
+            case TYPE_NEVER_ATTEMPTED:
+                return RuntimeVariable.LLM_Diagnostic_Cards_TypeNeverAttempted;
             default:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Selected;
+                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
     }
 
@@ -823,8 +896,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_IndirectReachabilityBarrier;
+            case TYPE_NEVER_ATTEMPTED:
+                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_TypeNeverAttempted;
             default:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains;
+                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
     }
 
@@ -912,8 +987,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Published_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Published_IndirectReachabilityBarrier;
+            case TYPE_NEVER_ATTEMPTED:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_TypeNeverAttempted;
             default:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published;
+                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
     }
 
@@ -938,8 +1015,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_IndirectReachabilityBarrier;
+            case TYPE_NEVER_ATTEMPTED:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_TypeNeverAttempted;
             default:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted;
+                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
     }
 
@@ -964,8 +1043,10 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_IndirectReachabilityBarrier;
+            case TYPE_NEVER_ATTEMPTED:
+                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_TypeNeverAttempted;
             default:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived;
+                throw new IllegalArgumentException("Unhandled diagnostic card type: " + type);
         }
     }
 

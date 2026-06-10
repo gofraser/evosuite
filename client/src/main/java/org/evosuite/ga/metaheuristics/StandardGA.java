@@ -121,11 +121,12 @@ public class StandardGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
      */
     @Override
     public void initializePopulation() {
-        notifySearchStarted();
         currentIteration = 0;
 
         // Seed with LLM tests if enabled
         this.seedPopulation();
+
+        notifySearchStarted();
 
         // Set up initial population
         generateInitialPopulation(Properties.POPULATION);

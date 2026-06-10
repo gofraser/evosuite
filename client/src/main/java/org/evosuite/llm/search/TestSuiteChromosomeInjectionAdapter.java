@@ -52,17 +52,17 @@ public class TestSuiteChromosomeInjectionAdapter
             LoggerFactory.getLogger(TestSuiteChromosomeInjectionAdapter.class);
 
     @Override
-    public void inject(List<TestChromosome> tests,
-                       List<TestSuiteChromosome> population,
-                       List<FitnessFunction<TestSuiteChromosome>> fitnessFunctions,
-                       int populationLimit) {
+    public int inject(List<TestChromosome> tests,
+                      List<TestSuiteChromosome> population,
+                      List<FitnessFunction<TestSuiteChromosome>> fitnessFunctions,
+                      int populationLimit) {
         if (tests == null || tests.isEmpty()) {
-            return;
+            return 0;
         }
         if (population.isEmpty()) {
             logger.debug("WholeSuite population is empty; creating new suite from {} LLM test(s)", tests.size());
             injectAsNewSuite(tests, population, fitnessFunctions);
-            return;
+            return tests.size();
         }
 
         boolean maximization = !fitnessFunctions.isEmpty()
@@ -96,6 +96,7 @@ public class TestSuiteChromosomeInjectionAdapter
                 population.remove(population.size() - 1);
             }
         }
+        return tests.size();
     }
 
     private void injectAsNewSuite(List<TestChromosome> tests,

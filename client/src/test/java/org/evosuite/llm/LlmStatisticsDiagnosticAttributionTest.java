@@ -24,8 +24,10 @@ import org.evosuite.llm.search.ExtractorCandidateMetric;
 import org.evosuite.llm.search.ExtractorRejectReason;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
+import org.evosuite.statistics.RuntimeVariable;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -69,14 +71,16 @@ class LlmStatisticsDiagnosticAttributionTest {
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.BRANCH_POLARITY_GAP, 1);
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.STATE_DIVERSIFICATION_GAP, 4);
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.UNINSTANTIABLE_TYPE, 3);
+        LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.TYPE_NEVER_ATTEMPTED, 6);
         LlmStatistics.recordDiagnosticCoverageGain(null, 5);
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.CDG_BOTTLENECK, 0);
 
-        assertEquals(10L, LlmStatistics.getDiagnosticCoverageGains());
+        assertEquals(16L, LlmStatistics.getDiagnosticCoverageGains());
         assertEquals(2L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.UNREACHED_METHOD));
         assertEquals(1L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.BRANCH_POLARITY_GAP));
         assertEquals(4L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.STATE_DIVERSIFICATION_GAP));
         assertEquals(3L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.UNINSTANTIABLE_TYPE));
+        assertEquals(6L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.TYPE_NEVER_ATTEMPTED));
         assertEquals(0L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.CDG_BOTTLENECK));
     }
 
@@ -88,22 +92,34 @@ class LlmStatisticsDiagnosticAttributionTest {
                 ProblemCardType.STATE_DIVERSIFICATION_GAP,
                 ProblemCardType.EXCEPTION_BARRIER,
                 ProblemCardType.STATE_DIVERSIFICATION_GAP), 2);
+        LlmStatistics.recordDiagnosticCandidatesPublished(
+                Collections.singletonList(ProblemCardType.TYPE_NEVER_ATTEMPTED), 4);
         LlmStatistics.recordDiagnosticCandidatesAdmitted(
                 Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP), 1);
+        LlmStatistics.recordDiagnosticCandidatesAdmitted(
+                Collections.singletonList(ProblemCardType.TYPE_NEVER_ATTEMPTED), 3);
         LlmStatistics.recordDiagnosticCandidatesSurvived(
                 Collections.singletonList(ProblemCardType.STATE_DIVERSIFICATION_GAP), 1);
+        LlmStatistics.recordDiagnosticCandidatesSurvived(
+                Collections.singletonList(ProblemCardType.TYPE_NEVER_ATTEMPTED), 2);
 
-        assertEquals(2L, LlmStatistics.getDiagnosticCandidatesPublished());
+        assertEquals(6L, LlmStatistics.getDiagnosticCandidatesPublished());
         assertEquals(2L, LlmStatistics.getDiagnosticCandidatesPublished(
                 ProblemCardType.STATE_DIVERSIFICATION_GAP));
         assertEquals(2L, LlmStatistics.getDiagnosticCandidatesPublished(
                 ProblemCardType.EXCEPTION_BARRIER));
-        assertEquals(1L, LlmStatistics.getDiagnosticCandidatesAdmitted());
+        assertEquals(4L, LlmStatistics.getDiagnosticCandidatesPublished(
+                ProblemCardType.TYPE_NEVER_ATTEMPTED));
+        assertEquals(4L, LlmStatistics.getDiagnosticCandidatesAdmitted());
         assertEquals(1L, LlmStatistics.getDiagnosticCandidatesAdmitted(
                 ProblemCardType.STATE_DIVERSIFICATION_GAP));
-        assertEquals(1L, LlmStatistics.getDiagnosticCandidatesSurvived());
+        assertEquals(3L, LlmStatistics.getDiagnosticCandidatesAdmitted(
+                ProblemCardType.TYPE_NEVER_ATTEMPTED));
+        assertEquals(3L, LlmStatistics.getDiagnosticCandidatesSurvived());
         assertEquals(1L, LlmStatistics.getDiagnosticCandidatesSurvived(
                 ProblemCardType.STATE_DIVERSIFICATION_GAP));
+        assertEquals(2L, LlmStatistics.getDiagnosticCandidatesSurvived(
+                ProblemCardType.TYPE_NEVER_ATTEMPTED));
     }
 
     @Test
@@ -130,16 +146,53 @@ class LlmStatisticsDiagnosticAttributionTest {
                 problemCard(ProblemCardType.EXCEPTION_BARRIER),
                 problemCard(ProblemCardType.STATE_DIVERSIFICATION_GAP),
                 problemCard(ProblemCardType.STATE_SETUP_BARRIER),
-                problemCard(ProblemCardType.INDIRECT_REACHABILITY_BARRIER)));
+                problemCard(ProblemCardType.INDIRECT_REACHABILITY_BARRIER),
+                problemCard(ProblemCardType.TYPE_NEVER_ATTEMPTED)));
         LlmStatistics.recordDiagnosticCardsExtracted(Collections.singletonList(null));
 
-        assertEquals(6L, LlmStatistics.getDiagnosticCardsExtracted());
+        assertEquals(7L, LlmStatistics.getDiagnosticCardsExtracted());
         assertEquals(2L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.UNREACHED_METHOD));
         assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.EXCEPTION_BARRIER));
         assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.STATE_DIVERSIFICATION_GAP));
         assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.STATE_SETUP_BARRIER));
         assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.INDIRECT_REACHABILITY_BARRIER));
+        assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.TYPE_NEVER_ATTEMPTED));
         assertEquals(0L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.CDG_BOTTLENECK));
+    }
+
+    @Test
+    void recordsSelectedCardsByDiagnosticCardType() {
+        LlmStatistics.resetDiagnosticCardCounters();
+
+        LlmStatistics.recordDiagnosticCardsSelected(Arrays.asList(
+                problemCard(ProblemCardType.TYPE_NEVER_ATTEMPTED),
+                problemCard(ProblemCardType.BRANCH_POLARITY_GAP)));
+
+        assertEquals(2L, LlmStatistics.getDiagnosticCardsSelected());
+        assertEquals(1L, LlmStatistics.getDiagnosticCardsSelected(ProblemCardType.TYPE_NEVER_ATTEMPTED));
+        assertEquals(1L, LlmStatistics.getDiagnosticCardsSelected(ProblemCardType.BRANCH_POLARITY_GAP));
+    }
+
+    @Test
+    void concreteProblemCardTypesDoNotMapToAggregateRuntimeVariables() throws Exception {
+        assertPerTypeMapping("toExtractedRuntimeVariable",
+                RuntimeVariable.LLM_Diagnostic_Cards_Extracted,
+                RuntimeVariable.LLM_Diagnostic_Cards_Extracted_TypeNeverAttempted);
+        assertPerTypeMapping("toRuntimeVariable",
+                RuntimeVariable.LLM_Diagnostic_Cards_Selected,
+                RuntimeVariable.LLM_Diagnostic_Cards_TypeNeverAttempted);
+        assertPerTypeMapping("toPublishedCandidateRuntimeVariable",
+                RuntimeVariable.LLM_Diagnostic_Candidates_Published,
+                RuntimeVariable.LLM_Diagnostic_Candidates_Published_TypeNeverAttempted);
+        assertPerTypeMapping("toAdmittedCandidateRuntimeVariable",
+                RuntimeVariable.LLM_Diagnostic_Candidates_Admitted,
+                RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_TypeNeverAttempted);
+        assertPerTypeMapping("toSurvivedCandidateRuntimeVariable",
+                RuntimeVariable.LLM_Diagnostic_Candidates_Survived,
+                RuntimeVariable.LLM_Diagnostic_Candidates_Survived_TypeNeverAttempted);
+        assertPerTypeMapping("toCoverageGainRuntimeVariable",
+                RuntimeVariable.LLM_Diagnostic_Coverage_Gains,
+                RuntimeVariable.LLM_Diagnostic_Coverage_Gains_TypeNeverAttempted);
     }
 
     @Test
@@ -221,5 +274,23 @@ class LlmStatisticsDiagnosticAttributionTest {
                 .blockage(0.8)
                 .confidence(0.9)
                 .build();
+    }
+
+    private static void assertPerTypeMapping(String methodName,
+                                             RuntimeVariable aggregateVariable,
+                                             RuntimeVariable expectedTypeNeverAttemptedVariable) throws Exception {
+        Method method = LlmStatistics.class.getDeclaredMethod(methodName, ProblemCardType.class);
+        method.setAccessible(true);
+
+        for (ProblemCardType type : ProblemCardType.values()) {
+            RuntimeVariable mapped = (RuntimeVariable) method.invoke(null, type);
+            if (type == ProblemCardType.TYPE_NEVER_ATTEMPTED) {
+                assertEquals(expectedTypeNeverAttemptedVariable, mapped);
+            }
+            if (type != null) {
+                org.junit.jupiter.api.Assertions.assertNotEquals(aggregateVariable, mapped,
+                        type + " must have a dedicated per-type runtime variable");
+            }
+        }
     }
 }

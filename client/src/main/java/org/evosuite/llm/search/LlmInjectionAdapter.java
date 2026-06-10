@@ -52,8 +52,8 @@ public interface LlmInjectionAdapter<T extends Chromosome<T>> {
      * @param fitnessFunctions  fitness functions to assign to injected individuals
      * @param populationLimit   maximum population size (0 = no limit)
      */
-    void inject(List<TestChromosome> tests,
-                List<T> population,
-                List<FitnessFunction<T>> fitnessFunctions,
-                int populationLimit);
+    int inject(List<TestChromosome> tests,
+               List<T> population,
+               List<FitnessFunction<T>> fitnessFunctions,
+               int populationLimit);
 }

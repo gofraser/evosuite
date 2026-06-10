@@ -38,18 +38,24 @@ public class TestChromosomeInjectionAdapter implements LlmInjectionAdapter<TestC
     private static final Logger logger = LoggerFactory.getLogger(TestChromosomeInjectionAdapter.class);
 
     @Override
-    public void inject(List<TestChromosome> tests,
-                       List<TestChromosome> population,
-                       List<FitnessFunction<TestChromosome>> fitnessFunctions,
-                       int populationLimit) {
+    public int inject(List<TestChromosome> tests,
+                      List<TestChromosome> population,
+                      List<FitnessFunction<TestChromosome>> fitnessFunctions,
+                      int populationLimit) {
         if (tests == null || tests.isEmpty()) {
-            return;
+            return 0;
         }
+        int injected = 0;
         for (TestChromosome test : tests) {
+            if (populationLimit > 0 && population.size() >= populationLimit) {
+                break;
+            }
             fitnessFunctions.forEach(test::addFitness);
             population.add(test);
+            injected++;
         }
         logger.debug("Injected {} LLM-generated TestChromosome(s) into population (size={})",
-                tests.size(), population.size());
+                injected, population.size());
+        return injected;
     }
 }

@@ -26,6 +26,7 @@ import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Paths;
@@ -55,6 +56,18 @@ class LlmSeededPopulationFactoryIntegrationTest {
                     "  }\n" +
                     "}\n" +
                     "```";
+
+    @BeforeEach
+    void resetMetrics() {
+        LlmStatistics.resetSeedingCounters();
+        LlmStatistics.resetEnrichmentElapsedMs();
+    }
+
+    @AfterEach
+    void clearMetrics() {
+        LlmStatistics.resetSeedingCounters();
+        LlmStatistics.resetEnrichmentElapsedMs();
+    }
 
     @Test
     void seedsAreConsumedBeforeFallbackFactory() {
@@ -132,6 +145,8 @@ class LlmSeededPopulationFactoryIntegrationTest {
 
             assertEquals(1, factory.awaitAndDrainSeeds(1000L).size(),
                     "seed should be merged exactly once when awaiting");
+            assertEquals(1L, LlmStatistics.getInitialPopulationCandidatesValidated());
+            assertEquals(1L, LlmStatistics.getInitialPopulationCandidatesQueued());
             assertTrue(factory.awaitAndDrainSeeds(1000L).isEmpty(),
                     "draining again should not re-merge the same async seed");
 
@@ -255,6 +270,10 @@ class LlmSeededPopulationFactoryIntegrationTest {
 
             assertEquals(1, seeds.size(),
                     "orchestrator timeout should retain the already validated partial seed");
+            assertEquals(0L, LlmStatistics.getInitialPopulationCandidatesValidated(),
+                    "a timed-out final repair has no final validated result");
+            assertEquals(1L, LlmStatistics.getInitialPopulationCandidatesQueued(),
+                    "the retained partial seed is still queued");
             assertNotSame(fallbackChromosome, seeds.get(0));
             assertTrue(seeds.get(0).getTestCase().toCode().contains("keptTest-marker"),
                     "Retained partial seed should be the kept test, identified by its marker literal");

@@ -40,12 +40,14 @@ class LlmStatisticsShutdownTest {
     @BeforeEach
     void resetCounters() {
         LlmStatistics.resetSeedingCounters();
+        LlmStatistics.resetEnrichmentElapsedMs();
         LlmStatistics.resetDiagnosticCardCounters();
     }
 
     @AfterEach
     void tearDown() {
         LlmStatistics.resetSeedingCounters();
+        LlmStatistics.resetEnrichmentElapsedMs();
         LlmStatistics.resetDiagnosticCardCounters();
     }
 
@@ -56,6 +58,11 @@ class LlmStatisticsShutdownTest {
         LlmStatistics.recordObjectPoolSequencesAdded(3);
         LlmStatistics.recordCastClassSuggestions(7);
         LlmStatistics.recordCastClassesAccepted(4);
+        LlmStatistics.recordInitialPopulationCandidatesValidated(6);
+        LlmStatistics.recordInitialPopulationCandidatesQueued(5);
+        LlmStatistics.recordInitialPopulationCandidatesInjected(4);
+        LlmStatistics.recordPoolEnrichmentElapsedMs(1200L);
+        LlmStatistics.recordInitialPopulationElapsedMs(800L);
 
         // Simulates GeneticAlgorithm#shutdownLlmAssistance taking the
         // "no stagnation, but LLM provider may have been enabled" path.
@@ -68,6 +75,12 @@ class LlmStatisticsShutdownTest {
                 "object pool sequences populated by pre-search enrichment must survive shutdown defaults");
         assertEquals(7L, LlmStatistics.getCastClassSuggestions());
         assertEquals(4L, LlmStatistics.getCastClassesAccepted());
+        assertEquals(6L, LlmStatistics.getInitialPopulationCandidatesValidated());
+        assertEquals(5L, LlmStatistics.getInitialPopulationCandidatesQueued());
+        assertEquals(4L, LlmStatistics.getInitialPopulationCandidatesInjected());
+        assertEquals(1200L, LlmStatistics.getPoolEnrichmentElapsedMs());
+        assertEquals(800L, LlmStatistics.getInitialPopulationElapsedMs());
+        assertEquals(2000L, LlmStatistics.getTotalPreSearchElapsedMs());
     }
 
     @Test

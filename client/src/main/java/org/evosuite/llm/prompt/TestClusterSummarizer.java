@@ -28,10 +28,13 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -775,33 +778,88 @@ public class TestClusterSummarizer {
      * Collects fully qualified names of types that appear as constructor parameters,
      * public method parameters, or public method return types of the CUT (direct dependencies).
      */
-    private Set<String> collectDirectDependencies(TestCluster cluster, String targetClassName) {
+    Set<String> collectDirectDependencies(TestCluster cluster, String targetClassName) {
         Set<String> deps = new HashSet<>();
         String targetPackageName = extractPackageName(targetClassName);
+        Set<Class<?>> referencedClasses = new HashSet<>();
         try {
             Class<?> cutClass = Class.forName(targetClassName, false,
                     Thread.currentThread().getContextClassLoader());
-            // Constructor parameter types
+            // Constructor parameter types (generic-aware)
             for (Constructor<?> ctor : cutClass.getConstructors()) {
-                for (Class<?> paramType : ctor.getParameterTypes()) {
-                    addIfRelevant(deps, paramType, targetPackageName);
+                for (Type paramType : ctor.getGenericParameterTypes()) {
+                    collectClassesFromType(paramType, referencedClasses);
                 }
             }
-            // Public method parameter and return types
+            // Public method parameter and return types (generic-aware)
             for (Method method : cutClass.getMethods()) {
                 if (!Modifier.isPublic(method.getModifiers()) || method.getDeclaringClass() == Object.class) {
                     continue;
                 }
-                for (Class<?> paramType : method.getParameterTypes()) {
-                    addIfRelevant(deps, paramType, targetPackageName);
+                for (Type paramType : method.getGenericParameterTypes()) {
+                    collectClassesFromType(paramType, referencedClasses);
                 }
-                Class<?> returnType = method.getReturnType();
-                addIfRelevant(deps, returnType, targetPackageName);
+                collectClassesFromType(method.getGenericReturnType(), referencedClasses);
+            }
+            // Declared fields (all access levels) — types referenced by CUT state.
+            // Skip synthetic fields (enum $VALUES, anonymous-class captures, etc.).
+            try {
+                for (Field field : cutClass.getDeclaredFields()) {
+                    if (field.isSynthetic()) {
+                        continue;
+                    }
+                    collectClassesFromType(field.getGenericType(), referencedClasses);
+                }
+            } catch (Throwable t) {
+                logger.debug("Could not enumerate declared fields of CUT {}: {}", targetClassName, t.toString());
             }
         } catch (ClassNotFoundException e) {
             logger.debug("Could not load CUT class for dependency analysis: {}", targetClassName);
         }
+        for (Class<?> type : referencedClasses) {
+            addIfRelevant(deps, type, targetPackageName);
+        }
         return deps;
+    }
+
+    /**
+     * Recursively walks a {@link Type} and collects every concrete {@link Class} it references.
+     * Used by {@link #collectDirectDependencies} to surface generic type arguments
+     * (e.g. {@code List<Foo>} contributes both {@code List} and {@code Foo}).
+     *
+     * <p>Type variables are intentionally skipped: their bounds are almost always
+     * {@code Object} or {@code Comparable<T>}, which adds noise without signal.
+     * Wildcard lower bounds are skipped for the same reason.
+     */
+    static void collectClassesFromType(Type type, Set<Class<?>> out) {
+        if (type == null) {
+            return;
+        }
+        if (type instanceof Class<?>) {
+            out.add((Class<?>) type);
+            return;
+        }
+        if (type instanceof ParameterizedType) {
+            ParameterizedType pt = (ParameterizedType) type;
+            if (pt.getRawType() instanceof Class<?>) {
+                out.add((Class<?>) pt.getRawType());
+            }
+            for (Type arg : pt.getActualTypeArguments()) {
+                collectClassesFromType(arg, out);
+            }
+            return;
+        }
+        if (type instanceof GenericArrayType) {
+            collectClassesFromType(((GenericArrayType) type).getGenericComponentType(), out);
+            return;
+        }
+        if (type instanceof WildcardType) {
+            for (Type bound : ((WildcardType) type).getUpperBounds()) {
+                collectClassesFromType(bound, out);
+            }
+            // Lower bounds intentionally ignored (typically Object).
+        }
+        // TypeVariable: intentionally skipped.
     }
 
     private void addIfRelevant(Set<String> deps, Class<?> type, String targetPackageName) {

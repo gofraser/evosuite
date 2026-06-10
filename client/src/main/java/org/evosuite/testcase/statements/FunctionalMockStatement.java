@@ -530,6 +530,72 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     /**
+     * Remove all method stubs whose return-value {@link VariableReference}s are
+     * no longer defined by any statement in the test case. This is called after
+     * {@link org.evosuite.testcase.TestCase#chop} so that crossover cannot produce
+     * orphaned references that crash {@code TestCase.clone()} in a later generation.
+     * Stubs whose parameters are all still resolvable are kept intact with their
+     * index ranges adjusted to account for any removed entries.
+     */
+    public void dropUnresolvableStubs() {
+        if (parameters.isEmpty()) {
+            return;
+        }
+        // Collect all VariableReferences currently defined in the test case.
+        Set<VariableReference> present = new HashSet<>();
+        for (int i = 0; i < tc.size(); i++) {
+            try {
+                VariableReference rv = tc.getStatement(i).getReturnValue();
+                if (rv != null) {
+                    present.add(rv);
+                }
+            } catch (Throwable ignored) {
+                // Defensive: keep scanning.
+            }
+        }
+
+        List<MethodDescriptor> newMethods = new ArrayList<>();
+        Map<String, int[]> newMethodParams = new LinkedHashMap<>();
+        List<VariableReference> newParams = new ArrayList<>();
+
+        for (MethodDescriptor md : mockedMethods) {
+            int[] range = methodParameters.get(md.getID());
+            if (range == null) {
+                // No return-value parameters for this method — always safe.
+                newMethods.add(md);
+                newMethodParams.put(md.getID(), null);
+            } else {
+                boolean allResolvable = true;
+                for (int i = range[0]; i <= range[1]; i++) {
+                    VariableReference ref = parameters.get(i);
+                    // null and ConstantValue are self-contained; only check live refs.
+                    if (ref != null && !(ref instanceof ConstantValue) && !present.contains(ref)) {
+                        allResolvable = false;
+                        break;
+                    }
+                }
+                if (allResolvable) {
+                    int newStart = newParams.size();
+                    for (int i = range[0]; i <= range[1]; i++) {
+                        newParams.add(parameters.get(i));
+                    }
+                    newMethods.add(md);
+                    newMethodParams.put(md.getID(), new int[]{newStart, newParams.size() - 1});
+                }
+                // else: stub references a removed variable — drop the stub;
+                // the mock will fall back to its default answer for this method.
+            }
+        }
+
+        parameters.clear();
+        parameters.addAll(newParams);
+        mockedMethods.clear();
+        mockedMethods.addAll(newMethods);
+        methodParameters.clear();
+        methodParameters.putAll(newMethodParams);
+    }
+
+    /**
      * getTargetClass.
      *
      * @return the target class

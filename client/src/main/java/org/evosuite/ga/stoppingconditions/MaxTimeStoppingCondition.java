@@ -63,7 +63,7 @@ public class MaxTimeStoppingCondition<T extends Chromosome<T>> extends StoppingC
     public void searchStarted(GeneticAlgorithm<T> algorithm) {
         reset();
         if (Properties.LLM_FAIR_BUDGET_ACCOUNTING) {
-            long elapsedSec = org.evosuite.llm.LlmStatistics.getEnrichmentElapsedMs() / 1000L;
+            long elapsedSec = org.evosuite.llm.LlmStatistics.getTotalPreSearchElapsedMs() / 1000L;
             if (elapsedSec > 0L) {
                 // Clamp to maxSeconds - 1 so the GA still runs at least one
                 // iteration even when enrichment consumed the whole budget.

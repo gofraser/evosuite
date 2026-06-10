@@ -87,5 +87,6 @@ class Phase5PropertyDefaultsTest {
         assertNotNull(RuntimeVariable.valueOf("Species_Incubator_Protected_Timeline"));
         assertNotNull(RuntimeVariable.valueOf("Species_Sharing_Adjusted_Timeline"));
         assertNotNull(RuntimeVariable.valueOf("LLM_Diagnostic_Cards_IndirectReachabilityBarrier"));
+        assertNotNull(RuntimeVariable.valueOf("LLM_Diagnostic_Cards_TypeNeverAttempted"));
     }
 }

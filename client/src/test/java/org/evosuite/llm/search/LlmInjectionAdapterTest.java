@@ -62,9 +62,10 @@ class LlmInjectionAdapterTest {
         List<TestChromosome> tests = Arrays.asList(new TestChromosome(), new TestChromosome());
         List<FitnessFunction<TestChromosome>> ff = Collections.emptyList();
 
-        adapter.inject(tests, population, ff, 0);
+        int injected = adapter.inject(tests, population, ff, 0);
 
         assertEquals(3, population.size(), "should add both tests directly");
+        assertEquals(2, injected);
     }
 
     @Test
@@ -87,6 +88,22 @@ class LlmInjectionAdapterTest {
         assertEquals(1, population.size());
     }
 
+    @Test
+    void testChromosomeAdapterReportsPopulationLimitedInsertions() {
+        TestChromosomeInjectionAdapter adapter = new TestChromosomeInjectionAdapter();
+        List<TestChromosome> population = new ArrayList<>();
+        population.add(new TestChromosome());
+
+        int injected = adapter.inject(
+                Arrays.asList(new TestChromosome(), new TestChromosome()),
+                population,
+                Collections.emptyList(),
+                2);
+
+        assertEquals(1, injected);
+        assertEquals(2, population.size());
+    }
+
     // --- TestSuiteChromosomeInjectionAdapter tests ---
 
     @Test
@@ -105,11 +122,12 @@ class LlmInjectionAdapterTest {
         tc2.setTestCase(new DefaultTestCase());
         List<TestChromosome> tests = Arrays.asList(tc1, tc2);
 
-        adapter.inject(tests, population, Collections.emptyList(), 0);
+        int injectedCount = adapter.inject(tests, population, Collections.emptyList(), 0);
 
         assertEquals(2, population.size(), "should add a new suite to the population");
         TestSuiteChromosome injected = population.get(1);
         assertEquals(2, injected.size(), "new suite should contain the 2 LLM tests");
+        assertEquals(2, injectedCount, "return value counts source tests, not suite chromosomes");
     }
 
     @Test

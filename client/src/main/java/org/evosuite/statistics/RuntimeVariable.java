@@ -662,13 +662,37 @@ public enum RuntimeVariable {
      */
     LLM_Latency_Millis,
     /**
-     * Wall-clock milliseconds spent blocking on pre-search LLM pool
-     * enrichment (cast classes, constants, objects). When
-     * {@code LLM_FAIR_BUDGET_ACCOUNTING} is enabled, this value is deducted
-     * from the search budget so seeding strategies can be compared on equal
-     * footing.
+     * Legacy alias for {@link #LLM_Pool_Enrichment_Elapsed_Millis}.
      */
     LLM_Enrichment_Elapsed_Millis,
+    /**
+     * Wall-clock milliseconds spent blocking on pre-search LLM pool
+     * enrichment (cast classes, constants, objects).
+     */
+    LLM_Pool_Enrichment_Elapsed_Millis,
+    /**
+     * Wall-clock milliseconds spent blocking while awaiting initial-population
+     * LLM seeds.
+     */
+    LLM_Initial_Population_Elapsed_Millis,
+    /**
+     * Total wall-clock milliseconds spent blocking on all pre-search LLM work.
+     */
+    LLM_Total_Pre_Search_Elapsed_Millis,
+    /**
+     * Final executable test cases returned by the successful initial-population
+     * parse/repair pipeline, before deduplication.
+     */
+    LLM_Initial_Population_Candidates_Validated,
+    /**
+     * Unique initial-population test chromosomes accepted into the seed queue.
+     */
+    LLM_Initial_Population_Candidates_Queued,
+    /**
+     * Initial-population test chromosomes actually incorporated into the GA
+     * population or suite.
+     */
+    LLM_Initial_Population_Candidates_Injected,
     /**
      * Number of cast-class suggestions parsed from LLM response.
      */
@@ -868,6 +892,10 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Cards_Extracted_IndirectReachabilityBarrier,
     /**
+     * Number of extracted diagnostic cards of type TYPE_NEVER_ATTEMPTED.
+     */
+    LLM_Diagnostic_Cards_Extracted_TypeNeverAttempted,
+    /**
      * Upstream throwing helper/bootstrap calls that could not be attributed to a downstream blocked goal.
      */
     LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
@@ -1004,6 +1032,10 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Cards_IndirectReachabilityBarrier,
     /**
+     * Number of selected diagnostic cards of type TYPE_NEVER_ATTEMPTED.
+     */
+    LLM_Diagnostic_Cards_TypeNeverAttempted,
+    /**
      * Total diagnostic-prompt candidates published by the stagnation helper.
      */
     LLM_Diagnostic_Candidates_Published,
@@ -1039,6 +1071,10 @@ public enum RuntimeVariable {
      * Published diagnostic-prompt candidates associated with INDIRECT_REACHABILITY_BARRIER.
      */
     LLM_Diagnostic_Candidates_Published_IndirectReachabilityBarrier,
+    /**
+     * Published diagnostic-prompt candidates associated with TYPE_NEVER_ATTEMPTED.
+     */
+    LLM_Diagnostic_Candidates_Published_TypeNeverAttempted,
     /**
      * Total diagnostic-prompt candidates admitted into the MOSA union.
      */
@@ -1076,6 +1112,10 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Candidates_Admitted_IndirectReachabilityBarrier,
     /**
+     * Admitted diagnostic-prompt candidates associated with TYPE_NEVER_ATTEMPTED.
+     */
+    LLM_Diagnostic_Candidates_Admitted_TypeNeverAttempted,
+    /**
      * Total diagnostic-prompt candidates that survived the generation they were injected.
      */
     LLM_Diagnostic_Candidates_Survived,
@@ -1111,6 +1151,10 @@ public enum RuntimeVariable {
      * Surviving diagnostic-prompt candidates associated with INDIRECT_REACHABILITY_BARRIER.
      */
     LLM_Diagnostic_Candidates_Survived_IndirectReachabilityBarrier,
+    /**
+     * Surviving diagnostic-prompt candidates associated with TYPE_NEVER_ATTEMPTED.
+     */
+    LLM_Diagnostic_Candidates_Survived_TypeNeverAttempted,
     /**
      * Total uncovered-goal gains attributed to diagnostic stagnation prompts.
      */
@@ -1155,6 +1199,10 @@ public enum RuntimeVariable {
      * Attributed uncovered-goal gains for INDIRECT_REACHABILITY_BARRIER diagnostics.
      */
     LLM_Diagnostic_Coverage_Gains_IndirectReachabilityBarrier,
+    /**
+     * Attributed uncovered-goal gains for TYPE_NEVER_ATTEMPTED diagnostics.
+     */
+    LLM_Diagnostic_Coverage_Gains_TypeNeverAttempted,
     /**
      * Per-generation species count timeline.
      */

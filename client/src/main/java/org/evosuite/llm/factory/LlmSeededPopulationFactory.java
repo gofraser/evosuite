@@ -25,6 +25,7 @@ import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
@@ -236,6 +237,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                 return Collections.emptyList();
             }
             List<TestChromosome> seeds = repairResult.toChromosomes();
+            LlmStatistics.recordInitialPopulationCandidatesValidated(seeds.size());
             if (seeds.isEmpty()) {
                 LoggingUtils.getEvoLogger().info(
                         "* LLM seeding: repair succeeded but produced 0 chromosomes");
@@ -311,6 +313,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                 accepted++;
             }
         }
+        LlmStatistics.recordInitialPopulationCandidatesQueued(accepted);
         return accepted;
     }
 

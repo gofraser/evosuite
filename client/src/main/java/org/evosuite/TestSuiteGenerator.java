@@ -261,7 +261,7 @@ public class TestSuiteGenerator {
                 llmOrchestrator.finishStructuralEnrichment();
             }
             long elapsedMs = (System.nanoTime() - enrichmentStartNanos) / 1_000_000L;
-            org.evosuite.llm.LlmStatistics.recordEnrichmentElapsedMs(elapsedMs);
+            org.evosuite.llm.LlmStatistics.recordPoolEnrichmentElapsedMs(elapsedMs);
             logger.info("LLM pool enrichment blocked for {} ms (fair_budget={})",
                     elapsedMs, Properties.LLM_FAIR_BUDGET_ACCOUNTING);
         }

@@ -301,6 +301,15 @@ public class DefaultTestCase implements TestCase, Serializable {
         while (statements.size() > length) {
             statements.remove(length);
         }
+        // FunctionalMockStatement stubs can reference variables at any position,
+        // including positions beyond the chop point (forward references set up by
+        // updateMockedMethods during execution). Drop stubs that now reference
+        // removed statements so the test case contains no orphaned VariableReferences.
+        for (Statement stmt : statements) {
+            if (stmt instanceof FunctionalMockStatement) {
+                ((FunctionalMockStatement) stmt).dropUnresolvableStubs();
+            }
+        }
     }
 
     @Override

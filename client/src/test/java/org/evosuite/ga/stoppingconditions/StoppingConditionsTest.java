@@ -22,6 +22,7 @@ package org.evosuite.ga.stoppingconditions;
 import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.llm.LlmStatistics;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -57,6 +58,29 @@ public class StoppingConditionsTest {
 
         condition.forceCurrentValue(3);
         assertTrue(condition.isFinished());
+    }
+
+    @Test
+    public void maxTimeDeductsCombinedPreSearchBlockingTime() {
+        boolean previousFairAccounting = Properties.LLM_FAIR_BUDGET_ACCOUNTING;
+        try {
+            Properties.LLM_FAIR_BUDGET_ACCOUNTING = true;
+            LlmStatistics.resetEnrichmentElapsedMs();
+            LlmStatistics.recordPoolEnrichmentElapsedMs(2000L);
+            LlmStatistics.recordInitialPopulationElapsedMs(3000L);
+
+            MaxTimeStoppingCondition<TestChromosome> condition = new MaxTimeStoppingCondition<>();
+            condition.setLimit(20);
+            condition.searchStarted(null);
+
+            assertTrue(condition.getCurrentValue() >= 5L,
+                    "pool and initial-population blocking time should both be deducted");
+            assertTrue(condition.getCurrentValue() < 7L,
+                    "combined pre-search time should be deducted once");
+        } finally {
+            Properties.LLM_FAIR_BUDGET_ACCOUNTING = previousFairAccounting;
+            LlmStatistics.resetEnrichmentElapsedMs();
+        }
     }
 
     @Test

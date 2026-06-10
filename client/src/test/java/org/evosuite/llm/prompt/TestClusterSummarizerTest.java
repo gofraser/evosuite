@@ -883,4 +883,215 @@ class TestClusterSummarizerTest {
         public CutWithAbstractAndConcreteParams(AbstractPrefs prefs, SiblingConcreteDep dep) {
         }
     }
+
+    // --- collectClassesFromType helper tests ---
+
+    @Test
+    void collectClassesFromTypeAddsConcreteClass() {
+        Set<Class<?>> out = new HashSet<>();
+        TestClusterSummarizer.collectClassesFromType(String.class, out);
+        assertEquals(Collections.singleton(String.class), out);
+    }
+
+    @Test
+    void collectClassesFromTypeHandlesNull() {
+        Set<Class<?>> out = new HashSet<>();
+        TestClusterSummarizer.collectClassesFromType(null, out);
+        assertTrue(out.isEmpty());
+    }
+
+    @Test
+    void collectClassesFromTypeUnwrapsParameterizedType() throws Exception {
+        Set<Class<?>> out = new HashSet<>();
+        Type t = CutWithGenerics.class.getMethod("listOfFoos").getGenericReturnType();
+        TestClusterSummarizer.collectClassesFromType(t, out);
+        assertTrue(out.contains(java.util.List.class), "raw type missing: " + out);
+        assertTrue(out.contains(FixtureFoo.class), "generic arg missing: " + out);
+    }
+
+    @Test
+    void collectClassesFromTypeUnwrapsNestedParameterizedType() throws Exception {
+        Set<Class<?>> out = new HashSet<>();
+        Type t = CutWithGenerics.class.getMethod("nestedMap").getGenericReturnType();
+        TestClusterSummarizer.collectClassesFromType(t, out);
+        assertTrue(out.contains(FixtureQux.class),
+                "Nested generic arg should be surfaced: " + out);
+    }
+
+    @Test
+    void collectClassesFromTypeUnwrapsWildcardUpperBound() throws Exception {
+        Set<Class<?>> out = new HashSet<>();
+        Type t = CutWithGenerics.class.getMethod("takeBounded", java.util.List.class)
+                .getGenericParameterTypes()[0];
+        TestClusterSummarizer.collectClassesFromType(t, out);
+        assertTrue(out.contains(FixtureBound.class),
+                "Wildcard upper bound should be surfaced: " + out);
+    }
+
+    @Test
+    void collectClassesFromTypeSkipsTypeVariable() throws Exception {
+        Set<Class<?>> out = new HashSet<>();
+        Type t = CutWithGenerics.class.getMethod("identity", Object.class).getGenericReturnType();
+        TestClusterSummarizer.collectClassesFromType(t, out);
+        assertTrue(out.isEmpty(),
+                "Type variable should yield no concrete classes: " + out);
+    }
+
+    @Test
+    void collectClassesFromTypeUnwrapsGenericArrayType() throws Exception {
+        Set<Class<?>> out = new HashSet<>();
+        Type t = CutWithGenerics.class.getMethod("arrayOfFoos").getGenericReturnType();
+        TestClusterSummarizer.collectClassesFromType(t, out);
+        // Component type may be ParameterizedType (List<FixtureFoo>[]) so FixtureFoo should appear.
+        assertTrue(out.contains(java.util.List.class) || out.contains(FixtureFoo.class),
+                "Generic array component should be walked: " + out);
+    }
+
+    // --- collectDirectDependencies tests (fields + generics) ---
+
+    @Test
+    void collectDirectDependenciesIncludesGenericReturnArg() {
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutWithGenerics.class.getName());
+        assertTrue(deps.contains(FixtureFoo.class.getName()),
+                "Generic return type arg should be in direct deps: " + deps);
+    }
+
+    @Test
+    void collectDirectDependenciesIncludesGenericParamArg() {
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutWithGenerics.class.getName());
+        assertTrue(deps.contains(FixtureBar.class.getName()),
+                "Generic parameter arg should be in direct deps: " + deps);
+    }
+
+    @Test
+    void collectDirectDependenciesIncludesNestedGenericArg() {
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutWithGenerics.class.getName());
+        assertTrue(deps.contains(FixtureQux.class.getName()),
+                "Nested generic type arg should be in direct deps: " + deps);
+    }
+
+    @Test
+    void collectDirectDependenciesIncludesWildcardUpperBound() {
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutWithGenerics.class.getName());
+        assertTrue(deps.contains(FixtureBound.class.getName()),
+                "Wildcard upper bound should be in direct deps: " + deps);
+    }
+
+    @Test
+    void collectDirectDependenciesIncludesPrivateFieldType() {
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutWithGenerics.class.getName());
+        assertTrue(deps.contains(FixtureState.class.getName()),
+                "Private field type should be in direct deps: " + deps);
+    }
+
+    @Test
+    void collectDirectDependenciesIncludesGenericFieldArg() {
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutWithGenerics.class.getName());
+        assertTrue(deps.contains(FixtureFieldArg.class.getName()),
+                "Generic arg of a private field should be in direct deps: " + deps);
+    }
+
+    @Test
+    void collectDirectDependenciesDoesNotIncludeInheritedField() {
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutWithGenerics.class.getName());
+        assertFalse(deps.contains(FixtureSuper.class.getName()),
+                "Inherited field type should NOT be in direct deps (declared-only): " + deps);
+    }
+
+    @Test
+    void collectDirectDependenciesDoesNotIncludeTypeVariable() {
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutWithGenerics.class.getName());
+        // Type variable "T" should not leak through as a class name.
+        for (String d : deps) {
+            String simple = d.substring(d.lastIndexOf('.') + 1);
+            assertNotEquals("T", simple, "Type variable leaked into deps: " + deps);
+        }
+    }
+
+    @Test
+    void collectDirectDependenciesTolerantOfEnumWithSyntheticFields() {
+        // Enums have a synthetic $VALUES field; ensure no crash and no spurious entries.
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null, CutEnum.class.getName());
+        assertNotNull(deps);
+    }
+
+    @Test
+    void collectDirectDependenciesPreservesPlainSignatureBehaviour() {
+        // Regression: a non-generic CUT with plain reference params still collects them.
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        Set<String> deps = summarizer.collectDirectDependencies(null,
+                CutWithAbstractAndConcreteParams.class.getName());
+        assertTrue(deps.contains(AbstractPrefs.class.getName()),
+                "Plain constructor param should still be in deps: " + deps);
+        assertTrue(deps.contains(SiblingConcreteDep.class.getName()),
+                "Plain constructor param should still be in deps: " + deps);
+    }
+
+    // --- Fixtures for the tests above ---
+
+    public static class FixtureFoo {
+    }
+
+    public static class FixtureBar {
+    }
+
+    public static class FixtureQux {
+    }
+
+    public static class FixtureBound {
+    }
+
+    public static class FixtureState {
+    }
+
+    public static class FixtureFieldArg {
+    }
+
+    public static class FixtureSuper {
+    }
+
+    public static class CutWithGenericsBase {
+        protected FixtureSuper inheritedField;
+    }
+
+    public static class CutWithGenerics extends CutWithGenericsBase {
+        private FixtureState state;
+        private java.util.List<FixtureFieldArg> fieldList;
+
+        public java.util.List<FixtureFoo> listOfFoos() {
+            return java.util.Collections.emptyList();
+        }
+
+        public void takeBar(java.util.Map<String, FixtureBar> m) {
+        }
+
+        public java.util.Map<String, java.util.List<FixtureQux>> nestedMap() {
+            return java.util.Collections.emptyMap();
+        }
+
+        public void takeBounded(java.util.List<? extends FixtureBound> xs) {
+        }
+
+        public <T> T identity(T t) {
+            return t;
+        }
+
+        @SuppressWarnings("unchecked")
+        public java.util.List<FixtureFoo>[] arrayOfFoos() {
+            return (java.util.List<FixtureFoo>[]) new java.util.List[0];
+        }
+    }
+
+    public enum CutEnum {
+        A, B
+    }
 }

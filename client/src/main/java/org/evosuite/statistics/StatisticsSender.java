@@ -98,27 +98,67 @@ public class StatisticsSender {
          * ie, do we really need a separated public sendIndividualToMaster???
          */
 
+        int needReExecution = 0;
         for (TestChromosome test : testSuite.getTestChromosomes()) {
             if (test.getLastExecutionResult() == null) {
-                ExecutionResult result = TestCaseExecutor.runTest(test.getTestCase());
-                test.setLastExecutionResult(result);
+                needReExecution++;
+            }
+        }
+        boolean reExecutionSkipped = false;
+        if (needReExecution > 0 && isMemoryTooLowForReExecution()) {
+            long thresholdMb = (Properties.MIN_FREE_MEM * 2L) / (1024L * 1024L);
+            logger.warn("Skipping re-execution of {} test(s) for statistics: free memory below {} MB. "
+                            + "Cached results will be used; un-cached tests are dropped from statistics.",
+                    needReExecution, thresholdMb);
+            reExecutionSkipped = true;
+        } else {
+            for (TestChromosome test : testSuite.getTestChromosomes()) {
+                if (test.getLastExecutionResult() == null) {
+                    ExecutionResult result = TestCaseExecutor.runTest(test.getTestCase());
+                    test.setLastExecutionResult(result);
+                }
             }
         }
 
         sendCoveredInfo(testSuite);
         sendExceptionInfo(testSuite);
         sendIndividualToMaster(testSuite);
+
+        if (reExecutionSkipped) {
+            logger.info("Statistics for this suite are partial due to skipped re-execution.");
+        }
     }
 
     // -------- private methods ------------------------
 
+    /**
+     * Mirrors the policy in {@code TestSuiteGenerator#isMemoryTooLowForPhase}: compares
+     * free heap against {@code MIN_FREE_MEM * 2}, with a single GC retry. Returns true
+     * if memory is still below the threshold and the caller should skip the work.
+     */
+    static boolean isMemoryTooLowForReExecution() {
+        return isMemoryBelowThreshold(Properties.MIN_FREE_MEM * 2L);
+    }
+
+    /**
+     * Returns true if free heap is below {@code threshold} bytes, after one GC retry.
+     * Extracted so tests can drive the predicate with any threshold rather than going
+     * through the int-capped {@link Properties#MIN_FREE_MEM}.
+     */
+    static boolean isMemoryBelowThreshold(long threshold) {
+        Runtime runtime = Runtime.getRuntime();
+        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        if (freeMem >= threshold) {
+            return false;
+        }
+        System.gc();
+        freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        return freeMem < threshold;
+    }
+
     private static void sendExceptionInfo(TestSuiteChromosome testSuite) {
 
-        List<ExecutionResult> results = new ArrayList<>();
-
-        for (TestChromosome testChromosome : testSuite.getTestChromosomes()) {
-            results.add(testChromosome.getLastExecutionResult());
-        }
+        List<ExecutionResult> results = collectExecutionResults(testSuite);
 
         /*
          * for each method name, check the class of thrown exceptions in those methods
@@ -150,6 +190,23 @@ public class StatisticsSender {
     }
 
 
+    /**
+     * Builds the list of execution results from the suite, skipping any test whose
+     * {@code getLastExecutionResult()} is {@code null}. Such nulls can occur when the
+     * re-execution loop in {@link #executedAndThenSendIndividualToMaster} was skipped
+     * due to low memory.
+     */
+    static List<ExecutionResult> collectExecutionResults(TestSuiteChromosome testSuite) {
+        List<ExecutionResult> results = new ArrayList<>();
+        for (TestChromosome test : testSuite.getTestChromosomes()) {
+            ExecutionResult result = test.getLastExecutionResult();
+            if (result != null) {
+                results.add(result);
+            }
+        }
+        return results;
+    }
+
     private static void sendCoveredInfo(TestSuiteChromosome testSuite) {
 
         Set<String> coveredMethods = new HashSet<>();
@@ -159,7 +216,11 @@ public class StatisticsSender {
         Set<Integer> coveredLines = new HashSet<>();
 
         for (TestChromosome test : testSuite.getTestChromosomes()) {
-            ExecutionTrace trace = test.getLastExecutionResult().getTrace();
+            ExecutionResult result = test.getLastExecutionResult();
+            if (result == null) {
+                continue;
+            }
+            ExecutionTrace trace = result.getTrace();
             coveredMethods.addAll(trace.getCoveredMethods());
             coveredTrueBranches.addAll(trace.getCoveredTrueBranches());
             coveredFalseBranches.addAll(trace.getCoveredFalseBranches());

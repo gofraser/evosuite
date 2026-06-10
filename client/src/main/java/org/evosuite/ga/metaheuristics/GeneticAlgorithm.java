@@ -65,6 +65,7 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.text.DecimalFormat;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Stream;
 
@@ -119,7 +120,8 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         if (llmSeeds.isEmpty()) {
             return;
         }
-        injectInitialSeeds(llmSeeds);
+        int injected = injectInitialSeeds(llmSeeds);
+        org.evosuite.llm.LlmStatistics.recordInitialPopulationCandidatesInjected(injected);
     }
 
     protected List<TestChromosome> drainInitialLlmSeeds() {
@@ -129,16 +131,22 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
         long waitMillis = LlmWaitBudget.repairAwareWaitMillis(
                 () -> TimeController.getInstance().getRemainingTimeInPhaseMs());
-        return seededFactory.awaitAndDrainSeeds(waitMillis);
+        long startNanos = System.nanoTime();
+        try {
+            return seededFactory.awaitAndDrainSeeds(waitMillis);
+        } finally {
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+            org.evosuite.llm.LlmStatistics.recordInitialPopulationElapsedMs(elapsedMs);
+        }
     }
 
-    protected void injectInitialSeeds(List<TestChromosome> llmSeeds) {
+    protected int injectInitialSeeds(List<TestChromosome> llmSeeds) {
         if (llmInjectionAdapter == null) {
             logger.debug("No LLM injection adapter resolved for initial seeds; dropping {} seed(s)",
                     llmSeeds.size());
-            return;
+            return 0;
         }
-        llmInjectionAdapter.inject(llmSeeds, population, fitnessFunctions, Properties.POPULATION);
+        return llmInjectionAdapter.inject(llmSeeds, population, fitnessFunctions, Properties.POPULATION);
     }
 
     private LlmSeededPopulationFactory resolveLlmSeededPopulationFactory() {
