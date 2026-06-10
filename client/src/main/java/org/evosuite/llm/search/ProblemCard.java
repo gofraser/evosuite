@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFitnessFunction;
 
 import java.util.ArrayList;
@@ -43,6 +44,7 @@ public final class ProblemCard {
     private final String rootCauseKey;
     private final String scopeKey;
     private final String selectionFingerprint;
+    private final List<ConcreteExample> concreteExamples;
 
     private ProblemCard(ProblemCardType type,
                         String title,
@@ -54,7 +56,8 @@ public final class ProblemCard {
                         ProblemCardFamily family,
                         String rootCauseKey,
                         String scopeKey,
-                        String selectionFingerprint) {
+                        String selectionFingerprint,
+                        List<ConcreteExample> concreteExamples) {
         this.type = Objects.requireNonNull(type, "type");
         this.title = title == null ? "" : title.trim();
         this.evidence = evidence == null
@@ -76,6 +79,9 @@ public final class ProblemCard {
         this.rootCauseKey = sanitizeKey(rootCauseKey);
         this.scopeKey = sanitizeKey(scopeKey);
         this.selectionFingerprint = sanitizeKey(selectionFingerprint);
+        this.concreteExamples = concreteExamples == null
+                ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(concreteExamples));
     }
 
     public static Builder builder(ProblemCardType type) {
@@ -98,6 +104,7 @@ public final class ProblemCard {
         private String rootCauseKey;
         private String scopeKey;
         private String selectionFingerprint;
+        private List<ConcreteExample> concreteExamples = Collections.emptyList();
 
         private Builder(ProblemCardType type) {
             this.type = Objects.requireNonNull(type, "type");
@@ -153,6 +160,21 @@ public final class ProblemCard {
             return this;
         }
 
+        public Builder concreteExamples(List<ConcreteExample> concreteExamples) {
+            this.concreteExamples = concreteExamples;
+            return this;
+        }
+
+        public Builder concreteExample(TestCase testCase, String description) {
+            if (testCase == null) {
+                return this;
+            }
+            List<ConcreteExample> examples = new ArrayList<>(concreteExamples);
+            examples.add(new ConcreteExample(testCase, description));
+            concreteExamples = examples;
+            return this;
+        }
+
         public ProblemCard build() {
             if ((title == null || title.trim().isEmpty())
                     && (evidence == null || evidence.isEmpty())
@@ -162,7 +184,7 @@ public final class ProblemCard {
             }
             return new ProblemCard(type, title, evidence, relatedGoals,
                     impact, blockage, confidence,
-                    family, rootCauseKey, scopeKey, selectionFingerprint);
+                    family, rootCauseKey, scopeKey, selectionFingerprint, concreteExamples);
         }
     }
 
@@ -214,6 +236,21 @@ public final class ProblemCard {
         return selectionFingerprint;
     }
 
+    public List<ConcreteExample> getConcreteExamples() {
+        return concreteExamples;
+    }
+
+    public ProblemCard withConcreteExample(TestCase testCase, String description) {
+        if (testCase == null) {
+            return this;
+        }
+        List<ConcreteExample> examples = new ArrayList<>(concreteExamples);
+        examples.add(new ConcreteExample(testCase, description));
+        return new ProblemCard(type, title, evidence, relatedGoals,
+                impact, blockage, confidence, family, rootCauseKey, scopeKey,
+                selectionFingerprint, examples);
+    }
+
     public RepeatedInjectionTarget toRepeatedInjectionTarget() {
         String key = !scopeKey.isEmpty() ? scopeKey : rootCauseKey;
         if (key.isEmpty()) {
@@ -238,5 +275,23 @@ public final class ProblemCard {
 
     private static String sanitizeKey(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    public static final class ConcreteExample {
+        private final TestCase testCase;
+        private final String description;
+
+        private ConcreteExample(TestCase testCase, String description) {
+            this.testCase = Objects.requireNonNull(testCase, "testCase");
+            this.description = description == null ? "Concrete example" : description.trim();
+        }
+
+        public TestCase getTestCase() {
+            return testCase;
+        }
+
+        public String getDescription() {
+            return description;
+        }
     }
 }

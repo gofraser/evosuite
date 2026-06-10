@@ -42,15 +42,21 @@ import static org.junit.jupiter.api.Assertions.*;
 class PromptBuilderFewShotTest {
 
     private LlmPromptTechnique origTechnique;
+    private int originalExistingTestsMaxTotal;
+    private int originalExistingTestsMaxPerTest;
 
     @BeforeEach
     void save() {
         origTechnique = Properties.LLM_PROMPT_TECHNIQUE;
+        originalExistingTestsMaxTotal = Properties.LLM_EXISTING_TESTS_MAX_CHARS_TOTAL;
+        originalExistingTestsMaxPerTest = Properties.LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST;
     }
 
     @AfterEach
     void restore() {
         Properties.LLM_PROMPT_TECHNIQUE = origTechnique;
+        Properties.LLM_EXISTING_TESTS_MAX_CHARS_TOTAL = originalExistingTestsMaxTotal;
+        Properties.LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST = originalExistingTestsMaxPerTest;
     }
 
     private static TestCase makeTestCase(String marker) {
@@ -308,6 +314,35 @@ class PromptBuilderFewShotTest {
         assertTrue(userPrompt.contains("Existing tests:"));
         assertTrue(userPrompt.contains("```java\nint x = 1;\n```"));
         assertTrue(userPrompt.contains("```java\nint y = 2;\n```"));
+    }
+
+    @Test
+    void existingTestsAreNumberedAndAllFitWithinTheConfiguredCodeBudget() {
+        Properties.LLM_EXISTING_TESTS_MAX_CHARS_TOTAL = 90;
+        Properties.LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST = 90;
+        List<TestCase> tests = Arrays.asList(
+                makeTestCase("first-" + String.join("", Collections.nCopies(80, "a"))),
+                makeTestCase("second-" + String.join("", Collections.nCopies(80, "b"))),
+                makeTestCase("third-" + String.join("", Collections.nCopies(80, "c"))));
+
+        String userPrompt = new PromptBuilder()
+                .withSystemPrompt()
+                .withExistingTests(tests)
+                .withInstruction("Generate tests.")
+                .build()
+                .get(1)
+                .getContent();
+
+        assertTrue(userPrompt.contains("Existing test #1:"));
+        assertTrue(userPrompt.contains("Existing test #2:"));
+        assertTrue(userPrompt.contains("Existing test #3:"));
+        int codeChars = Arrays.stream(userPrompt.split("```java\\n"))
+                .skip(1)
+                .map(block -> block.substring(0, block.indexOf("\n```")))
+                .mapToInt(String::length)
+                .sum();
+        assertTrue(codeChars <= Properties.LLM_EXISTING_TESTS_MAX_CHARS_TOTAL,
+                "Numbered/pinned tests must preserve the configured total code budget");
     }
 
     @Test

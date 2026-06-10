@@ -220,6 +220,9 @@ final class TypeBarrierObserver {
                 signal.recordSuccessfulConstructor(
                         goalDescriptionMapper.describeConstructorOperation(constructorStatement).getDisplayLabel(),
                         meaningfulProgress);
+                if (meaningfulProgress) {
+                    signal.considerReusablePrefixTest(test);
+                }
                 traceSink.trace("type_barriers",
                         "test={} stmt={} action=successful_constructor label={} observed_type={} blocked_type={} "
                                 + "effective_type={} related_goals={} meaningful_progress={}",
@@ -252,6 +255,9 @@ final class TypeBarrierObserver {
                     signal.recordSuccessfulFactory(
                             goalDescriptionMapper.describeMethodOperation(methodStatement).getDisplayLabel(),
                             meaningfulProgress);
+                    if (meaningfulProgress) {
+                        signal.considerReusablePrefixTest(test);
+                    }
                     traceSink.trace("type_barriers",
                             "test={} stmt={} action=successful_factory label={} observed_type={} blocked_type={} "
                                     + "effective_type={} related_goals={} meaningful_progress={}",
@@ -266,6 +272,7 @@ final class TypeBarrierObserver {
                     if (meaningfulSetup) {
                         signal.recordSuccessfulSetupMethod(ExtractorObservationSupport.setupMethodKey(methodStatement),
                                 setupOperation.getDisplayLabel());
+                        signal.considerReusablePrefixTest(test);
                     }
                     traceSink.trace("type_barriers",
                             "test={} stmt={} action=successful_setup label={} observed_type={} blocked_type={} "

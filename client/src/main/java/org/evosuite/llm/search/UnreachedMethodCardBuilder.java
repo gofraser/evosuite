@@ -58,11 +58,11 @@ final class UnreachedMethodCardBuilder implements CardBuilder {
                     + " was never observed.");
             String reusablePrefix = typeSignal.describeReusableSuccessfulPrefix(3, methodKey);
             if (!reusablePrefix.isEmpty()) {
-                evidence.add("Reusable successful prefix on this type: " + reusablePrefix + ".");
+                evidence.add("Working prefix operations on this type: " + reusablePrefix + ".");
             }
             evidence.add("Related uncovered goals: " + relatedGoals.size() + ".");
             CardBuildSupport.addOverloadEvidence(evidence, methodContext);
-            out.add(ProblemCard.builder(ProblemCardType.UNREACHED_METHOD)
+            ProblemCard.Builder builder = ProblemCard.builder(ProblemCardType.UNREACHED_METHOD)
                     .title("Method not reached: " + methodContext.displayLabel)
                     .evidence(evidence)
                     .relatedGoals(relatedGoals)
@@ -77,8 +77,12 @@ final class UnreachedMethodCardBuilder implements CardBuilder {
                             + "|goals=" + relatedGoals.size()
                             + "|typeReachable=true"
                             + "|acquired=" + typeSignal.hasSuccessfulAcquisition()
-                            + "|prefix=" + typeSignal.prefixFingerprint(methodKey))
-                    .build());
+                            + "|prefix=" + typeSignal.prefixFingerprint(methodKey));
+            if (typeSignal.reusablePrefixTest != null) {
+                builder.concreteExample(typeSignal.reusablePrefixTest,
+                        "Reusable successful acquisition/setup prefix");
+            }
+            out.add(builder.build());
         }
     }
 }

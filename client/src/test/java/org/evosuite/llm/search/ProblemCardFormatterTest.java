@@ -19,10 +19,14 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProblemCardFormatterTest {
@@ -50,18 +54,50 @@ class ProblemCardFormatterTest {
     }
 
     @Test
-    void everyCardTypeExposesAStableActionHintExceptCdgBottleneck() {
+    void everyCardTypeExposesAStableActionHint() {
         for (ProblemCardType type : ProblemCardType.values()) {
             String hint = type.getActionHint();
-            if (type == ProblemCardType.CDG_BOTTLENECK) {
-                assertTrue(hint != null && hint.isEmpty(),
-                        "CDG_BOTTLENECK historically had no action hint; preserve that contract: " + type);
-            } else {
-                assertTrue(hint != null && !hint.isEmpty(),
-                        "Every non-CDG card type must define an action hint so new types don't silently "
-                                + "ship without LLM guidance: " + type);
-            }
+            assertTrue(hint != null && !hint.isEmpty(),
+                    "Every card type must define an action hint so new types don't silently "
+                            + "ship without LLM guidance: " + type);
         }
+    }
+
+    @Test
+    void resolvesConcreteExampleToNumberedExistingTest() {
+        TestCase example = testCase("working-prefix");
+        ProblemCard anchored = ProblemCard.builder(ProblemCardType.UNREACHED_METHOD)
+                .title("Method not reached")
+                .evidence(Collections.singletonList("zero executions"))
+                .concreteExample(example, "Reusable successful prefix")
+                .build();
+
+        String formatted = ProblemCardFormatter.format(
+                Collections.singletonList(anchored), Collections.singletonList(example));
+
+        assertTrue(formatted.contains("Reusable successful prefix: see Existing test #1."));
+        assertFalse(formatted.contains("(inline, first 8 statements)"));
+    }
+
+    @Test
+    void inlinesAtMostEightStatementsWhenConcreteExampleIsNotSelected() {
+        DefaultTestCase example = new DefaultTestCase();
+        for (int i = 0; i < 10; i++) {
+            example.addStatement(new StringPrimitiveStatement(example, "statement-" + i));
+        }
+        ProblemCard anchored = ProblemCard.builder(ProblemCardType.UNREACHED_METHOD)
+                .title("Method not reached")
+                .evidence(Collections.singletonList("zero executions"))
+                .concreteExample(example, "Reusable successful prefix")
+                .build();
+
+        String formatted = ProblemCardFormatter.format(
+                Collections.singletonList(anchored), Collections.<TestCase>emptyList());
+
+        assertTrue(formatted.contains("(inline, first 8 statements)"));
+        assertTrue(formatted.contains("statement-7"));
+        assertFalse(formatted.contains("statement-8"));
+        assertTrue(formatted.contains("// ... (truncated)"));
     }
 
     private static ProblemCard card(ProblemCardType type, String title) {
@@ -73,5 +109,11 @@ class ProblemCardFormatterTest {
                 .blockage(0.8)
                 .confidence(0.9)
                 .build();
+    }
+
+    private static TestCase testCase(String marker) {
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new StringPrimitiveStatement(test, marker));
+        return test;
     }
 }

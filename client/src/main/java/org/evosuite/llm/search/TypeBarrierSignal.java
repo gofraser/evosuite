@@ -20,6 +20,7 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.TestCase;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -58,6 +59,7 @@ final class TypeBarrierSignal {
     final Map<String, Integer> successfulMethodLabelCounts = new LinkedHashMap<>();
     final Map<String, Integer> failingConstructorLabelCounts = new LinkedHashMap<>();
     final Map<String, Integer> failingFactoryLabelCounts = new LinkedHashMap<>();
+    TestCase reusablePrefixTest;
 
     TypeBarrierSignal(String typeName) {
         this.typeName = typeName;
@@ -79,6 +81,15 @@ final class TypeBarrierSignal {
         ProblemCardLabels.incrementLabel(successfulConstructorLabelCounts, label);
         if (progressedBeyondCreation) {
             progressedConstructorSuccesses++;
+        }
+    }
+
+    void considerReusablePrefixTest(TestCase test) {
+        if (test == null || test.size() <= 0) {
+            return;
+        }
+        if (reusablePrefixTest == null || test.size() < reusablePrefixTest.size()) {
+            reusablePrefixTest = test;
         }
     }
 

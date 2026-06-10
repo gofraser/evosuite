@@ -19,6 +19,10 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.Statement;
+
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -36,6 +40,10 @@ public final class ProblemCardFormatter {
      * rather than asking the LLM to act on no cards.
      */
     public static String format(List<ProblemCard> cards) {
+        return format(cards, Collections.<TestCase>emptyList());
+    }
+
+    public static String format(List<ProblemCard> cards, List<TestCase> existingTests) {
         if (cards == null) {
             throw new IllegalArgumentException("cards must not be null");
         }
@@ -58,11 +66,73 @@ public final class ProblemCardFormatter {
             for (String evidence : card.getEvidence()) {
                 sb.append("   - ").append(evidence).append('\n');
             }
+            appendConcreteExamples(sb, card, existingTests);
             String actionHint = card.getType() == null ? "" : card.getType().getActionHint();
             if (!actionHint.isEmpty()) {
                 sb.append("   - Suggested action: ").append(actionHint).append('\n');
             }
         }
         return sb.toString().trim();
+    }
+
+    private static void appendConcreteExamples(StringBuilder sb,
+                                               ProblemCard card,
+                                               List<TestCase> existingTests) {
+        for (ProblemCard.ConcreteExample example : card.getConcreteExamples()) {
+            int existingIndex = indexOfTest(existingTests, example.getTestCase());
+            if (existingIndex >= 0) {
+                sb.append("   - ").append(example.getDescription())
+                        .append(": see Existing test #").append(existingIndex + 1).append(".\n");
+                continue;
+            }
+            sb.append("   - ").append(example.getDescription())
+                    .append(" (inline, first 8 statements):\n")
+                    .append("```java\n")
+                    .append(renderStatements(example.getTestCase(), 8))
+                    .append("\n```\n");
+        }
+    }
+
+    private static int indexOfTest(List<TestCase> tests, TestCase target) {
+        if (tests == null || target == null) {
+            return -1;
+        }
+        String targetCode = safeCode(target);
+        for (int i = 0; i < tests.size(); i++) {
+            TestCase candidate = tests.get(i);
+            if (candidate == target || safeCode(candidate).equals(targetCode)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static String renderStatements(TestCase test, int maxStatements) {
+        if (test == null || maxStatements <= 0) {
+            return "";
+        }
+        StringBuilder code = new StringBuilder();
+        int count = Math.min(test.size(), maxStatements);
+        for (int i = 0; i < count; i++) {
+            Statement statement = test.getStatement(i);
+            if (statement != null) {
+                code.append(statement.getCode()).append('\n');
+            }
+        }
+        if (test.size() > count) {
+            code.append("// ... (truncated)");
+        }
+        return code.toString().trim();
+    }
+
+    private static String safeCode(TestCase test) {
+        if (test == null) {
+            return "";
+        }
+        try {
+            return test.toCode().replaceAll("\\s+", " ").trim();
+        } catch (RuntimeException e) {
+            return "id_" + System.identityHashCode(test);
+        }
     }
 }

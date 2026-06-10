@@ -25,6 +25,7 @@ import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.ControlDependency;
+import org.evosuite.ga.FitnessFunction;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptResult;
@@ -53,6 +54,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -209,8 +211,8 @@ class ProblemCardExtractorTest {
         assertTrue(card.getEvidence().stream().anyMatch(line -> line.contains("was reached successfully")),
                 () -> "UNREACHED_METHOD evidence should distinguish reusable prefixes from unreachable types: "
                         + card.getEvidence());
-        assertTrue(card.getEvidence().stream().anyMatch(line -> line.contains("Reusable successful prefix on this type:")),
-                "UNREACHED_METHOD evidence should call out the reusable working prefix");
+        assertFalse(card.getConcreteExamples().isEmpty(),
+                "UNREACHED_METHOD evidence should retain the concrete test containing the reusable prefix");
         assertTrue(card.getEvidence().stream().anyMatch(line -> line.contains(typeName + ".helper()")),
                 "UNREACHED_METHOD evidence should mention successful prefix steps on the reached type");
     }
@@ -1268,6 +1270,9 @@ class ProblemCardExtractorTest {
                 "Branch polarity cards should expose method and line instead of only internal ids");
         assertFalse(card.getTitle().contains("branchId="),
                 "Branch polarity cards should not expose raw branch ids in prompt text");
+        assertTrue(card.getEvidence().stream().anyMatch(line -> line.contains("branch id 77")
+                        && line.contains("line 42")),
+                "Branch polarity evidence should identify the target predicate by line and branch id");
     }
 
     @Test
@@ -1492,6 +1497,44 @@ class ProblemCardExtractorTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void enrichesBranchPolarityCardWithClosestConcreteNearMiss() throws Exception {
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("Branch in doWork() at line 42");
+        TestCase testCase = mock(TestCase.class);
+        when(testCase.toCode()).thenReturn("int input = 41;");
+        TestChromosome chromosome = mock(TestChromosome.class);
+        when(chromosome.getTestCase()).thenReturn(testCase);
+        Map<FitnessFunction<TestChromosome>, Double> fitnessValues = new LinkedHashMap<>();
+        fitnessValues.put(goal, 0.25);
+        when(chromosome.getFitnessValues()).thenReturn(fitnessValues);
+        ProblemCard card = ProblemCard.builder(ProblemCardType.BRANCH_POLARITY_GAP)
+                .title("Branch polarity gap")
+                .evidence(Collections.singletonList("Target predicate at line 42"))
+                .relatedGoals(Collections.singletonList(goal))
+                .build();
+        Map<TestFitnessFunction, Double> best = new LinkedHashMap<>();
+        best.put(goal, 0.25);
+
+        StagnationDetector detector = new StagnationDetector(
+                mock(LlmService.class), false, 10, 2, System::nanoTime);
+        Method enrich = StagnationDetector.class.getDeclaredMethod(
+                "attachClosestBranchExamples", List.class, List.class, Map.class);
+        enrich.setAccessible(true);
+        List<ProblemCard> enriched = (List<ProblemCard>) enrich.invoke(
+                detector, Collections.singletonList(card),
+                Collections.singletonList(chromosome), best);
+
+        assertEquals(1, enriched.get(0).getConcreteExamples().size());
+        ProblemCard.ConcreteExample example = enriched.get(0).getConcreteExamples().get(0);
+        assertSame(testCase, example.getTestCase());
+        assertTrue(example.getDescription().contains("line 42")
+                        && example.getDescription().contains("branch distance 0.2500")
+                        && example.getDescription().contains("flip the condition"),
+                "Near-miss evidence should identify the predicate, distance, and requested action");
+    }
+
+    @Test
     void diagnosticModeBuildsPromptWithProblemCardsSection() throws NoSuchMethodException {
         Properties.LlmStagnationPromptMode oldMode = Properties.LLM_STAGNATION_PROMPT;
         String oldTargetClass = Properties.TARGET_CLASS;
@@ -1544,6 +1587,15 @@ class ProblemCardExtractorTest {
             assertTrue(prompt.getDiagnosticCardTypes().contains(ProblemCardType.UNREACHED_METHOD)
                             || prompt.getDiagnosticCardTypes().contains(ProblemCardType.INDIRECT_REACHABILITY_BARRIER),
                     "Diagnostic prompt metadata should include selected card types");
+            String userPrompt = prompt.getMessages().stream()
+                    .filter(m -> m.getRole() == LlmMessage.Role.USER)
+                    .map(LlmMessage::getContent)
+                    .reduce("", (left, right) -> left + "\n" + right);
+            if (prompt.getDiagnosticCardTypes().contains(ProblemCardType.UNREACHED_METHOD)) {
+                assertTrue(userPrompt.contains("see Existing test #1")
+                                && userPrompt.contains("Existing test #1:"),
+                        "Concrete card references must resolve to a numbered test included in the prompt");
+            }
         } finally {
             Properties.LLM_STAGNATION_PROMPT = oldMode;
             Properties.TARGET_CLASS = oldTargetClass;

@@ -497,6 +497,7 @@ public class StagnationDetector {
         if (cards.isEmpty()) {
             return null;
         }
+        cards = attachClosestBranchExamples(cards, currentPopulation, bestFitnessPerGoal);
         LlmStatistics.recordDiagnosticCardsExtracted(extractedCards);
         LlmStatistics.recordDiagnosticCardsSelected(cards);
         LlmStatistics.recordDiagnosticCardsDiscarded(selection.getDiscardedCards());
@@ -504,6 +505,9 @@ public class StagnationDetector {
                 ? currentPopulation : Collections.emptyList();
         CoverageGoalFormatter goalFormatter = new CoverageGoalFormatter();
         String goalsSection = goalFormatter.format(uncoveredGoals, bestFitnessPerGoal);
+
+        List<TestCase> existingTests = selectExistingTestsForPoolPrompt(
+                currentPopulation, uncoveredGoals, cards);
 
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
@@ -513,10 +517,10 @@ public class StagnationDetector {
                         uncoveredGoals, new ArrayList<>(popCandidates)))
                 .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
                 .withInstruction(buildDiagnosticInstruction(totalGoals, coveredGoalCount, cards.size()))
-                .withInstruction("Priority problem cards:\n" + ProblemCardFormatter.format(cards))
+                .withInstruction("Priority problem cards:\n"
+                        + ProblemCardFormatter.format(cards, existingTests))
                 .withInstruction("Uncovered goals:\n" + goalsSection);
 
-        List<TestCase> existingTests = selectExistingTestsForPoolPrompt(currentPopulation, uncoveredGoals);
         if (!existingTests.isEmpty()) {
             builder.withExistingTests(existingTests);
         }
@@ -642,8 +646,16 @@ public class StagnationDetector {
     private List<TestCase> selectExistingTestsForPoolPrompt(
             List<TestChromosome> currentPopulation,
             Collection<TestFitnessFunction> uncoveredGoals) {
+        return selectExistingTestsForPoolPrompt(
+                currentPopulation, uncoveredGoals, Collections.<ProblemCard>emptyList());
+    }
+
+    private List<TestCase> selectExistingTestsForPoolPrompt(
+            List<TestChromosome> currentPopulation,
+            Collection<TestFitnessFunction> uncoveredGoals,
+            List<ProblemCard> cards) {
         if (currentPopulation == null || currentPopulation.isEmpty()) {
-            return Collections.emptyList();
+            return collectPinnedTests(cards, EXISTING_TESTS_CONTEXT_MAX);
         }
         int candidateCount = Math.max(
                 EXISTING_TESTS_CONTEXT_MAX,
@@ -654,13 +666,111 @@ public class StagnationDetector {
         List<TestChromosome> selected = shouldDiversifyExistingTestsBySpecies()
                 ? diversifyAcrossSpecies(deduped, EXISTING_TESTS_CONTEXT_MAX)
                 : deduped.subList(0, Math.min(EXISTING_TESTS_CONTEXT_MAX, deduped.size()));
-        List<TestCase> existingTests = new ArrayList<>(selected.size());
+        List<TestCase> existingTests = collectPinnedTests(cards, EXISTING_TESTS_CONTEXT_MAX);
+        Set<String> seen = new LinkedHashSet<>();
+        for (TestCase pinned : existingTests) {
+            seen.add(canonicalTestKey(pinned));
+        }
+        if (existingTests.size() >= EXISTING_TESTS_CONTEXT_MAX) {
+            return existingTests;
+        }
         for (TestChromosome selectedChromosome : selected) {
             if (selectedChromosome != null && selectedChromosome.getTestCase() != null) {
-                existingTests.add(selectedChromosome.getTestCase());
+                TestCase test = selectedChromosome.getTestCase();
+                if (seen.add(canonicalTestKey(test))) {
+                    existingTests.add(test);
+                    if (existingTests.size() >= EXISTING_TESTS_CONTEXT_MAX) {
+                        break;
+                    }
+                }
             }
         }
         return existingTests;
+    }
+
+    private List<TestCase> collectPinnedTests(List<ProblemCard> cards, int maxCount) {
+        if (cards == null || cards.isEmpty() || maxCount <= 0) {
+            return new ArrayList<>();
+        }
+        List<TestCase> pinned = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (ProblemCard card : cards) {
+            if (card == null) {
+                continue;
+            }
+            for (ProblemCard.ConcreteExample example : card.getConcreteExamples()) {
+                TestCase test = example.getTestCase();
+                if (test != null && seen.add(canonicalTestKey(test))) {
+                    pinned.add(test);
+                    if (pinned.size() >= maxCount) {
+                        return pinned;
+                    }
+                }
+            }
+        }
+        return pinned;
+    }
+
+    private List<ProblemCard> attachClosestBranchExamples(
+            List<ProblemCard> cards,
+            List<TestChromosome> population,
+            Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
+        if (cards == null || cards.isEmpty() || population == null || population.isEmpty()
+                || bestFitnessPerGoal == null || bestFitnessPerGoal.isEmpty()) {
+            return cards;
+        }
+        List<ProblemCard> enriched = new ArrayList<>(cards.size());
+        for (ProblemCard card : cards) {
+            if (card == null || card.getType() != ProblemCardType.BRANCH_POLARITY_GAP) {
+                enriched.add(card);
+                continue;
+            }
+            TestFitnessFunction closestGoal = null;
+            double closestDistance = Double.POSITIVE_INFINITY;
+            for (TestFitnessFunction goal : card.getRelatedGoals()) {
+                Double distance = bestFitnessPerGoal.get(goal);
+                if (distance != null && Double.isFinite(distance) && distance > 0.0
+                        && distance < closestDistance) {
+                    closestGoal = goal;
+                    closestDistance = distance;
+                }
+            }
+            TestCase closestTest = findClosestTest(population, closestGoal, closestDistance);
+            if (closestTest == null) {
+                enriched.add(card);
+                continue;
+            }
+            String description = String.format(Locale.ROOT,
+                    "Closest near-miss for %s has branch distance %.4f; flip the condition",
+                    goalDescriptionMapper.describe(closestGoal), closestDistance);
+            enriched.add(card.withConcreteExample(closestTest, description));
+        }
+        return enriched;
+    }
+
+    private TestCase findClosestTest(List<TestChromosome> population,
+                                     TestFitnessFunction goal,
+                                     double expectedDistance) {
+        if (goal == null) {
+            return null;
+        }
+        TestCase closest = null;
+        double smallestDelta = Double.POSITIVE_INFINITY;
+        for (TestChromosome chromosome : population) {
+            if (chromosome == null || chromosome.getTestCase() == null) {
+                continue;
+            }
+            Double distance = chromosome.getFitnessValues().get(goal);
+            if (distance == null || !Double.isFinite(distance)) {
+                continue;
+            }
+            double delta = Math.abs(distance - expectedDistance);
+            if (delta < smallestDelta) {
+                smallestDelta = delta;
+                closest = chromosome.getTestCase();
+            }
+        }
+        return closest;
     }
 
     private boolean shouldDiversifyExistingTestsBySpecies() {

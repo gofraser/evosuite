@@ -36,7 +36,9 @@ public enum ProblemCardType {
     EXCEPTION_BARRIER(
             "Avoid previously failing call patterns and try guarded preconditions "
                     + "or alternate call order."),
-    CDG_BOTTLENECK(""),
+    CDG_BOTTLENECK(
+            "Reuse a test that reaches the controlling predicate, then change the smallest relevant "
+                    + "input or receiver-state condition needed to satisfy the required dependency outcome."),
     UNINSTANTIABLE_TYPE(
             "Try alternate object acquisition paths (different constructor args, "
                     + "factory/builder methods, or intermediate dependency creation), and aim to obtain "
@@ -67,8 +69,7 @@ public enum ProblemCardType {
 
     /**
      * Returns the suggested-action sentence rendered by {@link ProblemCardFormatter}
-     * for this card type. Returns the empty string when no hint is appropriate
-     * (e.g. {@link #CDG_BOTTLENECK}, which historically had no hint).
+     * for this card type.
      */
     public String getActionHint() {
         return actionHint;

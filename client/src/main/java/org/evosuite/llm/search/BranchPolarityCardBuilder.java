@@ -75,6 +75,8 @@ final class BranchPolarityCardBuilder implements CardBuilder {
             String branchLocation = signal.branchTarget.getLocationLabel();
             String desiredLabel = signal.branchTarget.getOutcomeLabel();
             List<String> evidence = new ArrayList<>();
+            evidence.add("Target predicate: " + branchLocation + ", branch id "
+                    + signal.branchId + ", desired outcome " + desiredLabel + ".");
             evidence.add("Desired branch outcome " + desiredLabel
                     + " was never observed for " + branchLocation + ".");
             evidence.add("Observed non-target branch outcome in "

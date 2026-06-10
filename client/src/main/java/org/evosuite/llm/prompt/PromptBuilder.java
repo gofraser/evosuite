@@ -317,31 +317,38 @@ public class PromptBuilder {
         }
         int maxTotal = Properties.LLM_EXISTING_TESTS_MAX_CHARS_TOTAL;
         int maxPerTest = Properties.LLM_EXISTING_TESTS_MAX_CHARS_PER_TEST;
+        int remainingTotal = maxTotal;
+        int remainingTests = tests.size();
         boolean annotate = Properties.LLM_ANNOTATE_EXISTING_TESTS;
         StringBuilder builder = new StringBuilder("Existing tests:\n");
-        int totalChars = 0;
 
+        int testIndex = 1;
         for (TestCase test : tests) {
             String code = annotate
                     ? testCaseFormatter.formatWithCoverage(test)
                     : testCaseFormatter.format(test);
 
-            if (maxPerTest > 0 && code.length() > maxPerTest) {
+            int effectiveLimit = maxPerTest;
+            if (maxTotal > 0) {
+                int fairShare = remainingTotal / Math.max(1, remainingTests);
+                effectiveLimit = maxPerTest > 0 ? Math.min(maxPerTest, fairShare) : fairShare;
+            }
+            boolean bounded = maxTotal > 0 || maxPerTest > 0;
+            if (bounded && code.length() > effectiveLimit) {
                 String marker = "\n// ... (truncated)";
-                if (maxPerTest > marker.length()) {
-                    code = code.substring(0, maxPerTest - marker.length()) + marker;
+                if (effectiveLimit > marker.length()) {
+                    code = code.substring(0, effectiveLimit - marker.length()) + marker;
                 } else {
-                    code = code.substring(0, maxPerTest);
+                    code = code.substring(0, effectiveLimit);
                 }
             }
 
-            if (maxTotal > 0 && totalChars + code.length() > maxTotal
-                    && totalChars > 0) {
-                break;
+            builder.append("Existing test #").append(testIndex++).append(":\n")
+                    .append("```java\n").append(code).append("\n```\n");
+            if (maxTotal > 0) {
+                remainingTotal = Math.max(0, remainingTotal - code.length());
+                remainingTests--;
             }
-
-            builder.append("```java\n").append(code).append("\n```\n");
-            totalChars += code.length();
         }
         userSections.add(builder.toString());
         return this;
