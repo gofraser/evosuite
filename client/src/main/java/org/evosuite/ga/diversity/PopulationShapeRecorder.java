@@ -41,13 +41,18 @@ import java.util.List;
  * <p>Output schema (one row per recorded individual):
  * <pre>
  *   population_shape_&lt;TARGET_CLASS&gt;.csv :
- *     gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs
+ *     gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs,struct_features
  * </pre>
  * {@code branches} holds covered branch IDs sorted ascending, joined with
  * {@code ';'} (empty if no execution trace). {@code method_sigs} holds the
  * sanitized called-method signatures (the {@code METHOD_CALL_JACCARD} genotype
  * feature), sorted, joined with {@code '|'} (empty if none) — used to render
- * the genotype-space twin of the behavior-space MDS grid. {@code sum_fitness}
+ * the genotype-space twin of the behavior-space MDS grid. {@code struct_features}
+ * holds the sanitized static structural-genotype tokens (the
+ * {@link JaccardSpeciesDistance#getStructuralFeatures} feature: statement kinds,
+ * call signatures with descriptors, and literal values from the test code),
+ * sorted, joined with {@code '|'} (empty if none) — a finer genotype twin that
+ * separates tests differing only in inputs or call shape. {@code sum_fitness}
  * is written as an empty cell when NaN; {@code injection_source} as an empty
  * cell when null. Note that {@code covered_goals} and {@code sum_fitness} only span
  * goals that were active optimization targets when the individual was
@@ -63,7 +68,7 @@ public final class PopulationShapeRecorder {
     public static final String FILENAME_PREFIX = "population_shape";
 
     private static final String HEADER =
-            "gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs";
+            "gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs,struct_features";
 
     private final List<Row> rows = new ArrayList<>();
     private final String path;
@@ -78,14 +83,16 @@ public final class PopulationShapeRecorder {
 
     /**
      * Records one individual's shape row. {@code branches} must already be
-     * sorted ascending; {@code methodSigs} must already be sanitized (no
-     * {@code ','}, {@code '|'} or {@code ';'} characters) and sorted.
+     * sorted ascending; {@code methodSigs} and {@code structFeatures} must
+     * already be sanitized (no {@code ','}, {@code '|'} or {@code ';'}
+     * characters) and sorted.
      */
     public synchronized void record(int gen, long elapsedMs, int idx, int speciesId,
                                     int rank, String injectionSource, int coveredGoals,
-                                    double sumFitness, int[] branches, String[] methodSigs) {
+                                    double sumFitness, int[] branches, String[] methodSigs,
+                                    String[] structFeatures) {
         rows.add(new Row(gen, elapsedMs, idx, speciesId, rank, injectionSource,
-                coveredGoals, sumFitness, branches, methodSigs));
+                coveredGoals, sumFitness, branches, methodSigs, structFeatures));
     }
 
     public synchronized int size() {
@@ -136,6 +143,13 @@ public final class PopulationShapeRecorder {
                     }
                     sb.append(row.methodSigs[i]);
                 }
+                sb.append(',');
+                for (int i = 0; i < row.structFeatures.length; i++) {
+                    if (i > 0) {
+                        sb.append('|');
+                    }
+                    sb.append(row.structFeatures[i]);
+                }
                 writer.write(sb.toString());
                 writer.newLine();
             }
@@ -166,10 +180,11 @@ public final class PopulationShapeRecorder {
         final double sumFitness;
         final int[] branches;
         final String[] methodSigs;
+        final String[] structFeatures;
 
         Row(int gen, long elapsedMs, int idx, int speciesId, int rank,
             String injectionSource, int coveredGoals, double sumFitness, int[] branches,
-            String[] methodSigs) {
+            String[] methodSigs, String[] structFeatures) {
             this.gen = gen;
             this.elapsedMs = elapsedMs;
             this.idx = idx;
@@ -180,6 +195,7 @@ public final class PopulationShapeRecorder {
             this.sumFitness = sumFitness;
             this.branches = (branches != null) ? branches : new int[0];
             this.methodSigs = (methodSigs != null) ? methodSigs : new String[0];
+            this.structFeatures = (structFeatures != null) ? structFeatures : new String[0];
         }
     }
 }

@@ -159,6 +159,110 @@ public class JaccardSpeciesDistance implements SpeciesDistance {
         return sigs;
     }
 
+    /** Cap on a single string literal's contribution, to bound feature length. */
+    private static final int MAX_LITERAL_LEN = 24;
+
+    /**
+     * Extract a structural genotype feature set from the chromosome's
+     * <em>static</em> test code (its {@link org.evosuite.testcase.TestCase}
+     * statements), as opposed to the execution-trace projection used by
+     * {@link #getMethodSignatures}. Each feature is a short token; the Jaccard
+     * distance over these sets is a finer, truer genotype distance that
+     * separates tests differing only in input/constant values or call shape —
+     * variation that the coarse called-method projection collapses.
+     *
+     * <p>Feature kinds (variable names are deliberately never included, so
+     * {@code var0/var1} renaming and ordering noise cannot inflate distance):
+     * <ul>
+     *   <li>{@code M:Class.name(desc)} — method call, with JVM descriptor
+     *       (parameter types)</li>
+     *   <li>{@code C:Class(desc)} — constructor call, with descriptor</li>
+     *   <li>{@code F:Class.field} — field access</li>
+     *   <li>{@code V:type=value} — primitive/string/enum/class literal value
+     *       (string values truncated to {@value #MAX_LITERAL_LEN} chars)</li>
+     *   <li>{@code A:type}, {@code N:type}, {@code K:type}, {@code =} — array /
+     *       null / functional-mock / assignment statements</li>
+     *   <li>{@code BG:kindA>kindB} — bigram of consecutive statement kinds, a
+     *       light ordering signal that keeps structurally similar tests near</li>
+     * </ul>
+     * Returns an empty set for a null/empty test case.
+     */
+    public static Set<String> getStructuralFeatures(TestChromosome tc) {
+        org.evosuite.testcase.TestCase test = (tc != null) ? tc.getTestCase() : null;
+        if (test == null || test.size() == 0) {
+            return Collections.emptySet();
+        }
+        Set<String> features = new HashSet<>();
+        String prevKind = null;
+        for (org.evosuite.testcase.statements.Statement st : test) {
+            String kind;
+            try {
+                if (st instanceof org.evosuite.testcase.statements.ConstructorStatement) {
+                    org.evosuite.testcase.statements.ConstructorStatement cs =
+                            (org.evosuite.testcase.statements.ConstructorStatement) st;
+                    features.add("C:" + cs.getDeclaringClassName() + "."
+                            + cs.getConstructor().getNameWithDescriptor());
+                    kind = "C";
+                } else if (st instanceof org.evosuite.testcase.statements.FunctionalMockStatement) {
+                    features.add("K:" + safeName(st.getReturnClass()));
+                    kind = "K";
+                } else if (st instanceof org.evosuite.testcase.statements.MethodStatement) {
+                    org.evosuite.testcase.statements.MethodStatement ms =
+                            (org.evosuite.testcase.statements.MethodStatement) st;
+                    features.add("M:" + ms.getDeclaringClassName() + "."
+                            + ms.getMethod().getNameWithDescriptor());
+                    kind = "M";
+                } else if (st instanceof org.evosuite.testcase.statements.FieldStatement) {
+                    org.evosuite.testcase.statements.FieldStatement fs =
+                            (org.evosuite.testcase.statements.FieldStatement) st;
+                    features.add("F:" + safeName(fs.getReturnClass()) + "."
+                            + fs.getField().getName());
+                    kind = "F";
+                } else if (st instanceof org.evosuite.testcase.statements.PrimitiveStatement) {
+                    Object value = ((org.evosuite.testcase.statements.PrimitiveStatement<?>) st).getValue();
+                    features.add("V:" + safeName(st.getReturnClass()) + "=" + literal(value));
+                    kind = "V";
+                } else if (st instanceof org.evosuite.testcase.statements.ArrayStatement) {
+                    features.add("A:" + safeName(st.getReturnClass()));
+                    kind = "A";
+                } else if (st instanceof org.evosuite.testcase.statements.NullStatement) {
+                    features.add("N:" + safeName(st.getReturnClass()));
+                    kind = "N";
+                } else if (st instanceof org.evosuite.testcase.statements.AssignmentStatement) {
+                    features.add("=");
+                    kind = "=";
+                } else {
+                    kind = "?";
+                }
+            } catch (Exception e) {
+                // A malformed/partially-constructed statement must not abort the
+                // snapshot; skip its feature and continue.
+                kind = "?";
+            }
+            if (prevKind != null) {
+                features.add("BG:" + prevKind + ">" + kind);
+            }
+            prevKind = kind;
+        }
+        return features;
+    }
+
+    private static String safeName(Class<?> c) {
+        return (c != null) ? c.getName() : "?";
+    }
+
+    /** Canonical, length-bounded rendering of a literal value. */
+    private static String literal(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        String s = String.valueOf(value);
+        if (s.length() > MAX_LITERAL_LEN) {
+            s = s.substring(0, MAX_LITERAL_LEN) + "…";
+        }
+        return s;
+    }
+
     /**
      * Compute Jaccard distance = 1 - |A ∩ B| / |A ∪ B|.
      * Returns a configurable value when both sets are empty.

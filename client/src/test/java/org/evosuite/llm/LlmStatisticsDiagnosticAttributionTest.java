@@ -70,7 +70,7 @@ class LlmStatisticsDiagnosticAttributionTest {
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.UNREACHED_METHOD, 2);
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.BRANCH_POLARITY_GAP, 1);
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.STATE_DIVERSIFICATION_GAP, 4);
-        LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.UNINSTANTIABLE_TYPE, 3);
+        LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.MOCK_NEEDED_DEPENDENCY, 3);
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.TYPE_NEVER_ATTEMPTED, 6);
         LlmStatistics.recordDiagnosticCoverageGain(null, 5);
         LlmStatistics.recordDiagnosticCoverageGain(ProblemCardType.CDG_BOTTLENECK, 0);
@@ -79,7 +79,7 @@ class LlmStatisticsDiagnosticAttributionTest {
         assertEquals(2L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.UNREACHED_METHOD));
         assertEquals(1L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.BRANCH_POLARITY_GAP));
         assertEquals(4L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.STATE_DIVERSIFICATION_GAP));
-        assertEquals(3L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.UNINSTANTIABLE_TYPE));
+        assertEquals(3L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.MOCK_NEEDED_DEPENDENCY));
         assertEquals(6L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.TYPE_NEVER_ATTEMPTED));
         assertEquals(0L, LlmStatistics.getDiagnosticCoverageGains(ProblemCardType.CDG_BOTTLENECK));
     }
@@ -145,7 +145,7 @@ class LlmStatisticsDiagnosticAttributionTest {
                 problemCard(ProblemCardType.UNREACHED_METHOD),
                 problemCard(ProblemCardType.EXCEPTION_BARRIER),
                 problemCard(ProblemCardType.STATE_DIVERSIFICATION_GAP),
-                problemCard(ProblemCardType.STATE_SETUP_BARRIER),
+                problemCard(ProblemCardType.ENVIRONMENT_BARRIER),
                 problemCard(ProblemCardType.INDIRECT_REACHABILITY_BARRIER),
                 problemCard(ProblemCardType.TYPE_NEVER_ATTEMPTED)));
         LlmStatistics.recordDiagnosticCardsExtracted(Collections.singletonList(null));
@@ -154,7 +154,7 @@ class LlmStatisticsDiagnosticAttributionTest {
         assertEquals(2L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.UNREACHED_METHOD));
         assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.EXCEPTION_BARRIER));
         assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.STATE_DIVERSIFICATION_GAP));
-        assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.STATE_SETUP_BARRIER));
+        assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.ENVIRONMENT_BARRIER));
         assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.INDIRECT_REACHABILITY_BARRIER));
         assertEquals(1L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.TYPE_NEVER_ATTEMPTED));
         assertEquals(0L, LlmStatistics.getDiagnosticCardsExtracted(ProblemCardType.CDG_BOTTLENECK));
@@ -220,18 +220,12 @@ class LlmStatisticsDiagnosticAttributionTest {
 
         EnumMap<ExtractorRejectReason, Integer> rejectCounts = new EnumMap<>(ExtractorRejectReason.class);
         rejectCounts.put(ExtractorRejectReason.UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL, 2);
-        rejectCounts.put(ExtractorRejectReason.UNINSTANTIABLE_PROGRESS_BEYOND_CREATION, 1);
-        rejectCounts.put(ExtractorRejectReason.STATE_SETUP_DILUTED_SUCCESS, 3);
         rejectCounts.put(ExtractorRejectReason.BLOCKED_TYPE_MAPPING_FAILURE, 4);
 
         LlmStatistics.recordDiagnosticExtractorRejects(rejectCounts);
 
         assertEquals(2L, LlmStatistics.getDiagnosticExtractorRejects(
                 ExtractorRejectReason.UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL));
-        assertEquals(1L, LlmStatistics.getDiagnosticExtractorRejects(
-                ExtractorRejectReason.UNINSTANTIABLE_PROGRESS_BEYOND_CREATION));
-        assertEquals(3L, LlmStatistics.getDiagnosticExtractorRejects(
-                ExtractorRejectReason.STATE_SETUP_DILUTED_SUCCESS));
         assertEquals(4L, LlmStatistics.getDiagnosticExtractorRejects(
                 ExtractorRejectReason.BLOCKED_TYPE_MAPPING_FAILURE));
     }
@@ -244,7 +238,7 @@ class LlmStatisticsDiagnosticAttributionTest {
                 new EnumMap<>(ExtractorCandidateMetric.class);
         candidateCounts.put(ExtractorCandidateMetric.UPSTREAM_EXCEPTION_REPEATED_SOURCES, 2);
         candidateCounts.put(ExtractorCandidateMetric.EXCEPTION_BARRIER_METHOD_CANDIDATES, 1);
-        candidateCounts.put(ExtractorCandidateMetric.UNINSTANTIABLE_TYPE_SUPPRESSED_LOW_FAILURE_RATE, 3);
+        candidateCounts.put(ExtractorCandidateMetric.ENVIRONMENT_BARRIER_CANDIDATES, 3);
 
         LlmStatistics.recordDiagnosticExtractorCandidates(candidateCounts);
 
@@ -253,7 +247,7 @@ class LlmStatisticsDiagnosticAttributionTest {
         assertEquals(1L, LlmStatistics.getDiagnosticExtractorCandidates(
                 ExtractorCandidateMetric.EXCEPTION_BARRIER_METHOD_CANDIDATES));
         assertEquals(3L, LlmStatistics.getDiagnosticExtractorCandidates(
-                ExtractorCandidateMetric.UNINSTANTIABLE_TYPE_SUPPRESSED_LOW_FAILURE_RATE));
+                ExtractorCandidateMetric.ENVIRONMENT_BARRIER_CANDIDATES));
 
         LlmStatistics.resetDiagnosticCardCounters();
 
@@ -262,7 +256,7 @@ class LlmStatisticsDiagnosticAttributionTest {
         assertEquals(0L, LlmStatistics.getDiagnosticExtractorCandidates(
                 ExtractorCandidateMetric.EXCEPTION_BARRIER_METHOD_CANDIDATES));
         assertEquals(0L, LlmStatistics.getDiagnosticExtractorCandidates(
-                ExtractorCandidateMetric.UNINSTANTIABLE_TYPE_SUPPRESSED_LOW_FAILURE_RATE));
+                ExtractorCandidateMetric.ENVIRONMENT_BARRIER_CANDIDATES));
     }
 
     private static ProblemCard problemCard(ProblemCardType type) {

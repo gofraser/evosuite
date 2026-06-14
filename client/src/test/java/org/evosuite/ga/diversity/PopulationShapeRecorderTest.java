@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class PopulationShapeRecorderTest {
 
     private static final String HEADER =
-            "gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs";
+            "gen,elapsed_ms,idx,species_id,rank,injection_source,covered_goals,sum_fitness,branches,method_sigs,struct_features";
 
     @Test
     void recordsAndFlushesRows(@TempDir Path tmp) throws IOException {
@@ -44,18 +44,21 @@ class PopulationShapeRecorderTest {
         PopulationShapeRecorder recorder = new PopulationShapeRecorder(file.toString());
 
         recorder.record(0, 0L, 0, 3, 0, null, 2, 4.5, new int[] {1, 2, 3},
-                new String[] {"Foo.bar()V", "Foo.baz(I)I"});
+                new String[] {"Foo.bar()V", "Foo.baz(I)I"},
+                new String[] {"C:Foo()V", "M:Foo.bar()V", "V:int=3"});
         recorder.record(0, 0L, 1, 3, 1, "LLM_ASYNC", 1, 6.0, new int[] {1, 3},
-                new String[] {"Foo.bar()V"});
-        recorder.record(5, 5012L, 0, -1, -1, null, 0, Double.NaN, new int[0], new String[0]);
+                new String[] {"Foo.bar()V"}, new String[] {"C:Foo()V"});
+        recorder.record(5, 5012L, 0, -1, -1, null, 0, Double.NaN, new int[0],
+                new String[0], new String[0]);
         recorder.flush();
 
         List<String> lines = Files.readAllLines(file);
         assertEquals(HEADER, lines.get(0));
         assertEquals(4, lines.size(), "header + 3 rows");
-        assertEquals("0,0,0,3,0,,2,4.5,1;2;3,Foo.bar()V|Foo.baz(I)I", lines.get(1));
-        assertEquals("0,0,1,3,1,LLM_ASYNC,1,6.0,1;3,Foo.bar()V", lines.get(2));
-        assertEquals("5,5012,0,-1,-1,,0,,,", lines.get(3));
+        assertEquals("0,0,0,3,0,,2,4.5,1;2;3,Foo.bar()V|Foo.baz(I)I,C:Foo()V|M:Foo.bar()V|V:int=3",
+                lines.get(1));
+        assertEquals("0,0,1,3,1,LLM_ASYNC,1,6.0,1;3,Foo.bar()V,C:Foo()V", lines.get(2));
+        assertEquals("5,5012,0,-1,-1,,0,,,,", lines.get(3));
         assertEquals(3, recorder.size());
     }
 
@@ -74,7 +77,8 @@ class PopulationShapeRecorderTest {
     void flushIsIdempotent(@TempDir Path tmp) throws IOException {
         Path file = tmp.resolve("shape.csv");
         PopulationShapeRecorder recorder = new PopulationShapeRecorder(file.toString());
-        recorder.record(0, 0L, 0, 0, 0, null, 1, 2.0, new int[] {7}, new String[] {"Foo.bar()V"});
+        recorder.record(0, 0L, 0, 0, 0, null, 1, 2.0, new int[] {7},
+                new String[] {"Foo.bar()V"}, new String[] {"M:Foo.bar()V"});
 
         recorder.flush();
         long sizeAfterFirst = Files.size(file);

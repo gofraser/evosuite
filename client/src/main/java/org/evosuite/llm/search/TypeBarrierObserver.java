@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.TestGenerationContext;
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -28,15 +29,29 @@ import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 final class TypeBarrierObserver {
 
     private final GoalDescriptionMapper goalDescriptionMapper = new GoalDescriptionMapper();
     private final ExtractorTraceSink traceSink;
+
+    /**
+     * Memoizes observed-type to goal-bearing-supertype resolution for the
+     * lifetime of a single extraction. Keys are observed {@link Class#getName()}
+     * type names; values are the resolved goal-bearing type name, or the empty
+     * string when no goal-bearing supertype exists (negative results are cached
+     * too, to avoid repeated reflection over the same uninstantiable subtype).
+     */
+    private final Map<String, String> goalBearingSupertypeCache = new HashMap<>();
 
     TypeBarrierObserver(ExtractorTraceSink traceSink) {
         this.traceSink = traceSink == null ? ExtractorTraceSink.NOOP : traceSink;
@@ -337,6 +352,19 @@ final class TypeBarrierObserver {
                     chromosomeIndex, statementIndex, observedTypeName, observedTypeName);
             return observedTypeName;
         }
+        // The observed type may be a concrete subtype (or implementer) of a
+        // goal-bearing CUT — e.g. an abstract/interface CUT whose only goals live
+        // on the supertype while tests instantiate a concrete subclass. The
+        // subtype carries no goals of its own, so prefer its nearest goal-bearing
+        // supertype before falling back to positional in-test heuristics.
+        String supertype = firstGoalBearingSupertype(observedTypeName, goalsByType);
+        if (!supertype.isEmpty()) {
+            traceSink.trace(tracePhase,
+                    "test={} stmt={} action=map_blocked_type observed_type={} observed_has_goals=false "
+                            + "supertype={} mapped_type={}",
+                    chromosomeIndex, statementIndex, observedTypeName, supertype, supertype);
+            return supertype;
+        }
         String downstreamType = firstGoalBearingTypeAfter(test, statementIndex, goalsByType);
         if (!downstreamType.isEmpty()) {
             traceSink.trace(tracePhase,
@@ -407,6 +435,80 @@ final class TypeBarrierObserver {
             }
         }
         return "";
+    }
+
+    /**
+     * Resolves an observed type name to its nearest goal-bearing supertype
+     * (superclass or implemented interface), or the empty string when none of
+     * its ancestors carry uncovered goals. This bridges the common case where
+     * the CUT is abstract or an interface: the goals are keyed on the supertype,
+     * but the observed construction/setup happens on a concrete subtype that has
+     * no goals of its own. Without this bridge such observations are dropped as
+     * mapping failures and the structural barrier cards are never emitted.
+     */
+    private String firstGoalBearingSupertype(String observedTypeName,
+                                             Map<String, List<TestFitnessFunction>> goalsByType) {
+        if (observedTypeName == null || observedTypeName.isEmpty() || goalsByType == null
+                || goalsByType.isEmpty()) {
+            return "";
+        }
+        String cached = goalBearingSupertypeCache.get(observedTypeName);
+        if (cached != null) {
+            return cached;
+        }
+        // Cache eagerly with a negative result so reflection failures and
+        // miss-resolutions are not retried for every observation of the type.
+        goalBearingSupertypeCache.put(observedTypeName, "");
+        Class<?> observed = loadTypeForResolution(observedTypeName);
+        if (observed == null) {
+            return "";
+        }
+        Set<Class<?>> visited = new LinkedHashSet<>();
+        Deque<Class<?>> queue = new ArrayDeque<>();
+        enqueueSupertypes(observed, queue, visited);
+        while (!queue.isEmpty()) {
+            Class<?> ancestor = queue.poll();
+            String ancestorName = ancestor.getName();
+            if (hasGoalsForType(goalsByType, ancestorName)) {
+                goalBearingSupertypeCache.put(observedTypeName, ancestorName);
+                return ancestorName;
+            }
+            enqueueSupertypes(ancestor, queue, visited);
+        }
+        return "";
+    }
+
+    private void enqueueSupertypes(Class<?> type, Deque<Class<?>> queue, Set<Class<?>> visited) {
+        Class<?> superclass = type.getSuperclass();
+        if (superclass != null && superclass != Object.class && visited.add(superclass)) {
+            queue.add(superclass);
+        }
+        for (Class<?> iface : type.getInterfaces()) {
+            if (iface != null && visited.add(iface)) {
+                queue.add(iface);
+            }
+        }
+    }
+
+    private Class<?> loadTypeForResolution(String typeName) {
+        ClassLoader loader = null;
+        try {
+            loader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        } catch (Throwable ignored) {
+            // Fall back to the context/observer classloader below.
+        }
+        try {
+            if (loader != null) {
+                return Class.forName(typeName, false, loader);
+            }
+        } catch (Throwable ignored) {
+            // Subtype may not be loadable via the SUT loader; try the fallback.
+        }
+        try {
+            return Class.forName(typeName, false, TypeBarrierObserver.class.getClassLoader());
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     private boolean hasGoalsForType(Map<String, List<TestFitnessFunction>> goalsByType, String typeName) {

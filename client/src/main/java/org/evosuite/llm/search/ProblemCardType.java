@@ -39,13 +39,6 @@ public enum ProblemCardType {
     CDG_BOTTLENECK(
             "Reuse a test that reaches the controlling predicate, then change the smallest relevant "
                     + "input or receiver-state condition needed to satisfy the required dependency outcome."),
-    UNINSTANTIABLE_TYPE(
-            "Try alternate object acquisition paths (different constructor args, "
-                    + "factory/builder methods, or intermediate dependency creation), and aim to obtain "
-                    + "one usable instance that can survive long enough for the next step."),
-    STATE_SETUP_BARRIER(
-            "Construct the object first, then drive a valid setup/lifecycle sequence "
-                    + "before invoking target behavior."),
     INDIRECT_REACHABILITY_BARRIER(
             "Drive the outer entrypoint workflow or reuse any working outer workflow/setup prefix "
                     + "that gets close to the target type, then append the missing direct target invocation; "
@@ -99,8 +92,6 @@ public enum ProblemCardType {
 
     public ProblemCardFamily getDefaultFamily() {
         switch (this) {
-            case UNINSTANTIABLE_TYPE:
-            case STATE_SETUP_BARRIER:
             case INDIRECT_REACHABILITY_BARRIER:
             case TYPE_NEVER_ATTEMPTED:
             case MOCK_NEEDED_DEPENDENCY:

@@ -42,25 +42,27 @@ class FitnessSpaceSnapshotRecorderTest {
         FitnessSpaceSnapshotRecorder recorder = new FitnessSpaceSnapshotRecorder(file.toString());
 
         recorder.record(0, Arrays.asList(
-                new double[] {1.0, 0.5, Double.NaN},
-                new double[] {0.8, 0.2, 0.9}));
+                        new double[] {1.0, 0.5, Double.NaN},
+                        new double[] {0.8, 0.2, 0.9}),
+                Arrays.asList(0, 1));
         recorder.record(10, Arrays.asList(
-                new double[] {0.0, 0.0, 0.1}));
+                        new double[] {0.0, 0.0, 0.1}),
+                Arrays.asList(0));
         recorder.flush();
 
         List<String> lines = Files.readAllLines(file);
-        assertEquals("gen,individual_id,goal_0,goal_1,goal_2", lines.get(0));
+        assertEquals("gen,individual_id,rank,goal_0,goal_1,goal_2", lines.get(0));
         assertEquals(4, lines.size(), "header + 3 rows");
-        assertEquals("0,0,1.0,0.5,", lines.get(1));
-        assertEquals("0,1,0.8,0.2,0.9", lines.get(2));
-        assertEquals("10,0,0.0,0.0,0.1", lines.get(3));
+        assertEquals("0,0,0,1.0,0.5,", lines.get(1));
+        assertEquals("0,1,1,0.8,0.2,0.9", lines.get(2));
+        assertEquals("10,0,0,0.0,0.0,0.1", lines.get(3));
     }
 
     @Test
     void flushIsIdempotent(@TempDir Path tmp) throws IOException {
         Path file = tmp.resolve("snapshots.csv");
         FitnessSpaceSnapshotRecorder recorder = new FitnessSpaceSnapshotRecorder(file.toString());
-        recorder.record(0, Arrays.asList(new double[] {0.5, 0.5}));
+        recorder.record(0, Arrays.asList(new double[] {0.5, 0.5}), Arrays.asList(0));
 
         recorder.flush();
         long sizeAfterFirst = Files.size(file);
@@ -77,6 +79,6 @@ class FitnessSpaceSnapshotRecorderTest {
 
         List<String> lines = Files.readAllLines(file);
         assertEquals(1, lines.size());
-        assertEquals("gen,individual_id", lines.get(0));
+        assertEquals("gen,individual_id,rank", lines.get(0));
     }
 }

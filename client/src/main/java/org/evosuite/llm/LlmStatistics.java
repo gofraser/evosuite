@@ -619,10 +619,6 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted, getDiagnosticCardsExtracted());
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
                 getDiagnosticExtractorRejects(ExtractorRejectReason.UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL));
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UninstantiableProgressBeyondCreation,
-                getDiagnosticExtractorRejects(ExtractorRejectReason.UNINSTANTIABLE_PROGRESS_BEYOND_CREATION));
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_StateSetupDilutedSuccess,
-                getDiagnosticExtractorRejects(ExtractorRejectReason.STATE_SETUP_DILUTED_SUCCESS));
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure,
                 getDiagnosticExtractorRejects(ExtractorRejectReason.BLOCKED_TYPE_MAPPING_FAILURE));
         for (ExtractorCandidateMetric metric : ExtractorCandidateMetric.values()) {
@@ -722,8 +718,6 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Survived, 0);
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Cards_Extracted, 0);
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UninstantiableProgressBeyondCreation, 0);
-        ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_StateSetupDilutedSuccess, 0);
         ClientServices.track(RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure, 0);
         for (ExtractorCandidateMetric metric : ExtractorCandidateMetric.values()) {
             ClientServices.track(toExtractorCandidateRuntimeVariable(metric), 0);
@@ -778,10 +772,6 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_ExceptionBarrier;
             case CDG_BOTTLENECK:
                 return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_CdgBottleneck;
-            case UNINSTANTIABLE_TYPE:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_UninstantiableType;
-            case STATE_SETUP_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Cards_Extracted_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
@@ -802,10 +792,6 @@ public class LlmStatistics {
         switch (reason) {
             case UPSTREAM_EXCEPTION_WITHOUT_BLOCKED_GOAL:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal;
-            case UNINSTANTIABLE_PROGRESS_BEYOND_CREATION:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_UninstantiableProgressBeyondCreation;
-            case STATE_SETUP_DILUTED_SUCCESS:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_StateSetupDilutedSuccess;
             case BLOCKED_TYPE_MAPPING_FAILURE:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Rejects_BlockedTypeMappingFailure;
             default:
@@ -832,24 +818,6 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedInsufficientAttempts;
             case EXCEPTION_BARRIER_SUPPRESSED_LOW_FAILURE_RATE:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedLowFailureRate;
-            case TYPE_BARRIER_SIGNALS_WITH_CONSTRUCTION_FAILURE:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_TypeBarrierSignalsWithConstructionFailure;
-            case TYPE_BARRIER_SIGNALS_WITH_SETUP_FAILURE:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_TypeBarrierSignalsWithSetupFailure;
-            case UNINSTANTIABLE_TYPE_CANDIDATES:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeCandidates;
-            case UNINSTANTIABLE_TYPE_SUPPRESSED_INSUFFICIENT_ATTEMPTS:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeSuppressedInsufficientAttempts;
-            case UNINSTANTIABLE_TYPE_SUPPRESSED_LOW_FAILURE_RATE:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeSuppressedLowFailureRate;
-            case STATE_SETUP_BARRIER_CANDIDATES:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierCandidates;
-            case STATE_SETUP_BARRIER_SUPPRESSED_NO_SUCCESSFUL_ACQUISITION:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedNoSuccessfulAcquisition;
-            case STATE_SETUP_BARRIER_SUPPRESSED_INSUFFICIENT_ATTEMPTS:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInsufficientAttempts;
-            case STATE_SETUP_BARRIER_SUPPRESSED_INCONSISTENT_FAILING_STEP:
-                return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInconsistentFailingStep;
             case MOCK_NEEDED_DEPENDENCY_CANDIDATES:
                 return RuntimeVariable.LLM_Diagnostic_Extractor_Candidates_MockNeededDependencyCandidates;
             case MOCK_NEEDED_DEPENDENCY_SUPPRESSED_MATERIALIZED:
@@ -876,10 +844,6 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Cards_ExceptionBarrier;
             case CDG_BOTTLENECK:
                 return RuntimeVariable.LLM_Diagnostic_Cards_CdgBottleneck;
-            case UNINSTANTIABLE_TYPE:
-                return RuntimeVariable.LLM_Diagnostic_Cards_UninstantiableType;
-            case STATE_SETUP_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Cards_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Cards_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
@@ -908,10 +872,6 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_ExceptionBarrier;
             case CDG_BOTTLENECK:
                 return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_CdgBottleneck;
-            case UNINSTANTIABLE_TYPE:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_UninstantiableType;
-            case STATE_SETUP_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Coverage_Gains_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
@@ -1003,10 +963,6 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Published_ExceptionBarrier;
             case CDG_BOTTLENECK:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Published_CdgBottleneck;
-            case UNINSTANTIABLE_TYPE:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_UninstantiableType;
-            case STATE_SETUP_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Published_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Published_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
@@ -1035,10 +991,6 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_ExceptionBarrier;
             case CDG_BOTTLENECK:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_CdgBottleneck;
-            case UNINSTANTIABLE_TYPE:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_UninstantiableType;
-            case STATE_SETUP_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Admitted_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:
@@ -1067,10 +1019,6 @@ public class LlmStatistics {
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_ExceptionBarrier;
             case CDG_BOTTLENECK:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_CdgBottleneck;
-            case UNINSTANTIABLE_TYPE:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_UninstantiableType;
-            case STATE_SETUP_BARRIER:
-                return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_StateSetupBarrier;
             case INDIRECT_REACHABILITY_BARRIER:
                 return RuntimeVariable.LLM_Diagnostic_Candidates_Survived_IndirectReachabilityBarrier;
             case TYPE_NEVER_ATTEMPTED:

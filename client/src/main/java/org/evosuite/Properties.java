@@ -2524,9 +2524,11 @@ public class Properties {
 
     @Parameter(key = "fitness_space_snapshot_enabled", group = "Visualization",
             description = "If true, periodically write the fitness vector (one value per coverage "
-                    + "goal) of each rank-0 (Pareto front) individual to "
-                    + "fitness_space_snapshots_<TARGET_CLASS>.csv under REPORT_DIR. Used to render "
-                    + "PCA trajectory plots of the population in fitness space.")
+                    + "goal, over the full original goal set) of each population individual, with "
+                    + "its Pareto rank, to fitness_space_snapshots_<TARGET_CLASS>.csv under "
+                    + "REPORT_DIR. Goals already covered (in the archive) score 0.0 and unreached "
+                    + "goals score 1.0, so the coordinate system is stationary across generations. "
+                    + "Used to render PCA trajectory plots of the population in fitness space.")
     public static boolean FITNESS_SPACE_SNAPSHOT_ENABLED = false;
 
     @Parameter(key = "fitness_space_snapshot_interval", group = "Visualization",
@@ -2536,9 +2538,9 @@ public class Properties {
     public static int FITNESS_SPACE_SNAPSHOT_INTERVAL = 10;
 
     @Parameter(key = "fitness_space_snapshot_max_individuals", group = "Visualization",
-            description = "Maximum number of rank-0 individuals to record per snapshot generation. "
-                    + "If the Pareto front is larger, only the first N (in population order) are "
-                    + "recorded.")
+            description = "Maximum number of population individuals to record per snapshot "
+                    + "generation. If the population is larger, only the first N (in population "
+                    + "order) are recorded.")
     @IntValue(min = 1)
     public static int FITNESS_SPACE_SNAPSHOT_MAX_INDIVIDUALS = 50;
 

@@ -156,7 +156,6 @@ public class ProblemCardExtractor {
         new EnvironmentBarrierCardBuilder().emit(cards, context);
         new IndirectReachabilityCardBuilder().emit(cards, context);
         new UnreachedMethodCardBuilder().emit(cards, context);
-        new TypeBarrierCardBuilder().emit(cards, context);
         new ExceptionBarrierCardBuilder().emit(cards, context);
         new StateDiversificationCardBuilder().emit(cards, context);
         new BranchPolarityCardBuilder().emit(cards, context);

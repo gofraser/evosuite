@@ -56,7 +56,7 @@ class ProblemCardBuilderTest {
 
     @Test
     void builderDefaultsFamilyFromCardType() {
-        ProblemCard card = ProblemCard.builder(ProblemCardType.UNINSTANTIABLE_TYPE)
+        ProblemCard card = ProblemCard.builder(ProblemCardType.INDIRECT_REACHABILITY_BARRIER)
                 .title("structural default")
                 .evidence(Collections.singletonList("ev"))
                 .impact(0.5).blockage(0.5).confidence(0.5)

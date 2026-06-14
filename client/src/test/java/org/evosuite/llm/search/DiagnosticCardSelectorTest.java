@@ -41,7 +41,7 @@ class DiagnosticCardSelectorTest {
                 "com.example.Bar.fail", "com.example.Bar.fail");
         ProblemCard local = card(ProblemCardType.BRANCH_POLARITY_GAP, 0.35,
                 "branch:42:true", "branch:42:true");
-        ProblemCard structural = card(ProblemCardType.UNINSTANTIABLE_TYPE, 0.30,
+        ProblemCard structural = card(ProblemCardType.INDIRECT_REACHABILITY_BARRIER, 0.30,
                 "com.example.Factory", "acquisition:com.example.Factory");
 
         DiagnosticCardSelector.SelectionResult result = selector.select(
@@ -51,7 +51,7 @@ class DiagnosticCardSelectorTest {
         assertEquals(3, selected.size());
         assertTrue(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.UNREACHED_METHOD));
         assertTrue(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.BRANCH_POLARITY_GAP));
-        assertTrue(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.UNINSTANTIABLE_TYPE));
+        assertTrue(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.INDIRECT_REACHABILITY_BARRIER));
         assertFalse(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.EXCEPTION_BARRIER));
         assertEquals(1L, result.countDiscardReason(DiagnosticCardSelector.DiscardReason.FAMILY_DIVERSITY));
     }
@@ -60,7 +60,7 @@ class DiagnosticCardSelectorTest {
     void selectorDropsUnreachedMethodsCoveredBySelectedStructuralBarrier() {
         DiagnosticCardSelector selector = new DiagnosticCardSelector();
 
-        ProblemCard structural = card(ProblemCardType.UNINSTANTIABLE_TYPE, 0.45,
+        ProblemCard structural = card(ProblemCardType.INDIRECT_REACHABILITY_BARRIER, 0.45,
                 "com.example.Foo", "acquisition:com.example.Foo");
         ProblemCard unreachedOne = card(ProblemCardType.UNREACHED_METHOD, 0.95,
                 "com.example.Foo", "com.example.Foo.alpha");
@@ -76,7 +76,7 @@ class DiagnosticCardSelectorTest {
 
         List<ProblemCard> selected = result.getSelectedCards();
         assertEquals(3, selected.size());
-        assertTrue(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.UNINSTANTIABLE_TYPE));
+        assertTrue(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.INDIRECT_REACHABILITY_BARRIER));
         assertTrue(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.EXCEPTION_BARRIER));
         assertTrue(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.CDG_BOTTLENECK));
         assertFalse(selected.stream().anyMatch(c -> c.getType() == ProblemCardType.UNREACHED_METHOD));
@@ -134,11 +134,11 @@ class DiagnosticCardSelectorTest {
     void selectorDropsStructuralBarrierCoveredByAlreadySelectedUnreachedMethod() {
         DiagnosticCardSelector selector = new DiagnosticCardSelector();
 
-        ProblemCard structuralOther = card(ProblemCardType.UNINSTANTIABLE_TYPE, 0.95,
+        ProblemCard structuralOther = card(ProblemCardType.INDIRECT_REACHABILITY_BARRIER, 0.95,
                 "com.example.A", "acquisition:com.example.A");
         ProblemCard unreached = card(ProblemCardType.UNREACHED_METHOD, 0.90,
                 "com.example.B", "com.example.B.work");
-        ProblemCard structuralOverlap = card(ProblemCardType.STATE_SETUP_BARRIER, 0.70,
+        ProblemCard structuralOverlap = card(ProblemCardType.ENVIRONMENT_BARRIER, 0.70,
                 "com.example.B", "setup:com.example.B");
         ProblemCard localPrimary = card(ProblemCardType.BRANCH_POLARITY_GAP, 0.60,
                 "branch:7:true", "branch:7:true");
@@ -191,7 +191,7 @@ class DiagnosticCardSelectorTest {
     void selectorSuppressesLowSteerabilityBranchGapWhenBlockerCardsExist() {
         DiagnosticCardSelector selector = new DiagnosticCardSelector();
 
-        ProblemCard structural = card(ProblemCardType.UNINSTANTIABLE_TYPE, 0.52,
+        ProblemCard structural = card(ProblemCardType.INDIRECT_REACHABILITY_BARRIER, 0.52,
                 "com.example.Target", "acquisition:com.example.Target");
         ProblemCard execution = card(ProblemCardType.EXCEPTION_BARRIER, 0.44,
                 "com.example.Target.work", "com.example.Target.work");

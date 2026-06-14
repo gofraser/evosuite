@@ -32,18 +32,22 @@ import java.util.List;
 
 /**
  * Records, every N generations, the full fitness vector (one value per
- * coverage goal, in {@code fitnessFunctions} order) of each rank-0 (Pareto
- * front) individual. Used to render a PCA-projected trajectory of the
- * population through fitness space over the course of the search.
+ * coverage goal, in {@code fitnessFunctions} order, over the full original
+ * goal set) of each population individual, together with its Pareto rank.
+ * Used to render a PCA-projected trajectory of the population through fitness
+ * space over the course of the search.
  *
  * <p>Output schema (one row per recorded individual):
  * <pre>
  *   fitness_space_snapshots_&lt;TARGET_CLASS&gt;.csv :
- *     gen,individual_id,goal_0,goal_1,...,goal_{N-1}
+ *     gen,individual_id,rank,goal_0,goal_1,...,goal_{N-1}
  * </pre>
- * {@code individual_id} is the individual's position within the recorded
- * front for that generation (0-based, not stable across generations).
- * Empty cells denote {@code Double.NaN} (no fitness value for that goal).
+ * {@code individual_id} is the individual's position within the population for
+ * that generation (0-based, not stable across generations). {@code rank} is the
+ * Pareto front rank (0 = non-dominated front, -1 = unranked). To keep the
+ * coordinate system stationary, the caller scores archived/covered goals as
+ * {@code 0.0} and unreached goals as {@code 1.0}; empty cells still denote
+ * {@code Double.NaN} for robustness against shorter vectors.
  * Mirrors the buffer-then-flush pattern used by {@link PopulationSpeciesRecorder}.
  */
 public final class FitnessSpaceSnapshotRecorder {
@@ -65,18 +69,23 @@ public final class FitnessSpaceSnapshotRecorder {
     }
 
     /**
-     * Records one snapshot generation's worth of fitness vectors. All
-     * vectors are expected to have the same length (the number of coverage
-     * goals); the length of the first recorded vector determines the
-     * number of {@code goal_*} columns written by {@link #flush()}.
+     * Records one snapshot generation's worth of fitness vectors and their
+     * Pareto ranks. All vectors are expected to have the same length (the
+     * number of coverage goals); the length of the first recorded vector
+     * determines the number of {@code goal_*} columns written by
+     * {@link #flush()}. {@code ranks} must be parallel to
+     * {@code individualVectors} (same size and order).
      */
-    public synchronized void record(int gen, List<double[]> individualVectors) {
+    public synchronized void record(int gen, List<double[]> individualVectors,
+                                    List<Integer> ranks) {
         for (int i = 0; i < individualVectors.size(); i++) {
             double[] vec = individualVectors.get(i);
             if (numGoals < 0) {
                 numGoals = vec.length;
             }
-            rows.add(new Row(gen, i, vec));
+            int rank = (ranks != null && i < ranks.size() && ranks.get(i) != null)
+                    ? ranks.get(i) : -1;
+            rows.add(new Row(gen, i, rank, vec));
         }
     }
 
@@ -98,7 +107,7 @@ public final class FitnessSpaceSnapshotRecorder {
         }
         int n = Math.max(numGoals, 0);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
-            StringBuilder header = new StringBuilder("gen,individual_id");
+            StringBuilder header = new StringBuilder("gen,individual_id,rank");
             for (int i = 0; i < n; i++) {
                 header.append(",goal_").append(i);
             }
@@ -106,7 +115,8 @@ public final class FitnessSpaceSnapshotRecorder {
             writer.newLine();
             for (Row row : rows) {
                 StringBuilder sb = new StringBuilder();
-                sb.append(row.gen).append(',').append(row.individualId);
+                sb.append(row.gen).append(',').append(row.individualId)
+                        .append(',').append(row.rank);
                 for (int i = 0; i < n; i++) {
                     sb.append(',');
                     double v = (i < row.vector.length) ? row.vector[i] : Double.NaN;
@@ -136,11 +146,13 @@ public final class FitnessSpaceSnapshotRecorder {
     private static final class Row {
         final int gen;
         final int individualId;
+        final int rank;
         final double[] vector;
 
-        Row(int gen, int individualId, double[] vector) {
+        Row(int gen, int individualId, int rank, double[] vector) {
             this.gen = gen;
             this.individualId = individualId;
+            this.rank = rank;
             this.vector = vector;
         }
     }

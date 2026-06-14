@@ -1533,21 +1533,41 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         if (fitnessSpaceSnapshotRecorder != null
                 && this.currentIteration % Math.max(1, Properties.FITNESS_SPACE_SNAPSHOT_INTERVAL) == 0) {
             try {
-                List<TestChromosome> front0 = this.rankingFunction.getSubfront(0);
                 int n = fitnessFunctions.size();
+                // Stationary fitness space: archived/covered goals score 0.0 for
+                // every individual (banked by the search), goals with no stored
+                // value score 1.0 (unreached), and active-goal fitness is mapped to
+                // [0,1) via the standard normalization (raw fitness can be as large
+                // as Double.MAX_VALUE for unreachable goals, which would dominate /
+                // overflow a Euclidean PCA). This keeps the full original goal set a
+                // fixed, bounded coordinate system so the all-zeros vector ("all
+                // goals covered") stays meaningful across generations.
+                Set<TestFitnessFunction> covered = getCoveredGoals();
+                boolean[] coveredFlags = new boolean[n];
+                for (int i = 0; i < n; i++) {
+                    coveredFlags[i] = covered.contains(fitnessFunctions.get(i));
+                }
                 int max = Math.max(1, Properties.FITNESS_SPACE_SNAPSHOT_MAX_INDIVIDUALS);
-                int limit = Math.min(front0.size(), max);
+                int limit = Math.min(this.population.size(), max);
+                int[] rankPerSlot = buildRankPerSlot(this.population);
                 List<double[]> vectors = new ArrayList<>(limit);
+                List<Integer> ranks = new ArrayList<>(limit);
                 for (int idx = 0; idx < limit; idx++) {
-                    TestChromosome tc = front0.get(idx);
+                    TestChromosome tc = this.population.get(idx);
                     double[] vec = new double[n];
                     for (int i = 0; i < n; i++) {
-                        Double v = tc.getFitnessValues().get(fitnessFunctions.get(i));
-                        vec[i] = (v == null) ? Double.NaN : v;
+                        if (coveredFlags[i]) {
+                            vec[i] = 0.0;
+                        } else {
+                            Double v = tc.getFitnessValues().get(fitnessFunctions.get(i));
+                            vec[i] = (v == null || Double.isNaN(v))
+                                    ? 1.0 : FitnessFunction.normalize(Math.max(0.0, v));
+                        }
                     }
                     vectors.add(vec);
+                    ranks.add(idx < rankPerSlot.length ? rankPerSlot[idx] : -1);
                 }
-                fitnessSpaceSnapshotRecorder.record(this.currentIteration, vectors);
+                fitnessSpaceSnapshotRecorder.record(this.currentIteration, vectors, ranks);
             } catch (Exception e) {
                 logger.debug("Failed to record fitness space snapshot for gen {}",
                         this.currentIteration, e);
@@ -1592,11 +1612,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     // JVM descriptors inside method signatures contain ';'; the CSV
                     // cell uses ',' and the sig list uses '|' as separators.
                     String[] methodSigs = JaccardSpeciesDistance.getMethodSignatures(tc).stream()
-                            .map(s -> s.replace(',', '_').replace('|', '_').replace(';', '_'))
+                            .map(AbstractMOSA::sanitizeCsvToken)
+                            .sorted().toArray(String[]::new);
+                    String[] structFeatures = JaccardSpeciesDistance.getStructuralFeatures(tc).stream()
+                            .map(AbstractMOSA::sanitizeCsvToken)
                             .sorted().toArray(String[]::new);
                     populationShapeRecorder.record(this.currentIteration, elapsedMs, idx,
                             speciesId, rank, (src != null) ? src.name() : null,
-                            coveredGoals, any ? sum : Double.NaN, branches, methodSigs);
+                            coveredGoals, any ? sum : Double.NaN, branches, methodSigs,
+                            structFeatures);
                 }
             } catch (Exception e) {
                 logger.debug("Failed to record population shape snapshot for gen {}",
@@ -1728,6 +1752,17 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             out[i] = (id == null) ? -1 : id;
         }
         return out;
+    }
+
+    /**
+     * Make a feature token safe to write as a single CSV cell joined by
+     * {@code '|'}: replace the CSV/list separators ({@code ','}, {@code '|'},
+     * {@code ';'}) and any line/tab breaks (literal string values can contain
+     * embedded newlines, which would otherwise split the row) with {@code '_'}.
+     */
+    private static String sanitizeCsvToken(String s) {
+        return s.replace(',', '_').replace('|', '_').replace(';', '_')
+                .replace('\n', '_').replace('\r', '_').replace('\t', '_');
     }
 
     private int[] buildRankPerSlot(List<TestChromosome> population) {

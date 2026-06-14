@@ -947,14 +947,6 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Cards_Extracted_CdgBottleneck,
     /**
-     * Number of extracted diagnostic cards of type UNINSTANTIABLE_TYPE.
-     */
-    LLM_Diagnostic_Cards_Extracted_UninstantiableType,
-    /**
-     * Number of extracted diagnostic cards of type STATE_SETUP_BARRIER.
-     */
-    LLM_Diagnostic_Cards_Extracted_StateSetupBarrier,
-    /**
      * Number of extracted diagnostic cards of type INDIRECT_REACHABILITY_BARRIER.
      */
     LLM_Diagnostic_Cards_Extracted_IndirectReachabilityBarrier,
@@ -974,14 +966,6 @@ public enum RuntimeVariable {
      * Upstream throwing helper/bootstrap calls that could not be attributed to a downstream blocked goal.
      */
     LLM_Diagnostic_Extractor_Rejects_UpstreamExceptionWithoutBlockedGoal,
-    /**
-     * UNINSTANTIABLE_TYPE candidates suppressed because meaningful same-type or goal-bearing progress exists.
-     */
-    LLM_Diagnostic_Extractor_Rejects_UninstantiableProgressBeyondCreation,
-    /**
-     * STATE_SETUP_BARRIER candidates suppressed because successful executions broke failure dominance.
-     */
-    LLM_Diagnostic_Extractor_Rejects_StateSetupDilutedSuccess,
     /**
      * Bootstrap/setup observations that could not be mapped onto a more specific blocked goal-bearing type.
      */
@@ -1014,42 +998,6 @@ public enum RuntimeVariable {
      * Exception-barrier candidates suppressed because exception dominance stayed below threshold.
      */
     LLM_Diagnostic_Extractor_Candidates_ExceptionBarrierSuppressedLowFailureRate,
-    /**
-     * Goal-bearing types that showed construction/factory failures before any blocker card extraction.
-     */
-    LLM_Diagnostic_Extractor_Candidates_TypeBarrierSignalsWithConstructionFailure,
-    /**
-     * Goal-bearing types that showed setup/lifecycle failures before any blocker card extraction.
-     */
-    LLM_Diagnostic_Extractor_Candidates_TypeBarrierSignalsWithSetupFailure,
-    /**
-     * UNINSTANTIABLE_TYPE candidate types that cleared the minimum-attempt gate.
-     */
-    LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeCandidates,
-    /**
-     * UNINSTANTIABLE_TYPE candidates suppressed because acquisition failures were too sparse.
-     */
-    LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeSuppressedInsufficientAttempts,
-    /**
-     * UNINSTANTIABLE_TYPE candidates suppressed because acquisition failures were not dominant enough.
-     */
-    LLM_Diagnostic_Extractor_Candidates_UninstantiableTypeSuppressedLowFailureRate,
-    /**
-     * STATE_SETUP_BARRIER candidate types that cleared the basic acquisition and setup-attempt gates.
-     */
-    LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierCandidates,
-    /**
-     * STATE_SETUP_BARRIER candidates suppressed because no successful acquisition was observed first.
-     */
-    LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedNoSuccessfulAcquisition,
-    /**
-     * STATE_SETUP_BARRIER candidates suppressed because setup failures were too sparse.
-     */
-    LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInsufficientAttempts,
-    /**
-     * STATE_SETUP_BARRIER candidates suppressed because no failing setup step was consistent enough.
-     */
-    LLM_Diagnostic_Extractor_Candidates_StateSetupBarrierSuppressedInconsistentFailingStep,
     /**
      * Distinct interface/abstract collaborators flagged as never supplied to a goal method.
      */
@@ -1108,14 +1056,6 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Cards_CdgBottleneck,
     /**
-     * Number of selected diagnostic cards of type UNINSTANTIABLE_TYPE.
-     */
-    LLM_Diagnostic_Cards_UninstantiableType,
-    /**
-     * Number of selected diagnostic cards of type STATE_SETUP_BARRIER.
-     */
-    LLM_Diagnostic_Cards_StateSetupBarrier,
-    /**
      * Number of selected diagnostic cards of type INDIRECT_REACHABILITY_BARRIER.
      */
     LLM_Diagnostic_Cards_IndirectReachabilityBarrier,
@@ -1155,14 +1095,6 @@ public enum RuntimeVariable {
      * Published diagnostic-prompt candidates associated with CDG_BOTTLENECK.
      */
     LLM_Diagnostic_Candidates_Published_CdgBottleneck,
-    /**
-     * Published diagnostic-prompt candidates associated with UNINSTANTIABLE_TYPE.
-     */
-    LLM_Diagnostic_Candidates_Published_UninstantiableType,
-    /**
-     * Published diagnostic-prompt candidates associated with STATE_SETUP_BARRIER.
-     */
-    LLM_Diagnostic_Candidates_Published_StateSetupBarrier,
     /**
      * Published diagnostic-prompt candidates associated with INDIRECT_REACHABILITY_BARRIER.
      */
@@ -1205,14 +1137,6 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Candidates_Admitted_CdgBottleneck,
     /**
-     * Admitted diagnostic-prompt candidates associated with UNINSTANTIABLE_TYPE.
-     */
-    LLM_Diagnostic_Candidates_Admitted_UninstantiableType,
-    /**
-     * Admitted diagnostic-prompt candidates associated with STATE_SETUP_BARRIER.
-     */
-    LLM_Diagnostic_Candidates_Admitted_StateSetupBarrier,
-    /**
      * Admitted diagnostic-prompt candidates associated with INDIRECT_REACHABILITY_BARRIER.
      */
     LLM_Diagnostic_Candidates_Admitted_IndirectReachabilityBarrier,
@@ -1253,14 +1177,6 @@ public enum RuntimeVariable {
      * Surviving diagnostic-prompt candidates associated with CDG_BOTTLENECK.
      */
     LLM_Diagnostic_Candidates_Survived_CdgBottleneck,
-    /**
-     * Surviving diagnostic-prompt candidates associated with UNINSTANTIABLE_TYPE.
-     */
-    LLM_Diagnostic_Candidates_Survived_UninstantiableType,
-    /**
-     * Surviving diagnostic-prompt candidates associated with STATE_SETUP_BARRIER.
-     */
-    LLM_Diagnostic_Candidates_Survived_StateSetupBarrier,
     /**
      * Surviving diagnostic-prompt candidates associated with INDIRECT_REACHABILITY_BARRIER.
      */
@@ -1310,14 +1226,6 @@ public enum RuntimeVariable {
      * Attributed uncovered-goal gains for CDG_BOTTLENECK diagnostics.
      */
     LLM_Diagnostic_Coverage_Gains_CdgBottleneck,
-    /**
-     * Attributed uncovered-goal gains for UNINSTANTIABLE_TYPE diagnostics.
-     */
-    LLM_Diagnostic_Coverage_Gains_UninstantiableType,
-    /**
-     * Attributed uncovered-goal gains for STATE_SETUP_BARRIER diagnostics.
-     */
-    LLM_Diagnostic_Coverage_Gains_StateSetupBarrier,
     /**
      * Attributed uncovered-goal gains for INDIRECT_REACHABILITY_BARRIER diagnostics.
      */
