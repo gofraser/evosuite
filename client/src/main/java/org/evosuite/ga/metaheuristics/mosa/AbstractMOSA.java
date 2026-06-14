@@ -32,6 +32,10 @@ import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.ga.diversity.DefaultSpeciesPolicy;
 import org.evosuite.ga.diversity.PopulationDiversityComputation;
+import org.evosuite.ga.diversity.FitnessSpaceSnapshotRecorder;
+import org.evosuite.ga.diversity.JaccardSpeciesDistance;
+import org.evosuite.ga.diversity.ObjectiveCoverageRecorder;
+import org.evosuite.ga.diversity.PopulationShapeRecorder;
 import org.evosuite.ga.diversity.PopulationSpeciesRecorder;
 import org.evosuite.ga.diversity.SpeciesAssigner;
 import org.evosuite.ga.diversity.SpeciesBirthRegistry;
@@ -41,13 +45,18 @@ import org.evosuite.ga.diversity.StableSpeciesAssigner;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
 import org.evosuite.ga.operators.ranking.RankBasedPreferenceSorting;
+import org.evosuite.llm.search.BlendChannel;
 import org.evosuite.llm.search.BreedingDisruptionObserver;
 import org.evosuite.llm.search.DisruptionHelper;
 import org.evosuite.llm.search.DisruptionRecorder;
+import org.evosuite.llm.search.ExtractorTraceSink;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.OperatorAttemptResult;
+import org.evosuite.llm.search.ProblemCard;
+import org.evosuite.llm.search.ProblemCardExtractor;
+import org.evosuite.llm.search.ProblemCardLogRecorder;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.rmi.ClientServices;
@@ -251,6 +260,62 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     private transient long populationSpeciesStartMs = -1L;
 
+    /**
+     * Per-generation, per-goal best-fitness sidecar writer. Non-null when
+     * {@link Properties#OBJECTIVE_COVERAGE_TIMELINE_ENABLED} is true.
+     */
+    protected final transient ObjectiveCoverageRecorder objectiveCoverageRecorder;
+
+    /**
+     * Periodic Pareto-front fitness-vector sidecar writer. Non-null when
+     * {@link Properties#FITNESS_SPACE_SNAPSHOT_ENABLED} is true.
+     */
+    protected final transient FitnessSpaceSnapshotRecorder fitnessSpaceSnapshotRecorder;
+
+    /**
+     * Periodic per-individual covered-branch-set sidecar writer. Non-null when
+     * {@link Properties#POPULATION_SHAPE_SNAPSHOT_ENABLED} is true.
+     */
+    protected final transient PopulationShapeRecorder populationShapeRecorder;
+
+    /**
+     * Wall-clock start of the population shape recording, captured on the first
+     * snapshot so each row's {@code elapsed_ms} is relative to the first recorded
+     * generation. {@code -1} until set. Independent of
+     * {@link #populationSpeciesStartMs}: the two recorders can be enabled separately.
+     */
+    private transient long populationShapeStartMs = -1L;
+
+    /**
+     * Per-generation offspring fate counters (vs. parent, see
+     * {@link OffspringFate}), reset at the start of {@link #breedNextGeneration()}.
+     * Cheap to maintain unconditionally: classification only reads cached
+     * fitness maps.
+     */
+    protected transient int lastGenOffspringBred;
+    protected transient int lastGenOffspringBetter;
+    protected transient int lastGenOffspringNeutral;
+    protected transient int lastGenOffspringWorse;
+    protected transient int lastGenOffspringUnchanged;
+    protected transient int lastGenOffspringDiscarded;
+    protected transient int lastGenOffspringRandomNew;
+    /** Offspring of this generation that survived selection into the population. */
+    protected transient int lastGenOffspringSurvived;
+    /** Population members not present (by identity) in the previous generation. */
+    protected transient int lastGenPopNew;
+    /** Per-slot generations-since-last-change, in population order. */
+    private transient int[] lastGenAgePerSlot = new int[0];
+    /** Identity set of everything this generation's breeding added. */
+    private transient Set<TestChromosome> lastGenOffspringIdentity;
+    /** Identity set of the previous generation's population, for turnover. */
+    private transient Set<TestChromosome> prevPopulationIdentity;
+
+    /** Lazily created extractor for the problem-card timeline (NOOP trace sink). */
+    private transient ProblemCardExtractor timelineCardExtractor;
+    private transient Set<TestChromosome> lastCardExtractionPopulation;
+    private transient int lastCardExtractionCoveredCount = -1;
+    private transient String lastCardEncodedCounts = "";
+
     /** Per-generation counters for species-protection observability. */
     private transient int lastSpeciesQuotaProtectedCount;
     private transient int lastSpeciesNewbornProtectedCount;
@@ -290,6 +355,30 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private transient long llmInjectedCandidatesAdmittedTotal;
     private transient long llmInjectedCandidatesSurvivedTotal;
     private transient int lastRecordedInjectedSurvivorGeneration = Integer.MIN_VALUE;
+
+    /** Per-generation counters for blend-brood observability. */
+    protected transient int lastGenBlendVariantsBredCount;
+    protected transient int lastGenBlendVariantsAdmittedCount;
+    protected transient int lastGenBlendVariantsSurvivedCount;
+    protected transient int lastGenBlendMutantAdmittedCount;
+    protected transient int lastGenBlendXoverGoalAdmittedCount;
+    protected transient int lastGenBlendXoverTournamentAdmittedCount;
+    private transient int blendEvalsSpentThisGen;
+    private transient long llmBlendVariantsBredTotal;
+    private transient long llmBlendVariantsAdmittedTotal;
+    private transient long llmBlendVariantsSurvivedTotal;
+    private transient long llmBlendMutantAdmittedTotal;
+    private transient long llmBlendMutantSurvivedTotal;
+    private transient long llmBlendXoverGoalAdmittedTotal;
+    private transient long llmBlendXoverGoalSurvivedTotal;
+    private transient long llmBlendXoverTournamentAdmittedTotal;
+    private transient long llmBlendXoverTournamentSurvivedTotal;
+    private transient long llmBlendEvalsSpentTotal;
+    private transient long llmBlendCrossoverFailedTotal;
+    private transient long llmBlendGoalPartnerResolvedTotal;
+    private transient long llmBlendGoalPartnerFallbackTotal;
+    private transient long llmAsyncStaleTargetTotal;
+    private transient long llmLineageElitismReinsertedTotal;
     /**
      * Running total of offspring chromosomes dropped by the orphan tripwire in
      * {@link #processOffspringMutation(TestChromosome, TestChromosome, List,
@@ -392,6 +481,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         this.populationSpeciesRecorder = Properties.SPECIES_POPULATION_TIMELINE_ENABLED
                 ? new PopulationSpeciesRecorder()
                 : null;
+
+        this.objectiveCoverageRecorder = Properties.OBJECTIVE_COVERAGE_TIMELINE_ENABLED
+                ? new ObjectiveCoverageRecorder()
+                : null;
+
+        this.fitnessSpaceSnapshotRecorder = Properties.FITNESS_SPACE_SNAPSHOT_ENABLED
+                ? new FitnessSpaceSnapshotRecorder()
+                : null;
+
+        this.populationShapeRecorder = Properties.POPULATION_SHAPE_SNAPSHOT_ENABLED
+                ? new PopulationShapeRecorder()
+                : null;
     }
 
     /**
@@ -438,6 +539,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         List<TestChromosome> offspringPopulation = new ArrayList<>(Properties.POPULATION);
         final BreedingDisruptionObserver observer = BreedingDisruptionObserver.create();
 
+        lastGenOffspringBred = 0;
+        lastGenOffspringBetter = 0;
+        lastGenOffspringNeutral = 0;
+        lastGenOffspringWorse = 0;
+        lastGenOffspringUnchanged = 0;
+        lastGenOffspringDiscarded = 0;
+        lastGenOffspringRandomNew = 0;
+        lastGenOffspringIdentity = Collections.newSetFromMap(new IdentityHashMap<>());
+
         // Build identity-based reverse lookup for intra-species mating restriction.
         Map<TestChromosome, Integer> individualToSpecies = null;
         if (Properties.SPECIES_RESTRICT_MATING && currentSpeciesMap != null) {
@@ -456,6 +566,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             TestChromosome parent2 = selectParent2(parent1, individualToSpecies);
             TestChromosome offspring1 = parent1.clone();
             TestChromosome offspring2 = parent2.clone();
+            // clone() clears descent marks; re-propagate so injected-lineage
+            // material stays traceable through ordinary breeding (RQ2).
+            offspring1.addDescentLineages(parent1.effectiveLineages());
+            offspring2.addDescentLineages(parent2.effectiveLineages());
 
             // Capture pre-crossover state for disruption analysis
             int preCrossStmts1 = observer.isEnabled() ? DisruptionHelper.statementCount(offspring1) : 0;
@@ -479,10 +593,16 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     crossoverApplied = true;
                 } catch (ConstructionFailedException e) {
                     logger.debug("CrossOver failed.");
+                    lastGenOffspringDiscarded += 2;
                     continue;
                 }
             } else if (crossoverResult.isAppliedSemantic()) {
                 crossoverApplied = true;
+            }
+            if (crossoverApplied) {
+                // Crossover mixes material from both parents.
+                offspring1.addDescentLineages(parent2.effectiveLineages());
+                offspring2.addDescentLineages(parent1.effectiveLineages());
             }
 
             // Record crossover disruption event
@@ -522,7 +642,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 tch = this.chromosomeFactory.getChromosome();
                 tch.setChanged(true);
             } else {
-                tch = Randomness.choice(this.getSolutions()).clone();
+                TestChromosome solution = Randomness.choice(this.getSolutions());
+                tch = solution.clone();
+                tch.addDescentLineages(solution.effectiveLineages());
                 tch.mutate();
             }
             if (tch.isChanged()) {
@@ -534,6 +656,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 tch.updateAge(this.currentIteration);
                 this.calculateFitness(tch);
                 offspringPopulation.add(tch);
+                lastGenOffspringRandomNew++;
+                lastGenOffspringIdentity.add(tch);
             }
         }
         logger.debug("Number of offsprings = {}", offspringPopulation.size());
@@ -583,6 +707,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         if (offspring.isChanged()) {
             if (isOffspringOrphaned(offspring, parent, crossoverApplied, mutResult)) {
+                lastGenOffspringDiscarded++;
                 return;
             }
             this.clearCachedResults(offspring);
@@ -596,7 +721,21 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
 
             offspringPopulation.add(offspring);
+            lastGenOffspringBred++;
+            lastGenOffspringIdentity.add(offspring);
+            switch (OffspringFate.classify(offspring.getFitnessValues(), parent.getFitnessValues())) {
+                case BETTER:
+                    lastGenOffspringBetter++;
+                    break;
+                case WORSE:
+                    lastGenOffspringWorse++;
+                    break;
+                default:
+                    lastGenOffspringNeutral++;
+                    break;
+            }
         } else {
+            lastGenOffspringUnchanged++;
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
                         false, this.currentIteration, postCrossoverSnapshot,
@@ -883,6 +1022,125 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
     }
 
+    /**
+     * Speciation-free incubation: for {@code LLM_LINEAGE_ELITISM_GENERATIONS}
+     * generations after injection, every injected lineage keeps its best
+     * member in the population. When survival selection dropped a whole
+     * active lineage, its best union member (raw candidate or brood variant —
+     * they share the lineage id) is re-inserted in place of the worst-ranked
+     * unprotected non-front-0 member. Total protected members never exceed
+     * {@code LLM_LINEAGE_ELITISM_MAX_FRACTION} of the population; youngest
+     * lineages are re-inserted first, so the oldest lose protection first at
+     * the cap. Independent of the speciation flags. On any failure the
+     * population is left exactly as survival selection produced it.
+     *
+     * @param union the ranked parent+offspring+injected union of this generation
+     */
+    protected void applyLineageElitism(List<TestChromosome> union) {
+        if (Properties.LLM_LINEAGE_ELITISM_GENERATIONS <= 0
+                || union == null || union.isEmpty() || this.population.isEmpty()) {
+            return;
+        }
+        try {
+            Map<Long, TestChromosome> bestByLineage = new LinkedHashMap<>();
+            for (TestChromosome tc : union) {
+                if (!isLineageElitismActive(tc)) {
+                    continue;
+                }
+                long lineage = tc.getInjectionLineageId();
+                TestChromosome current = bestByLineage.get(lineage);
+                if (current == null || isBetterRanked(tc, current)) {
+                    bestByLineage.put(lineage, tc);
+                }
+            }
+            if (bestByLineage.isEmpty()) {
+                return;
+            }
+
+            Set<Long> representedLineages = new HashSet<>();
+            Set<TestChromosome> populationIdentity =
+                    Collections.newSetFromMap(new IdentityHashMap<>());
+            int protectedCount = 0;
+            for (TestChromosome tc : this.population) {
+                populationIdentity.add(tc);
+                if (isLineageElitismActive(tc)) {
+                    representedLineages.add(tc.getInjectionLineageId());
+                    protectedCount++;
+                }
+            }
+            int maxProtected = (int) Math.floor(
+                    Properties.LLM_LINEAGE_ELITISM_MAX_FRACTION * this.population.size());
+
+            List<Map.Entry<Long, TestChromosome>> missingLineages = new ArrayList<>();
+            for (Map.Entry<Long, TestChromosome> entry : bestByLineage.entrySet()) {
+                if (!representedLineages.contains(entry.getKey())
+                        && !populationIdentity.contains(entry.getValue())) {
+                    missingLineages.add(entry);
+                }
+            }
+            missingLineages.sort((a, b) -> Integer.compare(
+                    b.getValue().getInjectionGeneration(),
+                    a.getValue().getInjectionGeneration()));
+
+            int reinserted = 0;
+            for (Map.Entry<Long, TestChromosome> entry : missingLineages) {
+                if (protectedCount >= maxProtected) {
+                    break;
+                }
+                int evictIndex = findLineageElitismEvictionIndex();
+                if (evictIndex < 0) {
+                    break;
+                }
+                this.population.set(evictIndex, entry.getValue());
+                populationIdentity.add(entry.getValue());
+                protectedCount++;
+                reinserted++;
+            }
+            if (reinserted > 0) {
+                llmLineageElitismReinsertedTotal += reinserted;
+                ClientServices.track(RuntimeVariable.LLM_Lineage_Elitism_Reinserted,
+                        llmLineageElitismReinsertedTotal);
+                logger.debug("Lineage elitism re-inserted {} lineage member(s) in generation {}",
+                        reinserted, this.currentIteration);
+            }
+        } catch (Exception e) {
+            logger.debug("Lineage elitism failed; population left as selected", e);
+        }
+    }
+
+    /** Lower rank wins; within a rank, larger crowding distance wins. */
+    private static boolean isBetterRanked(TestChromosome a, TestChromosome b) {
+        if (a.getRank() != b.getRank()) {
+            return a.getRank() < b.getRank();
+        }
+        return a.getDistance() > b.getDistance();
+    }
+
+    /**
+     * Index of the worst-ranked population member that is neither in front 0
+     * (rank 0 — never evicted) nor itself lineage-protected; -1 when nothing
+     * is evictable. Worst = highest rank, ties broken by smallest crowding
+     * distance.
+     */
+    private int findLineageElitismEvictionIndex() {
+        int worstIndex = -1;
+        int worstRank = 0;
+        double worstDistance = Double.MAX_VALUE;
+        for (int i = 0; i < this.population.size(); i++) {
+            TestChromosome tc = this.population.get(i);
+            if (tc == null || tc.getRank() <= 0 || isLineageElitismActive(tc)) {
+                continue;
+            }
+            if (tc.getRank() > worstRank
+                    || (tc.getRank() == worstRank && tc.getDistance() < worstDistance)) {
+                worstRank = tc.getRank();
+                worstDistance = tc.getDistance();
+                worstIndex = i;
+            }
+        }
+        return worstIndex;
+    }
+
     private Map<Integer, Integer> resolveSpeciesBirthGeneration() {
         if (speciesAssigner instanceof SpeciesBirthRegistry) {
             return ((SpeciesBirthRegistry) speciesAssigner).getSpeciesBirthGenerations();
@@ -1046,7 +1304,66 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         cn.trackOutputVariable(RuntimeVariable.Species_Sharing_Adjusted_Timeline,
                 lastSpeciesSharingAdjustedCount);
 
+        computeBreedingSnapshotStats();
+        int bred = Math.max(1, lastGenOffspringBred);
+        cn.trackOutputVariable(RuntimeVariable.Offspring_Beneficial_Ratio_Timeline,
+                (double) lastGenOffspringBetter / bred);
+        cn.trackOutputVariable(RuntimeVariable.Offspring_Neutral_Ratio_Timeline,
+                (double) lastGenOffspringNeutral / bred);
+        cn.trackOutputVariable(RuntimeVariable.Offspring_Worse_Ratio_Timeline,
+                (double) lastGenOffspringWorse / bred);
+        cn.trackOutputVariable(RuntimeVariable.Offspring_Survival_Ratio_Timeline,
+                (double) lastGenOffspringSurvived
+                        / Math.max(1, lastGenOffspringBred + lastGenOffspringRandomNew));
+        cn.trackOutputVariable(RuntimeVariable.Population_Turnover_Timeline,
+                (double) lastGenPopNew / Math.max(1, this.population.size()));
+        double ageSum = 0.0;
+        for (int age : lastGenAgePerSlot) {
+            ageSum += age;
+        }
+        cn.trackOutputVariable(RuntimeVariable.Population_Mean_Age_Timeline,
+                (lastGenAgePerSlot.length > 0) ? ageSum / lastGenAgePerSlot.length : 0.0);
+
+        int descended = 0;
+        for (TestChromosome tc : this.population) {
+            if (tc != null && !tc.effectiveLineages().isEmpty()) {
+                descended++;
+            }
+        }
+        cn.trackOutputVariable(RuntimeVariable.LLM_Descent_Population_Share_Timeline,
+                this.population.isEmpty() ? 0.0 : (double) descended / this.population.size());
+
         recordPopulationSnapshot(coveredGoalCount, uncoveredGoalCount, diversityForSidecar);
+    }
+
+    /**
+     * Fills {@link #lastGenOffspringSurvived}, {@link #lastGenPopNew} and
+     * {@link #lastGenAgePerSlot} from the post-selection population. Runs once
+     * per generation, before the timeline variables and sidecar row are emitted;
+     * refreshes {@link #prevPopulationIdentity} for the next generation's
+     * turnover computation.
+     */
+    private void computeBreedingSnapshotStats() {
+        int survived = 0;
+        int popNew = 0;
+        int[] ages = new int[this.population.size()];
+        for (int i = 0; i < this.population.size(); i++) {
+            TestChromosome tc = this.population.get(i);
+            if (lastGenOffspringIdentity != null && lastGenOffspringIdentity.contains(tc)) {
+                survived++;
+            }
+            if (prevPopulationIdentity == null || !prevPopulationIdentity.contains(tc)) {
+                popNew++;
+            }
+            ages[i] = Math.max(0, this.currentIteration - tc.getAge());
+        }
+        lastGenOffspringSurvived = survived;
+        lastGenPopNew = popNew;
+        lastGenAgePerSlot = ages;
+
+        Set<TestChromosome> next = Collections.newSetFromMap(new IdentityHashMap<>());
+        next.addAll(this.population);
+        prevPopulationIdentity = next;
     }
 
     /**
@@ -1126,6 +1443,19 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     populationSpeciesStartMs = now;
                 }
                 long elapsedMs = now - populationSpeciesStartMs;
+                String problemCards = sampleProblemCardDistribution(coveredGoalCount);
+                PopulationSpeciesRecorder.BreedingStats breedingStats =
+                        new PopulationSpeciesRecorder.BreedingStats(
+                                lastGenOffspringBred,
+                                lastGenOffspringBetter,
+                                lastGenOffspringNeutral,
+                                lastGenOffspringWorse,
+                                lastGenOffspringUnchanged,
+                                lastGenOffspringDiscarded,
+                                lastGenOffspringRandomNew,
+                                lastGenOffspringSurvived,
+                                lastGenPopNew,
+                                lastGenAgePerSlot);
                 PopulationSpeciesRecorder.GenerationSnapshot snap =
                         new PopulationSpeciesRecorder.GenerationSnapshot(
                                 this.currentIteration,
@@ -1154,10 +1484,122 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 lastSpeciesIncubatorProtectedCount,
                                 lastSpeciesSharingAdjustedCount,
                                 speciesPerSlot,
-                                rankPerSlot);
+                                rankPerSlot,
+                                breedingStats,
+                                problemCards,
+                                encodeBlendChannelAdmissions());
                 populationSpeciesRecorder.record(snap);
             } catch (Exception e) {
                 logger.debug("Failed to record population species snapshot for gen {}",
+                        this.currentIteration, e);
+            }
+        }
+
+        if (objectiveCoverageRecorder != null
+                && this.currentIteration % Math.max(1, Properties.OBJECTIVE_COVERAGE_TIMELINE_SAMPLE_INTERVAL) == 0) {
+            try {
+                int n = fitnessFunctions.size();
+                double[] bestPerGoal = new double[n];
+                for (int i = 0; i < n; i++) {
+                    bestPerGoal[i] = Double.NaN;
+                }
+                for (TestChromosome tc : this.population) {
+                    for (int i = 0; i < n; i++) {
+                        Double v = tc.getFitnessValues().get(fitnessFunctions.get(i));
+                        if (v != null && (Double.isNaN(bestPerGoal[i]) || v < bestPerGoal[i])) {
+                            bestPerGoal[i] = v;
+                        }
+                    }
+                }
+                objectiveCoverageRecorder.record(this.currentIteration, bestPerGoal);
+                if (this.currentIteration == 0) {
+                    String[] classNames = new String[n];
+                    String[] methodNames = new String[n];
+                    String[] descriptions = new String[n];
+                    for (int i = 0; i < n; i++) {
+                        TestFitnessFunction g = fitnessFunctions.get(i);
+                        classNames[i] = g.getTargetClass();
+                        methodNames[i] = g.getTargetMethod();
+                        descriptions[i] = g.toString();
+                    }
+                    objectiveCoverageRecorder.setGoalIndex(classNames, methodNames, descriptions);
+                }
+            } catch (Exception e) {
+                logger.debug("Failed to record objective coverage snapshot for gen {}",
+                        this.currentIteration, e);
+            }
+        }
+
+        if (fitnessSpaceSnapshotRecorder != null
+                && this.currentIteration % Math.max(1, Properties.FITNESS_SPACE_SNAPSHOT_INTERVAL) == 0) {
+            try {
+                List<TestChromosome> front0 = this.rankingFunction.getSubfront(0);
+                int n = fitnessFunctions.size();
+                int max = Math.max(1, Properties.FITNESS_SPACE_SNAPSHOT_MAX_INDIVIDUALS);
+                int limit = Math.min(front0.size(), max);
+                List<double[]> vectors = new ArrayList<>(limit);
+                for (int idx = 0; idx < limit; idx++) {
+                    TestChromosome tc = front0.get(idx);
+                    double[] vec = new double[n];
+                    for (int i = 0; i < n; i++) {
+                        Double v = tc.getFitnessValues().get(fitnessFunctions.get(i));
+                        vec[i] = (v == null) ? Double.NaN : v;
+                    }
+                    vectors.add(vec);
+                }
+                fitnessSpaceSnapshotRecorder.record(this.currentIteration, vectors);
+            } catch (Exception e) {
+                logger.debug("Failed to record fitness space snapshot for gen {}",
+                        this.currentIteration, e);
+            }
+        }
+
+        if (populationShapeRecorder != null
+                && this.currentIteration % Math.max(1, Properties.POPULATION_SHAPE_SNAPSHOT_INTERVAL) == 0
+                && !this.population.isEmpty()) {
+            try {
+                long now = System.currentTimeMillis();
+                if (populationShapeStartMs < 0) {
+                    populationShapeStartMs = now;
+                }
+                long elapsedMs = now - populationShapeStartMs;
+                int limit = Math.min(this.population.size(),
+                        Math.max(1, Properties.POPULATION_SHAPE_MAX_INDIVIDUALS));
+                int[] speciesPerSlot = (lastTrackedSpeciesMap != null)
+                        ? buildSpeciesPerSlot(this.population, lastTrackedSpeciesMap) : null;
+                int[] rankPerSlot = buildRankPerSlot(this.population);
+                for (int idx = 0; idx < limit; idx++) {
+                    TestChromosome tc = this.population.get(idx);
+                    int speciesId = (speciesPerSlot != null && idx < speciesPerSlot.length)
+                            ? speciesPerSlot[idx] : -1;
+                    int rank = (idx < rankPerSlot.length) ? rankPerSlot[idx] : -1;
+                    InjectionSource src = tc.getInjectionSource();
+                    int coveredGoals = 0;
+                    double sum = 0.0;
+                    boolean any = false;
+                    for (FitnessFunction<TestChromosome> ff : fitnessFunctions) {
+                        Double v = tc.getFitnessValues().get(ff);
+                        if (v != null) {
+                            if (v == 0.0) {
+                                coveredGoals++;
+                            }
+                            sum += v;
+                            any = true;
+                        }
+                    }
+                    int[] branches = JaccardSpeciesDistance.getCoveredBranches(tc).stream()
+                            .mapToInt(Integer::intValue).sorted().toArray();
+                    // JVM descriptors inside method signatures contain ';'; the CSV
+                    // cell uses ',' and the sig list uses '|' as separators.
+                    String[] methodSigs = JaccardSpeciesDistance.getMethodSignatures(tc).stream()
+                            .map(s -> s.replace(',', '_').replace('|', '_').replace(';', '_'))
+                            .sorted().toArray(String[]::new);
+                    populationShapeRecorder.record(this.currentIteration, elapsedMs, idx,
+                            speciesId, rank, (src != null) ? src.name() : null,
+                            coveredGoals, any ? sum : Double.NaN, branches, methodSigs);
+                }
+            } catch (Exception e) {
+                logger.debug("Failed to record population shape snapshot for gen {}",
                         this.currentIteration, e);
             }
         }
@@ -1186,6 +1628,87 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected void flushPopulationSpeciesRecorder() {
         if (populationSpeciesRecorder != null) {
             populationSpeciesRecorder.flush();
+        }
+    }
+
+    /**
+     * Flushes the objective coverage timeline sidecar to disk. Called from
+     * MOSA variants' {@code generateSolution()} finally block.
+     */
+    protected void flushObjectiveCoverageRecorder() {
+        if (objectiveCoverageRecorder != null) {
+            objectiveCoverageRecorder.flush();
+        }
+    }
+
+    /**
+     * Flushes the fitness space snapshot sidecar to disk. Called from MOSA
+     * variants' {@code generateSolution()} finally block.
+     */
+    protected void flushFitnessSpaceSnapshotRecorder() {
+        if (fitnessSpaceSnapshotRecorder != null) {
+            fitnessSpaceSnapshotRecorder.flush();
+        }
+    }
+
+    /**
+     * Samples the problem-card type distribution over the remaining goals for
+     * the species timeline sidecar. Gated by
+     * {@link Properties#PROBLEM_CARD_TIMELINE_INTERVAL} (0 = disabled); on
+     * sampled generations, re-extraction is skipped when neither the covered
+     * goal count nor the population (by identity) changed since the last
+     * extraction — the extractor is deterministic over those inputs. Returns
+     * the most recent encoding ({@code TYPE:count} pairs sorted alphabetically,
+     * joined with {@code '|'}; empty until the first extraction), carried
+     * forward on non-sampled generations.
+     */
+    private String sampleProblemCardDistribution(int coveredGoalCount) {
+        int interval = Properties.PROBLEM_CARD_TIMELINE_INTERVAL;
+        if (interval <= 0 || this.currentIteration % interval != 0) {
+            return lastCardEncodedCounts;
+        }
+        try {
+            boolean unchanged = coveredGoalCount == lastCardExtractionCoveredCount
+                    && lastCardExtractionPopulation != null
+                    && lastCardExtractionPopulation.size() == this.population.size()
+                    && lastCardExtractionPopulation.containsAll(this.population);
+            if (!unchanged) {
+                if (timelineCardExtractor == null) {
+                    timelineCardExtractor = new ProblemCardExtractor(ExtractorTraceSink.NOOP);
+                }
+                List<ProblemCard> cards = timelineCardExtractor.extract(
+                        getUncoveredGoals(), this.population, Integer.MAX_VALUE);
+                Map<String, Integer> counts = new TreeMap<>();
+                for (ProblemCard card : cards) {
+                    counts.merge(card.getType().name(), 1, Integer::sum);
+                }
+                StringBuilder sb = new StringBuilder();
+                for (Map.Entry<String, Integer> e : counts.entrySet()) {
+                    if (sb.length() > 0) {
+                        sb.append('|');
+                    }
+                    sb.append(e.getKey()).append(':').append(e.getValue());
+                }
+                lastCardEncodedCounts = sb.toString();
+                lastCardExtractionCoveredCount = coveredGoalCount;
+                Set<TestChromosome> snapshot = Collections.newSetFromMap(new IdentityHashMap<>());
+                snapshot.addAll(this.population);
+                lastCardExtractionPopulation = snapshot;
+            }
+        } catch (Exception e) {
+            logger.debug("Problem card timeline extraction failed for gen {}",
+                    this.currentIteration, e);
+        }
+        return lastCardEncodedCounts;
+    }
+
+    /**
+     * Flushes the population shape sidecar to disk. Called from MOSA
+     * variants' {@code generateSolution()} finally block.
+     */
+    protected void flushPopulationShapeRecorder() {
+        if (populationShapeRecorder != null) {
+            populationShapeRecorder.flush();
         }
     }
 
@@ -1264,6 +1787,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         lastGenInjectedCandidatesAdmittedCount = 0;
         lastGenInjectedCandidatesSurvivedCount = 0;
         lastRecordedInjectedSurvivorGeneration = Integer.MIN_VALUE;
+        lastGenBlendVariantsBredCount = 0;
+        lastGenBlendVariantsAdmittedCount = 0;
+        lastGenBlendVariantsSurvivedCount = 0;
+        lastGenBlendMutantAdmittedCount = 0;
+        lastGenBlendXoverGoalAdmittedCount = 0;
+        lastGenBlendXoverTournamentAdmittedCount = 0;
+        blendEvalsSpentThisGen = 0;
 
         // Drain LS-improved tests staged by applyLocalSearch.
         // These have already been evaluated through calculateFitness,
@@ -1327,23 +1857,52 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     if (tag != null) {
                         tagInjectedCandidate(candidate, tag);
                     }
+                    maybeRecordStaleTarget(tag, metadata, remainingUncoveredBeforeInjection);
                     this.calculateFitness(candidate);
-                    int gained = coveredGoalsAndRemove(candidate, remainingUncoveredBeforeInjection);
+                    List<TestFitnessFunction> coveredNow =
+                            coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
+                    int gained = coveredNow.size();
                     maybeRecordDiagnosticAttribution(tag, metadata, gained);
+                    if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
+                            && ProblemCardLogRecorder.isEnabled()) {
+                        try {
+                            ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
+                                    metadata.getAttemptId(), tag, this.currentIteration, coveredNow);
+                        } catch (Exception e) {
+                            logger.debug("Failed to log injection coverage for attempt {}",
+                                    metadata.getAttemptId(), e);
+                        }
+                    }
                     if (metadata != null && metadata.getAttemptId() != null
                             && !metadata.getAttemptId().trim().isEmpty()) {
                         gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
                     }
-                    union.add(candidate);
-                    if (isLlmInjectionSource(tag)) {
-                        lastGenInjectedCandidatesAdmittedCount++;
-                        llmInjectedCandidatesAdmittedTotal++;
-                        ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
-                                llmInjectedCandidatesAdmittedTotal);
+                    boolean blendingActive = Properties.LLM_BLEND_ENABLED && isLlmInjectionSource(tag);
+                    if (blendingActive) {
+                        candidate.setBlendChannel(BlendChannel.RAW);
                     }
-                    if (tag == InjectionSource.LLM_STAGNATION && metadata != null) {
-                        org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesAdmitted(
-                                metadata.getDiagnosticCardTypes(), 1);
+                    if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
+                        union.add(candidate);
+                        if (isLlmInjectionSource(tag)) {
+                            lastGenInjectedCandidatesAdmittedCount++;
+                            llmInjectedCandidatesAdmittedTotal++;
+                            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
+                                    llmInjectedCandidatesAdmittedTotal);
+                        }
+                        if (isLlmInjectionSource(tag) && metadata != null) {
+                            org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesAdmitted(
+                                    metadata.getDiagnosticCardTypes(), 1);
+                        }
+                    }
+                    if (blendingActive) {
+                        try {
+                            blendInjectedCandidate(candidate, tag, metadata, union,
+                                    remainingUncoveredBeforeInjection, gainsByAttemptId,
+                                    seenInjectedCallSignatures);
+                        } catch (Exception e) {
+                            logger.debug("Blending failed for injected candidate; "
+                                    + "raw admission unaffected", e);
+                        }
                     }
                 }
                 source.reportAttemptOutcomes(gainsByAttemptId);
@@ -1463,33 +2022,49 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         candidate.setIncubatorEligible(Properties.SPECIES_INCUBATOR_ENABLED && eligible);
     }
 
-    private int coveredGoalsAndRemove(TestChromosome candidate,
-                                      Set<TestFitnessFunction> remainingUncovered) {
+    /**
+     * Removes from {@code remainingUncovered} the goals newly covered by the
+     * candidate and returns them — the goal identities feed the problem-card
+     * log's COVERED_BY_INJECTION rows.
+     */
+    private List<TestFitnessFunction> coveredGoalsAndRemoveList(TestChromosome candidate,
+                                                                Set<TestFitnessFunction> remainingUncovered) {
         if (candidate == null || remainingUncovered == null || remainingUncovered.isEmpty()) {
-            return 0;
+            return Collections.emptyList();
         }
-        int gained = 0;
+        List<TestFitnessFunction> covered = new ArrayList<>();
         java.util.Iterator<TestFitnessFunction> it = remainingUncovered.iterator();
         while (it.hasNext()) {
             TestFitnessFunction goal = it.next();
             if (goal != null && goal.isCovered(candidate)) {
-                gained++;
+                covered.add(goal);
                 it.remove();
             }
         }
-        return gained;
+        return covered;
+    }
+
+    /**
+     * True when an injection's coverage gains should be attributed to
+     * problem-card types: the candidate came from a card-informed LLM call
+     * (SYNC stagnation or ASYNC producer) and its metadata names the cards.
+     * Package-visible for unit testing.
+     */
+    static boolean shouldAttributeDiagnostics(InjectionSource tag,
+                                              InjectionAttemptMetadata metadata) {
+        return isLlmInjectionSource(tag)
+                && metadata != null
+                && metadata.getDiagnosticCardTypes() != null
+                && !metadata.getDiagnosticCardTypes().isEmpty();
     }
 
     private void maybeRecordDiagnosticAttribution(InjectionSource tag,
                                                   InjectionAttemptMetadata metadata,
                                                   int gained) {
-        if (tag != InjectionSource.LLM_STAGNATION || stagnationLlmHelper == null || metadata == null) {
+        if (!shouldAttributeDiagnostics(tag, metadata)) {
             return;
         }
         List<ProblemCardType> selectedTypes = metadata.getDiagnosticCardTypes();
-        if (selectedTypes == null || selectedTypes.isEmpty()) {
-            return;
-        }
         if (gained <= 0) {
             return;
         }
@@ -1512,6 +2087,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         lastRecordedInjectedSurvivorGeneration = this.currentIteration;
         int llmSurvivors = 0;
+        int blendSurvivors = 0;
+        int mutantSurvivors = 0;
+        int xoverGoalSurvivors = 0;
+        int xoverTournamentSurvivors = 0;
         for (TestChromosome candidate : this.population) {
             if (candidate == null || candidate.getInjectionGeneration() != this.currentIteration) {
                 continue;
@@ -1520,11 +2099,23 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             if (!isLlmInjectionSource(source)) {
                 continue;
             }
-            llmSurvivors++;
-            if (source == InjectionSource.LLM_STAGNATION) {
-                org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesSurvived(
-                        candidate.getDiagnosticCardTypes(), 1);
+            BlendChannel channel = candidate.getBlendChannel();
+            if (channel != null && channel != BlendChannel.RAW) {
+                // Brood variants are counted separately so the raw survived
+                // counter keeps its pre-blending meaning.
+                blendSurvivors++;
+                if (channel == BlendChannel.MUTANT) {
+                    mutantSurvivors++;
+                } else if (channel == BlendChannel.XOVER_GOAL) {
+                    xoverGoalSurvivors++;
+                } else {
+                    xoverTournamentSurvivors++;
+                }
+                continue;
             }
+            llmSurvivors++;
+            org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesSurvived(
+                    candidate.getDiagnosticCardTypes(), 1);
         }
         lastGenInjectedCandidatesSurvivedCount = llmSurvivors;
         if (llmSurvivors > 0) {
@@ -1532,10 +2123,434 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Survived,
                     llmInjectedCandidatesSurvivedTotal);
         }
+        lastGenBlendVariantsSurvivedCount = blendSurvivors;
+        if (blendSurvivors > 0) {
+            llmBlendVariantsSurvivedTotal += blendSurvivors;
+            ClientServices.track(RuntimeVariable.LLM_Blend_Variants_Survived,
+                    llmBlendVariantsSurvivedTotal);
+        }
+        if (mutantSurvivors > 0) {
+            llmBlendMutantSurvivedTotal += mutantSurvivors;
+            ClientServices.track(RuntimeVariable.LLM_Blend_Mutant_Survived,
+                    llmBlendMutantSurvivedTotal);
+        }
+        if (xoverGoalSurvivors > 0) {
+            llmBlendXoverGoalSurvivedTotal += xoverGoalSurvivors;
+            ClientServices.track(RuntimeVariable.LLM_Blend_XoverGoal_Survived,
+                    llmBlendXoverGoalSurvivedTotal);
+        }
+        if (xoverTournamentSurvivors > 0) {
+            llmBlendXoverTournamentSurvivedTotal += xoverTournamentSurvivors;
+            ClientServices.track(RuntimeVariable.LLM_Blend_XoverTournament_Survived,
+                    llmBlendXoverTournamentSurvivedTotal);
+        }
     }
 
     private static boolean isLlmInjectionSource(InjectionSource source) {
         return source == InjectionSource.LLM_STAGNATION || source == InjectionSource.LLM_ASYNC;
+    }
+
+    /**
+     * Encodes this generation's per-channel union admissions for the species
+     * timeline sidecar, e.g. {@code raw:2|mut:1|xg:1|xt:0}. Empty when
+     * blending is disabled, so pre-blending rows stay unchanged.
+     */
+    private String encodeBlendChannelAdmissions() {
+        if (!Properties.LLM_BLEND_ENABLED) {
+            return "";
+        }
+        return "raw:" + lastGenInjectedCandidatesAdmittedCount
+                + "|mut:" + lastGenBlendMutantAdmittedCount
+                + "|xg:" + lastGenBlendXoverGoalAdmittedCount
+                + "|xt:" + lastGenBlendXoverTournamentAdmittedCount;
+    }
+
+    /**
+     * Counts a drained LLM_ASYNC candidate whose prompt-time target goals were
+     * all covered by the time it arrived. Supports the staleness analysis of
+     * async injection; sync candidates are exempt because their results land
+     * in the same generation that prompted them.
+     */
+    private void maybeRecordStaleTarget(InjectionSource tag,
+                                        InjectionAttemptMetadata metadata,
+                                        Set<TestFitnessFunction> remainingUncovered) {
+        if (tag != InjectionSource.LLM_ASYNC || metadata == null
+                || metadata.getTargetGoals().isEmpty() || remainingUncovered == null) {
+            return;
+        }
+        for (TestFitnessFunction goal : metadata.getTargetGoals()) {
+            if (goal != null && remainingUncovered.contains(goal)) {
+                return;
+            }
+        }
+        llmAsyncStaleTargetTotal++;
+        ClientServices.track(RuntimeVariable.LLM_Async_Candidates_StaleTarget,
+                llmAsyncStaleTargetTotal);
+    }
+
+    /**
+     * Breeds a brood of variants around a freshly admitted LLM candidate and
+     * admits the best few to the union ("evaluate broadly, admit narrowly").
+     *
+     * <p>All variants are evaluated through {@link #calculateFitness}, so any
+     * goal a variant covers is banked in the archive at evaluation time —
+     * discarding a variant afterwards loses nothing. Variants share the raw
+     * candidate's injection lineage (no fresh lineage ids), so incubation,
+     * lineage elitism and attempt attribution treat raw + blends as one
+     * lineage.
+     */
+    private void blendInjectedCandidate(TestChromosome rawCandidate,
+                                        InjectionSource tag,
+                                        InjectionAttemptMetadata metadata,
+                                        List<TestChromosome> union,
+                                        Set<TestFitnessFunction> remainingUncovered,
+                                        Map<String, Integer> gainsByAttemptId,
+                                        Set<String> seenInjectedCallSignatures) {
+        if (blendEvalsSpentThisGen >= Properties.LLM_BLEND_MAX_EVALS_PER_GEN || this.isFinished()) {
+            return;
+        }
+
+        TestFitnessFunction targetGoal = resolveBlendTargetGoal(rawCandidate, metadata,
+                remainingUncovered);
+        List<TestChromosome> brood = new ArrayList<>();
+
+        // Mutation burst: a one-shot (1+lambda) sample around the injection point.
+        for (int i = 0; i < Properties.LLM_BLEND_MUTANTS; i++) {
+            try {
+                TestChromosome mutant = rawCandidate.clone();
+                mutant.mutate();
+                if (!mutant.isChanged()) {
+                    continue;
+                }
+                brood.add(prepareBlendVariant(mutant, rawCandidate, null, BlendChannel.MUTANT));
+            } catch (Exception e) {
+                logger.debug("Blend mutant construction failed", e);
+            }
+        }
+
+        // Goal-directed crossover: partner is the population's best individual
+        // for the target goal. Falls back to the tournament channel when no
+        // goal or partner resolves.
+        int goalSlots = Properties.LLM_BLEND_GOAL_CROSSOVERS;
+        int tournamentSlots = Properties.LLM_BLEND_TOURNAMENT_CROSSOVERS;
+        if (goalSlots > 0) {
+            TestChromosome goalPartner = targetGoal == null ? null : resolveGoalPartner(targetGoal);
+            if (goalPartner == null) {
+                llmBlendGoalPartnerFallbackTotal++;
+                ClientServices.track(RuntimeVariable.LLM_Blend_GoalPartner_FallbackTournament,
+                        llmBlendGoalPartnerFallbackTotal);
+                tournamentSlots += goalSlots;
+            } else {
+                llmBlendGoalPartnerResolvedTotal++;
+                ClientServices.track(RuntimeVariable.LLM_Blend_GoalPartner_Resolved,
+                        llmBlendGoalPartnerResolvedTotal);
+                // One crossover call yields both directions (candidate-prefix
+                // and partner-prefix).
+                int produced = 0;
+                int attempts = (goalSlots + 1) / 2;
+                for (int a = 0; a < attempts && produced < goalSlots; a++) {
+                    TestChromosome o1 = rawCandidate.clone();
+                    TestChromosome o2 = goalPartner.clone();
+                    try {
+                        this.crossoverFunction.crossOver(o1, o2);
+                    } catch (ConstructionFailedException | RuntimeException e) {
+                        llmBlendCrossoverFailedTotal++;
+                        ClientServices.track(RuntimeVariable.LLM_Blend_Crossover_Failed,
+                                llmBlendCrossoverFailedTotal);
+                        continue;
+                    }
+                    brood.add(prepareBlendVariant(o1, rawCandidate, goalPartner,
+                            BlendChannel.XOVER_GOAL));
+                    produced++;
+                    if (produced < goalSlots) {
+                        brood.add(prepareBlendVariant(o2, rawCandidate, goalPartner,
+                                BlendChannel.XOVER_GOAL));
+                        produced++;
+                    }
+                }
+            }
+        }
+
+        // Tournament crossover: diversity channel against the local-optimum
+        // failure mode of always pairing with the same champion.
+        for (int i = 0; i < tournamentSlots; i++) {
+            TestChromosome partner = resolveTournamentPartner();
+            if (partner == null) {
+                break;
+            }
+            TestChromosome o1 = rawCandidate.clone();
+            TestChromosome o2 = partner.clone();
+            try {
+                this.crossoverFunction.crossOver(o1, o2);
+            } catch (ConstructionFailedException | RuntimeException e) {
+                llmBlendCrossoverFailedTotal++;
+                ClientServices.track(RuntimeVariable.LLM_Blend_Crossover_Failed,
+                        llmBlendCrossoverFailedTotal);
+                continue;
+            }
+            // Keep only the candidate-prefix direction for this channel.
+            brood.add(prepareBlendVariant(o1, rawCandidate, partner,
+                    BlendChannel.XOVER_TOURNAMENT));
+        }
+
+        if (brood.isEmpty()) {
+            return;
+        }
+        lastGenBlendVariantsBredCount += brood.size();
+        llmBlendVariantsBredTotal += brood.size();
+        ClientServices.track(RuntimeVariable.LLM_Blend_Variants_Bred, llmBlendVariantsBredTotal);
+
+        // Evaluate within budget; archive capture happens here for every
+        // variant, before the admission decision below.
+        List<TestChromosome> safeBrood = filterOrphanedTestChromosomes(brood, "LLM blend brood");
+        // Identity map: TestChromosome.equals is structural, and distinct
+        // variants can share identical test content (e.g. a no-op crossover
+        // direction); they must not collapse into one entry.
+        Map<TestChromosome, Integer> gainedByVariant = new IdentityHashMap<>();
+        List<TestChromosome> evaluatedOrder = new ArrayList<>();
+        for (TestChromosome variant : safeBrood) {
+            if (this.isFinished()
+                    || blendEvalsSpentThisGen >= Properties.LLM_BLEND_MAX_EVALS_PER_GEN) {
+                break;
+            }
+            try {
+                this.calculateFitness(variant);
+            } catch (Exception e) {
+                logger.debug("Blend variant evaluation failed", e);
+                continue;
+            }
+            blendEvalsSpentThisGen++;
+            llmBlendEvalsSpentTotal++;
+            ClientServices.track(RuntimeVariable.LLM_Blend_Evals_Spent, llmBlendEvalsSpentTotal);
+            List<TestFitnessFunction> coveredNow =
+                    coveredGoalsAndRemoveList(variant, remainingUncovered);
+            int gained = coveredNow.size();
+            maybeRecordDiagnosticAttribution(tag, metadata, gained);
+            if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
+                    && ProblemCardLogRecorder.isEnabled()) {
+                try {
+                    ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
+                            metadata.getAttemptId(), tag, this.currentIteration, coveredNow);
+                } catch (Exception e) {
+                    logger.debug("Failed to log blend coverage for attempt {}",
+                            metadata.getAttemptId(), e);
+                }
+            }
+            if (metadata != null && metadata.getAttemptId() != null
+                    && !metadata.getAttemptId().trim().isEmpty()) {
+                gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
+            }
+            gainedByVariant.put(variant, gained);
+            evaluatedOrder.add(variant);
+        }
+        if (gainedByVariant.isEmpty()) {
+            return;
+        }
+
+        // Brood admission: new coverage first, then strict improvement on the
+        // target goal; everything else is discarded (already archived).
+        final double rawTargetFitness = targetGoal == null
+                ? Double.MAX_VALUE : rawCandidate.getFitness(targetGoal);
+        final TestFitnessFunction orderGoal = targetGoal;
+        List<TestChromosome> ordered = new ArrayList<>(evaluatedOrder);
+        ordered.sort((a, b) -> {
+            int byGain = Integer.compare(gainedByVariant.get(b), gainedByVariant.get(a));
+            if (byGain != 0 || orderGoal == null) {
+                return byGain;
+            }
+            return Double.compare(a.getFitness(orderGoal), b.getFitness(orderGoal));
+        });
+        int admitted = 0;
+        for (TestChromosome variant : ordered) {
+            if (admitted >= Properties.LLM_BLEND_MAX_ADMITTED_VARIANTS) {
+                break;
+            }
+            boolean qualifies = gainedByVariant.get(variant) > 0
+                    || (targetGoal != null && variant.getFitness(targetGoal) < rawTargetFitness);
+            if (!qualifies) {
+                continue;
+            }
+            admitBlendVariant(variant, union, seenInjectedCallSignatures);
+            admitted++;
+        }
+        // Blend-only ablation: when the raw candidate is withheld, keep the
+        // attempt alive by admitting the best variant even without a strict
+        // improvement.
+        if (admitted == 0 && !Properties.LLM_BLEND_KEEP_RAW
+                && Properties.LLM_BLEND_MAX_ADMITTED_VARIANTS > 0) {
+            admitBlendVariant(ordered.get(0), union, seenInjectedCallSignatures);
+        }
+    }
+
+    /**
+     * Re-tags a brood variant after clone() cleared all injection fields: same
+     * source and lineage as the raw candidate (no fresh lineage id), current
+     * generation, inherited card types, plus channel and descent marks.
+     */
+    private TestChromosome prepareBlendVariant(TestChromosome variant,
+                                               TestChromosome rawCandidate,
+                                               TestChromosome partner,
+                                               BlendChannel channel) {
+        this.removeUnusedVariables(variant);
+        variant.setInjectionSource(rawCandidate.getInjectionSource());
+        variant.setInjectionLineageId(rawCandidate.getInjectionLineageId());
+        variant.setInjectionGeneration(this.currentIteration);
+        variant.setIncubatorEligible(rawCandidate.isIncubatorEligible());
+        variant.setDiagnosticCardTypes(rawCandidate.getDiagnosticCardTypes());
+        variant.setBlendChannel(channel);
+        variant.addDescentLineages(rawCandidate.effectiveLineages());
+        if (partner != null) {
+            variant.addDescentLineages(partner.effectiveLineages());
+        }
+        return variant;
+    }
+
+    private void admitBlendVariant(TestChromosome variant,
+                                   List<TestChromosome> union,
+                                   Set<String> seenInjectedCallSignatures) {
+        union.add(variant);
+        String signature = injectedCallSequenceSignature(variant);
+        if (!signature.isEmpty()) {
+            seenInjectedCallSignatures.add(signature);
+        }
+        lastGenBlendVariantsAdmittedCount++;
+        llmBlendVariantsAdmittedTotal++;
+        ClientServices.track(RuntimeVariable.LLM_Blend_Variants_Admitted,
+                llmBlendVariantsAdmittedTotal);
+        BlendChannel channel = variant.getBlendChannel();
+        if (channel == BlendChannel.MUTANT) {
+            lastGenBlendMutantAdmittedCount++;
+            llmBlendMutantAdmittedTotal++;
+            ClientServices.track(RuntimeVariable.LLM_Blend_Mutant_Admitted,
+                    llmBlendMutantAdmittedTotal);
+        } else if (channel == BlendChannel.XOVER_GOAL) {
+            lastGenBlendXoverGoalAdmittedCount++;
+            llmBlendXoverGoalAdmittedTotal++;
+            ClientServices.track(RuntimeVariable.LLM_Blend_XoverGoal_Admitted,
+                    llmBlendXoverGoalAdmittedTotal);
+        } else if (channel == BlendChannel.XOVER_TOURNAMENT) {
+            lastGenBlendXoverTournamentAdmittedCount++;
+            llmBlendXoverTournamentAdmittedTotal++;
+            ClientServices.track(RuntimeVariable.LLM_Blend_XoverTournament_Admitted,
+                    llmBlendXoverTournamentAdmittedTotal);
+        }
+    }
+
+    /**
+     * Resolves the goal a blend should optimize for: the candidate's
+     * closest-miss goal among the metadata target goals still uncovered,
+     * falling back to its closest miss over all remaining uncovered goals.
+     * Null when the candidate is equally far from everything (e.g. crashed).
+     */
+    private TestFitnessFunction resolveBlendTargetGoal(TestChromosome rawCandidate,
+                                                       InjectionAttemptMetadata metadata,
+                                                       Set<TestFitnessFunction> remainingUncovered) {
+        TestFitnessFunction best = null;
+        double bestFitness = Double.MAX_VALUE;
+        if (metadata != null) {
+            for (TestFitnessFunction goal : metadata.getTargetGoals()) {
+                if (goal == null || remainingUncovered == null
+                        || !remainingUncovered.contains(goal)) {
+                    continue;
+                }
+                double fitness = safeGoalFitness(rawCandidate, goal);
+                if (fitness > 0.0 && fitness < bestFitness) {
+                    bestFitness = fitness;
+                    best = goal;
+                }
+            }
+        }
+        if (best != null || remainingUncovered == null) {
+            return best;
+        }
+        for (TestFitnessFunction goal : remainingUncovered) {
+            if (goal == null) {
+                continue;
+            }
+            double fitness = safeGoalFitness(rawCandidate, goal);
+            if (fitness > 0.0 && fitness < bestFitness) {
+                bestFitness = fitness;
+                best = goal;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Population member with the lowest fitness on the target goal — the GA's
+     * best partial progress toward it. Excludes members that are themselves
+     * unproven injected material (LLM-tagged, incubating, or under lineage
+     * elitism). Ties broken by smaller test size.
+     */
+    private TestChromosome resolveGoalPartner(TestFitnessFunction goal) {
+        TestChromosome best = null;
+        double bestFitness = Double.MAX_VALUE;
+        int bestSize = Integer.MAX_VALUE;
+        for (TestChromosome tc : this.population) {
+            if (tc == null || isLlmInjectionSource(tc.getInjectionSource())
+                    || isIncubatorActive(tc) || isLineageElitismActive(tc)) {
+                continue;
+            }
+            double fitness = safeGoalFitness(tc, goal);
+            if (fitness >= Double.MAX_VALUE) {
+                continue;
+            }
+            int size = tc.size();
+            if (fitness < bestFitness || (fitness == bestFitness && size < bestSize)) {
+                bestFitness = fitness;
+                bestSize = size;
+                best = tc;
+            }
+        }
+        return best;
+    }
+
+    private TestChromosome resolveTournamentPartner() {
+        if (this.population.isEmpty()) {
+            return null;
+        }
+        for (int attempt = 0; attempt < 5; attempt++) {
+            TestChromosome partner;
+            try {
+                partner = this.selectionFunction.select(this.population);
+            } catch (Exception e) {
+                logger.debug("Tournament partner selection failed", e);
+                return null;
+            }
+            if (partner != null && !isLlmInjectionSource(partner.getInjectionSource())
+                    && !isIncubatorActive(partner) && !isLineageElitismActive(partner)) {
+                return partner;
+            }
+        }
+        return null;
+    }
+
+    private double safeGoalFitness(TestChromosome tc, TestFitnessFunction goal) {
+        try {
+            return tc.getFitness(goal);
+        } catch (Exception e) {
+            return Double.MAX_VALUE;
+        }
+    }
+
+    /**
+     * True while an injected lineage member is within its lineage-elitism
+     * protection window (the speciation-free incubation analogue of
+     * {@link #isIncubatorActive}).
+     */
+    private boolean isLineageElitismActive(TestChromosome tc) {
+        if (tc == null || Properties.LLM_LINEAGE_ELITISM_GENERATIONS <= 0) {
+            return false;
+        }
+        if (tc.getInjectionLineageId() < 0L) {
+            return false;
+        }
+        int injectedAt = tc.getInjectionGeneration();
+        if (injectedAt < 0) {
+            return false;
+        }
+        int age = Math.max(0, this.currentIteration - injectedAt);
+        return age <= Properties.LLM_LINEAGE_ELITISM_GENERATIONS;
     }
 
     private Map<String, Integer> initializeAttemptOutcomeMap(
@@ -1947,6 +2962,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 DisruptionRecorder.getInstance().flush();
             } catch (Exception e) {
                 logger.warn("Failed to flush disruption recorder", e);
+            }
+        }
+        if (ProblemCardLogRecorder.isEnabled()) {
+            try {
+                ProblemCardLogRecorder.getInstance().flush();
+            } catch (Exception e) {
+                logger.warn("Failed to flush problem card log", e);
             }
         }
         super.notifySearchFinished();

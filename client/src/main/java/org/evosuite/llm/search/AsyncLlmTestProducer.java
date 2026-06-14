@@ -37,6 +37,7 @@ import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -253,9 +254,11 @@ public class AsyncLlmTestProducer {
                 ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls,
                         diagnosticCallsAttempted.incrementAndGet());
             }
+            Collection<TestFitnessFunction> attemptTargetGoals;
             if (shouldUseDiagnosticPrompt() && !cachedDiagnosticCards.isEmpty()) {
                 prompt = buildDiagnosticPromptForAsync(currentGoals, currentTests, cachedDiagnosticCards);
                 cardTypes = extractCardTypes(cachedDiagnosticCards);
+                attemptTargetGoals = extractCardRelatedGoals(cachedDiagnosticCards);
                 ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used,
                         diagnosticCardsUsed.addAndGet(cardTypes.size()));
             } else {
@@ -267,10 +270,20 @@ public class AsyncLlmTestProducer {
                 }
                 prompt = buildPoolPromptForAsync(promptGoals, currentTests);
                 cardTypes = Collections.emptyList();
+                attemptTargetGoals = promptGoals;
             }
             RepeatedInjectionMemory.PromptAttemptRegistration registration = repeatedInjectionMemory == null
                     ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
                     : repeatedInjectionMemory.registerAttempt(prompt.getRepeatedInjectionTargets(), true);
+            if (ProblemCardLogRecorder.isEnabled() && !cardTypes.isEmpty()) {
+                try {
+                    ProblemCardLogRecorder.getInstance().recordSelected(
+                            registration.getAttemptId(), InjectionSource.LLM_ASYNC,
+                            cachedDiagnosticCards);
+                } catch (Exception e) {
+                    logger.debug("Failed to log selected problem cards: {}", e.getMessage());
+                }
+            }
             try {
                 List<TestChromosome> candidates = requestCandidates(prompt, repairLoop);
                 if (!candidates.isEmpty()) {
@@ -286,7 +299,8 @@ public class AsyncLlmTestProducer {
                                     registration.getAttemptId(),
                                     cardTypes.isEmpty()
                                             ? Collections.<ProblemCardType>emptyList()
-                                            : new ArrayList<>(cardTypes)));
+                                            : new ArrayList<>(cardTypes),
+                                    attemptTargetGoals));
                             producedAny = true;
                             published++;
                         } catch (InterruptedException e) {
@@ -435,6 +449,19 @@ public class AsyncLlmTestProducer {
                 .diagnosticCardTypes(extractCardTypes(cards))
                 .repeatedInjectionTargets(extractRepeatedTargetsFromCards(cards))
                 .build();
+    }
+
+    private Collection<TestFitnessFunction> extractCardRelatedGoals(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Set<TestFitnessFunction> goals = new LinkedHashSet<>();
+        for (ProblemCard card : cards) {
+            if (card != null) {
+                goals.addAll(card.getRelatedGoals());
+            }
+        }
+        return goals;
     }
 
     private List<ProblemCardType> extractCardTypes(List<ProblemCard> cards) {

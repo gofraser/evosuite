@@ -45,9 +45,18 @@ import java.util.List;
  *   n_injected_attempts_island_immigrant,n_injected_attempts_local_search,
  *   covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,
  *   diversity,largest_species_share,n_quota_protected,n_newborn_protected,
- *   n_incubator_protected,n_sharing_adjusted,species_per_slot,rank_per_slot
+ *   n_incubator_protected,n_sharing_adjusted,species_per_slot,rank_per_slot,
+ *   n_offspring,n_offspring_better,n_offspring_neutral,n_offspring_worse,
+ *   n_offspring_unchanged,n_offspring_discarded,n_offspring_random,
+ *   n_offspring_survived,n_pop_new,age_per_slot,problem_cards,
+ *   blend_channel_admissions
  * </pre>
  * Per-slot columns are semicolon-separated integers in {@code this.population} order.
+ * {@code problem_cards} holds the most recent problem-card extraction encoded as
+ * alphabetically sorted {@code TYPE:count} pairs joined with {@code '|'} (empty
+ * until the first extraction). {@code blend_channel_admissions} encodes this
+ * generation's per-channel union admissions as {@code raw:N|mut:N|xg:N|xt:N}
+ * (empty when blending is disabled).
  */
 public final class PopulationSpeciesRecorder {
 
@@ -62,7 +71,11 @@ public final class PopulationSpeciesRecorder {
             + "n_injected_attempts_island_immigrant,n_injected_attempts_local_search,"
             + "covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,"
             + "diversity,largest_species_share,n_quota_protected,n_newborn_protected,"
-            + "n_incubator_protected,n_sharing_adjusted,species_per_slot,rank_per_slot";
+            + "n_incubator_protected,n_sharing_adjusted,species_per_slot,rank_per_slot,"
+            + "n_offspring,n_offspring_better,n_offspring_neutral,n_offspring_worse,"
+            + "n_offspring_unchanged,n_offspring_discarded,n_offspring_random,"
+            + "n_offspring_survived,n_pop_new,age_per_slot,problem_cards,"
+            + "blend_channel_admissions";
 
     private final List<GenerationSnapshot> snapshots = new ArrayList<>();
     private final String sidecarPath;
@@ -121,6 +134,45 @@ public final class PopulationSpeciesRecorder {
     }
 
     /**
+     * Per-generation breeding/turnover observability: offspring fate counts
+     * (vs. their parent, see AbstractMOSA's fate classification), survival
+     * into the next population, population turnover, and per-slot ages
+     * (generations since each individual was last changed).
+     */
+    public static final class BreedingStats {
+        public final int nOffspring;
+        public final int nBetter;
+        public final int nNeutral;
+        public final int nWorse;
+        public final int nUnchanged;
+        public final int nDiscarded;
+        public final int nRandom;
+        public final int nSurvived;
+        public final int nPopNew;
+        public final int[] agePerSlot;
+
+        public BreedingStats(int nOffspring, int nBetter, int nNeutral, int nWorse,
+                             int nUnchanged, int nDiscarded, int nRandom,
+                             int nSurvived, int nPopNew, int[] agePerSlot) {
+            this.nOffspring = nOffspring;
+            this.nBetter = nBetter;
+            this.nNeutral = nNeutral;
+            this.nWorse = nWorse;
+            this.nUnchanged = nUnchanged;
+            this.nDiscarded = nDiscarded;
+            this.nRandom = nRandom;
+            this.nSurvived = nSurvived;
+            this.nPopNew = nPopNew;
+            this.agePerSlot = (agePerSlot != null) ? agePerSlot : new int[0];
+        }
+
+        /** All-zero stats with an empty age array, for callers that don't track breeding. */
+        public static BreedingStats empty() {
+            return new BreedingStats(0, 0, 0, 0, 0, 0, 0, 0, 0, new int[0]);
+        }
+    }
+
+    /**
      * One row of the timeline. Constructed by the caller (AbstractMOSA) with
      * all fields ready; the recorder only buffers and serializes.
      */
@@ -152,6 +204,9 @@ public final class PopulationSpeciesRecorder {
         public final int nSharingAdjusted;
         public final int[] speciesPerSlot;
         public final int[] rankPerSlot;
+        public final BreedingStats breeding;
+        public final String problemCards;
+        public final String blendChannelAdmissions;
 
         public GenerationSnapshot(int gen,
                                   long elapsedMs,
@@ -179,7 +234,50 @@ public final class PopulationSpeciesRecorder {
                                   int nIncubatorProtected,
                                   int nSharingAdjusted,
                                   int[] speciesPerSlot,
-                                  int[] rankPerSlot) {
+                                  int[] rankPerSlot,
+                                  BreedingStats breeding,
+                                  String problemCards) {
+            this(gen, elapsedMs, popSize, nSpecies, nInjected, nInjectedIncubator,
+                    nInjectedPostIncubator, dominantInjectionSource, nInjectedAttempts,
+                    dominantAttemptSource, nInjectedAttemptsLlmStagnation,
+                    nInjectedAttemptsLlmAsync, nInjectedAttemptsIslandImmigrant,
+                    nInjectedAttemptsLocalSearch, coveredGoals, remainingGoals, nFronts,
+                    bestFitness, meanFitness, diversity, largestSpeciesShare,
+                    nQuotaProtected, nNewbornProtected, nIncubatorProtected,
+                    nSharingAdjusted, speciesPerSlot, rankPerSlot, breeding,
+                    problemCards, "");
+        }
+
+        public GenerationSnapshot(int gen,
+                                  long elapsedMs,
+                                  int popSize,
+                                  int nSpecies,
+                                  int nInjected,
+                                  int nInjectedIncubator,
+                                  int nInjectedPostIncubator,
+                                  InjectionSource dominantInjectionSource,
+                                  int nInjectedAttempts,
+                                  InjectionSource dominantAttemptSource,
+                                  int nInjectedAttemptsLlmStagnation,
+                                  int nInjectedAttemptsLlmAsync,
+                                  int nInjectedAttemptsIslandImmigrant,
+                                  int nInjectedAttemptsLocalSearch,
+                                  int coveredGoals,
+                                  int remainingGoals,
+                                  int nFronts,
+                                  double bestFitness,
+                                  double meanFitness,
+                                  double diversity,
+                                  double largestSpeciesShare,
+                                  int nQuotaProtected,
+                                  int nNewbornProtected,
+                                  int nIncubatorProtected,
+                                  int nSharingAdjusted,
+                                  int[] speciesPerSlot,
+                                  int[] rankPerSlot,
+                                  BreedingStats breeding,
+                                  String problemCards,
+                                  String blendChannelAdmissions) {
             this.gen = gen;
             this.elapsedMs = elapsedMs;
             this.popSize = popSize;
@@ -207,6 +305,10 @@ public final class PopulationSpeciesRecorder {
             this.nSharingAdjusted = nSharingAdjusted;
             this.speciesPerSlot = speciesPerSlot;
             this.rankPerSlot = rankPerSlot;
+            this.breeding = (breeding != null) ? breeding : BreedingStats.empty();
+            this.problemCards = (problemCards != null) ? problemCards : "";
+            this.blendChannelAdmissions =
+                    (blendChannelAdmissions != null) ? blendChannelAdmissions : "";
         }
 
         String toCsvRow() {
@@ -239,6 +341,19 @@ public final class PopulationSpeciesRecorder {
             appendIntArray(sb, speciesPerSlot);
             sb.append(',');
             appendIntArray(sb, rankPerSlot);
+            sb.append(',').append(breeding.nOffspring)
+              .append(',').append(breeding.nBetter)
+              .append(',').append(breeding.nNeutral)
+              .append(',').append(breeding.nWorse)
+              .append(',').append(breeding.nUnchanged)
+              .append(',').append(breeding.nDiscarded)
+              .append(',').append(breeding.nRandom)
+              .append(',').append(breeding.nSurvived)
+              .append(',').append(breeding.nPopNew)
+              .append(',');
+            appendIntArray(sb, breeding.agePerSlot);
+            sb.append(',').append(problemCards);
+            sb.append(',').append(blendChannelAdmissions);
             return sb.toString();
         }
 

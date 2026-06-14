@@ -2151,6 +2151,61 @@ public class Properties {
                     + "available.")
     public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.DIAGNOSTIC;
 
+    // ---- LLM injection blending (brood recombination + lineage elitism) ----
+
+    @Parameter(key = "llm_blend_enabled", group = "LLM",
+            description = "Blend LLM-injected candidates into the population by breeding a brood "
+                    + "of mutation-burst and crossover variants per candidate; all variants are "
+                    + "evaluated (archive capture) but only the best few are admitted to the union")
+    public static boolean LLM_BLEND_ENABLED = false;
+
+    @Parameter(key = "llm_blend_mutants", group = "LLM",
+            description = "Mutation-burst variants bred per injected candidate")
+    @IntValue(min = 0)
+    public static int LLM_BLEND_MUTANTS = 2;
+
+    @Parameter(key = "llm_blend_goal_crossovers", group = "LLM",
+            description = "Goal-directed crossover variants per injected candidate (the partner is "
+                    + "the population's best individual for the candidate's target goal; one "
+                    + "crossover call yields both directions)")
+    @IntValue(min = 0)
+    public static int LLM_BLEND_GOAL_CROSSOVERS = 2;
+
+    @Parameter(key = "llm_blend_tournament_crossovers", group = "LLM",
+            description = "Tournament-partner crossover variants per injected candidate")
+    @IntValue(min = 0)
+    public static int LLM_BLEND_TOURNAMENT_CROSSOVERS = 1;
+
+    @Parameter(key = "llm_blend_max_admitted_variants", group = "LLM",
+            description = "Maximum brood variants admitted to the union per injected candidate; "
+                    + "variants are admitted only when they cover a new goal or strictly improve "
+                    + "on the raw candidate's target-goal fitness")
+    @IntValue(min = 0)
+    public static int LLM_BLEND_MAX_ADMITTED_VARIANTS = 2;
+
+    @Parameter(key = "llm_blend_max_evals_per_gen", group = "LLM",
+            description = "Generation-wide budget of brood-variant fitness evaluations")
+    @IntValue(min = 0)
+    public static int LLM_BLEND_MAX_EVALS_PER_GEN = 20;
+
+    @Parameter(key = "llm_blend_keep_raw", group = "LLM",
+            description = "Admit the unmodified injected candidate alongside its blends "
+                    + "(false = blend-only ablation)")
+    public static boolean LLM_BLEND_KEEP_RAW = true;
+
+    @Parameter(key = "llm_lineage_elitism_generations", group = "LLM",
+            description = "Speciation-free incubation: for this many generations after injection, "
+                    + "each injected lineage keeps its best member in the population "
+                    + "(0 disables lineage elitism)")
+    @IntValue(min = 0)
+    public static int LLM_LINEAGE_ELITISM_GENERATIONS = 0;
+
+    @Parameter(key = "llm_lineage_elitism_max_fraction", group = "LLM",
+            description = "Share cap: lineage-elitism-protected members may occupy at most this "
+                    + "fraction of the population; oldest lineages lose protection first")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double LLM_LINEAGE_ELITISM_MAX_FRACTION = 0.2;
+
     @Parameter(key = "llm_enrich_constant_pool", group = "LLM",
             description = "Enable LLM enrichment of constant pools")
     public static boolean LLM_ENRICH_CONSTANT_POOL = false;
@@ -2449,6 +2504,79 @@ public class Properties {
                     + "(0.0 = pure STF, 1.0 = pure Jaccard)")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double STF_JACCARD_WEIGHT = 0.0;
+
+    // ---- Search Process Visualization (Phase 9) ----
+
+    @Parameter(key = "objective_coverage_timeline_enabled", group = "Visualization",
+            description = "If true, write per-generation best (minimum) fitness per coverage "
+                    + "goal to objective_coverage_timeline_<TARGET_CLASS>.csv under REPORT_DIR, "
+                    + "plus a one-time objective_index_<TARGET_CLASS>.csv mapping goal IDs to "
+                    + "class/method/description. Used to render per-goal/per-method coverage "
+                    + "heatmaps.")
+    public static boolean OBJECTIVE_COVERAGE_TIMELINE_ENABLED = false;
+
+    @Parameter(key = "objective_coverage_timeline_sample_interval", group = "Visualization",
+            description = "Record an objective coverage timeline row only every N generations "
+                    + "(1 = every generation). Generation 0 is always recorded. Increase for "
+                    + "classes with very many goals to keep the CSV small.")
+    @IntValue(min = 1)
+    public static int OBJECTIVE_COVERAGE_TIMELINE_SAMPLE_INTERVAL = 1;
+
+    @Parameter(key = "fitness_space_snapshot_enabled", group = "Visualization",
+            description = "If true, periodically write the fitness vector (one value per coverage "
+                    + "goal) of each rank-0 (Pareto front) individual to "
+                    + "fitness_space_snapshots_<TARGET_CLASS>.csv under REPORT_DIR. Used to render "
+                    + "PCA trajectory plots of the population in fitness space.")
+    public static boolean FITNESS_SPACE_SNAPSHOT_ENABLED = false;
+
+    @Parameter(key = "fitness_space_snapshot_interval", group = "Visualization",
+            description = "Record a fitness space snapshot only every N generations (1 = every "
+                    + "generation). Generation 0 is always recorded.")
+    @IntValue(min = 1)
+    public static int FITNESS_SPACE_SNAPSHOT_INTERVAL = 10;
+
+    @Parameter(key = "fitness_space_snapshot_max_individuals", group = "Visualization",
+            description = "Maximum number of rank-0 individuals to record per snapshot generation. "
+                    + "If the Pareto front is larger, only the first N (in population order) are "
+                    + "recorded.")
+    @IntValue(min = 1)
+    public static int FITNESS_SPACE_SNAPSHOT_MAX_INDIVIDUALS = 50;
+
+    @Parameter(key = "population_shape_snapshot_enabled", group = "Visualization",
+            description = "If true, periodically write each population individual's covered-branch "
+                    + "set plus species/rank/fitness metadata to "
+                    + "population_shape_<TARGET_CLASS>.csv under REPORT_DIR. Used to render "
+                    + "population-shape (joint Jaccard/MDS) small-multiple grids.")
+    public static boolean POPULATION_SHAPE_SNAPSHOT_ENABLED = false;
+
+    @Parameter(key = "population_shape_snapshot_interval", group = "Visualization",
+            description = "Record a population shape snapshot only every N generations (1 = every "
+                    + "generation). Generation 0 is always recorded.")
+    @IntValue(min = 1)
+    public static int POPULATION_SHAPE_SNAPSHOT_INTERVAL = 5;
+
+    @Parameter(key = "population_shape_max_individuals", group = "Visualization",
+            description = "Maximum number of individuals recorded per population shape snapshot. "
+                    + "Safety bound only; keep above the population size so the whole population "
+                    + "is recorded.")
+    @IntValue(min = 1)
+    public static int POPULATION_SHAPE_MAX_INDIVIDUALS = 100;
+
+    @Parameter(key = "problem_card_timeline_interval", group = "Visualization",
+            description = "Extract problem cards every N generations and record their "
+                    + "per-type distribution in the population species timeline sidecar "
+                    + "(0 = disabled). Requires species_population_timeline_enabled. "
+                    + "Extraction is skipped when coverage and population are unchanged "
+                    + "since the last sample; a typical enabled value is 5.")
+    @IntValue(min = 0)
+    public static int PROBLEM_CARD_TIMELINE_INTERVAL = 0;
+
+    @Parameter(key = "problem_card_log_enabled", group = "Visualization",
+            description = "Log selected problem-card instances (with their diagnosed goals) "
+                    + "and the goals covered by card-informed LLM injections to "
+                    + "problem_card_log_<TARGET_CLASS>.csv under REPORT_DIR, for offline "
+                    + "card-resolution analysis (scripts/analyze_card_resolution.py).")
+    public static boolean PROBLEM_CARD_LOG_ENABLED = false;
 
     // ---- Operator Disruption Analysis (Phase 8b) ----
 

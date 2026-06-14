@@ -21,6 +21,7 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
 
@@ -148,6 +149,7 @@ public final class PromptResult {
     private final int clusterSummaryChars;
     private final DependencySummaryMetadata dependencySummaryMetadata;
     private final List<ProblemCardType> diagnosticCardTypes;
+    private final List<ProblemCard> diagnosticCards;
     private final List<RepeatedInjectionTarget> repeatedInjectionTargets;
 
     public static final class Builder {
@@ -161,6 +163,7 @@ public final class PromptResult {
         private int clusterSummaryChars;
         private DependencySummaryMetadata dependencySummaryMetadata = DependencySummaryMetadata.empty();
         private List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
+        private List<ProblemCard> diagnosticCards = Collections.emptyList();
         private List<RepeatedInjectionTarget> repeatedInjectionTargets = Collections.emptyList();
 
         public Builder messages(List<LlmMessage> messages) {
@@ -213,6 +216,11 @@ public final class PromptResult {
             return this;
         }
 
+        public Builder diagnosticCards(List<ProblemCard> diagnosticCards) {
+            this.diagnosticCards = diagnosticCards;
+            return this;
+        }
+
         public Builder repeatedInjectionTargets(List<RepeatedInjectionTarget> repeatedInjectionTargets) {
             this.repeatedInjectionTargets = repeatedInjectionTargets;
             return this;
@@ -239,6 +247,9 @@ public final class PromptResult {
         this.diagnosticCardTypes = builder.diagnosticCardTypes == null
                 ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(builder.diagnosticCardTypes));
+        this.diagnosticCards = builder.diagnosticCards == null
+                ? Collections.<ProblemCard>emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(builder.diagnosticCards));
         this.repeatedInjectionTargets = builder.repeatedInjectionTargets == null
                 ? Collections.<RepeatedInjectionTarget>emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(builder.repeatedInjectionTargets));
@@ -300,6 +311,16 @@ public final class PromptResult {
         return diagnosticCardTypes;
     }
 
+    /**
+     * The full selected problem cards for this prompt (with related goals),
+     * if any. Empty for non-diagnostic prompts. Used by
+     * {@code ProblemCardLogRecorder} to log card instances at the attempt
+     * registration point.
+     */
+    public List<ProblemCard> getDiagnosticCards() {
+        return diagnosticCards;
+    }
+
     public List<RepeatedInjectionTarget> getRepeatedInjectionTargets() {
         return repeatedInjectionTargets;
     }
@@ -316,6 +337,7 @@ public final class PromptResult {
                 .clusterSummaryChars(clusterSummaryChars)
                 .dependencySummaryMetadata(dependencySummaryMetadata)
                 .diagnosticCardTypes(diagnosticCardTypes)
+                .diagnosticCards(diagnosticCards)
                 .repeatedInjectionTargets(repeatedInjectionTargets);
     }
 }

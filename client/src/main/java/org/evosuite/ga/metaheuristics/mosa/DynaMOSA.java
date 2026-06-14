@@ -100,6 +100,8 @@ public class DynaMOSA extends AbstractMOSA {
 
         applySpeciationSurvival(rankedCandidates, populationSize);
 
+        applyLineageElitism(union);
+
         emitGenerationMetrics(goalsManager.getUncoveredGoals().size(),
                 goalsManager.getCoveredGoals().size());
 
@@ -175,6 +177,9 @@ public class DynaMOSA extends AbstractMOSA {
                 logger.debug("Failed to emit Phase 5 stats", e);
             }
             flushPopulationSpeciesRecorder();
+            flushObjectiveCoverageRecorder();
+            flushFitnessSpaceSnapshotRecorder();
+            flushPopulationShapeRecorder();
             shutdownLlmAssistance();
         }
         this.notifySearchFinished();

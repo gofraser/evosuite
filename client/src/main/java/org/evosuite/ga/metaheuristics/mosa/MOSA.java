@@ -119,6 +119,8 @@ public class MOSA extends AbstractMOSA {
 
         applySpeciationSurvival(rankedCandidates, baseTarget);
 
+        applyLineageElitism(union);
+
         // for parallel runs: collect best k individuals for migration
         if (Properties.NUM_PARALLEL_CLIENTS > 1 && Properties.MIGRANTS_ITERATION_FREQUENCY > 0) {
             if ((currentIteration + 1) % Properties.MIGRANTS_ITERATION_FREQUENCY == 0 && !this.population.isEmpty()) {
@@ -215,6 +217,9 @@ public class MOSA extends AbstractMOSA {
                 logger.debug("Failed to emit final stats", e);
             }
             flushPopulationSpeciesRecorder();
+            flushObjectiveCoverageRecorder();
+            flushFitnessSpaceSnapshotRecorder();
+            flushPopulationShapeRecorder();
             shutdownLlmAssistance();
         }
         this.notifySearchFinished();

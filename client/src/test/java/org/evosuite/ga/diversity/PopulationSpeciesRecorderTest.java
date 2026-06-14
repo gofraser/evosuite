@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga.diversity;
 
+import org.evosuite.ga.diversity.PopulationSpeciesRecorder.BreedingStats;
 import org.evosuite.ga.diversity.PopulationSpeciesRecorder.GenerationSnapshot;
 import org.evosuite.testcase.InjectionSource;
 import org.junit.jupiter.api.Test;
@@ -48,20 +49,25 @@ class PopulationSpeciesRecorderTest {
                 3, 0, 0, 0,
                 3, 7, 1, 0.5, 0.75, 0.3, 0.5,
                 1, 2, 1, 3,
-                new int[]{0, 0, 1, 1}, new int[]{0, 0, 1, 1}));
+                new int[]{0, 0, 1, 1}, new int[]{0, 0, 1, 1},
+                BreedingStats.empty(), null));
         recorder.record(new GenerationSnapshot(
                 1, 250L, 4, 2, 0, 0, 0, null,
                 0, null,
                 0, 0, 0, 0,
                 4, 6, 2, 0.25, 0.4, Double.NaN, 0.5,
                 0, 0, 0, 0,
-                new int[]{0, 0, 1, 2}, new int[]{0, 1, 1, 2}));
+                new int[]{0, 0, 1, 2}, new int[]{0, 1, 1, 2},
+                BreedingStats.empty(), null));
         recorder.flush();
 
         List<String> lines = Files.readAllLines(file);
         assertEquals(3, lines.size(), "header + 2 rows");
 
         assertTrue(lines.get(0).startsWith("gen,elapsed_ms"), "header present");
+        assertTrue(lines.get(0).endsWith(
+                        ",n_pop_new,age_per_slot,problem_cards,blend_channel_admissions"),
+                "header should end with breeding/cards/blend columns");
 
         String row0 = lines.get(1);
         // gen,...,injection_source,n_injected_attempts,injection_attempt_source,<per-source-attempts>,...
@@ -69,8 +75,11 @@ class PopulationSpeciesRecorderTest {
                 "row 0 metadata prefix mismatch: " + row0);
         assertTrue(row0.contains(",0.5,1,2,1,3,"),
                 "row 0 should contain protection counters: " + row0);
-        assertTrue(row0.endsWith(",0;0;1;1,0;0;1;1"),
-                "row 0 per-slot suffix mismatch: " + row0);
+        assertTrue(row0.contains(",0;0;1;1,0;0;1;1,"),
+                "row 0 per-slot columns mismatch: " + row0);
+        assertTrue(row0.endsWith(",0,0,0,0,0,0,0,0,0,,,"),
+                "row 0 should end with empty breeding stats, empty problem_cards and "
+                        + "empty blend_channel_admissions: " + row0);
 
         String row1 = lines.get(2);
         // injection_source / injection_attempt_source empty; diversity NaN → empty
@@ -78,8 +87,48 @@ class PopulationSpeciesRecorderTest {
                 "row 1 should have empty injection_source: " + row1);
         assertTrue(row1.contains(",,0.5,"),
                 "row 1 should have empty diversity field: " + row1);
-        assertTrue(row1.endsWith(",0;0;1;2,0;1;1;2"),
-                "row 1 per-slot suffix mismatch: " + row1);
+        assertTrue(row1.contains(",0;0;1;2,0;1;1;2,"),
+                "row 1 per-slot columns mismatch: " + row1);
+    }
+
+    @Test
+    void breedingStatsSerializeAsTrailingColumns(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("breeding.csv");
+        PopulationSpeciesRecorder recorder = new PopulationSpeciesRecorder(file.toString());
+        recorder.record(new GenerationSnapshot(
+                7, 7000L, 3, 1, 0, 0, 0, null, 0, null, 0, 0, 0, 0,
+                5, 5, 1, 1.5, 2.0, 0.4, 1.0,
+                0, 0, 0, 0,
+                new int[]{0, 0, 0}, new int[]{0, 1, 1},
+                new BreedingStats(12, 5, 4, 2, 1, 0, 2, 6, 3, new int[]{0, 3, 12}),
+                "BRANCH_POLARITY:5|ENVIRONMENT_BARRIER:2"));
+        recorder.flush();
+
+        List<String> lines = Files.readAllLines(file);
+        assertEquals(2, lines.size(), "header + 1 row");
+        assertTrue(lines.get(1).endsWith(
+                        ",12,5,4,2,1,0,2,6,3,0;3;12,BRANCH_POLARITY:5|ENVIRONMENT_BARRIER:2,"),
+                "breeding/cards suffix mismatch (blend column empty): " + lines.get(1));
+    }
+
+    @Test
+    void blendChannelAdmissionsSerializeAsLastColumn(@TempDir Path tmp) throws IOException {
+        Path file = tmp.resolve("blend.csv");
+        PopulationSpeciesRecorder recorder = new PopulationSpeciesRecorder(file.toString());
+        recorder.record(new GenerationSnapshot(
+                3, 3000L, 2, 1, 1, 0, 0, InjectionSource.LLM_ASYNC, 1, InjectionSource.LLM_ASYNC,
+                0, 1, 0, 0,
+                5, 5, 1, 1.5, 2.0, 0.4, 1.0,
+                0, 0, 0, 0,
+                new int[]{0, 0}, new int[]{0, 1},
+                BreedingStats.empty(), "",
+                "raw:1|mut:1|xg:2|xt:0"));
+        recorder.flush();
+
+        List<String> lines = Files.readAllLines(file);
+        assertEquals(2, lines.size(), "header + 1 row");
+        assertTrue(lines.get(1).endsWith(",raw:1|mut:1|xg:2|xt:0"),
+                "blend channel admissions must serialize as the final column: " + lines.get(1));
     }
 
     @Test
@@ -89,7 +138,8 @@ class PopulationSpeciesRecorderTest {
         recorder.record(new GenerationSnapshot(
                 0, 0L, 1, 1, 0, 0, 0, null, 0, null, 0, 0, 0, 0, 0, 1, 1, 0.0, 0.0, 0.0, 1.0,
                 0, 0, 0, 0,
-                new int[]{0}, new int[]{0}));
+                new int[]{0}, new int[]{0},
+                BreedingStats.empty(), null));
 
         recorder.flush();
         long sizeAfterFirst = Files.size(file);

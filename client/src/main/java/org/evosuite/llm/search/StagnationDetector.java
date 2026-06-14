@@ -36,6 +36,7 @@ import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -536,6 +537,7 @@ public class StagnationDetector {
                 .clusterSummaryChars(prompt.getClusterSummaryChars())
                 .dependencySummaryMetadata(prompt.getDependencySummaryMetadata())
                 .diagnosticCardTypes(extractCardTypes(cards))
+                .diagnosticCards(cards)
                 .repeatedInjectionTargets(extractRepeatedTargets(cards))
                 .build();
     }
@@ -568,12 +570,28 @@ public class StagnationDetector {
 
     public RepeatedInjectionMemory.PromptAttemptRegistration registerRepeatedAttempt(PromptResult prompt,
                                                                                      boolean asyncInFlight) {
-        if (repeatedInjectionMemory == null || prompt == null
-                || prompt.getRepeatedInjectionTargets() == null
-                || prompt.getRepeatedInjectionTargets().isEmpty()) {
+        if (prompt == null) {
             return RepeatedInjectionMemory.PromptAttemptRegistration.empty();
         }
-        return repeatedInjectionMemory.registerAttempt(prompt.getRepeatedInjectionTargets(), asyncInFlight);
+        RepeatedInjectionMemory.PromptAttemptRegistration registration;
+        if (repeatedInjectionMemory == null
+                || prompt.getRepeatedInjectionTargets() == null
+                || prompt.getRepeatedInjectionTargets().isEmpty()) {
+            registration = RepeatedInjectionMemory.PromptAttemptRegistration.empty();
+        } else {
+            registration = repeatedInjectionMemory.registerAttempt(
+                    prompt.getRepeatedInjectionTargets(), asyncInFlight);
+        }
+        if (ProblemCardLogRecorder.isEnabled() && !prompt.getDiagnosticCards().isEmpty()) {
+            try {
+                ProblemCardLogRecorder.getInstance().recordSelected(
+                        registration.getAttemptId(), InjectionSource.LLM_STAGNATION,
+                        prompt.getDiagnosticCards());
+            } catch (Exception e) {
+                logger.debug("Failed to log selected problem cards: {}", e.getMessage());
+            }
+        }
+        return registration;
     }
 
     public void recordRepeatedAttemptOutcome(String attemptId, int gainedGoals) {

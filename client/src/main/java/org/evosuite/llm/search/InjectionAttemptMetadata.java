@@ -20,8 +20,11 @@
 package org.evosuite.llm.search;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+
+import org.evosuite.testcase.TestFitnessFunction;
 
 /**
  * Candidate-side attribution metadata for one prompt attempt.
@@ -30,12 +33,21 @@ public final class InjectionAttemptMetadata {
 
     private final String attemptId;
     private final List<ProblemCardType> diagnosticCardTypes;
+    private final List<TestFitnessFunction> targetGoals;
 
     public InjectionAttemptMetadata(String attemptId, List<ProblemCardType> diagnosticCardTypes) {
+        this(attemptId, diagnosticCardTypes, null);
+    }
+
+    public InjectionAttemptMetadata(String attemptId, List<ProblemCardType> diagnosticCardTypes,
+                                    Collection<TestFitnessFunction> targetGoals) {
         this.attemptId = attemptId == null ? "" : attemptId.trim();
         this.diagnosticCardTypes = diagnosticCardTypes == null
                 ? Collections.<ProblemCardType>emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(diagnosticCardTypes));
+        this.targetGoals = targetGoals == null || targetGoals.isEmpty()
+                ? Collections.<TestFitnessFunction>emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(targetGoals));
     }
 
     public String getAttemptId() {
@@ -44,5 +56,10 @@ public final class InjectionAttemptMetadata {
 
     public List<ProblemCardType> getDiagnosticCardTypes() {
         return diagnosticCardTypes;
+    }
+
+    /** @return the uncovered goals the prompt targeted (possibly empty, never null). */
+    public List<TestFitnessFunction> getTargetGoals() {
+        return targetGoals;
     }
 }

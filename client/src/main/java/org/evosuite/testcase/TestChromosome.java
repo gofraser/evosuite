@@ -25,6 +25,7 @@ import org.evosuite.coverage.mutation.MutationExecutionResult;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.SecondaryObjective;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
+import org.evosuite.llm.search.BlendChannel;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestCluster;
@@ -109,6 +110,29 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      */
     private transient List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
 
+    /**
+     * Channel through which this chromosome entered the MOSA union when it is
+     * a blend-related entrant (raw injection, mutation-burst variant, or
+     * crossover blend). Null for ordinary GA offspring. Cleared on clone like
+     * the other injection fields; telemetry-only, never read by selection.
+     */
+    private transient BlendChannel blendChannel;
+
+    /**
+     * Injected lineages this chromosome genetically descends from, propagated
+     * explicitly at every offspring birth (breeding, random insertion, brood
+     * blending). Must NOT be folded into {@link #injectionLineageId}: that
+     * field's cleared-on-clone semantics mark fresh arrivals only and are
+     * load-bearing for incubator protection and the species recorder, whereas
+     * descent marks must follow genetic material through ordinary breeding so
+     * lineage take-over is measurable. Capped at {@link #DESCENT_LINEAGE_CAP}
+     * entries, keeping the lowest (oldest) lineage ids.
+     */
+    private transient Set<Long> descentLineageIds = Collections.emptySet();
+
+    /** Maximum number of descent lineage ids retained per chromosome. */
+    public static final int DESCENT_LINEAGE_CAP = 4;
+
 
     /**
      * {@inheritDoc}
@@ -190,6 +214,59 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         this.diagnosticCardTypes = uniqueTypes.isEmpty()
                 ? Collections.<ProblemCardType>emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(uniqueTypes));
+    }
+
+    /** @return the blend channel, or null for ordinary GA offspring. */
+    public BlendChannel getBlendChannel() {
+        return blendChannel;
+    }
+
+    public void setBlendChannel(BlendChannel blendChannel) {
+        this.blendChannel = blendChannel;
+    }
+
+    /** @return the injected lineages this chromosome descends from (never null). */
+    public Set<Long> getDescentLineageIds() {
+        return descentLineageIds;
+    }
+
+    /**
+     * Merges the given lineage ids into this chromosome's descent marks,
+     * enforcing {@link #DESCENT_LINEAGE_CAP} by keeping the lowest (oldest)
+     * ids so long-lived lineages remain traceable.
+     */
+    public void addDescentLineages(Collection<Long> lineageIds) {
+        if (lineageIds == null || lineageIds.isEmpty()) {
+            return;
+        }
+        TreeSet<Long> merged = new TreeSet<>(descentLineageIds);
+        for (Long id : lineageIds) {
+            if (id != null && id >= 0L) {
+                merged.add(id);
+            }
+        }
+        while (merged.size() > DESCENT_LINEAGE_CAP) {
+            merged.pollLast();
+        }
+        this.descentLineageIds = merged.isEmpty()
+                ? Collections.<Long>emptySet()
+                : Collections.unmodifiableSet(merged);
+    }
+
+    /**
+     * @return descent marks plus this chromosome's own injection lineage when
+     * set — the full set of lineages whose material this chromosome carries.
+     */
+    public Set<Long> effectiveLineages() {
+        if (injectionLineageId < 0L) {
+            return descentLineageIds;
+        }
+        if (descentLineageIds.isEmpty()) {
+            return Collections.singleton(injectionLineageId);
+        }
+        TreeSet<Long> all = new TreeSet<>(descentLineageIds);
+        all.add(injectionLineageId);
+        return Collections.unmodifiableSet(all);
     }
 
     /**

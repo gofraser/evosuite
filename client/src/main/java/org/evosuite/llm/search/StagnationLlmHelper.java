@@ -35,8 +35,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -448,6 +450,8 @@ public final class StagnationLlmHelper {
         }
         List<ProblemCardType> cardTypes = prompt == null
                 ? Collections.emptyList() : prompt.getDiagnosticCardTypes();
+        Collection<TestFitnessFunction> targetGoals = extractCardRelatedGoals(
+                prompt == null ? null : prompt.getDiagnosticCards());
         int published = 0;
         for (TestChromosome tc : tests) {
             if (tc == null) {
@@ -458,7 +462,8 @@ public final class StagnationLlmHelper {
             attemptMetadataByCandidate.put(tc, new InjectionAttemptMetadata(
                     registration.getAttemptId(),
                     cardTypes == null ? Collections.<ProblemCardType>emptyList()
-                            : new ArrayList<>(cardTypes)));
+                            : new ArrayList<>(cardTypes),
+                    targetGoals));
             published++;
         }
         if (published <= 0) {
@@ -468,6 +473,19 @@ public final class StagnationLlmHelper {
         ClientServices.track(RuntimeVariable.LLM_StagnationTestsPublished,
                 stagnationTestsPublished.addAndGet(published));
         LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, published);
+    }
+
+    private Collection<TestFitnessFunction> extractCardRelatedGoals(List<ProblemCard> cards) {
+        if (cards == null || cards.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Set<TestFitnessFunction> goals = new LinkedHashSet<>();
+        for (ProblemCard card : cards) {
+            if (card != null) {
+                goals.addAll(card.getRelatedGoals());
+            }
+        }
+        return goals;
     }
 
     /**

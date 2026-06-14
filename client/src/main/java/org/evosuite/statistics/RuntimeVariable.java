@@ -863,6 +863,66 @@ public enum RuntimeVariable {
      */
     LLM_Injected_Candidates_Survived,
     /**
+     * Brood variants bred from LLM-injected candidates (all blend channels).
+     */
+    LLM_Blend_Variants_Bred,
+    /**
+     * Brood variants admitted into the MOSA union (all blend channels).
+     */
+    LLM_Blend_Variants_Admitted,
+    /**
+     * Brood variants that survived the same generation's selection step (all blend channels).
+     */
+    LLM_Blend_Variants_Survived,
+    /**
+     * Mutation-burst variants admitted into the MOSA union.
+     */
+    LLM_Blend_Mutant_Admitted,
+    /**
+     * Mutation-burst variants that survived the same generation's selection step.
+     */
+    LLM_Blend_Mutant_Survived,
+    /**
+     * Goal-directed crossover variants admitted into the MOSA union.
+     */
+    LLM_Blend_XoverGoal_Admitted,
+    /**
+     * Goal-directed crossover variants that survived the same generation's selection step.
+     */
+    LLM_Blend_XoverGoal_Survived,
+    /**
+     * Tournament-partner crossover variants admitted into the MOSA union.
+     */
+    LLM_Blend_XoverTournament_Admitted,
+    /**
+     * Tournament-partner crossover variants that survived the same generation's selection step.
+     */
+    LLM_Blend_XoverTournament_Survived,
+    /**
+     * Fitness evaluations spent on brood variants.
+     */
+    LLM_Blend_Evals_Spent,
+    /**
+     * Brood crossover attempts that failed with ConstructionFailedException.
+     */
+    LLM_Blend_Crossover_Failed,
+    /**
+     * Goal-directed blend channel runs that resolved a goal-directed partner.
+     */
+    LLM_Blend_GoalPartner_Resolved,
+    /**
+     * Goal-directed blend channel runs that fell back to tournament partner selection.
+     */
+    LLM_Blend_GoalPartner_FallbackTournament,
+    /**
+     * Lineage-elitism re-insertions of injected-lineage members into the population.
+     */
+    LLM_Lineage_Elitism_Reinserted,
+    /**
+     * Drained LLM candidates whose metadata target goals were all already covered on arrival.
+     */
+    LLM_Async_Candidates_StaleTarget,
+    /**
      * Total number of diagnostic problem cards extracted before prompt selection.
      */
     LLM_Diagnostic_Cards_Extracted,
@@ -1121,6 +1181,7 @@ public enum RuntimeVariable {
     LLM_Diagnostic_Candidates_Published_EnvironmentBarrier,
     /**
      * Total diagnostic-prompt candidates admitted into the MOSA union.
+     * Counts both SYNC (stagnation) and ASYNC card-informed injections.
      */
     LLM_Diagnostic_Candidates_Admitted,
     /**
@@ -1169,6 +1230,7 @@ public enum RuntimeVariable {
     LLM_Diagnostic_Candidates_Admitted_EnvironmentBarrier,
     /**
      * Total diagnostic-prompt candidates that survived the generation they were injected.
+     * Counts both SYNC (stagnation) and ASYNC card-informed injections.
      */
     LLM_Diagnostic_Candidates_Survived,
     /**
@@ -1216,7 +1278,8 @@ public enum RuntimeVariable {
      */
     LLM_Diagnostic_Candidates_Survived_EnvironmentBarrier,
     /**
-     * Total uncovered-goal gains attributed to diagnostic stagnation prompts.
+     * Total uncovered-goal gains attributed to card-informed diagnostic prompts,
+     * from both SYNC (stagnation) and ASYNC injections.
      */
     LLM_Diagnostic_Coverage_Gains,
     /**
@@ -1307,6 +1370,11 @@ public enum RuntimeVariable {
      * Per-iteration or per-generation timeline of the LLM-parsed statement ratio.
      */
     LLM_Parsed_Statement_Ratio_Timeline,
+    /**
+     * Per-generation fraction of the population carrying genetic material descended
+     * from an injected lineage (descent marks plus own injection lineage).
+     */
+    LLM_Descent_Population_Share_Timeline,
 
     // ---- ITERATIVE_BUDGETED strategy observability ----
 
@@ -1339,6 +1407,36 @@ public enum RuntimeVariable {
      * Per-generation covered goals count in MOSA/DynaMOSA.
      */
     Covered_Goals_Timeline,
+
+    // ---- Stagnation Diagnostics (offspring fate / turnover / age) ----
+
+    /**
+     * Per-generation ratio of bred offspring strictly better than their parent
+     * (new coverage or improved shared-goal fitness sum).
+     */
+    Offspring_Beneficial_Ratio_Timeline,
+    /**
+     * Per-generation ratio of bred offspring fitness-neutral vs. their parent.
+     */
+    Offspring_Neutral_Ratio_Timeline,
+    /**
+     * Per-generation ratio of bred offspring strictly worse than their parent.
+     */
+    Offspring_Worse_Ratio_Timeline,
+    /**
+     * Per-generation ratio of this generation's offspring (bred + random
+     * insertions) that survived selection into the next population.
+     */
+    Offspring_Survival_Ratio_Timeline,
+    /**
+     * Per-generation fraction of population slots holding individuals that were
+     * not in the previous generation's population.
+     */
+    Population_Turnover_Timeline,
+    /**
+     * Per-generation mean individual age (generations since last change).
+     */
+    Population_Mean_Age_Timeline,
 
     // ---- Operator Disruption Analysis ----
 
