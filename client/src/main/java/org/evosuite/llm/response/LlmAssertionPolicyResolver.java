@@ -61,9 +61,10 @@ public final class LlmAssertionPolicyResolver {
      */
     public static String instructionSuffix(boolean llmStrategyContext) {
         if (keepAssertions(llmStrategyContext)) {
-            return " Include meaningful assertions when they help validate behavior.";
+            return " Every generated test must include meaningful behavioral assertions "
+                    + "for observable results, state changes, or expected exceptions. "
+                    + "Do not emit assertion-free smoke tests.";
         }
         return " Do NOT include assertions (no assert* calls or Java assert statements).";
     }
 }
-

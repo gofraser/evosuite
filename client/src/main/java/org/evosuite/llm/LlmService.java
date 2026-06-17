@@ -342,6 +342,15 @@ public class LlmService implements AutoCloseable {
     }
 
     /**
+     * Query bounded by an absolute {@link System#nanoTime()} deadline.
+     */
+    public String query(List<LlmMessage> messages, LlmFeature feature,
+                        long deadlineNanos) {
+        return queryInternal(messages, feature,
+                new QueryOptions().withDeadlineNanos(deadlineNanos));
+    }
+
+    /**
      * Query with an explicit repair attempt number for trace recording.
      * Use this when calling the LLM as part of a repair loop so that the
      * trace correctly records which repair iteration produced this call.
@@ -368,6 +377,19 @@ public class LlmService implements AutoCloseable {
     }
 
     /**
+     * Query with repair metadata, bounded by an absolute
+     * {@link System#nanoTime()} deadline.
+     */
+    public String query(List<LlmMessage> messages, LlmFeature feature,
+                        int repairAttempt, boolean expansionAttempted,
+                        List<String> expandedClasses, long deadlineNanos) {
+        return queryInternal(messages, feature, new QueryOptions()
+                .withRepairAttempt(repairAttempt)
+                .withExpansion(expansionAttempted, expandedClasses)
+                .withDeadlineNanos(deadlineNanos));
+    }
+
+    /**
      * Query with context metadata propagated to trace recording.
      * Prefer this overload when building prompts via {@link PromptResult}.
      */
@@ -377,6 +399,20 @@ public class LlmService implements AutoCloseable {
         }
         return queryInternal(promptResult.getMessages(), feature,
                 QueryOptions.fromPromptResult(promptResult));
+    }
+
+    /**
+     * Query with prompt metadata, bounded by an absolute
+     * {@link System#nanoTime()} deadline.
+     */
+    public String query(PromptResult promptResult, LlmFeature feature,
+                        long deadlineNanos) {
+        if (promptResult == null) {
+            throw new IllegalArgumentException("promptResult must not be null");
+        }
+        return queryInternal(promptResult.getMessages(), feature,
+                QueryOptions.fromPromptResult(promptResult)
+                        .withDeadlineNanos(deadlineNanos));
     }
 
     /**
@@ -398,6 +434,7 @@ public class LlmService implements AutoCloseable {
         int repairAttempt = 1;
         boolean expansionAttempted = false;
         List<String> expandedClasses = Collections.emptyList();
+        long deadlineNanos = Long.MAX_VALUE;
 
         QueryOptions withRepairAttempt(int attempt) {
             this.repairAttempt = attempt;
@@ -407,6 +444,11 @@ public class LlmService implements AutoCloseable {
         QueryOptions withExpansion(boolean attempted, List<String> classes) {
             this.expansionAttempted = attempted;
             this.expandedClasses = classes == null ? Collections.<String>emptyList() : classes;
+            return this;
+        }
+
+        QueryOptions withDeadlineNanos(long deadlineNanos) {
+            this.deadlineNanos = deadlineNanos > 0 ? deadlineNanos : Long.MAX_VALUE;
             return this;
         }
 
@@ -435,12 +477,14 @@ public class LlmService implements AutoCloseable {
         Throwable lastError = null;
 
         for (int attempt = 1; attempt <= maxTries; attempt++) {
+            ensureBeforeDeadline(options.deadlineNanos);
             if (!budgetCoordinator.tryAcquire()) {
                 throw new LlmBudgetExceededException("LLM call budget exhausted on attempt " + attempt);
             }
             long start = System.currentTimeMillis();
             try {
-                LlmResponse response = invokeWithTimeout(messages, feature);
+                LlmResponse response = invokeWithTimeout(
+                        messages, feature, options.deadlineNanos);
                 long latency = System.currentTimeMillis() - start;
                 boolean truncated = response.getOutputTokens() > 0
                         && response.getOutputTokens() >= configuration.getMaxTokens() - 1;
@@ -494,14 +538,15 @@ public class LlmService implements AutoCloseable {
                 }
                 logger.debug("LLM call failed (attempt {}/{}): {}; retrying...",
                         attempt, maxTries, friendlyMessage(lastError));
-                sleepBackoff(attempt);
+                sleepBackoff(attempt, options.deadlineNanos);
             }
         }
 
         throw new LlmCallFailedException("LLM query failed", lastError, false);
     }
 
-    private LlmResponse invokeWithTimeout(List<LlmMessage> messages, LlmFeature feature) throws Exception {
+    private LlmResponse invokeWithTimeout(List<LlmMessage> messages, LlmFeature feature,
+                                          long deadlineNanos) throws Exception {
         ExecutorService runner = executorService;
         ChatLanguageModel snapshot = model;
         Future<LlmResponse> future = runner.submit(new Callable<LlmResponse>() {
@@ -511,7 +556,15 @@ public class LlmService implements AutoCloseable {
             }
         });
         try {
-            return future.get(configuration.getTimeoutSeconds(), TimeUnit.SECONDS);
+            long configuredNanos = TimeUnit.SECONDS.toNanos(
+                    Math.max(1, configuration.getTimeoutSeconds()));
+            long remainingNanos = remainingNanos(deadlineNanos);
+            if (remainingNanos <= 0) {
+                future.cancel(true);
+                throw new TimeoutException("LLM phase deadline exhausted");
+            }
+            return future.get(Math.min(configuredNanos, remainingNanos),
+                    TimeUnit.NANOSECONDS);
         } catch (TimeoutException e) {
             // Interrupt the worker first — OkHttp's Http2Stream.waitForIo uses
             // Object.wait, which IS interruptible, so this normally tears down
@@ -587,12 +640,17 @@ public class LlmService implements AutoCloseable {
         }
     }
 
-    private void sleepBackoff(int attempt) {
+    private void sleepBackoff(int attempt, long deadlineNanos) {
         int exponent = Math.min(Math.max(0, attempt - 1), 20);
         long base = (long) configuration.getRetryBaseDelayMs() * (1L << exponent);
         double jitterFactor = 0.8 + (0.4 * jitterRandom.nextDouble());
         long delay = (long) (base * jitterFactor);
         delay = Math.min(delay, 60_000L);
+        if (deadlineNanos != Long.MAX_VALUE) {
+            delay = Math.min(delay,
+                    TimeUnit.NANOSECONDS.toMillis(
+                            Math.max(0L, remainingNanos(deadlineNanos))));
+        }
         if (delay <= 0) {
             return;
         }
@@ -602,6 +660,20 @@ public class LlmService implements AutoCloseable {
             Thread.currentThread().interrupt();
             logger.warn("Interrupted during LLM retry backoff");
         }
+    }
+
+    private static void ensureBeforeDeadline(long deadlineNanos) {
+        if (remainingNanos(deadlineNanos) <= 0) {
+            throw new LlmCallFailedException("LLM phase deadline exhausted",
+                    new TimeoutException("LLM phase deadline exhausted"), false);
+        }
+    }
+
+    private static long remainingNanos(long deadlineNanos) {
+        if (deadlineNanos == Long.MAX_VALUE) {
+            return Long.MAX_VALUE;
+        }
+        return deadlineNanos - System.nanoTime();
     }
 
     private void safeRecordTrace(LlmFeature feature,

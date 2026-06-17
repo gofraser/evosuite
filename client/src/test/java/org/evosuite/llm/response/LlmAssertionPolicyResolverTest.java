@@ -61,5 +61,15 @@ class LlmAssertionPolicyResolverTest {
         Properties.LLM_GENERATED_ASSERTIONS_POLICY = Properties.LlmGeneratedAssertionsPolicy.DROP;
         assertFalse(LlmAssertionPolicyResolver.keepAssertions(true));
     }
-}
 
+    @Test
+    void keepPolicyRequiresAssertionsInsteadOfOptionalSuggestion() {
+        Properties.LLM_GENERATED_ASSERTIONS_POLICY =
+                Properties.LlmGeneratedAssertionsPolicy.KEEP;
+
+        String suffix = LlmAssertionPolicyResolver.instructionSuffix(true);
+
+        assertTrue(suffix.contains("Every generated test must include"));
+        assertTrue(suffix.contains("Do not emit assertion-free"));
+    }
+}

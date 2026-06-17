@@ -703,19 +703,25 @@ public class TestRepairLoop {
                     conversation, currentResponse, feature, expandedClasses,
                     executionErrorByTest, repairDeadlineNanos);
             if (next == null) {
-                // Final-resort: perform brute-force salvage on failed tests
-                List<ParseResult> allFailedTests = new ArrayList<>(droppedAtParse);
-                allFailedTests.addAll(droppedAtExecution);
-                for (ParseResult pr : allFailedTests) {
-                    Optional<TestCase> salvaged = performBruteForceSalvage(pr.getTestCase());
-                    if (salvaged.isPresent()) {
-                        ParseResult salvagedResult = new ParseResult(salvaged.get(), 
-                                                                     pr.getOriginalMethodName(), 
-                                                                     pr.getDiagnostics());
-                        publishSalvagedTests(
-                                mergeSalvagedTests(salvagedExecutableTests,
-                                        Collections.singletonList(salvagedResult)),
-                                salvagedTestsConsumer);
+                if (repairOptions.isKeepAssertionsInParsedTests()) {
+                    diagnostics.add("Skipped assertion-stripping brute-force salvage "
+                            + "because assertions must be preserved.");
+                } else {
+                    // Final-resort salvage is only valid for integrations whose
+                    // policy explicitly permits assertions to be removed.
+                    List<ParseResult> allFailedTests = new ArrayList<>(droppedAtParse);
+                    allFailedTests.addAll(droppedAtExecution);
+                    for (ParseResult pr : allFailedTests) {
+                        Optional<TestCase> salvaged = performBruteForceSalvage(pr.getTestCase());
+                        if (salvaged.isPresent()) {
+                            ParseResult salvagedResult = new ParseResult(salvaged.get(),
+                                                                         pr.getOriginalMethodName(),
+                                                                         pr.getDiagnostics());
+                            publishSalvagedTests(
+                                    mergeSalvagedTests(salvagedExecutableTests,
+                                            Collections.singletonList(salvagedResult)),
+                                    salvagedTestsConsumer);
+                        }
                     }
                 }
 
@@ -1632,7 +1638,8 @@ public class TestRepairLoop {
                                  LlmFeature feature,
                                  List<String> expandedClasses,
                                  int repairAttempt,
-                                 Map<ParseResult, ExecutionFailureContext> executionFailures) {
+                                 Map<ParseResult, ExecutionFailureContext> executionFailures,
+                                 long repairDeadlineNanos) {
         // Ensure system prompt is at the front of the conversation
         if (systemPrompt != null && !systemPrompt.isEmpty()
                 && (conversation.isEmpty()
@@ -1708,8 +1715,13 @@ public class TestRepairLoop {
 
         boolean expanded = this.expansionAttempted;
         this.expansionAttempted = false;
+        if (repairDeadlineNanos == NO_REPAIR_DEADLINE
+                || repairDeadlineNanos <= 0L) {
+            return llmService.query(conversation, feature, repairAttempt,
+                    expanded, expandedClasses);
+        }
         return llmService.query(conversation, feature, repairAttempt,
-                expanded, expandedClasses);
+                expanded, expandedClasses, repairDeadlineNanos);
     }
 
     private void appendNpePreconditionRepairInstructions(String error,
@@ -3572,7 +3584,8 @@ public class TestRepairLoop {
             return null;
         }
         return requestRepairSafely(conversation, currentResponse, errorText,
-                feature, expandedClasses, diagnostics, attempt + 2, executionFailures);
+                feature, expandedClasses, diagnostics, attempt + 2,
+                executionFailures, repairDeadlineNanos);
     }
 
     private String tryStrictContractRepair(String errorText,
@@ -3592,7 +3605,8 @@ public class TestRepairLoop {
         }
         return requestRepairSafely(conversation, currentResponse, errorText,
                 feature, expandedClasses, diagnostics, attempt + 2,
-                Collections.<ParseResult, ExecutionFailureContext>emptyMap());
+                Collections.<ParseResult, ExecutionFailureContext>emptyMap(),
+                repairDeadlineNanos);
     }
 
     private boolean hasTimeForAnotherRepairRequest(long repairDeadlineNanos) {
@@ -3612,10 +3626,12 @@ public class TestRepairLoop {
                                        List<String> expandedClasses,
                                        List<String> diagnostics,
                                        int repairAttempt,
-                                       Map<ParseResult, ExecutionFailureContext> executionFailures) {
+                                       Map<ParseResult, ExecutionFailureContext> executionFailures,
+                                       long repairDeadlineNanos) {
         try {
             return requestRepair(conversation, previousResponse, error, feature,
-                    expandedClasses, repairAttempt, executionFailures);
+                    expandedClasses, repairAttempt, executionFailures,
+                    repairDeadlineNanos);
         } catch (Throwable repairFailure) {
             diagnostics.add("Repair request failure: " + formatThrowable(repairFailure));
             return null;

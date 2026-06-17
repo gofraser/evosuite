@@ -727,6 +727,44 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void keepAssertionPolicySkipsAssertionStrippingSalvage() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase testCase = new DefaultTestCase();
+                IntPrimitiveStatement stmt = new IntPrimitiveStatement(testCase, 1);
+                testCase.addStatement(stmt);
+                PrimitiveAssertion assertion = new PrimitiveAssertion();
+                assertion.setSource(stmt.getReturnValue());
+                assertion.setValue(1);
+                stmt.addAssertion(assertion);
+                return Collections.singletonList(new ParseResult(testCase, "test"));
+            }
+        };
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService, parser, new LlmResponseParser(), expansionManager,
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    result.reportNewThrownException(0,
+                            new IllegalStateException("execution failed"));
+                    return result;
+                },
+                0, null, null,
+                TestRepairLoop.RepairOptions.forAssertionPolicy(true));
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test public void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getDiagnostics().stream().anyMatch(
+                d -> d.contains("Skipped assertion-stripping brute-force salvage")));
+    }
+
+    @Test
     void codeAssertionFailureTriggersRepairWhenEnabled() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))

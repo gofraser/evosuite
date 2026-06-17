@@ -1288,10 +1288,12 @@ public enum RuntimeVariable {
 
     /** Number of follow-up iterations executed by ITERATIVE_BUDGETED. */
     LLM_Iterative_Iterations,
+    /** Total LLM rounds, including the initial broad-coverage request. */
+    LLM_Iterative_Rounds,
     /**
      * Why the ITERATIVE_BUDGETED loop terminated.
      * One of: STOPPING_CONDITION, ALL_GOALS_COVERED, LLM_BUDGET_EXHAUSTED,
-     * MAX_ITERATIONS, NO_PROGRESS, PARSE_FAIL_STREAK, INITIAL_QUERY_FAILED.
+     * TIME_BUDGET_EXHAUSTED, MAX_ITERATIONS, NO_PROGRESS, PARSE_FAIL_STREAK.
      */
     LLM_Iterative_Exit_Reason,
     /** Total iterations that produced zero parsed tests. */
@@ -1300,6 +1302,30 @@ public enum RuntimeVariable {
     LLM_Iterative_New_Goals_Timeline,
     /** Per-iteration cumulative-covered goal count (semicolon-separated). */
     LLM_Iterative_Coverage_Timeline,
+    /** Total tests accepted by parsing/repair across iterative rounds. */
+    LLM_Iterative_Tests_Parsed,
+    /** Total non-duplicate tests admitted to the iterative suite. */
+    LLM_Iterative_Tests_Unique,
+    /** Total duplicate tests rejected during iterative suite construction. */
+    LLM_Iterative_Duplicates,
+    /** Total assertions retained in the final LLMSTRATEGY suite. */
+    LLM_Strategy_Assertions_Retained,
+    /** Number of final LLMSTRATEGY tests containing at least one assertion. */
+    LLM_Strategy_Tests_With_Assertions,
+    /** Per-round elapsed milliseconds (semicolon-separated). */
+    LLM_Iterative_Round_Elapsed_Millis_Timeline,
+    /** Per-round query plus repair latency in milliseconds (semicolon-separated). */
+    LLM_Iterative_Query_Latency_Millis_Timeline,
+    /** Per-round suite size after admission (semicolon-separated). */
+    LLM_Iterative_Suite_Size_Timeline,
+    /** Per-round suite length after admission (semicolon-separated). */
+    LLM_Iterative_Suite_Length_Timeline,
+    /** Per-round number of parsed tests returned by parse/repair (semicolon-separated). */
+    LLM_Iterative_Tests_Parsed_Timeline,
+    /** Per-round number of unique tests admitted (semicolon-separated). */
+    LLM_Iterative_Tests_Unique_Timeline,
+    /** Per-round number of target goals included in the request. */
+    LLM_Iterative_Target_Goals_Timeline,
 
     // ---- Phase 8: Diversity Observability ----
 

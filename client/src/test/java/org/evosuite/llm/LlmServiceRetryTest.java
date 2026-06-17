@@ -218,4 +218,34 @@ class LlmServiceRetryTest {
             service.close();
         }
     }
+
+    @Test
+    void expiredDeadlineDoesNotConsumeProviderCallOrBudget() {
+        AtomicInteger calls = new AtomicInteger();
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            calls.incrementAndGet();
+            return new LlmService.LlmResponse("late", 0, 0);
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 30, 2, 100,
+                false, Paths.get("target/llm-test-traces"), "deadline");
+        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(2);
+        LlmService service = new LlmService(model, budget, configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration));
+
+        try {
+            LlmCallFailedException failure = assertThrows(
+                    LlmCallFailedException.class,
+                    () -> service.query(
+                            Collections.singletonList(LlmMessage.user("generate")),
+                            LlmFeature.TEST_REPAIR, System.nanoTime() - 1L));
+
+            assertTrue(failure.getMessage().contains("deadline"));
+            assertEquals(0, calls.get());
+            assertEquals(2, budget.getRemaining());
+        } finally {
+            service.close();
+        }
+    }
 }

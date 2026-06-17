@@ -2014,6 +2014,25 @@ public class Properties {
     @IntValue(min = 0)
     public static int LLM_STRATEGY_PARSE_FAIL_LIMIT = 2;
 
+    @Parameter(key = "llm_strategy_initial_target_tests", group = "LLM",
+            description = "Soft target for the number of tests requested in the initial "
+                    + "ITERATIVE_BUDGETED prompt. This is prompt guidance, not an admission cap; "
+                    + "all valid returned tests are retained (0 omits numeric guidance)")
+    @IntValue(min = 0)
+    public static int LLM_STRATEGY_INITIAL_TARGET_TESTS = 0;
+
+    @Parameter(key = "llm_strategy_followup_target_tests", group = "LLM",
+            description = "Soft target for the number of focused tests requested in each "
+                    + "ITERATIVE_BUDGETED follow-up prompt. This is prompt guidance, not an "
+                    + "admission cap; all valid returned tests are retained (0 omits guidance)")
+    @IntValue(min = 0)
+    public static int LLM_STRATEGY_FOLLOWUP_TARGET_TESTS = 0;
+
+    @Parameter(key = "llm_iterative_timeline_enabled", group = "LLM",
+            description = "Write iterative_llm_timeline_<TARGET_CLASS>.csv under REPORT_DIR "
+                    + "with one row for the initial request and each follow-up round")
+    public static boolean LLM_ITERATIVE_TIMELINE_ENABLED = true;
+
     @Parameter(key = "llm_test_factory", group = "LLM",
             description = "Enable LLM test-factory wrapper; fallback factory remains active")
     public static boolean LLM_TEST_FACTORY = false;
