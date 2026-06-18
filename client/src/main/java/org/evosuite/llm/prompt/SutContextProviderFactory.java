@@ -154,7 +154,10 @@ public class SutContextProviderFactory {
         }
 
         if (Properties.LLM_CONTEXT_FALLBACK_ENABLED) {
-            logger.debug("Falling back from {} to SIGNATURE_ONLY for {}", mode, className);
+            // WARN (not debug): a wholesale fallback means the requested
+            // representation never reached the model. This previously hid a
+            // 100% decompiler failure that silently degraded to SIGNATURE_ONLY.
+            logger.warn("Context mode {} unavailable for {}; falling back to SIGNATURE_ONLY", mode, className);
             Optional<String> fallbackContext;
             try {
                 fallbackContext = signatureProvider.getContext(className, cluster);

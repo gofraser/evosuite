@@ -20,17 +20,18 @@
 package org.evosuite.llm.prompt;
 
 import org.benf.cfr.reader.api.CfrDriver;
+import org.benf.cfr.reader.api.ClassFileSource;
 import org.benf.cfr.reader.api.OutputSinkFactory;
+import org.benf.cfr.reader.bytecode.analysis.parse.utils.Pair;
 import org.evosuite.Properties;
+import org.evosuite.classpath.ResourceList;
 import org.evosuite.setup.TestCluster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,8 +48,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /**
- * Provides decompiled source context for the CUT using CFR decompiler API.
+ * Provides decompiled source context for the CUT using the CFR decompiler API.
  * Bounded by {@code LLM_DECOMPILER_TIMEOUT_SECONDS}. Gracefully returns empty on any failure.
+ *
+ * <p>Decompilation is performed entirely <em>in memory</em>: the class bytes are
+ * read once and handed to CFR through a {@link ClassFileSource}. This deliberately
+ * avoids materializing a temporary {@code .class} file, because under EvoSuite's
+ * runtime sandbox (a {@code SecurityManager} on JDKs that still ship one) the
+ * temp-file write is denied, which previously made the decompiler fail silently
+ * for every class and degrade to {@code SIGNATURE_ONLY}. The bytes are read from
+ * the project classpath via {@link ResourceList} (the original, un-instrumented
+ * class), falling back to the context class loader's resource stream.
  */
 public class DecompiledContextProvider implements SutContextProvider {
 
@@ -72,13 +82,13 @@ public class DecompiledContextProvider implements SutContextProvider {
             Future<Optional<String>> future = DECOMPILER_EXECUTOR.submit(new DecompileTask(className));
             return future.get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
-            logger.debug("CFR decompiler timed out after {}s for {}", timeoutSeconds, className);
+            logger.warn("CFR decompiler timed out after {}s for {}; falling back", timeoutSeconds, className);
             return Optional.empty();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return Optional.empty();
         } catch (ExecutionException e) {
-            logger.debug("CFR decompilation failed for {}: {}", className, e.getMessage());
+            logger.warn("CFR decompilation failed for {}: {}", className, e.getMessage());
             return Optional.empty();
         }
     }
@@ -86,6 +96,54 @@ public class DecompiledContextProvider implements SutContextProvider {
     @Override
     public String modeLabel() {
         return "Decompiled source";
+    }
+
+    /** Reads the (original) class bytes for {@code className}, or {@code null} if unavailable. */
+    private static byte[] readClassBytes(String className) {
+        // Prefer the original bytes from the project classpath: this avoids the
+        // instrumented/mock-redirected bytecode that the SUT class loader may
+        // otherwise serve as a resource, which CFR decompiles poorly.
+        InputStream is = null;
+        try {
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            if (cl == null) {
+                cl = DecompiledContextProvider.class.getClassLoader();
+            }
+            try {
+                is = ResourceList.getInstance(cl).getClassAsStream(className);
+            } catch (Throwable t) {
+                logger.debug("ResourceList lookup failed for {}: {}", className, t.getMessage());
+                is = null;
+            }
+            if (is == null) {
+                is = cl.getResourceAsStream(className.replace('.', '/') + ".class");
+            }
+            if (is == null) {
+                logger.warn("Class file not found on classpath for decompilation: {}", className);
+                return null;
+            }
+            return readAllBytes(is);
+        } catch (IOException e) {
+            logger.warn("Failed to read class bytes for {}: {}", className, e.getMessage());
+            return null;
+        } finally {
+            if (is != null) {
+                try {
+                    is.close();
+                } catch (IOException ignored) {
+                }
+            }
+        }
+    }
+
+    private static byte[] readAllBytes(InputStream is) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream(16384);
+        byte[] buffer = new byte[8192];
+        int read;
+        while ((read = is.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
     }
 
     private static class DecompileTask implements Callable<Optional<String>> {
@@ -97,26 +155,13 @@ public class DecompiledContextProvider implements SutContextProvider {
 
         @Override
         public Optional<String> call() {
-            String resourcePath = className.replace('.', '/') + ".class";
-            ClassLoader cl = Thread.currentThread().getContextClassLoader();
-            if (cl == null) {
-                cl = DecompiledContextProvider.class.getClassLoader();
-            }
-
-            // Use getResourceAsStream instead of getResource().toURI().getPath()
-            // to correctly handle classes inside JARs.
-            InputStream is = cl.getResourceAsStream(resourcePath);
-            if (is == null) {
-                logger.debug("Class file not found on classpath: {}", resourcePath);
+            byte[] classBytes = readClassBytes(className);
+            if (classBytes == null) {
                 return Optional.empty();
             }
 
-            Path tempFile = null;
+            String classPath = className.replace('.', '/') + ".class";
             try {
-                // CFR requires a filesystem path, so materialize bytes to a temp file.
-                tempFile = Files.createTempFile("evosuite-cfr-", ".class");
-                Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
-
                 CollectingSinkFactory sinkFactory = new CollectingSinkFactory();
                 Map<String, String> options = new HashMap<>();
                 options.put("showversion", "false");
@@ -124,47 +169,77 @@ public class DecompiledContextProvider implements SutContextProvider {
 
                 CfrDriver driver = new CfrDriver.Builder()
                         .withOptions(options)
+                        .withClassFileSource(new InMemoryClassFileSource(classPath, classBytes))
                         .withOutputSink(sinkFactory)
                         .build();
 
-                driver.analyse(Collections.singletonList(tempFile.toString()));
+                // CFR resolves the analysed path through the ClassFileSource, so no
+                // file is ever written to disk.
+                driver.analyse(Collections.singletonList(classPath));
                 String result = sinkFactory.getOutput();
                 if (result.trim().isEmpty()) {
-                    logger.debug("CFR produced empty output for {}", className);
+                    logger.warn("CFR produced empty output for {}{}", className,
+                            sinkFactory.getErrors().isEmpty() ? "" : " (" + sinkFactory.getErrors() + ")");
                     return Optional.empty();
                 }
                 return Optional.of(result);
-            } catch (IOException e) {
-                logger.debug("Failed to decompile {}: {}", className, e.getMessage());
-                return Optional.empty();
             } catch (Exception e) {
-                logger.debug("Unexpected error decompiling {}: {}", className, e.getMessage());
+                logger.warn("Unexpected error decompiling {}: {}", className, e.toString());
                 return Optional.empty();
-            } finally {
-                try {
-                    is.close();
-                } catch (IOException expected) {
-                }
-                if (tempFile != null) {
-                    try {
-                        Files.deleteIfExists(tempFile);
-                    } catch (IOException expected) {
-                    }
-                }
             }
         }
     }
 
     /**
-     * CFR OutputSinkFactory that collects decompiled Java output into a StringBuilder.
+     * In-memory {@link ClassFileSource} that serves a single class's bytes to CFR.
+     * Requests for any other path (e.g. dependencies) throw {@link IOException},
+     * which CFR treats as an unresolved reference and decompiles around.
+     */
+    static class InMemoryClassFileSource implements ClassFileSource {
+        private final String path;
+        private final byte[] bytes;
+
+        InMemoryClassFileSource(String path, byte[] bytes) {
+            this.path = path;
+            this.bytes = bytes;
+        }
+
+        @Override
+        public void informAnalysisRelativePathDetail(String usePath, String specPath) {
+            // No-op: single-class, in-memory source.
+        }
+
+        @Override
+        public Collection<String> addJar(String jarPath) {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public String getPossiblyRenamedPath(String path) {
+            return path;
+        }
+
+        @Override
+        public Pair<byte[], String> getClassFileContent(String inputPath) throws IOException {
+            if (path.equals(inputPath)) {
+                return Pair.make(bytes, inputPath);
+            }
+            throw new IOException("Class not available in in-memory source: " + inputPath);
+        }
+    }
+
+    /**
+     * CFR OutputSinkFactory that collects decompiled Java output (and any reported
+     * exceptions, for diagnostics) into string buffers.
      */
     static class CollectingSinkFactory implements OutputSinkFactory {
 
         private final StringBuilder buffer = new StringBuilder();
+        private final StringBuilder errors = new StringBuilder();
 
         @Override
         public List<SinkClass> getSupportedSinks(SinkType sinkType, Collection<SinkClass> available) {
-            return Arrays.asList(SinkClass.STRING);
+            return Arrays.asList(SinkClass.STRING, SinkClass.EXCEPTION_MESSAGE);
         }
 
         @SuppressWarnings("unchecked")
@@ -178,7 +253,17 @@ public class DecompiledContextProvider implements SutContextProvider {
                     }
                 };
             }
-            // Discard non-JAVA output (progress, exceptions, etc.)
+            if (sinkType == SinkType.EXCEPTION) {
+                return new Sink<T>() {
+                    @Override
+                    public void write(T t) {
+                        if (errors.length() < 2000 && t != null) {
+                            errors.append(t).append(' ');
+                        }
+                    }
+                };
+            }
+            // Discard other output (progress, summaries, etc.)
             return new Sink<T>() {
                 @Override
                 public void write(T t) {
@@ -189,6 +274,10 @@ public class DecompiledContextProvider implements SutContextProvider {
 
         String getOutput() {
             return buffer.toString();
+        }
+
+        String getErrors() {
+            return errors.toString().trim();
         }
     }
 }
