@@ -1,6 +1,11 @@
 apple.
 ch.qos.logback.
-com.apple.
+com.apple.eawt.
+com.apple.eio.
+com.apple.concurrent.
+com.apple.laf.
+com.apple.java.
+com.apple.mrj.
 com_cenqua_clover.
 com.atlassian.clover.
 com_atlassian_clover.
