@@ -49,6 +49,12 @@ public class TestUsageChecker {
 
     private static final Logger logger = LoggerFactory.getLogger(TestUsageChecker.class);
     private static final Pattern COMPILER_ACCESSOR_NAME = Pattern.compile("access\\$\\d+");
+    private static final List<String> UNSAFE_DEPENDENCY_CLASS_PREFIXES = Collections.unmodifiableList(
+            Arrays.asList(
+                    "org.mockito.internal.",
+                    "net.bytebuddy.",
+                    "org.objenesis.",
+                    "scala."));
     private static final Set<String> UNSTABLE_GUI_ACCESSORS = Collections.unmodifiableSet(new LinkedHashSet<>(
             Arrays.asList(
                     "toString",
@@ -205,6 +211,10 @@ public class TestUsageChecker {
             return false;
         }
 
+        if (isUnsafeDependencyClass(c)) {
+            return false;
+        }
+
         if (!Properties.USE_DEPRECATED) {
             try {
                 if (c.isAnnotationPresent(Deprecated.class)) {
@@ -252,14 +262,22 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (c.getEnclosingClass() != null) {
-            if (!canUse(c.getEnclosingClass())) {
+        Class<?> enclosingClass = getEnclosingClassSafely(c);
+        if (enclosingClass == UNRESOLVABLE_OWNER_CLASS) {
+            return false;
+        }
+        if (enclosingClass != null) {
+            if (!canUse(enclosingClass)) {
                 return false;
             }
         }
 
-        if (c.getDeclaringClass() != null) {
-            if (!canUse(c.getDeclaringClass())) {
+        Class<?> declaringClass = getDeclaringClassSafely(c);
+        if (declaringClass == UNRESOLVABLE_OWNER_CLASS) {
+            return false;
+        }
+        if (declaringClass != null) {
+            if (!canUse(declaringClass)) {
                 return false;
             }
         }
@@ -311,6 +329,39 @@ public class TestUsageChecker {
 
         logger.debug("Not public");
         return false;
+    }
+
+    private static final Class<?> UNRESOLVABLE_OWNER_CLASS = UnresolvableOwnerClass.class;
+
+    private static final class UnresolvableOwnerClass {
+    }
+
+    private static boolean isUnsafeDependencyClass(Class<?> c) {
+        String className = c.getName();
+        return UNSAFE_DEPENDENCY_CLASS_PREFIXES.stream()
+                .anyMatch(prefix -> className.startsWith(prefix) && !isTargetInPrefix(prefix));
+    }
+
+    private static boolean isTargetInPrefix(String prefix) {
+        return Properties.TARGET_CLASS != null && Properties.TARGET_CLASS.startsWith(prefix);
+    }
+
+    private static Class<?> getEnclosingClassSafely(Class<?> c) {
+        try {
+            return c.getEnclosingClass();
+        } catch (LinkageError | TypeNotPresentException e) {
+            logger.debug("Skipping class with unresolvable enclosing class metadata: {}", c.getName(), e);
+            return UNRESOLVABLE_OWNER_CLASS;
+        }
+    }
+
+    private static Class<?> getDeclaringClassSafely(Class<?> c) {
+        try {
+            return c.getDeclaringClass();
+        } catch (LinkageError | TypeNotPresentException e) {
+            logger.debug("Skipping class with unresolvable declaring class metadata: {}", c.getName(), e);
+            return UNRESOLVABLE_OWNER_CLASS;
+        }
     }
 
     /**
@@ -464,6 +515,11 @@ public class TestUsageChecker {
             return false;
         }
 
+        if (!isValidJavaIdentifier(m.getName())) {
+            logger.debug("Excluding method with non-Java identifier name: " + m.getName());
+            return false;
+        }
+
         if (isCompilerGeneratedAccessorMethod(m)) {
             logger.debug("Excluding compiler-generated accessor method: " + m);
             return false;
@@ -520,6 +576,18 @@ public class TestUsageChecker {
 
         // FIXME: EvoSuite currently can't deal properly with the Set.of(...) methods introduced in Java 9
         if (m.getDeclaringClass().equals(java.util.Set.class) && Modifier.isStatic(m.getModifiers())) {
+            return false;
+        }
+
+        // List.ofLazy(...) is a preview API in newer JDKs and does not compile in the default
+        // EvoSuite toolchain. Exclude it rather than generating preview-dependent tests.
+        if (m.getDeclaringClass().equals(java.util.List.class)
+                && m.getName().equals("ofLazy")
+                && Modifier.isStatic(m.getModifiers())) {
+            return false;
+        }
+
+        if (isUnboundedStreamFactory(m)) {
             return false;
         }
 
@@ -669,6 +737,21 @@ public class TestUsageChecker {
         return UNSTABLE_GUI_ACCESSORS.contains(method.getName());
     }
 
+    private static boolean isValidJavaIdentifier(String name) {
+        if (name == null || name.isEmpty()) {
+            return false;
+        }
+        if (!Character.isJavaIdentifierStart(name.charAt(0))) {
+            return false;
+        }
+        for (int i = 1; i < name.length(); i++) {
+            if (!Character.isJavaIdentifierPart(name.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * Detects enum methods generated by the compiler.
      */
@@ -781,6 +864,29 @@ public class TestUsageChecker {
         }
 
         return false;
+    }
+
+    /**
+     * Stream.iterate(...) and Stream.generate(...) produce unbounded streams.
+     * Generated tests often pass those streams to SUT methods that consume the
+     * whole stream (e.g. collect/toArray), which can stall or exhaust memory.
+     * Finite stream factories such as Stream.of(...) remain usable.
+     */
+    private static boolean isUnboundedStreamFactory(Method m) {
+        if (!Modifier.isStatic(m.getModifiers())) {
+            return false;
+        }
+
+        Class<?> declaringClass = m.getDeclaringClass();
+        if (!declaringClass.equals(java.util.stream.Stream.class)
+                && !declaringClass.equals(java.util.stream.IntStream.class)
+                && !declaringClass.equals(java.util.stream.LongStream.class)
+                && !declaringClass.equals(java.util.stream.DoubleStream.class)) {
+            return false;
+        }
+
+        String name = m.getName();
+        return "iterate".equals(name) || "generate".equals(name);
     }
 
     /**

@@ -109,6 +109,61 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
     }
 
+    private static boolean hasNullGenericArrayComponent(Type type) {
+        return hasNullGenericArrayComponent(type, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    private static boolean hasNullGenericArrayComponent(Type type, Set<Type> visited) {
+        if (type == null || !visited.add(type)) {
+            return false;
+        }
+        if (type instanceof GenericArrayType) {
+            Type componentType = ((GenericArrayType) type).getGenericComponentType();
+            return componentType == null || hasNullGenericArrayComponent(componentType, visited);
+        } else if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            if (hasNullGenericArrayComponent(parameterizedType.getOwnerType(), visited)) {
+                return true;
+            }
+            for (Type argument : parameterizedType.getActualTypeArguments()) {
+                if (hasNullGenericArrayComponent(argument, visited)) {
+                    return true;
+                }
+            }
+        } else if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            for (Type bound : wildcardType.getUpperBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+            for (Type bound : wildcardType.getLowerBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+        } else if (type instanceof TypeVariable) {
+            for (Type bound : ((TypeVariable<?>) type).getBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+        } else if (type instanceof CaptureType) {
+            CaptureType captureType = (CaptureType) type;
+            for (Type bound : captureType.getUpperBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+            for (Type bound : captureType.getLowerBounds()) {
+                if (hasNullGenericArrayComponent(bound, visited)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     static Class<?> getClass(String name) throws ClassNotFoundException {
         return getClass(name, TestGenerationContext.getInstance().getClassLoaderForSUT());
     }
@@ -710,7 +765,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      */
     private GenericClass<?> getGenericArrayInstantiation(Map<TypeVariable<?>, Type> typeMap,
                                                          int recursionLevel) throws ConstructionFailedException {
-        GenericClass<?> componentClass = getComponentClass().getGenericInstantiation();
+        GenericClass<?> componentClass = getComponentClass().getGenericInstantiation(typeMap, recursionLevel + 1);
         return getWithComponentClass(componentClass);
     }
 
@@ -742,7 +797,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         if (typeMap.containsKey(type) && !isLoopInTypeMap(type, typeMap)) {
             logger.debug("Type contains {}: {}", this, GenericUtils.stableTypeVariableMapToString(typeMap));
             GenericClass<?> selectedClass = new GenericClassImpl(typeMap.get(type)).getGenericInstantiation(typeMap,
-                    recursionLevel + 1);
+                    recursionLevel);
             if (!selectedClass.satisfiesBoundaries((TypeVariable<?>) type)) {
                 logger.debug("Cannot be instantiated to: {}", selectedClass);
             } else {
@@ -761,17 +816,17 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         logger.debug("Getting instantiation of type variable {}: {}", this, selectedClass);
         Map<TypeVariable<?>, Type> extendedMap = new HashMap<>(
                 typeMap);
-        extendedMap.putAll(getTypeVariableMap());
+        putTypeVariableMappings(extendedMap, getTypeVariableMap());
         for (Type bound : ((TypeVariable<?>) type).getBounds()) {
             logger.debug("Current bound of variable {}: {}", type, bound);
             GenericClass<?> boundClass = new GenericClassImpl(bound);
-            extendedMap.putAll(boundClass.getTypeVariableMap());
+            putTypeVariableMappings(extendedMap, boundClass.getTypeVariableMap());
             if (boundClass.isParameterizedType()) {
                 Class<?> boundRawClass = boundClass.getRawClass();
                 if (boundRawClass.isAssignableFrom(selectedClass.getRawClass())) {
                     Map<TypeVariable<?>, Type> xmap = TypeUtils.determineTypeArguments(
                             selectedClass.getRawClass(), (ParameterizedType) boundClass.getType());
-                    extendedMap.putAll(xmap);
+                    putTypeVariableMappings(extendedMap, xmap);
                 }
             }
         }
@@ -780,6 +835,11 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
         GenericClass<?> instantiation = selectedClass.getGenericInstantiation(extendedMap,
                 recursionLevel + 1);
+        if (!instantiation.satisfiesBoundaries((TypeVariable<?>) type, extendedMap)) {
+            throw new ConstructionFailedException("Derived instantiation " + instantiation
+                    + " does not satisfy " + type + " with map "
+                    + GenericUtils.stableTypeVariableMapToString(extendedMap));
+        }
         typeMap.put((TypeVariable<?>) type, instantiation.getType());
         return instantiation;
 
@@ -872,6 +932,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         int numParam = 0;
 
         for (GenericClass<?> parameterClass : getParameterClasses()) {
+            TypeVariable<?> currentTypeVariable = typeParameters.get(numParam);
             logger.debug("Current parameter to instantiate: {}", parameterClass);
             /*
              * If the parameter is a parameterized type variable such as T extends Map<String, K extends Number>
@@ -885,9 +946,9 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
                 Map<TypeVariable<?>, Type> extendedMap = new HashMap<>(
                         typeMap);
-                extendedMap.putAll(parameterClass.getTypeVariableMap());
-                if (!extendedMap.containsKey(typeParameters.get(numParam)) && !parameterClass.isTypeVariable()) {
-                    extendedMap.put(typeParameters.get(numParam), parameterClass.getType());
+                putTypeVariableMappings(extendedMap, parameterClass.getTypeVariableMap());
+                if (!extendedMap.containsKey(currentTypeVariable) && !parameterClass.isTypeVariable()) {
+                    extendedMap.put(currentTypeVariable, parameterClass.getType());
                 }
                 logger.debug("New type map: " + GenericUtils.stableTypeVariableMapToString(extendedMap));
 
@@ -920,10 +981,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                             + Arrays.asList(typeParameters.get(numParam).getBounds()));
                     WildcardType wildcardType = (WildcardType) parameterClass.getType();
                     boolean preserveWildcard = recursionLevel >= 1
-                            && parameterClass.satisfiesBoundaries(typeParameters.get(numParam), extendedMap)
+                            && parameterClass.satisfiesBoundaries(currentTypeVariable, extendedMap)
                             && !hasConcreteParameterizedBound(wildcardType);
                     if (preserveWildcard) {
-                        parameterTypes[numParam++] = parameterClass.getType();
+                        Type parameterType = parameterClass.getType();
+                        parameterTypes[numParam++] = parameterType;
+                        typeMap.put(currentTypeVariable, parameterType);
                     } else {
                         for (Type bound : wildcardType.getUpperBounds()) {
                             if (bound instanceof ParameterizedType) {
@@ -939,12 +1002,13 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                                 logger.debug("bound is not parameterizedType");
                             }
                         }
-                        TypeVariable<?> requiredTypeVariable = typeParameters.get(numParam);
                         WildcardType requiredBounds = new WildcardTypeImpl(
-                                requiredTypeVariable.getBounds(), new Type[0]);
+                                currentTypeVariable.getBounds(), new Type[0]);
                         GenericClass<?> parameterInstance = parameterClass.getGenericInstantiation(extendedMap,
                                 recursionLevel + 1, requiredBounds);
-                        parameterTypes[numParam++] = parameterInstance.getType();
+                        Type parameterType = parameterInstance.getType();
+                        parameterTypes[numParam++] = parameterType;
+                        typeMap.put(currentTypeVariable, parameterType);
                     }
                 } else {
                     logger.debug("Is not wildcard but type variable? "
@@ -952,7 +1016,14 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
                     GenericClass<?> parameterInstance = parameterClass.getGenericInstantiation(extendedMap,
                             recursionLevel + 1);
-                    parameterTypes[numParam++] = parameterInstance.getType();
+                    if (!parameterInstance.satisfiesBoundaries(currentTypeVariable, extendedMap)) {
+                        throw new ConstructionFailedException("Derived parameter instantiation "
+                                + parameterInstance + " does not satisfy " + currentTypeVariable
+                                + " with map " + GenericUtils.stableTypeVariableMapToString(extendedMap));
+                    }
+                    Type parameterType = parameterInstance.getType();
+                    parameterTypes[numParam++] = parameterType;
+                    typeMap.put(currentTypeVariable, parameterType);
                 }
             }
         }
@@ -973,6 +1044,19 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
 
         return new GenericClassImpl(new ParameterizedTypeImpl(rawClass, parameterTypes,
                 ownerType));
+    }
+
+    private static void putTypeVariableMappings(Map<TypeVariable<?>, Type> target,
+                                                Map<TypeVariable<?>, Type> source) {
+        for (Map.Entry<TypeVariable<?>, Type> entry : source.entrySet()) {
+            TypeVariable<?> key = entry.getKey();
+            Type value = entry.getValue();
+            if (value instanceof TypeVariable<?> && key.equals(value)) {
+                target.putIfAbsent(key, value);
+            } else {
+                target.put(key, value);
+            }
+        }
     }
 
     private static WildcardType mergeWildcardBounds(WildcardType baseBounds, WildcardType requiredBounds) {
@@ -1673,7 +1757,16 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return boolean
      */
     public boolean isGenericSuperTypeOf(GenericClass<?> subType) {
-        return GenericTypeReflector.isSuperType(type, subType.getType());
+        if (hasNullGenericArrayComponent(type) || hasNullGenericArrayComponent(subType.getType())) {
+            logger.debug("Cannot compare malformed generic array type {} with {}", type, subType.getType());
+            return false;
+        }
+        try {
+            return GenericTypeReflector.isSuperType(type, subType.getType());
+        } catch (NullPointerException e) {
+            logger.debug("Cannot compare malformed generic type {} with {}", type, subType.getType(), e);
+            return false;
+        }
     }
 
     /**
@@ -1683,7 +1776,16 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return boolean
      */
     public boolean isGenericSuperTypeOf(Type subType) {
-        return GenericTypeReflector.isSuperType(type, subType);
+        if (hasNullGenericArrayComponent(type) || hasNullGenericArrayComponent(subType)) {
+            logger.debug("Cannot compare malformed generic array type {} with {}", type, subType);
+            return false;
+        }
+        try {
+            return GenericTypeReflector.isSuperType(type, subType);
+        } catch (NullPointerException e) {
+            logger.debug("Cannot compare malformed generic type {} with {}", type, subType, e);
+            return false;
+        }
     }
 
     /**
@@ -1856,6 +1958,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             boundType = GenericUtils.replaceTypeVariablesWithWildcards(boundType);
 
             //logger.debug("Bound after variable replacement: " + boundType);
+            if (violatesConcreteParameterizedBound(concreteClass.getType(), boundType)) {
+                isAssignable = false;
+                break;
+            }
             if (!concreteClass.isAssignableTo(boundType) && !(boundType instanceof WildcardType)) {
                 //logger.debug("Not assignable: " + type + " and " + boundType);
                 // If the boundary is not assignable it may still be possible
@@ -2046,6 +2152,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         for (int i = 0; i < length; i++) {
             Type expected = expectedArgs[i];
             Type actual = actualArgs[i];
+            if (expected instanceof WildcardType
+                    && !isActualArgumentWithinWildcard((WildcardType) expected, actual)) {
+                return true;
+            }
             if (isConcreteType(expected) && hasWildcardOrTypeVariable(actual)) {
                 return true;
             }
@@ -2059,6 +2169,29 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
             }
         }
         return false;
+    }
+
+    private static boolean isActualArgumentWithinWildcard(WildcardType expectedWildcard, Type actual) {
+        if (hasWildcardOrTypeVariable(actual)) {
+            return true;
+        }
+        for (Type upper : expectedWildcard.getUpperBounds()) {
+            if (hasWildcardOrTypeVariable(upper)) {
+                continue;
+            }
+            if (!isAssignable(upper, actual)) {
+                return false;
+            }
+        }
+        for (Type lower : expectedWildcard.getLowerBounds()) {
+            if (hasWildcardOrTypeVariable(lower)) {
+                continue;
+            }
+            if (!isAssignable(actual, lower)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean isClassLiteralSubtypeCompatibility(ParameterizedType expectedBound,

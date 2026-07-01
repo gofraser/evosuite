@@ -20,6 +20,7 @@
 package org.evosuite.utils.generic;
 
 import com.googlecode.gentyref.CaptureType;
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.ClassUtils;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.slf4j.Logger;
@@ -83,10 +84,41 @@ public class GenericClassUtils {
             return true;
         }
 
+        if (isAssignableViaExactSuperType(lhsType, rhsType)) {
+            return true;
+        }
+
         try {
             return TypeUtils.isAssignable(rhsType, lhsType);
         } catch (Throwable e) {
             logger.debug("Found unassignable type: " + e);
+            return false;
+        }
+    }
+
+    private static boolean isAssignableViaExactSuperType(Type lhsType, Type rhsType) {
+        if (!(lhsType instanceof ParameterizedType)) {
+            return false;
+        }
+
+        Class<?> lhsRawClass = getRawClass(lhsType);
+        if (lhsRawClass == null) {
+            return false;
+        }
+
+        Type exactSuperType = GenericTypeReflector.getExactSuperType(rhsType, lhsRawClass);
+        if (exactSuperType == null) {
+            return false;
+        }
+
+        if (TypeUtils.equals(lhsType, exactSuperType)) {
+            return true;
+        }
+
+        try {
+            return TypeUtils.isAssignable(exactSuperType, lhsType);
+        } catch (Throwable e) {
+            logger.debug("Found unassignable exact super type: " + e);
             return false;
         }
     }
@@ -290,10 +322,14 @@ public class GenericClassUtils {
     public static boolean isMissingTypeParameters(Type type) {
         if (type instanceof Class) {
             // Handle nested classes: check if any of the enclosing classes declares a type
-            // parameter.
+            // parameter. Static nested types (enums, interfaces, static classes) do NOT
+            // capture their enclosing class's type parameters, so stop traversal there.
             for (Class<?> clazz = (Class<?>) type; clazz != null; clazz = clazz.getEnclosingClass()) {
                 if (clazz.getTypeParameters().length != 0) {
                     return true;
+                }
+                if (Modifier.isStatic(clazz.getModifiers())) {
+                    break;
                 }
             }
 

@@ -21,6 +21,7 @@ package org.evosuite.setup;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.TimeController;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.junit.CoverageAnalysis;
@@ -174,6 +175,11 @@ public class TestCluster {
 
 
         for (Map.Entry<GenericClass<?>, Set<GenericAccessibleObject<?>>> entry : generators.entrySet()) {
+            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                logger.warn("Stopping unusable-generator pruning because initialization time is exhausted");
+                break;
+            }
+
             if (entry.getValue().isEmpty()) {
                 recursiveRemoveGenerators(entry.getKey());
             }
@@ -189,7 +195,11 @@ public class TestCluster {
 
         removeOnlySelfGenerator();
 
-        removeDirectCycle();
+        if (TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            removeDirectCycle();
+        } else {
+            logger.warn("Skipping direct-cycle pruning because initialization time is exhausted");
+        }
 
         generatorCache.clear();
     }
@@ -197,6 +207,11 @@ public class TestCluster {
     private void validateGenerators(Set<GenericAccessibleObject<?>> generators, Set<GenericClass<?>> removed,
                                     Set<GenericClass<?>> toRemove) {
         for (GenericAccessibleObject<?> gao : generators) {
+            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                logger.warn("Stopping generator validation because initialization time is exhausted");
+                return;
+            }
+
             GenericClass<?> owner = gao.getOwnerClass();
             if (removed.contains(owner)) {
                 continue;

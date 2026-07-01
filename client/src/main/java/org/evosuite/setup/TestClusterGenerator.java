@@ -218,6 +218,10 @@ public class TestClusterGenerator {
         logger.info("Handling cast classes. Found " + existingCastClasses.size()
                 + " existing classes in CastClassManager.");
         for (GenericClass<?> clazz : existingCastClasses) {
+            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                logger.warn("Stopping default cast-class handling because initialization time is exhausted");
+                return;
+            }
             logger.info("Adding existing cast class as dependency: " + clazz.getClassName());
             addCastClassDependencyIfAccessible(clazz.getClassName(), blackList);
         }
@@ -231,6 +235,10 @@ public class TestClusterGenerator {
             Map<Type, Integer> castMap = analyzer.analyze(Properties.TARGET_CLASS);
 
             for (Entry<Type, Integer> castEntry : castMap.entrySet()) {
+                if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                    logger.warn("Stopping cast-class seeding because initialization time is exhausted");
+                    break;
+                }
                 String className = castEntry.getKey().getClassName();
                 if (blackList.contains(className)) {
                     continue;

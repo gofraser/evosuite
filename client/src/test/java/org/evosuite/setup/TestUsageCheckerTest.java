@@ -27,9 +27,25 @@ import org.evosuite.runtime.testdata.EvoSuiteFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Opcodes;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.function.DoubleSupplier;
+import java.util.function.DoubleUnaryOperator;
+import java.util.function.IntSupplier;
+import java.util.function.IntFunction;
+import java.util.function.IntUnaryOperator;
+import java.util.function.LongSupplier;
+import java.util.function.LongUnaryOperator;
+import java.util.function.Supplier;
+import java.util.function.UnaryOperator;
+import java.util.List;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 
 import javax.swing.JPanel;
 
@@ -170,5 +186,104 @@ class TestUsageCheckerTest {
         Assertions.assertTrue(TestUsageChecker.canUse(inherited, ShadowChild.class));
         // The parent's own field is still usable when accessed via the parent.
         Assertions.assertTrue(TestUsageChecker.canUse(parentValue, ShadowParent.class));
+    }
+
+    @Test
+    void testUnboundedStreamFactoriesAreRejected() throws NoSuchMethodException {
+        Method streamIterate = Stream.class.getMethod("iterate", Object.class, UnaryOperator.class);
+        Method streamGenerate = Stream.class.getMethod("generate", Supplier.class);
+        Method intStreamIterate = IntStream.class.getMethod("iterate", int.class, IntUnaryOperator.class);
+        Method intStreamGenerate = IntStream.class.getMethod("generate", IntSupplier.class);
+        Method longStreamIterate = LongStream.class.getMethod("iterate", long.class, LongUnaryOperator.class);
+        Method longStreamGenerate = LongStream.class.getMethod("generate", LongSupplier.class);
+        Method doubleStreamIterate = DoubleStream.class.getMethod("iterate", double.class,
+                DoubleUnaryOperator.class);
+        Method doubleStreamGenerate = DoubleStream.class.getMethod("generate", DoubleSupplier.class);
+
+        Assertions.assertFalse(TestUsageChecker.canUse(streamIterate));
+        Assertions.assertFalse(TestUsageChecker.canUse(streamGenerate));
+        Assertions.assertFalse(TestUsageChecker.canUse(intStreamIterate));
+        Assertions.assertFalse(TestUsageChecker.canUse(intStreamGenerate));
+        Assertions.assertFalse(TestUsageChecker.canUse(longStreamIterate));
+        Assertions.assertFalse(TestUsageChecker.canUse(longStreamGenerate));
+        Assertions.assertFalse(TestUsageChecker.canUse(doubleStreamIterate));
+        Assertions.assertFalse(TestUsageChecker.canUse(doubleStreamGenerate));
+    }
+
+    @Test
+    void testFiniteStreamFactoriesRemainUsable() throws NoSuchMethodException {
+        Method streamOf = Stream.class.getMethod("of", Object[].class);
+
+        Assertions.assertTrue(TestUsageChecker.canUse(streamOf));
+    }
+
+    @Test
+    void testPreviewListOfLazyIsRejected() throws NoSuchMethodException {
+        Method ofLazy = List.class.getMethod("ofLazy", int.class, IntFunction.class);
+
+        Assertions.assertFalse(TestUsageChecker.canUse(ofLazy));
+    }
+
+    @Test
+    void testUnsafeDependencyImplementationClassesAreRejectedByName() {
+        ByteArrayClassLoader loader = new ByteArrayClassLoader();
+        Class<?> mockitoInternal = loader.define("org.mockito.internal.creation.bytebuddy.GeneratedCandidate",
+                createSimpleClassBytes("org.mockito.internal.creation.bytebuddy.GeneratedCandidate"));
+        Class<?> byteBuddyInternal = loader.define("net.bytebuddy.GeneratedCandidate",
+                createSimpleClassBytes("net.bytebuddy.GeneratedCandidate"));
+        Class<?> objenesisInternal = loader.define("org.objenesis.GeneratedCandidate",
+                createSimpleClassBytes("org.objenesis.GeneratedCandidate"));
+        Class<?> scalaInternal = loader.define("scala.collection.GeneratedCandidate",
+                createSimpleClassBytes("scala.collection.GeneratedCandidate"));
+
+        Assertions.assertFalse(TestUsageChecker.canUse(mockitoInternal));
+        Assertions.assertFalse(TestUsageChecker.canUse(byteBuddyInternal));
+        Assertions.assertFalse(TestUsageChecker.canUse(objenesisInternal));
+        Assertions.assertFalse(TestUsageChecker.canUse(scalaInternal));
+    }
+
+    @Test
+    void testUnsafeDependencyPrefixIsAllowedForMatchingTargetPackage() {
+        Properties.TARGET_CLASS = "scala.collection.GeneratedCandidate";
+        ByteArrayClassLoader loader = new ByteArrayClassLoader();
+        Class<?> scalaTarget = loader.define("scala.collection.GeneratedCandidate",
+                createSimpleClassBytes("scala.collection.GeneratedCandidate"));
+
+        Assertions.assertTrue(TestUsageChecker.canUse(scalaTarget));
+    }
+
+    @Test
+    void testClassWithMissingDeclaringClassMetadataIsRejectedWithoutThrowing() {
+        ByteArrayClassLoader loader = new ByteArrayClassLoader();
+        Class<?> candidate = loader.define("missing.Owner$Candidate",
+                createClassBytesWithMissingDeclaringClass("missing.Owner$Candidate", "missing.Owner"));
+
+        Assertions.assertFalse(Assertions.assertDoesNotThrow(() -> TestUsageChecker.canUse(candidate)));
+    }
+
+    private static byte[] createSimpleClassBytes(String binaryName) {
+        ClassWriter writer = new ClassWriter(0);
+        writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+                binaryName.replace('.', '/'), null, "java/lang/Object", null);
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static byte[] createClassBytesWithMissingDeclaringClass(String binaryName, String declaringClassName) {
+        ClassWriter writer = new ClassWriter(0);
+        String internalName = binaryName.replace('.', '/');
+        String declaringInternalName = declaringClassName.replace('.', '/');
+        writer.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+                internalName, null, "java/lang/Object", null);
+        writer.visitInnerClass(internalName, declaringInternalName, "Candidate",
+                Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC);
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    private static final class ByteArrayClassLoader extends ClassLoader {
+        Class<?> define(String binaryName, byte[] bytes) {
+            return defineClass(binaryName, bytes, 0, bytes.length);
+        }
     }
 }

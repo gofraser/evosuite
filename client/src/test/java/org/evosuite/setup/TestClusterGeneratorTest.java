@@ -32,11 +32,17 @@ public class TestClusterGeneratorTest {
 
     private static final boolean defaultVFS = RuntimeSettings.useVFS;
     private static final boolean defaultHandleStaticFields = Properties.HANDLE_STATIC_FIELDS;
+    private static final String defaultTargetClass = Properties.TARGET_CLASS;
+    private static final String defaultTargetClassPrefix = Properties.TARGET_CLASS_PREFIX;
+    private static final String defaultClassPrefix = Properties.CLASS_PREFIX;
 
     @AfterEach
     public void tearDown() {
         RuntimeSettings.useVFS = defaultVFS;
         Properties.HANDLE_STATIC_FIELDS = defaultHandleStaticFields;
+        Properties.TARGET_CLASS = defaultTargetClass;
+        Properties.TARGET_CLASS_PREFIX = defaultTargetClassPrefix;
+        Properties.CLASS_PREFIX = defaultClassPrefix;
         TestGenerationContext.getInstance().setAssertionGenerationContext(false);
     }
 
@@ -67,6 +73,17 @@ public class TestClusterGeneratorTest {
     public void test_checkIfCanUse_allowsRegularJdkApis() {
         RuntimeSettings.useVFS = false;
         Assertions.assertTrue(TestClusterUtils.checkIfCanUse("java.util.ArrayList"));
+    }
+
+    @Test
+    public void test_checkIfCanUse_allowsConfiguredComAppleTargetPackage() {
+        Properties.TARGET_CLASS = "com.apple.spark.util.VersionInfo";
+        Properties.CLASS_PREFIX = "com.apple.spark.util";
+        Properties.TARGET_CLASS_PREFIX = "";
+
+        Assertions.assertTrue(TestClusterUtils.checkIfCanUse("com.apple.spark.util.VersionInfo"));
+        Assertions.assertTrue(TestClusterUtils.checkIfCanUse("com.apple.spark.util.Helper"));
+        Assertions.assertFalse(TestClusterUtils.checkIfCanUse("com.apple.other.Helper"));
     }
 
     @Test

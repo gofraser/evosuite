@@ -424,6 +424,13 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
+        // A Mockito Path does not satisfy the NIO contract: default answers
+        // return null for getFileSystem()/getParent(), which makes Files.*
+        // calls fail before useful SUT behavior is exercised.
+        if (java.nio.file.Path.class.isAssignableFrom(rawClass)) {
+            return false;
+        }
+
         // Reject ClassLoader types.  Mockito's SubclassByteBuddyMockMaker
         // generates a subclass of the mocked type, so a ClassLoader mock IS a
         // ClassLoader.  On JDK 25+, instantiating a dynamically-generated

@@ -20,9 +20,11 @@
 package org.evosuite.seeding;
 
 import com.googlecode.gentyref.GenericTypeReflector;
+import org.apache.commons.lang3.reflect.TypeUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
+import org.evosuite.TimeController;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.*;
 import org.evosuite.utils.Randomness;
@@ -54,6 +56,14 @@ public class CastClassManager {
      */
     private final Prioritization<GenericClass<?>> prioritization =
             new Prioritization<>(comparingInt(GenericClass::getNumParameters));
+
+    /**
+     * Negative cache for {@link #addAssignableClass}: records (typeVariable + bounds) keys for
+     * which a full cluster scan has already been performed and found no satisfying class.
+     * Prevents re-scanning the entire test cluster for each generator method that references the
+     * same unresolvable F-bounded type variable (common in Scala collections).
+     */
+    private final Set<String> failedBoundsKeys = new HashSet<>();
 
     // Private constructor due to singleton pattern, use getInstance() instead
     private CastClassManager() {
@@ -97,6 +107,9 @@ public class CastClassManager {
      */
     private static Collection<Class<?>> withConcreteClasses(Class<?> clazz) {
         final InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
+        if (inheritanceTree == null) {
+            return Collections.singleton(clazz);
+        }
         Set<Class<?>> candidates = new HashSet<>(ConcreteClassAnalyzer.getInstance().getConcreteClasses(clazz,
                 inheritanceTree));
         candidates.add(clazz);
@@ -170,6 +183,11 @@ public class CastClassManager {
             final Set<Class<?>> concreteClasses = analyzer.getConcreteClasses(rawClass, tree);
 
             for (final Class<?> concreteClass : concreteClasses) {
+                if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                    logger.warn("Stopping concrete cast-class expansion for {} because initialization time is exhausted",
+                            clazz);
+                    break;
+                }
                 final GenericClass<?> c = GenericClassFactory.get(concreteClass).getWithWildcardTypes();
                 if (TestUsageChecker.canUse(c.getRawClass())) {
                     logger.debug("Adding concrete class {} for abstract class {}", c.getSimpleName(), clazz);
@@ -246,7 +264,9 @@ public class CastClassManager {
                     throw new ConstructionFailedException("Nothing is assignable to " + typeVariable);
                 }
             } else {
-                logger.warn("No assignable class could be added for type variable {} with bounds {}",
+                // Warning already emitted by addAssignableClass on first failure; subsequent
+                // calls are silently suppressed there to avoid log flooding.
+                logger.debug("No assignable class could be added for type variable {} with bounds {}",
                         typeVariable, Arrays.toString(typeVariable.getBounds()));
                 throw new ConstructionFailedException("Nothing is assignable to " + typeVariable);
             }
@@ -337,6 +357,7 @@ public class CastClassManager {
      */
     public void clear() {
         prioritization.clear();
+        failedBoundsKeys.clear();
         initDefaultClasses();
     }
 
@@ -364,10 +385,17 @@ public class CastClassManager {
         // TODO why is this function deprecated? Because it is an accessor? Shall we replace it with a view and make it
         // not deprecated anymore
         final Set<Class<?>> classes = TestCluster.getInstance().getAnalyzedClasses();
-        return classes.stream() //
-                .filter(TestUsageChecker::canUse) //
-                .filter(filter) //
-                .collect(Collectors.toSet());
+        Set<Class<?>> assignableClasses = new LinkedHashSet<>();
+        for (Class<?> clazz : classes) {
+            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                logger.warn("Stopping assignable-class scan because initialization time is exhausted");
+                break;
+            }
+            if (TestUsageChecker.canUse(clazz) && filter.test(clazz)) {
+                assignableClasses.add(clazz);
+            }
+        }
+        return assignableClasses;
     }
 
     /**
@@ -498,6 +526,10 @@ public class CastClassManager {
      */
     private GenericClass<?> addAssignableClass(final WildcardType wildcardType,
                                                final Map<TypeVariable<?>, Type> typeMap) {
+        if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            return null;
+        }
+
         // Predicate to decide if a class is assignable to the wildcard type
         final Predicate<Class<?>> isAssignableToWildcard =
                 c -> GenericClassFactory.get(c).getWithWildcardTypes().satisfiesBoundaries(wildcardType, typeMap);
@@ -572,8 +604,34 @@ public class CastClassManager {
      * @param typeMap      the type map.
      * @return Whether an assignable class was added.
      */
+    /**
+     * Computes a cache key for {@link #failedBoundsKeys} from the type variable's identity and
+     * its raw (pre-substitution) bounds.  Two calls with the same type variable and the same
+     * textual bounds hit the same key.  We intentionally use unresolved bounds here: for
+     * F-bounded Scala types like {@code CC extends MapOps<Object,Object,CC,?>} the bounds are
+     * already fully concrete in the TypeVariable declaration, so the typeMap does not affect
+     * them.  For bounds that DO contain resolvable type variables (e.g. {@code T extends List<E>}
+     * with E in typeMap) the same raw string could in principle hit incorrectly, but that is
+     * extremely rare in practice and the worst consequence is a conservative miss (EvoSuite
+     * skips a type it could have used), never a correctness failure.
+     */
+    private static String boundsKey(TypeVariable<?> typeVariable) {
+        return typeVariable.getGenericDeclaration() + "#" + typeVariable.getName()
+                + ":" + Arrays.toString(typeVariable.getBounds());
+    }
+
     private GenericClass<?> addAssignableClass(final TypeVariable<?> typeVariable,
                                                final Map<TypeVariable<?>, Type> typeMap) {
+        if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            return null;
+        }
+
+        // Fast-path: if we already scanned for this exact bound and found nothing, skip.
+        String bk = boundsKey(typeVariable);
+        if (failedBoundsKeys.contains(bk)) {
+            return null;
+        }
+
         // Predicate to decide if a class is assignable to the wildcard type
         final Predicate<Class<?>> satisfiesBoundaries =
                 c -> GenericClassFactory.get(c).getWithWildcardTypes().satisfiesBoundaries(typeVariable, typeMap);
@@ -596,6 +654,7 @@ public class CastClassManager {
         final Set<Class<?>> boundCandidates = Arrays.stream(typeVariable.getBounds()) //
                 .map(GenericTypeReflector::erase) //
                 .filter(Objects::nonNull) //
+                .filter(ignored -> TimeController.getInstance().isThereStillTimeInThisPhase()) //
                 .map(CastClassManager::withConcreteClasses) //
                 .flatMap(Collection::stream) //
                 .collect(Collectors.toSet());
@@ -612,8 +671,149 @@ public class CastClassManager {
         logger.debug("Found {} total assignable classes for type variable {} after adding bounds",
                 assignableClasses.size(), typeVariable);
 
+        if (assignableClasses.isEmpty()) {
+            // Wildcardification (getWithWildcardTypes) loses array component-type information,
+            // so bounds like P extends Property<E[]> — where E[] is a GenericArrayType whose
+            // component is another type variable that has already been resolved in the typeMap —
+            // never pass satisfiesBoundaries when candidates are stored as e.g. ArrayProperty<?>.
+            // Fall back to deriving the exact parameterization via TypeUtils.determineTypeArguments:
+            // given resolved bound Property<String[]> and candidate ArrayProperty.class it returns
+            // {T -> String}, from which we can construct ArrayProperty<String> directly.
+            GenericClass<?> derived = deriveExactParamForTypeVariableBound(
+                    typeVariable, typeMap, boundCandidates);
+            if (derived != null) {
+                return derived;
+            }
+            derived = deriveResolvedBoundForTypeVariable(typeVariable, typeMap);
+            if (derived != null) {
+                return derived;
+            }
+            // Record the failure so future calls return null immediately without re-scanning.
+            if (failedBoundsKeys.add(bk)) {
+                logger.warn("No assignable class could be added for type variable {} with bounds {}",
+                        typeVariable, Arrays.toString(typeVariable.getBounds()));
+            }
+            return null;
+        }
+
         // random selection of the assignable classes is added to class map with priority 10
         return addToClassMapIfNotEmpty(assignableClasses, 10);
+    }
+
+    /**
+     * Fallback for type variables whose bounds contain generic array types (e.g.
+     * {@code P extends Property<E[]>}): wildcardification loses the relationship between
+     * the array component type and the already-resolved type variable, so
+     * {@link #addAssignableClass} finds no candidates via the normal predicate.
+     *
+     * <p>For each bound, we substitute the typeMap into it to get a concrete bound (e.g.
+     * {@code Property<String[]>}), then use
+     * {@link TypeUtils#determineTypeArguments(Class, ParameterizedType)} on each candidate
+     * class to derive its full parameterization (e.g. {@code ArrayProperty<String>}).
+     * If the result satisfies the original type variable's boundaries we add it directly to
+     * the class map and return it so that {@code selectCastClass} can pick it up.
+     */
+    private GenericClass<?> deriveExactParamForTypeVariableBound(
+            TypeVariable<?> typeVariable,
+            Map<TypeVariable<?>, Type> typeMap,
+            Set<Class<?>> boundCandidates) {
+        for (Type bound : typeVariable.getBounds()) {
+            Type resolvedBound = GenericUtils.replaceTypeVariables(bound, typeMap);
+            if (!(resolvedBound instanceof ParameterizedType)) {
+                continue;
+            }
+            ParameterizedType resolvedParamBound = (ParameterizedType) resolvedBound;
+            Class<?> boundRaw = GenericTypeReflector.erase(resolvedParamBound);
+            for (Class<?> candidate : boundCandidates) {
+                if (candidate == null || !TestUsageChecker.canUse(candidate)) {
+                    continue;
+                }
+                if (!boundRaw.isAssignableFrom(candidate)) {
+                    continue;
+                }
+                TypeVariable<?>[] candidateTypeParams = candidate.getTypeParameters();
+                if (candidateTypeParams.length == 0) {
+                    continue;
+                }
+                try {
+                    Map<TypeVariable<?>, Type> derivedArgs =
+                            TypeUtils.determineTypeArguments(candidate, resolvedParamBound);
+                    if (derivedArgs == null || derivedArgs.isEmpty()) {
+                        continue;
+                    }
+                    Type[] typeArgs = new Type[candidateTypeParams.length];
+                    for (int i = 0; i < candidateTypeParams.length; i++) {
+                        Type resolved = derivedArgs.get(candidateTypeParams[i]);
+                        typeArgs[i] = (resolved != null) ? resolved : candidateTypeParams[i];
+                    }
+                    // Only proceed if every argument is fully concrete (no unresolved variables).
+                    boolean allConcrete = Arrays.stream(typeArgs)
+                            .noneMatch(t -> t instanceof TypeVariable<?> || t instanceof WildcardType);
+                    if (!allConcrete) {
+                        continue;
+                    }
+                    Type parameterizedCandidate = TypeUtils.parameterize(candidate, typeArgs);
+                    GenericClass<?> gc = GenericClassFactory.get(parameterizedCandidate);
+                    if (gc.satisfiesBoundaries(typeVariable, typeMap)) {
+                        logger.debug("Derived exact parameterization {} for type variable {} via resolved bound {}",
+                                gc, typeVariable, resolvedBound);
+                        putCastClass(gc, 10);
+                        return gc;
+                    }
+                } catch (Exception e) {
+                    logger.debug("Failed to derive parameterization for {} from bound {}: {}",
+                            candidate.getName(), resolvedBound, e.getMessage());
+                }
+            }
+        }
+        return null;
+    }
+
+    private GenericClass<?> deriveResolvedBoundForTypeVariable(TypeVariable<?> typeVariable,
+                                                               Map<TypeVariable<?>, Type> typeMap) {
+        for (Type bound : typeVariable.getBounds()) {
+            Type resolvedBound = GenericUtils.replaceTypeVariables(bound, typeMap);
+            Type concreteBound = replaceWildcardsWithConcreteBounds(resolvedBound);
+            if (concreteBound instanceof TypeVariable<?> || concreteBound instanceof WildcardType) {
+                continue;
+            }
+            try {
+                GenericClass<?> gc = GenericClassFactory.get(concreteBound);
+                if ((TestUsageChecker.canUse(gc.getRawClass()) || gc.getRawClass().isInterface())
+                        && gc.satisfiesBoundaries(typeVariable, typeMap)) {
+                    logger.debug("Derived resolved bound {} for type variable {}", gc, typeVariable);
+                    putCastClass(gc, 10);
+                    return gc;
+                }
+            } catch (RuntimeException e) {
+                logger.debug("Failed to derive resolved bound {} for type variable {}: {}",
+                        concreteBound, typeVariable, e.getMessage());
+            }
+        }
+        return null;
+    }
+
+    private static Type replaceWildcardsWithConcreteBounds(Type type) {
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            Type[] arguments = Arrays.stream(parameterizedType.getActualTypeArguments())
+                    .map(CastClassManager::replaceWildcardsWithConcreteBounds)
+                    .toArray(Type[]::new);
+            return TypeUtils.parameterize((Class<?>) parameterizedType.getRawType(), arguments);
+        }
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            Type[] lowerBounds = wildcardType.getLowerBounds();
+            if (lowerBounds.length > 0) {
+                return replaceWildcardsWithConcreteBounds(lowerBounds[0]);
+            }
+            Type[] upperBounds = wildcardType.getUpperBounds();
+            if (upperBounds.length > 0 && !Object.class.equals(upperBounds[0])) {
+                return replaceWildcardsWithConcreteBounds(upperBounds[0]);
+            }
+            return Object.class;
+        }
+        return type;
     }
 
     /**

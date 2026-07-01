@@ -38,6 +38,8 @@ public class RuntimeInstrumentationRegressionTest {
         RuntimeSettings.mockGUI = false;
         RuntimeSettings.useVFS = false;
         RuntimeSettings.useVNET = false;
+        RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(false);
+        RuntimeInstrumentation.setTargetClassPrefix(null);
     }
 
     @Test
@@ -60,6 +62,28 @@ public class RuntimeInstrumentationRegressionTest {
 
         Assertions.assertDoesNotThrow(
                 () -> instrumentation.transformBytes(getClass().getClassLoader(), "sample/PopupSubclass", reader, false));
+    }
+
+    @Test
+    public void testTargetPrefixActivatesMockitoAndByteBuddyExclusions() {
+        RuntimeInstrumentation.setTargetClassPrefix("com.acme.");
+
+        Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
+                "org.mockito.internal.creation.bytebuddy.MockMethodAdvice"));
+        Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
+                "org.mockito.internal.creation.bytebuddy.inject.MockMethodDispatcher"));
+        Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
+                "net.bytebuddy.agent.ByteBuddyAgent"));
+    }
+
+    @Test
+    public void testTargetPackageIsExemptFromLibraryExclusions() {
+        RuntimeInstrumentation.setTargetClassPrefix("org.mockito.");
+
+        Assertions.assertTrue(RuntimeInstrumentation.checkIfCanInstrument(
+                "org.mockito.example.TargetClass"));
+        Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
+                "net.bytebuddy.agent.ByteBuddyAgent"));
     }
 
     private static byte[] createSimpleClassBytes(String internalName) {

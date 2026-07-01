@@ -313,6 +313,14 @@ public class Properties {
             description = "Maximum length of randomly generated arrays")
     public static int MAX_ARRAY = 10;
 
+    @Parameter(key = "max_array_elements", group = "Test Creation",
+            description = "Maximum total number of elements (product of all dimension lengths) for a "
+                    + "randomly generated array. Caps multi-dimensional arrays whose element type was "
+                    + "resolved to a deeply/pathologically nested generic type, to avoid OutOfMemoryError "
+                    + "during test execution. Does not affect arrays with few enough dimensions that "
+                    + "max_array alone already keeps the total under this bound.")
+    public static int MAX_ARRAY_ELEMENTS = 1_000_000;
+
     @Parameter(key = "max_attempts", group = "Test Creation",
             description = "Number of attempts when generating an object before giving up")
     public static int MAX_ATTEMPTS = 1000;

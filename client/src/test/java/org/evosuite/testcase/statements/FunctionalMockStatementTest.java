@@ -47,10 +47,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.function.Consumer;
@@ -339,15 +339,21 @@ public class FunctionalMockStatementTest {
     }
 
     @Test
-    public void testAvoidMockingEnvironment() {
+    public void testAvoidMockingNioPathWithVfs() {
         final boolean defaultValue = RuntimeSettings.useVFS;
         RuntimeSettings.useVFS = true;
 
         try {
-            Assertions.assertFalse(FunctionalMockStatement.canBeFunctionalMocked(File.class));
-        } catch (Throwable t) {
+            Assertions.assertFalse(FunctionalMockStatement.canBeFunctionalMocked(Path.class));
+        } finally {
             RuntimeSettings.useVFS = defaultValue;
         }
+    }
+
+    @Test
+    public void testAvoidMockingNioPath() {
+        Assertions.assertFalse(FunctionalMockStatement.canBeFunctionalMocked(Path.class));
+        Assertions.assertFalse(FunctionalMockStatement.canBeFunctionalMockedIncludingSUT(Path.class));
     }
 
 

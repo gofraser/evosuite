@@ -26,7 +26,9 @@ import com.googlecode.gentyref.TypeToken;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
+import org.evosuite.seeding.CastClassManager;
 import org.evosuite.utils.generic.GenericClass;
+import org.evosuite.utils.generic.GenericArrayTypeImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.WildcardTypeImpl;
@@ -556,6 +558,60 @@ public class TestGenericClassImpl {
     }
 
     @Test
+    public void testMalformedGenericArrayDoesNotCrashSuperTypeCheck() {
+        GenericArrayType malformedArrayType = new GenericArrayType() {
+            @Override
+            public Type getGenericComponentType() {
+                return null;
+            }
+        };
+
+        GenericClass<?> objectArrayClass = GenericClassFactory.get(Object[].class);
+        Assertions.assertFalse(objectArrayClass.isGenericSuperTypeOf(malformedArrayType));
+        Assertions.assertEquals(Object[].class, GenericArrayTypeImpl.createArrayType(null));
+
+        TypeVariable<?> malformedTypeVariable = new TypeVariable<GenericDeclaration>() {
+            @Override
+            public Type[] getBounds() {
+                return new Type[]{null};
+            }
+
+            @Override
+            public GenericDeclaration getGenericDeclaration() {
+                return null;
+            }
+
+            @Override
+            public String getName() {
+                return "Malformed";
+            }
+
+            @Override
+            public AnnotatedType[] getAnnotatedBounds() {
+                return new AnnotatedType[0];
+            }
+
+            @Override
+            public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
+                return null;
+            }
+
+            @Override
+            public Annotation[] getAnnotations() {
+                return new Annotation[0];
+            }
+
+            @Override
+            public Annotation[] getDeclaredAnnotations() {
+                return new Annotation[0];
+            }
+        };
+
+        GenericClass<?> objectClass = GenericClassFactory.get(Object.class);
+        Assertions.assertFalse(objectClass.isGenericSuperTypeOf(malformedTypeVariable));
+    }
+
+    @Test
     public void testGenericSuperclassConcreteList() {
         GenericClass<?> listOfInteger = GenericClassFactory.get(new TypeToken<List<Integer>>() {
         }.getType());
@@ -1001,6 +1057,79 @@ public class TestGenericClassImpl {
     }
 
     @Test
+    public void testSatisfiesFBoundedTypeVariableWithResolvedOwnerType() {
+        TypeVariable<?>[] parameters = FBoundedOps.class.getTypeParameters();
+        TypeVariable<?> elementType = parameters[0];
+        TypeVariable<?> collectionType = parameters[1];
+
+        Map<TypeVariable<?>, Type> typeMap = new HashMap<>();
+        typeMap.put(elementType, String.class);
+
+        Type concreteStringOps = TypeUtils.parameterize(ConcreteFBoundedOps.class, String.class);
+        GenericClass<?> candidate = GenericClassFactory.get(concreteStringOps);
+
+        Assertions.assertTrue(candidate.satisfiesBoundaries(collectionType, typeMap));
+    }
+
+    @Test
+    public void testRejectsParameterizedBoundWithUnsatisfiedWildcardLowerBound() {
+        TypeVariable<?>[] parameters = CollectionBuilderShape.class.getTypeParameters();
+        TypeVariable<?> elementType = parameters[0];
+        TypeVariable<?> collectionType = parameters[1];
+        TypeVariable<?> propertyType = parameters[2];
+
+        Type collectionOfString = TypeUtils.parameterize(Collection.class, String.class);
+        Map<TypeVariable<?>, Type> typeMap = new HashMap<>();
+        typeMap.put(elementType, String.class);
+        typeMap.put(collectionType, collectionOfString);
+
+        GenericClass<?> invalidProperty = GenericClassFactory.get(
+                TypeUtils.parameterize(PropertyShape.class, String.class));
+        GenericClass<?> validProperty = GenericClassFactory.get(
+                TypeUtils.parameterize(PropertyShape.class, collectionOfString));
+
+        Assertions.assertFalse(invalidProperty.satisfiesBoundaries(propertyType, typeMap));
+        Assertions.assertTrue(validProperty.satisfiesBoundaries(propertyType, typeMap));
+    }
+
+    @Test
+    public void testAcceptsParameterizedSubtypeSatisfyingWildcardLowerBound() {
+        TypeVariable<?>[] parameters = CollectionBuilderShape.class.getTypeParameters();
+        TypeVariable<?> elementType = parameters[0];
+        TypeVariable<?> collectionType = parameters[1];
+        TypeVariable<?> propertyType = parameters[2];
+
+        Type listOfString = TypeUtils.parameterize(List.class, String.class);
+        Map<TypeVariable<?>, Type> typeMap = new HashMap<>();
+        typeMap.put(elementType, String.class);
+        typeMap.put(collectionType, listOfString);
+
+        GenericClass<?> listProperty = GenericClassFactory.get(
+                TypeUtils.parameterize(ListPropertyShape.class, String.class));
+
+        Assertions.assertTrue(listProperty.satisfiesBoundaries(propertyType, typeMap));
+    }
+
+    @Test
+    public void testParameterizedInstantiationPropagatesResolvedTypeVariables() throws Exception {
+        CastClassManager.getInstance().clear();
+        CastClassManager.getInstance().addCastClass(ListPropertyShape.class, 1);
+        GenericClass<?> builder = GenericClassFactory.get(CollectionBuilderShape.class);
+        Map<TypeVariable<?>, Type> typeMap = new HashMap<>();
+        typeMap.put(CollectionBuilderShape.class.getTypeParameters()[0], String.class);
+
+        GenericClass<?> instantiated = builder.getGenericInstantiation(typeMap, 0);
+
+        Assertions.assertFalse(instantiated.hasWildcardOrTypeVariables(), instantiated.toString());
+        TypeVariable<?> collectionType = CollectionBuilderShape.class.getTypeParameters()[1];
+        TypeVariable<?> propertyType = CollectionBuilderShape.class.getTypeParameters()[2];
+        Assertions.assertTrue(GenericClassFactory.get(typeMap.get(collectionType))
+                .satisfiesBoundaries(collectionType, typeMap), instantiated.toString());
+        Assertions.assertTrue(GenericClassFactory.get(typeMap.get(propertyType))
+                .satisfiesBoundaries(propertyType, typeMap), instantiated.toString());
+    }
+
+    @Test
     public void testNonGenericSubclassIgnoresInheritedParameterizedArguments() throws Exception {
         Type malformedType = new ParameterizedTypeImpl(ConcreteRecord.class,
                 new Type[]{RecordContract.class, String.class}, null);
@@ -1018,6 +1147,22 @@ public class TestGenericClassImpl {
     }
 
     private interface RecordContract {
+    }
+
+    private interface FBoundedOps<A, CC extends FBoundedOps<A, CC>> {
+    }
+
+    public interface PropertyShape<T> {
+    }
+
+    public static final class CollectionBuilderShape<E, C extends Collection<E>, P extends PropertyShape<? super C>> {
+    }
+
+    public static final class ListPropertyShape<E> implements PropertyShape<List<E>> {
+    }
+
+    private static final class ConcreteFBoundedOps<A>
+            implements FBoundedOps<A, ConcreteFBoundedOps<A>> {
     }
 
     private abstract static class AbstractRecord<TContract, TData> {

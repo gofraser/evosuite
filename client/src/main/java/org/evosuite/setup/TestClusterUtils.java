@@ -217,7 +217,30 @@ public class TestClusterUtils {
      * @return a boolean.
      */
     public static boolean checkIfCanUse(final String className) {
+        if (isConfiguredTargetClassOrPackage(className)) {
+            return true;
+        }
         return classExceptions.stream().noneMatch(className::startsWith);
+    }
+
+    private static boolean isConfiguredTargetClassOrPackage(final String className) {
+        if (className == null) {
+            return false;
+        }
+
+        if (className.equals(Properties.TARGET_CLASS)
+                || className.startsWith(Properties.TARGET_CLASS + "$")) {
+            return true;
+        }
+
+        if (!Properties.TARGET_CLASS_PREFIX.isEmpty()
+                && className.startsWith(Properties.TARGET_CLASS_PREFIX)) {
+            return true;
+        }
+
+        return !Properties.CLASS_PREFIX.isEmpty()
+                && (className.equals(Properties.CLASS_PREFIX)
+                || className.startsWith(Properties.CLASS_PREFIX + "."));
     }
 
     /**

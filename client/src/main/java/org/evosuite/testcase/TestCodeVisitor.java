@@ -3218,7 +3218,8 @@ public class TestCodeVisitor extends TestVisitor {
         String calleeStr = "";
         boolean requiresReturnCast = !unused
                 && ((!retval.isAssignableFrom(method.getReturnType())
-                || requiresReturnValueCastForRawReceiver(statement, method, retval))
+                || requiresReturnValueCastForRawReceiver(statement, method, retval)
+                || requiresReturnCastDueToRawParameterCast(isGenericMethod, renderedParameterTypes, parameters, method, retval))
                 || (forceRawReceiverInvocation
                 && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType())))
                 && !retval.getVariableClass().isAnonymousClass()
@@ -3414,6 +3415,44 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         return getTypeName(method.getMethod().getReturnType());
+    }
+
+    private boolean requiresReturnCastDueToRawParameterCast(boolean isGenericMethod,
+                                                              Type[] renderedParameterTypes,
+                                                              List<VariableReference> parameters,
+                                                              GenericMethod method,
+                                                              VariableReference retval) {
+        if (!isGenericMethod || method == null || retval == null) {
+            return false;
+        }
+        if (!dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType())) {
+            return false;
+        }
+        Class<?> retvalClass = retval.getVariableClass();
+        if (retvalClass == null || Object.class.equals(retvalClass)) {
+            return false;
+        }
+        if (renderedParameterTypes == null || parameters == null
+                || renderedParameterTypes.length != parameters.size()) {
+            return false;
+        }
+        for (int i = 0; i < renderedParameterTypes.length; i++) {
+            Type declaredParamType = renderedParameterTypes[i];
+            if (declaredParamType instanceof WildcardType) {
+                continue;
+            }
+            VariableReference argRef = parameters.get(i);
+            String argName = getVariableName(argRef);
+            if ("null".equals(argName) || isNullInitializedVariable(argRef)) {
+                continue;
+            }
+            Type actualParamType = argRef.getType();
+            if (!declaredParamType.equals(actualParamType)
+                    && requiresRawCastForInconvertibleParameterizedTypes(declaredParamType, actualParamType)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean requiresReturnValueCastForRawReceiver(MethodStatement statement,

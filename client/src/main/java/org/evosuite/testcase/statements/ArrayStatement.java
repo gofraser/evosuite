@@ -56,24 +56,48 @@ public class ArrayStatement extends AbstractStatement {
 
     private static int[] createRandom(int dimensions) {
         int[] result = new int[dimensions];
+        // Each dimension's length is independently capped by MAX_ARRAY, but with enough
+        // dimensions (e.g. an array whose element type was resolved to a deeply nested
+        // generic type) the product can still explode and OOM the JVM. Once the running
+        // product would approach MAX_ARRAY_ELEMENTS, shrink the remaining per-dimension
+        // bound accordingly.
+        long product = 1L;
         for (int idx = 0; idx < dimensions; idx++) {
-            result[idx] = Randomness.nextInt(Properties.MAX_ARRAY);
+            int bound = (int) Math.max(1, Math.min(Properties.MAX_ARRAY,
+                    Properties.MAX_ARRAY_ELEMENTS / product));
+            result[idx] = Randomness.nextInt(bound);
+            product *= Math.max(1, result[idx]);
         }
         return result;
     }
 
     /**
-     * determineDimensions.
+     * Determines how many array dimensions {@code type} itself has, i.e. how deep the chain of
+     * {@link Class#isArray()}/{@link java.lang.reflect.GenericArrayType} component types goes.
+     *
+     * <p>This walks the actual array-component structure rather than counting {@code '['}
+     * characters in {@code type.toString()}: a string scan would also count brackets that belong
+     * to array-typed generic arguments nested inside the component type (e.g. for
+     * {@code Property<X[]>[]}, only the outer {@code []} is a dimension of this array; the inner
+     * {@code X[]} is just the generic value type of {@code Property} and contributes nothing to
+     * this array's own dimensionality), wildly overcounting dimensions and causing the statement
+     * to allocate a far larger (or wrongly shaped) array than {@code type} actually describes.
      *
      * @param type a {@link java.lang.reflect.Type} object.
      * @return a int.
      */
     public static int determineDimensions(java.lang.reflect.Type type) {
-        String name = type.toString().replace("class", "").trim();
         int count = 0;
-        for (int i = 0; i < name.length(); i++) {
-            if (name.charAt(i) == '[') {
+        java.lang.reflect.Type current = type;
+        while (true) {
+            if (current instanceof Class<?> && ((Class<?>) current).isArray()) {
                 count++;
+                current = ((Class<?>) current).getComponentType();
+            } else if (current instanceof java.lang.reflect.GenericArrayType) {
+                count++;
+                current = ((java.lang.reflect.GenericArrayType) current).getGenericComponentType();
+            } else {
+                break;
             }
         }
         return count;

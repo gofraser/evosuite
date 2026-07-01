@@ -60,9 +60,13 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
      */
     protected static boolean isMissingTypeParameters(Type type) {
         if (type instanceof Class) {
+            // Static nested types do not capture the enclosing class's type parameters.
             for (Class<?> clazz = (Class<?>) type; clazz != null; clazz = clazz.getEnclosingClass()) {
                 if (clazz.getTypeParameters().length != 0) {
                     return true;
+                }
+                if (Modifier.isStatic(clazz.getModifiers())) {
+                    break;
                 }
             }
             return false;

@@ -42,6 +42,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -394,11 +396,16 @@ public class VariableResolver {
         // use a baseline mock probability even when P_FUNCTIONAL_MOCKING is 0, and bypass
         // the FUNCTIONAL_MOCKING_PERCENT time gate. Concrete generators for types like
         // java.sql.Connection often fail at runtime, and mocking provides a reliable fallback.
+        boolean isDeepFunctionalInterface = context.getDepth() > 0
+                && isFunctionalInterface(clazz.getRawClass());
         boolean isDeepInterfaceOrAbstract = context.getDepth() > 0
                 && (clazz.getRawClass().isInterface() || clazz.isAbstract());
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
-        if (isDeepInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR) {
+        if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {
+            effectiveMockProb = 1.0;
+            bypassTimeGate = true;
+        } else if (isDeepInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR) {
             effectiveMockProb = Math.max(effectiveMockProb, 0.5);
             bypassTimeGate = true;
         }
@@ -470,6 +477,37 @@ public class VariableResolver {
         }
         ret.setDistance(context.getDepth() + 1);
         return ret;
+    }
+
+    private static boolean isFunctionalInterface(Class<?> rawClass) {
+        if (rawClass == null || !rawClass.isInterface()) {
+            return false;
+        }
+        try {
+            if (rawClass.isAnnotationPresent(FunctionalInterface.class)) {
+                return true;
+            }
+
+            int abstractMethods = 0;
+            for (Method method : rawClass.getMethods()) {
+                if (!Modifier.isAbstract(method.getModifiers())) {
+                    continue;
+                }
+                try {
+                    Object.class.getMethod(method.getName(), method.getParameterTypes());
+                    continue;
+                } catch (NoSuchMethodException ignored) {
+                    // Not an Object method.
+                }
+                abstractMethods++;
+                if (abstractMethods > 1) {
+                    return false;
+                }
+            }
+            return abstractMethods == 1;
+        } catch (LinkageError e) {
+            return false;
+        }
     }
 
     private TestClusterGenerator ensureClusterGenerator() {

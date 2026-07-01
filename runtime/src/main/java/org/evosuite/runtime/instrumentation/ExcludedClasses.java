@@ -86,7 +86,8 @@ public class ExcludedClasses {
         // Always excluded unless the target class is IN one of these packages
         // (i.e., we are generating tests for that library itself).
         String targetPrefix = RuntimeInstrumentation.getTargetClassPrefix();
-        boolean applyLibraryExclusions = RuntimeInstrumentation.getAvoidInstrumentingShadedClasses();
+        boolean applyLibraryExclusions = RuntimeInstrumentation.getAvoidInstrumentingShadedClasses()
+                || targetPrefix != null;
         if (applyLibraryExclusions) {
             for (String pkg : PROBLEMATIC_LIBRARY_PREFIXES) {
                 if (targetPrefix != null && targetPrefix.startsWith(pkg)) {
@@ -108,5 +109,5 @@ public class ExcludedClasses {
             "org.springframework.", "org.apache.commons.logging.",
             "javassist.", "antlr.", "org.dom4j.", "org.aopalliance.",
             "javax.servlet.",
-            "org.mockito.", "org.apache.", "org.hamcrest.", "org.objenesis.");
+            "org.mockito.", "net.bytebuddy.", "org.apache.", "org.hamcrest.", "org.objenesis.");
 }
