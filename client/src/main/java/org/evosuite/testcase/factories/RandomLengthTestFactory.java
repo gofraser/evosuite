@@ -40,6 +40,7 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.synthesizer.ConstructionPathSynthesizer;
+import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.PartialGraph;
 import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.testcase.synthesizer.var.DepVariableWrapper;
@@ -231,6 +232,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         }
 
         long synthesisStart = System.currentTimeMillis();
+        boolean reachedTargetCall = false;
         try {
             ConstructionPathSynthesizer synthesizer = new ConstructionPathSynthesizer(false);
             synthesizer.buildNodeStatementCorrespondence(test, b, allowNullValue);
@@ -248,7 +250,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             templateChromosome.setLastExecutionResult(result);
             double oldLegitimacyDistance = templateChromosome.getLegitimacyDistance();
 
-            if (oldLegitimacyDistance != 0) {
+            if (oldLegitimacyDistance == 0) {
+                reachedTargetCall = true;
+            } else {
                 legitimizationTrials++;
                 // Bound legitimization by both the configured total budget and the remaining search
                 // phase time, so a tight search_budget still terminates on time (plan E8).
@@ -262,6 +266,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                     test = legitimizedChromosome.getTestCase();
                     if (legitimizedChromosome.getLegitimacyDistance() == 0) {
                         legitimizationSuccess++;
+                        reachedTargetCall = true;
                     }
                 }
             }
@@ -269,6 +274,8 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             logger.debug("Object-rule synthesis/legitimization failed for branch " + b + ": " + e.getMessage(), e);
         } finally {
             templateSynthesisTimeMs += System.currentTimeMillis() - synthesisStart;
+            // Feed the outcome back to the branch selector's negative cache (plan E3).
+            ObjectRuleBranchSelector.getInstance().recordSynthesisAttempt(b, reachedTargetCall);
         }
 
         return test;

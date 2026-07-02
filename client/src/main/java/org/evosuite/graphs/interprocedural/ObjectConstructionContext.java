@@ -44,5 +44,6 @@ public class ObjectConstructionContext {
 		recommendedClasses = new LinkedHashMap<>();
 		FBranchDefUseAnalyzer.analyzedMethods.clear();
 		org.evosuite.testcase.factories.RandomLengthTestFactory.resetStatistics();
+		org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector.getInstance().reset();
 	}
 }
