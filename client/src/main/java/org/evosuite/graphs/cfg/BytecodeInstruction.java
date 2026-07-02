@@ -19,18 +19,25 @@
  */
 package org.evosuite.graphs.cfg;
 
+import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cdg.ControlDependenceGraph;
+import org.evosuite.graphs.interprocedural.DefUseAnalyzer;
+import org.evosuite.instrumentation.InstrumentingClassLoader;
+import org.evosuite.utils.MethodUtil;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.*;
 import org.objectweb.asm.tree.analysis.SourceValue;
+import org.objectweb.asm.tree.analysis.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -1228,6 +1235,372 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
             return -1;
         }
         return Integer.compare(this.instructionId, o.instructionId);
+    }
+
+    // --- EvoObj: operand-stack / def-use accessors used by the OCG slicer ---
+    // (see the evoobj re-implementation plan, Appendix A)
+
+    /**
+     * The {@link CFGFrame} attached to this instruction, or null if none has been set.
+     *
+     * @return the CFG frame of this instruction
+     */
+    public CFGFrame getFrame() {
+        return frame;
+    }
+
+    /**
+     * Generalization of {@link #getSourceOfStackInstruction(int)}: returns <em>all</em>
+     * instructions that may have produced the operand at the given position from the top of
+     * the operand stack (a {@link SourceValue} can carry several producing instructions, e.g.
+     * across control-flow joins). Returns null on stack underflow.
+     *
+     * @param positionFromTop position from the top of the operand stack (0 = topmost)
+     * @return the producing instructions, or null if the stack position is invalid
+     */
+    public List<BytecodeInstruction> getSourceOfStackInstructionList(int positionFromTop) {
+        if (frame == null) {
+            throw new IllegalStateException(
+                    "expect each BytecodeInstruction to have its CFGFrame set");
+        }
+
+        int stackPos = frame.getStackSize() - (1 + positionFromTop);
+        if (stackPos < 0) {
+            return null;
+        }
+
+        List<BytecodeInstruction> list = new ArrayList<>();
+        SourceValue source = (SourceValue) frame.getStack(stackPos);
+        for (Object obj : source.insns) {
+            if (obj instanceof AbstractInsnNode) {
+                AbstractInsnNode sourceInstruction = (AbstractInsnNode) obj;
+                BytecodeInstruction src = BytecodeInstructionPool.getInstance(classLoader)
+                        .getInstruction(className, methodName, sourceInstruction);
+                list.add(src);
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Near-duplicate name of {@link #getSourceOfStackInstructionList(int)} present in the
+     * reference implementation; kept as an alias so ported call sites resolve.
+     *
+     * @param positionFromTop position from the top of the operand stack (0 = topmost)
+     * @return the producing instructions, or null if the stack position is invalid
+     */
+    public List<BytecodeInstruction> getSourceListOfStackInstruction(int positionFromTop) {
+        return getSourceOfStackInstructionList(positionFromTop);
+    }
+
+    /**
+     * All producing instructions of all operands this instruction pops from the stack, i.e.
+     * for each of the {@link #getOperandNum()} operand slots, the instructions referenced by
+     * that slot's {@link SourceValue}. Empty when no frame is set.
+     *
+     * @return the producing instructions of all operands
+     */
+    public List<BytecodeInstruction> getOperands() {
+        List<BytecodeInstruction> operands = new ArrayList<>();
+        CFGFrame frame = this.getFrame();
+
+        if (frame == null) {
+            return operands;
+        }
+
+        InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        ActualControlFlowGraph cfg = GraphPool.getInstance(classLoader).getActualCFG(this.getClassName(),
+                this.getMethodName());
+        String className = cfg.getClassName();
+        String methodName = cfg.getMethodName();
+        MethodNode node = DefUseAnalyzer.getMethodNode(classLoader, className, methodName);
+
+        for (int i = 0; i < this.getOperandNum(); i++) {
+            int index = frame.getStackSize() - i - 1;
+            Value val = frame.getStack(index);
+
+            if (val instanceof SourceValue) {
+                SourceValue srcValue = (SourceValue) val;
+                for (AbstractInsnNode insNode : srcValue.insns) {
+                    BytecodeInstruction defIns = DefUseAnalyzer.convert2BytecodeInstruction(cfg, node, insNode);
+                    if (defIns != null) {
+                        operands.add(defIns);
+                    }
+                }
+            }
+        }
+        return operands;
+    }
+
+    /**
+     * The neighbouring instruction with the preceding instructionId in this method's
+     * {@link ActualControlFlowGraph}, or null at the method entry.
+     *
+     * @return the previous instruction, or null
+     */
+    public BytecodeInstruction getPreviousInstruction() {
+        ActualControlFlowGraph graph = this.getActualCFG();
+        if (this.instructionId == 0) {
+            return null;
+        }
+        return graph.getInstruction(this.instructionId - 1);
+    }
+
+    /**
+     * The neighbouring instruction with the following instructionId in this method's
+     * {@link ActualControlFlowGraph}, or null at the method boundary.
+     *
+     * @return the next instruction, or null
+     */
+    public BytecodeInstruction getNextInstruction() {
+        ActualControlFlowGraph graph = this.getActualCFG();
+        return graph.getInstruction(this.instructionId + 1);
+    }
+
+    /**
+     * For a local-variable-use instruction (an xLOAD), the 0-based position of the loaded slot
+     * among the declared parameters of the method, or -1 if the slot is not a parameter (a
+     * genuine local, or {@code this}). Wide types (long/double) occupy two slots.
+     *
+     * @return the 0-based parameter position, or -1
+     */
+    public int getParameterPosition() {
+        if (isLocalVariableUse()) {
+            int slot = getLocalVariableSlot();
+
+            String[] parameters = MethodUtil.parseSignature(methodName);
+
+            int paramNum = parameters.length - 1;
+            if (!this.getActualCFG().isStaticMethod()) {
+                slot--;
+            }
+
+            int cursor = 0;
+            int position = 0;
+            for (int i = 0; i < paramNum; i++) {
+                String param = parameters[i];
+                if (cursor == slot) {
+                    return position;
+                } else {
+                    position++;
+                    if (param.equals("double") || param.equals("long")) {
+                        cursor += 2;
+                    } else {
+                        cursor++;
+                    }
+                }
+            }
+
+            if (slot == -1) {
+                return -1;
+            }
+            if (slot > paramNum - 1) {
+                return -1;
+            }
+
+            return slot;
+        }
+
+        return -1;
+    }
+
+    /**
+     * Whether this instruction loads a method parameter.
+     *
+     * @return true if this is a local-variable use that resolves to a parameter
+     */
+    public boolean isParameter() {
+        if (isLocalVariableUse()) {
+            return this.getParameterPosition() != -1;
+        }
+
+        return false;
+    }
+
+    /**
+     * The number of values this instruction pops from the operand stack, derived from its
+     * opcode.
+     *
+     * @return the operand count
+     */
+    public int getOperandNum() {
+        if (this.asmNode.getType() == AbstractInsnNode.FIELD_INSN) {
+            if (this.asmNode.getOpcode() == Opcodes.GETSTATIC) {
+                return 0;
+            } else if (this.asmNode.getOpcode() == Opcodes.GETFIELD || this.asmNode.getOpcode() == Opcodes.PUTSTATIC) {
+                return 1;
+            } else if (this.asmNode.getOpcode() == Opcodes.PUTFIELD) {
+                return 2;
+            }
+        } else if (this.asmNode.getType() == AbstractInsnNode.JUMP_INSN) {
+            int op = this.asmNode.getOpcode();
+            if (op == Opcodes.IFEQ || op == Opcodes.IFNE || op == Opcodes.IFGE || op == Opcodes.IFGT
+                    || op == Opcodes.IFLE || op == Opcodes.IFLT || op == Opcodes.IFNULL || op == Opcodes.IFNONNULL) {
+                return 1;
+            } else if (op == Opcodes.IF_ACMPEQ || op == Opcodes.IF_ACMPNE || op == Opcodes.IF_ICMPEQ
+                    || op == Opcodes.IF_ICMPGE || op == Opcodes.IF_ICMPGT || op == Opcodes.IF_ICMPLE
+                    || op == Opcodes.IF_ICMPLT || op == Opcodes.IF_ICMPNE) {
+                return 2;
+            }
+        } else if (this.asmNode.getType() == AbstractInsnNode.METHOD_INSN) {
+            if (this.asmNode.getOpcode() == Opcodes.INVOKESTATIC) {
+                return this.getCalledMethodsArgumentCount();
+            }
+            return this.getCalledMethodsArgumentCount() + 1;
+        } else if (this.asmNode.getType() == AbstractInsnNode.INVOKE_DYNAMIC_INSN) {
+            // Modern javac emits invokedynamic for lambdas / string concatenation (plan E6):
+            // treat the call site as opaque, popping only its declared arguments.
+            return org.objectweb.asm.Type.getArgumentTypes(((InvokeDynamicInsnNode) this.asmNode).desc).length;
+        } else if (this.asmNode.getOpcode() == Opcodes.NEW) {
+            return 0;
+        } else if (this.asmNode.getType() == AbstractInsnNode.TYPE_INSN) {
+            return 1;
+        } else if (this.isLocalVariableUse()) {
+            return 0;
+        } else if (this.isLocalVariableDefinition()) {
+            return 1;
+        } else if (this.isReturn()) {
+            return 1;
+        } else if (this.isArrayLoadInstruction()) {
+            return 2;
+        } else if (this.isArrayStoreInstruction()) {
+            return 3;
+        } else if (this.isConstant()) {
+            return 0;
+        } else if (this.isConvertInstruction()) {
+            return 1;
+        } else if (this.isCheckAlgorithmic()) {
+            return 2;
+        } else if (this.asmNode.getOpcode() == Opcodes.ACONST_NULL) {
+            return 0;
+        } else if (this.asmNode.getOpcode() == Opcodes.DCMPG || this.asmNode.getOpcode() == Opcodes.DCMPL
+                || this.asmNode.getOpcode() == Opcodes.FCMPG || this.asmNode.getOpcode() == Opcodes.FCMPL
+                || this.asmNode.getOpcode() == Opcodes.LCMP) {
+            return 2;
+        } else if (this.asmNode.getOpcode() == Opcodes.MULTIANEWARRAY) {
+            int count = 0;
+            while (this.getSourceOfStackInstruction(count) != null) {
+                count++;
+            }
+            return count;
+        } else if (this.asmNode.getOpcode() == Opcodes.ARRAYLENGTH) {
+            return 1;
+        } else if (this.asmNode.getOpcode() == Opcodes.ATHROW) {
+            return 1;
+        } else if (this.asmNode.getOpcode() == Opcodes.IADD || this.asmNode.getOpcode() == Opcodes.FADD
+                || this.asmNode.getOpcode() == Opcodes.DADD || this.asmNode.getOpcode() == Opcodes.LADD
+                || this.asmNode.getOpcode() == Opcodes.IDIV || this.asmNode.getOpcode() == Opcodes.DDIV
+                || this.asmNode.getOpcode() == Opcodes.FDIV || this.asmNode.getOpcode() == Opcodes.LDIV
+                || this.asmNode.getOpcode() == Opcodes.IMUL || this.asmNode.getOpcode() == Opcodes.DMUL
+                || this.asmNode.getOpcode() == Opcodes.FMUL || this.asmNode.getOpcode() == Opcodes.LMUL
+                || this.asmNode.getOpcode() == Opcodes.IREM || this.asmNode.getOpcode() == Opcodes.DREM
+                || this.asmNode.getOpcode() == Opcodes.FREM || this.asmNode.getOpcode() == Opcodes.LREM
+                || this.asmNode.getOpcode() == Opcodes.ISUB || this.asmNode.getOpcode() == Opcodes.DSUB
+                || this.asmNode.getOpcode() == Opcodes.FSUB || this.asmNode.getOpcode() == Opcodes.LSUB) {
+            return 2;
+        } else if (this.asmNode.getOpcode() == Opcodes.INEG || this.asmNode.getOpcode() == Opcodes.DNEG
+                || this.asmNode.getOpcode() == Opcodes.FNEG || this.asmNode.getOpcode() == Opcodes.LNEG) {
+            return 1;
+        } else if (this.asmNode.getOpcode() == Opcodes.DUP) {
+            return 1;
+        } else if (this.asmNode.getOpcode() == Opcodes.DUP2) {
+            return 2;
+        } else if (this.asmNode.getOpcode() == Opcodes.DUP_X1) {
+            return 2;
+        } else if (this.asmNode.getOpcode() == Opcodes.DUP_X2) {
+            return 3;
+        } else if (this.asmNode.getOpcode() == Opcodes.DUP2_X1) {
+            return 3;
+        } else if (this.asmNode.getOpcode() == Opcodes.DUP2_X2) {
+            return 4;
+        } else if (this.asmNode.getOpcode() == Opcodes.BALOAD || this.asmNode.getOpcode() == Opcodes.BASTORE
+                || this.asmNode.getOpcode() == Opcodes.CALOAD || this.asmNode.getOpcode() == Opcodes.CASTORE
+                || this.asmNode.getOpcode() == Opcodes.SALOAD || this.asmNode.getOpcode() == Opcodes.SASTORE) {
+            return 2;
+        } else if (this.asmNode.getOpcode() == Opcodes.LOOKUPSWITCH || this.asmNode.getOpcode() == Opcodes.TABLESWITCH) {
+            return 1;
+        } else if (this.asmNode.getOpcode() == Opcodes.MONITORENTER || this.asmNode.getOpcode() == Opcodes.MONITOREXIT) {
+            return 1;
+        } else if (this.asmNode.getOpcode() == Opcodes.POP) {
+            return 1;
+        } else if (this.asmNode.getOpcode() == Opcodes.POP2) {
+            return 2;
+        } else if (this.asmNode.getOpcode() == Opcodes.SWAP) {
+            return 2;
+        }
+        return 0;
+    }
+
+    /**
+     * Binary bit/shift arithmetic instructions (pop two operands).
+     */
+    private boolean isCheckAlgorithmic() {
+        switch (this.asmNode.getOpcode()) {
+            case Opcodes.ISHL:
+            case Opcodes.ISHR:
+            case Opcodes.IAND:
+            case Opcodes.IUSHR:
+            case Opcodes.LSHL:
+            case Opcodes.LSHR:
+            case Opcodes.LUSHR:
+            case Opcodes.IOR:
+            case Opcodes.IXOR:
+            case Opcodes.LAND:
+            case Opcodes.LOR:
+            case Opcodes.LXOR:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Numeric conversion instructions (x2y; pop one operand).
+     */
+    private boolean isConvertInstruction() {
+        switch (this.asmNode.getOpcode()) {
+            case Opcodes.D2F:
+            case Opcodes.D2L:
+            case Opcodes.D2I:
+            case Opcodes.F2D:
+            case Opcodes.F2I:
+            case Opcodes.F2L:
+            case Opcodes.I2B:
+            case Opcodes.I2C:
+            case Opcodes.I2D:
+            case Opcodes.I2F:
+            case Opcodes.I2L:
+            case Opcodes.I2S:
+            case Opcodes.L2D:
+            case Opcodes.L2F:
+            case Opcodes.L2I:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * Whether this instruction is an INSTANCEOF check.
+     *
+     * @return true if the opcode is INSTANCEOF
+     */
+    public boolean checkInstanceOf() {
+        return this.asmNode.getOpcode() == Opcodes.INSTANCEOF;
+    }
+
+    /**
+     * For a type instruction (e.g. INSTANCEOF/CHECKCAST), the dot-separated name of the class
+     * it references, or null.
+     *
+     * @return the referenced class name, or null
+     */
+    public String getInstanceOfCheckingType() {
+        if (this.asmNode instanceof TypeInsnNode) {
+            TypeInsnNode node = (TypeInsnNode) this.asmNode;
+            return node.desc.replace("/", ".");
+        }
+        return null;
     }
 
 }

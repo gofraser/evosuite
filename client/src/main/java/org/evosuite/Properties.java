@@ -154,6 +154,23 @@ public class Properties {
             description = "If set to true EvoSuite test generation inits UISpec in order to avoid display of UI")
     public static boolean EVOSUITE_USE_UISPEC = false;
 
+    // --- EvoObj: graph-based seed object synthesis (see evoobj re-implementation plan §4) ---
+
+    @Parameter(key = "apply_object_rule", group = "Test Creation",
+            description = "Apply graph-based seed object synthesis (EvoObj)")
+    public static boolean APPLY_OBJECT_RULE = false;
+
+    @Parameter(key = "computation_graph_call_depth", group = "Test Creation",
+            description = "How deep the call hierarchy is analyzed when constructing the object construction graph")
+    public static int COMPUTATION_GRAPH_METHOD_CALL_DEPTH = 5;
+
+    /**
+     * Internal (not user-facing) switch that allows CFG/branch registration for classes
+     * outside the instrumented scope during EvoObj analysis. Toggled around forced CFG
+     * registration and always restored to {@code false} afterwards.
+     */
+    public static boolean ALWAYS_REGISTER_BRANCH = false;
+
     @Deprecated
     @Parameter(key = "make_accessible", group = "TestCreation",
             description = "Change default package rights to public package rights")

@@ -20,15 +20,23 @@
 package org.evosuite.graphs;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.classpath.ResourceList;
 import org.evosuite.graphs.ccfg.ClassControlFlowGraph;
 import org.evosuite.graphs.ccg.ClassCallGraph;
 import org.evosuite.graphs.cdg.ControlDependenceGraph;
 import org.evosuite.graphs.cfg.ActualControlFlowGraph;
+import org.evosuite.graphs.cfg.BytecodeAnalyzer;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
 import org.evosuite.setup.DependencyAnalysis;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -240,6 +248,65 @@ public class GraphPool {
         if (DependencyAnalysis.shouldInstrument(cfg.getClassName(), cfg.getMethodName())) {
             createAndRegisterControlDependence(cfg);
         }
+    }
+
+    /**
+     * Force CFG registration for every method of the given class, even if the class is
+     * outside the instrumented scope. Used by EvoObj analysis to obtain CFGs of callee
+     * classes during interprocedural slicing. No-op for methods whose CFG is already known.
+     *
+     * @param className the (dot-separated) name of the class to register
+     */
+    public void registerClass(String className) {
+        InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getClassAsStream(className);
+        try {
+            ClassReader reader = new ClassReader(is);
+            ClassNode cn = new ClassNode();
+            reader.accept(cn, ClassReader.SKIP_FRAMES);
+            List<MethodNode> l = cn.methods;
+
+            for (MethodNode m : l) {
+                String fullName = m.name + m.desc;
+                RawControlFlowGraph cfg = GraphPool.getInstance(classLoader).getRawCFG(className, fullName);
+                if (cfg == null && m.instructions.size() != 0) {
+                    BytecodeAnalyzer bytecodeAnalyzer = new BytecodeAnalyzer();
+                    bytecodeAnalyzer.analyze(classLoader, className, fullName, m);
+                    bytecodeAnalyzer.retrieveCFGGenerator().registerCFGs();
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Unable to register class " + className, e);
+        }
+    }
+
+    /**
+     * Register an actual CFG unconditionally, i.e. also creating and registering its control
+     * dependence graph regardless of whether the method is in the instrumented scope. Used by
+     * EvoObj analysis to register CFGs of classes outside the SUT.
+     *
+     * @param cfg the CFG to register
+     */
+    public void alwaysRegisterActualCFG(ActualControlFlowGraph cfg) {
+        String className = cfg.getClassName();
+        String methodName = cfg.getMethodName();
+
+        if (className == null || methodName == null) {
+            throw new IllegalStateException(
+                    "expect class and method name of CFGs to be set before entering the GraphPool");
+        }
+
+        Map<String, ActualControlFlowGraph> methods = actualCFGs.computeIfAbsent(className,
+                k -> new ConcurrentHashMap<>());
+        logger.debug("Added CFG for class " + className + " and method " + methodName);
+        cfg.finalise();
+        methods.put(methodName, cfg);
+
+        if (Properties.WRITE_CFG) {
+            cfg.toDot();
+        }
+
+        createAndRegisterControlDependence(cfg);
     }
 
     private void createAndRegisterControlDependence(ActualControlFlowGraph cfg) {
