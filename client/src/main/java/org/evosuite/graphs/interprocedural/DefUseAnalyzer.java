@@ -90,7 +90,7 @@ public class DefUseAnalyzer {
 	 * has no {@code DefUsePool.getDefinitions(Use)}; reconstruct it from the registered definitions
 	 * rather than modifying {@code DefUsePool}.
 	 */
-	private static List<Definition> getDefinitions(Use use) {
+	public static List<Definition> getDefinitions(Use use) {
 		List<Definition> result = new ArrayList<Definition>();
 		String className = use.getClassName();
 		String methodName = use.getMethodName();

@@ -621,6 +621,88 @@ public class StatementFactory {
     }
 
     /**
+     * Variant of {@link #addMethod(TestCase, GenericMethod, int, GenerationContext)} that lets the
+     * caller decide whether generated parameters may be {@code null}. Used by the object-construction
+     * template synthesis (EvoObj) to keep constructed slots non-null when required.
+     */
+    public VariableReference addMethod(TestCase test, GenericMethod method, int position,
+                                       GenerationContext context, boolean allowNullParam)
+            throws ConstructionFailedException {
+
+        if (context.getDepth() > Properties.MAX_RECURSION) {
+            throw new ConstructionFailedException("Max recursion depth reached");
+        }
+
+        int length = test.size();
+        VariableReference callee = null;
+        List<VariableReference> parameters;
+
+        if (!method.isStatic()) {
+            VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
+                    VariableResolutionConfig.defaultConfig())
+                    .withAllowNull(false)
+                    .build();
+            callee = testFactory.createOrReuseVariable(test, method.getOwnerType(), position,
+                    context, nonNullCalleeConfig);
+
+            position += test.size() - length;
+            length = test.size();
+
+            if (!TestUsageChecker.canUse(method.getMethod(), callee.getVariableClass())) {
+                throw new ConstructionFailedException("Cannot apply method to this callee");
+            }
+            if (!MethodStatement.isCompatibleCalleeType(method, callee.getType())) {
+                throw new ConstructionFailedException("Cannot apply method to this callee");
+            }
+        }
+
+        parameters = testFactory.satisfyParameters(test, callee,
+                Arrays.asList(method.getParameterTypes()),
+                Arrays.asList(method.getMethod().getParameters()),
+                position, context.deeper(), allowNullParam, false, true);
+
+        int newLength = test.size();
+        position += (newLength - length);
+
+        Statement st = new MethodStatement(test, method, callee, parameters);
+        VariableReference ret = test.addStatement(st, position);
+        if (callee != null) {
+            ret.setDistance(callee.getDistance() + 1);
+        }
+        return ret;
+    }
+
+    /**
+     * Variant of {@link #addMethodFor(TestCase, VariableReference, GenericMethod, int, GenerationContext)}
+     * that lets the caller decide whether generated parameters may be {@code null} (EvoObj synthesis).
+     */
+    public VariableReference addMethodFor(TestCase test, VariableReference callee,
+                                          GenericMethod method, int position, GenerationContext context,
+                                          boolean allowNullParameter) throws ConstructionFailedException {
+
+        if (position <= callee.getStPosition()) {
+            throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
+        }
+
+        int length = test.size();
+
+        List<VariableReference> parameters = testFactory.satisfyParameters(
+                test, callee,
+                Arrays.asList(method.getParameterTypes()),
+                Arrays.asList(method.getMethod().getParameters()), position, context.deeper(),
+                allowNullParameter, false, true);
+
+        int newLength = test.size();
+        position += (newLength - length);
+
+        Statement st = new MethodStatement(test, method, callee, parameters);
+        VariableReference ret = test.addStatement(st, position);
+        ret.setDistance(callee.getDistance() + 1);
+
+        return ret;
+    }
+
+    /**
      * Adds a field access.
      *
      * @param test the test case

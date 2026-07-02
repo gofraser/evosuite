@@ -165,6 +165,12 @@ public class Properties {
     public static int COMPUTATION_GRAPH_METHOD_CALL_DEPTH = 5;
 
     /**
+     * Depth of the intra-class call-chain search when looking for a field's setter during EvoObj
+     * template synthesis (see plan §3.5). Constant, not user-facing.
+     */
+    public static int FIELD_SETTER_SEARCH_DEPTH = 3;
+
+    /**
      * Internal (not user-facing) switch that allows CFG/branch registration for classes
      * outside the instrumented scope during EvoObj analysis. Toggled around forced CFG
      * registration and always restored to {@code false} afterwards.

@@ -26,6 +26,9 @@ import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.InheritanceTree;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.VariableResolutionConfig;
@@ -436,6 +439,17 @@ public class TestFactory {
     }
 
     /**
+     * Variant of {@link #addMethod(TestCase, GenericMethod, int, int)} that lets the caller control
+     * whether generated parameters may be {@code null}. Used by EvoObj template synthesis.
+     */
+    public VariableReference addMethod(TestCase test, GenericMethod method, int position,
+                                       int recursionDepth, boolean allowNullParam)
+            throws ConstructionFailedException {
+        return statementFactory.addMethod(test, method, position,
+                GenerationContext.fromDepth(recursionDepth), allowNullParam);
+    }
+
+    /**
      * Adds the given {@code method} call to the {@code test} at the specified {@code position},
      * using the supplied {@code VariableReference} as {@code callee} object of the {@code method}.
      * Only intended to be used for <em>non-static</em> methods! If a static {@code method} is
@@ -464,6 +478,93 @@ public class TestFactory {
     }
 
     /**
+     * Variant of {@link #addMethodFor(TestCase, VariableReference, GenericMethod, int)} that lets the
+     * caller control whether generated parameters may be {@code null}. Used by EvoObj template synthesis.
+     */
+    public VariableReference addMethodFor(TestCase test, VariableReference callee,
+                                          GenericMethod method, int position, boolean allowNullParameter)
+            throws ConstructionFailedException {
+        return statementFactory.addMethodFor(test, callee, method, position, new GenerationContext(),
+                allowNullParameter);
+    }
+
+    /**
+     * Replaces the given {@link NullStatement} in the test with a real construction of an object of
+     * the statement's declared type, wiring the new value in wherever the null reference was used.
+     * Used by EvoObj template synthesis to eliminate {@code null} slots when nulls are not allowed.
+     *
+     * @return {@code true} if the null statement was successfully replaced, {@code false} otherwise
+     */
+    public boolean changeNullStatement(TestCase test, Statement statement) {
+        if (!(statement instanceof NullStatement)) {
+            return false;
+        }
+        NullStatement nullStat = (NullStatement) statement;
+        Type type = nullStat.getReturnType();
+
+        try {
+            VariableReference obj = null;
+
+            // check real array
+            if (type.getTypeName().contains("[") && checkRealArray(type.getTypeName())) {
+                GenericClass<?> clazz = GenericClassFactory.get(type);
+                obj = createArray(test, clazz, nullStat.getPosition(), GenerationContext.fromDepth(0));
+            } else {
+                String className = type.getTypeName();
+                try {
+                    Class<?> clazz = Class.forName(className, true,
+                            TestGenerationContext.getInstance().getClassLoaderForSUT());
+                    if (clazz.isInterface()) {
+                        InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
+                        Set<String> subclasses = inheritanceTree.getSubclasses(className);
+                        String subclass = Randomness.choice(subclasses);
+                        if (subclass != null && !subclass.equals(type.getTypeName())) {
+                            Class<?> subClazz = Class.forName(subclass, true,
+                                    TestGenerationContext.getInstance().getClassLoaderForSUT());
+                            try {
+                                obj = createObject(test, subClazz, nullStat.getPosition(),
+                                        GenerationContext.fromDepth(0), null, false, false, true);
+                            } catch (Exception e) {
+                                return false;
+                            }
+                        }
+                    } else {
+                        GenericClass<?> claz = GenericClassFactory.get(type);
+                        if (claz.isString()) {
+                            StringPrimitiveStatement ss = new StringPrimitiveStatement(test, "");
+                            ss.randomize();
+                            obj = test.addStatement(ss, nullStat.getPosition());
+                        } else {
+                            obj = createObject(test, type, nullStat.getPosition(),
+                                    GenerationContext.fromDepth(0), null, false, false, false);
+                        }
+                    }
+                } catch (Exception e) {
+                    // could not resolve/construct the type; leave obj null and bail out below
+                }
+            }
+
+            if (obj != null) {
+                VariableReference ref = nullStat.getVariableReferences().iterator().next();
+                test.replace(ref, obj);
+                test.remove(nullStat.getPosition());
+            } else {
+                return false;
+            }
+        } catch (ConstructionFailedException e) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private boolean checkRealArray(String typeName) {
+        int index = typeName.indexOf("[");
+        String elementType = typeName.substring(0, index);
+        return java.util.regex.Pattern.matches("[a-zA-Z.]*", elementType);
+    }
+
+    /**
      * Adds the given primitive statement {@code old} at the specified {@code
      * position} to the test case {@code test}.
      *
@@ -475,6 +576,14 @@ public class TestFactory {
     private VariableReference addPrimitive(TestCase test, PrimitiveStatement<?> old,
                                            int position, int recursionDepth) throws ConstructionFailedException {
         return addPrimitive(test, old, position, GenerationContext.fromDepth(recursionDepth));
+    }
+
+    /**
+     * Public entry point used by EvoObj template synthesis to insert a primitive statement.
+     */
+    public VariableReference addPrimitive(TestCase test, PrimitiveStatement<?> old, int position)
+            throws ConstructionFailedException {
+        return addPrimitive(test, old, position, GenerationContext.fromDepth(0));
     }
 
     private VariableReference addPrimitive(TestCase test, PrimitiveStatement<?> old,
@@ -956,6 +1065,14 @@ public class TestFactory {
      * @return a reference to the inserted {@code null} variable
      * @throws ConstructionFailedException if the creation of the variable fails
      */
+    /**
+     * Public entry point used by EvoObj template synthesis to insert a null statement.
+     */
+    public VariableReference createNull(TestCase test, Type type, int position, int recursionDepth)
+            throws ConstructionFailedException {
+        return createNull(test, type, position, GenerationContext.fromDepth(recursionDepth));
+    }
+
     VariableReference createNull(TestCase test, Type type, int position,
                                          GenerationContext context) throws ConstructionFailedException {
         GenericClass<?> genericType = GenericClassFactory.get(type);

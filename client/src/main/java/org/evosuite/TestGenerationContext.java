@@ -220,6 +220,10 @@ public class TestGenerationContext {
         GraphPool.clearAll();
         DefUsePool.clear();
 
+        // EvoObj: reset the object-construction analysis/synthesis statics so state does not leak
+        // between runs or system-test methods (plan §E7).
+        org.evosuite.graphs.interprocedural.ObjectConstructionContext.reset();
+
         CFGMethodAdapter.clear();
 
         // TODO: Clear only pool of current classloader?

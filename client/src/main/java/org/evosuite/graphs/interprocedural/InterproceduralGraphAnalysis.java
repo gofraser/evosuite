@@ -37,19 +37,14 @@ import org.objectweb.asm.tree.analysis.Value;
  * <p>Ported from the {@code evosuite-plus-plus} fork with the §7/§E7 cleanups applied.
  */
 public class InterproceduralGraphAnalysis {
-	/**
-	 * a map maintains what variables are dependent by which branch, method-&gt;branch-&gt;dependent variables
-	 */
-	public static Map<String, Map<Branch, Set<DepVariable>>> branchInterestedVarsMap = new LinkedHashMap<>();
-	public static Map<Integer, List<String>> recommendedClasses = new LinkedHashMap<>();
 
 	/**
-	 * Clear the analysis' mutable static state. Invoked between runs/tests to avoid leakage (plan
-	 * §E7 — a first step toward the {@code ObjectConstructionContext} holder envisaged for M3).
+	 * Clear the analysis' mutable static state. Delegates to the {@link ObjectConstructionContext}
+	 * holder (plan §E7); prefer wiring {@link ObjectConstructionContext#reset()} into
+	 * {@link TestGenerationContext#resetContext()} for automatic between-run cleanup.
 	 */
 	public static void clear() {
-		branchInterestedVarsMap.clear();
-		recommendedClasses.clear();
+		ObjectConstructionContext.reset();
 	}
 
 	public static boolean isReachableInClass(BytecodeInstruction source, BytecodeInstruction target) {
@@ -99,8 +94,8 @@ public class InterproceduralGraphAnalysis {
 					FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
 
 					Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
-					recommendedClasses = analyzeRecommendationClasses(cfg);
-					branchInterestedVarsMap.put(methodName, map);
+					ObjectConstructionContext.recommendedClasses = analyzeRecommendationClasses(cfg);
+					ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
 				}
 			}
 		}
@@ -224,7 +219,7 @@ public class InterproceduralGraphAnalysis {
 	}
 
 	public static Map<Branch, List<ConstructionPath>> checkObjectDifficultPath() {
-		Map<Branch, Set<DepVariable>> interestedBranches = branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+		Map<Branch, Set<DepVariable>> interestedBranches = ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
 
 		Map<Branch, List<ConstructionPath>> interestedPaths = new LinkedHashMap<>();
 		for (Branch branch : interestedBranches.keySet()) {
