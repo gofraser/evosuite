@@ -37,6 +37,7 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
 import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.AbstractTestSuiteChromosome;
@@ -679,6 +680,13 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             }
         }
 
+        // EvoObj (plan E5): with the slot bias on, half the time tune one of the primitive template
+        // slots in place instead of mutating uniformly. Falls through to the uniform pass if there
+        // are no slots or the slot mutation does not change anything.
+        if (!changed && Properties.OBJECT_RULE_SLOT_BIAS && Randomness.nextDouble() < 0.5) {
+            changed = mutateObjectRuleSlot(testFactory, lastMutatableStatement);
+        }
+
         if (!changed) {
             for (int position = 0; position <= lastMutatableStatement; position++) {
                 if (Randomness.nextDouble() <= pl) {
@@ -712,6 +720,30 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             }
         }
 
+        return changed;
+    }
+
+    /**
+     * EvoObj (plan E5): mutate a randomly chosen primitive template slot in place. Returns whether
+     * a slot was found and successfully mutated. In-place primitive mutation preserves the slot
+     * flag; a mutation that replaces the statement with a different type naturally loses it.
+     */
+    private boolean mutateObjectRuleSlot(TestFactory testFactory, int lastMutatableStatement) {
+        List<Integer> slotPositions = new ArrayList<>();
+        for (int position = 0; position <= lastMutatableStatement; position++) {
+            Statement statement = test.getStatement(position);
+            if (statement instanceof PrimitiveStatement && ((PrimitiveStatement<?>) statement).isObjectRuleSlot()) {
+                slotPositions.add(position);
+            }
+        }
+        if (slotPositions.isEmpty()) {
+            return false;
+        }
+
+        Statement statement = test.getStatement(Randomness.choice(slotPositions));
+        int oldDistance = statement.getReturnValue().getDistance();
+        boolean changed = statement.mutate(test, testFactory);
+        statement.getReturnValue().setDistance(oldDistance);
         return changed;
     }
 

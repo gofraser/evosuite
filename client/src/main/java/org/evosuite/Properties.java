@@ -195,6 +195,11 @@ public class Properties {
                     + "reflection (PrivateFieldStatement) instead of leaving the template incomplete")
     public static boolean OBJECT_RULE_REFLECTION_FALLBACK = false;
 
+    @Parameter(key = "object_rule_slot_bias", group = "Test Creation",
+            description = "Bias mutation toward the primitive 'slots' created by EvoObj template "
+                    + "synthesis, so the search tunes template values more often")
+    public static boolean OBJECT_RULE_SLOT_BIAS = false;
+
     /**
      * Number of legitimization iterations during which the mutation-position discriminator keeps
      * uniform mutation probabilities before it starts biasing toward relevant positions.

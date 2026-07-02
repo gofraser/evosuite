@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -38,6 +39,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.synthesizer.var.DepVariableWrapper;
@@ -214,6 +216,37 @@ public class ConstructionPathSynthesizer {
 		
 		this.setPartialGraph(partialGraph);
 		this.setGraph2CodeMap(map);
+
+		if (Properties.OBJECT_RULE_SLOT_BIAS) {
+			markObjectRuleSlots(test, map);
+		}
+	}
+
+	/**
+	 * EvoObj (plan E5): flag the primitive statements that synthesis produced as tunable "slots"
+	 * (the matched and influential variables of each graph node). The flag rides on the statement,
+	 * so it survives clone/crossover/insert/delete, and lets the main search bias mutation toward
+	 * them.
+	 */
+	private void markObjectRuleSlots(TestCase test, Map<DepVariableWrapper, VarRelevance> map) {
+		Set<VariableReference> slots = new HashSet<>();
+		for (VarRelevance relevance : map.values()) {
+			if (relevance == null) {
+				continue;
+			}
+			if (relevance.influentialVars != null) {
+				slots.addAll(relevance.influentialVars);
+			}
+			if (relevance.matchedVars != null) {
+				slots.addAll(relevance.matchedVars);
+			}
+		}
+		for (int i = 0; i < test.size(); i++) {
+			Statement statement = test.getStatement(i);
+			if (statement instanceof PrimitiveStatement && slots.contains(statement.getReturnValue())) {
+				((PrimitiveStatement<?>) statement).setObjectRuleSlot(true);
+			}
+		}
 	}
 
 	protected void logTest(TestCase test, Branch b, boolean isDebugger, int iteration, DepVariableWrapper node) {
