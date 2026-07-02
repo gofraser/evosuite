@@ -27,8 +27,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.evosuite.Properties;
 import org.evosuite.coverage.branch.Branch;
+import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
 import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
+import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.utils.Randomness;
 
@@ -93,9 +96,28 @@ public class ObjectRuleBranchSelector {
         if (cached != null) {
             return cached;
         }
-        boolean eligible = hasNonEmptyObjectGraph(branch);
+        boolean eligible;
+        if (Properties.OBJECT_RULE_WHOLE_CLASS
+                && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty())) {
+            eligible = resolveWholeClassEligibility(branch);
+        } else {
+            eligible = hasNonEmptyObjectGraph(branch);
+        }
         eligibilityCache.put(branch, eligible);
         return eligible;
+    }
+
+    /**
+     * Whole-class eligibility (plan E1): the branch's own containing method must be a valid entry
+     * method ({@link TargetContext#forBranch}), and, once its object graph is analyzed on demand,
+     * the branch must depend on object state.
+     */
+    private boolean resolveWholeClassEligibility(Branch branch) {
+        if (TargetContext.forBranch(branch) == null) {
+            return false;
+        }
+        InterproceduralGraphAnalysis.analyzeBranchOnDemand(branch, new OCGInterestedNodeFilter());
+        return hasNonEmptyObjectGraph(branch);
     }
 
     private boolean hasNonEmptyObjectGraph(Branch branch) {

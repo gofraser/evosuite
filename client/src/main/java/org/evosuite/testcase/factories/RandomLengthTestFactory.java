@@ -108,9 +108,14 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             ExecutionTracer.disable();
         }
 
-        final TestCase test = Properties.APPLY_OBJECT_RULE
-                ? getObjectRuleTestCase(size)
-                : getDefaultRandomTestCase(size);
+        final TestCase test;
+        if (!Properties.APPLY_OBJECT_RULE) {
+            test = getDefaultRandomTestCase(size);
+        } else if (isWholeClassMode()) {
+            test = getWholeClassObjectRuleTestCase(size);
+        } else {
+            test = getObjectRuleTestCase(size);
+        }
 
         if (logger.isDebugEnabled()) {
             logger.debug("Randomized test case:" + test.toCode());
@@ -228,6 +233,85 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         }
 
         return test;
+    }
+
+    /** Whole-class object-rule mode (plan E1): apply the object rule without {@code -Dtarget_method}. */
+    private static boolean isWholeClassMode() {
+        return Properties.OBJECT_RULE_WHOLE_CLASS
+                && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty());
+    }
+
+    /**
+     * EvoObj whole-class generation path (plan E1). There is no globally fixed target method, so the
+     * entry method is derived from the working branch's own containing method: a call to that method
+     * is inserted first, then the object-construction template is synthesized against it (with the
+     * {@link org.evosuite.testcase.synthesizer.TargetContext} published for the synthesis). Falls back
+     * to a plain random test when the object rule does not apply or the branch is not a valid entry.
+     */
+    private TestCase getWholeClassObjectRuleTestCase(int size) {
+        Branch b = workingBranch4ObjectGraph;
+        org.evosuite.testcase.synthesizer.TargetContext context =
+                (b == null) ? null : org.evosuite.testcase.synthesizer.TargetContext.forBranch(b);
+        boolean applyObjectRule =
+                context != null && Randomness.nextDouble() <= Properties.P_OBJECT_RULE_APPLICATION;
+        if (!applyObjectRule) {
+            return getDefaultRandomTestCase(size);
+        }
+
+        boolean allowNullValue = Properties.NULL_PROBABILITY > Randomness.nextDouble();
+        final double oldPrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
+        Properties.PRIMITIVE_REUSE_PROBABILITY = 0;
+        org.evosuite.testcase.synthesizer.TargetContext.setActive(context);
+        try {
+            // Occasionally reuse a proven cached template (plan E4).
+            if (TemplateCache.getInstance().hasTemplate(b)
+                    && Randomness.nextDouble() < TEMPLATE_REUSE_PROBABILITY) {
+                TestCase cached = TemplateCache.getInstance().getClonedTemplate(b);
+                if (cached != null) {
+                    templateInjections++;
+                    return cached;
+                }
+            }
+
+            TestCase test = getNewTestCase();
+            if (!insertEntryMethodCall(test, context)) {
+                return getDefaultRandomTestCase(size);
+            }
+            return synthesizeAndLegitimize(test, allowNullValue);
+        } finally {
+            Properties.PRIMITIVE_REUSE_PROBABILITY = oldPrimitiveReuse;
+            org.evosuite.testcase.synthesizer.TargetContext.clearActive();
+        }
+    }
+
+    /**
+     * Inserts a call to the whole-class entry method (the working branch's containing method) into
+     * {@code test}, constructing its receiver and parameters via the normal factory path. Returns
+     * whether the call is present afterward.
+     */
+    private boolean insertEntryMethodCall(TestCase test, org.evosuite.testcase.synthesizer.TargetContext context) {
+        try {
+            Class<?> clazz = org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT()
+                    .loadClass(context.getClassName());
+            java.lang.reflect.Method entry = null;
+            for (java.lang.reflect.Method m : clazz.getDeclaredMethods()) {
+                if ((m.getName() + org.evosuite.utils.MethodUtil.getSignature(m)).equals(context.getMethodSignature())) {
+                    entry = m;
+                    break;
+                }
+            }
+            if (entry == null) {
+                return false;
+            }
+            org.evosuite.utils.generic.GenericMethod gMethod =
+                    new org.evosuite.utils.generic.GenericMethod(entry, clazz);
+            TestFactory.getInstance().addMethod(test, gMethod, test.size(), 0);
+            return test.findMethodCallStatement(context.getMethodSignature()) != null;
+        } catch (Throwable t) {
+            logger.debug("Whole-class entry-method insertion failed for {}: {}",
+                    context.getMethodSignature(), t.toString());
+            return false;
+        }
     }
 
     /**

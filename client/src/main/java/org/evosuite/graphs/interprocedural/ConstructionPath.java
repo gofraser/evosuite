@@ -77,7 +77,8 @@ public class ConstructionPath {
 		if (this.getPath().isEmpty()) return false;
 
 		DepVariable root = this.getPath().get(0);
-		if (root.getInstruction().getClassName().equals(Properties.TARGET_CLASS)) {
+		if (root.getInstruction().getClassName()
+				.equals(org.evosuite.testcase.synthesizer.TargetContext.activeClassName())) {
 			return true;
 		}
 

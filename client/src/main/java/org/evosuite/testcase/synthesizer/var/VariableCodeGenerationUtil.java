@@ -775,8 +775,8 @@ public class VariableCodeGenerationUtil {
 		
 		String methodName = name + ReflectionUtil.getSignature(setter);
 		
-		return className.equals(Properties.TARGET_CLASS) 
-				&& methodName.equals(Properties.TARGET_METHOD);
+		return className.equals(org.evosuite.testcase.synthesizer.TargetContext.activeClassName())
+				&& methodName.equals(org.evosuite.testcase.synthesizer.TargetContext.activeMethodSignature());
 	}
 	
 	/**

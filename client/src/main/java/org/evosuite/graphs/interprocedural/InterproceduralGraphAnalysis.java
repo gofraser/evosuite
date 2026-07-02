@@ -101,6 +101,34 @@ public class InterproceduralGraphAnalysis {
 		}
 	}
 
+	/**
+	 * Whole-class mode (plan E1): analyze the object-construction graph of the branch's own
+	 * containing method on demand and cache it in {@link ObjectConstructionContext#branchInterestedVarsMap},
+	 * instead of the eager {@link #initializeDataflow} loop over {@code TARGET_METHOD}. Idempotent
+	 * per method.
+	 */
+	public static synchronized void analyzeBranchOnDemand(Branch branch, IInterestedNodeFilter interestedNodeFilter) {
+		if (branch == null || branch.getInstruction() == null) {
+			return;
+		}
+		String className = branch.getInstruction().getClassName();
+		String methodName = branch.getInstruction().getMethodName();
+		if (className == null || methodName == null
+				|| ObjectConstructionContext.branchInterestedVarsMap.containsKey(methodName)) {
+			return;
+		}
+
+		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+		ActualControlFlowGraph cfg = GraphPool.getInstance(classLoader).getActualCFG(className, methodName);
+		if (cfg == null) {
+			return;
+		}
+		FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
+		Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
+		ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
+		ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
+	}
+
 	@SuppressWarnings("rawtypes")
 	public static Map<Integer, List<String>> analyzeRecommendationClasses(ActualControlFlowGraph cfg) {
 		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();

@@ -92,8 +92,10 @@ public abstract class DepVariable {
 
 	public boolean isMethodInput() {
 		if (this.isParameter() &&
-				this.getInstruction().getMethodName().equals(Properties.TARGET_METHOD) &&
-				this.getClassName().equals(Properties.TARGET_CLASS)) {
+				this.getInstruction().getMethodName()
+						.equals(org.evosuite.testcase.synthesizer.TargetContext.activeMethodSignature()) &&
+				this.getClassName()
+						.equals(org.evosuite.testcase.synthesizer.TargetContext.activeClassName())) {
 			return true;
 		}
 
@@ -101,7 +103,8 @@ public abstract class DepVariable {
 			return true;
 		}
 
-		if (this.isInstaceField() && this.getClassName().equals(Properties.TARGET_CLASS)) {
+		if (this.isInstaceField() && this.getClassName()
+				.equals(org.evosuite.testcase.synthesizer.TargetContext.activeClassName())) {
 			return true;
 		}
 

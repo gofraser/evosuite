@@ -72,7 +72,11 @@ public class ConstructionPathSynthesizer {
 		PartialGraph graph = new PartialGraph();
 		
 		
-		Map<Branch, Set<DepVariable>> map = ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+		Map<Branch, Set<DepVariable>> map =
+				ObjectConstructionContext.branchInterestedVarsMap.get(TargetContext.activeMethodSignature());
+		if (map == null) {
+			return graph;
+		}
 		Set<DepVariable> variables = map.get(b);
 		graph.setBranch(b);
 		
@@ -88,13 +92,13 @@ public class ConstructionPathSynthesizer {
 				 *  this=> class; parameter => method; static field=> whatever
 				 */
 				if(
-					(root.referenceToThis() 
-							&&  root.getInstruction().getClassName().equals(Properties.TARGET_CLASS)) 
-					|| 
+					(root.referenceToThis()
+							&&  root.getInstruction().getClassName().equals(TargetContext.activeClassName()))
+					||
 					(root.isParameter()
-							&& root.getInstruction().getClassName().equals(Properties.TARGET_CLASS)
-							&& root.getInstruction().getMethodName().equals(Properties.TARGET_METHOD)) 
-					|| 
+							&& root.getInstruction().getClassName().equals(TargetContext.activeClassName())
+							&& root.getInstruction().getMethodName().equals(TargetContext.activeMethodSignature()))
+					||
 					root.isStaticField() 
 					||
 					root.isLoadArrayElement()

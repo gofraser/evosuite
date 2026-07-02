@@ -200,6 +200,11 @@ public class Properties {
                     + "synthesis, so the search tunes template values more often")
     public static boolean OBJECT_RULE_SLOT_BIAS = false;
 
+    @Parameter(key = "object_rule_whole_class", group = "Test Creation",
+            description = "Apply EvoObj without -Dtarget_method: derive the entry method per branch "
+                    + "from the branch's own (public/protected) containing method")
+    public static boolean OBJECT_RULE_WHOLE_CLASS = false;
+
     /**
      * Number of legitimization iterations during which the mutation-position discriminator keeps
      * uniform mutation probabilities before it starts biasing toward relevant positions.
