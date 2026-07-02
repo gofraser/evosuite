@@ -28,6 +28,8 @@ import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.graphs.cfg.CFGMethodAdapter;
+import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
+import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.rmi.ClientServices;
@@ -230,6 +232,13 @@ public class DependencyAnalysis {
         }
 
         analyze(className);
+
+        // EvoObj (plan §3.1): once the cluster/instrumentation is set up, build the object
+        // construction graph for the target method's branches. Gated on APPLY_OBJECT_RULE so
+        // default behaviour is unchanged.
+        if (Properties.APPLY_OBJECT_RULE) {
+            InterproceduralGraphAnalysis.initializeDataflow(new OCGInterestedNodeFilter());
+        }
     }
 
     /**

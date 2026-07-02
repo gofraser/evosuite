@@ -204,6 +204,14 @@ public class CFGGenerator {
                     "expect BytecodeInstructionPool to know the instructions in the method of this edge");
         }
 
+        // Also attach the frame to the edge destination. Otherwise terminal instructions (e.g.
+        // xRETURN/ATHROW), which are never the source of a control-flow edge, would keep a null
+        // CFGFrame — leaving their operand stack inaccessible. The EvoObj slicer needs the frame
+        // of return instructions to trace returned values interprocedurally (plan §3.2/App. A).
+        if (dstFrame instanceof CFGFrame) {
+            dstInstruction.setCFGFrame((CFGFrame) dstFrame);
+        }
+
         if (null == rawGraph.addEdge(srcInstruction, dstInstruction, isExceptionEdge)) {
             logger.error("internal error while adding edge");
         }
