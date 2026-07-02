@@ -190,6 +190,11 @@ public class Properties {
                     + "template for the current working branch")
     public static double P_OBJECT_RULE_APPLICATION = 0.3;
 
+    @Parameter(key = "object_rule_reflection_fallback", group = "Test Creation",
+            description = "When an EvoObj leaf field has no reachable public setter, set it via "
+                    + "reflection (PrivateFieldStatement) instead of leaving the template incomplete")
+    public static boolean OBJECT_RULE_REFLECTION_FALLBACK = false;
+
     /**
      * Number of legitimization iterations during which the mutation-position discriminator keeps
      * uniform mutation probabilities before it starts biasing toward relevant positions.

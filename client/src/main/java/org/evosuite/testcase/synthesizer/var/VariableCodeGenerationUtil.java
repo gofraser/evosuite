@@ -4,6 +4,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,6 +34,7 @@ import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
 import org.evosuite.testcase.synthesizer.DataDependencyUtil;
 import org.evosuite.testcase.synthesizer.FieldInitializer;
 import org.evosuite.testcase.synthesizer.NonPrimitiveFieldInitializer;
@@ -610,6 +612,58 @@ public class VariableCodeGenerationUtil {
 		return null;
 	}
 	
+	/**
+	 * Reflection fallback for a non-public <em>leaf</em> field that has no reachable public setter
+	 * (plan E2, gated by {@link Properties#OBJECT_RULE_REFLECTION_FALLBACK}). Creates a value of the
+	 * field's type (reusing the primitive/non-primitive initializers) just before the target-method
+	 * call, then sets the field on the caller object through a
+	 * {@link PrivateFieldStatement}. Returns the value variable (the mutation slot), or {@code null}
+	 * if a value could not be built or a non-static field has no caller instance.
+	 *
+	 * <p>Scoped strictly to writing a leaf field; reading a private field without a getter stays
+	 * unsupported.
+	 */
+	public static VariableReference generateFieldReflectionSetterInTest(TestCase test,
+			VariableReference targetObjectReference, String fieldType, Field field, boolean allowNullValue)
+			throws ConstructionFailedException {
+		MethodStatement mStat = test.findTargetMethodCallStatement();
+		if (mStat == null) {
+			return null;
+		}
+
+		boolean isStatic = Modifier.isStatic(field.getModifiers());
+		if (!isStatic && targetObjectReference == null) {
+			// Need an instance to set a non-static field.
+			return null;
+		}
+
+		int insertionPosition = (targetObjectReference != null)
+				? targetObjectReference.getStPosition() + 1 : mStat.getPosition() - 1;
+		if (insertionPosition >= mStat.getPosition()) {
+			insertionPosition = mStat.getPosition() - 1;
+		}
+
+		GenericField genericField = new GenericField(field, field.getDeclaringClass());
+		FieldInitializer initializer =
+				java.util.Arrays.asList("Z", "B", "C", "S", "I", "J", "F", "D").contains(fieldType)
+						? new PrimitiveFieldInitializer() : new NonPrimitiveFieldInitializer();
+		VariableReference value = initializer.assignField(TestFactory.getInstance(), test, fieldType,
+				genericField, insertionPosition, null, allowNullValue);
+		if (value == null) {
+			return null;
+		}
+
+		VariableReference callee = isStatic ? null : targetObjectReference;
+		try {
+			PrivateFieldStatement setter = new PrivateFieldStatement(test, field.getDeclaringClass(),
+					field.getName(), callee, value);
+			test.addStatement(setter, value.getStPosition() + 1);
+		} catch (NoSuchFieldException e) {
+			return null;
+		}
+		return value;
+	}
+
 	public static VariableReference generateFieldSetterInTest(TestCase test, VariableReference targetObjectReference,
 			Map<DepVariableWrapper, VarRelevance> map, Class<?> fieldDeclaringClass, Field field, boolean allowNullValue, Executable fieldSetter)
 			throws ClassNotFoundException, ConstructionFailedException {

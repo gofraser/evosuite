@@ -7,6 +7,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
+import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.ga.ConstructionFailedException;
@@ -166,11 +167,19 @@ public class FieldVariableWrapper extends DepVariableWrapper{
 						MethodStatement mStat = (MethodStatement)statement;
 						if(!mStat.getParameterReferences().isEmpty()) {
 							VariableReference ref = mStat.getParameterReferences().get(0);
-							return ref;							
+							return ref;
 						}
 					}
 				}
-//				System.currentTimeMillis();
+				// E2: no reachable setter for this non-public leaf field -> optionally set it via
+				// reflection so the template can still establish the required state.
+				if (setterObject == null && Properties.OBJECT_RULE_REFLECTION_FALLBACK) {
+					VariableReference slot = VariableCodeGenerationUtil.generateFieldReflectionSetterInTest(
+							test, variable.callerObject, fieldType, field, allowNullValue);
+					if (slot != null) {
+						return slot;
+					}
+				}
 				return setterObject;
 			}
 
