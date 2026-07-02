@@ -75,7 +75,7 @@ public class PortedFixtureSynthesisTest {
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
         RandomLengthTestFactory.workingBranch4ObjectGraph = null;
-        ObjectConstructionContext.reset();
+        org.evosuite.TestGenerationContext.getInstance().resetContext();
     }
 
     private static String signatureOf(Class<?> clazz, String methodName, int paramNum) {

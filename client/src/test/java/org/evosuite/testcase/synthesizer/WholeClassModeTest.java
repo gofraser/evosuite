@@ -67,7 +67,7 @@ public class WholeClassModeTest {
 		Properties.OBJECT_RULE_WHOLE_CLASS = false;
 		RandomLengthTestFactory.workingBranch4ObjectGraph = null;
 		TargetContext.clearActive();
-		ObjectConstructionContext.reset();
+		org.evosuite.TestGenerationContext.getInstance().resetContext();
 	}
 
 	private static String signatureOf(Class<?> clazz, String methodName, int paramNum) {

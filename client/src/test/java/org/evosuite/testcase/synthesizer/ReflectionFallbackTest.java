@@ -71,7 +71,7 @@ public class ReflectionFallbackTest {
 		Properties.TARGET_CLASS = "";
 		Properties.APPLY_OBJECT_RULE = false;
 		Properties.OBJECT_RULE_REFLECTION_FALLBACK = false;
-		ObjectConstructionContext.reset();
+		org.evosuite.TestGenerationContext.getInstance().resetContext();
 	}
 
 	private static String signatureOf(Class<?> clazz, String methodName, int paramNum) {
