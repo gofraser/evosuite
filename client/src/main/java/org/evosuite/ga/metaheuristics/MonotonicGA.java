@@ -21,13 +21,22 @@ package org.evosuite.ga.metaheuristics;
 
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
+import org.evosuite.coverage.branch.BranchCoverageFactory;
+import org.evosuite.coverage.branch.BranchCoverageGoal;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.ga.*;
+import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.factories.RandomLengthTestFactory;
+import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
+import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Implementation of steady state GA.
@@ -73,6 +82,12 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     @SuppressWarnings("unchecked")
     @Override
     protected void evolve() {
+
+        // EvoObj: pick the uncovered branch that object-construction templates should target this
+        // generation (plan §2.3). No-op unless apply_object_rule is enabled.
+        if (Properties.APPLY_OBJECT_RULE) {
+            selectObjectRuleWorkingBranch();
+        }
 
         // Elitism
         logger.debug("Elitism");
@@ -222,10 +237,63 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     // but hard to debug :(
 
     /**
-     * {@inheritDoc}
+     * EvoObj: choose the {@link RandomLengthTestFactory#workingBranch4ObjectGraph} for the next
+     * generation as a random uncovered branch goal (plan §2.3, MonotonicGA hook). {@code null}
+     * when nothing is uncovered, which disables template synthesis for the generation.
      */
+    private void selectObjectRuleWorkingBranch() {
+        RandomLengthTestFactory.workingBranch4ObjectGraph = null;
+
+        List<BranchCoverageTestFitness> branchGoals = new BranchCoverageFactory().getCoverageGoals();
+        Set<BranchCoverageGoal> uncoveredGoals = getUncoveredBranches(getBestIndividual(), branchGoals);
+        if (uncoveredGoals != null && !uncoveredGoals.isEmpty()) {
+            RandomLengthTestFactory.workingBranch4ObjectGraph = Randomness.choice(uncoveredGoals).getBranch();
+        }
+    }
+
+    /**
+     * Collects the branch goals not yet covered by the current best suite (EvoObj helper). Returns
+     * {@code null} when the best individual is not a {@link TestSuiteChromosome}.
+     */
+    private Set<BranchCoverageGoal> getUncoveredBranches(T bestIndividual,
+                                                         List<BranchCoverageTestFitness> branchGoals) {
+        if (!(bestIndividual instanceof TestSuiteChromosome)) {
+            return null;
+        }
+
+        Set<BranchCoverageGoal> uncoveredGoals = new HashSet<>();
+        TestSuiteChromosome testsuite = (TestSuiteChromosome) bestIndividual;
+
+        for (ExecutionResult result : testsuite.getLastExecutionResults()) {
+            if (result == null) {
+                continue;
+            }
+            for (BranchCoverageTestFitness tf : branchGoals) {
+                if (tf.getBranch() == null) {
+                    continue;
+                }
+                int branchId = tf.getBranch().getActualBranchId();
+                Double distance = tf.getValue()
+                        ? result.getTrace().getTrueDistances().get(branchId)
+                        : result.getTrace().getFalseDistances().get(branchId);
+                if (distance != null && distance == 0) {
+                    uncoveredGoals.remove(tf.getBranchGoal());
+                } else {
+                    uncoveredGoals.add(tf.getBranchGoal());
+                }
+            }
+        }
+
+        return uncoveredGoals;
+    }
+
+    /** {@inheritDoc} */
     @Override
     public void generateSolution() {
+        if (Properties.APPLY_OBJECT_RULE) {
+            // EvoObj: the total legitimization budget is measured from search start (plan M4/M5).
+            TestCaseLegitimizer.startTime = System.currentTimeMillis();
+        }
         if (Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER > 0 || Properties.ENABLE_SECONDARY_OBJECTIVE_STARVATION) {
             disableFirstSecondaryCriterion();
         }

@@ -19,19 +19,39 @@
  */
 package org.evosuite.testcase.factories;
 
+import java.util.Map;
+import java.util.Set;
+
 import org.evosuite.Properties;
+import org.evosuite.coverage.branch.Branch;
 import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
+import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
+import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTracer;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.statements.NullStatement;
+import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.synthesizer.ConstructionPathSynthesizer;
+import org.evosuite.testcase.synthesizer.PartialGraph;
+import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
+import org.evosuite.testcase.synthesizer.var.DepVariableWrapper;
+import org.evosuite.testcase.synthesizer.var.VarRelevance;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * A factory that creates {@link TestChromosome}s of random length.
+ *
+ * <p>When {@link Properties#APPLY_OBJECT_RULE} is enabled and a working branch has been selected
+ * (via {@link #workingBranch4ObjectGraph}), a freshly generated random test may be replaced with a
+ * synthesized object-construction template for that branch (EvoObj, see the re-implementation plan
+ * §3.7). With {@code apply_object_rule=false} this class behaves exactly as upstream.
  *
  * @author Gordon Fraser
  */
@@ -43,6 +63,19 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
      * The logger for this class.
      */
     protected static final Logger logger = LoggerFactory.getLogger(RandomLengthTestFactory.class);
+
+    /** Number of templates whose initial legitimacy distance was non-zero (statistics). */
+    public static int legitimizationTrials = 0;
+
+    /** Number of those templates that legitimization drove to distance 0 (statistics). */
+    public static int legitimizationSuccess = 0;
+
+    /**
+     * The uncovered branch the object-construction template should target for the next generated
+     * test. Set by the GAs each generation (MonotonicGA / AbstractMOSA); {@code null} disables
+     * template synthesis for this test.
+     */
+    public static Branch workingBranch4ObjectGraph = null;
 
     /**
      * Creates a random test case (i.e., a test case consisting of random statements) with the given.
@@ -61,6 +94,25 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             ExecutionTracer.disable();
         }
 
+        final TestCase test = Properties.APPLY_OBJECT_RULE
+                ? getObjectRuleTestCase(size)
+                : getDefaultRandomTestCase(size);
+
+        if (logger.isDebugEnabled()) {
+            logger.debug("Randomized test case:" + test.toCode());
+        }
+
+        if (tracerEnabled) {
+            ExecutionTracer.enable();
+        }
+
+        return test;
+    }
+
+    /**
+     * Upstream default random-test generation. Unchanged behavior.
+     */
+    private TestCase getDefaultRandomTestCase(int size) {
         final TestCase test = getNewTestCase();
         final TestFactory testFactory = TestFactory.getInstance();
 
@@ -81,15 +133,137 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             testFactory.insertRandomStatement(test, test.size() - 1);
         }
 
-        if (logger.isDebugEnabled()) {
-            logger.debug("Randomized test case:" + test.toCode());
-        }
+        return test;
+    }
 
-        if (tracerEnabled) {
-            ExecutionTracer.enable();
+    /**
+     * EvoObj generation path (plan §3.7). Only reached when {@code apply_object_rule=true}. After
+     * the first inserted statement the test contains the target-method call (guaranteed by the M1
+     * {@code TestCluster.getRandomTestCall} changes); at that point, with probability
+     * {@link Properties#P_OBJECT_RULE_APPLICATION}, the test is turned into an object-construction
+     * template for {@link #workingBranch4ObjectGraph} and legitimized.
+     */
+    private TestCase getObjectRuleTestCase(int size) {
+        TestCase test = getNewTestCase();
+        final TestFactory testFactory = TestFactory.getInstance();
+
+        // Object-rule construction disables primitive reuse so template "slots" get fresh values
+        // (the fork's implicit slot mechanism, plan E5). Saved and restored around this method.
+        final double oldPrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
+        Properties.PRIMITIVE_REUSE_PROBABILITY = 0;
+        try {
+            int length = Randomness.nextInt(size);
+            while (length == 0) {
+                length = Randomness.nextInt(size);
+            }
+
+            boolean applyObjectRule = workingBranch4ObjectGraph != null
+                    && Randomness.nextDouble() <= Properties.P_OBJECT_RULE_APPLICATION;
+            boolean allowNullValue = Properties.NULL_PROBABILITY > Randomness.nextDouble();
+
+            int num = 0;
+            while (test.size() < length && num < Properties.MAX_ATTEMPTS) {
+                int position = test.size() - 1;
+
+                int targetMethodCallPosition = -1;
+                if (!Properties.TARGET_METHOD.isEmpty()) {
+                    targetMethodCallPosition = TestGenerationUtil.getTargetMethodPosition(test, test.size() - 1);
+                    if (targetMethodCallPosition != -1) {
+                        // Keep insertions before the target-method call.
+                        position = targetMethodCallPosition - 1;
+                    }
+                }
+
+                // The first inserted statement is the target-method call; once it is present, turn
+                // the test into an object-construction template for the working branch.
+                if (num == 1 && targetMethodCallPosition != -1 && applyObjectRule) {
+                    test = synthesizeAndLegitimize(test, allowNullValue);
+                    break;
+                } else {
+                    int success = testFactory.insertRandomStatement(test, position);
+                    int count = 0;
+                    while (test.size() == 0 || success == -1) {
+                        test = new DefaultTestCase();
+                        success = testFactory.insertRandomStatement(test, 0);
+                        if (test.size() != 0 && success != -1 && !allowNullValue) {
+                            mutateNullStatements(test);
+                        }
+                        count++;
+                        if (count > 10) {
+                            break;
+                        }
+                    }
+                }
+
+                num++;
+            }
+        } finally {
+            Properties.PRIMITIVE_REUSE_PROBABILITY = oldPrimitiveReuse;
         }
 
         return test;
+    }
+
+    /**
+     * Builds the object-construction template for {@code test} against the current working branch
+     * and, if the template throws before the target call, runs the legitimizer to try to reach it.
+     *
+     * @return the legitimized test if legitimization ran, otherwise the template test
+     */
+    private TestCase synthesizeAndLegitimize(TestCase test, boolean allowNullValue) {
+        Branch b = workingBranch4ObjectGraph;
+        if (b == null) {
+            Map<Branch, Set<DepVariable>> interestedBranches =
+                    ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+            if (interestedBranches == null || interestedBranches.isEmpty()) {
+                return test;
+            }
+            b = Randomness.choice(interestedBranches.keySet());
+        }
+
+        try {
+            ConstructionPathSynthesizer synthesizer = new ConstructionPathSynthesizer(false);
+            synthesizer.buildNodeStatementCorrespondence(test, b, allowNullValue);
+            if (!allowNullValue) {
+                mutateNullStatements(test);
+            }
+
+            PartialGraph graph = synthesizer.getPartialGraph();
+            Map<DepVariableWrapper, VarRelevance> graph2CodeMap = synthesizer.getGraph2CodeMap();
+
+            TestChromosome templateChromosome = new TestChromosome();
+            templateChromosome.setTestCase(test);
+            ExecutionResult result = TestCaseExecutor.getInstance().execute(test);
+            templateChromosome.setLastExecutionResult(result);
+            double oldLegitimacyDistance = templateChromosome.getLegitimacyDistance();
+
+            if (oldLegitimacyDistance != 0) {
+                legitimizationTrials++;
+                long now = System.currentTimeMillis();
+                if (now - TestCaseLegitimizer.startTime <= Properties.TOTAL_LEGITIMIZATION_BUDGET * 1000L) {
+                    TestChromosome legitimizedChromosome =
+                            TestCaseLegitimizer.getInstance().legitimize(templateChromosome, graph, graph2CodeMap);
+                    // Keep the legitimized test (the fork discarded it, plan §7).
+                    test = legitimizedChromosome.getTestCase();
+                    if (legitimizedChromosome.getLegitimacyDistance() == 0) {
+                        legitimizationSuccess++;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Object-rule synthesis/legitimization failed for branch " + b + ": " + e.getMessage(), e);
+        }
+
+        return test;
+    }
+
+    private void mutateNullStatements(TestCase test) {
+        for (int i = 0; i < test.size(); i++) {
+            Statement s = test.getStatement(i);
+            if (s instanceof NullStatement) {
+                TestFactory.getInstance().changeNullStatement(test, s);
+            }
+        }
     }
 
     /**

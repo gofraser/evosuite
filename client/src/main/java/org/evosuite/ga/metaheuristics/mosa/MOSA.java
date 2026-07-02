@@ -21,6 +21,7 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
+import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.operators.selection.BestKSelection;
 import org.evosuite.ga.operators.selection.RandomKSelection;
@@ -141,6 +142,11 @@ public class MOSA extends AbstractMOSA {
     @Override
     public void generateSolution() {
         logger.info("executing generateSolution function");
+
+        if (Properties.APPLY_OBJECT_RULE) {
+            // EvoObj: the total legitimization budget is measured from search start (plan M4/M5).
+            TestCaseLegitimizer.startTime = System.currentTimeMillis();
+        }
 
         // keep track of covered goals
         this.fitnessFunctions.forEach(this::addUncoveredGoal);

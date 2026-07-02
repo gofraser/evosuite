@@ -1297,11 +1297,46 @@ public class TestCluster {
             return null;
         }
 
+        // EvoObj: prefer richer generators (more parameters) so synthesized objects carry more
+        // state (plan §2.3). Only active when apply_object_rule is enabled.
+        if (Properties.APPLY_OBJECT_RULE) {
+            GenericAccessibleObject<?> biased = chooseByParamNumBias(compatible);
+            if (biased != null) {
+                return biased;
+            }
+        }
+
         // Prefer generators whose parameters are easier to satisfy: fewer parameters,
         // primitive/String params, and parameters that have known generators.
         // Non-circular generators are also preferred over circular ones.
         return selectWeightedGenerator(compatible, clazz);
 
+    }
+
+    /**
+     * EvoObj: roulette-wheel selection biased toward generators with more parameters (richer
+     * constructed objects; plan §2.3). Weight of a candidate is {@code paramCount + 1}.
+     */
+    private GenericAccessibleObject<?> chooseByParamNumBias(List<GenericAccessibleObject<?>> candidates) {
+        List<Double> cumulative = new ArrayList<>();
+        double sum = 0;
+        for (GenericAccessibleObject<?> candidate : candidates) {
+            sum += candidate.getGenericParameterTypes().length + 1;
+        }
+
+        double acc = 0;
+        for (GenericAccessibleObject<?> candidate : candidates) {
+            acc += (candidate.getGenericParameterTypes().length + 1) / sum;
+            cumulative.add(acc);
+        }
+
+        double d = Randomness.nextDouble();
+        for (int i = 0; i < cumulative.size(); i++) {
+            if (d <= cumulative.get(i)) {
+                return candidates.get(i);
+            }
+        }
+        return null;
     }
 
     /**

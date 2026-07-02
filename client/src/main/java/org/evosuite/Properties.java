@@ -177,6 +177,26 @@ public class Properties {
      */
     public static boolean ALWAYS_REGISTER_BRANCH = false;
 
+    @Parameter(key = "individual_legitimization_budget", group = "Test Creation",
+            description = "Per-template time budget (in seconds) for EvoObj legitimization")
+    public static int INDIVIDUAL_LEGITIMIZATION_BUDGET = 10;
+
+    @Parameter(key = "total_legitimization_budget", group = "Test Creation",
+            description = "Overall time budget (in seconds) for EvoObj legitimization")
+    public static int TOTAL_LEGITIMIZATION_BUDGET = 30;
+
+    @Parameter(key = "p_object_rule_application", group = "Test Creation",
+            description = "Probability that a newly generated random test is replaced by an EvoObj "
+                    + "template for the current working branch")
+    public static double P_OBJECT_RULE_APPLICATION = 0.3;
+
+    /**
+     * Number of legitimization iterations during which the mutation-position discriminator keeps
+     * uniform mutation probabilities before it starts biasing toward relevant positions.
+     * Internal, not user-facing.
+     */
+    public static int PRE_ONLINE_LEARNING_ITERATION = 30;
+
     @Deprecated
     @Parameter(key = "make_accessible", group = "TestCreation",
             description = "Change default package rights to public package rights")

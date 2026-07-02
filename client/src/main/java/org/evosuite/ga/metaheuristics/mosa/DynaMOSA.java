@@ -20,6 +20,7 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
+import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.diversity.SpeciesProtectionStats;
@@ -117,6 +118,11 @@ public class DynaMOSA extends AbstractMOSA {
     @Override
     public void generateSolution() {
         logger.debug("executing generateSolution function");
+
+        if (Properties.APPLY_OBJECT_RULE) {
+            // EvoObj: the total legitimization budget is measured from search start (plan M4/M5).
+            TestCaseLegitimizer.startTime = System.currentTimeMillis();
+        }
 
         // Set up the targets to cover, which are initially free of any control dependencies.
         // We are trying to optimize for multiple targets at the same time.

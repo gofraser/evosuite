@@ -22,7 +22,9 @@ package org.evosuite.ga.metaheuristics.mosa;
 import org.evosuite.Properties;
 import org.evosuite.Properties.SelectionFunction;
 import org.evosuite.coverage.FitnessFunctions;
+import org.evosuite.coverage.branch.BranchFitness;
 import org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness;
+import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
@@ -639,6 +641,16 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         for (int i = 0; i < Properties.POPULATION * Properties.P_TEST_INSERTION; i++) {
             final TestChromosome tch;
             if (this.getCoveredGoals().isEmpty() || Randomness.nextBoolean()) {
+                // EvoObj: target a random uncovered branch goal with the object-construction
+                // template for this newly generated test (plan §2.3). No-op unless enabled.
+                if (Properties.APPLY_OBJECT_RULE) {
+                    RandomLengthTestFactory.workingBranch4ObjectGraph = null;
+                    TestFitnessFunction ff = Randomness.choice(getUncoveredGoals());
+                    if (ff instanceof BranchFitness) {
+                        RandomLengthTestFactory.workingBranch4ObjectGraph =
+                                ((BranchFitness) ff).getBranchGoal().getBranch();
+                    }
+                }
                 tch = this.chromosomeFactory.getChromosome();
                 tch.setChanged(true);
             } else {

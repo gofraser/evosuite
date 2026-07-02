@@ -33,7 +33,9 @@ import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.ConcolicMutation;
 import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
+import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -65,6 +67,12 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     private static final long serialVersionUID = 7532366007973252782L;
 
     private static final Logger logger = LoggerFactory.getLogger(TestChromosome.class);
+
+    /**
+     * EvoObj legitimacy distance (plan §3.6): how far this test still is from executing through
+     * the target-method call. 0 means the target call is reached.
+     */
+    private double legitimacyDistance = 0;
 
 
 
@@ -928,5 +936,40 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         }
     }
 
+    // --- EvoObj legitimization (plan §3.6) ---
+
+    /**
+     * Executes this test and returns the statement that stopped execution short (typically the one
+     * that threw), or {@code null} if the test executes up to (near) the end without an early exit.
+     */
+    public Statement getStatementReportingException() {
+        ExecutionResult result = TestCaseExecutor.runTest(this.getTestCase());
+        this.setLastExecutionResult(result);
+        int numOfExecutedStatements = this.getLastExecutionResult().getExecutedStatements();
+
+        if (numOfExecutedStatements >= this.test.size() - 1) {
+            return null;
+        }
+
+        return test.getStatement(numOfExecutedStatements);
+    }
+
+    /**
+     * Recomputes and returns the legitimacy distance of this test via the legitimizer. Failures in
+     * the auxiliary fitness evaluation degrade gracefully to distance 0.
+     */
+    public double getLegitimacyDistance() {
+        try {
+            TestCaseLegitimizer.getInstance().updateLegitimacyDistance(this);
+        } catch (Exception e) {
+            legitimacyDistance = 0;
+        }
+
+        return legitimacyDistance;
+    }
+
+    public void setLegitimacyDistance(double legitimacyDistance) {
+        this.legitimacyDistance = legitimacyDistance;
+    }
 
 }
