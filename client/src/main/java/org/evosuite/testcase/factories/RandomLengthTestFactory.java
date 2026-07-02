@@ -23,10 +23,13 @@ import java.util.Map;
 import java.util.Set;
 
 import org.evosuite.Properties;
+import org.evosuite.TimeController;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
+import org.evosuite.rmi.ClientServices;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -69,6 +72,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
     /** Number of those templates that legitimization drove to distance 0 (statistics). */
     public static int legitimizationSuccess = 0;
+
+    /** Number of random tests replaced by a synthesized template (statistics, plan E8). */
+    public static int templateInjections = 0;
+
+    /** Cumulative time (ms) spent synthesizing + legitimizing templates (statistics, plan E8). */
+    public static long templateSynthesisTimeMs = 0;
 
     /**
      * The uncovered branch the object-construction template should target for the next generated
@@ -221,9 +230,11 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             b = Randomness.choice(interestedBranches.keySet());
         }
 
+        long synthesisStart = System.currentTimeMillis();
         try {
             ConstructionPathSynthesizer synthesizer = new ConstructionPathSynthesizer(false);
             synthesizer.buildNodeStatementCorrespondence(test, b, allowNullValue);
+            templateInjections++;
             if (!allowNullValue) {
                 mutateNullStatements(test);
             }
@@ -239,8 +250,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
             if (oldLegitimacyDistance != 0) {
                 legitimizationTrials++;
+                // Bound legitimization by both the configured total budget and the remaining search
+                // phase time, so a tight search_budget still terminates on time (plan E8).
                 long now = System.currentTimeMillis();
-                if (now - TestCaseLegitimizer.startTime <= Properties.TOTAL_LEGITIMIZATION_BUDGET * 1000L) {
+                boolean withinTotalBudget =
+                        now - TestCaseLegitimizer.startTime <= Properties.TOTAL_LEGITIMIZATION_BUDGET * 1000L;
+                if (withinTotalBudget && TimeController.getInstance().isThereStillTimeInThisPhase()) {
                     TestChromosome legitimizedChromosome =
                             TestCaseLegitimizer.getInstance().legitimize(templateChromosome, graph, graph2CodeMap);
                     // Keep the legitimized test (the fork discarded it, plan §7).
@@ -252,9 +267,70 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             }
         } catch (Exception e) {
             logger.debug("Object-rule synthesis/legitimization failed for branch " + b + ": " + e.getMessage(), e);
+        } finally {
+            templateSynthesisTimeMs += System.currentTimeMillis() - synthesisStart;
         }
 
         return test;
+    }
+
+    /**
+     * Resets the object-rule statistics counters. Invoked from
+     * {@link ObjectConstructionContext#reset()} so runs do not leak counts into one another
+     * (plan E7/E8).
+     */
+    public static void resetStatistics() {
+        legitimizationTrials = 0;
+        legitimizationSuccess = 0;
+        templateInjections = 0;
+        templateSynthesisTimeMs = 0;
+    }
+
+    /**
+     * Reports the EvoObj object-rule statistics as {@link RuntimeVariable}s (plan E8). Called once
+     * at the end of the search from {@link org.evosuite.statistics.StatisticsListener}; a no-op
+     * effect unless {@code apply_object_rule} is enabled.
+     */
+    public static void trackObjectRuleStatistics() {
+        double successRate = legitimizationTrials == 0
+                ? 0.0 : (double) legitimizationSuccess / legitimizationTrials;
+
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectGraphBranches, countObjectGraphBranches());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectGraphMaxSize, maxObjectGraphSize());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.TemplateSynthesisTime, templateSynthesisTimeMs);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.TemplateInjections, templateInjections);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.LegitimizationSuccessRate, successRate);
+    }
+
+    /** Number of branches whose object-construction graph has at least one dependent variable. */
+    static int countObjectGraphBranches() {
+        int graphBranches = 0;
+        for (Map<Branch, Set<DepVariable>> perBranch : ObjectConstructionContext.branchInterestedVarsMap.values()) {
+            for (Set<DepVariable> vars : perBranch.values()) {
+                if (vars != null && !vars.isEmpty()) {
+                    graphBranches++;
+                }
+            }
+        }
+        return graphBranches;
+    }
+
+    /** Size (in dependent variables) of the largest object-construction graph over all branches. */
+    static int maxObjectGraphSize() {
+        int maxGraphSize = 0;
+        for (Map<Branch, Set<DepVariable>> perBranch : ObjectConstructionContext.branchInterestedVarsMap.values()) {
+            for (Set<DepVariable> vars : perBranch.values()) {
+                if (vars != null) {
+                    maxGraphSize = Math.max(maxGraphSize, vars.size());
+                }
+            }
+        }
+        return maxGraphSize;
     }
 
     private void mutateNullStatements(TestCase test) {

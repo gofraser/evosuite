@@ -125,6 +125,10 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         if (algorithm.getBestIndividual() instanceof TestSuiteChromosome) {
             reportTestSuiteResult((TestSuiteChromosome) algorithm.getBestIndividual());
         }
+        if (Properties.APPLY_OBJECT_RULE) {
+            // EvoObj object-rule statistics (plan E8).
+            org.evosuite.testcase.factories.RandomLengthTestFactory.trackObjectRuleStatistics();
+        }
         done = true;
         if (notifier != null) {
             try {

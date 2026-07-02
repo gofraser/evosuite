@@ -1512,7 +1512,32 @@ public enum RuntimeVariable {
      * {@code CoverageArchive.addToArchive}; non-zero values indicate a
      * malformed chromosome reached fitness evaluation despite earlier checks.
      */
-    Archive_Clone_Failures;
+    Archive_Clone_Failures,
+    /**
+     * EvoObj (apply_object_rule): number of branches for which the object-construction
+     * graph analysis produced a non-empty set of dependent state variables.
+     */
+    ObjectGraphBranches,
+    /**
+     * EvoObj (apply_object_rule): largest object-construction graph produced for any
+     * branch, measured as the number of dependent state variables.
+     */
+    ObjectGraphMaxSize,
+    /**
+     * EvoObj (apply_object_rule): cumulative wall-clock time (in milliseconds) spent
+     * synthesizing and legitimizing object-construction templates.
+     */
+    TemplateSynthesisTime,
+    /**
+     * EvoObj (apply_object_rule): number of times a randomly generated test was replaced
+     * by a synthesized object-construction template.
+     */
+    TemplateInjections,
+    /**
+     * EvoObj (apply_object_rule): fraction of legitimization runs that drove the template
+     * to a legitimacy distance of 0 (i.e., reached the target-method call).
+     */
+    LegitimizationSuccessRate;
 
     /* -------------------------------------------------- */
 

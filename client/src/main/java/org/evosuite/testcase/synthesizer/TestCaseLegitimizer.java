@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.evosuite.Properties;
+import org.evosuite.TimeController;
 import org.evosuite.testcase.MutationPositionDiscriminator;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -89,7 +90,8 @@ public class TestCaseLegitimizer {
         long t1 = System.currentTimeMillis();
         long t2 = t1;
         while (legitimacyDistance != 0
-                && (t2 - t1) < Properties.INDIVIDUAL_LEGITIMIZATION_BUDGET * 1000L) {
+                && (t2 - t1) < Properties.INDIVIDUAL_LEGITIMIZATION_BUDGET * 1000L
+                && TimeController.getInstance().isThereStillTimeInThisPhase()) {
             evolve(population);
             legitimacyDistance = population.get(0).getLegitimacyDistance();
             t2 = System.currentTimeMillis();

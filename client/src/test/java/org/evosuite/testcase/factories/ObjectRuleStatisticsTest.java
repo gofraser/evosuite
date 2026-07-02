@@ -1,0 +1,136 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.testcase.factories;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+
+import org.evosuite.Properties;
+import org.evosuite.Properties.Criterion;
+import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
+import org.evosuite.runtime.LoopCounter;
+import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.ExceptionMapGenerator;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.utils.MethodUtil;
+import org.evosuite.utils.Randomness;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Test;
+
+import com.examples.with.different.packagename.objectconstruction.instancefield.PublicInstanceFieldExample;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/**
+ * Verification for the EvoObj budget/statistics enhancement (plan E8). The graph-size and
+ * template counters are unit-tested here; the two system-level guarantees of E8 — that the
+ * {@link org.evosuite.statistics.RuntimeVariable}s appear in the statistics CSV and that a run
+ * with a tight {@code search_budget} terminates on time even with legitimization enabled — are
+ * covered by a master-module {@code SystemTestBase} test (the {@code SearchStatistics} backend and
+ * a full search are not on the client-only classpath).
+ */
+public class ObjectRuleStatisticsTest {
+
+    @AfterEach
+    public void tearDown() {
+        Properties.TARGET_METHOD = "";
+        Properties.TARGET_CLASS = "";
+        Properties.APPLY_OBJECT_RULE = false;
+        RandomLengthTestFactory.workingBranch4ObjectGraph = null;
+        ObjectConstructionContext.reset();
+    }
+
+    private static String signatureOf(Class<?> clazz, String methodName, int paramNum) {
+        for (Method m : clazz.getDeclaredMethods()) {
+            if (m.getName().equals(methodName) && m.getParameterCount() == paramNum) {
+                return m.getName() + MethodUtil.getSignature(m);
+            }
+        }
+        throw new IllegalStateException("no method " + methodName + "/" + paramNum + " in " + clazz);
+    }
+
+    private static void analyze(Class<?> clazz, String methodName, int paramNum) {
+        Properties.CLIENT_ON_THREAD = true;
+        Properties.CRITERION = new Criterion[] { Criterion.BRANCH };
+        Properties.ASSERTIONS = false;
+        Properties.RANDOM_SEED = 42L;
+        Randomness.setSeed(42L);
+        Properties.TARGET_CLASS = clazz.getName();
+        Properties.TARGET_METHOD = signatureOf(clazz, methodName, paramNum);
+        Properties.APPLY_OBJECT_RULE = true;
+
+        String cp = System.getProperty("user.dir") + "/target/test-classes";
+        ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);
+        List<String> classpath = new ArrayList<>();
+        classpath.add(cp);
+        try {
+            DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS, classpath);
+        } catch (ClassNotFoundException | RuntimeException e) {
+            throw new AssertionError("analyzeClass failed for " + clazz, e);
+        }
+
+        LoopCounter.getInstance().setActive(false);
+        ExceptionMapGenerator.initializeExceptionMap(Properties.TARGET_CLASS);
+        TestCaseExecutor.initExecutor();
+    }
+
+    /** {@code resetStatistics} zeroes every object-rule counter (determinism, plan E7/E8). */
+    @Test
+    public void resetStatisticsClearsCounters() {
+        RandomLengthTestFactory.legitimizationTrials = 7;
+        RandomLengthTestFactory.legitimizationSuccess = 3;
+        RandomLengthTestFactory.templateInjections = 11;
+        RandomLengthTestFactory.templateSynthesisTimeMs = 1234;
+
+        RandomLengthTestFactory.resetStatistics();
+
+        assertEquals(0, RandomLengthTestFactory.legitimizationTrials);
+        assertEquals(0, RandomLengthTestFactory.legitimizationSuccess);
+        assertEquals(0, RandomLengthTestFactory.templateInjections);
+        assertEquals(0L, RandomLengthTestFactory.templateSynthesisTimeMs);
+    }
+
+    /** Graph-size statistics reflect the object-construction analysis and tracking never throws. */
+    @Test
+    public void objectGraphStatsReflectAnalysis() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+
+        int branches = RandomLengthTestFactory.countObjectGraphBranches();
+        int maxSize = RandomLengthTestFactory.maxObjectGraphSize();
+        assertTrue(branches > 0,
+                "at least one branch of the analyzed method should have a non-empty object graph");
+        assertTrue(maxSize >= 1, "the largest object graph should have at least one variable");
+
+        // Emitting statistics is safe on the client-only classpath (fallback is a no-op there).
+        RandomLengthTestFactory.trackObjectRuleStatistics();
+    }
+
+    /** With no analysis performed, the graph statistics are zero and tracking is a safe no-op. */
+    @Test
+    public void statsSafeWhenContextEmpty() {
+        ObjectConstructionContext.reset();
+        assertEquals(0, RandomLengthTestFactory.countObjectGraphBranches());
+        assertEquals(0, RandomLengthTestFactory.maxObjectGraphSize());
+        RandomLengthTestFactory.trackObjectRuleStatistics();
+    }
+}

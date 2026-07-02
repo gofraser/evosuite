@@ -43,5 +43,6 @@ public class ObjectConstructionContext {
 		branchInterestedVarsMap = new LinkedHashMap<>();
 		recommendedClasses = new LinkedHashMap<>();
 		FBranchDefUseAnalyzer.analyzedMethods.clear();
+		org.evosuite.testcase.factories.RandomLengthTestFactory.resetStatistics();
 	}
 }
