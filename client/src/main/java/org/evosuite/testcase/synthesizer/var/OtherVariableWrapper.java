@@ -20,8 +20,12 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericMethod;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.MethodInsnNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class OtherVariableWrapper extends DepVariableWrapper {
+
+	private static final Logger logger = LoggerFactory.getLogger(OtherVariableWrapper.class);
 
 	protected OtherVariableWrapper(DepVariable var) {
 		super(var);
@@ -108,11 +112,13 @@ public class OtherVariableWrapper extends DepVariableWrapper {
 				Map<Integer, VariableReference> paramRefMap = new HashMap<>();
 
 				for (DepVariableWrapper par : this.parents) {
-					if(map.get(par) == null) {
+					VarRelevance parRelevance = map.get(par);
+					if (parRelevance == null || parRelevance.matchedVars == null
+							|| parRelevance.matchedVars.isEmpty()) {
 						continue;
 					}
-					
-					VariableReference parRef = map.get(par).matchedVars.get(0);
+
+					VariableReference parRef = parRelevance.matchedVars.get(0);
 					int position = par.findRelationPosition(this);
 					if (position > -1) {
 						paramRefMap.put(position, parRef);
@@ -166,7 +172,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
 
 			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			logger.debug("Object-rule method-call synthesis failed: {}", e.toString());
 		}
 
 		return null;
