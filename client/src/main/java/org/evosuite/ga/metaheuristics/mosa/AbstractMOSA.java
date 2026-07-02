@@ -25,6 +25,7 @@ import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchFitness;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
+import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
 import org.evosuite.ga.ChromosomeFactory;
@@ -659,6 +660,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     }
                     RandomLengthTestFactory.workingBranch4ObjectGraph =
                             ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
+                    // Evict cached templates for branches that are now covered (plan E4).
+                    TemplateCache.getInstance().retainUncovered(uncoveredBranches);
                 }
                 tch = this.chromosomeFactory.getChromosome();
                 tch.setChanged(true);

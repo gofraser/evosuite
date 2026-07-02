@@ -26,6 +26,7 @@ import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
+import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.ga.*;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
@@ -260,6 +261,8 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             }
             RandomLengthTestFactory.workingBranch4ObjectGraph =
                     ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
+            // Evict cached templates for branches that are now covered (plan E4).
+            TemplateCache.getInstance().retainUncovered(uncoveredBranches);
         }
     }
 

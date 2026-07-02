@@ -42,6 +42,7 @@ import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.synthesizer.ConstructionPathSynthesizer;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.PartialGraph;
+import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.testcase.synthesizer.var.DepVariableWrapper;
 import org.evosuite.testcase.synthesizer.var.VarRelevance;
@@ -86,6 +87,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
      * template synthesis for this test.
      */
     public static Branch workingBranch4ObjectGraph = null;
+
+    /** Probability of reusing a cached template instead of re-synthesizing one (plan E4). */
+    private static final double TEMPLATE_REUSE_PROBABILITY = 0.5;
 
     /**
      * Creates a random test case (i.e., a test case consisting of random statements) with the given.
@@ -187,7 +191,19 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 // The first inserted statement is the target-method call; once it is present, turn
                 // the test into an object-construction template for the working branch.
                 if (num == 1 && targetMethodCallPosition != -1 && applyObjectRule) {
-                    test = synthesizeAndLegitimize(test, allowNullValue);
+                    // Occasionally reuse a proven cached template instead of re-synthesizing; the
+                    // main GA mutates the clone as usual (plan E4).
+                    TestCase cached = null;
+                    if (TemplateCache.getInstance().hasTemplate(workingBranch4ObjectGraph)
+                            && Randomness.nextDouble() < TEMPLATE_REUSE_PROBABILITY) {
+                        cached = TemplateCache.getInstance().getClonedTemplate(workingBranch4ObjectGraph);
+                    }
+                    if (cached != null) {
+                        test = cached;
+                        templateInjections++;
+                    } else {
+                        test = synthesizeAndLegitimize(test, allowNullValue);
+                    }
                     break;
                 } else {
                     int success = testFactory.insertRandomStatement(test, position);
@@ -233,6 +249,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
         long synthesisStart = System.currentTimeMillis();
         boolean reachedTargetCall = false;
+        double finalDistance = Double.MAX_VALUE;
         try {
             ConstructionPathSynthesizer synthesizer = new ConstructionPathSynthesizer(false);
             synthesizer.buildNodeStatementCorrespondence(test, b, allowNullValue);
@@ -252,7 +269,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
             if (oldLegitimacyDistance == 0) {
                 reachedTargetCall = true;
+                finalDistance = 0;
             } else {
+                finalDistance = oldLegitimacyDistance;
                 legitimizationTrials++;
                 // Bound legitimization by both the configured total budget and the remaining search
                 // phase time, so a tight search_budget still terminates on time (plan E8).
@@ -264,12 +283,16 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                             TestCaseLegitimizer.getInstance().legitimize(templateChromosome, graph, graph2CodeMap);
                     // Keep the legitimized test (the fork discarded it, plan §7).
                     test = legitimizedChromosome.getTestCase();
-                    if (legitimizedChromosome.getLegitimacyDistance() == 0) {
+                    finalDistance = legitimizedChromosome.getLegitimacyDistance();
+                    if (finalDistance == 0) {
                         legitimizationSuccess++;
                         reachedTargetCall = true;
                     }
                 }
             }
+
+            // Cache the best template seen for this branch for later reuse (plan E4).
+            TemplateCache.getInstance().store(b, test, finalDistance);
         } catch (Exception e) {
             logger.debug("Object-rule synthesis/legitimization failed for branch " + b + ": " + e.getMessage(), e);
         } finally {
