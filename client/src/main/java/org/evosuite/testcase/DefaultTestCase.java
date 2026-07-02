@@ -20,6 +20,7 @@
 package org.evosuite.testcase;
 
 import org.apache.commons.lang3.reflect.MethodUtils;
+import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
@@ -1005,6 +1006,24 @@ public class DefaultTestCase implements TestCase, Serializable {
                     + position + ", where total number of statements is " + statements.size());
         }
         return statements.get(position);
+    }
+
+    /* (non-Javadoc)
+     * @see org.evosuite.testcase.TestCase#findTargetMethodCallStatement()
+     */
+    @Override
+    public MethodStatement findTargetMethodCallStatement() {
+        for (int i = 0; i < this.size(); i++) {
+            Statement stat = this.getStatement(i);
+            if (stat instanceof MethodStatement) {
+                MethodStatement methodStat = (MethodStatement) stat;
+                if (methodStat.getMethod().getNameWithDescriptor().equals(Properties.TARGET_METHOD)) {
+                    return methodStat;
+                }
+            }
+        }
+
+        return null;
     }
 
     /* (non-Javadoc)

@@ -30,8 +30,10 @@ import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.factories.TestGenerationUtil;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.ListUtil;
+import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
@@ -791,6 +793,13 @@ public class TestCluster {
             throws ConstructionFailedException {
 
         Set<GenericAccessibleObject<?>> calls = getCallsFor(clazz, true);
+
+        // EvoObj (method-level targeting): never invoke the target method as a
+        // modifier on another object; the target call is inserted exactly once
+        // as a test call. No-op unless TARGET_METHOD is set.
+        if (!Properties.TARGET_METHOD.isEmpty()) {
+            calls.removeIf(TestGenerationUtil::isTargetMethod);
+        }
 
         if (calls.isEmpty()) {
             throw new ConstructionFailedException("No modifiers for " + clazz);
@@ -1756,6 +1765,13 @@ public class TestCluster {
         List<GenericAccessibleObject<?>> candidateTestMethods = new ArrayList<>(testMethods);
         candidateTestMethods.removeIf(this::shouldFilterHeadlessIncompatibleTestCall);
 
+        // EvoObj (method-level targeting): if the test already calls the target
+        // method, drop it from the candidates so exactly one call is inserted.
+        // No-op unless TARGET_METHOD is set.
+        if (TestGenerationUtil.getTargetMethodPosition(test, test.size() - 1) != -1) {
+            TestGenerationUtil.filterTargetMethod(test, candidateTestMethods);
+        }
+
         if (candidateTestMethods.isEmpty()) {
             List<GenericAccessibleObject<?>> fallbackCalls = new ArrayList<>(allDiscoveredTestMethods);
             fallbackCalls.removeIf(this::shouldFilterHeadlessIncompatibleTestCall);
@@ -1780,6 +1796,9 @@ public class TestCluster {
             // It may happen that all remaining test calls are constructors. In this case it's ok.
             if (candidateTestMethods.isEmpty()) {
                 candidateTestMethods = new ArrayList<>(testMethods);
+                if (TestGenerationUtil.getTargetMethodPosition(test, test.size() - 1) != -1) {
+                    TestGenerationUtil.filterTargetMethod(test, candidateTestMethods);
+                }
             }
         }
 
@@ -1791,6 +1810,24 @@ public class TestCluster {
         GenericAccessibleObject<?> choice = Properties.SORT_CALLS
                 ? ListUtil.selectRankBiased(candidateTestMethods)
                 : Randomness.choice(candidateTestMethods);
+
+        // EvoObj (method-level targeting): if the target method is still a
+        // candidate (i.e. not yet present in the test), insert it first so that
+        // every test calls the target method exactly once. No-op unless
+        // TARGET_METHOD is set.
+        if (!Properties.TARGET_METHOD.isEmpty()) {
+            for (GenericAccessibleObject<?> candidate : candidateTestMethods) {
+                if (candidate instanceof GenericMethod) {
+                    GenericMethod method = (GenericMethod) candidate;
+                    String sig = method.getName() + MethodUtil.getSignature(method.getMethod());
+                    if (sig.equals(Properties.TARGET_METHOD)) {
+                        choice = candidate;
+                        break;
+                    }
+                }
+            }
+        }
+
         logger.debug("Chosen call: " + choice);
         if (choice.getOwnerClass().hasWildcardOrTypeVariables()) {
             GenericClass<?> concreteClass = choice.getOwnerClass().getGenericInstantiation();
