@@ -247,9 +247,15 @@ public class TestCaseLegitimizer {
             int oldDistance = statement.getReturnValue().getDistance();
             if (statement instanceof NullStatement) {
                 int pos = statement.getPosition();
-                Statement nextStatement = test.getStatement(pos + 1);
-                if (testFactory.changeNullStatement(test, statement)) {
-                    statement = test.getStatement(nextStatement.getPosition() - 1);
+                if (pos + 1 < test.size()) {
+                    Statement nextStatement = test.getStatement(pos + 1);
+                    if (testFactory.changeNullStatement(test, statement)) {
+                        statement = test.getStatement(nextStatement.getPosition() - 1);
+                    }
+                } else {
+                    // Trailing null statement: no following statement to track, so just replace it.
+                    testFactory.changeNullStatement(test, statement);
+                    statement = test.getStatement(test.size() - 1);
                 }
             }
 
