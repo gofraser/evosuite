@@ -46,7 +46,10 @@ import org.junit.jupiter.api.Test;
 
 import com.examples.with.different.packagename.objectconstruction.instancefield.PublicInstanceFieldExample;
 
+import java.time.Duration;
+
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -170,6 +173,27 @@ public class ObjectRuleFactoryTest {
         assertTrue(templateApplied,
                 "the factory should produce at least one object-construction template that builds the "
                         + "Student read by the target branch and calls the target method");
+    }
+
+    /**
+     * With {@code apply_object_rule=true} and a chromosome length of 1, the object-rule generation
+     * path must return an empty test rather than spin forever ({@code Randomness.nextInt(1)} is
+     * always 0, so the old retry loop never terminated).
+     */
+    @Test
+    public void factoryReturnsForSizeOneWithoutHanging() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1, true);
+        Properties.CHROMOSOME_LENGTH = 1;
+        RandomLengthTestFactory.workingBranch4ObjectGraph = null;
+
+        RandomLengthTestFactory factory = new RandomLengthTestFactory();
+        TestChromosome chromosome = assertTimeoutPreemptively(Duration.ofSeconds(10),
+                factory::getChromosome,
+                "the object-rule path must not hang when the requested size is 1");
+
+        assertNotNull(chromosome.getTestCase(), "a chromosome should still be produced");
+        assertTrue(chromosome.getTestCase().size() == 0,
+                "size 1 should default to an empty test case");
     }
 
     /**

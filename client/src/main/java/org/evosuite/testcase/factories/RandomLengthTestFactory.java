@@ -170,10 +170,11 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         final double oldPrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
         Properties.PRIMITIVE_REUSE_PROBABILITY = 0;
         try {
-            int length = Randomness.nextInt(size);
-            while (length == 0) {
-                length = Randomness.nextInt(size);
+            if (size <= 1) {
+                logger.warn("Requested random test case size {} is too small, defaulting to empty test case.", size);
+                return test;
             }
+            int length = Randomness.nextInt(1, size);
 
             boolean applyObjectRule = workingBranch4ObjectGraph != null
                     && Randomness.nextDouble() <= Properties.P_OBJECT_RULE_APPLICATION;
