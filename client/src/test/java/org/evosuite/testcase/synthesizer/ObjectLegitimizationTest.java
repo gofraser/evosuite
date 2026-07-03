@@ -52,6 +52,8 @@ import com.examples.with.different.packagename.objectconstruction.legitimization
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Milestone M4 verification for the EvoObj legitimizer ({@link TestCaseLegitimizer} and the
@@ -190,6 +192,23 @@ public class ObjectLegitimizationTest {
         Properties.TARGET_METHOD = "does#not()Exist";
         assertEquals(0.0, chromosome.getLegitimacyDistance(), 0.0);
         Properties.TARGET_METHOD = "";
+    }
+
+    @Test
+    public void distanceIsMaxValueWhenEvaluationThrows() {
+        // A failure during the auxiliary legitimacy evaluation must degrade to a maximal distance,
+        // never to 0: distance 0 means "target call reached", so degrading a failure to 0 would
+        // masquerade as success (skip legitimization, poison the template cache, reset failure
+        // counters). Force the exception by having the evaluation throw.
+        TestCase throwing = mock(TestCase.class);
+        when(throwing.findTargetMethodCallStatement())
+                .thenThrow(new RuntimeException("forced evaluation failure"));
+        TestChromosome chromosome = new TestChromosome();
+        chromosome.setTestCase(throwing);
+        chromosome.setLegitimacyDistance(3.0);
+
+        assertEquals(Double.MAX_VALUE, chromosome.getLegitimacyDistance(), 0.0,
+                "a failed legitimacy evaluation must report a maximal distance, not 0");
     }
 
     @Test

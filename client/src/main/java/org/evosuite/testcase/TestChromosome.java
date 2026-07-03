@@ -987,14 +987,16 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * Recomputes and returns the legitimacy distance of this test via the legitimizer. Failures in
-     * the auxiliary fitness evaluation degrade gracefully to distance 0.
+     * Recomputes and returns the legitimacy distance of this test via the legitimizer. A failure in
+     * the auxiliary fitness evaluation is treated as maximally distant (never as a success): distance
+     * 0 means the target call was reached, so degrading a failure to 0 would masquerade as success.
      */
     public double getLegitimacyDistance() {
         try {
             TestCaseLegitimizer.getInstance().updateLegitimacyDistance(this);
         } catch (Exception e) {
-            legitimacyDistance = 0;
+            legitimacyDistance = Double.MAX_VALUE;
+            logger.debug("Legitimacy distance evaluation failed", e);
         }
 
         return legitimacyDistance;
