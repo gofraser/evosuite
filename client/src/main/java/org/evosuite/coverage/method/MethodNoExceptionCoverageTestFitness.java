@@ -62,6 +62,21 @@ public class MethodNoExceptionCoverageTestFitness extends AbstractMethodTestFitn
      */
     @Override
     public double getFitness(TestChromosome individual, ExecutionResult result) {
+        // EvoObj: replace the binary signal with a graded construction distance. The invariant is
+        // that this is 0 exactly when the plain binary goal is covered, so coverage accounting and
+        // archiving below are unchanged. Flag off -> the original binary computation runs verbatim.
+        if (Properties.CONSTRUCTION_FITNESS) {
+            double gradedFitness = ConstructionFitness.gradedDistance(className, methodName, result.test, result);
+            updateIndividual(individual, gradedFitness);
+            if (gradedFitness == 0.0) {
+                individual.getTestCase().addCoveredGoal(this);
+            }
+            if (Properties.TEST_ARCHIVE) {
+                Archive.getArchiveInstance().updateArchive(this, individual, gradedFitness);
+            }
+            return gradedFitness;
+        }
+
         double fitness = 1.0;
 
         List<Integer> exceptionPositions = new ArrayList<>();

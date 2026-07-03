@@ -29,18 +29,18 @@ import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.tree.analysis.Value;
 
 /**
- * Entry point of the object construction graph analysis (plan §3.1). {@link #initializeDataflow}
+ * Entry point of the object construction graph analysis. {@link #initializeDataflow}
  * iterates the branches of the target method and fills {@link #branchInterestedVarsMap} with the
  * state variables each branch depends on, and {@link #recommendedClasses} with the concrete
  * subtypes discovered via {@code INSTANCEOF} checks.
  *
- * <p>Ported from the {@code evosuite-plus-plus} fork with the §7/§E7 cleanups applied.
+ * <p>Ported from the {@code evosuite-plus-plus} fork with cleanups applied.
  */
 public class InterproceduralGraphAnalysis {
 
 	/**
 	 * Clear the analysis' mutable static state. Delegates to the {@link ObjectConstructionContext}
-	 * holder (plan §E7); prefer wiring {@link ObjectConstructionContext#reset()} into
+	 * holder; prefer wiring {@link ObjectConstructionContext#reset()} into
 	 * {@link TestGenerationContext#resetContext()} for automatic between-run cleanup.
 	 */
 	public static void clear() {
@@ -102,7 +102,7 @@ public class InterproceduralGraphAnalysis {
 	}
 
 	/**
-	 * Whole-class mode (plan E1): analyze the object-construction graph of the branch's own
+	 * Whole-class mode: analyze the object-construction graph of the branch's own
 	 * containing method on demand and cache it in {@link ObjectConstructionContext#branchInterestedVarsMap},
 	 * instead of the eager {@link #initializeDataflow} loop over {@code TARGET_METHOD}. Idempotent
 	 * per method.
@@ -127,6 +127,29 @@ public class InterproceduralGraphAnalysis {
 		Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
 		ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
 		ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
+	}
+
+	/**
+	 * Construction fitness: analyze the object-construction graph of an arbitrary method
+	 * on demand and cache it in {@link ObjectConstructionContext#branchInterestedVarsMap}, keyed by
+	 * the method signature. Idempotent per method; returns the per-branch map (possibly empty).
+	 */
+	public static synchronized Map<Branch, Set<DepVariable>> analyzeMethodOnDemand(String className,
+			String methodName, IInterestedNodeFilter interestedNodeFilter) {
+		Map<Branch, Set<DepVariable>> cached = ObjectConstructionContext.branchInterestedVarsMap.get(methodName);
+		if (cached != null) {
+			return cached;
+		}
+		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+		ActualControlFlowGraph cfg = GraphPool.getInstance(classLoader).getActualCFG(className, methodName);
+		if (cfg == null) {
+			return new LinkedHashMap<>();
+		}
+		FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
+		Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
+		ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
+		ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
+		return map;
 	}
 
 	@SuppressWarnings("rawtypes")

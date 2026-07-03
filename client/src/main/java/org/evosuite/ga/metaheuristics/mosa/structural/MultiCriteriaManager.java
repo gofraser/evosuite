@@ -251,6 +251,27 @@ public class MultiCriteriaManager extends StructuralGoalManager implements Seria
      */
     private void addDependenciesForMethodsNoException() {
         logger.debug("Added dependencies for MethodsNoException");
+
+        if (Properties.CONSTRUCTION_FITNESS) {
+            // EvoObj: the graded construction distance is only useful before the method executes,
+            // but the upstream scheme makes each METHODNOEXCEPTION goal a dependent of every branch
+            // of its method, so it only becomes a current target after the method already ran. With
+            // the flag on, register the (distinct) method goals directly into the initial front so
+            // the construction gradient is live from the start.
+            java.util.Set<MethodNoExceptionCoverageTestFitness> methodGoals = new java.util.LinkedHashSet<>();
+            for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
+                methodGoals.add(new MethodNoExceptionCoverageTestFitness(
+                        branch.getClassName(), branch.getMethod()));
+            }
+            for (MethodNoExceptionCoverageTestFitness method : methodGoals) {
+                this.currentGoals.add(method);
+                if (!archive.hasTarget(method)) {
+                    archive.addTarget(method);
+                }
+            }
+            return;
+        }
+
         for (BranchCoverageTestFitness branch : this.dependencies.keySet()) {
             MethodNoExceptionCoverageTestFitness method = new MethodNoExceptionCoverageTestFitness(
                     branch.getClassName(), branch.getMethod());

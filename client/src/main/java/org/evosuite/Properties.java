@@ -154,7 +154,7 @@ public class Properties {
             description = "If set to true EvoSuite test generation inits UISpec in order to avoid display of UI")
     public static boolean EVOSUITE_USE_UISPEC = false;
 
-    // --- EvoObj: graph-based seed object synthesis (see evoobj re-implementation plan §4) ---
+    // --- EvoObj: graph-based seed object synthesis ---
 
     @Parameter(key = "apply_object_rule", group = "Test Creation",
             description = "Apply graph-based seed object synthesis (EvoObj)")
@@ -166,7 +166,7 @@ public class Properties {
 
     /**
      * Depth of the intra-class call-chain search when looking for a field's setter during EvoObj
-     * template synthesis (see plan §3.5). Constant, not user-facing.
+     * template synthesis (see). Constant, not user-facing.
      */
     public static int FIELD_SETTER_SEARCH_DEPTH = 3;
 
@@ -204,6 +204,12 @@ public class Properties {
             description = "Apply EvoObj without -Dtarget_method: derive the entry method per branch "
                     + "from the branch's own (public/protected) containing method")
     public static boolean OBJECT_RULE_WHOLE_CLASS = false;
+
+    @Parameter(key = "construction_fitness", group = "Test Creation",
+            description = "Grade METHODNOEXCEPTION goals with an object-construction distance (EvoObj "
+                    + "E9), giving the search a gradient toward successfully calling a method. Only "
+                    + "meaningful when METHODNOEXCEPTION is among the criteria")
+    public static boolean CONSTRUCTION_FITNESS = false;
 
     /**
      * Number of legitimization iterations during which the mutation-position discriminator keeps
