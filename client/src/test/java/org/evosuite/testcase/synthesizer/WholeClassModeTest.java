@@ -50,7 +50,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verification for EvoObj whole-class mode (plan E1): the object rule can run without
+ * Verification for EvoObj whole-class mode: the object rule can run without
  * {@code -Dtarget_method}, deriving the entry method per branch from the branch's own
  * public/protected containing method ({@link TargetContext}), analyzing its object graph on demand,
  * and synthesizing a template that inserts the entry call and builds its state. The end-to-end
@@ -127,7 +127,7 @@ public class WholeClassModeTest {
 
 		Branch privateBranch = firstBranchOf(WholeClassExample.class, "hiddenEntry", 1);
 		assertNull(TargetContext.forBranch(privateBranch),
-				"a branch in a private method is not a valid entry in this milestone");
+				"a branch in a private method is not a valid entry (no call-graph search)");
 	}
 
 	@Test

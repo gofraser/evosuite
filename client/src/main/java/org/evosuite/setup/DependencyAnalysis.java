@@ -233,7 +233,7 @@ public class DependencyAnalysis {
 
         analyze(className);
 
-        // EvoObj (plan §3.1): once the cluster/instrumentation is set up, build the object
+        // EvoObj: once the cluster/instrumentation is set up, build the object
         // construction graph for the target method's branches. Gated on APPLY_OBJECT_RULE so
         // default behaviour is unchanged.
         if (Properties.APPLY_OBJECT_RULE) {

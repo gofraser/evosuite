@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verification for first-class object-rule mutation slots (plan E5): the slot flag lives on the
+ * Verification for first-class object-rule mutation slots: the slot flag lives on the
  * {@link PrimitiveStatement} and survives structural operations (it is propagated through the single
  * {@code copy(TestCase, int)} path), and when {@code object_rule_slot_bias} is on, mutation picks
  * flagged statements far more often than uniform.

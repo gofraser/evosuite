@@ -207,7 +207,7 @@ public class CFGGenerator {
         // Also attach the frame to the edge destination. Otherwise terminal instructions (e.g.
         // xRETURN/ATHROW), which are never the source of a control-flow edge, would keep a null
         // CFGFrame — leaving their operand stack inaccessible. The EvoObj slicer needs the frame
-        // of return instructions to trace returned values interprocedurally (plan §3.2/App. A).
+        // of return instructions to trace returned values interprocedurally.
         if (dstFrame instanceof CFGFrame) {
             dstInstruction.setCFGFrame((CFGFrame) dstFrame);
         }

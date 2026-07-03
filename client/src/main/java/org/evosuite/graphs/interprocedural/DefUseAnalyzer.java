@@ -28,7 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Local-variable/field def-use helpers for the EvoObj interprocedural analysis (plan §2.1).
+ * Local-variable/field def-use helpers for the EvoObj interprocedural analysis.
  * Ported from the {@code evosuite-plus-plus} fork.
  */
 public class DefUseAnalyzer {
@@ -43,7 +43,7 @@ public class DefUseAnalyzer {
 
 	/**
 	 * Return the reaching definitions of the local-variable/field {@code use} that are also
-	 * intraprocedurally reachable from the definition to the use (plan §2.1). Needed by the M2
+	 * intraprocedurally reachable from the definition to the use. Needed by the M2
 	 * slicer to link definitions of a local into the object construction graph.
 	 */
 	public static List<BytecodeInstruction> getDefFromUse(BytecodeInstruction insOfuse) {

@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verification for the object-rule template cache (plan E4): the best (lowest legitimacy distance)
+ * Verification for the object-rule template cache: the best (lowest legitimacy distance)
  * template per branch is kept and handed out as a fresh clone, and entries for covered branches are
  * evicted.
  */

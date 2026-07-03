@@ -31,7 +31,7 @@ import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.testcase.TestCase;
 
 /**
- * Caches the best object-construction template synthesized for each branch (plan E4). The fork
+ * Caches the best object-construction template synthesized for each branch. The fork
  * re-ran analysis, synthesis and legitimization on every injection (its {@code templateTestMap} was
  * written but never read); this cache lets the factory occasionally reuse a proven template instead,
  * which cuts synthesis time (visible in the {@code TemplateSynthesisTime} statistic) for branches
@@ -40,12 +40,11 @@ import org.evosuite.testcase.TestCase;
  * <p>"Best" means the template with the lowest legitimacy distance seen so far (a template that
  * reaches the target call, distance 0, is ideal). Entries for branches that become covered are
  * evicted via {@link #retainUncovered(Collection)}. Per-run state is reset from
- * {@link ObjectConstructionContext#reset()} for determinism (plan E7).
+ * {@link ObjectConstructionContext#reset()} for determinism.
  *
- * <p>Deviation from the plan: only the template test is cached, not the {@code PartialGraph}. The
+ * <p>Only the template test is cached, not the {@code PartialGraph}. The
  * reuse path hands back a clone of the finished template and never re-enters synthesis or
- * legitimization, so a cached graph would be write-only — the exact anti-pattern the plan's §7
- * warns against — hence it is omitted.
+ * legitimization, so a cached graph would be write-only, hence it is omitted.
  */
 public class TemplateCache {
 
@@ -96,7 +95,7 @@ public class TemplateCache {
         return cached == null ? null : cached.clone();
     }
 
-    /** Drops cached entries for branches no longer present in the uncovered set (plan E4). */
+    /** Drops cached entries for branches no longer present in the uncovered set. */
     public void retainUncovered(Collection<Branch> uncoveredBranches) {
         if (uncoveredBranches == null) {
             return;

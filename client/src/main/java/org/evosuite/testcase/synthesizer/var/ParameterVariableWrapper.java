@@ -158,7 +158,7 @@ public class ParameterVariableWrapper extends DepVariableWrapper {
 				}
 			}
 
-			// Guard against the fork's NPE on an empty parent set (plan §7).
+			// Guard against the fork's NPE on an empty parent set.
 			if (parent.parents.isEmpty()) {
 				break;
 			}

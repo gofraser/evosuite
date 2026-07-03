@@ -645,9 +645,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             final TestChromosome tch;
             if (this.getCoveredGoals().isEmpty() || Randomness.nextBoolean()) {
                 // EvoObj: target an uncovered branch goal with the object-construction template for
-                // this newly generated test (plan §2.3). ObjectRuleBranchSelector restricts the
+                // this newly generated test. ObjectRuleBranchSelector restricts the
                 // choice to branches with a non-empty object graph and drops repeatedly-failing
-                // ones (plan E3). No-op unless enabled.
+                // ones. No-op unless enabled.
                 if (Properties.APPLY_OBJECT_RULE) {
                     List<Branch> uncoveredBranches = new ArrayList<>();
                     for (TestFitnessFunction ff : getUncoveredGoals()) {
@@ -660,7 +660,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     }
                     RandomLengthTestFactory.workingBranch4ObjectGraph =
                             ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
-                    // Evict cached templates for branches that are now covered (plan E4).
+                    // Evict cached templates for branches that are now covered.
                     TemplateCache.getInstance().retainUncovered(uncoveredBranches);
                 }
                 tch = this.chromosomeFactory.getChromosome();

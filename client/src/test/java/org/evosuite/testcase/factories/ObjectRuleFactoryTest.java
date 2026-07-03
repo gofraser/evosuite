@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Milestone M5 verification for the search-integration hook in {@link RandomLengthTestFactory}
- * (plan §3.7). Unlike the M2–M4 tests, which drive the analysis/synthesis/legitimization APIs
+ *. Unlike the M2–M4 tests, which drive the analysis/synthesis/legitimization APIs
  * directly, this test exercises the actual chromosome factory: with {@code apply_object_rule=true},
  * a working branch selected, and the application probability forced to 1, {@link
  * RandomLengthTestFactory#getChromosome()} must turn a freshly generated random test into an

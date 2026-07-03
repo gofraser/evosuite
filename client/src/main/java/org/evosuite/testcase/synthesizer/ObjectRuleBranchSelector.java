@@ -36,7 +36,7 @@ import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.utils.Randomness;
 
 /**
- * Chooses which uncovered branch the object-construction template should target (plan E3). It
+ * Chooses which uncovered branch the object-construction template should target. It
  * refines the fork's "pick any uncovered branch uniformly at random" by skipping work that cannot
  * pay off:
  *
@@ -52,11 +52,11 @@ import org.evosuite.utils.Randomness;
  * <p>Selection among the remaining eligible branches stays uniformly random, so this only avoids
  * wasted synthesis — it does not otherwise change which branches the object rule helps cover. It is
  * always active when {@code apply_object_rule} is enabled; no separate flag. Per-run state is reset
- * from {@link ObjectConstructionContext#reset()} for determinism (plan E7).
+ * from {@link ObjectConstructionContext#reset()} for determinism.
  */
 public class ObjectRuleBranchSelector {
 
-    /** Failed synthesis attempts after which a branch is negatively cached (plan E3). */
+    /** Failed synthesis attempts after which a branch is negatively cached. */
     static final int MAX_FAILED_ATTEMPTS = 3;
 
     private static final ObjectRuleBranchSelector instance = new ObjectRuleBranchSelector();
@@ -108,7 +108,7 @@ public class ObjectRuleBranchSelector {
     }
 
     /**
-     * Whole-class eligibility (plan E1): the branch's own containing method must be a valid entry
+     * Whole-class eligibility: the branch's own containing method must be a valid entry
      * method ({@link TargetContext#forBranch}), and, once its object graph is analyzed on demand,
      * the branch must depend on object state.
      */
@@ -152,7 +152,7 @@ public class ObjectRuleBranchSelector {
 
     /**
      * Records the outcome of a synthesis attempt for a branch. Reaching the target call resets the
-     * failure counter; repeated failures eventually mark the branch ineligible (plan E3).
+     * failure counter; repeated failures eventually mark the branch ineligible.
      */
     public void recordSynthesisAttempt(Branch branch, boolean reachedTargetCall) {
         if (branch == null) {

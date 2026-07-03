@@ -10,7 +10,7 @@ import org.evosuite.graphs.cfg.RawControlFlowGraph;
 /**
  * Idempotent per-method registration of all def-use instructions of a raw CFG into the
  * {@link DefUsePool}. Needed by the EvoObj slicer before def-use queries. Ported from the
- * {@code evosuite-plus-plus} fork (plan §2.3).
+ * {@code evosuite-plus-plus} fork.
  */
 public class FBranchDefUseAnalyzer {
 	public static Map<String, Boolean> analyzedMethods = new HashMap<>();

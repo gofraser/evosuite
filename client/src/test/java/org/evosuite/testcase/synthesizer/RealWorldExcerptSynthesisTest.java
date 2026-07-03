@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Robustness coverage for the real-world decompiled excerpts ported from the fork's EvoObj suite
- * (plan §6.1): commons-compress's {@code ArjArchiveEntry} (a final nested header object) and the
+ *: commons-compress's {@code ArjArchiveEntry} (a final nested header object) and the
  * "JNFE" nested address model ({@code Province}/{@code City}/{@code Country} with interprocedural
  * getter chains, {@code instanceof} checks, an enum and inheritance). These guard that analysis and
  * synthesis handle messy, realistic bytecode without failing.

@@ -23,7 +23,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Signature/descriptor utilities used throughout the EvoObj object-construction-graph
- * analysis (plan §2.4). Ported from the {@code evosuite-plus-plus} fork.
+ * analysis. Ported from the {@code evosuite-plus-plus} fork.
  */
 public class MethodUtil {
 	private static Logger log = LoggerFactory.getLogger(MethodUtil.class);

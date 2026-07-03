@@ -1238,7 +1238,7 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
     }
 
     // --- EvoObj: operand-stack / def-use accessors used by the OCG slicer ---
-    // (see the evoobj re-implementation plan, Appendix A)
+    //
 
     /**
      * The {@link CFGFrame} attached to this instruction, or null if none has been set.
@@ -1448,7 +1448,7 @@ public class BytecodeInstruction extends ASMWrapper implements Serializable,
             }
             return this.getCalledMethodsArgumentCount() + 1;
         } else if (this.asmNode.getType() == AbstractInsnNode.INVOKE_DYNAMIC_INSN) {
-            // Modern javac emits invokedynamic for lambdas / string concatenation (plan E6):
+            // Modern javac emits invokedynamic for lambdas / string concatenation:
             // treat the call site as opaque, popping only its declared arguments.
             return org.objectweb.asm.Type.getArgumentTypes(((InvokeDynamicInsnNode) this.asmNode).desc).length;
         } else if (this.asmNode.getOpcode() == Opcodes.NEW) {

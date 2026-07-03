@@ -1298,7 +1298,7 @@ public class TestCluster {
         }
 
         // EvoObj: prefer richer generators (more parameters) so synthesized objects carry more
-        // state (plan §2.3). Only active when apply_object_rule is enabled.
+        // state. Only active when apply_object_rule is enabled.
         if (Properties.APPLY_OBJECT_RULE) {
             GenericAccessibleObject<?> biased = chooseByParamNumBias(compatible);
             if (biased != null) {
@@ -1315,7 +1315,7 @@ public class TestCluster {
 
     /**
      * EvoObj: roulette-wheel selection biased toward generators with more parameters (richer
-     * constructed objects; plan §2.3). Weight of a candidate is {@code paramCount + 1}.
+     * constructed objects;). Weight of a candidate is {@code paramCount + 1}.
      */
     private GenericAccessibleObject<?> chooseByParamNumBias(List<GenericAccessibleObject<?>> candidates) {
         List<Double> cumulative = new ArrayList<>();

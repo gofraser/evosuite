@@ -33,9 +33,9 @@ import org.slf4j.LoggerFactory;
  * The backward slicer of the object construction graph analysis: one instance per branch. It walks
  * data flow (operand-stack def-use via ASM {@link SourceValue} frames and local/field def-use),
  * control dependencies, and interprocedurally into called methods (depth-bounded), collecting the
- * state-variable leaf nodes selected by the {@link IInterestedNodeFilter}. See plan §3.2.
+ * state-variable leaf nodes selected by the {@link IInterestedNodeFilter}. See
  *
- * <p>Ported from the {@code evosuite-plus-plus} fork with the §7 cleanups applied (debug leftovers
+ * <p>Ported from the {@code evosuite-plus-plus} fork with cleanups applied (debug leftovers
  * and hardcoded name/id traps removed).
  */
 public class InterproceduralGraphAnalyzer {

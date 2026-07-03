@@ -70,7 +70,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     private static final Logger logger = LoggerFactory.getLogger(TestChromosome.class);
 
     /**
-     * EvoObj legitimacy distance (plan §3.6): how far this test still is from executing through
+     * EvoObj legitimacy distance: how far this test still is from executing through
      * the target-method call. 0 means the target call is reached.
      */
     private double legitimacyDistance = 0;
@@ -680,7 +680,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             }
         }
 
-        // EvoObj (plan E5): with the slot bias on, half the time tune one of the primitive template
+        // EvoObj: with the slot bias on, half the time tune one of the primitive template
         // slots in place instead of mutating uniformly. Falls through to the uniform pass if there
         // are no slots or the slot mutation does not change anything.
         if (!changed && Properties.OBJECT_RULE_SLOT_BIAS && Randomness.nextDouble() < 0.5) {
@@ -724,7 +724,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * EvoObj (plan E5): mutate a randomly chosen primitive template slot in place. Returns whether
+     * EvoObj: mutate a randomly chosen primitive template slot in place. Returns whether
      * a slot was found and successfully mutated. In-place primitive mutation preserves the slot
      * flag; a mutation that replaces the statement with a different type naturally loses it.
      */
@@ -968,7 +968,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         }
     }
 
-    // --- EvoObj legitimization (plan §3.6) ---
+    // --- EvoObj legitimization ---
 
     /**
      * Executes this test and returns the statement that stopped execution short (typically the one

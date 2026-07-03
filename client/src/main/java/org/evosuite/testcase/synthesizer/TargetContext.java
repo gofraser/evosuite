@@ -28,7 +28,7 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.utils.MethodUtil;
 
 /**
- * The class/method the object-construction synthesis is currently working against (plan E1). In the
+ * The class/method the object-construction synthesis is currently working against. In the
  * default method-level mode this is fixed by {@code -Dtarget_method}/{@code -Dtarget_class}; in
  * whole-class mode ({@code object_rule_whole_class}) it is derived per branch from the branch's own
  * containing method.
@@ -68,7 +68,7 @@ public class TargetContext {
     /**
      * Resolves the context for a branch in whole-class mode: its own containing method, if that
      * method is public or protected and neither a class nor an instance initializer. Otherwise the
-     * branch is ineligible for object-rule synthesis (no call-graph search in this milestone) and
+     * branch is ineligible for object-rule synthesis (no call-graph search for now) and
      * {@code null} is returned.
      */
     public static TargetContext forBranch(Branch branch) {

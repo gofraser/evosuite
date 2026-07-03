@@ -61,7 +61,7 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
     protected transient T value;
 
     /**
-     * EvoObj (plan E5): whether this primitive is a template "slot" created by object-construction
+     * EvoObj: whether this primitive is a template "slot" created by object-construction
      * synthesis. When {@code object_rule_slot_bias} is on, mutation is biased toward such
      * statements. The flag lives on the statement (not on position or on the chromosome) so it
      * survives clone/crossover/insert/delete through the single {@link #copy(TestCase, int)} path.
@@ -121,12 +121,12 @@ public abstract class PrimitiveStatement<T> extends AbstractStatement {
         return true;
     }
 
-    /** EvoObj (plan E5): whether this primitive is a template slot. */
+    /** EvoObj: whether this primitive is a template slot. */
     public boolean isObjectRuleSlot() {
         return objectRuleSlot;
     }
 
-    /** EvoObj (plan E5): mark/unmark this primitive as a template slot. */
+    /** EvoObj: mark/unmark this primitive as a template slot. */
     public void setObjectRuleSlot(boolean objectRuleSlot) {
         this.objectRuleSlot = objectRuleSlot;
     }

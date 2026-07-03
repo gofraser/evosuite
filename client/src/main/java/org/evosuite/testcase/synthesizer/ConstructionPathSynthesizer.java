@@ -227,7 +227,7 @@ public class ConstructionPathSynthesizer {
 	}
 
 	/**
-	 * EvoObj (plan E5): flag the primitive statements that synthesis produced as tunable "slots"
+	 * EvoObj: flag the primitive statements that synthesis produced as tunable "slots"
 	 * (the matched and influential variables of each graph node). The flag rides on the statement,
 	 * so it survives clone/crossover/insert/delete, and lets the main search bias mutation toward
 	 * them.

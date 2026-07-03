@@ -57,7 +57,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Milestone M4 verification for the EvoObj legitimizer ({@link TestCaseLegitimizer} and the
  * {@code legitimacyDistance} bookkeeping on {@link TestChromosome}).
  *
- * <p>The legitimizer's job (plan §3.6): a synthesized template frequently throws before reaching
+ * <p>The legitimizer's job: a synthesized template frequently throws before reaching
  * the target-method call, and the legitimizer runs a small local search that mutates the
  * primitive/null "slots" preceding the throwing statement until execution reaches the target call
  * (legitimacy distance 0). These tests use a controlled fixture whose pre-target failure is a

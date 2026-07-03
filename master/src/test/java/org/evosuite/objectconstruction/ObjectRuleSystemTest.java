@@ -41,7 +41,7 @@ import com.examples.with.different.packagename.objectconstruction.basicrules.Bas
 import com.examples.with.different.packagename.objectconstruction.basicrules.GameState;
 
 /**
- * End-to-end system tests for EvoObj object-construction synthesis (the re-implementation plan §6.1,
+ * End-to-end system tests for EvoObj object-construction synthesis (EvoObj,
  * enhancements E1 and E8). They run a full DynaMOSA search on the paper's running example
  * {@code BasicRules.checkRules(Action, GameState)} — a method guarded by object state (a
  * {@code Player[]} inside a {@code GameState}) that plain random generation struggles to establish —
@@ -50,8 +50,8 @@ import com.examples.with.different.packagename.objectconstruction.basicrules.Gam
  * <ul>
  *   <li>with {@code apply_object_rule=true} the search runs and reaches at least the coverage of the
  *       {@code apply_object_rule=false} baseline (tolerant, fixed seed, to avoid flakiness);</li>
- *   <li>whole-class mode (plan E1) works without {@code -Dtarget_method};</li>
- *   <li>the object-rule statistics (plan E8) are reported.</li>
+ *   <li>whole-class mode works without {@code -Dtarget_method};</li>
+ *   <li>the object-rule statistics are reported.</li>
  * </ul>
  */
 public class ObjectRuleSystemTest extends SystemTestBase {
@@ -127,7 +127,7 @@ public class ObjectRuleSystemTest extends SystemTestBase {
         double baseline = runSearch(BasicRules.class.getCanonicalName()).getCoverage();
 
         System.out.println("objectRule=" + withRule + " baseline=" + baseline);
-        // Tolerant (plan §6.1): the object rule must not do worse than the baseline. In practice it
+        // Tolerant: the object rule must not do worse than the baseline. In practice it
         // covers substantially more of checkRules, but a strict inequality would be flaky.
         Assertions.assertTrue(withRule >= baseline - 0.05,
                 "object rule should not regress coverage (objectRule=" + withRule + ", baseline=" + baseline + ")");
@@ -137,7 +137,7 @@ public class ObjectRuleSystemTest extends SystemTestBase {
     public void wholeClassModeRunsWithoutTargetMethod() {
         configureObjectRuleSearch();
         Properties.TARGET_CLASS = BasicRules.class.getCanonicalName();
-        Properties.TARGET_METHOD = ""; // no target method: whole-class mode (plan E1)
+        Properties.TARGET_METHOD = ""; // no target method: whole-class mode
         Properties.APPLY_OBJECT_RULE = true;
         Properties.OBJECT_RULE_WHOLE_CLASS = true;
 

@@ -614,7 +614,7 @@ public class VariableCodeGenerationUtil {
 	
 	/**
 	 * Reflection fallback for a non-public <em>leaf</em> field that has no reachable public setter
-	 * (plan E2, gated by {@link Properties#OBJECT_RULE_REFLECTION_FALLBACK}). Creates a value of the
+	 *(gated by {@link Properties#OBJECT_RULE_REFLECTION_FALLBACK}). Creates a value of the
 	 * field's type (reusing the primitive/non-primitive initializers) just before the target-method
 	 * call, then sets the field on the caller object through a
 	 * {@link PrivateFieldStatement}. Returns the value variable (the mutation slot), or {@code null}

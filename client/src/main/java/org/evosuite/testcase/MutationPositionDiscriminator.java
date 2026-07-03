@@ -7,9 +7,9 @@ import org.evosuite.Properties;
 import org.evosuite.ga.Chromosome;
 
 /**
- * Weights mutation positions during EvoObj legitimization (plan §3.6).
+ * Weights mutation positions during EvoObj legitimization.
  *
- * <p>This is the simplified, uniform-probability variant sanctioned by the plan for milestone M4:
+ * <p>This is the simplified, uniform-probability variant:
  * it keeps the public surface consumed by {@link org.evosuite.testcase.synthesizer.TestCaseLegitimizer}
  * (the frozen-iteration bookkeeping and the probability helpers) but does not carry the fork's
  * online-learning machinery, which relied on a per-statement change-relevance map that upstream

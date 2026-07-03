@@ -51,7 +51,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verification for the object-rule branch selector (plan E3): a branch is only eligible for
+ * Verification for the object-rule branch selector: a branch is only eligible for
  * template synthesis when it has a non-empty object-construction graph, and a branch that fails
  * synthesis {@value ObjectRuleBranchSelector#MAX_FAILED_ATTEMPTS} times is negatively cached for
  * the rest of the run.

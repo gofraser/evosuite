@@ -48,7 +48,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Synthesis-level coverage for the {@code ocgexample} corner cases ported from the fork's EvoObj
- * suite (plan §6.1), targeting code paths not otherwise exercised:
+ * suite, targeting code paths not otherwise exercised:
  *
  * <ul>
  *   <li>{@code arraylistexample} — a {@code List} field whose element the branch reads (Collection

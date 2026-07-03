@@ -55,8 +55,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>When {@link Properties#APPLY_OBJECT_RULE} is enabled and a working branch has been selected
  * (via {@link #workingBranch4ObjectGraph}), a freshly generated random test may be replaced with a
- * synthesized object-construction template for that branch (EvoObj, see the re-implementation plan
- * §3.7). With {@code apply_object_rule=false} this class behaves exactly as upstream.
+ * synthesized object-construction template for that branch (EvoObj). With {@code apply_object_rule=false} this class behaves exactly as upstream.
  *
  * @author Gordon Fraser
  */
@@ -75,10 +74,10 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     /** Number of those templates that legitimization drove to distance 0 (statistics). */
     public static int legitimizationSuccess = 0;
 
-    /** Number of random tests replaced by a synthesized template (statistics, plan E8). */
+    /** Number of random tests replaced by a synthesized template (statistics). */
     public static int templateInjections = 0;
 
-    /** Cumulative time (ms) spent synthesizing + legitimizing templates (statistics, plan E8). */
+    /** Cumulative time (ms) spent synthesizing + legitimizing templates (statistics). */
     public static long templateSynthesisTimeMs = 0;
 
     /**
@@ -88,7 +87,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
      */
     public static Branch workingBranch4ObjectGraph = null;
 
-    /** Probability of reusing a cached template instead of re-synthesizing one (plan E4). */
+    /** Probability of reusing a cached template instead of re-synthesizing one. */
     private static final double TEMPLATE_REUSE_PROBABILITY = 0.5;
 
     /**
@@ -156,7 +155,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     }
 
     /**
-     * EvoObj generation path (plan §3.7). Only reached when {@code apply_object_rule=true}. After
+     * EvoObj generation path. Only reached when {@code apply_object_rule=true}. After
      * the first inserted statement the test contains the target-method call (guaranteed by the M1
      * {@code TestCluster.getRandomTestCall} changes); at that point, with probability
      * {@link Properties#P_OBJECT_RULE_APPLICATION}, the test is turned into an object-construction
@@ -167,7 +166,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         final TestFactory testFactory = TestFactory.getInstance();
 
         // Object-rule construction disables primitive reuse so template "slots" get fresh values
-        // (the fork's implicit slot mechanism, plan E5). Saved and restored around this method.
+        // (the fork's implicit slot mechanism). Saved and restored around this method.
         final double oldPrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
         Properties.PRIMITIVE_REUSE_PROBABILITY = 0;
         try {
@@ -197,7 +196,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 // the test into an object-construction template for the working branch.
                 if (num == 1 && targetMethodCallPosition != -1 && applyObjectRule) {
                     // Occasionally reuse a proven cached template instead of re-synthesizing; the
-                    // main GA mutates the clone as usual (plan E4).
+                    // main GA mutates the clone as usual.
                     TestCase cached = null;
                     if (TemplateCache.getInstance().hasTemplate(workingBranch4ObjectGraph)
                             && Randomness.nextDouble() < TEMPLATE_REUSE_PROBABILITY) {
@@ -235,14 +234,14 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         return test;
     }
 
-    /** Whole-class object-rule mode (plan E1): apply the object rule without {@code -Dtarget_method}. */
+    /** Whole-class object-rule mode: apply the object rule without {@code -Dtarget_method}. */
     private static boolean isWholeClassMode() {
         return Properties.OBJECT_RULE_WHOLE_CLASS
                 && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty());
     }
 
     /**
-     * EvoObj whole-class generation path (plan E1). There is no globally fixed target method, so the
+     * EvoObj whole-class generation path. There is no globally fixed target method, so the
      * entry method is derived from the working branch's own containing method: a call to that method
      * is inserted first, then the object-construction template is synthesized against it (with the
      * {@link org.evosuite.testcase.synthesizer.TargetContext} published for the synthesis). Falls back
@@ -263,7 +262,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         Properties.PRIMITIVE_REUSE_PROBABILITY = 0;
         org.evosuite.testcase.synthesizer.TargetContext.setActive(context);
         try {
-            // Occasionally reuse a proven cached template (plan E4).
+            // Occasionally reuse a proven cached template.
             if (TemplateCache.getInstance().hasTemplate(b)
                     && Randomness.nextDouble() < TEMPLATE_REUSE_PROBABILITY) {
                 TestCase cached = TemplateCache.getInstance().getClonedTemplate(b);
@@ -358,14 +357,14 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 finalDistance = oldLegitimacyDistance;
                 legitimizationTrials++;
                 // Bound legitimization by both the configured total budget and the remaining search
-                // phase time, so a tight search_budget still terminates on time (plan E8).
+                // phase time, so a tight search_budget still terminates on time.
                 long now = System.currentTimeMillis();
                 boolean withinTotalBudget =
                         now - TestCaseLegitimizer.startTime <= Properties.TOTAL_LEGITIMIZATION_BUDGET * 1000L;
                 if (withinTotalBudget && TimeController.getInstance().isThereStillTimeInThisPhase()) {
                     TestChromosome legitimizedChromosome =
                             TestCaseLegitimizer.getInstance().legitimize(templateChromosome, graph, graph2CodeMap);
-                    // Keep the legitimized test (the fork discarded it, plan §7).
+                    // Keep the legitimized test (the fork discarded it).
                     test = legitimizedChromosome.getTestCase();
                     finalDistance = legitimizedChromosome.getLegitimacyDistance();
                     if (finalDistance == 0) {
@@ -375,13 +374,13 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 }
             }
 
-            // Cache the best template seen for this branch for later reuse (plan E4).
+            // Cache the best template seen for this branch for later reuse.
             TemplateCache.getInstance().store(b, test, finalDistance);
         } catch (Exception e) {
             logger.debug("Object-rule synthesis/legitimization failed for branch " + b + ": " + e.getMessage(), e);
         } finally {
             templateSynthesisTimeMs += System.currentTimeMillis() - synthesisStart;
-            // Feed the outcome back to the branch selector's negative cache (plan E3).
+            // Feed the outcome back to the branch selector's negative cache.
             ObjectRuleBranchSelector.getInstance().recordSynthesisAttempt(b, reachedTargetCall);
         }
 
@@ -390,8 +389,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
     /**
      * Resets the object-rule statistics counters. Invoked from
-     * {@link ObjectConstructionContext#reset()} so runs do not leak counts into one another
-     * (plan E7/E8).
+     * {@link ObjectConstructionContext#reset()} so runs do not leak counts into one another.
      */
     public static void resetStatistics() {
         legitimizationTrials = 0;
@@ -401,7 +399,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     }
 
     /**
-     * Reports the EvoObj object-rule statistics as {@link RuntimeVariable}s (plan E8). Called once
+     * Reports the EvoObj object-rule statistics as {@link RuntimeVariable}s. Called once
      * at the end of the search from {@link org.evosuite.statistics.StatisticsListener}; a no-op
      * effect unless {@code apply_object_rule} is enabled.
      */

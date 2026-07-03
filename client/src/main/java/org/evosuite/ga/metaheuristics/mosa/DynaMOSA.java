@@ -120,7 +120,7 @@ public class DynaMOSA extends AbstractMOSA {
         logger.debug("executing generateSolution function");
 
         if (Properties.APPLY_OBJECT_RULE) {
-            // EvoObj: the total legitimization budget is measured from search start (plan M4/M5).
+            // EvoObj: the total legitimization budget is measured from search start.
             TestCaseLegitimizer.startTime = System.currentTimeMillis();
         }
 

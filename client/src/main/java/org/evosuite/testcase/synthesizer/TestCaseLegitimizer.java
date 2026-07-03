@@ -30,12 +30,12 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Local search that makes a synthesized object-construction template executable up to its target
- * method call (paper §3.3, plan §3.6). A synthesized template frequently throws before reaching
+ * method call (paper §3.3). A synthesized template frequently throws before reaching
  * the target call (e.g., an NPE from a not-yet-initialized field); the legitimizer runs a small
  * niching GA that mutates the primitive/null "slots" preceding the throwing statement until the
  * test executes through to the target call.
  *
- * <p>This is the simplified milestone-M4 variant sanctioned by the plan (§4, §5.7): the legitimacy
+ * <p>This is the simplified variant: the legitimacy
  * distance is the coarse "number of statements not executed before the target call". The fork's
  * finer branch-fitness refinement (which relied on the flag-branch fitness and a
  * fully-instrumented auxiliary class loader for dependency classes — infrastructure that does not
@@ -113,7 +113,7 @@ public class TestCaseLegitimizer {
     }
 
     /**
-     * Coarse legitimacy distance (plan §3.6): {@code position(targetCall) - executedStatements + 1},
+     * Coarse legitimacy distance: {@code position(targetCall) - executedStatements + 1},
      * clamped at 0. It is 0 exactly when execution reaches the target-method call (including the
      * case where the target call itself throws).
      */

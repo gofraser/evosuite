@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verification for the EvoObj budget/statistics enhancement (plan E8). The graph-size and
+ * Verification for the EvoObj budget/statistics enhancement. The graph-size and
  * template counters are unit-tested here; the two system-level guarantees of E8 — that the
  * {@link org.evosuite.statistics.RuntimeVariable}s appear in the statistics CSV and that a run
  * with a tight {@code search_budget} terminates on time even with legitimization enabled — are
@@ -94,7 +94,7 @@ public class ObjectRuleStatisticsTest {
         TestCaseExecutor.initExecutor();
     }
 
-    /** {@code resetStatistics} zeroes every object-rule counter (determinism, plan E7/E8). */
+    /** {@code resetStatistics} zeroes every object-rule counter (determinism). */
     @Test
     public void resetStatisticsClearsCounters() {
         RandomLengthTestFactory.legitimizationTrials = 7;

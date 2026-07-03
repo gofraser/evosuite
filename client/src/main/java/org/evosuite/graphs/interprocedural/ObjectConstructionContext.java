@@ -11,7 +11,7 @@ import org.evosuite.graphs.interprocedural.var.DepVariable;
 
 /**
  * Holder for the mutable static state of the EvoObj object-construction analysis and synthesis
- * (plan §E7). Consolidating the statics behind a single {@link #reset()} — wired into
+ *. Consolidating the statics behind a single {@link #reset()} — wired into
  * {@link org.evosuite.TestGenerationContext#resetContext()} — keeps generation deterministic and
  * prevents state from leaking between runs or between system-test methods.
  *

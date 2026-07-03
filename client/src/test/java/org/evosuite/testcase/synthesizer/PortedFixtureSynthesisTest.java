@@ -52,8 +52,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Synthesis-level coverage for the fixture groups ported from the fork's EvoObj suite (plan §6.1,
- * §10 {@code tests/}), exercising OCG features not covered by the M2/M3 fixtures:
+ * Synthesis-level coverage for the fixture groups ported from the fork's EvoObj suite, exercising OCG features not covered by the earlier
+ * node-kind fixtures:
  *
  * <ul>
  *   <li>{@code cascadecall} — a field settable only through a cascaded call chain (setter-search

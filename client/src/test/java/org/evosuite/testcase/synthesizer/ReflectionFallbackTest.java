@@ -58,7 +58,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Verification for the EvoObj reflection fallback (plan E2). {@link NoSetterFieldExample} has a
+ * Verification for the EvoObj reflection fallback. {@link NoSetterFieldExample} has a
  * private leaf field with no reachable setter, so with {@code object_rule_reflection_fallback} on
  * the synthesizer must set it via a {@link PrivateFieldStatement}; with the flag off (parity) the
  * template leaves the field untouched.

@@ -1013,7 +1013,7 @@ public class DefaultTestCase implements TestCase, Serializable {
      */
     @Override
     public MethodStatement findTargetMethodCallStatement() {
-        // In whole-class mode (plan E1) TARGET_METHOD is unset; the active TargetContext supplies
+        // In whole-class mode TARGET_METHOD is unset; the active TargetContext supplies
         // the method signature. When TARGET_METHOD is set, this resolves to it (unchanged M1-M5).
         return findMethodCallStatement(
                 org.evosuite.testcase.synthesizer.TargetContext.activeMethodSignature());

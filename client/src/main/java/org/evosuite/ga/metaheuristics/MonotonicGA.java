@@ -87,7 +87,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     protected void evolve() {
 
         // EvoObj: pick the uncovered branch that object-construction templates should target this
-        // generation (plan §2.3). No-op unless apply_object_rule is enabled.
+        // generation. No-op unless apply_object_rule is enabled.
         if (Properties.APPLY_OBJECT_RULE) {
             selectObjectRuleWorkingBranch();
         }
@@ -241,9 +241,9 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
 
     /**
      * EvoObj: choose the {@link RandomLengthTestFactory#workingBranch4ObjectGraph} for the next
-     * generation from the uncovered branch goals (plan §2.3, MonotonicGA hook). The choice is
+     * generation from the uncovered branch goals (MonotonicGA hook). The choice is
      * delegated to {@link ObjectRuleBranchSelector}, which restricts it to branches with a
-     * non-empty object graph and drops branches that repeatedly fail synthesis (plan E3).
+     * non-empty object graph and drops branches that repeatedly fail synthesis.
      * {@code null} when no eligible branch remains, which disables template synthesis for the
      * generation.
      */
@@ -261,7 +261,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             }
             RandomLengthTestFactory.workingBranch4ObjectGraph =
                     ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
-            // Evict cached templates for branches that are now covered (plan E4).
+            // Evict cached templates for branches that are now covered.
             TemplateCache.getInstance().retainUncovered(uncoveredBranches);
         }
     }
@@ -306,7 +306,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     @Override
     public void generateSolution() {
         if (Properties.APPLY_OBJECT_RULE) {
-            // EvoObj: the total legitimization budget is measured from search start (plan M4/M5).
+            // EvoObj: the total legitimization budget is measured from search start.
             TestCaseLegitimizer.startTime = System.currentTimeMillis();
         }
         if (Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER > 0 || Properties.ENABLE_SECONDARY_OBJECTIVE_STARVATION) {
