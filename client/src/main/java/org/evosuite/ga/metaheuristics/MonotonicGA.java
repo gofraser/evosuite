@@ -276,10 +276,21 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
             return null;
         }
 
-        Set<BranchCoverageGoal> uncoveredGoals = new HashSet<>();
         TestSuiteChromosome testsuite = (TestSuiteChromosome) bestIndividual;
+        return computeUncoveredBranches(testsuite.getLastExecutionResults(), branchGoals);
+    }
 
-        for (ExecutionResult result : testsuite.getLastExecutionResults()) {
+    /**
+     * EvoObj helper: a branch goal is covered iff <em>any</em> execution result has branch distance
+     * 0 for it. Returns every goal (with a non-null branch) that no result covers. Deciding
+     * membership per result — as an earlier version did — makes a goal's status depend only on the
+     * last result, so a branch covered by an early test but not the last one is misreported as
+     * uncovered. Package-visible and static so it can be unit-tested with mocked traces.
+     */
+    static Set<BranchCoverageGoal> computeUncoveredBranches(List<ExecutionResult> results,
+                                                            List<BranchCoverageTestFitness> branchGoals) {
+        Set<BranchCoverageGoal> covered = new HashSet<>();
+        for (ExecutionResult result : results) {
             if (result == null) {
                 continue;
             }
@@ -292,10 +303,18 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                         ? result.getTrace().getTrueDistances().get(branchId)
                         : result.getTrace().getFalseDistances().get(branchId);
                 if (distance != null && distance == 0) {
-                    uncoveredGoals.remove(tf.getBranchGoal());
-                } else {
-                    uncoveredGoals.add(tf.getBranchGoal());
+                    covered.add(tf.getBranchGoal());
                 }
+            }
+        }
+
+        Set<BranchCoverageGoal> uncoveredGoals = new HashSet<>();
+        for (BranchCoverageTestFitness tf : branchGoals) {
+            if (tf.getBranch() == null) {
+                continue;
+            }
+            if (!covered.contains(tf.getBranchGoal())) {
+                uncoveredGoals.add(tf.getBranchGoal());
             }
         }
 
