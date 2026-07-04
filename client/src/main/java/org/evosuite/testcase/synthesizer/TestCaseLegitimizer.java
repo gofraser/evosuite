@@ -191,6 +191,10 @@ public class TestCaseLegitimizer {
             } else {
                 // At least one individual reached the target call: rank by distance and stop.
                 population.sort(new PopulationComparator());
+                // Trim so the population cannot grow across iterations on this early-return path.
+                if (population.size() > optimizionPopulationSize) {
+                    population.subList(optimizionPopulationSize, population.size()).clear();
+                }
                 return;
             }
         }

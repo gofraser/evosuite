@@ -975,8 +975,12 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      * that threw), or {@code null} if the test executes up to (near) the end without an early exit.
      */
     public Statement getStatementReportingException() {
-        ExecutionResult result = TestCaseExecutor.runTest(this.getTestCase());
-        this.setLastExecutionResult(result);
+        // Reuse the cached execution result when present (mirrors updateLegitimacyDistance) so the
+        // legitimizer does not execute every offspring twice per generation.
+        if (this.getLastExecutionResult() == null) {
+            ExecutionResult result = TestCaseExecutor.runTest(this.getTestCase());
+            this.setLastExecutionResult(result);
+        }
         int numOfExecutedStatements = this.getLastExecutionResult().getExecutedStatements();
 
         if (numOfExecutedStatements >= this.test.size() - 1) {
