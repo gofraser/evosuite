@@ -335,7 +335,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         boolean reachedTargetCall = false;
         double finalDistance = Double.MAX_VALUE;
         try {
-            ConstructionPathSynthesizer synthesizer = new ConstructionPathSynthesizer(false);
+            ConstructionPathSynthesizer synthesizer = new ConstructionPathSynthesizer();
             synthesizer.buildNodeStatementCorrespondence(test, b, allowNullValue);
             templateInjections++;
             if (!allowNullValue) {

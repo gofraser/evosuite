@@ -228,7 +228,7 @@ public class ObjectConstructionSynthesisTest {
 	}
 
 	private static ConstructionPathSynthesizer synthesize(TestCase test, Branch b) throws Exception {
-		ConstructionPathSynthesizer synth = new ConstructionPathSynthesizer(false);
+		ConstructionPathSynthesizer synth = new ConstructionPathSynthesizer();
 		synth.buildNodeStatementCorrespondence(test, b, false);
 		return synth;
 	}

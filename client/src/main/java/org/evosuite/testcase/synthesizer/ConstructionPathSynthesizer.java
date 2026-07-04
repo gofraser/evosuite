@@ -1,11 +1,5 @@
 package org.evosuite.testcase.synthesizer;
 
-import java.io.BufferedWriter;
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
@@ -51,15 +45,8 @@ import org.evosuite.utils.generic.GenericConstructor;
 
 public class ConstructionPathSynthesizer {
 
-//	private TestFactory testFactory;
-//	private static final Logger logger = LoggerFactory.getLogger(ConstructionPathSynthesizer.class);
-	
-	public static String debuggerFolder = "";
-
-	public ConstructionPathSynthesizer(boolean isDebug) {
+	public ConstructionPathSynthesizer() {
 		super();
-//		this.testFactory = testFactory;
-		this.isDebugger = isDebug;
 	}
 
 	/**
@@ -128,19 +115,12 @@ public class ConstructionPathSynthesizer {
 	
 	private PartialGraph partialGraph;
 	private Map<DepVariableWrapper, VarRelevance> graph2CodeMap;
-	
-	
-	public boolean isDebugger = false;
-	
+
 	public void buildNodeStatementCorrespondence(TestCase test, Branch b, boolean allowNullValue)
 			throws ConstructionFailedException, ClassNotFoundException {
 
 		PartialGraph partialGraph = constructPartialComputationGraph(b);
-		
-//		System.currentTimeMillis();
-		// GraphVisualizer is a debug-only tool (needs the graphviz-java dependency) and is not ported.
-		logTest(test, b, isDebugger, 0, null);
-		
+
 		List<DepVariableWrapper> topLayer = partialGraph.getTopLayer();
 		
 		/**
@@ -177,11 +157,7 @@ public class ConstructionPathSynthesizer {
 				deriveCodeForTest(map, test, testVariable, b, allowNullValue, null);
 				
 				node.processed = true;
-				
-//				partialGraph.taint(map, node, test, callerObject);
-				
-				logTest(test, b, isDebugger, c, node);
-				
+
 				/**
 				 *  the order of children size matters
 				 */
@@ -251,41 +227,6 @@ public class ConstructionPathSynthesizer {
 				((PrimitiveStatement<?>) statement).setObjectRuleSlot(true);
 			}
 		}
-	}
-
-	protected void logTest(TestCase test, Branch b, boolean isDebugger, int iteration, DepVariableWrapper node) {
-		if(!isDebugger) {
-			return;
-		}
-		
-		String subfolder = debuggerFolder + File.separator + b.toString() + File.separator;
-		File f = new File(subfolder);
-		if(!f.exists()) {
-			f.mkdir();
-		}
-		
-		String nodeName = "initial";
-		if(node != null) {
-			nodeName = node.getShortName();
-		}
-		
-		String testScript = subfolder + iteration  + "-" + nodeName + ".txt";
-		testScript = testScript.replace("/", ".");
-		Writer writer = null;
-
-		try {
-			writer = new BufferedWriter(new OutputStreamWriter(
-			          new FileOutputStream(testScript), "utf-8"));
-			writer.write(test.toString());
-		}
-		catch (IOException ex) {
-		} finally {
-		   try {writer.close();} 
-		   catch (Exception ex) {
-		   }
-		}
-		
-		
 	}
 
 	protected boolean checkDependency(DepVariableWrapper node, Map<DepVariableWrapper, VarRelevance> map) {

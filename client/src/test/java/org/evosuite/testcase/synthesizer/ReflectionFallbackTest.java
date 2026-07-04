@@ -159,7 +159,7 @@ public class ReflectionFallbackTest {
 		Branch b = stateBearingBranch();
 
 		TestCase test = initializeTestWithTargetCall(NoSetterFieldExample.class);
-		ConstructionPathSynthesizer synth = new ConstructionPathSynthesizer(false);
+		ConstructionPathSynthesizer synth = new ConstructionPathSynthesizer();
 		synth.buildNodeStatementCorrespondence(test, b, false);
 
 		assertTrue(hasPrivateFieldStatement(test),
@@ -175,7 +175,7 @@ public class ReflectionFallbackTest {
 		Branch b = stateBearingBranch();
 
 		TestCase test = initializeTestWithTargetCall(NoSetterFieldExample.class);
-		ConstructionPathSynthesizer synth = new ConstructionPathSynthesizer(false);
+		ConstructionPathSynthesizer synth = new ConstructionPathSynthesizer();
 		synth.buildNodeStatementCorrespondence(test, b, false);
 
 		assertFalse(hasPrivateFieldStatement(test),
