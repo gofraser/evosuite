@@ -20,11 +20,13 @@
 package org.evosuite.testcase.factories;
 
 import org.evosuite.Properties;
+import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
@@ -43,8 +45,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Milestone M1 (method-level targeting): with {@code Properties.TARGET_METHOD}
- * set, a generated test calls the target method and that call is protected from
- * deletion. All behaviour is a no-op unless {@code TARGET_METHOD} is set.
+ * set and the object rule enabled, a generated test calls the target method and
+ * that call is protected from deletion. All behaviour is a no-op unless both the
+ * object rule is enabled and {@code TARGET_METHOD} is set.
  */
 public class TargetMethodModeTest {
 
@@ -61,11 +64,15 @@ public class TargetMethodModeTest {
 
     private final String savedTargetMethod = Properties.TARGET_METHOD;
     private final String savedTargetClass = Properties.TARGET_CLASS;
+    private final boolean savedObjectRule = Properties.APPLY_OBJECT_RULE;
+    private final boolean savedSortCalls = Properties.SORT_CALLS;
 
     @AfterEach
     public void restoreProperties() {
         Properties.TARGET_METHOD = savedTargetMethod;
         Properties.TARGET_CLASS = savedTargetClass;
+        Properties.APPLY_OBJECT_RULE = savedObjectRule;
+        Properties.SORT_CALLS = savedSortCalls;
     }
 
     private static GenericMethod targetGenericMethod() throws Exception {
@@ -90,6 +97,8 @@ public class TargetMethodModeTest {
     private static void selectTarget() throws Exception {
         Properties.TARGET_CLASS = Target.class.getName();
         Properties.TARGET_METHOD = targetGenericMethod().getNameWithDescriptor();
+        // The M1 generation hooks only take effect when the object rule is enabled.
+        Properties.APPLY_OBJECT_RULE = true;
     }
 
     @Test
@@ -154,6 +163,51 @@ public class TargetMethodModeTest {
         // Deleting a statement the target depends on is refused too (cascade).
         assertFalse(factory.deleteStatement(tc, 0));
         assertNotNull(tc.findTargetMethodCallStatement());
+    }
+
+    @Test
+    public void targetCallDeletableWhenObjectRuleDisabled() throws Exception {
+        // TARGET_METHOD set but the object rule OFF: the M1 deletion guard must not apply, so the
+        // target call is deletable exactly like upstream.
+        Properties.TARGET_CLASS = Target.class.getName();
+        Properties.TARGET_METHOD = targetGenericMethod().getNameWithDescriptor();
+        Properties.APPLY_OBJECT_RULE = false;
+
+        DefaultTestCase tc = new DefaultTestCase();
+        int targetPos = appendTargetCall(tc);
+
+        TestFactory factory = TestFactory.getInstance();
+        assertTrue(factory.deleteStatement(tc, targetPos),
+                "with the object rule disabled, the target call must be deletable (upstream behavior)");
+    }
+
+    @Test
+    public void randomTestCallNotForcedToTargetWhenObjectRuleDisabled() throws Exception {
+        // TARGET_METHOD set but the object rule OFF: getRandomTestCall must not force the target
+        // method. With forcing active every call would return the target; here a non-target call
+        // must surface, proving the forcing loop is gated off.
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+        cluster.addTestCall(targetGenericMethod());
+        cluster.addTestCall(otherGenericMethod());
+
+        Properties.TARGET_CLASS = Target.class.getName();
+        Properties.TARGET_METHOD = targetGenericMethod().getNameWithDescriptor();
+        Properties.APPLY_OBJECT_RULE = false;
+        Properties.SORT_CALLS = false;
+        Randomness.setSeed(42L);
+
+        boolean sawNonTarget = false;
+        for (int i = 0; i < 50 && !sawNonTarget; i++) {
+            GenericAccessibleObject<?> choice = cluster.getRandomTestCall(new DefaultTestCase());
+            if (choice != null && !TestGenerationUtil.isTargetMethod(choice)) {
+                sawNonTarget = true;
+            }
+        }
+        TestCluster.reset();
+
+        assertTrue(sawNonTarget,
+                "with the object rule disabled, getRandomTestCall must not force the target method");
     }
 
     @Test
