@@ -246,13 +246,13 @@ public abstract class DepVariable {
 	}
 
 	/**
-	 * Note: like the fork, all variables of the same {@link #type} collide in the same hash bucket.
-	 * This is acceptable because the graphs are small and {@link #equals(Object)} (instruction
-	 * identity) still discriminates them; keep the two consistent if this is ever refined.
+	 * Hash on the underlying instruction so it matches {@link #equals(Object)} (which compares
+	 * instructions). Hashing on {@link #type} instead collapses every variable of the same kind
+	 * into one bucket, degrading set/map operations on large graphs to linear scans.
 	 */
 	@Override
 	public int hashCode() {
-		return type;
+		return getInstruction() == null ? 0 : getInstruction().hashCode();
 	}
 
 	public String getUniqueLabel() {
@@ -349,15 +349,16 @@ public abstract class DepVariable {
 		return shortMethodName;
 	}
 
+	@Override
 	public boolean equals(Object obj) {
-		if (obj instanceof DepVariable) {
-			DepVariable var = (DepVariable) obj;
-			if (var.getInstruction().equals(this.getInstruction())) {
-				return true;
-			}
+		if (!(obj instanceof DepVariable)) {
+			return false;
 		}
-
-		return false;
+		DepVariable var = (DepVariable) obj;
+		if (this.getInstruction() == null || var.getInstruction() == null) {
+			return this == obj;
+		}
+		return var.getInstruction().equals(this.getInstruction());
 	}
 
 
