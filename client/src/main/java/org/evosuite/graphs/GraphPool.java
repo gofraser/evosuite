@@ -144,6 +144,16 @@ public class GraphPool {
     }
 
     /**
+     * Quiet availability check for a raw CFG: returns whether the given method's
+     * {@link RawControlFlowGraph} is already registered, without logging a warning on a miss.
+     * Used by EvoObj analysis code that probes before registering (see {@link #registerClass}).
+     */
+    public boolean hasRawCFG(String className, String methodName) {
+        Map<String, RawControlFlowGraph> methods = rawCFGs.get(className);
+        return methods != null && methods.containsKey(methodName);
+    }
+
+    /**
      * Returns the raw control flow graphs for the specified class.
      *
      * @param className a {@link java.lang.String} object.
@@ -268,8 +278,10 @@ public class GraphPool {
 
             for (MethodNode m : l) {
                 String fullName = m.name + m.desc;
-                RawControlFlowGraph cfg = GraphPool.getInstance(classLoader).getRawCFG(className, fullName);
-                if (cfg == null && m.instructions.size() != 0) {
+                // Probe quietly: the class is being registered here, so a miss is expected and must
+                // not produce a "Class unknown" warning.
+                boolean known = GraphPool.getInstance(classLoader).hasRawCFG(className, fullName);
+                if (!known && m.instructions.size() != 0) {
                     BytecodeAnalyzer bytecodeAnalyzer = new BytecodeAnalyzer();
                     bytecodeAnalyzer.analyze(classLoader, className, fullName, m);
                     bytecodeAnalyzer.retrieveCFGGenerator().registerCFGs();
