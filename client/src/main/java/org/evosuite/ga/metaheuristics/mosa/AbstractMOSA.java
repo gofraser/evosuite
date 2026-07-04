@@ -640,28 +640,31 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
                     crossoverApplied);
         }
+        // EvoObj: collect the uncovered branch goals once per generation (not per inserted test) and
+        // evict cached templates for branches that are now covered. No-op unless enabled.
+        List<Branch> uncoveredBranches = null;
+        if (Properties.APPLY_OBJECT_RULE) {
+            uncoveredBranches = new ArrayList<>();
+            for (TestFitnessFunction ff : getUncoveredGoals()) {
+                if (ff instanceof BranchFitness) {
+                    Branch branch = ((BranchFitness) ff).getBranchGoal().getBranch();
+                    if (branch != null) {
+                        uncoveredBranches.add(branch);
+                    }
+                }
+            }
+            TemplateCache.getInstance().retainUncovered(uncoveredBranches);
+        }
         // Add new randomly generate tests
         for (int i = 0; i < Properties.POPULATION * Properties.P_TEST_INSERTION; i++) {
             final TestChromosome tch;
             if (this.getCoveredGoals().isEmpty() || Randomness.nextBoolean()) {
                 // EvoObj: target an uncovered branch goal with the object-construction template for
-                // this newly generated test. ObjectRuleBranchSelector restricts the
-                // choice to branches with a non-empty object graph and drops repeatedly-failing
-                // ones. No-op unless enabled.
+                // this newly generated test. ObjectRuleBranchSelector restricts the choice to
+                // branches with a non-empty object graph and drops repeatedly-failing ones.
                 if (Properties.APPLY_OBJECT_RULE) {
-                    List<Branch> uncoveredBranches = new ArrayList<>();
-                    for (TestFitnessFunction ff : getUncoveredGoals()) {
-                        if (ff instanceof BranchFitness) {
-                            Branch branch = ((BranchFitness) ff).getBranchGoal().getBranch();
-                            if (branch != null) {
-                                uncoveredBranches.add(branch);
-                            }
-                        }
-                    }
                     RandomLengthTestFactory.workingBranch4ObjectGraph =
                             ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
-                    // Evict cached templates for branches that are now covered.
-                    TemplateCache.getInstance().retainUncovered(uncoveredBranches);
                 }
                 tch = this.chromosomeFactory.getChromosome();
                 tch.setChanged(true);
