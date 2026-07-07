@@ -19,12 +19,18 @@
  */
 package org.evosuite.testcase.synthesizer;
 
+import java.util.ArrayDeque;
+import java.util.HashSet;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.Set;
 
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
+import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.callgraph.CallGraph;
+import org.evosuite.setup.callgraph.CallGraphEntry;
 import org.evosuite.utils.MethodUtil;
 
 /**
@@ -51,6 +57,7 @@ public class TargetContext {
     private final String methodSignature;
     private final Branch branch;
     private final boolean constructorEntry;
+    private final String branchMethodSignature;
 
     public TargetContext(String className, String methodSignature, Branch branch) {
         this(className, methodSignature, branch, false);
@@ -61,6 +68,9 @@ public class TargetContext {
         this.methodSignature = methodSignature;
         this.branch = branch;
         this.constructorEntry = constructorEntry;
+        this.branchMethodSignature = branch == null || branch.getInstruction() == null
+                ? methodSignature
+                : branch.getInstruction().getMethodName();
     }
 
     public String getClassName() {
@@ -77,6 +87,10 @@ public class TargetContext {
 
     public boolean isConstructorEntry() {
         return constructorEntry;
+    }
+
+    public String getBranchMethodSignature() {
+        return branchMethodSignature;
     }
 
     /**
@@ -115,6 +129,12 @@ public class TargetContext {
                     if (Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers)) {
                         return new TargetContext(className, methodSignature, branch);
                     }
+                    if (Properties.OBJECT_RULE_EXPANDED_ENTRIES) {
+                        String caller = nearestAccessibleCaller(className, methodSignature, clazz);
+                        if (caller != null) {
+                            return new TargetContext(className, caller, branch);
+                        }
+                    }
                     countNonPublicRejection();
                     return null;
                 }
@@ -125,6 +145,56 @@ public class TargetContext {
         }
         countOtherRejection();
         return null;
+    }
+
+    private static String nearestAccessibleCaller(String className, String methodSignature, Class<?> clazz) {
+        CallGraph callGraph = DependencyAnalysis.getCallGraph();
+        if (callGraph == null) {
+            return null;
+        }
+        ArrayDeque<CallGraphEntry> queue = new ArrayDeque<>();
+        ArrayDeque<Integer> depths = new ArrayDeque<>();
+        Set<CallGraphEntry> visited = new HashSet<>();
+        CallGraphEntry root = new CallGraphEntry(className, methodSignature);
+        queue.add(root);
+        depths.add(0);
+        visited.add(root);
+
+        while (!queue.isEmpty()) {
+            CallGraphEntry current = queue.remove();
+            int depth = depths.remove();
+            if (depth >= 3) {
+                continue;
+            }
+            for (CallGraphEntry caller : callGraph.getGraph().getNeighbors(current)) {
+                if (!visited.add(caller)) {
+                    continue;
+                }
+                if (!className.equals(caller.getClassName())) {
+                    continue;
+                }
+                String callerMethod = caller.getMethodName();
+                if (isAccessibleDeclaredMethod(clazz, callerMethod)) {
+                    return callerMethod;
+                }
+                queue.add(caller);
+                depths.add(depth + 1);
+            }
+        }
+        return null;
+    }
+
+    private static boolean isAccessibleDeclaredMethod(Class<?> clazz, String methodSignature) {
+        if (methodSignature == null || methodSignature.startsWith("<")) {
+            return false;
+        }
+        for (Method m : clazz.getDeclaredMethods()) {
+            if ((m.getName() + MethodUtil.getSignature(m)).equals(methodSignature)) {
+                int modifiers = m.getModifiers();
+                return Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers);
+            }
+        }
+        return false;
     }
 
     private static void countConstructorRejection() {

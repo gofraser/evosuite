@@ -149,8 +149,14 @@ public class WholeClassModeTest {
 		Branch privateBranch = firstBranchOf(WholeClassExample.class, "hiddenEntry", 1);
 		assertNull(TargetContext.forBranch(privateBranch),
 				"a branch in a private method is not a valid entry (no call-graph search)");
+		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
+		TargetContext privateContext = TargetContext.forBranch(privateBranch);
+		assertNotNull(privateContext, "expanded entries allow private branches through a public caller");
+		assertEquals(signatureOf(WholeClassExample.class, "publicCallsHidden", 1),
+				privateContext.getMethodSignature());
 
 		Branch constructorBranch = firstConstructorBranchOf(WholeClassExample.class, 1);
+		Properties.OBJECT_RULE_EXPANDED_ENTRIES = false;
 		assertNull(TargetContext.forBranch(constructorBranch),
 				"a constructor branch is rejected unless expanded entries are enabled");
 		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
@@ -199,6 +205,14 @@ public class WholeClassModeTest {
 						.containsKey(signatureOf(WholeClassExample.class, "publicEntry", 1)),
 				"eligibility should have analyzed the entry method on demand");
 		assertTrue(!selector.isEligible(privateBranch), "a private-method branch is ineligible");
+		selector.reset();
+		ObjectConstructionContext.reset();
+		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
+		assertTrue(selector.isEligible(privateBranch),
+				"a private-method branch with a public caller and object state is eligible");
+		assertTrue(ObjectConstructionContext.branchInterestedVarsMap
+						.containsKey(signatureOf(WholeClassExample.class, "publicCallsHidden", 1)),
+				"private branch analysis should be cached under the public entry method");
 	}
 
 	@Test
@@ -250,5 +264,28 @@ public class WholeClassModeTest {
 			}
 		}
 		assertTrue(built, "the factory should build a template that calls the constructor entry");
+	}
+
+	@Test
+	public void factoryUsesPublicCallerForPrivateBranchWhenExpandedEntriesAreEnabled() {
+		analyzeWholeClass(WholeClassExample.class);
+		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
+		Properties.P_OBJECT_RULE_APPLICATION = 1.0;
+		Branch privateBranch = firstBranchOf(WholeClassExample.class, "hiddenEntry", 1);
+		String entrySig = signatureOf(WholeClassExample.class, "publicCallsHidden", 1);
+
+		RandomLengthTestFactory factory = new RandomLengthTestFactory();
+		boolean built = false;
+		for (int attempt = 0; attempt < 60 && !built; attempt++) {
+			RandomLengthTestFactory.workingBranch4ObjectGraph = privateBranch;
+			TestChromosome chromosome = factory.getChromosome();
+			TestCase test = chromosome.getTestCase();
+			if (test.findMethodCallStatement(entrySig) != null) {
+				built = true;
+				ExecutionResult result = TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE);
+				assertNotNull(result, "the private-branch template should execute through its public caller");
+			}
+		}
+		assertTrue(built, "the factory should call the public entry that reaches the private branch");
 	}
 }

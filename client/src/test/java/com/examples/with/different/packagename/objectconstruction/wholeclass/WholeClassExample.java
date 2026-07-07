@@ -27,6 +27,10 @@ public class WholeClassExample {
 		return false;
 	}
 
+	public boolean publicCallsHidden(int x) {
+		return hiddenEntry(x);
+	}
+
 	private boolean hiddenEntry(int x) {
 		if (state == x) {
 			return true;

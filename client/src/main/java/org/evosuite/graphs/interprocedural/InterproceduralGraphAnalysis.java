@@ -22,6 +22,7 @@ import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.graphs.interprocedural.var.DepVariableFactory;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Frame;
@@ -106,10 +107,9 @@ public class InterproceduralGraphAnalysis {
 	}
 
 	/**
-	 * Whole-class mode: analyze the object-construction graph of the branch's own
-	 * containing method on demand and cache it in {@link ObjectConstructionContext#branchInterestedVarsMap},
-	 * instead of the eager {@link #initializeDataflow} loop over {@code TARGET_METHOD}. Idempotent
-	 * per method.
+	 * Whole-class mode: analyze the object-construction graph on demand and cache it in
+	 * {@link ObjectConstructionContext#branchInterestedVarsMap}, instead of the eager
+	 * {@link #initializeDataflow} loop over {@code TARGET_METHOD}. Idempotent per entry method.
 	 */
 	public static synchronized void analyzeBranchOnDemand(Branch branch, IInterestedNodeFilter interestedNodeFilter) {
 		if (branch == null || branch.getInstruction() == null) {
@@ -117,8 +117,18 @@ public class InterproceduralGraphAnalysis {
 		}
 		String className = branch.getInstruction().getClassName();
 		String methodName = branch.getInstruction().getMethodName();
+		String cacheKey = methodName;
+		TargetContext context = null;
+		if (Properties.OBJECT_RULE_WHOLE_CLASS
+				&& (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty())) {
+			context = TargetContext.forBranch(branch);
+			if (context == null) {
+				return;
+			}
+			cacheKey = context.getMethodSignature();
+		}
 		if (className == null || methodName == null
-				|| ObjectConstructionContext.branchInterestedVarsMap.containsKey(methodName)) {
+				|| ObjectConstructionContext.branchInterestedVarsMap.containsKey(cacheKey)) {
 			return;
 		}
 
@@ -129,15 +139,18 @@ public class InterproceduralGraphAnalysis {
 		}
 		try {
 			FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
-			Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
-			ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
+			Map<Branch, Set<DepVariable>> map = context != null
+					&& !context.getMethodSignature().equals(context.getBranchMethodSignature())
+					? analyzeIndividualBranch(cfg, branch, interestedNodeFilter)
+					: analyzeIndividualMethod(cfg, interestedNodeFilter);
+			ObjectConstructionContext.branchInterestedVarsMap.put(cacheKey, map);
 			ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
 		} catch (Exception | StackOverflowError e) {
 			// Best-effort, on-demand analysis: never let a failure here abort test generation.
 			// Cache an empty result so this method is not re-analyzed (and re-failed) each generation.
 			logger.warn("On-demand object-construction analysis failed for {}.{}: {}",
 					className, methodName, e.toString());
-			ObjectConstructionContext.branchInterestedVarsMap.put(methodName, new LinkedHashMap<>());
+			ObjectConstructionContext.branchInterestedVarsMap.put(cacheKey, new LinkedHashMap<>());
 		}
 	}
 
