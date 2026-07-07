@@ -10,6 +10,16 @@ public class WholeClassExample {
 
 	private int state;
 
+	public WholeClassExample() {
+		// default constructor retained for existing whole-class tests
+	}
+
+	public WholeClassExample(int x) {
+		if (state == x) {
+			state = 1;
+		}
+	}
+
 	public boolean publicEntry(int x) {
 		if (state == x) {
 			return true;

@@ -50,11 +50,17 @@ public class TargetContext {
     private final String className;
     private final String methodSignature;
     private final Branch branch;
+    private final boolean constructorEntry;
 
     public TargetContext(String className, String methodSignature, Branch branch) {
+        this(className, methodSignature, branch, false);
+    }
+
+    public TargetContext(String className, String methodSignature, Branch branch, boolean constructorEntry) {
         this.className = className;
         this.methodSignature = methodSignature;
         this.branch = branch;
+        this.constructorEntry = constructorEntry;
     }
 
     public String getClassName() {
@@ -67,6 +73,10 @@ public class TargetContext {
 
     public Branch getBranch() {
         return branch;
+    }
+
+    public boolean isConstructorEntry() {
+        return constructorEntry;
     }
 
     /**
@@ -86,7 +96,14 @@ public class TargetContext {
             countOtherRejection();
             return null;
         }
-        if (methodSignature.startsWith("<clinit>") || methodSignature.startsWith("<init>")) {
+        if (methodSignature.startsWith("<clinit>")) {
+            countConstructorRejection();
+            return null;
+        }
+        if (methodSignature.startsWith("<init>")) {
+            if (Properties.OBJECT_RULE_EXPANDED_ENTRIES) {
+                return new TargetContext(className, methodSignature, branch, true);
+            }
             countConstructorRejection();
             return null;
         }
@@ -182,5 +199,11 @@ public class TargetContext {
         }
         TargetContext context = ACTIVE.get();
         return context == null ? Properties.TARGET_METHOD : context.methodSignature;
+    }
+
+    public static boolean activeConstructorEntry() {
+        TargetContext context = ACTIVE.get();
+        return context != null && context.constructorEntry
+                && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty());
     }
 }

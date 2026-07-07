@@ -41,6 +41,7 @@ import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.synthesizer.ConstructionPathSynthesizer;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
@@ -351,6 +352,17 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         try {
             Class<?> clazz = org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT()
                     .loadClass(context.getClassName());
+            if (context.isConstructorEntry()) {
+                for (java.lang.reflect.Constructor<?> c : clazz.getDeclaredConstructors()) {
+                    if (("<init>" + org.evosuite.utils.MethodUtil.getSignature(c)).equals(context.getMethodSignature())) {
+                        org.evosuite.utils.generic.GenericConstructor gConstructor =
+                                new org.evosuite.utils.generic.GenericConstructor(c, clazz);
+                        TestFactory.getInstance().addConstructor(test, gConstructor, test.size(), 0);
+                        return findConstructorCallStatement(test, context.getMethodSignature()) != null;
+                    }
+                }
+                return false;
+            }
             java.lang.reflect.Method entry = null;
             for (java.lang.reflect.Method m : clazz.getDeclaredMethods()) {
                 if ((m.getName() + org.evosuite.utils.MethodUtil.getSignature(m)).equals(context.getMethodSignature())) {
@@ -370,6 +382,22 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                     context.getMethodSignature(), t.toString());
             return false;
         }
+    }
+
+    static ConstructorStatement findConstructorCallStatement(TestCase test, String constructorSignature) {
+        if (test == null || constructorSignature == null || constructorSignature.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < test.size(); i++) {
+            Statement statement = test.getStatement(i);
+            if (statement instanceof ConstructorStatement) {
+                ConstructorStatement constructorStatement = (ConstructorStatement) statement;
+                if (constructorStatement.getConstructor().getNameWithDescriptor().equals(constructorSignature)) {
+                    return constructorStatement;
+                }
+            }
+        }
+        return null;
     }
 
     /**

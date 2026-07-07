@@ -7,6 +7,7 @@ import java.util.Map;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.synthesizer.VariableInTest;
 import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
@@ -39,6 +40,12 @@ public class ThisVariableWrapper extends DepVariableWrapper {
 	public VariableReference find(TestCase test, boolean isLeaf, VariableReference callerObject,
 			Map<DepVariableWrapper, VarRelevance> map) {
 		if(this.parents.isEmpty()) {
+			if (org.evosuite.testcase.synthesizer.TargetContext.activeConstructorEntry()) {
+				ConstructorStatement cStat = findActiveConstructorStatement(test);
+				if (cStat != null) {
+					return cStat.getReturnValue();
+				}
+			}
 			MethodStatement mStat = test.findTargetMethodCallStatement();
 			if(mStat != null) {
 				VariableReference generatedVariable = mStat.getCallee();
@@ -54,6 +61,22 @@ public class ThisVariableWrapper extends DepVariableWrapper {
 			}
 		}
 		
+		return null;
+	}
+
+	private ConstructorStatement findActiveConstructorStatement(TestCase test) {
+		String signature = org.evosuite.testcase.synthesizer.TargetContext.activeMethodSignature();
+		if (signature == null || signature.isEmpty()) {
+			return null;
+		}
+		for (int i = 0; i < test.size(); i++) {
+			if (test.getStatement(i) instanceof ConstructorStatement) {
+				ConstructorStatement cStat = (ConstructorStatement) test.getStatement(i);
+				if (cStat.getConstructor().getNameWithDescriptor().equals(signature)) {
+					return cStat;
+				}
+			}
+		}
 		return null;
 	}
 

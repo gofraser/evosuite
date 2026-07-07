@@ -37,6 +37,7 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.factories.RandomLengthTestFactory;
+import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.junit.jupiter.api.AfterEach;
@@ -65,6 +66,8 @@ public class WholeClassModeTest {
 		Properties.TARGET_CLASS = "";
 		Properties.APPLY_OBJECT_RULE = false;
 		Properties.OBJECT_RULE_WHOLE_CLASS = false;
+		Properties.OBJECT_RULE_EXPANDED_ENTRIES = false;
+		Properties.P_OBJECT_RULE_APPLICATION = 0.3;
 		RandomLengthTestFactory.workingBranch4ObjectGraph = null;
 		TargetContext.clearActive();
 		org.evosuite.TestGenerationContext.getInstance().resetContext();
@@ -115,6 +118,24 @@ public class WholeClassModeTest {
 		return branches.get(0);
 	}
 
+	private static String constructorSignatureOf(Class<?> clazz, int paramNum) {
+		for (java.lang.reflect.Constructor<?> c : clazz.getDeclaredConstructors()) {
+			if (c.getParameterCount() == paramNum) {
+				return "<init>" + MethodUtil.getSignature(c);
+			}
+		}
+		throw new IllegalStateException("no constructor/" + paramNum + " in " + clazz);
+	}
+
+	private static Branch firstConstructorBranchOf(Class<?> clazz, int paramNum) {
+		String sig = constructorSignatureOf(clazz, paramNum);
+		List<Branch> branches = BranchPool.getInstance(
+				org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT())
+				.retrieveBranchesInMethod(clazz.getName(), sig);
+		assertTrue(branches != null && !branches.isEmpty(), "expected a branch in " + sig);
+		return branches.get(0);
+	}
+
 	@Test
 	public void targetContextResolvesOnlyAccessibleEntryMethods() {
 		analyzeWholeClass(WholeClassExample.class);
@@ -128,6 +149,16 @@ public class WholeClassModeTest {
 		Branch privateBranch = firstBranchOf(WholeClassExample.class, "hiddenEntry", 1);
 		assertNull(TargetContext.forBranch(privateBranch),
 				"a branch in a private method is not a valid entry (no call-graph search)");
+
+		Branch constructorBranch = firstConstructorBranchOf(WholeClassExample.class, 1);
+		assertNull(TargetContext.forBranch(constructorBranch),
+				"a constructor branch is rejected unless expanded entries are enabled");
+		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
+		TargetContext constructorContext = TargetContext.forBranch(constructorBranch);
+		assertNotNull(constructorContext, "expanded entries allow constructor branches");
+		assertTrue(constructorContext.isConstructorEntry());
+		assertEquals(constructorSignatureOf(WholeClassExample.class, 1),
+				constructorContext.getMethodSignature());
 	}
 
 	@Test
@@ -190,5 +221,34 @@ public class WholeClassModeTest {
 			}
 		}
 		assertTrue(built, "the factory should build a template that calls the derived entry method");
+	}
+
+	@Test
+	public void factoryInsertsConstructorEntryWhenExpandedEntriesAreEnabled() {
+		analyzeWholeClass(WholeClassExample.class);
+		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
+		Properties.P_OBJECT_RULE_APPLICATION = 1.0;
+		Branch constructorBranch = firstConstructorBranchOf(WholeClassExample.class, 1);
+		String constructorSig = constructorSignatureOf(WholeClassExample.class, 1);
+
+		RandomLengthTestFactory factory = new RandomLengthTestFactory();
+		boolean built = false;
+		for (int attempt = 0; attempt < 60 && !built; attempt++) {
+			RandomLengthTestFactory.workingBranch4ObjectGraph = constructorBranch;
+			TestChromosome chromosome = factory.getChromosome();
+			TestCase test = chromosome.getTestCase();
+			for (int i = 0; i < test.size(); i++) {
+				if (test.getStatement(i) instanceof ConstructorStatement) {
+					ConstructorStatement cStat = (ConstructorStatement) test.getStatement(i);
+					if (cStat.getConstructor().getNameWithDescriptor().equals(constructorSig)) {
+						built = true;
+						ExecutionResult result = TestCaseExecutor.getInstance().execute(test, Integer.MAX_VALUE);
+						assertNotNull(result, "the constructor-entry template should execute");
+						break;
+					}
+				}
+			}
+		}
+		assertTrue(built, "the factory should build a template that calls the constructor entry");
 	}
 }

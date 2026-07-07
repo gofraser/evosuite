@@ -208,6 +208,11 @@ public class Properties {
                     + "goals when possible instead of uniformly across all archive-uncovered branches")
     public static boolean OBJECT_RULE_FRONTIER_TARGETING = true;
 
+    @Parameter(key = "object_rule_expanded_entries", group = "Test Creation",
+            description = "Allow EvoObj whole-class mode to use expanded branch entry points such "
+                    + "as constructors. Off by default until benchmarked")
+    public static boolean OBJECT_RULE_EXPANDED_ENTRIES = false;
+
     @Parameter(key = "object_rule_reflection_fallback", group = "Test Creation",
             description = "When an EvoObj leaf field has no reachable public setter, set it via "
                     + "reflection (PrivateFieldStatement) instead of leaving the template incomplete")
