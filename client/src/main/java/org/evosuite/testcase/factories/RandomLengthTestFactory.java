@@ -27,6 +27,7 @@ import java.util.Set;
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.branch.Branch;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
@@ -109,6 +110,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     /** Number of fresh syntheses whose first execution reached legitimacy distance 0. */
     public static int firstShotSuccesses = 0;
 
+    /** Number of fresh syntheses whose first execution covered a selected working goal. */
+    public static int immediateCoverage = 0;
+
+    /** Number of fresh syntheses that reached the call but missed the selected working goals. */
+    public static int reachedNotCovered = 0;
+
     private static int nextTemplateId = 1;
     private static int lastProducedTemplateId = 0;
 
@@ -141,6 +148,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
      * template synthesis for this test.
      */
     public static Branch workingBranch4ObjectGraph = null;
+
+    /**
+     * Uncovered branch-direction goals for {@link #workingBranch4ObjectGraph}. Cache reuses do not
+     * use this handoff; fresh synthesis uses it for immediate-payoff telemetry.
+     */
+    public static List<BranchCoverageTestFitness> workingGoals4ObjectGraph = new ArrayList<>();
 
     /** Probability of reusing a cached template instead of re-synthesizing one. */
     private static final double TEMPLATE_REUSE_PROBABILITY = 0.5;
@@ -421,6 +434,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         boolean reachedTargetCall = false;
         boolean producedUsableTemplate = false;
         boolean freshSynthesisStarted = false;
+        boolean immediateCoveredWorkingGoal = false;
         double finalDistance = Double.MAX_VALUE;
         try {
             freshSyntheses++;
@@ -461,6 +475,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 firstShotSuccesses++;
                 reachedTargetCall = true;
                 finalDistance = 0;
+                immediateCoveredWorkingGoal = coversWorkingGoal(test, result);
+                if (immediateCoveredWorkingGoal) {
+                    immediateCoverage++;
+                } else {
+                    reachedNotCovered++;
+                }
             } else if (!Properties.OBJECT_RULE_LEGITIMIZATION) {
                 // Legitimizer disabled: keep the synthesized template as-is even though it throws
                 // before the target call. Not counted as a skip (a skip means budget ran out, not
@@ -505,7 +525,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             producedUsableTemplate = true;
             // Cache the best template seen for this branch for later reuse.
             TemplateCache.getInstance().store(b, test, finalDistance);
-            markLastProducedTemplate();
+            markLastProducedTemplate(immediateCoveredWorkingGoal);
         } catch (Throwable e) {
             // Synthesis and legitimization are strictly best-effort: any failure here (including
             // Errors such as a LinkageError/NoClassDefFoundError from initializing a SUT class, an
@@ -527,9 +547,16 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     }
 
     private static void markLastProducedTemplate() {
+        markLastProducedTemplate(false);
+    }
+
+    private static void markLastProducedTemplate(boolean immediateCoverage) {
         int id = nextTemplateId++;
         lastProducedTemplateId = id;
         ObjectRuleTelemetry.getInstance().recordInjection(id, currentIteration);
+        if (immediateCoverage) {
+            ObjectRuleTelemetry.getInstance().recordImmediateCoverage(id);
+        }
     }
 
     /**
@@ -570,8 +597,11 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         templateCacheHits = 0;
         freshSyntheses = 0;
         firstShotSuccesses = 0;
+        immediateCoverage = 0;
+        reachedNotCovered = 0;
         nextTemplateId = 1;
         lastProducedTemplateId = 0;
+        workingGoals4ObjectGraph = new ArrayList<>();
     }
 
     /**
@@ -635,6 +665,41 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 .trackOutputVariable(RuntimeVariable.ObjectRuleFreshSyntheses, freshSyntheses);
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.ObjectRuleFirstShotSuccesses, firstShotSuccesses);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleImmediateCoverage, immediateCoverage);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleReachedNotCovered, reachedNotCovered);
+    }
+
+    private static boolean coversWorkingGoal(TestCase test, ExecutionResult result) {
+        return bestWorkingGoalFitness(test, result) == 0.0;
+    }
+
+    private static double bestWorkingGoalFitness(TestCase test, ExecutionResult result) {
+        if (workingGoals4ObjectGraph == null || workingGoals4ObjectGraph.isEmpty()
+                || test == null || result == null) {
+            return Double.MAX_VALUE;
+        }
+        TestChromosome probe = new TestChromosome();
+        try {
+            probe.setTestCase(test.clone());
+        } catch (Throwable t) {
+            probe.setTestCase(test);
+        }
+        probe.setLastExecutionResult(result);
+        double best = Double.MAX_VALUE;
+        boolean oldArchive = Properties.TEST_ARCHIVE;
+        Properties.TEST_ARCHIVE = false;
+        try {
+            for (BranchCoverageTestFitness goal : workingGoals4ObjectGraph) {
+                if (goal != null) {
+                    best = Math.min(best, goal.getFitness(probe, result));
+                }
+            }
+        } finally {
+            Properties.TEST_ARCHIVE = oldArchive;
+        }
+        return best;
     }
 
     /** Number of branches whose object-construction graph has at least one dependent variable. */

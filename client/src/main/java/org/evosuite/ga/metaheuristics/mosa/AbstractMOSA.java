@@ -23,7 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.SelectionFunction;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.coverage.branch.BranchFitness;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
 import org.evosuite.testcase.synthesizer.TemplateCache;
@@ -645,8 +645,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // evict cached templates for branches that are now covered. No-op unless enabled.
         List<Branch> uncoveredBranches = null;
         List<Branch> candidateBranches = null;
+        Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch = null;
         if (Properties.APPLY_OBJECT_RULE) {
-            uncoveredBranches = objectRuleUncoveredBranches();
+            uncoveredGoalsByBranch = objectRuleUncoveredGoalsByBranch();
+            uncoveredBranches = new ArrayList<>(uncoveredGoalsByBranch.keySet());
             candidateBranches = objectRuleCandidateBranches();
             TemplateCache.getInstance().retainUncovered(uncoveredBranches);
         }
@@ -661,6 +663,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     RandomLengthTestFactory.currentIteration = this.currentIteration;
                     RandomLengthTestFactory.workingBranch4ObjectGraph =
                             ObjectRuleBranchSelector.getInstance().selectWorkingBranch(candidateBranches);
+                    RandomLengthTestFactory.workingGoals4ObjectGraph = objectRuleWorkingGoals(
+                            RandomLengthTestFactory.workingBranch4ObjectGraph, uncoveredGoalsByBranch);
                 }
                 tch = this.chromosomeFactory.getChromosome();
                 tch.setChanged(true);
@@ -692,16 +696,30 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     protected List<Branch> objectRuleUncoveredBranches() {
-        List<Branch> uncoveredBranches = new ArrayList<>();
+        return new ArrayList<>(objectRuleUncoveredGoalsByBranch().keySet());
+    }
+
+    protected Map<Branch, List<BranchCoverageTestFitness>> objectRuleUncoveredGoalsByBranch() {
+        Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch = new LinkedHashMap<>();
         for (TestFitnessFunction ff : getUncoveredGoals()) {
-            if (ff instanceof BranchFitness) {
-                Branch branch = ((BranchFitness) ff).getBranchGoal().getBranch();
+            if (ff instanceof BranchCoverageTestFitness) {
+                BranchCoverageTestFitness branchFitness = (BranchCoverageTestFitness) ff;
+                Branch branch = branchFitness.getBranchGoal().getBranch();
                 if (branch != null) {
-                    uncoveredBranches.add(branch);
+                    uncoveredGoalsByBranch.computeIfAbsent(branch, ignored -> new ArrayList<>()).add(branchFitness);
                 }
             }
         }
-        return uncoveredBranches;
+        return uncoveredGoalsByBranch;
+    }
+
+    private static List<BranchCoverageTestFitness> objectRuleWorkingGoals(Branch branch,
+            Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch) {
+        if (branch == null || uncoveredGoalsByBranch == null) {
+            return new ArrayList<>();
+        }
+        List<BranchCoverageTestFitness> goals = uncoveredGoalsByBranch.get(branch);
+        return goals == null ? new ArrayList<>() : new ArrayList<>(goals);
     }
 
     protected void recordObjectRuleTemplateSurvival() {

@@ -37,6 +37,7 @@ public class ObjectRuleTelemetry {
     private static class TemplateLifetime {
         private final int injectionIteration;
         private int lastSeenIteration;
+        private boolean immediateCoverage;
 
         private TemplateLifetime(int injectionIteration) {
             this.injectionIteration = injectionIteration;
@@ -62,6 +63,13 @@ public class ObjectRuleTelemetry {
             return;
         }
         lifetimes.put(templateId, new TemplateLifetime(iteration));
+    }
+
+    public void recordImmediateCoverage(int templateId) {
+        TemplateLifetime lifetime = lifetimes.get(templateId);
+        if (lifetime != null) {
+            lifetime.immediateCoverage = true;
+        }
     }
 
     public void recordPopulation(Collection<? extends TestChromosome> population, int iteration) {
@@ -92,15 +100,20 @@ public class ObjectRuleTelemetry {
     }
 
     public double survivalAtLeastFive() {
-        if (lifetimes.isEmpty()) {
-            return 0.0;
-        }
+        int denominator = 0;
         int retained = 0;
         for (TemplateLifetime lifetime : lifetimes.values()) {
+            if (lifetime.immediateCoverage) {
+                continue;
+            }
+            denominator++;
             if (lifetime.lastSeenIteration - lifetime.injectionIteration >= 5) {
                 retained++;
             }
         }
-        return (double) retained / lifetimes.size();
+        if (denominator == 0) {
+            return 0.0;
+        }
+        return (double) retained / denominator;
     }
 }

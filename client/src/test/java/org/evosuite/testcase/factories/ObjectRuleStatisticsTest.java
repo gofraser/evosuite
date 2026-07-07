@@ -110,6 +110,8 @@ public class ObjectRuleStatisticsTest {
         RandomLengthTestFactory.templateCacheHits = 5;
         RandomLengthTestFactory.freshSyntheses = 4;
         RandomLengthTestFactory.firstShotSuccesses = 2;
+        RandomLengthTestFactory.immediateCoverage = 1;
+        RandomLengthTestFactory.reachedNotCovered = 1;
 
         RandomLengthTestFactory.resetStatistics();
 
@@ -122,6 +124,9 @@ public class ObjectRuleStatisticsTest {
         assertEquals(0, RandomLengthTestFactory.templateCacheHits);
         assertEquals(0, RandomLengthTestFactory.freshSyntheses);
         assertEquals(0, RandomLengthTestFactory.firstShotSuccesses);
+        assertEquals(0, RandomLengthTestFactory.immediateCoverage);
+        assertEquals(0, RandomLengthTestFactory.reachedNotCovered);
+        assertTrue(RandomLengthTestFactory.workingGoals4ObjectGraph.isEmpty());
     }
 
     @Test
@@ -140,6 +145,27 @@ public class ObjectRuleStatisticsTest {
 
         assertEquals(0.0, telemetry.meanSurvival(), 0.0);
         assertEquals(0.0, telemetry.survivalAtLeastFive(), 0.0);
+    }
+
+    @Test
+    public void immediateCoverageTemplatesAreExcludedFromSurvival5Denominator() {
+        ObjectRuleTelemetry telemetry = ObjectRuleTelemetry.getInstance();
+        telemetry.recordInjection(1, 0);
+        telemetry.recordImmediateCoverage(1);
+        telemetry.recordInjection(2, 0);
+
+        TestChromosome immediate = new TestChromosome();
+        immediate.setObjectRuleTemplateId(1);
+        TestChromosome missed = new TestChromosome();
+        missed.setObjectRuleTemplateId(2);
+        telemetry.recordPopulation(java.util.Arrays.asList(immediate, missed), 4);
+
+        assertEquals(4.0, telemetry.meanSurvival(), 0.0);
+        assertEquals(0.0, telemetry.survivalAtLeastFive(), 0.0);
+
+        telemetry.recordPopulation(java.util.Collections.singletonList(missed), 5);
+
+        assertEquals(1.0, telemetry.survivalAtLeastFive(), 0.0);
     }
 
     @Test

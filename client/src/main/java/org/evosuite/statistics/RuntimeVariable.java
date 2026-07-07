@@ -1593,7 +1593,18 @@ public enum RuntimeVariable {
     /** EvoObj: fresh non-cache synthesis attempts. */
     ObjectRuleFreshSyntheses,
     /** EvoObj: fresh syntheses whose first execution reached legitimacy distance 0. */
-    ObjectRuleFirstShotSuccesses;
+    ObjectRuleFirstShotSuccesses,
+    /**
+     * EvoObj: fresh syntheses whose first execution covered one of the currently uncovered
+     * branch-direction goals for the selected working branch. Cache reuses are excluded.
+     */
+    ObjectRuleImmediateCoverage,
+    /**
+     * EvoObj: fresh syntheses whose first execution reached the target call but did not cover any
+     * currently uncovered branch-direction goal for the selected working branch. Cache reuses are
+     * excluded.
+     */
+    ObjectRuleReachedNotCovered;
 
     /* -------------------------------------------------- */
 

@@ -39,7 +39,9 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -251,19 +253,31 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
      */
     private void selectObjectRuleWorkingBranch() {
         RandomLengthTestFactory.workingBranch4ObjectGraph = null;
+        RandomLengthTestFactory.workingGoals4ObjectGraph = new ArrayList<>();
 
         List<BranchCoverageTestFitness> branchGoals = new BranchCoverageFactory().getCoverageGoals();
         Set<BranchCoverageGoal> uncoveredGoals = getUncoveredBranches(getBestIndividual(), branchGoals);
         if (uncoveredGoals != null && !uncoveredGoals.isEmpty()) {
             List<Branch> uncoveredBranches = new ArrayList<>();
+            Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch = new LinkedHashMap<>();
             for (BranchCoverageGoal goal : uncoveredGoals) {
                 if (goal.getBranch() != null) {
                     uncoveredBranches.add(goal.getBranch());
                 }
             }
+            for (BranchCoverageTestFitness fitness : branchGoals) {
+                if (fitness.getBranch() != null && uncoveredGoals.contains(fitness.getBranchGoal())) {
+                    uncoveredGoalsByBranch.computeIfAbsent(fitness.getBranch(), ignored -> new ArrayList<>())
+                            .add(fitness);
+                }
+            }
             RandomLengthTestFactory.currentIteration = this.currentIteration;
             RandomLengthTestFactory.workingBranch4ObjectGraph =
                     ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
+            List<BranchCoverageTestFitness> workingGoals =
+                    uncoveredGoalsByBranch.get(RandomLengthTestFactory.workingBranch4ObjectGraph);
+            RandomLengthTestFactory.workingGoals4ObjectGraph =
+                    workingGoals == null ? new ArrayList<>() : new ArrayList<>(workingGoals);
             // Evict cached templates for branches that are now covered.
             TemplateCache.getInstance().retainUncovered(uncoveredBranches);
         }
