@@ -49,6 +49,7 @@ import org.evosuite.runtime.LoopCounter;
 import org.evosuite.runtime.sandbox.PermissionStatistics;
 import org.evosuite.seeding.ObjectPool;
 import org.evosuite.seeding.ObjectPoolManager;
+import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.setup.TargetClassInitializer;
 import org.evosuite.setup.TestCluster;
@@ -292,6 +293,19 @@ public class TestSuiteGenerator {
         if (!Properties.hasTargetClassBeenLoaded()) {
             // initialization failed, then build error message
             return TestGenerationResultBuilder.buildErrorResult("Could not load target class");
+        }
+
+        // Context-sensitive criteria (CBRANCH/IBRANCH) need the call graph. If dependency analysis
+        // failed for this class, the call graph was never built: the failure is logged and swallowed
+        // during setup (ClientNodeImpl.doDependencyAnalysis, TestGenerationContext.resetContext), so
+        // the class object loads yet getCallGraph() is null. Fail cleanly here rather than letting
+        // the goal factories dereference the null call graph mid-setup.
+        if ((ArrayUtil.contains(Properties.CRITERION, Criterion.CBRANCH)
+                || ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH))
+                && DependencyAnalysis.getCallGraph() == null) {
+            return TestGenerationResultBuilder.buildErrorResult(
+                    "Dependency analysis did not produce a call graph for " + Properties.TARGET_CLASS
+                            + "; cannot compute context-sensitive coverage goals");
         }
 
         // Check if there are ANY goals across all criteria

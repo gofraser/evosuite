@@ -27,6 +27,8 @@ import org.objectweb.asm.tree.MethodNode;
 import org.objectweb.asm.tree.analysis.Frame;
 import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.tree.analysis.Value;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Entry point of the object construction graph analysis. {@link #initializeDataflow}
@@ -37,6 +39,8 @@ import org.objectweb.asm.tree.analysis.Value;
  * <p>Ported from the {@code evosuite-plus-plus} fork with cleanups applied.
  */
 public class InterproceduralGraphAnalysis {
+
+	private static final Logger logger = LoggerFactory.getLogger(InterproceduralGraphAnalysis.class);
 
 	/**
 	 * Clear the analysis' mutable static state. Delegates to the {@link ObjectConstructionContext}
@@ -123,10 +127,18 @@ public class InterproceduralGraphAnalysis {
 		if (cfg == null) {
 			return;
 		}
-		FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
-		Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
-		ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
-		ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
+		try {
+			FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
+			Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
+			ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
+			ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
+		} catch (Exception | StackOverflowError e) {
+			// Best-effort, on-demand analysis: never let a failure here abort test generation.
+			// Cache an empty result so this method is not re-analyzed (and re-failed) each generation.
+			logger.warn("On-demand object-construction analysis failed for {}.{}: {}",
+					className, methodName, e.toString());
+			ObjectConstructionContext.branchInterestedVarsMap.put(methodName, new LinkedHashMap<>());
+		}
 	}
 
 	/**
@@ -145,11 +157,21 @@ public class InterproceduralGraphAnalysis {
 		if (cfg == null) {
 			return new LinkedHashMap<>();
 		}
-		FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
-		Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
-		ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
-		ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
-		return map;
+		try {
+			FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
+			Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
+			ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
+			ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
+			return map;
+		} catch (Exception | StackOverflowError e) {
+			// Best-effort, on-demand analysis: never let a failure here abort test generation.
+			// Cache an empty result so this method is not re-analyzed (and re-failed) each generation.
+			logger.warn("On-demand object-construction analysis failed for {}.{}: {}",
+					className, methodName, e.toString());
+			Map<Branch, Set<DepVariable>> empty = new LinkedHashMap<>();
+			ObjectConstructionContext.branchInterestedVarsMap.put(methodName, empty);
+			return empty;
+		}
 	}
 
 	@SuppressWarnings("rawtypes")
@@ -221,15 +243,26 @@ public class InterproceduralGraphAnalysis {
 			InterproceduralGraphAnalyzer graphAnalyzer = new InterproceduralGraphAnalyzer(b, interestedNodeFilter);
 			Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
 			Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
-			if (!b.isInstrumented()) {
-				Frame frame = b.getInstruction().getFrame();
-				for (int i = 0; i < b.getInstruction().getOperandNum(); i++) {
-					int index = frame.getStackSize() - i - 1;
-					Value val = frame.getStack(index);
+			try {
+				if (!b.isInstrumented()) {
+					Frame frame = b.getInstruction().getFrame();
+					for (int i = 0; i < b.getInstruction().getOperandNum(); i++) {
+						int index = frame.getStackSize() - i - 1;
+						Value val = frame.getStack(index);
 
-					graphAnalyzer.searchDependantVariables(val, cfg, inputRootVars, visitedIns,
-							Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
+						graphAnalyzer.searchDependantVariables(val, cfg, inputRootVars, visitedIns,
+								Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
+					}
 				}
+			} catch (Exception | StackOverflowError e) {
+				// The object-construction graph is a best-effort search aid. If analyzing one
+				// branch fails (an instruction the interprocedural traversal cannot resolve, or
+				// runaway recursion on a complex method), skip that branch's graph rather than
+				// aborting the whole method's analysis — and with it the entire test generation.
+				// A branch with no graph simply falls back to plain random generation.
+				logger.warn("Skipping object-construction analysis for branch {} in {}.{}: {}",
+						b, className, methodName, e.toString());
+				inputRootVars.clear();
 			}
 
 			map.put(b, inputRootVars);

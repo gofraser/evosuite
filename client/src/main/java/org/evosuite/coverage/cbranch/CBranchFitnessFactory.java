@@ -19,6 +19,7 @@
  */
 package org.evosuite.coverage.cbranch;
 
+import org.evosuite.Properties;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.setup.CallContext;
@@ -53,6 +54,14 @@ public class CBranchFitnessFactory extends AbstractFitnessFactory<CBranchTestFit
         BranchCoverageFactory branchFactory = new BranchCoverageFactory();
         List<BranchCoverageTestFitness> branchGoals = branchFactory.getCoverageGoals();
         CallGraph callGraph = DependencyAnalysis.getCallGraph();
+        if (callGraph == null) {
+            // Without a call graph the branches cannot be expanded into their calling contexts.
+            // This can happen for a target class whose call graph was not built; degrade to no
+            // context-branch goals rather than aborting the whole test generation with an NPE.
+            logger.warn("No call graph available for {}; skipping context-branch (CBRANCH) goals",
+                    Properties.TARGET_CLASS);
+            return new ArrayList<>();
+        }
 
         // try to find all occurrences of this branch in the call tree
         for (BranchCoverageTestFitness branchGoal : branchGoals) {

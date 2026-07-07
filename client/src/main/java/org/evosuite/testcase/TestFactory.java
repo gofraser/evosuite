@@ -519,14 +519,23 @@ public class TestFactory {
                         Set<String> subclasses = inheritanceTree.getSubclasses(className);
                         String subclass = Randomness.choice(subclasses);
                         if (subclass != null && !subclass.equals(type.getTypeName())) {
-                            Class<?> subClazz = Class.forName(subclass, true,
-                                    TestGenerationContext.getInstance().getClassLoaderForSUT());
                             try {
+                                Class<?> subClazz = Class.forName(subclass, true,
+                                        TestGenerationContext.getInstance().getClassLoaderForSUT());
                                 obj = createObject(test, subClazz, nullStat.getPosition(),
-                                        GenerationContext.fromDepth(0), null, false, false, true);
+                                        GenerationContext.fromDepth(0), null, false, true, true);
                             } catch (Exception e) {
-                                return false;
+                                // No constructable concrete subclass; fall through to the mock
+                                // fallback below rather than giving up.
+                                obj = null;
                             }
+                        }
+                        if (obj == null) {
+                            // Honor MOCK_IF_NO_GENERATOR / P_FUNCTIONAL_MOCKING: with no reachable
+                            // implementation, let the resolver mock the interface itself, subject to
+                            // the global mocking policy (so mocks appear only when actually allowed).
+                            obj = createObject(test, type, nullStat.getPosition(),
+                                    GenerationContext.fromDepth(0), null, false, true, false);
                         }
                     } else {
                         GenericClass<?> claz = GenericClassFactory.get(type);
@@ -535,8 +544,10 @@ public class TestFactory {
                             ss.randomize();
                             obj = test.addStatement(ss, nullStat.getPosition());
                         } else {
+                            // Honor the global mock policy for concrete no-generator types too, so
+                            // MOCK_IF_NO_GENERATOR applies here as it does elsewhere in generation.
                             obj = createObject(test, type, nullStat.getPosition(),
-                                    GenerationContext.fromDepth(0), null, false, false, false);
+                                    GenerationContext.fromDepth(0), null, false, true, false);
                         }
                     }
                 } catch (Exception e) {

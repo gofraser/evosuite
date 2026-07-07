@@ -115,7 +115,13 @@ public class InterproceduralGraphAnalyzer {
 		Set<DepVariable> allDepVars = new LinkedHashSet<DepVariable>();
 		Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
 		for (BytecodeInstruction exit : calledCfg.getExitPoints()) {
-			for (BytecodeInstruction returnInstruction : exit.getSourceOfStackInstructionList(0)) {
+			List<BytecodeInstruction> returnSources = exit.getSourceOfStackInstructionList(0);
+			if (returnSources == null) {
+				// Exit point with an empty operand stack (e.g. a void return) has no
+				// source-of-stack instructions to trace the return value back from.
+				continue;
+			}
+			for (BytecodeInstruction returnInstruction : returnSources) {
 				searchDefDependentVariables(returnInstruction, calledCfg, allDepVars, visitedIns, callGraphDepth - 1);
 			}
 		}
@@ -181,6 +187,12 @@ public class InterproceduralGraphAnalyzer {
 
 	private void searchDefDependentVariables(BytecodeInstruction defIns, ActualControlFlowGraph cfg, Set<DepVariable> allLeafDepVars,
 			Set<BytecodeInstruction> visitedIns, int callGraphDepth) {
+		if (defIns == null) {
+			// Reached with a null defining instruction (e.g. a stack source that did not resolve to
+			// a BytecodeInstruction); nothing to analyze. Guard here so it never propagates into
+			// parseVariable/buildInputOutputForInstruction.
+			return;
+		}
 		if (visitedIns.contains(defIns)) {
 			return;
 		}
@@ -355,6 +367,12 @@ public class InterproceduralGraphAnalyzer {
 	private List<DepVariable>[] buildInputOutputForInstruction(BytecodeInstruction defInstruction, MethodNode node,
 			DepVariable outputVar, ActualControlFlowGraph cfg, Set<DepVariable> allDepVars, Set<BytecodeInstruction> visitedIns, int callGraphDepth) {
 		List<DepVariable>[] intputVarArray = new ArrayList[DepVariable.OPERAND_NUM_LIMIT];
+		if (defInstruction == null) {
+			// A null defining instruction (e.g. a def/use lookup or ASM conversion that did not
+			// resolve to a BytecodeInstruction) has no operands; return the empty input array
+			// rather than dereferencing it. Callers already tolerate null operand slots.
+			return intputVarArray;
+		}
 		int operandNum = defInstruction.getOperandNum();
 		for (int i = 0; i < operandNum; i++) {
 			List<DepVariable> inputVars = new ArrayList<DepVariable>();
@@ -366,6 +384,12 @@ public class InterproceduralGraphAnalyzer {
 			SourceValue inputVal = (SourceValue) val;
 			for (AbstractInsnNode newDefInsNode : inputVal.insns) {
 				BytecodeInstruction newDefIns = DefUseAnalyzer.convert2BytecodeInstruction(cfg, node, newDefInsNode);
+				if (newDefIns == null) {
+					// A stack-source instruction that does not map back to a BytecodeInstruction in
+					// this CFG (e.g. defined outside the analyzed method). Skip it, as
+					// searchDependantVariables does, rather than passing null into the factory.
+					continue;
+				}
 				DepVariable inputVar = parseVariable(newDefIns);
 				inputVar.buildRelation(outputVar, i);
 

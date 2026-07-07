@@ -1529,15 +1529,49 @@ public enum RuntimeVariable {
      */
     TemplateSynthesisTime,
     /**
+     * EvoObj (apply_object_rule): phase breakdown of {@link #TemplateSynthesisTime} — cumulative
+     * milliseconds building the template (OCG graph construction, null-slot mutation, consistency).
+     */
+    ObjectRuleSynthesisTime,
+    /**
+     * EvoObj (apply_object_rule): phase breakdown of {@link #TemplateSynthesisTime} — cumulative
+     * milliseconds executing each synthesized template once to measure its initial legitimacy distance.
+     */
+    ObjectRuleTemplateExecTime,
+    /**
+     * EvoObj (apply_object_rule): phase breakdown of {@link #TemplateSynthesisTime} — cumulative
+     * milliseconds spent in the legitimizer repair GA (0 when {@code object_rule_legitimization=false}).
+     */
+    ObjectRuleLegitimizationTime,
+    /**
      * EvoObj (apply_object_rule): number of times a randomly generated test was replaced
      * by a synthesized object-construction template.
      */
     TemplateInjections,
     /**
-     * EvoObj (apply_object_rule): fraction of legitimization runs that drove the template
-     * to a legitimacy distance of 0 (i.e., reached the target-method call).
+     * EvoObj (apply_object_rule): fraction of <em>attempted</em> legitimization runs that drove the
+     * template to a legitimacy distance of 0 (i.e., reached the target-method call). Templates that
+     * threw before the target but were never legitimized because the total budget was exhausted are
+     * excluded from the denominator (see {@link #LegitimizationSkipped}).
      */
-    LegitimizationSuccessRate;
+    LegitimizationSuccessRate,
+    /**
+     * EvoObj (apply_object_rule): number of throwing templates for which the legitimizer was
+     * actually run (the denominator of {@link #LegitimizationSuccessRate}).
+     */
+    LegitimizationAttempts,
+    /**
+     * EvoObj (apply_object_rule): number of attempted legitimizations that reached the target call
+     * (the numerator of {@link #LegitimizationSuccessRate}).
+     */
+    LegitimizationSuccesses,
+    /**
+     * EvoObj (apply_object_rule): number of throwing templates skipped without legitimization
+     * because the total legitimization budget (or search phase time) was already exhausted. A large
+     * value relative to {@link #LegitimizationAttempts} means the budget, not the algorithm, is the
+     * bottleneck.
+     */
+    LegitimizationSkipped;
 
     /* -------------------------------------------------- */
 

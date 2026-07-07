@@ -19,6 +19,8 @@
  */
 package org.evosuite.testcase.factories;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -68,17 +70,49 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
      */
     protected static final Logger logger = LoggerFactory.getLogger(RandomLengthTestFactory.class);
 
-    /** Number of templates whose initial legitimacy distance was non-zero (statistics). */
+    /**
+     * Number of throwing templates for which the legitimizer was actually run (statistics). Only
+     * counted when the legitimizer is invoked; templates skipped because the total budget was
+     * already spent are counted in {@link #legitimizationSkipped}, not here, so the success rate
+     * reflects the legitimizer's efficacy rather than budget starvation.
+     */
     public static int legitimizationTrials = 0;
 
-    /** Number of those templates that legitimization drove to distance 0 (statistics). */
+    /** Number of attempted legitimizations that reached distance 0 (statistics). */
     public static int legitimizationSuccess = 0;
+
+    /**
+     * Number of throwing templates skipped without legitimization because the total legitimization
+     * budget (or the remaining search phase time) was already exhausted (statistics). Large relative
+     * to {@link #legitimizationTrials} means the budget, not the algorithm, is the bottleneck.
+     */
+    public static int legitimizationSkipped = 0;
 
     /** Number of random tests replaced by a synthesized template (statistics). */
     public static int templateInjections = 0;
 
     /** Cumulative time (ms) spent synthesizing + legitimizing templates (statistics). */
     public static long templateSynthesisTimeMs = 0;
+
+    /**
+     * Phase breakdown of {@link #templateSynthesisTimeMs} (statistics). Together these three partition
+     * the bulk of the combined timer: {@link #synthesisTimeMs} is building the template (OCG graph
+     * construction via the synthesizer plus null-slot mutation and the consistency check),
+     * {@link #templateExecTimeMs} is the single template execution that measures its initial legitimacy
+     * distance, and {@link #legitimizationTimeMs} is the legitimizer repair GA. The small remainder
+     * (caching, the post-legitimization consistency re-check) is only in the combined total.
+     */
+    public static long synthesisTimeMs = 0;
+    public static long templateExecTimeMs = 0;
+    public static long legitimizationTimeMs = 0;
+
+    /**
+     * Number of synthesized/legitimized templates discarded because they were internally
+     * inconsistent (a dangling variable reference that makes the test uncloneable) or threw while
+     * being built. Diagnostic only: a healthy synthesizer should keep this at 0, so it doubles as
+     * the regression target when fixing the underlying array-element synthesis defect.
+     */
+    public static int inconsistentTemplatesDiscarded = 0;
 
     /**
      * The uncovered branch the object-construction template should target for the next generated
@@ -207,7 +241,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                         test = cached;
                         templateInjections++;
                     } else {
-                        test = synthesizeAndLegitimize(test, allowNullValue);
+                        test = synthesizeAndLegitimize(test, allowNullValue, size);
                     }
                     break;
                 } else {
@@ -277,7 +311,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             if (!insertEntryMethodCall(test, context)) {
                 return getDefaultRandomTestCase(size);
             }
-            return synthesizeAndLegitimize(test, allowNullValue);
+            return synthesizeAndLegitimize(test, allowNullValue, size);
         } finally {
             Properties.PRIMITIVE_REUSE_PROBABILITY = oldPrimitiveReuse;
             org.evosuite.testcase.synthesizer.TargetContext.clearActive();
@@ -320,7 +354,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
      *
      * @return the legitimized test if legitimization ran, otherwise the template test
      */
-    private TestCase synthesizeAndLegitimize(TestCase test, boolean allowNullValue) {
+    private TestCase synthesizeAndLegitimize(TestCase test, boolean allowNullValue, int size) {
         Branch b = workingBranch4ObjectGraph;
         if (b == null) {
             Map<Branch, Set<DepVariable>> interestedBranches =
@@ -342,29 +376,53 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 mutateNullStatements(test);
             }
 
+            // Synthesis is best-effort and can, on pathological classes, leave the test with a
+            // dangling variable reference (e.g. an array-index assignment whose backing array
+            // statement is missing). Such a test may still execute but throws AssertionError when
+            // cloned, which would otherwise crash the GA later in breedNextGeneration. Never emit
+            // an inconsistent test: fall back to a plain random test instead.
+            if (!isConsistent(test)) {
+                synthesisTimeMs += System.currentTimeMillis() - synthesisStart;
+                inconsistentTemplatesDiscarded++;
+                logger.debug("Discarding inconsistent synthesized test for branch {}", b);
+                return getDefaultRandomTestCase(size);
+            }
+
             PartialGraph graph = synthesizer.getPartialGraph();
             Map<DepVariableWrapper, VarRelevance> graph2CodeMap = synthesizer.getGraph2CodeMap();
+            synthesisTimeMs += System.currentTimeMillis() - synthesisStart;
 
             TestChromosome templateChromosome = new TestChromosome();
             templateChromosome.setTestCase(test);
+            long execStart = System.currentTimeMillis();
             ExecutionResult result = TestCaseExecutor.getInstance().execute(test);
+            templateExecTimeMs += System.currentTimeMillis() - execStart;
             templateChromosome.setLastExecutionResult(result);
             double oldLegitimacyDistance = templateChromosome.getLegitimacyDistance();
 
             if (oldLegitimacyDistance == 0) {
                 reachedTargetCall = true;
                 finalDistance = 0;
+            } else if (!Properties.OBJECT_RULE_LEGITIMIZATION) {
+                // Legitimizer disabled: keep the synthesized template as-is even though it throws
+                // before the target call. Not counted as a skip (a skip means budget ran out, not
+                // that repair was switched off). Isolates pure-synthesis cost/effect.
+                finalDistance = oldLegitimacyDistance;
             } else {
                 finalDistance = oldLegitimacyDistance;
-                legitimizationTrials++;
-                // Bound legitimization by both the configured total budget and the remaining search
-                // phase time, so a tight search_budget still terminates on time.
+                // Bound legitimization by both the (scaled) total budget and the remaining search
+                // phase time, so a tight search_budget still terminates on time. Only count a trial
+                // when the legitimizer actually runs: a template skipped here is a budget casualty,
+                // not a legitimizer failure, and counting it would deflate the success rate.
                 long now = System.currentTimeMillis();
                 boolean withinTotalBudget =
-                        now - TestCaseLegitimizer.startTime <= Properties.TOTAL_LEGITIMIZATION_BUDGET * 1000L;
+                        now - TestCaseLegitimizer.startTime <= effectiveTotalLegitimizationBudgetMs();
                 if (withinTotalBudget && TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                    legitimizationTrials++;
+                    long legitStart = System.currentTimeMillis();
                     TestChromosome legitimizedChromosome =
                             TestCaseLegitimizer.getInstance().legitimize(templateChromosome, graph, graph2CodeMap);
+                    legitimizationTimeMs += System.currentTimeMillis() - legitStart;
                     // Keep the legitimized test (the fork discarded it).
                     test = legitimizedChromosome.getTestCase();
                     finalDistance = legitimizedChromosome.getLegitimacyDistance();
@@ -372,13 +430,31 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                         legitimizationSuccess++;
                         reachedTargetCall = true;
                     }
+                } else {
+                    legitimizationSkipped++;
                 }
+            }
+
+            // Legitimization mutates the test further and can likewise leave it inconsistent;
+            // re-check before caching or returning so neither the cache nor the GA ever sees a
+            // test that cannot be cloned.
+            if (!isConsistent(test)) {
+                inconsistentTemplatesDiscarded++;
+                logger.debug("Discarding inconsistent legitimized test for branch {}", b);
+                return getDefaultRandomTestCase(size);
             }
 
             // Cache the best template seen for this branch for later reuse.
             TemplateCache.getInstance().store(b, test, finalDistance);
-        } catch (Exception e) {
-            logger.debug("Object-rule synthesis/legitimization failed for branch " + b + ": " + e.getMessage(), e);
+        } catch (Throwable e) {
+            // Synthesis and legitimization are strictly best-effort: any failure here (including
+            // Errors such as a LinkageError/NoClassDefFoundError from initializing a SUT class, an
+            // AssertionError from an invalid intermediate test, or a StackOverflowError from a deep
+            // object graph) must degrade to a plain random test rather than abort generation for a
+            // class that vanilla EvoSuite handles fine.
+            inconsistentTemplatesDiscarded++;
+            logger.debug("Object-rule synthesis/legitimization failed for branch " + b + ": " + e, e);
+            return getDefaultRandomTestCase(size);
         } finally {
             templateSynthesisTimeMs += System.currentTimeMillis() - synthesisStart;
             // Feed the outcome back to the branch selector's negative cache.
@@ -389,14 +465,38 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     }
 
     /**
+     * Effective overall legitimization budget in milliseconds. When the search is time-bounded
+     * (MAXTIME), this is the larger of the absolute {@code total_legitimization_budget} and
+     * {@code legitimization_budget_fraction} of the search budget, so the legitimizer scales with
+     * the search rather than being pinned to a fixed 30s that a 120s search would starve. For
+     * non-time-bounded stopping conditions the fraction is meaningless, so the absolute floor is
+     * used unchanged.
+     */
+    private static long effectiveTotalLegitimizationBudgetMs() {
+        long absoluteMs = Properties.TOTAL_LEGITIMIZATION_BUDGET * 1000L;
+        if (Properties.STOPPING_CONDITION == Properties.StoppingCondition.MAXTIME
+                && Properties.SEARCH_BUDGET > 0) {
+            long fractionMs =
+                    (long) (Properties.LEGITIMIZATION_BUDGET_FRACTION * Properties.SEARCH_BUDGET * 1000L);
+            return Math.max(absoluteMs, fractionMs);
+        }
+        return absoluteMs;
+    }
+
+    /**
      * Resets the object-rule statistics counters. Invoked from
      * {@link ObjectConstructionContext#reset()} so runs do not leak counts into one another.
      */
     public static void resetStatistics() {
         legitimizationTrials = 0;
         legitimizationSuccess = 0;
+        legitimizationSkipped = 0;
         templateInjections = 0;
         templateSynthesisTimeMs = 0;
+        synthesisTimeMs = 0;
+        templateExecTimeMs = 0;
+        legitimizationTimeMs = 0;
+        inconsistentTemplatesDiscarded = 0;
     }
 
     /**
@@ -415,9 +515,21 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.TemplateSynthesisTime, templateSynthesisTimeMs);
         ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleSynthesisTime, synthesisTimeMs);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleTemplateExecTime, templateExecTimeMs);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleLegitimizationTime, legitimizationTimeMs);
+        ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.TemplateInjections, templateInjections);
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.LegitimizationSuccessRate, successRate);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.LegitimizationAttempts, legitimizationTrials);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.LegitimizationSuccesses, legitimizationSuccess);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.LegitimizationSkipped, legitimizationSkipped);
     }
 
     /** Number of branches whose object-construction graph has at least one dependent variable. */
@@ -447,11 +559,47 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     }
 
     private void mutateNullStatements(TestCase test) {
+        // Snapshot the null statements before mutating any of them. changeNullStatement replaces a
+        // null with a freshly constructed object, and that construction can recursively append many
+        // new statements -- including new NullStatements for the object's own reference parameters.
+        // Iterating the live test.size() would then keep discovering and expanding those newly added
+        // nulls, growing the test without bound; on classes with deep object graphs this spins for
+        // hundreds of CPU-seconds until the master kills the client (yielding no result at all).
+        // Processing only the original nulls keeps this pass linear and bounded.
+        List<Statement> originalNullStatements = new ArrayList<>();
         for (int i = 0; i < test.size(); i++) {
             Statement s = test.getStatement(i);
             if (s instanceof NullStatement) {
-                TestFactory.getInstance().changeNullStatement(test, s);
+                originalNullStatements.add(s);
             }
+        }
+        for (Statement s : originalNullStatements) {
+            // Also respect the search-phase budget: this runs inside a single getChromosome call, so
+            // without a check here a slow pass would blow past the whole search_budget uninterrupted.
+            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                break;
+            }
+            // An earlier change may have removed this statement already; skip if it is gone.
+            if (!test.contains(s)) {
+                continue;
+            }
+            TestFactory.getInstance().changeNullStatement(test, s);
+        }
+    }
+
+    /**
+     * Returns whether {@code test} is internally consistent, i.e. every variable reference it uses
+     * resolves to a defining statement within the test. Cloning is the exact operation that later
+     * fails on a dangling reference (VariableReference.getStPosition throws an AssertionError
+     * regardless of whether assertions are enabled), so a clone probe is a faithful, side-effect-free
+     * check that a synthesized test can safely enter the population.
+     */
+    private static boolean isConsistent(TestCase test) {
+        try {
+            test.clone();
+            return true;
+        } catch (Throwable t) {
+            return false;
         }
     }
 

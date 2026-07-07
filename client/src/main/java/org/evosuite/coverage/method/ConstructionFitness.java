@@ -23,11 +23,8 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.TestGenerationContext;
+import org.evosuite.coverage.GuardBranchDistance;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.cfg.BytecodeInstruction;
-import org.evosuite.graphs.cfg.BytecodeInstructionPool;
-import org.evosuite.graphs.cfg.ControlDependency;
 import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
 import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
@@ -119,7 +116,7 @@ public final class ConstructionFitness {
 
         // (c) the call itself executed and threw inside the method
         if (callThrewItself >= 0) {
-            return clampOpen01(guardDistance(result, callThrewItself));
+            return clampOpen01(GuardBranchDistance.avoidanceDistance(result, callThrewItself));
         }
 
         // (b) the call is present but an earlier statement threw before it could execute
@@ -128,7 +125,9 @@ public final class ConstructionFitness {
             double prefixLength = Math.max(1, callNotExecuted);
             double unexecuted = callNotExecuted - executed;
             double prefixFraction = clamp01(unexecuted / prefixLength);
-            double guard = firstException == null ? 0.99 : guardDistance(result, firstException);
+            double guard = firstException == null
+                    ? GuardBranchDistance.NO_GUARD_DISTANCE
+                    : GuardBranchDistance.avoidanceDistance(result, firstException);
             double lambda = 0.5 * prefixFraction + 0.5 * guard;
             return 1.0 + clampOpen01(lambda);
         }
@@ -207,73 +206,6 @@ public final class ConstructionFitness {
             }
         }
         return false;
-    }
-
-    /**
-     * Normalized branch distance, in [0,1), of the direction that <em>avoids</em> the instruction
-     * that threw at {@code throwingPosition} — i.e. how close the failing guard is to not throwing.
-     * Returns a large value when no guard information is available.
-     */
-    static double guardDistance(ExecutionResult result, int throwingPosition) {
-        Throwable t = result.getExceptionThrownAtPosition(throwingPosition);
-        if (t == null || t.getStackTrace().length == 0) {
-            return 0.99;
-        }
-        StackTraceElement frame = t.getStackTrace()[0];
-        BytecodeInstruction ins = instructionAt(frame.getClassName(), frame.getMethodName(),
-                frame.getLineNumber());
-        if (ins == null) {
-            return 0.99;
-        }
-        Set<ControlDependency> deps = ins.getControlDependencies();
-        if (deps == null || deps.isEmpty()) {
-            return 0.99;
-        }
-
-        Map<Integer, Double> trueDistances = result.getTrace().getTrueDistances();
-        Map<Integer, Double> falseDistances = result.getTrace().getFalseDistances();
-        double best = 0.99;
-        for (ControlDependency cd : deps) {
-            Branch branch = cd.getBranch();
-            if (branch == null) {
-                continue;
-            }
-            // To reach the throw the branch evaluated to getBranchExpressionValue(); the distance to
-            // take the opposite (non-throwing) direction is the guard distance.
-            Map<Integer, Double> opposite = cd.getBranchExpressionValue() ? falseDistances : trueDistances;
-            Double d = opposite.get(branch.getActualBranchId());
-            if (d != null) {
-                best = Math.min(best, normalize(d));
-            }
-        }
-        return best;
-    }
-
-    private static BytecodeInstruction instructionAt(String className, String simpleMethodName, int lineNumber) {
-        try {
-            java.util.List<BytecodeInstruction> instructions = BytecodeInstructionPool
-                    .getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                    .getInstructionsIn(className);
-            if (instructions == null) {
-                return null;
-            }
-            for (BytecodeInstruction ins : instructions) {
-                if (ins.getLineNumber() == lineNumber
-                        && ins.getMethodName() != null
-                        && ins.getMethodName().startsWith(simpleMethodName + "(")
-                        && !ins.getControlDependencies().isEmpty()) {
-                    return ins;
-                }
-            }
-        } catch (RuntimeException e) {
-            return null;
-        }
-        return null;
-    }
-
-    private static double normalize(double d) {
-        double v = Math.abs(d);
-        return v / (v + 1.0);
     }
 
     private static double clamp01(double x) {

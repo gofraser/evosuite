@@ -9,6 +9,7 @@ import java.util.Map;
 
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
+import org.evosuite.coverage.GuardBranchDistance;
 import org.evosuite.testcase.MutationPositionDiscriminator;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -113,9 +114,24 @@ public class TestCaseLegitimizer {
     }
 
     /**
-     * Coarse legitimacy distance: {@code position(targetCall) - executedStatements + 1},
-     * clamped at 0. It is 0 exactly when execution reaches the target-method call (including the
-     * case where the target call itself throws).
+     * Legitimacy distance = <em>approach level</em> + <em>branch tie-breaker</em>.
+     *
+     * <p>The approach level is the coarse {@code position(targetCall) - executedStatements + 1}
+     * (clamped at 0), i.e., the number of test statements still to execute before the target call.
+     * It is 0 exactly when execution reaches the target-method call (including the case where the
+     * target call itself throws), so distance 0 still means "reached".
+     *
+     * <p>Every individual stuck at the same statement has the same approach level, which gives the
+     * niching GA no gradient to work with. To break those ties we add a fractional term in
+     * {@code [0,1)}: the {@linkplain GuardBranchDistance#avoidanceDistance targeted guard distance}
+     * of the branch that actually guards the failing statement — how close that guard is to taking
+     * the direction that would avoid the throw. This is the same directed distance the
+     * {@code construction_fitness} METHODNOEXCEPTION grading uses, so the local repair and the global
+     * fitness agree on one definition. Because the term is always {@code < 1} it never reorders
+     * individuals across approach levels; it only refines the ordering <em>within</em> a level,
+     * nudging the search toward the values/structure that bring the blocking guard closest to
+     * flipping. When the throw is not guarded by a resolvable branch (e.g. an unguarded NPE) the term
+     * is the neutral {@link GuardBranchDistance#NO_GUARD_DISTANCE} default.
      */
     public void updateLegitimacyDistance(TestChromosome individual) {
         TestCase test = individual.getTestCase();
@@ -130,17 +146,26 @@ public class TestCaseLegitimizer {
             individual.setLastExecutionResult(result);
         }
 
-        int numOfExecutedStatements = individual.getLastExecutionResult().getExecutedStatements();
-        double legitimacyDistance = targetCallStat.getPosition() - numOfExecutedStatements + 1;
-        if (legitimacyDistance < 0) {
-            legitimacyDistance = 0;
+        ExecutionResult result = individual.getLastExecutionResult();
+        int numOfExecutedStatements = result.getExecutedStatements();
+        double approachLevel = targetCallStat.getPosition() - numOfExecutedStatements + 1;
+        if (approachLevel < 0) {
+            approachLevel = 0;
         }
-        individual.setLegitimacyDistance(legitimacyDistance);
 
-        Integer exceptionPosition = individual.getLastExecutionResult().getFirstPositionOfThrownException();
-        if (exceptionPosition != null && exceptionPosition == targetCallStat.getPosition()) {
+        Integer exceptionPosition = result.getFirstPositionOfThrownException();
+        if (approachLevel == 0
+                || (exceptionPosition != null && exceptionPosition == targetCallStat.getPosition())) {
             individual.setLegitimacyDistance(0);
+            return;
         }
+
+        // The frontier (the statement that stopped execution short of the target) is where the
+        // exception was thrown; use the guard distance of the branch that actually guards it.
+        double guard = exceptionPosition == null
+                ? GuardBranchDistance.NO_GUARD_DISTANCE
+                : GuardBranchDistance.avoidanceDistance(result, exceptionPosition);
+        individual.setLegitimacyDistance(approachLevel + guard);
     }
 
     private void evolve(List<TestChromosome> population) {
@@ -228,9 +253,23 @@ public class TestCaseLegitimizer {
         population.sort(new PopulationComparator());
     }
 
+    /** Probability of attempting a construction-path move on an offspring when the feature is on. */
+    private static final double P_STRUCTURAL_MOVE = 0.5;
+
     private void mutateRelevantStatements(TestChromosome individual) {
         Statement statOfExp = individual.getStatementReportingException();
         if (statOfExp == null) {
+            return;
+        }
+
+        // Structural move (alternative to the primitive pass for this offspring): when primitive/null
+        // tweaks alone cannot get past the frontier (a missing construction step rather than a wrong
+        // value), extend the object-construction path by inserting an extra call on one of the
+        // receiver objects built before the failure. Done instead of the primitive pass so the pass
+        // below never operates on stale statement positions after the insertion.
+        if (Properties.OBJECT_RULE_STRUCTURAL_LEGITIMIZATION
+                && Randomness.nextDouble() < P_STRUCTURAL_MOVE) {
+            mutateConstructionPath(individual, statOfExp);
             return;
         }
 
@@ -292,6 +331,43 @@ public class TestCaseLegitimizer {
             }
 
             statement.getReturnValue().setDistance(oldDistance);
+        }
+    }
+
+    /**
+     * Structural legitimization move: pick a non-primitive object built before the frontier and
+     * insert an additional call on it just before the failing statement, giving the receiver a
+     * chance to reach the state the target call requires. Uses the standard, validity-preserving
+     * {@link TestFactory#insertRandomCallOnObjectAt}; the offspring is re-executed by the caller and
+     * re-checked for consistency at the factory boundary, so a fruitless or malformed insertion is
+     * simply discarded rather than propagated.
+     */
+    private void mutateConstructionPath(TestChromosome individual, Statement statOfExp) {
+        TestCase test = individual.getTestCase();
+        int frontier = statOfExp.getPosition();
+
+        List<VariableReference> receivers = new ArrayList<>();
+        for (int i = 0; i < frontier && i < test.size(); i++) {
+            Statement s = test.getStatement(i);
+            if (s instanceof PrimitiveStatement || s instanceof NullStatement) {
+                continue;
+            }
+            VariableReference ret = s.getReturnValue();
+            if (ret == null || ret.isPrimitive() || ret.isString() || ret.isVoid() || ret.isArray()) {
+                continue;
+            }
+            receivers.add(ret);
+        }
+        if (receivers.isEmpty()) {
+            return;
+        }
+
+        VariableReference receiver = Randomness.choice(receivers);
+        int insertPos = Math.min(receiver.getStPosition() + 1, frontier);
+        try {
+            TestFactory.getInstance().insertRandomCallOnObjectAt(test, receiver, insertPos);
+        } catch (Exception e) {
+            logger.debug("Structural legitimization mutation failed: {}", e.toString());
         }
     }
 

@@ -182,8 +182,16 @@ public class Properties {
     public static int INDIVIDUAL_LEGITIMIZATION_BUDGET = 10;
 
     @Parameter(key = "total_legitimization_budget", group = "Test Creation",
-            description = "Overall time budget (in seconds) for EvoObj legitimization")
+            description = "Overall time budget (in seconds) for EvoObj legitimization. Acts as an "
+                    + "absolute floor; when the search is time-bounded, the effective budget is the "
+                    + "larger of this value and legitimization_budget_fraction of the search budget")
     public static int TOTAL_LEGITIMIZATION_BUDGET = 30;
+
+    @Parameter(key = "legitimization_budget_fraction", group = "Test Creation",
+            description = "Fraction of the (time-bounded) search budget the EvoObj legitimizer may "
+                    + "spend overall. Only applied when stopping_condition is MAXTIME; the effective "
+                    + "total budget is max(total_legitimization_budget, this * search_budget)")
+    public static double LEGITIMIZATION_BUDGET_FRACTION = 0.5;
 
     @Parameter(key = "p_object_rule_application", group = "Test Creation",
             description = "Probability that a newly generated random test is replaced by an EvoObj "
@@ -200,10 +208,26 @@ public class Properties {
                     + "synthesis, so the search tunes template values more often")
     public static boolean OBJECT_RULE_SLOT_BIAS = false;
 
+    @Parameter(key = "object_rule_structural_legitimization", group = "Test Creation",
+            description = "During EvoObj legitimization, also mutate the object-construction path "
+                    + "(insert/replace method calls that build the receiver), not just primitive and "
+                    + "null slots. Lets the legitimizer escape failures that no primitive value can "
+                    + "fix; every mutated test is re-checked for consistency before use")
+    public static boolean OBJECT_RULE_STRUCTURAL_LEGITIMIZATION = false;
+
     @Parameter(key = "object_rule_whole_class", group = "Test Creation",
             description = "Apply EvoObj without -Dtarget_method: derive the entry method per branch "
                     + "from the branch's own (public/protected) containing method")
     public static boolean OBJECT_RULE_WHOLE_CLASS = false;
+
+    @Parameter(key = "object_rule_legitimization", group = "Test Creation",
+            description = "Run the EvoObj legitimizer to repair a synthesized template that throws "
+                    + "before the target call. When false (default), the synthesized template is used "
+                    + "as-is (pure synthesis, no repair). Off by default: on the SF110 benchmark the "
+                    + "legitimizer accounts for ~95% of object-rule runtime yet significantly lowers "
+                    + "coverage versus pure synthesis (it spends the search budget driving templates to "
+                    + "reach calls that are typically blocked by environment-infeasible branches)")
+    public static boolean OBJECT_RULE_LEGITIMIZATION = false;
 
     @Parameter(key = "construction_fitness", group = "Test Creation",
             description = "Grade METHODNOEXCEPTION goals with an object-construction distance (EvoObj "
