@@ -41,6 +41,7 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.NullStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.synthesizer.ConstructionPathSynthesizer;
@@ -115,6 +116,15 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
     /** Number of fresh syntheses that reached the call but missed the selected working goals. */
     public static int reachedNotCovered = 0;
+
+    /** Extra executions spent tuning primitive slots on already-reaching templates. */
+    public static int tuningExecutions = 0;
+
+    /** Number of tuning passes that found a strictly better working-goal fitness. */
+    public static int tuningWins = 0;
+
+    /** Number of tuning passes that covered a working branch-direction goal. */
+    public static int tuningCoverage = 0;
 
     private static int nextTemplateId = 1;
     private static int lastProducedTemplateId = 0;
@@ -475,11 +485,19 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 firstShotSuccesses++;
                 reachedTargetCall = true;
                 finalDistance = 0;
-                immediateCoveredWorkingGoal = coversWorkingGoal(test, result);
+                double workingGoalFitness = bestWorkingGoalFitness(test, result);
+                immediateCoveredWorkingGoal = workingGoalFitness == 0.0;
                 if (immediateCoveredWorkingGoal) {
                     immediateCoverage++;
                 } else {
                     reachedNotCovered++;
+                    TuningResult tuningResult = tuneSlotsForWorkingGoals(test, workingGoalFitness);
+                    if (tuningResult != null) {
+                        test = tuningResult.test;
+                        result = tuningResult.result;
+                        templateChromosome.setTestCase(test);
+                        templateChromosome.setLastExecutionResult(result);
+                    }
                 }
             } else if (!Properties.OBJECT_RULE_LEGITIMIZATION) {
                 // Legitimizer disabled: keep the synthesized template as-is even though it throws
@@ -599,6 +617,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         firstShotSuccesses = 0;
         immediateCoverage = 0;
         reachedNotCovered = 0;
+        tuningExecutions = 0;
+        tuningWins = 0;
+        tuningCoverage = 0;
         nextTemplateId = 1;
         lastProducedTemplateId = 0;
         workingGoals4ObjectGraph = new ArrayList<>();
@@ -669,6 +690,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 .trackOutputVariable(RuntimeVariable.ObjectRuleImmediateCoverage, immediateCoverage);
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.ObjectRuleReachedNotCovered, reachedNotCovered);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleTuningExecutions, tuningExecutions);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleTuningWins, tuningWins);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleTuningCoverage, tuningCoverage);
     }
 
     private static boolean coversWorkingGoal(TestCase test, ExecutionResult result) {
@@ -700,6 +727,85 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             Properties.TEST_ARCHIVE = oldArchive;
         }
         return best;
+    }
+
+    private static class TuningResult {
+        private final TestCase test;
+        private final ExecutionResult result;
+
+        private TuningResult(TestCase test, ExecutionResult result) {
+            this.test = test;
+            this.result = result;
+        }
+    }
+
+    private static TuningResult tuneSlotsForWorkingGoals(TestCase original, double originalFitness) {
+        if (!Properties.OBJECT_RULE_SLOT_TUNING || Properties.OBJECT_RULE_SLOT_TUNING_ATTEMPTS <= 0
+                || originalFitness == 0.0 || workingGoals4ObjectGraph == null
+                || workingGoals4ObjectGraph.isEmpty()) {
+            return null;
+        }
+
+        TestCase bestTest = original;
+        ExecutionResult bestResult = null;
+        double bestFitness = originalFitness;
+        boolean improved = false;
+        boolean covered = false;
+
+        for (int attempt = 0; attempt < Properties.OBJECT_RULE_SLOT_TUNING_ATTEMPTS; attempt++) {
+            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                break;
+            }
+            TestCase candidate;
+            try {
+                candidate = bestTest.clone();
+            } catch (Throwable t) {
+                break;
+            }
+            if (!mutateObjectRuleSlots(candidate)) {
+                continue;
+            }
+
+            long execStart = System.currentTimeMillis();
+            ExecutionResult candidateResult = TestCaseExecutor.getInstance().execute(candidate);
+            templateExecTimeMs += System.currentTimeMillis() - execStart;
+            tuningExecutions++;
+
+            double candidateFitness = bestWorkingGoalFitness(candidate, candidateResult);
+            if (candidateFitness < bestFitness) {
+                bestFitness = candidateFitness;
+                bestTest = candidate;
+                bestResult = candidateResult;
+                improved = true;
+                if (candidateFitness == 0.0) {
+                    covered = true;
+                    break;
+                }
+            }
+        }
+
+        if (!improved) {
+            return null;
+        }
+        tuningWins++;
+        if (covered) {
+            tuningCoverage++;
+        }
+        return new TuningResult(bestTest, bestResult);
+    }
+
+    static boolean mutateObjectRuleSlots(TestCase test) {
+        boolean mutated = false;
+        for (int i = 0; i < test.size(); i++) {
+            Statement statement = test.getStatement(i);
+            if (statement instanceof PrimitiveStatement
+                    && ((PrimitiveStatement<?>) statement).isObjectRuleSlot()
+                    && Randomness.nextDouble() < 0.5) {
+                ((PrimitiveStatement<?>) statement).mutate(test, TestFactory.getInstance());
+                mutated = true;
+            }
+        }
+        return mutated;
     }
 
     /** Number of branches whose object-construction graph has at least one dependent variable. */

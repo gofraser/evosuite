@@ -32,6 +32,8 @@ import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
 import org.evosuite.testcase.synthesizer.TargetContext;
@@ -60,6 +62,8 @@ public class ObjectRuleStatisticsTest {
         Properties.TARGET_METHOD = "";
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
+        Properties.OBJECT_RULE_SLOT_TUNING = false;
+        Properties.OBJECT_RULE_SLOT_TUNING_ATTEMPTS = 3;
         RandomLengthTestFactory.workingBranch4ObjectGraph = null;
         org.evosuite.TestGenerationContext.getInstance().resetContext();
     }
@@ -112,6 +116,9 @@ public class ObjectRuleStatisticsTest {
         RandomLengthTestFactory.firstShotSuccesses = 2;
         RandomLengthTestFactory.immediateCoverage = 1;
         RandomLengthTestFactory.reachedNotCovered = 1;
+        RandomLengthTestFactory.tuningExecutions = 3;
+        RandomLengthTestFactory.tuningWins = 2;
+        RandomLengthTestFactory.tuningCoverage = 1;
 
         RandomLengthTestFactory.resetStatistics();
 
@@ -126,7 +133,32 @@ public class ObjectRuleStatisticsTest {
         assertEquals(0, RandomLengthTestFactory.firstShotSuccesses);
         assertEquals(0, RandomLengthTestFactory.immediateCoverage);
         assertEquals(0, RandomLengthTestFactory.reachedNotCovered);
+        assertEquals(0, RandomLengthTestFactory.tuningExecutions);
+        assertEquals(0, RandomLengthTestFactory.tuningWins);
+        assertEquals(0, RandomLengthTestFactory.tuningCoverage);
         assertTrue(RandomLengthTestFactory.workingGoals4ObjectGraph.isEmpty());
+    }
+
+    @Test
+    public void slotTuningMutatesOnlyObjectRulePrimitiveSlots() {
+        DefaultTestCase test = new DefaultTestCase();
+        IntPrimitiveStatement slot = new IntPrimitiveStatement(test, 1);
+        slot.setObjectRuleSlot(true);
+        test.addStatement(slot);
+        IntPrimitiveStatement ordinary = new IntPrimitiveStatement(test, 2);
+        test.addStatement(ordinary);
+
+        boolean mutated = false;
+        for (int seed = 1; seed <= 20 && !mutated; seed++) {
+            slot.setValue(1);
+            ordinary.setValue(2);
+            Randomness.setSeed(seed);
+            mutated = RandomLengthTestFactory.mutateObjectRuleSlots(test);
+            assertEquals(2, ordinary.getValue().intValue());
+        }
+
+        assertTrue(mutated, "seeded attempts should mutate at least one object-rule slot");
+        assertTrue(slot.isObjectRuleSlot());
     }
 
     @Test

@@ -223,6 +223,17 @@ public class Properties {
                     + "synthesis, so the search tunes template values more often")
     public static boolean OBJECT_RULE_SLOT_BIAS = true;
 
+    @Parameter(key = "object_rule_slot_tuning", group = "Test Creation",
+            description = "When a fresh EvoObj template reaches the target call but misses the "
+                    + "working branch, try a bounded number of primitive-slot mutations before "
+                    + "the template enters the population")
+    public static boolean OBJECT_RULE_SLOT_TUNING = false;
+
+    @Parameter(key = "object_rule_slot_tuning_attempts", group = "Test Creation",
+            description = "Maximum number of in-place primitive-slot tuning executions per eligible "
+                    + "fresh EvoObj template")
+    public static int OBJECT_RULE_SLOT_TUNING_ATTEMPTS = 3;
+
     @Parameter(key = "object_rule_structural_legitimization", group = "Test Creation",
             description = "During EvoObj legitimization, also mutate the object-construction path "
                     + "(insert/replace method calls that build the receiver), not just primitive and "

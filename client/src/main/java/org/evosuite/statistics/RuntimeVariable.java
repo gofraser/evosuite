@@ -1604,7 +1604,13 @@ public enum RuntimeVariable {
      * currently uncovered branch-direction goal for the selected working branch. Cache reuses are
      * excluded.
      */
-    ObjectRuleReachedNotCovered;
+    ObjectRuleReachedNotCovered,
+    /** EvoObj: extra executions spent tuning primitive slots on already-reaching templates. */
+    ObjectRuleTuningExecutions,
+    /** EvoObj: fresh templates whose tuning pass found a strictly lower working-goal fitness. */
+    ObjectRuleTuningWins,
+    /** EvoObj: fresh templates whose tuning pass covered a working branch-direction goal. */
+    ObjectRuleTuningCoverage;
 
     /* -------------------------------------------------- */
 
