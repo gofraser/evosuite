@@ -203,6 +203,11 @@ public class Properties {
                     + "branch is negatively cached for the rest of the run")
     public static int OBJECT_RULE_MAX_FAILED_ATTEMPTS = 3;
 
+    @Parameter(key = "object_rule_frontier_targeting", group = "Test Creation",
+            description = "In DynaMOSA, select EvoObj working branches from the current frontier "
+                    + "goals when possible instead of uniformly across all archive-uncovered branches")
+    public static boolean OBJECT_RULE_FRONTIER_TARGETING = true;
+
     @Parameter(key = "object_rule_reflection_fallback", group = "Test Creation",
             description = "When an EvoObj leaf field has no reachable public setter, set it via "
                     + "reflection (PrivateFieldStatement) instead of leaving the template incomplete")

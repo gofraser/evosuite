@@ -644,16 +644,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // EvoObj: collect the uncovered branch goals once per generation (not per inserted test) and
         // evict cached templates for branches that are now covered. No-op unless enabled.
         List<Branch> uncoveredBranches = null;
+        List<Branch> candidateBranches = null;
         if (Properties.APPLY_OBJECT_RULE) {
-            uncoveredBranches = new ArrayList<>();
-            for (TestFitnessFunction ff : getUncoveredGoals()) {
-                if (ff instanceof BranchFitness) {
-                    Branch branch = ((BranchFitness) ff).getBranchGoal().getBranch();
-                    if (branch != null) {
-                        uncoveredBranches.add(branch);
-                    }
-                }
-            }
+            uncoveredBranches = objectRuleUncoveredBranches();
+            candidateBranches = objectRuleCandidateBranches();
             TemplateCache.getInstance().retainUncovered(uncoveredBranches);
         }
         // Add new randomly generate tests
@@ -666,7 +660,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 if (Properties.APPLY_OBJECT_RULE) {
                     RandomLengthTestFactory.currentIteration = this.currentIteration;
                     RandomLengthTestFactory.workingBranch4ObjectGraph =
-                            ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
+                            ObjectRuleBranchSelector.getInstance().selectWorkingBranch(candidateBranches);
                 }
                 tch = this.chromosomeFactory.getChromosome();
                 tch.setChanged(true);
@@ -691,6 +685,23 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         logger.debug("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
+    }
+
+    protected List<Branch> objectRuleCandidateBranches() {
+        return objectRuleUncoveredBranches();
+    }
+
+    protected List<Branch> objectRuleUncoveredBranches() {
+        List<Branch> uncoveredBranches = new ArrayList<>();
+        for (TestFitnessFunction ff : getUncoveredGoals()) {
+            if (ff instanceof BranchFitness) {
+                Branch branch = ((BranchFitness) ff).getBranchGoal().getBranch();
+                if (branch != null) {
+                    uncoveredBranches.add(branch);
+                }
+            }
+        }
+        return uncoveredBranches;
     }
 
     protected void recordObjectRuleTemplateSurvival() {
