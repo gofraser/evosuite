@@ -125,7 +125,8 @@ public class ObjectRuleSystemTest extends SystemTestBase {
                 + RuntimeVariable.ObjectGraphMaxSize + ","
                 + RuntimeVariable.TemplateSynthesisTime + ","
                 + RuntimeVariable.TemplateInjections + ","
-                + RuntimeVariable.LegitimizationSuccessRate;
+                + RuntimeVariable.LegitimizationSuccessRate + ","
+                + phaseVOutputVariables();
         double withRule = runSearch(BasicRules.class.getCanonicalName()).getCoverage();
 
         // Sanity: the object-rule arm actually ran the OCG analysis (a branch with a non-empty
@@ -192,7 +193,8 @@ public class ObjectRuleSystemTest extends SystemTestBase {
                 + RuntimeVariable.ObjectGraphMaxSize + ","
                 + RuntimeVariable.TemplateSynthesisTime + ","
                 + RuntimeVariable.TemplateInjections + ","
-                + RuntimeVariable.LegitimizationSuccessRate;
+                + RuntimeVariable.LegitimizationSuccessRate + ","
+                + phaseVOutputVariables();
 
         runSearch(BasicRules.class.getCanonicalName());
 
@@ -201,7 +203,18 @@ public class ObjectRuleSystemTest extends SystemTestBase {
         for (RuntimeVariable v : new RuntimeVariable[] {
                 RuntimeVariable.ObjectGraphBranches, RuntimeVariable.ObjectGraphMaxSize,
                 RuntimeVariable.TemplateSynthesisTime, RuntimeVariable.TemplateInjections,
-                RuntimeVariable.LegitimizationSuccessRate }) {
+                RuntimeVariable.LegitimizationSuccessRate,
+                RuntimeVariable.ObjectRuleEverEligibleBranches,
+                RuntimeVariable.ObjectRuleBlacklistedBranches,
+                RuntimeVariable.ObjectRuleLastFreshSynthesisIteration,
+                RuntimeVariable.ObjectRuleEntryRejectedConstructor,
+                RuntimeVariable.ObjectRuleEntryRejectedNonPublic,
+                RuntimeVariable.ObjectRuleEntryRejectedOther,
+                RuntimeVariable.ObjectRuleTemplateSurvivalMean,
+                RuntimeVariable.ObjectRuleTemplateSurvival5,
+                RuntimeVariable.TemplateCacheHits,
+                RuntimeVariable.ObjectRuleFreshSyntheses,
+                RuntimeVariable.ObjectRuleFirstShotSuccesses }) {
             Assertions.assertNotNull(map.get(v.toString()), v + " should be reported");
         }
         // BasicRules.checkRules reads Player[] state -> at least one branch has a non-empty graph.
@@ -216,5 +229,19 @@ public class ObjectRuleSystemTest extends SystemTestBase {
             Assertions.assertTrue(Double.parseDouble(rawBranches) > 0,
                     "checkRules should have at least one branch with a non-empty object graph");
         }
+    }
+
+    private static String phaseVOutputVariables() {
+        return RuntimeVariable.ObjectRuleEverEligibleBranches + ","
+                + RuntimeVariable.ObjectRuleBlacklistedBranches + ","
+                + RuntimeVariable.ObjectRuleLastFreshSynthesisIteration + ","
+                + RuntimeVariable.ObjectRuleEntryRejectedConstructor + ","
+                + RuntimeVariable.ObjectRuleEntryRejectedNonPublic + ","
+                + RuntimeVariable.ObjectRuleEntryRejectedOther + ","
+                + RuntimeVariable.ObjectRuleTemplateSurvivalMean + ","
+                + RuntimeVariable.ObjectRuleTemplateSurvival5 + ","
+                + RuntimeVariable.TemplateCacheHits + ","
+                + RuntimeVariable.ObjectRuleFreshSyntheses + ","
+                + RuntimeVariable.ObjectRuleFirstShotSuccesses;
     }
 }

@@ -31,6 +31,10 @@ import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
+import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.junit.jupiter.api.AfterEach;
@@ -101,6 +105,11 @@ public class ObjectRuleStatisticsTest {
         RandomLengthTestFactory.legitimizationSuccess = 3;
         RandomLengthTestFactory.templateInjections = 11;
         RandomLengthTestFactory.templateSynthesisTimeMs = 1234;
+        RandomLengthTestFactory.currentIteration = 9;
+        RandomLengthTestFactory.lastFreshSynthesisIteration = 8;
+        RandomLengthTestFactory.templateCacheHits = 5;
+        RandomLengthTestFactory.freshSyntheses = 4;
+        RandomLengthTestFactory.firstShotSuccesses = 2;
 
         RandomLengthTestFactory.resetStatistics();
 
@@ -108,6 +117,60 @@ public class ObjectRuleStatisticsTest {
         assertEquals(0, RandomLengthTestFactory.legitimizationSuccess);
         assertEquals(0, RandomLengthTestFactory.templateInjections);
         assertEquals(0L, RandomLengthTestFactory.templateSynthesisTimeMs);
+        assertEquals(0, RandomLengthTestFactory.currentIteration);
+        assertEquals(0, RandomLengthTestFactory.lastFreshSynthesisIteration);
+        assertEquals(0, RandomLengthTestFactory.templateCacheHits);
+        assertEquals(0, RandomLengthTestFactory.freshSyntheses);
+        assertEquals(0, RandomLengthTestFactory.firstShotSuccesses);
+    }
+
+    @Test
+    public void objectRuleTelemetryTracksSurvivalAndReset() {
+        ObjectRuleTelemetry telemetry = ObjectRuleTelemetry.getInstance();
+        telemetry.recordInjection(1, 3);
+
+        TestChromosome chromosome = new TestChromosome();
+        chromosome.setObjectRuleTemplateId(1);
+        telemetry.recordPopulation(java.util.Collections.singletonList(chromosome), 8);
+
+        assertEquals(5.0, telemetry.meanSurvival(), 0.0);
+        assertEquals(1.0, telemetry.survivalAtLeastFive(), 0.0);
+
+        ObjectConstructionContext.reset();
+
+        assertEquals(0.0, telemetry.meanSurvival(), 0.0);
+        assertEquals(0.0, telemetry.survivalAtLeastFive(), 0.0);
+    }
+
+    @Test
+    public void objectRuleCountersResetThroughConstructionContext() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+        org.evosuite.coverage.branch.Branch branch = null;
+        for (java.util.Map.Entry<org.evosuite.coverage.branch.Branch,
+                java.util.Set<org.evosuite.graphs.interprocedural.var.DepVariable>> entry
+                : ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD).entrySet()) {
+            if (entry.getValue() != null && !entry.getValue().isEmpty()) {
+                branch = entry.getKey();
+                break;
+            }
+        }
+        assertTrue(branch != null);
+        selector.isEligible(branch);
+        selector.recordSynthesisAttempt(branch, false);
+        selector.recordSynthesisAttempt(branch, false);
+        selector.recordSynthesisAttempt(branch, false);
+
+        TargetContext.forBranch(null);
+        assertTrue(selector.getEverEligibleCount() > 0);
+        assertTrue(selector.getBlacklistedCount() > 0);
+        assertTrue(TargetContext.getRejectedOtherEntries() > 0);
+
+        ObjectConstructionContext.reset();
+
+        assertEquals(0, selector.getEverEligibleCount());
+        assertEquals(0, selector.getBlacklistedCount());
+        assertEquals(0, TargetContext.getRejectedOtherEntries());
     }
 
     /** Graph-size statistics reflect the object-construction analysis and tracking never throws. */

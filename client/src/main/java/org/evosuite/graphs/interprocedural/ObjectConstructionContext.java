@@ -46,5 +46,7 @@ public class ObjectConstructionContext {
 		org.evosuite.testcase.factories.RandomLengthTestFactory.resetStatistics();
 		org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector.getInstance().reset();
 		org.evosuite.testcase.synthesizer.TemplateCache.getInstance().reset();
+		org.evosuite.testcase.synthesizer.TargetContext.resetStatistics();
+		org.evosuite.testcase.synthesizer.ObjectRuleTelemetry.getInstance().reset();
 	}
 }

@@ -43,7 +43,9 @@ import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.synthesizer.ConstructionPathSynthesizer;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
+import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
 import org.evosuite.testcase.synthesizer.PartialGraph;
+import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.testcase.synthesizer.var.DepVariableWrapper;
@@ -90,6 +92,24 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
     /** Number of random tests replaced by a synthesized template (statistics). */
     public static int templateInjections = 0;
+
+    /** Current GA iteration, stamped by the search before object-rule branch selection. */
+    public static int currentIteration = 0;
+
+    /** Last generation in which a fresh non-cache synthesis was attempted. */
+    public static int lastFreshSynthesisIteration = 0;
+
+    /** Number of cached template clones reused. */
+    public static int templateCacheHits = 0;
+
+    /** Number of fresh non-cache synthesis attempts. */
+    public static int freshSyntheses = 0;
+
+    /** Number of fresh syntheses whose first execution reached legitimacy distance 0. */
+    public static int firstShotSuccesses = 0;
+
+    private static int nextTemplateId = 1;
+    private static int lastProducedTemplateId = 0;
 
     /** Cumulative time (ms) spent synthesizing + legitimizing templates (statistics). */
     public static long templateSynthesisTimeMs = 0;
@@ -240,6 +260,8 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                     if (cached != null) {
                         test = cached;
                         templateInjections++;
+                        templateCacheHits++;
+                        markLastProducedTemplate();
                     } else {
                         test = synthesizeAndLegitimize(test, allowNullValue, size);
                     }
@@ -303,6 +325,8 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 TestCase cached = TemplateCache.getInstance().getClonedTemplate(b);
                 if (cached != null) {
                     templateInjections++;
+                    templateCacheHits++;
+                    markLastProducedTemplate();
                     return cached;
                 }
             }
@@ -367,8 +391,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
         long synthesisStart = System.currentTimeMillis();
         boolean reachedTargetCall = false;
+        boolean freshSynthesisStarted = false;
         double finalDistance = Double.MAX_VALUE;
         try {
+            freshSyntheses++;
+            lastFreshSynthesisIteration = currentIteration;
+            freshSynthesisStarted = true;
             ConstructionPathSynthesizer synthesizer = new ConstructionPathSynthesizer();
             synthesizer.buildNodeStatementCorrespondence(test, b, allowNullValue);
             templateInjections++;
@@ -401,6 +429,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             double oldLegitimacyDistance = templateChromosome.getLegitimacyDistance();
 
             if (oldLegitimacyDistance == 0) {
+                firstShotSuccesses++;
                 reachedTargetCall = true;
                 finalDistance = 0;
             } else if (!Properties.OBJECT_RULE_LEGITIMIZATION) {
@@ -446,6 +475,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
             // Cache the best template seen for this branch for later reuse.
             TemplateCache.getInstance().store(b, test, finalDistance);
+            markLastProducedTemplate();
         } catch (Throwable e) {
             // Synthesis and legitimization are strictly best-effort: any failure here (including
             // Errors such as a LinkageError/NoClassDefFoundError from initializing a SUT class, an
@@ -458,10 +488,18 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         } finally {
             templateSynthesisTimeMs += System.currentTimeMillis() - synthesisStart;
             // Feed the outcome back to the branch selector's negative cache.
-            ObjectRuleBranchSelector.getInstance().recordSynthesisAttempt(b, reachedTargetCall);
+            if (freshSynthesisStarted) {
+                ObjectRuleBranchSelector.getInstance().recordSynthesisAttempt(b, reachedTargetCall);
+            }
         }
 
         return test;
+    }
+
+    private static void markLastProducedTemplate() {
+        int id = nextTemplateId++;
+        lastProducedTemplateId = id;
+        ObjectRuleTelemetry.getInstance().recordInjection(id, currentIteration);
     }
 
     /**
@@ -497,6 +535,13 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         templateExecTimeMs = 0;
         legitimizationTimeMs = 0;
         inconsistentTemplatesDiscarded = 0;
+        currentIteration = 0;
+        lastFreshSynthesisIteration = 0;
+        templateCacheHits = 0;
+        freshSyntheses = 0;
+        firstShotSuccesses = 0;
+        nextTemplateId = 1;
+        lastProducedTemplateId = 0;
     }
 
     /**
@@ -530,6 +575,36 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 .trackOutputVariable(RuntimeVariable.LegitimizationSuccesses, legitimizationSuccess);
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.LegitimizationSkipped, legitimizationSkipped);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleEverEligibleBranches,
+                        ObjectRuleBranchSelector.getInstance().getEverEligibleCount());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleBlacklistedBranches,
+                        ObjectRuleBranchSelector.getInstance().getBlacklistedCount());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleLastFreshSynthesisIteration,
+                        lastFreshSynthesisIteration);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleEntryRejectedConstructor,
+                        TargetContext.getRejectedConstructorEntries());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleEntryRejectedNonPublic,
+                        TargetContext.getRejectedNonPublicEntries());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleEntryRejectedOther,
+                        TargetContext.getRejectedOtherEntries());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleTemplateSurvivalMean,
+                        ObjectRuleTelemetry.getInstance().meanSurvival());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleTemplateSurvival5,
+                        ObjectRuleTelemetry.getInstance().survivalAtLeastFive());
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.TemplateCacheHits, templateCacheHits);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleFreshSyntheses, freshSyntheses);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleFirstShotSuccesses, firstShotSuccesses);
     }
 
     /** Number of branches whose object-construction graph has at least one dependent variable. */
@@ -612,6 +687,10 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     public TestChromosome getChromosome() {
         TestChromosome c = new TestChromosome();
         c.setTestCase(getRandomTestCase(Properties.CHROMOSOME_LENGTH));
+        if (Properties.APPLY_OBJECT_RULE && lastProducedTemplateId != 0) {
+            c.setObjectRuleTemplateId(lastProducedTemplateId);
+            lastProducedTemplateId = 0;
+        }
         return c;
     }
 

@@ -1571,7 +1571,29 @@ public enum RuntimeVariable {
      * value relative to {@link #LegitimizationAttempts} means the budget, not the algorithm, is the
      * bottleneck.
      */
-    LegitimizationSkipped;
+    LegitimizationSkipped,
+    /** EvoObj: distinct branches that were eligible for synthesis at least once. */
+    ObjectRuleEverEligibleBranches,
+    /** EvoObj: branches negatively cached after repeated failed synthesis attempts. */
+    ObjectRuleBlacklistedBranches,
+    /** EvoObj: GA iteration of the last fresh non-cache synthesis. */
+    ObjectRuleLastFreshSynthesisIteration,
+    /** EvoObj whole-class: rejected branch entries in constructors or class initializers. */
+    ObjectRuleEntryRejectedConstructor,
+    /** EvoObj whole-class: rejected branch entries in non-public/non-protected methods. */
+    ObjectRuleEntryRejectedNonPublic,
+    /** EvoObj whole-class: rejected branch entries for all other reasons. */
+    ObjectRuleEntryRejectedOther,
+    /** EvoObj: mean generations that template descendants survived in the population. */
+    ObjectRuleTemplateSurvivalMean,
+    /** EvoObj: fraction of template ids surviving at least five generations. */
+    ObjectRuleTemplateSurvival5,
+    /** EvoObj: cached template clones reused instead of fresh synthesis. */
+    TemplateCacheHits,
+    /** EvoObj: fresh non-cache synthesis attempts. */
+    ObjectRuleFreshSyntheses,
+    /** EvoObj: fresh syntheses whose first execution reached legitimacy distance 0. */
+    ObjectRuleFirstShotSuccesses;
 
     /* -------------------------------------------------- */
 

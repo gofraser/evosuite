@@ -75,6 +75,13 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
      */
     private double legitimacyDistance = 0;
 
+    /**
+     * EvoObj template lineage id. Zero means this chromosome is not descended from an
+     * object-rule template; non-zero values intentionally survive clone, crossover and mutation
+     * so template retention can be measured across generations.
+     */
+    private int objectRuleTemplateId = 0;
+
 
 
     /**
@@ -278,6 +285,14 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         return Collections.unmodifiableSet(all);
     }
 
+    public int getObjectRuleTemplateId() {
+        return objectRuleTemplateId;
+    }
+
+    public void setObjectRuleTemplateId(int objectRuleTemplateId) {
+        this.objectRuleTemplateId = objectRuleTemplateId;
+    }
+
     /**
      * {@inheritDoc}
      *
@@ -296,6 +311,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         c.setNumberOfEvaluations(this.getNumberOfEvaluations());
         c.setKineticEnergy(getKineticEnergy());
         c.setNumCollisions(getNumCollisions());
+        c.setObjectRuleTemplateId(this.objectRuleTemplateId);
 
         return c;
     }

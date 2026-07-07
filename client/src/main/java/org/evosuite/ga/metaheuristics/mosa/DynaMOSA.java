@@ -105,6 +105,7 @@ public class DynaMOSA extends AbstractMOSA {
 
         emitGenerationMetrics(goalsManager.getUncoveredGoals().size(),
                 goalsManager.getCoveredGoals().size());
+        recordObjectRuleTemplateSurvival();
 
         this.currentIteration++;
         logger.debug("Covered goals = {}", goalsManager.getCoveredGoals().size());

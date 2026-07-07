@@ -70,6 +70,9 @@ public class ObjectRuleBranchSelector {
     /** Branches given up on after too many failed attempts. */
     private final Set<Branch> ineligible = new LinkedHashSet<>();
 
+    /** Branches that have been eligible at least once in this run. */
+    private final Set<Branch> everEligible = new LinkedHashSet<>();
+
     private ObjectRuleBranchSelector() {
     }
 
@@ -82,6 +85,7 @@ public class ObjectRuleBranchSelector {
         eligibilityCache.clear();
         failedAttempts.clear();
         ineligible.clear();
+        everEligible.clear();
     }
 
     /**
@@ -104,6 +108,9 @@ public class ObjectRuleBranchSelector {
             eligible = hasNonEmptyObjectGraph(branch);
         }
         eligibilityCache.put(branch, eligible);
+        if (eligible) {
+            everEligible.add(branch);
+        }
         return eligible;
     }
 
@@ -167,5 +174,13 @@ public class ObjectRuleBranchSelector {
         if (attempts >= MAX_FAILED_ATTEMPTS) {
             ineligible.add(branch);
         }
+    }
+
+    public int getEverEligibleCount() {
+        return everEligible.size();
+    }
+
+    public int getBlacklistedCount() {
+        return ineligible.size();
     }
 }

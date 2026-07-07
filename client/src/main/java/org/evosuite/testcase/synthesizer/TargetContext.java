@@ -43,6 +43,10 @@ public class TargetContext {
 
     private static final ThreadLocal<TargetContext> ACTIVE = new ThreadLocal<>();
 
+    private static int rejectedConstructorEntries = 0;
+    private static int rejectedNonPublicEntries = 0;
+    private static int rejectedOtherEntries = 0;
+
     private final String className;
     private final String methodSignature;
     private final Branch branch;
@@ -73,14 +77,17 @@ public class TargetContext {
      */
     public static TargetContext forBranch(Branch branch) {
         if (branch == null || branch.getInstruction() == null) {
+            countOtherRejection();
             return null;
         }
         String className = branch.getInstruction().getClassName();
         String methodSignature = branch.getInstruction().getMethodName();
         if (className == null || methodSignature == null) {
+            countOtherRejection();
             return null;
         }
         if (methodSignature.startsWith("<clinit>") || methodSignature.startsWith("<init>")) {
+            countConstructorRejection();
             return null;
         }
         try {
@@ -91,13 +98,52 @@ public class TargetContext {
                     if (Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers)) {
                         return new TargetContext(className, methodSignature, branch);
                     }
+                    countNonPublicRejection();
                     return null;
                 }
             }
         } catch (Throwable t) {
+            countOtherRejection();
             return null;
         }
+        countOtherRejection();
         return null;
+    }
+
+    private static void countConstructorRejection() {
+        if (Properties.APPLY_OBJECT_RULE) {
+            rejectedConstructorEntries++;
+        }
+    }
+
+    private static void countNonPublicRejection() {
+        if (Properties.APPLY_OBJECT_RULE) {
+            rejectedNonPublicEntries++;
+        }
+    }
+
+    private static void countOtherRejection() {
+        if (Properties.APPLY_OBJECT_RULE) {
+            rejectedOtherEntries++;
+        }
+    }
+
+    public static int getRejectedConstructorEntries() {
+        return rejectedConstructorEntries;
+    }
+
+    public static int getRejectedNonPublicEntries() {
+        return rejectedNonPublicEntries;
+    }
+
+    public static int getRejectedOtherEntries() {
+        return rejectedOtherEntries;
+    }
+
+    public static void resetStatistics() {
+        rejectedConstructorEntries = 0;
+        rejectedNonPublicEntries = 0;
+        rejectedOtherEntries = 0;
     }
 
     /** The active context for the current synthesis, or {@code null} when none is set. */

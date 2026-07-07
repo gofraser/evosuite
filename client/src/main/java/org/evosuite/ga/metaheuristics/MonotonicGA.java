@@ -26,6 +26,7 @@ import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
+import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
 import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.ga.*;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -203,6 +204,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         population = newGeneration;
         // archive
         updateFitnessFunctionsAndValues();
+        recordObjectRuleTemplateSurvival();
 
         currentIteration++;
     }
@@ -259,10 +261,20 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                     uncoveredBranches.add(goal.getBranch());
                 }
             }
+            RandomLengthTestFactory.currentIteration = this.currentIteration;
             RandomLengthTestFactory.workingBranch4ObjectGraph =
                     ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
             // Evict cached templates for branches that are now covered.
             TemplateCache.getInstance().retainUncovered(uncoveredBranches);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void recordObjectRuleTemplateSurvival() {
+        if (Properties.APPLY_OBJECT_RULE && !population.isEmpty()
+                && population.get(0) instanceof org.evosuite.testcase.TestChromosome) {
+            ObjectRuleTelemetry.getInstance().recordPopulation(
+                    (List<org.evosuite.testcase.TestChromosome>) population, this.currentIteration);
         }
     }
 
