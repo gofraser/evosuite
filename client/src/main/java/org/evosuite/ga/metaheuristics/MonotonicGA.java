@@ -271,7 +271,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                             .add(fitness);
                 }
             }
-            RandomLengthTestFactory.currentIteration = this.currentIteration;
+            RandomLengthTestFactory.setCurrentIteration(this.currentIteration);
             RandomLengthTestFactory.workingBranch4ObjectGraph =
                     ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
             List<BranchCoverageTestFitness> workingGoals =

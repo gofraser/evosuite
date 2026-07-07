@@ -660,7 +660,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 // this newly generated test. ObjectRuleBranchSelector restricts the choice to
                 // branches with a non-empty object graph and drops repeatedly-failing ones.
                 if (Properties.APPLY_OBJECT_RULE) {
-                    RandomLengthTestFactory.currentIteration = this.currentIteration;
+                    RandomLengthTestFactory.setCurrentIteration(this.currentIteration);
                     RandomLengthTestFactory.workingBranch4ObjectGraph =
                             ObjectRuleBranchSelector.getInstance().selectWorkingBranch(candidateBranches);
                     RandomLengthTestFactory.workingGoals4ObjectGraph = objectRuleWorkingGoals(

@@ -234,6 +234,12 @@ public class Properties {
                     + "fresh EvoObj template")
     public static int OBJECT_RULE_SLOT_TUNING_ATTEMPTS = 3;
 
+    @Parameter(key = "object_rule_variant_injections", group = "Test Creation",
+            description = "After an EvoObj template injection in a generation, allow later "
+                    + "new-test slots in that same generation to receive a slot-mutated clone "
+                    + "instead of a fresh random test")
+    public static boolean OBJECT_RULE_VARIANT_INJECTIONS = false;
+
     @Parameter(key = "object_rule_structural_legitimization", group = "Test Creation",
             description = "During EvoObj legitimization, also mutate the object-construction path "
                     + "(insert/replace method calls that build the receiver), not just primitive and "

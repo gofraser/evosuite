@@ -126,8 +126,13 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     /** Number of tuning passes that covered a working branch-direction goal. */
     public static int tuningCoverage = 0;
 
+    /** Number of same-generation slot-mutated template variants injected. */
+    public static int variantInjections = 0;
+
     private static int nextTemplateId = 1;
     private static int lastProducedTemplateId = 0;
+    private static TestCase lastInjectedTemplate = null;
+    private static int lastInjectedTemplateIteration = -1;
 
     /** Cumulative time (ms) spent synthesizing + legitimizing templates (statistics). */
     public static long templateSynthesisTimeMs = 0;
@@ -168,6 +173,8 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     /** Probability of reusing a cached template instead of re-synthesizing one. */
     private static final double TEMPLATE_REUSE_PROBABILITY = 0.5;
 
+    private static final double VARIANT_INJECTION_PROBABILITY = 0.5;
+
     /**
      * Creates a random test case (i.e., a test case consisting of random statements) with the given.
      * {@code size} as an exclusive upper bound for the number of contained statements. In
@@ -188,6 +195,8 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         final TestCase test;
         if (!Properties.APPLY_OBJECT_RULE) {
             test = getDefaultRandomTestCase(size);
+        } else if (shouldProduceVariant()) {
+            test = produceVariantTestCase();
         } else if (isWholeClassMode()) {
             test = getWholeClassObjectRuleTestCase(size);
         } else {
@@ -286,6 +295,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                         templateInjections++;
                         templateCacheHits++;
                         markLastProducedTemplate();
+                        rememberLastInjectedTemplate(test);
                     } else {
                         test = synthesizeAndLegitimize(test, allowNullValue, size);
                     }
@@ -351,6 +361,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                     templateInjections++;
                     templateCacheHits++;
                     markLastProducedTemplate();
+                    rememberLastInjectedTemplate(cached);
                     return cached;
                 }
             }
@@ -544,6 +555,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             // Cache the best template seen for this branch for later reuse.
             TemplateCache.getInstance().store(b, test, finalDistance);
             markLastProducedTemplate(immediateCoveredWorkingGoal);
+            rememberLastInjectedTemplate(test);
         } catch (Throwable e) {
             // Synthesis and legitimization are strictly best-effort: any failure here (including
             // Errors such as a LinkageError/NoClassDefFoundError from initializing a SUT class, an
@@ -575,6 +587,24 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         if (immediateCoverage) {
             ObjectRuleTelemetry.getInstance().recordImmediateCoverage(id);
         }
+    }
+
+    static void rememberLastInjectedTemplate(TestCase test) {
+        try {
+            lastInjectedTemplate = test == null ? null : test.clone();
+            lastInjectedTemplateIteration = lastInjectedTemplate == null ? -1 : currentIteration;
+        } catch (Throwable t) {
+            lastInjectedTemplate = null;
+            lastInjectedTemplateIteration = -1;
+        }
+    }
+
+    public static void setCurrentIteration(int iteration) {
+        if (currentIteration != iteration) {
+            lastInjectedTemplate = null;
+            lastInjectedTemplateIteration = -1;
+        }
+        currentIteration = iteration;
     }
 
     /**
@@ -620,8 +650,11 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         tuningExecutions = 0;
         tuningWins = 0;
         tuningCoverage = 0;
+        variantInjections = 0;
         nextTemplateId = 1;
         lastProducedTemplateId = 0;
+        lastInjectedTemplate = null;
+        lastInjectedTemplateIteration = -1;
         workingGoals4ObjectGraph = new ArrayList<>();
     }
 
@@ -696,6 +729,8 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 .trackOutputVariable(RuntimeVariable.ObjectRuleTuningWins, tuningWins);
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.ObjectRuleTuningCoverage, tuningCoverage);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleVariantInjections, variantInjections);
     }
 
     private static boolean coversWorkingGoal(TestCase test, ExecutionResult result) {
@@ -806,6 +841,33 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             }
         }
         return mutated;
+    }
+
+    static boolean shouldProduceVariant() {
+        return Properties.OBJECT_RULE_VARIANT_INJECTIONS
+                && lastInjectedTemplate != null
+                && lastInjectedTemplateIteration == currentIteration
+                && Randomness.nextDouble() < VARIANT_INJECTION_PROBABILITY;
+    }
+
+    static TestCase produceVariantTestCase() {
+        try {
+            TestCase variant = lastInjectedTemplate.clone();
+            if (!mutateObjectRuleSlots(variant)) {
+                return getStaticDefaultRandomTestCase();
+            }
+            templateInjections++;
+            variantInjections++;
+            markLastProducedTemplate();
+            return variant;
+        } catch (Throwable t) {
+            logger.debug("Failed to create object-rule variant injection", t);
+            return getStaticDefaultRandomTestCase();
+        }
+    }
+
+    private static TestCase getStaticDefaultRandomTestCase() {
+        return new RandomLengthTestFactory().getDefaultRandomTestCase(Properties.CHROMOSOME_LENGTH);
     }
 
     /** Number of branches whose object-construction graph has at least one dependent variable. */

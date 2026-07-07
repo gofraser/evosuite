@@ -1610,7 +1610,9 @@ public enum RuntimeVariable {
     /** EvoObj: fresh templates whose tuning pass found a strictly lower working-goal fitness. */
     ObjectRuleTuningWins,
     /** EvoObj: fresh templates whose tuning pass covered a working branch-direction goal. */
-    ObjectRuleTuningCoverage;
+    ObjectRuleTuningCoverage,
+    /** EvoObj: slot-mutated same-generation clones injected instead of fresh random tests. */
+    ObjectRuleVariantInjections;
 
     /* -------------------------------------------------- */
 

@@ -33,6 +33,7 @@ import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
@@ -64,6 +65,7 @@ public class ObjectRuleStatisticsTest {
         Properties.APPLY_OBJECT_RULE = false;
         Properties.OBJECT_RULE_SLOT_TUNING = false;
         Properties.OBJECT_RULE_SLOT_TUNING_ATTEMPTS = 3;
+        Properties.OBJECT_RULE_VARIANT_INJECTIONS = false;
         RandomLengthTestFactory.workingBranch4ObjectGraph = null;
         org.evosuite.TestGenerationContext.getInstance().resetContext();
     }
@@ -119,6 +121,7 @@ public class ObjectRuleStatisticsTest {
         RandomLengthTestFactory.tuningExecutions = 3;
         RandomLengthTestFactory.tuningWins = 2;
         RandomLengthTestFactory.tuningCoverage = 1;
+        RandomLengthTestFactory.variantInjections = 4;
 
         RandomLengthTestFactory.resetStatistics();
 
@@ -136,6 +139,7 @@ public class ObjectRuleStatisticsTest {
         assertEquals(0, RandomLengthTestFactory.tuningExecutions);
         assertEquals(0, RandomLengthTestFactory.tuningWins);
         assertEquals(0, RandomLengthTestFactory.tuningCoverage);
+        assertEquals(0, RandomLengthTestFactory.variantInjections);
         assertTrue(RandomLengthTestFactory.workingGoals4ObjectGraph.isEmpty());
     }
 
@@ -159,6 +163,53 @@ public class ObjectRuleStatisticsTest {
 
         assertTrue(mutated, "seeded attempts should mutate at least one object-rule slot");
         assertTrue(slot.isObjectRuleSlot());
+    }
+
+    @Test
+    public void variantInjectionUsesSameGenerationTemplateClone() {
+        Properties.OBJECT_RULE_VARIANT_INJECTIONS = true;
+
+        DefaultTestCase source = new DefaultTestCase();
+        IntPrimitiveStatement slot = new IntPrimitiveStatement(source, 1);
+        slot.setObjectRuleSlot(true);
+        source.addStatement(slot);
+        IntPrimitiveStatement ordinary = new IntPrimitiveStatement(source, 2);
+        source.addStatement(ordinary);
+
+        TestCase variant = null;
+        for (int seed = 1; seed <= 20 && RandomLengthTestFactory.variantInjections == 0; seed++) {
+            RandomLengthTestFactory.resetStatistics();
+            RandomLengthTestFactory.setCurrentIteration(7);
+            RandomLengthTestFactory.rememberLastInjectedTemplate(source);
+            Randomness.setSeed(seed);
+            variant = RandomLengthTestFactory.produceVariantTestCase();
+        }
+
+        assertEquals(1, RandomLengthTestFactory.variantInjections);
+        assertEquals(1, RandomLengthTestFactory.templateInjections);
+        assertEquals(1, slot.getValue().intValue(), "source slot must not be mutated");
+        assertEquals(2, ordinary.getValue().intValue(), "source non-slot must not be mutated");
+        assertTrue(variant != source);
+        assertTrue(((IntPrimitiveStatement) variant.getStatement(0)).isObjectRuleSlot());
+        assertEquals(2, ((IntPrimitiveStatement) variant.getStatement(1)).getValue().intValue());
+    }
+
+    @Test
+    public void variantSourceIsFlaggedAndGenerationScoped() {
+        DefaultTestCase source = new DefaultTestCase();
+        IntPrimitiveStatement slot = new IntPrimitiveStatement(source, 1);
+        slot.setObjectRuleSlot(true);
+        source.addStatement(slot);
+
+        RandomLengthTestFactory.setCurrentIteration(3);
+        RandomLengthTestFactory.rememberLastInjectedTemplate(source);
+
+        Properties.OBJECT_RULE_VARIANT_INJECTIONS = false;
+        assertTrue(!RandomLengthTestFactory.shouldProduceVariant());
+
+        Properties.OBJECT_RULE_VARIANT_INJECTIONS = true;
+        RandomLengthTestFactory.setCurrentIteration(4);
+        assertTrue(!RandomLengthTestFactory.shouldProduceVariant());
     }
 
     @Test
