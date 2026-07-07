@@ -67,7 +67,7 @@ public class WholeClassModeTest {
 		Properties.APPLY_OBJECT_RULE = false;
 		Properties.OBJECT_RULE_WHOLE_CLASS = false;
 		Properties.OBJECT_RULE_EXPANDED_ENTRIES = false;
-		Properties.P_OBJECT_RULE_APPLICATION = 0.3;
+		Properties.P_OBJECT_RULE_APPLICATION = 0.6;
 		RandomLengthTestFactory.workingBranch4ObjectGraph = null;
 		TargetContext.clearActive();
 		org.evosuite.TestGenerationContext.getInstance().resetContext();

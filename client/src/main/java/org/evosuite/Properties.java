@@ -196,7 +196,7 @@ public class Properties {
     @Parameter(key = "p_object_rule_application", group = "Test Creation",
             description = "Probability that a newly generated random test is replaced by an EvoObj "
                     + "template for the current working branch")
-    public static double P_OBJECT_RULE_APPLICATION = 0.3;
+    public static double P_OBJECT_RULE_APPLICATION = 0.6;
 
     @Parameter(key = "object_rule_max_failed_attempts", group = "Test Creation",
             description = "Number of discarded/failed EvoObj synthesis attempts after which a "
@@ -206,7 +206,7 @@ public class Properties {
     @Parameter(key = "object_rule_frontier_targeting", group = "Test Creation",
             description = "In DynaMOSA, select EvoObj working branches from the current frontier "
                     + "goals when possible instead of uniformly across all archive-uncovered branches")
-    public static boolean OBJECT_RULE_FRONTIER_TARGETING = true;
+    public static boolean OBJECT_RULE_FRONTIER_TARGETING = false;
 
     @Parameter(key = "object_rule_expanded_entries", group = "Test Creation",
             description = "Allow EvoObj whole-class mode to use expanded branch entry points such "
@@ -221,7 +221,7 @@ public class Properties {
     @Parameter(key = "object_rule_slot_bias", group = "Test Creation",
             description = "Bias mutation toward the primitive 'slots' created by EvoObj template "
                     + "synthesis, so the search tunes template values more often")
-    public static boolean OBJECT_RULE_SLOT_BIAS = false;
+    public static boolean OBJECT_RULE_SLOT_BIAS = true;
 
     @Parameter(key = "object_rule_structural_legitimization", group = "Test Creation",
             description = "During EvoObj legitimization, also mutate the object-construction path "
