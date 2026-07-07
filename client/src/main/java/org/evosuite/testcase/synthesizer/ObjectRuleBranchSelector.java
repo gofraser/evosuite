@@ -44,9 +44,12 @@ import org.evosuite.utils.Randomness;
  *   <li><b>Eligibility</b>: a branch is only worth a template if its object-construction graph has
  *       at least one dependent state variable (a primitive-only branch has nothing for synthesis to
  *       build). Computed lazily and cached.</li>
- *   <li><b>Negative caching</b>: after {@value #MAX_FAILED_ATTEMPTS} synthesis attempts for a branch
- *       that never produced a template reaching the target call (legitimacy distance 0), the branch
- *       is marked ineligible for the rest of the run.</li>
+ *   <li><b>Negative caching</b>: after {@code object_rule_max_failed_attempts} discarded synthesis
+ *       attempts for a branch, the branch is marked ineligible for the rest of the run. With
+ *       {@code object_rule_legitimization=true}, the earlier distance-0 criterion treated a
+ *       throwing template as a failed attempt; synthesis-only EvoObj deliberately treats any
+ *       consistent template as a success for eligibility because blacklisting exists to stop wasted
+ *       synthesis, not to demand already-covered targets.</li>
  * </ul>
  *
  * <p>Selection among the remaining eligible branches stays uniformly random, so this only avoids
@@ -56,15 +59,12 @@ import org.evosuite.utils.Randomness;
  */
 public class ObjectRuleBranchSelector {
 
-    /** Failed synthesis attempts after which a branch is negatively cached. */
-    static final int MAX_FAILED_ATTEMPTS = 3;
-
     private static final ObjectRuleBranchSelector instance = new ObjectRuleBranchSelector();
 
     /** Cached "has a non-empty object graph" verdict per branch. */
     private final Map<Branch, Boolean> eligibilityCache = new LinkedHashMap<>();
 
-    /** Consecutive synthesis attempts per branch that did not reach the target call. */
+    /** Consecutive synthesis attempts per branch that did not produce a usable template. */
     private final Map<Branch, Integer> failedAttempts = new LinkedHashMap<>();
 
     /** Branches given up on after too many failed attempts. */
@@ -158,20 +158,20 @@ public class ObjectRuleBranchSelector {
     }
 
     /**
-     * Records the outcome of a synthesis attempt for a branch. Reaching the target call resets the
-     * failure counter; repeated failures eventually mark the branch ineligible.
+     * Records the outcome of a synthesis attempt for a branch. Producing a usable template resets
+     * the failure counter; repeated discards/failures eventually mark the branch ineligible.
      */
-    public void recordSynthesisAttempt(Branch branch, boolean reachedTargetCall) {
+    public void recordSynthesisAttempt(Branch branch, boolean producedUsableTemplate) {
         if (branch == null) {
             return;
         }
-        if (reachedTargetCall) {
+        if (producedUsableTemplate) {
             failedAttempts.remove(branch);
             return;
         }
         int attempts = failedAttempts.getOrDefault(branch, 0) + 1;
         failedAttempts.put(branch, attempts);
-        if (attempts >= MAX_FAILED_ATTEMPTS) {
+        if (attempts >= Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS) {
             ineligible.add(branch);
         }
     }

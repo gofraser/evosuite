@@ -198,6 +198,11 @@ public class Properties {
                     + "template for the current working branch")
     public static double P_OBJECT_RULE_APPLICATION = 0.3;
 
+    @Parameter(key = "object_rule_max_failed_attempts", group = "Test Creation",
+            description = "Number of discarded/failed EvoObj synthesis attempts after which a "
+                    + "branch is negatively cached for the rest of the run")
+    public static int OBJECT_RULE_MAX_FAILED_ATTEMPTS = 3;
+
     @Parameter(key = "object_rule_reflection_fallback", group = "Test Creation",
             description = "When an EvoObj leaf field has no reachable public setter, set it via "
                     + "reflection (PrivateFieldStatement) instead of leaving the template incomplete")

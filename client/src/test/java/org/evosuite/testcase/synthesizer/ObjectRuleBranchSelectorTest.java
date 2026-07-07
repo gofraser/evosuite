@@ -53,8 +53,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Verification for the object-rule branch selector: a branch is only eligible for
  * template synthesis when it has a non-empty object-construction graph, and a branch that fails
- * synthesis {@value ObjectRuleBranchSelector#MAX_FAILED_ATTEMPTS} times is negatively cached for
- * the rest of the run.
+ * synthesis {@code object_rule_max_failed_attempts} times is negatively cached for the rest of the
+ * run.
  */
 public class ObjectRuleBranchSelectorTest {
 
@@ -68,6 +68,7 @@ public class ObjectRuleBranchSelectorTest {
         Properties.TARGET_METHOD = "";
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
+        Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS = 3;
         org.evosuite.TestGenerationContext.getInstance().resetContext();
     }
 
@@ -147,12 +148,12 @@ public class ObjectRuleBranchSelectorTest {
     }
 
     @Test
-    public void repeatedFailuresNegativelyCacheBranch() {
+    public void repeatedDiscardsNegativelyCacheBranch() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1);
         Branch branch = stateBearingBranch();
         ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
 
-        for (int i = 0; i < ObjectRuleBranchSelector.MAX_FAILED_ATTEMPTS; i++) {
+        for (int i = 0; i < Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS; i++) {
             assertTrue(selector.isEligible(branch), "still eligible before the failure threshold");
             selector.recordSynthesisAttempt(branch, false);
         }
@@ -166,23 +167,36 @@ public class ObjectRuleBranchSelectorTest {
     }
 
     @Test
-    public void reachingTargetResetsTheFailureCounter() {
+    public void usableTemplateResetsTheFailureCounterEvenWhenItThrows() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1);
         Branch branch = stateBearingBranch();
         ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
 
-        // Two failures, then a success clears the streak.
+        // Two discarded syntheses, then a usable-but-throwing template clears the streak.
         selector.recordSynthesisAttempt(branch, false);
         selector.recordSynthesisAttempt(branch, false);
         selector.recordSynthesisAttempt(branch, true);
-        assertTrue(selector.isEligible(branch), "a success resets the failure count");
+        assertTrue(selector.isEligible(branch), "a usable template resets the failure count");
 
-        // It now takes a fresh full streak of failures to drop the branch.
-        for (int i = 0; i < ObjectRuleBranchSelector.MAX_FAILED_ATTEMPTS - 1; i++) {
+        // It now takes a fresh full streak of discarded syntheses to drop the branch.
+        for (int i = 0; i < Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS - 1; i++) {
             selector.recordSynthesisAttempt(branch, false);
         }
-        assertTrue(selector.isEligible(branch), "counter restarted after the success");
+        assertTrue(selector.isEligible(branch), "counter restarted after the usable template");
         selector.recordSynthesisAttempt(branch, false);
         assertFalse(selector.isEligible(branch), "dropped once the fresh streak reaches the threshold");
+    }
+
+    @Test
+    public void failureThresholdPropertyIsHonored() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS = 2;
+        Branch branch = stateBearingBranch();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+
+        selector.recordSynthesisAttempt(branch, false);
+        assertTrue(selector.isEligible(branch), "one discard is below the configured threshold");
+        selector.recordSynthesisAttempt(branch, false);
+        assertFalse(selector.isEligible(branch), "second discard reaches the configured threshold");
     }
 }

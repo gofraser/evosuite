@@ -391,6 +391,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
         long synthesisStart = System.currentTimeMillis();
         boolean reachedTargetCall = false;
+        boolean producedUsableTemplate = false;
         boolean freshSynthesisStarted = false;
         double finalDistance = Double.MAX_VALUE;
         try {
@@ -473,6 +474,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 return getDefaultRandomTestCase(size);
             }
 
+            producedUsableTemplate = true;
             // Cache the best template seen for this branch for later reuse.
             TemplateCache.getInstance().store(b, test, finalDistance);
             markLastProducedTemplate();
@@ -489,7 +491,7 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             templateSynthesisTimeMs += System.currentTimeMillis() - synthesisStart;
             // Feed the outcome back to the branch selector's negative cache.
             if (freshSynthesisStarted) {
-                ObjectRuleBranchSelector.getInstance().recordSynthesisAttempt(b, reachedTargetCall);
+                ObjectRuleBranchSelector.getInstance().recordSynthesisAttempt(b, producedUsableTemplate);
             }
         }
 
