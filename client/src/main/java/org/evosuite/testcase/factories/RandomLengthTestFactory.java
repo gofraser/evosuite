@@ -496,12 +496,13 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 firstShotSuccesses++;
                 reachedTargetCall = true;
                 finalDistance = 0;
+                reachedNotCovered++;
                 double workingGoalFitness = bestWorkingGoalFitness(test, result);
                 immediateCoveredWorkingGoal = workingGoalFitness == 0.0;
                 if (immediateCoveredWorkingGoal) {
+                    reachedNotCovered--;
                     immediateCoverage++;
                 } else {
-                    reachedNotCovered++;
                     TuningResult tuningResult = tuneSlotsForWorkingGoals(test, workingGoalFitness);
                     if (tuningResult != null) {
                         test = tuningResult.test;
@@ -755,7 +756,11 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         try {
             for (BranchCoverageTestFitness goal : workingGoals4ObjectGraph) {
                 if (goal != null) {
-                    best = Math.min(best, goal.getFitness(probe, result));
+                    try {
+                        best = Math.min(best, goal.getFitness(probe, result));
+                    } catch (Throwable t) {
+                        logger.debug("Object-rule working-goal fitness evaluation failed", t);
+                    }
                 }
             }
         } finally {
