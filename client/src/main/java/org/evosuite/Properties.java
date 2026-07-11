@@ -1576,7 +1576,7 @@ public class Properties {
     public static boolean ASSERTIONS = true;
 
     public enum AssertionStrategy {
-        ALL, MUTATION, UNIT, LLM
+        ALL, MUTATION, UNIT
     }
 
     @Parameter(key = "assertion_strategy", group = "Output",
@@ -1680,7 +1680,7 @@ public class Properties {
     // ---------------------------------------------------------------
     // Naming
     public enum TestNamingStrategy {
-        NUMBERED, COVERAGE, LLM
+        NUMBERED, COVERAGE
     }
 
     @Parameter(key = "test_naming_strategy", group = "Output",
@@ -1688,7 +1688,7 @@ public class Properties {
     public static TestNamingStrategy TEST_NAMING_STRATEGY = TestNamingStrategy.NUMBERED;
 
     public enum VariableNamingStrategy {
-        TYPE_BASED, HEURISTICS_BASED, LLM
+        TYPE_BASED, HEURISTICS_BASED
     }
 
     @Parameter(key = "variable_naming_strategy", group = "Output",
@@ -2288,17 +2288,199 @@ public class Properties {
     @IntValue(min = 1)
     public static int LLM_CAST_CLASS_MAX_SUGGESTIONS = 8;
 
-    @Parameter(key = "llm_rename_tests", group = "LLM",
-            description = "Enable LLM-generated test naming")
-    public static boolean LLM_RENAME_TESTS = false;
+    @Parameter(key = "llm_postprocessing_enabled", group = "LLM",
+            description = "Run unified LLM post-processing after the minimization phase")
+    public static boolean LLM_POSTPROCESSING_ENABLED = false;
 
-    @Parameter(key = "llm_rename_variables", group = "LLM",
-            description = "Enable LLM-generated variable naming")
-    public static boolean LLM_RENAME_VARIABLES = false;
+    @Parameter(key = "llm_postprocessing_assertions", group = "LLM",
+            description = "Allow unified LLM post-processing to propose assertions")
+    public static boolean LLM_POSTPROCESSING_ASSERTIONS = true;
 
-    @Parameter(key = "llm_niceify_literals", group = "LLM",
-            description = "Enable LLM-guided literal readability improvements")
-    public static boolean LLM_NICEIFY_LITERALS = false;
+    @Parameter(key = "llm_postprocessing_test_names", group = "LLM",
+            description = "Allow unified LLM post-processing to propose test names")
+    public static boolean LLM_POSTPROCESSING_TEST_NAMES = true;
+
+    @Parameter(key = "llm_postprocessing_variable_names", group = "LLM",
+            description = "Allow unified LLM post-processing to propose variable names")
+    public static boolean LLM_POSTPROCESSING_VARIABLE_NAMES = true;
+
+    @Parameter(key = "llm_postprocessing_comments", group = "LLM",
+            description = "Allow unified LLM post-processing to propose comments")
+    public static boolean LLM_POSTPROCESSING_COMMENTS = true;
+
+    @Parameter(key = "llm_postprocessing_section_breaks", group = "LLM",
+            description = "Allow unified LLM post-processing to propose section boundaries")
+    public static boolean LLM_POSTPROCESSING_SECTION_BREAKS = true;
+
+    @Parameter(key = "llm_postprocessing_max_assertions_per_test", group = "LLM",
+            description = "Maximum unified LLM assertion proposals accepted per test")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_ASSERTIONS_PER_TEST = 5;
+
+    @Parameter(key = "llm_postprocessing_max_comments_per_test", group = "LLM",
+            description = "Maximum unified LLM comment proposals accepted per test")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_COMMENTS_PER_TEST = 3;
+
+    @Parameter(key = "llm_postprocessing_max_comment_chars", group = "LLM",
+            description = "Maximum characters per unified LLM comment")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_COMMENT_CHARS = 160;
+
+    @Parameter(key = "llm_postprocessing_max_observation_chars", group = "LLM",
+            description = "Maximum characters of observation context per unified LLM request")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS = 12000;
+
+    @Parameter(key = "llm_postprocessing_max_collection_elements", group = "LLM",
+            description = "Maximum collection or array elements summarized in unified LLM observations")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS = 10;
+
+    @Parameter(key = "llm_postprocessing_assertion_repair_attempts", group = "LLM",
+            description = "Maximum targeted assertion repair requests per test")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 1;
+
+    @Parameter(key = "llm_postprocessing_max_tests", group = "LLM",
+            description = "Maximum tests processed by unified LLM post-processing (0 = unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_TESTS = 0;
+
+    @Parameter(key = "llm_postprocessing_max_total_statements", group = "LLM",
+            description = "Maximum total statements processed by unified LLM post-processing (0 = unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_TOTAL_STATEMENTS = 0;
+
+    @Parameter(key = "llm_postprocessing_max_calls", group = "LLM",
+            description = "Maximum LLM calls issued by unified LLM post-processing (0 = unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CALLS = 40;
+
+    @Parameter(key = "llm_postprocessing_timeout", group = "LLM",
+            description = "Maximum seconds spent in unified LLM post-processing (0 = unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_TIMEOUT = 120;
+
+    @Parameter(key = "llm_postprocessing_max_chain_depth", group = "LLM",
+            description = "Maximum expression member-chain depth accepted from unified LLM post-processing")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CHAIN_DEPTH = 4;
+
+    public enum LlmPostProcessingCallablePolicy {
+        CURATED_ONLY, INSPECTORS_ONLY, PURE_BOUNDED
+    }
+
+    @Parameter(key = "llm_postprocessing_callable_policy", group = "LLM",
+            description = "Callable-member policy for unified LLM assertion expressions")
+    public static LlmPostProcessingCallablePolicy LLM_POSTPROCESSING_CALLABLE_POLICY =
+            LlmPostProcessingCallablePolicy.PURE_BOUNDED;
+
+    @Parameter(key = "llm_postprocessing_allow_chained_calls", group = "LLM",
+            description = "Allow unified LLM assertion expressions to call explicitly allowlisted method chains")
+    public static boolean LLM_POSTPROCESSING_ALLOW_CHAINED_CALLS = true;
+
+    @Parameter(key = "llm_postprocessing_max_callable_args", group = "LLM",
+            description = "Maximum arity for pure bounded callable methods in unified LLM assertion expressions")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CALLABLE_ARGS = 2;
+
+    @Parameter(key = "llm_postprocessing_max_callable_members_per_type", group = "LLM",
+            description = "Maximum pure bounded callable methods advertised per receiver/type")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CALLABLE_MEMBERS_PER_TYPE = 20;
+
+    @Parameter(key = "llm_postprocessing_max_callable_types_per_test", group = "LLM",
+            description = "Maximum chain-return receiver types advertised per unified LLM post-processing test")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CALLABLE_TYPES_PER_TEST = 30;
+
+    @Parameter(key = "llm_postprocessing_limited_max_tests", group = "LLM",
+            description = "Maximum tests processed when incomplete minimization policy is LIMITED")
+    @IntValue(min = 1)
+    public static int LLM_POSTPROCESSING_LIMITED_MAX_TESTS = 20;
+
+    @Parameter(key = "llm_postprocessing_limited_max_total_statements", group = "LLM",
+            description = "Maximum total statements processed when incomplete minimization policy is LIMITED")
+    @IntValue(min = 1)
+    public static int LLM_POSTPROCESSING_LIMITED_MAX_TOTAL_STATEMENTS = 400;
+
+    @Parameter(key = "llm_postprocessing_limited_max_calls", group = "LLM",
+            description = "Maximum LLM calls when incomplete minimization policy is LIMITED")
+    @IntValue(min = 1)
+    public static int LLM_POSTPROCESSING_LIMITED_MAX_CALLS = 40;
+
+    @Parameter(key = "llm_postprocessing_pure_static_allowlist", group = "LLM",
+            description = "Comma-separated pure static method allowlist entries for unified LLM assertion expressions")
+    public static String LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = "";
+
+    @Parameter(key = "llm_postprocessing_allow_immutable_constructors", group = "LLM",
+            description = "Allow constructors of purity-proven or allowlisted immutable types in assertion expressions")
+    public static boolean LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS = true;
+
+    @Parameter(key = "llm_postprocessing_immutable_types", group = "LLM",
+            description = "Comma-separated immutable types appended to the built-in unified LLM immutable type list")
+    public static String LLM_POSTPROCESSING_IMMUTABLE_TYPES = "";
+
+    @Parameter(key = "llm_postprocessing_max_expression_chars", group = "LLM",
+            description = "Maximum characters per unified LLM assertion expression")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_EXPRESSION_CHARS = 500;
+
+    @Parameter(key = "llm_postprocessing_max_expression_nodes", group = "LLM",
+            description = "Maximum AST nodes per unified LLM assertion expression")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_EXPRESSION_NODES = 64;
+
+    @Parameter(key = "llm_postprocessing_max_constructed_array_elements", group = "LLM",
+            description = "Maximum elements in constructed array expressions proposed by unified LLM post-processing")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CONSTRUCTED_ARRAY_ELEMENTS = 16;
+
+    @Parameter(key = "llm_postprocessing_max_literal_chars", group = "LLM",
+            description = "Maximum literal characters in unified LLM assertion expressions")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_LITERAL_CHARS = 200;
+
+    @Parameter(key = "llm_postprocessing_assertion_eval_timeout_ms", group = "LLM",
+            description = "Per-candidate timeout for compiling or evaluating unified LLM assertions")
+    @IntValue(min = 1)
+    public static int LLM_POSTPROCESSING_ASSERTION_EVAL_TIMEOUT_MS = 2000;
+
+    public enum LlmPostProcessingOnIncompleteMinimization {
+        SKIP, LIMITED, FULL
+    }
+
+    @Parameter(key = "llm_postprocessing_on_incomplete_minimization", group = "LLM",
+            description = "Unified LLM post-processing policy when minimization is incomplete")
+    public static LlmPostProcessingOnIncompleteMinimization LLM_POSTPROCESSING_ON_INCOMPLETE_MINIMIZATION =
+            LlmPostProcessingOnIncompleteMinimization.SKIP;
+
+    public enum LlmPostProcessingAssertionFallback {
+        NONE, ON_INFRASTRUCTURE_FAILURE, ON_NO_ACCEPTED_ASSERTIONS
+    }
+
+    @Parameter(key = "llm_postprocessing_assertion_fallback", group = "LLM",
+            description = "When unified LLM assertion post-processing falls back to trace-based assertions")
+    public static LlmPostProcessingAssertionFallback LLM_POSTPROCESSING_ASSERTION_FALLBACK =
+            LlmPostProcessingAssertionFallback.NONE;
+
+    public enum LlmPostProcessingAssertionFallbackStrategy {
+        ALL, MUTATION
+    }
+
+    @Parameter(key = "llm_postprocessing_assertion_fallback_strategy", group = "LLM",
+            description = "Trace-based assertion generator used for unified LLM assertion fallback")
+    public static LlmPostProcessingAssertionFallbackStrategy LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY =
+            LlmPostProcessingAssertionFallbackStrategy.ALL;
+
+    public enum LlmPostProcessingScope {
+        ALL_TESTS, ASSERTION_ELIGIBLE_TESTS
+    }
+
+    @Parameter(key = "llm_postprocessing_scope", group = "LLM",
+            description = "Which tests receive unified LLM post-processing requests")
+    public static LlmPostProcessingScope LLM_POSTPROCESSING_SCOPE = LlmPostProcessingScope.ALL_TESTS;
 
     @Parameter(key = "llm_repair_attempts", group = "LLM",
             description = "Maximum repair attempts for malformed LLM output")

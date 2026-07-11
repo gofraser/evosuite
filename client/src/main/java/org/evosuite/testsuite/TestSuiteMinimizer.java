@@ -26,7 +26,6 @@ import org.evosuite.TimeController;
 import org.evosuite.coverage.TestFitnessFactory;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.junit.CoverageAnalysis;
-import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
@@ -67,6 +66,18 @@ public class TestSuiteMinimizer {
      */
     protected static long startTime = 0L;
 
+    interface StopCauseProvider {
+        MinimizationStopCause getStopCause();
+    }
+
+    interface PreflightExecutor {
+        ExecutionResult run(TestCase test);
+    }
+
+    private MinimizationStopCause firstStopCause = MinimizationStopCause.NONE;
+    private final StopCauseProvider stopCauseProvider;
+    private final PreflightExecutor preflightExecutor;
+
     /**
      * <p>
      * Constructor for TestSuiteMinimizer.
@@ -75,11 +86,23 @@ public class TestSuiteMinimizer {
      * @param factory a {@link org.evosuite.coverage.TestFitnessFactory} object.
      */
     public TestSuiteMinimizer(TestFitnessFactory<?> factory) {
-        this.testFitnessFactories.add(factory);
+        this(Collections.singletonList(factory), null, null);
     }
 
     public TestSuiteMinimizer(List<TestFitnessFactory<? extends TestFitnessFunction>> factories) {
+        this(factories, null, null);
+    }
+
+    TestSuiteMinimizer(List<? extends TestFitnessFactory<?>> factories, StopCauseProvider stopCauseProvider) {
+        this(factories, stopCauseProvider, null);
+    }
+
+    TestSuiteMinimizer(List<? extends TestFitnessFactory<?>> factories,
+                       StopCauseProvider stopCauseProvider,
+                       PreflightExecutor preflightExecutor) {
         this.testFitnessFactories.addAll(factories);
+        this.stopCauseProvider = stopCauseProvider;
+        this.preflightExecutor = preflightExecutor;
     }
 
     /**
@@ -90,8 +113,11 @@ public class TestSuiteMinimizer {
      * @param suite           a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      * @param minimizePerTest true is to minimize tests, false is to minimize suites.
      */
-    public void minimize(TestSuiteChromosome suite, boolean minimizePerTest) {
+    public MinimizationResult minimize(TestSuiteChromosome suite, boolean minimizePerTest) {
         startTime = System.currentTimeMillis();
+        firstStopCause = MinimizationStopCause.NONE;
+        final int originalTests = suite.size();
+        final int originalLength = suite.totalLengthOfTestCases();
 
         SecondaryObjective strategy = Properties.SECONDARY_OBJECTIVE[0];
 
@@ -108,19 +134,21 @@ public class TestSuiteMinimizer {
         // of giving up on minimization for this run. (We intentionally do NOT revert
         // when minimization legitimately produces an empty suite — e.g., when no
         // statements covered any goal on re-execution — only when it throws.)
-        final List<TestChromosome> snapshot = new ArrayList<>(suite.tests);
+        final List<TestChromosome> snapshot = deepCloneTests(suite.tests);
+        MinimizationStatus status = MinimizationStatus.COMPLETED;
 
         try {
             if (minimizePerTest) {
-                minimizeTests(suite);
+                status = minimizeTests(suite);
             } else {
-                minimizeSuite(suite);
+                status = minimizeSuite(suite);
             }
         } catch (Throwable t) {
+            status = MinimizationStatus.FAILED;
             logger.error("Minimization failed ({}); reverting to pre-minimization snapshot of {} tests.",
                     t.getClass().getSimpleName(), snapshot.size(), t);
             suite.tests.clear();
-            suite.tests.addAll(snapshot);
+            suite.tests.addAll(deepCloneTests(snapshot));
             System.gc();
         }
 
@@ -128,6 +156,30 @@ public class TestSuiteMinimizer {
                 suite.size());
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Length,
                 suite.totalLengthOfTestCases());
+
+        MinimizationResult result = new MinimizationResult(status, firstStopCause,
+                originalTests, originalLength, suite.size(), suite.totalLengthOfTestCases(),
+                System.currentTimeMillis() - startTime);
+        publishResult(result);
+        return result;
+    }
+
+    private List<TestChromosome> deepCloneTests(List<TestChromosome> tests) {
+        List<TestChromosome> clones = new ArrayList<>(tests.size());
+        for (TestChromosome test : tests) {
+            clones.add(test.clone());
+        }
+        return clones;
+    }
+
+    private void publishResult(MinimizationResult result) {
+        ClientServices.track(RuntimeVariable.Minimization_Status, result.getStatus().name());
+        ClientServices.track(RuntimeVariable.Minimization_Stop_Cause, result.getUnderlyingStopCause().name());
+        ClientServices.track(RuntimeVariable.Minimization_Original_Tests, result.getOriginalTests());
+        ClientServices.track(RuntimeVariable.Minimization_Original_Length, result.getOriginalLength());
+        ClientServices.track(RuntimeVariable.Minimization_Final_Tests, result.getFinalTests());
+        ClientServices.track(RuntimeVariable.Minimization_Final_Length, result.getFinalLength());
+        ClientServices.track(RuntimeVariable.Minimization_Elapsed_Millis, result.getElapsedMillis());
     }
 
     private void updateClientStatus(int progress) {
@@ -166,7 +218,7 @@ public class TestSuiteMinimizer {
      *
      * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
-    private void minimizeTests(TestSuiteChromosome suite) {
+    private MinimizationStatus minimizeTests(TestSuiteChromosome suite) {
 
         logger.info("Minimizing per test");
         final int originalSuiteSize = suite.size();
@@ -199,14 +251,15 @@ public class TestSuiteMinimizer {
         int testsWithExceptions = 0;
         String firstExceptionType = null;
         for (int i = 0; i < suite.getTestChromosomes().size(); i++) {
-            if (shouldStop()) {
+            MinimizationStopCause stopCause = getStopCause();
+            if (stopCause != MinimizationStopCause.NONE) {
                 logger.warn("Minimization preflight aborted at test {}/{} due to time/memory exhaustion. "
                                 + "Skipping minimization to preserve original archive tests.",
                         i, suite.getTestChromosomes().size());
-                return;
+                return MinimizationStatus.PREFLIGHT_ABORTED;
             }
             TestChromosome test = suite.getTestChromosomes().get(i);
-            ExecutionResult result = TestCaseExecutor.runTest(test.getTestCase());
+            ExecutionResult result = runPreflight(test.getTestCase());
             if (!result.getTrace().getCoveredTrueBranches().isEmpty()
                     || !result.getTrace().getCoveredFalseBranches().isEmpty()
                     || !result.getTrace().getCoveredBranchlessMethods().isEmpty()
@@ -234,7 +287,7 @@ public class TestSuiteMinimizer {
                     + "Skipping minimization to preserve original archive tests.",
                     suite.getTestChromosomes().size(), testsWithExceptions,
                     firstExceptionType != null ? firstExceptionType : "none");
-            return;
+            return MinimizationStatus.REEXECUTION_FAILED;
         }
 
         // Tests can reproduce coverage — now clear stale state and proceed.
@@ -264,28 +317,29 @@ public class TestSuiteMinimizer {
 
         Set<TestFitnessFunction> covered = new LinkedHashSet<>();
         List<TestChromosome> minimizedTests = new ArrayList<>();
-        TestSuiteWriter minimizedSuite = new TestSuiteWriter();
         int goalsWithoutCoveringTests = 0;
         int discardedMinimizedTestsWithoutCoverage = 0;
         int keptMinimizedTests = 0;
 
-        boolean timeout = false;
+        MinimizationStopCause incompleteStopCause = MinimizationStopCause.NONE;
 
         for (TestFitnessFunction goal : goals) {
             updateClientStatus(numGoals > 0 ? 100 * currentGoal / numGoals : 100);
             currentGoal++;
-            if (shouldStop()) {
+            MinimizationStopCause stopCause = getStopCause();
+            if (stopCause != MinimizationStopCause.NONE) {
                 logger.warn("Minimization timeout/low-memory. Using partial results.");
-                timeout = true;
+                incompleteStopCause = stopCause;
                 break;
             }
             logger.info("Considering goal: " + goal);
             if (Properties.MINIMIZE_SKIP_COINCIDENTAL) {
                 boolean innerTimeout = false;
                 for (TestChromosome test : minimizedTests) {
-                    if (shouldStop()) {
+                    stopCause = getStopCause();
+                    if (stopCause != MinimizationStopCause.NONE) {
                         logger.warn("Minimization timeout/low-memory. Using partial results.");
-                        timeout = true;
+                        incompleteStopCause = stopCause;
                         innerTimeout = true;
                         break;
                     }
@@ -312,10 +366,11 @@ public class TestSuiteMinimizer {
                 // Each isCovered() may re-execute the test; under memory
                 // pressure these can take seconds each, so re-check between
                 // iterations rather than only at the goal boundary.
-                if (shouldStop()) {
+                stopCause = getStopCause();
+                if (stopCause != MinimizationStopCause.NONE) {
                     logger.warn("Minimization timeout/low-memory while scanning covering tests. "
                             + "Using partial results.");
-                    timeout = true;
+                    incompleteStopCause = stopCause;
                     innerTimeout = true;
                     break;
                 }
@@ -333,9 +388,10 @@ public class TestSuiteMinimizer {
                         goal);
                 TestChromosome copy = test.clone();
                 minimizer.minimize(copy);
-                if (shouldStop()) {
+                stopCause = getStopCause();
+                if (stopCause != MinimizationStopCause.NONE) {
                     logger.warn("Minimization timeout/low-memory. Using partial results.");
-                    timeout = true;
+                    incompleteStopCause = stopCause;
                     break;
                 }
 
@@ -347,10 +403,11 @@ public class TestSuiteMinimizer {
                 for (TestFitnessFunction g : goals) {
                     // With thousands of goals, this scan dominates the
                     // per-goal cost; break out if we ran out of budget.
-                    if (shouldStop()) {
+                    stopCause = getStopCause();
+                    if (stopCause != MinimizationStopCause.NONE) {
                         logger.warn("Minimization timeout/low-memory while scanning goals "
                                 + "for coverage of minimized test. Using partial results.");
-                        timeout = true;
+                        incompleteStopCause = stopCause;
                         innerTimeout = true;
                         break;
                     }
@@ -364,8 +421,7 @@ public class TestSuiteMinimizer {
                 // reproduce their coverage, and an empty/failing test would
                 // just bloat the output suite.
                 if (covered.size() > coveredBefore) {
-                    minimizedTests.add(copy);
-                    minimizedSuite.insertTest(copy.getTestCase());
+                    insertMinimizedTest(minimizedTests, copy);
                     keptMinimizedTests++;
                 } else {
                     discardedMinimizedTestsWithoutCoverage++;
@@ -391,36 +447,35 @@ public class TestSuiteMinimizer {
         logger.info("Minimized suite covers " + covered.size() + "/" + goals.size()
                 + " goals");
 
-        List<TestCase> originalTestCases = null;
-        if (timeout) {
-            originalTestCases = suite.getTests();
+        List<TestChromosome> originalTestChromosomes = null;
+        if (incompleteStopCause != MinimizationStopCause.NONE) {
+            originalTestChromosomes = new ArrayList<>(suite.getTestChromosomes());
         }
 
-        suite.tests.clear();
+        List<TestChromosome> finalTests = new ArrayList<>();
 
-        if (timeout && originalTestCases != null) {
-            for (TestCase test : originalTestCases) {
-                suite.addTest(test);
-            }
+        if (incompleteStopCause != MinimizationStopCause.NONE && originalTestChromosomes != null) {
+            finalTests.addAll(originalTestChromosomes);
         }
 
-        for (TestCase test : minimizedSuite.getTestCases()) {
-            suite.addTest(test);
-        }
+        finalTests.addAll(minimizedTests);
+        suite.replaceWithTestChromosomes(finalTests);
 
         logger.info("Minimization diagnostics: originalTests={}, originalLength={}, "
                         + "keptMinimizedTests={}, discardedNoCoverage={}, goalsWithoutCoveringTests={}, "
                         + "resultTests={}, resultLength={}, timeout={}",
                 originalSuiteSize, originalSuiteLength,
                 keptMinimizedTests, discardedMinimizedTestsWithoutCoverage, goalsWithoutCoveringTests,
-                suite.size(), suite.totalLengthOfTestCases(), timeout);
+                suite.size(), suite.totalLengthOfTestCases(),
+                incompleteStopCause != MinimizationStopCause.NONE);
         if (originalSuiteSize > 0 && suite.size() == 0) {
             logger.warn("Minimization resulted in empty suite ({} -> 0 tests). "
                             + "discardedNoCoverage={}, goalsWithoutCoveringTests={}, timeout={}",
-                    originalSuiteSize, discardedMinimizedTestsWithoutCoverage, goalsWithoutCoveringTests, timeout);
+                    originalSuiteSize, discardedMinimizedTestsWithoutCoverage, goalsWithoutCoveringTests,
+                    incompleteStopCause != MinimizationStopCause.NONE);
         }
 
-        if (Properties.MINIMIZE_SECOND_PASS && !timeout) {
+        if (Properties.MINIMIZE_SECOND_PASS && incompleteStopCause == MinimizationStopCause.NONE) {
             removeRedundantTestCases(suite, goals);
         }
 
@@ -438,7 +493,33 @@ public class TestSuiteMinimizer {
                 logger.info("Failed to cover: " + goal);
             }
         }
-        // suite.tests = minimizedTests;
+        return statusForStopCause(incompleteStopCause);
+    }
+
+    private static void insertMinimizedTest(List<TestChromosome> minimizedTests, TestChromosome candidate) {
+        if (Properties.CALL_PROBABILITY <= 0) {
+            TestCase candidateTest = candidate.getTestCase();
+            for (int i = 0; i < minimizedTests.size(); i++) {
+                TestChromosome existing = minimizedTests.get(i);
+                TestCase existingTest = existing.getTestCase();
+                if (candidateTest.isPrefix(existingTest)) {
+                    logger.info("This is a prefix of an existing test");
+                    existingTest.addAssertions(candidateTest);
+                    return;
+                }
+                if (existingTest.isPrefix(candidateTest)) {
+                    candidateTest.addAssertions(existingTest);
+                    minimizedTests.set(i, candidate);
+                    logger.info("We have a prefix of this one");
+                    return;
+                }
+            }
+        }
+        logger.info("Adding new test case:");
+        if (logger.isDebugEnabled()) {
+            logger.debug(candidate.getTestCase().toCode());
+        }
+        minimizedTests.add(candidate);
     }
 
     private boolean isTimeoutReached() {
@@ -475,12 +556,41 @@ public class TestSuiteMinimizer {
     }
 
     /**
-     * Convenience: stop minimizing when either the phase time budget is
-     * exhausted or free memory is critically low.  Used in the hot inner
-     * loops to keep iteration cost bounded even under GC pressure.
+     * Report why minimization should stop, if it should stop. Timeout is
+     * checked before memory pressure so an expired phase budget does not spend
+     * more time on a hint GC and is reported deterministically as timeout.
      */
-    private boolean shouldStop() {
-        return isTimeoutReached() || isMemoryCritical();
+    private MinimizationStopCause getStopCause() {
+        MinimizationStopCause cause = stopCauseProvider == null
+                ? detectStopCause()
+                : stopCauseProvider.getStopCause();
+        if (cause == null) {
+            cause = MinimizationStopCause.NONE;
+        }
+        if (firstStopCause == MinimizationStopCause.NONE && cause != MinimizationStopCause.NONE) {
+            firstStopCause = cause;
+        }
+        return cause;
+    }
+
+    private MinimizationStopCause detectStopCause() {
+        if (isTimeoutReached()) {
+            return MinimizationStopCause.TIMEOUT;
+        }
+        if (isMemoryCritical()) {
+            return MinimizationStopCause.LOW_MEMORY;
+        }
+        return MinimizationStopCause.NONE;
+    }
+
+    private MinimizationStatus statusForStopCause(MinimizationStopCause stopCause) {
+        if (stopCause == MinimizationStopCause.TIMEOUT) {
+            return MinimizationStatus.TIMED_OUT;
+        }
+        if (stopCause == MinimizationStopCause.LOW_MEMORY) {
+            return MinimizationStatus.LOW_MEMORY;
+        }
+        return MinimizationStatus.COMPLETED;
     }
 
     /**
@@ -489,7 +599,7 @@ public class TestSuiteMinimizer {
      *
      * @param suite a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
-    private void minimizeSuite(TestSuiteChromosome suite) {
+    private MinimizationStatus minimizeSuite(TestSuiteChromosome suite) {
 
         // Remove previous results as they do not contain method calls
         // in the case of whole suite generation
@@ -518,18 +628,21 @@ public class TestSuiteMinimizer {
         }
 
         boolean changed = true;
-        while (changed && !isTimeoutReached()) {
+        MinimizationStopCause incompleteStopCause = MinimizationStopCause.NONE;
+        while (changed && incompleteStopCause == MinimizationStopCause.NONE) {
             changed = false;
 
             removeEmptyTestCases(suite);
 
             for (TestChromosome testChromosome : suite.tests) {
-                if (isTimeoutReached()) {
+                incompleteStopCause = getStopCause();
+                if (incompleteStopCause != MinimizationStopCause.NONE) {
                     break;
                 }
 
                 for (int i = testChromosome.size() - 1; i >= 0; i--) {
-                    if (isTimeoutReached()) {
+                    incompleteStopCause = getStopCause();
+                    if (incompleteStopCause != MinimizationStopCause.NONE) {
                         break;
                     }
 
@@ -611,7 +724,10 @@ public class TestSuiteMinimizer {
         }
 
         this.removeEmptyTestCases(suite);
-        this.removeRedundantTestCases(suite, goals);
+        if (incompleteStopCause == MinimizationStopCause.NONE) {
+            this.removeRedundantTestCases(suite, goals);
+        }
+        return statusForStopCause(incompleteStopCause);
     }
 
     private void removeEmptyTestCases(TestSuiteChromosome suite) {
@@ -623,6 +739,13 @@ public class TestSuiteMinimizer {
                 it.remove();
             }
         }
+    }
+
+    private ExecutionResult runPreflight(TestCase test) {
+        if (preflightExecutor != null) {
+            return preflightExecutor.run(test);
+        }
+        return TestCaseExecutor.runTest(test);
     }
 
     private void removeRedundantTestCases(TestSuiteChromosome suite, List<TestFitnessFunction> goals) {

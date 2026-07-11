@@ -35,6 +35,7 @@ import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.assertion.*;
+import org.evosuite.llm.postprocess.LlmPostProcessingMetadata;
 import org.evosuite.runtime.PrivateAccess;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.LenientMockAnswer;
@@ -533,6 +534,10 @@ public class TestCodeVisitor extends TestVisitor {
             if (declaredName != null && !declaredName.isEmpty()) {
                 return declaredName;
             }
+            String postProcessedName = getPostProcessedVariableName(normalized);
+            if (postProcessedName != null) {
+                return postProcessedName;
+            }
             if (VariableNameStrategyFactory.gatherInformation()) {
                 information.put("MethodNames", methodNames);
                 information.put("ArgumentNames", argumentNames);
@@ -540,6 +545,21 @@ public class TestCodeVisitor extends TestVisitor {
             }
             return variableNameStrategy.getNameForVariable(normalized);
         }
+    }
+
+    private String getPostProcessedVariableName(VariableReference variable) {
+        if (test == null || variable == null) {
+            return null;
+        }
+        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        if (metadata == null) {
+            return null;
+        }
+        int position = safePosition(variable);
+        if (position < 0) {
+            return null;
+        }
+        return metadata.getVariableName(position);
     }
 
     private String getDeclarationVariableName(VariableReference var) {
@@ -582,7 +602,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (declarationVariableNames.containsValue(candidate)) {
             return true;
         }
-        return containsIdentifier(testCode.toString(), candidate);
+        return containsIdentifierOutsideLiteralsAndComments(testCode.toString(), candidate);
     }
 
     private boolean canUseDirectFieldAccess(Field field, VariableReference source) {
@@ -1277,6 +1297,8 @@ public class TestCodeVisitor extends TestVisitor {
             visitArrayLengthAssertion((ArrayLengthAssertion) assertion);
         } else if (assertion instanceof ContainsAssertion) {
             visitContainsAssertion((ContainsAssertion) assertion);
+        } else if (assertion instanceof TemplateCodeAssertion) {
+            testCode.append(((TemplateCodeAssertion) assertion).render(this));
         } else if (assertion instanceof CodeAssertion) {
             testCode.append(assertion.getCode());
         } else {
@@ -3687,17 +3709,81 @@ public class TestCodeVisitor extends TestVisitor {
         String codeSoFar = testCode.toString();
         String candidate = "e";
         int suffix = 1;
-        while (usedNames.contains(candidate) || containsIdentifier(codeSoFar, candidate)) {
+        while (usedNames.contains(candidate) || containsIdentifierOutsideLiteralsAndComments(codeSoFar, candidate)) {
             candidate = "e" + suffix++;
         }
         return candidate;
     }
 
-    private boolean containsIdentifier(String code, String identifier) {
+    private boolean containsIdentifierOutsideLiteralsAndComments(String code, String identifier) {
         if (code == null || code.isEmpty() || identifier == null || identifier.isEmpty()) {
             return false;
         }
-        return Pattern.compile("\\b" + Pattern.quote(identifier) + "\\b").matcher(code).find();
+        int i = 0;
+        while (i < code.length()) {
+            char c = code.charAt(i);
+            if (c == '"' || c == '\'') {
+                i = skipQuotedLiteral(code, i, c);
+                continue;
+            }
+            if (c == '/' && i + 1 < code.length()) {
+                char next = code.charAt(i + 1);
+                if (next == '/') {
+                    i = skipLineComment(code, i);
+                    continue;
+                }
+                if (next == '*') {
+                    i = skipBlockComment(code, i);
+                    continue;
+                }
+            }
+            if (startsWithIdentifier(code, i, identifier)
+                    && isIdentifierBoundary(code, i - 1)
+                    && isIdentifierBoundary(code, i + identifier.length())) {
+                return true;
+            }
+            i++;
+        }
+        return false;
+    }
+
+    private int skipQuotedLiteral(String source, int start, char quote) {
+        int i = start + 1;
+        while (i < source.length()) {
+            char current = source.charAt(i);
+            i++;
+            if (current == '\\' && i < source.length()) {
+                i++;
+                continue;
+            }
+            if (current == quote) {
+                break;
+            }
+        }
+        return i;
+    }
+
+    private int skipLineComment(String source, int start) {
+        int i = start + 2;
+        while (i < source.length()) {
+            if (source.charAt(i++) == '\n') {
+                break;
+            }
+        }
+        return i;
+    }
+
+    private int skipBlockComment(String source, int start) {
+        int i = start + 2;
+        while (i < source.length()) {
+            char current = source.charAt(i);
+            i++;
+            if (current == '*' && i < source.length() && source.charAt(i) == '/') {
+                i++;
+                break;
+            }
+        }
+        return i;
     }
 
     private boolean shouldAssertThrowSite(String sourceClass) {
@@ -4300,8 +4386,37 @@ public class TestCodeVisitor extends TestVisitor {
                 testCode.append("// " + line + NEWLINE);
             }
         }
+        appendPostProcessedComments(statement);
         super.visitStatement(statement);
+        appendPostProcessedSectionBreak(statement);
     }
 
+    private void appendPostProcessedComments(Statement statement) {
+        if (test == null || statement == null) {
+            return;
+        }
+        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        if (metadata == null) {
+            return;
+        }
+        int position = statement.getPosition();
+        for (String comment : metadata.getCommentsAfter(position)) {
+            testCode.append("// ").append(comment).append(NEWLINE);
+        }
+    }
+
+    private void appendPostProcessedSectionBreak(Statement statement) {
+        if (test == null || statement == null) {
+            return;
+        }
+        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        if (metadata == null) {
+            return;
+        }
+        int position = statement.getPosition();
+        if (metadata.hasSectionBreakAfter(position)) {
+            testCode.append(NEWLINE);
+        }
+    }
 
 }

@@ -28,6 +28,7 @@ import org.evosuite.llm.factory.LlmSeededPopulationFactory;
 import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.llm.response.ClusterExpansionManager;
 import org.evosuite.llm.response.LlmResponseParser;
 import org.evosuite.llm.response.RepairResult;
@@ -69,26 +70,32 @@ class LlmStrategyBehaviorTest {
 
     private Properties.LlmStrategyMode originalMode;
     private Properties.Strategy originalStrategy;
+    private Properties.LlmProvider originalProvider;
     private boolean originalMinimize;
     private boolean originalInline;
     private boolean originalAssertions;
+    private boolean originalPostProcessingEnabled;
 
     @BeforeEach
     void saveProperties() {
         originalMode = Properties.LLM_STRATEGY_MODE;
         originalStrategy = Properties.STRATEGY;
+        originalProvider = Properties.LLM_PROVIDER;
         originalMinimize = Properties.MINIMIZE;
         originalInline = Properties.INLINE;
         originalAssertions = Properties.ASSERTIONS;
+        originalPostProcessingEnabled = Properties.LLM_POSTPROCESSING_ENABLED;
     }
 
     @AfterEach
     void restoreProperties() {
         Properties.LLM_STRATEGY_MODE = originalMode;
         Properties.STRATEGY = originalStrategy;
+        Properties.LLM_PROVIDER = originalProvider;
         Properties.MINIMIZE = originalMinimize;
         Properties.INLINE = originalInline;
         Properties.ASSERTIONS = originalAssertions;
+        Properties.LLM_POSTPROCESSING_ENABLED = originalPostProcessingEnabled;
     }
 
     // ----------------------------------------------------------------
@@ -353,42 +360,30 @@ class LlmStrategyBehaviorTest {
     }
 
     // ----------------------------------------------------------------
-    // 4. LLMSTRATEGY skips minimization/inlining/assertions
+    // 4. LLMSTRATEGY does not suppress structural post-processing
     // ----------------------------------------------------------------
 
     @Test
-    void llmStrategyPropertySkipsPhases() {
-        // Verifies that LLMSTRATEGY causes the guard to skip minimize/inline/assertion
-        // phases in TestSuiteGenerator.postProcessTests. We test the guard logic:
-        // Properties.STRATEGY == LLMSTRATEGY disables all three.
+    void llmStrategyPropertyDoesNotSkipStructuralPostProcessing() {
         Properties.STRATEGY = Properties.Strategy.LLMSTRATEGY;
         Properties.MINIMIZE = true;
         Properties.INLINE = true;
         Properties.ASSERTIONS = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
 
-        boolean isLlmStrategy = Properties.STRATEGY == Properties.Strategy.LLMSTRATEGY;
-        assertTrue(isLlmStrategy, "Strategy must be LLMSTRATEGY");
-        // The three post-processing guards in TestSuiteGenerator:
-        //   Properties.INLINE && !isLlmStrategy  → false (skipped)
-        //   Properties.MINIMIZE && !isLlmStrategy → false (skipped)
-        //   Properties.ASSERTIONS && !isLlmStrategy → false (skipped)
-        assertFalse(Properties.INLINE && !isLlmStrategy,
-                "Inlining guard must evaluate to false when LLMSTRATEGY is active");
-        assertFalse(Properties.MINIMIZE && !isLlmStrategy,
-                "Minimization guard must evaluate to false when LLMSTRATEGY is active");
-        assertFalse(Properties.ASSERTIONS && !isLlmStrategy,
-                "Assertion-generation guard must evaluate to false when LLMSTRATEGY is active");
+        assertTrue(Properties.INLINE,
+                "Inlining is controlled by its own property, not by STRATEGY=LLMSTRATEGY");
+        assertTrue(Properties.MINIMIZE,
+                "Minimization is controlled by its own property, not by STRATEGY=LLMSTRATEGY");
+        assertTrue(Properties.ASSERTIONS,
+                "Standard assertion generation is controlled by its own property");
+        assertFalse(LlmPostProcessor.isAnyFeatureEnabled(),
+                "Unified LLM post-processing is independently gated by provider and feature properties");
 
-        // Verify a non-LLM strategy does NOT skip these phases
-        Properties.STRATEGY = Properties.Strategy.EVOSUITE;
-        boolean isEvoSuiteStrategy = Properties.STRATEGY == Properties.Strategy.LLMSTRATEGY;
-        assertFalse(isEvoSuiteStrategy);
-        assertTrue(Properties.INLINE && !isEvoSuiteStrategy,
-                "Inlining must proceed for non-LLM strategies");
-        assertTrue(Properties.MINIMIZE && !isEvoSuiteStrategy,
-                "Minimization must proceed for non-LLM strategies");
-        assertTrue(Properties.ASSERTIONS && !isEvoSuiteStrategy,
-                "Assertion generation must proceed for non-LLM strategies");
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        assertTrue(LlmPostProcessor.isAnyFeatureEnabled(),
+                "Unified LLM post-processing can be enabled independently of the search strategy");
     }
 
     // ----------------------------------------------------------------

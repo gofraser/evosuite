@@ -254,7 +254,7 @@ public class ClientProcess {
                  * If we we are in debug mode in which we run client on separated thread,
                  * then do not kill the JVM
                  */
-                System.exit(0);
+                exitAfterSuccessfulRun();
             }
         } catch (Throwable t) {
             logger().error(getPrettyPrintIdentifier() + "Error when generating tests for: " + Properties.TARGET_CLASS
@@ -271,6 +271,19 @@ public class ClientProcess {
             if (!onThread) {
                 System.exit(1);
             }
+        }
+    }
+
+    private static void exitAfterSuccessfulRun() {
+        try {
+            System.exit(0);
+        } catch (SecurityException e) {
+            /*
+             * Some SUTs install their own SecurityManager outside EvoSuite's active sandbox
+             * window. If generation already completed successfully, a blocked zero-status
+             * exit should not turn the run into CLIENT_CRASH.
+             */
+            logger().warn("System.exit(0) was blocked after successful test generation; returning from main instead", e);
         }
     }
 }

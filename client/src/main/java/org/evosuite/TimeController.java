@@ -136,6 +136,7 @@ public class TimeController {
         phaseTimeouts.put(ClientState.SEARCH, 1000L * getSearchBudgetInSeconds());
         phaseTimeouts.put(ClientState.MINIMIZATION, 1000L * Properties.MINIMIZATION_TIMEOUT);
         phaseTimeouts.put(ClientState.ASSERTION_GENERATION, 1000L * Properties.ASSERTION_TIMEOUT);
+        phaseTimeouts.put(ClientState.LLM_POSTPROCESSING, 1000L * getLlmPostProcessingTimeoutInSeconds());
         phaseTimeouts.put(ClientState.CARVING, 1000L * Properties.CARVING_TIMEOUT);
         phaseTimeouts.put(ClientState.INITIALIZATION, 1000L * Properties.INITIALIZATION_TIMEOUT);
         phaseTimeouts.put(ClientState.JUNIT_CHECK, 1000L * Properties.JUNIT_CHECK_TIMEOUT);
@@ -254,6 +255,9 @@ public class TimeController {
         if (Properties.ASSERTIONS) {
             time += Properties.ASSERTION_TIMEOUT;
         }
+        if (org.evosuite.llm.postprocess.LlmPostProcessor.isAnyFeatureEnabled()) {
+            time += getLlmPostProcessingTimeoutInSeconds();
+        }
         if (Properties.TEST_FACTORY == TestFactory.JUNIT) {
             time += Properties.CARVING_TIMEOUT;
         }
@@ -267,6 +271,14 @@ public class TimeController {
         }
 
         return time;
+    }
+
+    private int getLlmPostProcessingTimeoutInSeconds() {
+        if (Properties.LLM_POSTPROCESSING_TIMEOUT > 0) {
+            return Properties.LLM_POSTPROCESSING_TIMEOUT;
+        }
+        return Properties.LLM_TIMEOUT_SECONDS
+                * Math.max(1, Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS + 1);
     }
 
     /**

@@ -68,6 +68,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -236,6 +237,22 @@ public final class ExecutableSnippetEngine {
         }
     }
 
+    public static final class AssertionCompilationTimeoutException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        private AssertionCompilationTimeoutException(String message) {
+            super(message);
+        }
+    }
+
+    public static final class AssertionEvaluationTimeoutException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        private AssertionEvaluationTimeoutException(String message) {
+            super(message);
+        }
+    }
+
     private final Map<String, CompiledSnippet> cache = new ConcurrentHashMap<>();
     private final Path compilationDir;
     /**
@@ -271,7 +288,16 @@ public final class ExecutableSnippetEngine {
 
     private ExecutableSnippetEngine() {
         this.compilationDir = new File(System.getProperty("java.io.tmpdir"), "evosuite-snippets").toPath();
-        this.compilationExecutor = Executors.newSingleThreadExecutor(r -> {
+        this.compilationExecutor = newCompilationExecutor();
+    }
+
+    ExecutableSnippetEngine(ExecutorService compilationExecutor) {
+        this.compilationDir = new File(System.getProperty("java.io.tmpdir"), "evosuite-snippets").toPath();
+        this.compilationExecutor = compilationExecutor;
+    }
+
+    private static ExecutorService newCompilationExecutor() {
+        return Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "EvoSuite-SnippetCompiler");
             t.setDaemon(true);
             return t;
@@ -336,15 +362,32 @@ public final class ExecutableSnippetEngine {
     public boolean evaluateAssertion(String assertionCode,
                                      Map<String, Type> variableTypes,
                                      Map<String, Object> variableValues) throws Throwable {
+        return evaluateAssertion(assertionCode, variableTypes, variableValues, 0, 0);
+    }
+
+    public boolean evaluateAssertion(String assertionCode,
+                                     Map<String, Type> variableTypes,
+                                     Map<String, Object> variableValues,
+                                     long compileTimeoutMs,
+                                     long evaluationTimeoutMs) throws Throwable {
         try {
             Map<String, Binding> bindings = toBindings(variableTypes, variableValues);
             ClassLoader parentLoader = resolveSnippetParentClassLoader();
             String cacheKey = "ASSERT|" + classLoaderKey(parentLoader) + "|"
                     + assertionCode + "|" + signature(bindings);
-            CompiledSnippet snippet = cache.computeIfAbsent(cacheKey,
-                    key -> compileSnippet(key, buildAssertionClassSource(key, assertionCode, bindings), parentLoader));
+            CompiledSnippet snippet = cache.get(cacheKey);
+            if (snippet == null) {
+                CompiledSnippet compiled = compileSnippet(cacheKey,
+                        buildAssertionClassSource(cacheKey, assertionCode, bindings),
+                        parentLoader,
+                        compileTimeoutMs);
+                CompiledSnippet existing = cache.putIfAbsent(cacheKey, compiled);
+                snippet = existing == null ? compiled : existing;
+            }
             Map<String, Object> values = new LinkedHashMap<>(variableValues);
-            Object result = invoke(snippet, values);
+            Object result = evaluationTimeoutMs > 0
+                    ? invokeWithTimeout(snippet, values, evaluationTimeoutMs)
+                    : invoke(snippet, values);
             return Boolean.TRUE.equals(result);
         } catch (AssertionError assertionError) {
             return false;
@@ -354,6 +397,46 @@ public final class ExecutableSnippetEngine {
                 increment(RuntimeVariable.LLM_Fallback_Snippet_Runtime_Failures, runtimeFailures);
             }
             throw t;
+        }
+    }
+
+    private Object invokeWithTimeout(CompiledSnippet snippet, Map<String, Object> values,
+                                     long timeoutMs) throws Throwable {
+        ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "EvoSuite-SnippetAssertionEvaluator");
+            t.setDaemon(true);
+            return t;
+        });
+        Future<Object> future = executor.submit(() -> {
+            try {
+                return invoke(snippet, values);
+            } catch (Throwable throwable) {
+                throw new SnippetInvocationCarrier(throwable);
+            }
+        });
+        try {
+            return future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            throw new AssertionEvaluationTimeoutException("Assertion evaluation timed out after "
+                    + timeoutMs + " ms");
+        } catch (java.util.concurrent.ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof SnippetInvocationCarrier) {
+                throw ((SnippetInvocationCarrier) cause).cause;
+            }
+            throw cause;
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private static final class SnippetInvocationCarrier extends Exception {
+        private static final long serialVersionUID = 1L;
+        private final Throwable cause;
+
+        private SnippetInvocationCarrier(Throwable cause) {
+            this.cause = cause;
         }
     }
 
@@ -400,9 +483,22 @@ public final class ExecutableSnippetEngine {
      * compilation executor so that the sandbox does not block it.
      */
     private CompiledSnippet compileSnippet(String key, String source, ClassLoader parentLoader) {
+        return compileSnippet(key, source, parentLoader, 0);
+    }
+
+    private CompiledSnippet compileSnippet(String key, String source, ClassLoader parentLoader,
+                                           long timeoutMs) {
         Callable<CompiledSnippet> task = () -> doCompileSnippet(key, source, parentLoader);
+        Future<CompiledSnippet> future = compilationExecutor.submit(task);
         try {
-            return compilationExecutor.submit(task).get();
+            return timeoutMs > 0
+                    ? future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+                    : future.get();
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
+            throw new AssertionCompilationTimeoutException("Snippet compilation timed out after "
+                    + timeoutMs + " ms");
         } catch (java.util.concurrent.ExecutionException e) {
             Throwable cause = e.getCause();
             if (cause instanceof SnippetCompilationException) {
@@ -411,6 +507,7 @@ public final class ExecutableSnippetEngine {
             increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
             throw new SnippetCompilationException("Snippet compilation failed", cause);
         } catch (InterruptedException e) {
+            future.cancel(true);
             Thread.currentThread().interrupt();
             increment(RuntimeVariable.LLM_Fallback_Snippet_Compile_Failures, compileFailures);
             throw new SnippetCompilationException("Snippet compilation interrupted", e);
@@ -1154,7 +1251,9 @@ public final class ExecutableSnippetEngine {
             int lastDot = targetClass.lastIndexOf('.');
             if (lastDot > 0) {
                 String targetPkg = targetClass.substring(0, lastDot);
-                if (!isForbiddenSnippetImportPackage(targetPkg) && !"java.lang".equals(targetPkg)) {
+                if (!isForbiddenSnippetImportPackage(targetPkg)
+                        && !"java.lang".equals(targetPkg)
+                        && isKnownImportableTargetPackage(targetPkg, knownClasses)) {
                     targetWildcardPackageImports.add(targetPkg);
                 }
             }
@@ -1452,6 +1551,17 @@ public final class ExecutableSnippetEngine {
         } catch (Throwable ignored) {
             return null;
         }
+    }
+
+    private boolean isKnownImportableTargetPackage(String targetPackage,
+                                                   Set<Class<?>> knownClasses) {
+        for (Class<?> knownClass : knownClasses) {
+            Package pkg = knownClass.getPackage();
+            if (pkg != null && targetPackage.equals(pkg.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Class<?> tryLoadSourceLevelClassName(String typeName) {

@@ -33,6 +33,8 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTrace;
+import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
@@ -52,6 +54,8 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @SuppressWarnings("unused")
 public class TestTestSuiteMinimizer {
@@ -88,7 +92,14 @@ public class TestTestSuiteMinimizer {
         assertEquals(0.0, previous_fitness, 0.0);
 
         TestSuiteMinimizer minimizer = new TestSuiteMinimizer(new BranchCoverageFactory());
-        minimizer.minimize(tsc, false);
+        MinimizationResult result = minimizer.minimize(tsc, false);
+        assertEquals(MinimizationStatus.COMPLETED, result.getStatus());
+        assertEquals(MinimizationStopCause.NONE, result.getUnderlyingStopCause());
+        assertEquals(1, result.getOriginalTests());
+        assertEquals(0, result.getOriginalLength());
+        assertEquals(0, result.getFinalTests());
+        assertEquals(0, result.getFinalLength());
+        assertFalse(result.isIncomplete());
         assertEquals(0, tsc.getTests().size());
 
         double fitness = ff.getFitness(tsc);
@@ -417,9 +428,224 @@ public class TestTestSuiteMinimizer {
         };
 
         TestSuiteMinimizer minimizer = new TestSuiteMinimizer(mockFactory);
-        minimizer.minimize(suite, false);
+        MinimizationResult result = minimizer.minimize(suite, false);
 
         // Expected: Size 1. If bug present: Size 0.
+        assertEquals(MinimizationStatus.COMPLETED, result.getStatus());
+        assertEquals(1, result.getFinalLength());
         assertEquals(1, suite.totalLengthOfTestCases());
+    }
+
+    @Test
+    public void perTestMinimizationReportsPreflightTimeoutAbort() {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        suite.addTest(test);
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(new BranchCoverageFactory()),
+                () -> MinimizationStopCause.TIMEOUT);
+        MinimizationResult result = minimizer.minimize(suite, true);
+
+        assertEquals(MinimizationStatus.PREFLIGHT_ABORTED, result.getStatus());
+        assertEquals(MinimizationStopCause.TIMEOUT, result.getUnderlyingStopCause());
+        assertEquals(1, result.getOriginalTests());
+        assertEquals(1, result.getOriginalLength());
+        assertEquals(1, result.getFinalTests());
+        assertEquals(1, result.getFinalLength());
+    }
+
+    @Test
+    public void perTestMinimizationPreservesCachedExecutionResults() {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        suite.addTest(test);
+
+        TestFitnessFunction alwaysCovered = new TestFitnessFunction() {
+            @Override
+            public double getFitness(TestChromosome individual, ExecutionResult result) {
+                return 0.0;
+            }
+
+            @Override
+            public ExecutionResult runTest(TestCase test) {
+                ExecutionResult result = new ExecutionResult(test);
+                result.setTrace(nonEmptyTrace());
+                return result;
+            }
+
+            @Override
+            public int compareTo(TestFitnessFunction other) {
+                return 0;
+            }
+
+            @Override
+            public int hashCode() {
+                return 1;
+            }
+
+            @Override
+            public boolean equals(Object other) {
+                return this == other;
+            }
+
+            @Override
+            public String getTargetClass() {
+                return "";
+            }
+
+            @Override
+            public String getTargetMethod() {
+                return "";
+            }
+        };
+
+        TestFitnessFactory<TestFitnessFunction> factory = new TestFitnessFactory<TestFitnessFunction>() {
+            @Override
+            public List<TestFitnessFunction> getCoverageGoals() {
+                return Collections.singletonList(alwaysCovered);
+            }
+
+            @Override
+            public double getFitness(TestSuiteChromosome suite) {
+                return 0.0;
+            }
+        };
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(factory),
+                () -> MinimizationStopCause.NONE,
+                executedTest -> {
+                    ExecutionResult result = new ExecutionResult(executedTest);
+                    result.setTrace(nonEmptyTrace());
+                    return result;
+                });
+        MinimizationResult result = minimizer.minimize(suite, true);
+
+        assertEquals(MinimizationStatus.COMPLETED, result.getStatus());
+        assertEquals(1, suite.size());
+        assertNotNull(suite.getTestChromosomes().get(0).getLastExecutionResult());
+    }
+
+    @Test
+    public void suiteMinimizationReportsTimeoutAbort() {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        suite.addTest(test);
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(new BranchCoverageFactory()),
+                () -> MinimizationStopCause.TIMEOUT);
+        MinimizationResult result = minimizer.minimize(suite, false);
+
+        assertEquals(MinimizationStatus.TIMED_OUT, result.getStatus());
+        assertEquals(MinimizationStopCause.TIMEOUT, result.getUnderlyingStopCause());
+        assertEquals(1, result.getFinalTests());
+        assertEquals(1, result.getFinalLength());
+    }
+
+    @Test
+    public void suiteMinimizationReportsLowMemoryAbort() {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        suite.addTest(test);
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(new BranchCoverageFactory()),
+                () -> MinimizationStopCause.LOW_MEMORY);
+        MinimizationResult result = minimizer.minimize(suite, false);
+
+        assertEquals(MinimizationStatus.LOW_MEMORY, result.getStatus());
+        assertEquals(MinimizationStopCause.LOW_MEMORY, result.getUnderlyingStopCause());
+        assertEquals(1, result.getFinalTests());
+        assertEquals(1, result.getFinalLength());
+    }
+
+    @Test
+    public void perTestMinimizationReportsReexecutionFailedForEmptyPreflightTraces() {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        suite.addTest(test);
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(new BranchCoverageFactory()),
+                () -> MinimizationStopCause.NONE,
+                executedTest -> {
+                    ExecutionResult result = new ExecutionResult(executedTest);
+                    result.setTrace(new ExecutionTraceImpl());
+                    return result;
+                });
+        MinimizationResult result = minimizer.minimize(suite, true);
+
+        assertEquals(MinimizationStatus.REEXECUTION_FAILED, result.getStatus());
+        assertEquals(MinimizationStopCause.NONE, result.getUnderlyingStopCause());
+        assertEquals(1, result.getOriginalTests());
+        assertEquals(1, result.getOriginalLength());
+        assertEquals(1, result.getFinalTests());
+        assertEquals(1, result.getFinalLength());
+    }
+
+    @Test
+    public void disabledResultIsCompleteByConfiguration() {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        suite.addTest(test);
+
+        MinimizationResult result = MinimizationResult.disabled(suite);
+
+        assertEquals(MinimizationStatus.DISABLED, result.getStatus());
+        assertEquals(MinimizationStopCause.NONE, result.getUnderlyingStopCause());
+        assertEquals(1, result.getOriginalTests());
+        assertEquals(1, result.getOriginalLength());
+        assertEquals(1, result.getFinalTests());
+        assertEquals(1, result.getFinalLength());
+        assertFalse(result.isIncomplete());
+    }
+
+    @Test
+    public void failedMinimizationRestoresDeepSnapshot() {
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 1));
+        test.addStatement(new IntPrimitiveStatement(test, 2));
+        suite.addTest(test);
+
+        TestFitnessFactory<TestFitnessFunction> throwingFactory = new TestFitnessFactory<TestFitnessFunction>() {
+            @Override
+            public List<TestFitnessFunction> getCoverageGoals() {
+                return Collections.emptyList();
+            }
+
+            @Override
+            public double getFitness(TestSuiteChromosome suite) {
+                suite.getTestChromosomes().get(0).getTestCase().remove(0);
+                throw new RuntimeException("boom");
+            }
+        };
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(throwingFactory);
+        MinimizationResult result = minimizer.minimize(suite, false);
+
+        assertEquals(MinimizationStatus.FAILED, result.getStatus());
+        assertEquals(2, result.getFinalLength());
+        assertEquals(2, suite.totalLengthOfTestCases());
+        assertEquals(2, suite.getTests().get(0).size());
+    }
+
+    private static ExecutionTrace nonEmptyTrace() {
+        ExecutionTrace trace = org.mockito.Mockito.mock(ExecutionTrace.class);
+        org.mockito.Mockito.when(trace.getCoveredTrueBranches()).thenReturn(Collections.emptySet());
+        org.mockito.Mockito.when(trace.getCoveredFalseBranches()).thenReturn(Collections.emptySet());
+        org.mockito.Mockito.when(trace.getCoveredBranchlessMethods()).thenReturn(Collections.emptySet());
+        org.mockito.Mockito.when(trace.getCoveredMethods()).thenReturn(Collections.emptySet());
+        org.mockito.Mockito.when(trace.getCoveredLines()).thenReturn(Collections.singleton(1));
+        org.mockito.Mockito.when(trace.lazyClone()).thenReturn(trace);
+        return trace;
     }
 }

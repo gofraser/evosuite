@@ -42,11 +42,12 @@ public enum ClientState {
     COVERAGE_ANALYSIS("Coverage Analysis",
             "Compute and the different coverage criteria of the generated test suite", 8),
     ASSERTION_GENERATION("Generating assertions", "Adding assertions to the test cases", 9),
-    JUNIT_CHECK("Check JUnit", "Validate and fix the generated tests", 10),
-    WRITING_TESTS("JUnit", "Writing JUnit tests to disk", 11),
-    WRITING_STATISTICS("Statistics", "Writing statistics to disk", 12),
-    DONE("Done", "Test case generation is finished", 13),
-    FINISHED("Finished", "Client process is fully finished", 14);
+    LLM_POSTPROCESSING("LLM post-processing", "Applying unified LLM post-processing", 10),
+    JUNIT_CHECK("Check JUnit", "Validate and fix the generated tests", 11),
+    WRITING_TESTS("JUnit", "Writing JUnit tests to disk", 12),
+    WRITING_STATISTICS("Statistics", "Writing statistics to disk", 13),
+    DONE("Done", "Test case generation is finished", 14),
+    FINISHED("Finished", "Client process is fully finished", 15);
 
     private final String name;
     private final String description;
@@ -181,19 +182,25 @@ public enum ClientState {
                 progress = startProgress;
                 break;
 
-            case 10: // writing statistics
+            case 10: // unified LLM post-processing
+                startProgress = 92;
+                maxProgress = 93;
+                progress = startProgress;
+                break;
+
+            case 11: // JUnit check
                 startProgress = 93;
                 maxProgress = 94;
                 progress = startProgress;
                 break;
 
-            case 11: // writing tests
+            case 12: // writing tests
                 startProgress = 95;
                 maxProgress = 98;
                 progress = startProgress;
                 break;
 
-            case 12: // shutting down
+            case 13: // writing statistics
                 startProgress = 99;
                 maxProgress = 100;
                 progress = startProgress;

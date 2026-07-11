@@ -46,6 +46,23 @@ public class SystemPromptProvider {
                 + "appears in your response, your response is INVALID.";
     }
 
+    /**
+     * Returns the system prompt for unified post-processing. This task returns a
+     * structured edit plan, not rewritten Java tests.
+     */
+    public String getPostProcessingSystemPrompt() {
+        return "You are a post-processing assistant for EvoSuite-generated Java tests. "
+                + "Return STRICT JSON only, matching the schema requested by the user. "
+                + "Do NOT return markdown code fences, prose, imports, class declarations, @Test methods, "
+                + "rewritten Java test code, or explanations. "
+                + "Do NOT reorder, remove, rewrite, or add executable test statements. "
+                + "Do NOT emit JUnit assertion calls; represent assertions only as canonical JSON assertion objects. "
+                + "You may include Java expressions only inside JSON expression fields. "
+                + "Use only the statement and variable IDs provided by the user. "
+                + "Names, comments, section breaks, and assertions must preserve the existing runtime values and control flow. "
+                + "If your response is not a single JSON object, your response is INVALID.";
+    }
+
     /** Returns the system prompt string configured for the current output format. */
     public String getSystemPrompt() {
         String coverageDirective = " Your goal is to maximize code coverage of the class under test: "

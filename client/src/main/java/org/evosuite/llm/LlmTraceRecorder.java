@@ -47,6 +47,9 @@ public class LlmTraceRecorder {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmTraceRecorder.class);
     private static final Gson GSON = new Gson();
+    private static final int TRACE_SCHEMA_VERSION = 2;
+    private static final ThreadLocal<PostProcessingTraceContext> POST_PROCESSING_TRACE_CONTEXT =
+            new ThreadLocal<>();
 
     private final LlmConfiguration configuration;
     private final Path traceFile;
@@ -226,6 +229,29 @@ public class LlmTraceRecorder {
         }
     }
 
+    public static final class PostProcessingTraceContext {
+        private final String minimizationStatus;
+        private final String minimizationStopCause;
+        private final int testIndex;
+
+        private PostProcessingTraceContext(String minimizationStatus, String minimizationStopCause,
+                                           int testIndex) {
+            this.minimizationStatus = minimizationStatus == null ? "" : minimizationStatus;
+            this.minimizationStopCause = minimizationStopCause == null ? "" : minimizationStopCause;
+            this.testIndex = testIndex;
+        }
+    }
+
+    public static void setPostProcessingTraceContext(String minimizationStatus, String minimizationStopCause,
+                                                     int testIndex) {
+        POST_PROCESSING_TRACE_CONTEXT.set(new PostProcessingTraceContext(minimizationStatus,
+                minimizationStopCause, testIndex));
+    }
+
+    public static void clearPostProcessingTraceContext() {
+        POST_PROCESSING_TRACE_CONTEXT.remove();
+    }
+
     /** Records a call with all metadata including dependency summary telemetry. */
     public void recordCall(CallRecord record) {
         if (!configuration.isTraceEnabled()) {
@@ -234,11 +260,23 @@ public class LlmTraceRecorder {
 
         List<LlmMessage> safeMessages = record.messages;
         List<String> expanded = record.expandedClasses;
+        PostProcessingTraceContext postProcessingContext = POST_PROCESSING_TRACE_CONTEXT.get();
         Map<String, Object> traceRecord = new LinkedHashMap<>();
+        traceRecord.put("schema_version", TRACE_SCHEMA_VERSION);
         traceRecord.put("run_id", configuration.getRunId());
         traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
         traceRecord.put("timestamp", Instant.now().toString());
         traceRecord.put("feature", record.feature.name());
+        traceRecord.put("postprocessing_call_kind",
+                record.feature == LlmFeature.POST_PROCESSING
+                        ? (record.repairAttempt > 1 ? "repair" : "initial")
+                        : "");
+        traceRecord.put("postprocessing_test_index",
+                postProcessingContext == null ? -1 : postProcessingContext.testIndex);
+        traceRecord.put("postprocessing_minimization_status",
+                postProcessingContext == null ? "" : postProcessingContext.minimizationStatus);
+        traceRecord.put("postprocessing_minimization_stop_cause",
+                postProcessingContext == null ? "" : postProcessingContext.minimizationStopCause);
         traceRecord.put("provider", configuration.getProvider().name());
         traceRecord.put("model", configuration.getModel());
         traceRecord.put("prompt_hash", deterministicPromptHash(safeMessages));
@@ -334,7 +372,7 @@ public class LlmTraceRecorder {
                 directoryCreated = true;
             }
             Files.write(traceFile,
-                    Collections.singleton(json + System.lineSeparator()),
+                    Collections.singleton(json),
                     StandardCharsets.UTF_8,
                     StandardOpenOption.CREATE,
                     StandardOpenOption.APPEND);

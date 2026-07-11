@@ -322,6 +322,13 @@ public enum RuntimeVariable {
      */
     @Deprecated
     Minimized_Length,
+    Minimization_Status,
+    Minimization_Stop_Cause,
+    Minimization_Original_Tests,
+    Minimization_Original_Length,
+    Minimization_Final_Tests,
+    Minimization_Final_Length,
+    Minimization_Elapsed_Millis,
     /**
      * The random seed used during the search. A random one was used if none was specified at the beginning.
      */
@@ -717,34 +724,6 @@ public enum RuntimeVariable {
      * Number of times an object-pool sequence was successfully used during test generation.
      */
     Object_Pool_Sequence_Used,
-    /**
-     * Number of tests renamed by LLM post-processing.
-     */
-    LLM_Tests_Renamed,
-    /**
-     * Number of tests where LLM naming fell back to baseline strategy.
-     */
-    LLM_Test_Naming_Fallbacks,
-    /**
-     * Number of variables renamed by LLM post-processing.
-     */
-    LLM_Variables_Renamed,
-    /**
-     * Number of variables where LLM naming fell back to type-based strategy.
-     */
-    LLM_Variable_Naming_Fallbacks,
-    /**
-     * Number of assertions added by LLM post-processing.
-     */
-    LLM_Assertions_Added,
-    /**
-     * Number of tests where LLM assertion strategy fell back to trace-based generation.
-     */
-    LLM_Assertion_Fallbacks,
-    /**
-     * Number of literals replaced by LLM niceification.
-     */
-    LLM_Literals_Niceified,
     /**
      * Number of compile-time failures while compiling fallback snippet code.
      */
@@ -1326,6 +1305,83 @@ public enum RuntimeVariable {
     LLM_Iterative_Tests_Unique_Timeline,
     /** Per-round number of target goals included in the request. */
     LLM_Iterative_Target_Goals_Timeline,
+
+    /** Unified LLM post-processing skip/no-op reason for the run. */
+    LLM_PostProcessing_Skip_Reason,
+    /** Minimization status seen by unified LLM post-processing. */
+    LLM_PostProcessing_Minimization_Status,
+    /** Minimization stop cause seen by unified LLM post-processing. */
+    LLM_PostProcessing_Minimization_Stop_Cause,
+    /** Number of tests for which unified LLM post-processing issued a request. */
+    LLM_PostProcessing_Requested_Tests,
+    /** Number of statements included in issued unified LLM post-processing requests. */
+    LLM_PostProcessing_Requested_Statements,
+    /** Number of parsed unified LLM post-processing responses accepted for application. */
+    LLM_PostProcessing_Accepted_Responses,
+    /** Number of tests skipped by unified LLM post-processing eligibility/scope gates. */
+    LLM_PostProcessing_Skipped_Tests,
+    /** Number of tests not processed because unified LLM post-processing caps stopped the phase. */
+    LLM_PostProcessing_Cap_Skipped_Tests,
+    /** Number of unified LLM post-processing responses rejected as infrastructure/whole-response failures. */
+    LLM_PostProcessing_Infrastructure_Failures,
+    /** Number of rejected unified LLM post-processing sub-edits reported by parser diagnostics. */
+    LLM_PostProcessing_Rejected_Edits,
+    /** Number of rejected unified LLM post-processing sub-edits with unknown statement/variable IDs. */
+    LLM_PostProcessing_Rejected_Unknown_Ids,
+    /** Number of duplicate unified LLM post-processing sub-edits rejected. */
+    LLM_PostProcessing_Rejected_Duplicates,
+    /** Number of unified LLM post-processing sub-edits rejected for invalid fields or values. */
+    LLM_PostProcessing_Rejected_Invalid_Fields,
+    /** Number of unified LLM post-processing assertions rejected for unsupported kinds. */
+    LLM_PostProcessing_Rejected_Unsupported_Kinds,
+    /** Number of unified LLM post-processing sub-edits rejected for configured limits. */
+    LLM_PostProcessing_Rejected_Limit_Exceeded,
+    /** Number of unified LLM post-processing assertions rejected during snippet compilation. */
+    LLM_PostProcessing_Rejected_Compile,
+    /** Number of unified LLM post-processing assertions rejected against the original observed scope. */
+    LLM_PostProcessing_Rejected_Observed_Execution,
+    /** Number of unified LLM post-processing assertions rejected against the stability re-execution scope. */
+    LLM_PostProcessing_Rejected_Stability_Execution,
+    /** Number of tests where unified LLM post-processing used trace-based assertion fallback. */
+    LLM_PostProcessing_Assertion_Fallbacks,
+    /** Number of trace-based assertion fallbacks triggered by LLM infrastructure failures. */
+    LLM_PostProcessing_Assertion_Fallbacks_Infrastructure,
+    /** Number of trace-based assertion fallbacks triggered by zero accepted LLM assertions. */
+    LLM_PostProcessing_Assertion_Fallbacks_No_Accepted,
+    /** Number of trace-based assertion fallbacks using the ALL strategy. */
+    LLM_PostProcessing_Assertion_Fallbacks_All,
+    /** Number of trace-based assertion fallbacks using the MUTATION strategy. */
+    LLM_PostProcessing_Assertion_Fallbacks_Mutation,
+    /** Number of fallback assertions applied by unified LLM post-processing. */
+    LLM_PostProcessing_Fallback_Assertions_Applied,
+    /** Number of tests with a parsed response and at least one applied edit. */
+    LLM_PostProcessing_Processed_Tests,
+    /** Number of tests with a parsed response but no applied edits. */
+    LLM_PostProcessing_Partially_Processed_Tests,
+    /** Number of test names proposed by unified LLM post-processing. */
+    LLM_PostProcessing_Test_Names_Proposed,
+    /** Number of test names applied by unified LLM post-processing. */
+    LLM_PostProcessing_Test_Names_Applied,
+    /** Number of variable names proposed by unified LLM post-processing. */
+    LLM_PostProcessing_Variable_Names_Proposed,
+    /** Number of variable names applied by unified LLM post-processing. */
+    LLM_PostProcessing_Variable_Names_Applied,
+    /** Number of comments proposed by unified LLM post-processing. */
+    LLM_PostProcessing_Comments_Proposed,
+    /** Number of comments applied by unified LLM post-processing. */
+    LLM_PostProcessing_Comments_Applied,
+    /** Number of section breaks proposed by unified LLM post-processing. */
+    LLM_PostProcessing_Section_Breaks_Proposed,
+    /** Number of section breaks applied by unified LLM post-processing. */
+    LLM_PostProcessing_Section_Breaks_Applied,
+    /** Number of assertions proposed by unified LLM post-processing. */
+    LLM_PostProcessing_Assertions_Proposed,
+    /** Number of assertions applied by unified LLM post-processing. */
+    LLM_PostProcessing_Assertions_Applied,
+    /** Number of unified LLM post-processing assertions removed or commented by final JUnit instability handling. */
+    LLM_PostProcessing_Assertions_Removed_Unstable,
+    /** Number of unified LLM post-processing assertions shipped in the final generated suite. */
+    LLM_PostProcessing_Assertions_Shipped,
 
     // ---- Phase 8: Diversity Observability ----
 

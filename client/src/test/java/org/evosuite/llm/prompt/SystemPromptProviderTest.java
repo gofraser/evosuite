@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SystemPromptProviderTest {
@@ -86,5 +87,19 @@ class SystemPromptProviderTest {
                 "System prompt must forbid SecurityManager mutation in sandboxed tests");
         assertTrue(prompt.contains("System.setSecurityManager(...)"),
                 "System prompt must explicitly forbid System.setSecurityManager");
+    }
+
+    @Test
+    void postProcessingPromptIsNotTestGenerationPrompt() {
+        String prompt = new SystemPromptProvider().getPostProcessingSystemPrompt();
+
+        assertTrue(prompt.contains("Return STRICT JSON only"));
+        assertTrue(prompt.contains("Do NOT reorder, remove, rewrite, or add executable test statements"));
+        assertTrue(prompt.contains("canonical JSON assertion objects"));
+        assertTrue(prompt.contains("preserve the existing runtime values and control flow"));
+        assertFalse(prompt.contains("Generate only valid Java"));
+        assertFalse(prompt.contains("Start your response with the first import"));
+        assertFalse(prompt.contains("Return raw Java code"));
+        assertFalse(prompt.contains("Provide only the necessary imports"));
     }
 }

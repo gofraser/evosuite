@@ -69,10 +69,58 @@ class LlmTraceRecorderTest {
         assertTrue(Files.exists(traceFile));
 
         String content = new String(Files.readAllBytes(traceFile), StandardCharsets.UTF_8);
+        assertTrue(content.contains("\"schema_version\":2"));
         assertTrue(content.contains("\"run_id\":\"run-abc\""));
         assertTrue(content.contains("\"feature\":\"TEST_REPAIR\""));
         assertTrue(content.contains("\"expanded_classes\":[\"java.util.ArrayList\"]"));
         assertTrue(content.contains("\"input_tokens\":12"));
+    }
+
+    @Test
+    void writesPostProcessingSchemaAttributionAndMinimizationMetadata() throws Exception {
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.OPENAI,
+                "model-1",
+                "",
+                "",
+                0.0,
+                256,
+                3,
+                1,
+                1,
+                true,
+                tempDir,
+                "run-post");
+
+        LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
+        LlmTraceRecorder.setPostProcessingTraceContext("COMPLETE", "SEARCH_FINISHED", 4);
+        try {
+            recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
+                    .feature(LlmFeature.POST_PROCESSING)
+                    .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("initial")))
+                    .responseText("initial")
+                    .parseStatus("SUCCESS")
+                    .repairAttempt(1)
+                    .build());
+            recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
+                    .feature(LlmFeature.POST_PROCESSING)
+                    .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("repair")))
+                    .responseText("repair")
+                    .parseStatus("SUCCESS")
+                    .repairAttempt(2)
+                    .build());
+        } finally {
+            LlmTraceRecorder.clearPostProcessingTraceContext();
+        }
+
+        String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
+        assertTrue(content.contains("\"postprocessing_call_kind\":\"initial\""));
+        assertTrue(content.contains("\"postprocessing_call_kind\":\"repair\""));
+        assertTrue(content.contains("\"postprocessing_test_index\":4"));
+        assertTrue(content.contains("\"postprocessing_minimization_status\":\"COMPLETE\""));
+        assertTrue(content.contains("\"postprocessing_minimization_stop_cause\":\"SEARCH_FINISHED\""));
+        assertFalse(content.contains(System.lineSeparator() + System.lineSeparator()));
+        assertEquals(2, Files.readAllLines(recorder.getTraceFile(), StandardCharsets.UTF_8).size());
     }
 
     @Test

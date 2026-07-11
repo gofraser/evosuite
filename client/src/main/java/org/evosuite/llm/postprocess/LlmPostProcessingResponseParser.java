@@ -1,0 +1,2110 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.llm.postprocess;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.Node;
+import com.github.javaparser.ast.expr.ArrayCreationExpr;
+import com.github.javaparser.ast.expr.ArrayInitializerExpr;
+import com.github.javaparser.ast.expr.BinaryExpr;
+import com.github.javaparser.ast.expr.CharLiteralExpr;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
+import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.ast.expr.StringLiteralExpr;
+import com.github.javaparser.ast.expr.UnaryExpr;
+import org.evosuite.assertion.CanonicalAssertionRenderer;
+import org.evosuite.Properties;
+
+import javax.lang.model.SourceVersion;
+import java.io.IOException;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+
+import static org.evosuite.llm.postprocess.LlmPostProcessingParseResult.Diagnostic;
+import static org.evosuite.llm.postprocess.LlmPostProcessingParseResult.DiagnosticCode;
+
+/**
+ * Parser for the versioned unified LLM post-processing edit-plan schema.
+ */
+public final class LlmPostProcessingResponseParser {
+
+    private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
+    private static final Set<String> ROOT_FIELDS = allowedFields("schemaVersion", "testName", "variableNames",
+            "comments", "sectionBreaksAfter", "assertions");
+    private static final Set<String> COMMENT_FIELDS = allowedFields("afterStatementId", "text");
+    private static final Set<String> ASSERTION_FIELDS = allowedFields("assertionId", "kind", "expected", "actual",
+            "delta", "purpose", "intent", "placement", "container", "element", "target", "size", "map", "key");
+    private static final Set<String> ASSERTION_PLACEMENT_FIELDS = allowedFields("afterStatementId");
+    private static final Set<String> BUILT_IN_PURE_STATIC_METHODS = allowedFields(
+            "java.lang.Math#*",
+            "Math#*",
+            "java.util.Arrays#asList",
+            "Arrays#asList",
+            "java.lang.Boolean#valueOf",
+            "Boolean#valueOf",
+            "java.lang.Byte#valueOf",
+            "Byte#valueOf",
+            "java.lang.Byte#parseByte",
+            "Byte#parseByte",
+            "java.lang.Short#valueOf",
+            "Short#valueOf",
+            "java.lang.Short#parseShort",
+            "Short#parseShort",
+            "java.lang.Integer#valueOf",
+            "Integer#valueOf",
+            "java.lang.Integer#parseInt",
+            "Integer#parseInt",
+            "java.lang.Long#valueOf",
+            "Long#valueOf",
+            "java.lang.Long#parseLong",
+            "Long#parseLong",
+            "java.lang.Float#valueOf",
+            "Float#valueOf",
+            "java.lang.Float#parseFloat",
+            "Float#parseFloat",
+            "java.lang.Double#valueOf",
+            "Double#valueOf",
+            "java.lang.Double#parseDouble",
+            "Double#parseDouble",
+            "java.math.BigInteger#valueOf",
+            "BigInteger#valueOf",
+            "java.math.BigDecimal#valueOf",
+            "BigDecimal#valueOf",
+            "java.util.Optional#empty",
+            "Optional#empty",
+            "java.util.Optional#of",
+            "Optional#of",
+            "java.util.Optional#ofNullable",
+            "Optional#ofNullable");
+    private static final Set<String> BUILT_IN_IMMUTABLE_TYPES = allowedFields(
+            "java.lang.String", "String",
+            "java.lang.Boolean", "Boolean",
+            "java.lang.Byte", "Byte",
+            "java.lang.Short", "Short",
+            "java.lang.Character", "Character",
+            "java.lang.Integer", "Integer",
+            "java.lang.Long", "Long",
+            "java.lang.Float", "Float",
+            "java.lang.Double", "Double",
+            "java.math.BigInteger", "BigInteger",
+            "java.math.BigDecimal", "BigDecimal",
+            "java.util.UUID", "UUID",
+            "java.time.LocalDate", "LocalDate",
+            "java.time.LocalTime", "LocalTime",
+            "java.time.LocalDateTime", "LocalDateTime",
+            "java.time.Instant", "Instant",
+            "java.time.Duration", "Duration",
+            "java.time.Period", "Period");
+    private static final Set<String> DENIED_STATIC_OWNERS = allowedFields(
+            "java.lang.System", "System",
+            "java.lang.Runtime", "Runtime",
+            "java.lang.Thread", "Thread",
+            "java.lang.ProcessBuilder", "ProcessBuilder",
+            "java.io.File", "File",
+            "java.nio.file.Files", "Files",
+            "java.nio.file.Paths", "Paths",
+            "java.nio.file.FileSystems", "FileSystems",
+            "java.lang.Class", "Class");
+    private static final Set<String> DENIED_STATIC_METHODS = allowedFields(
+            "java.lang.Math#random",
+            "Math#random");
+    private static final Set<String> DENIED_INSTANCE_METHODS = allowedFields(
+            "wait",
+            "notify",
+            "notifyAll",
+            "getClass",
+            "hashCode",
+            "finalize");
+
+    private LlmPostProcessingResponseParser() {
+        // Utility class.
+    }
+
+    public static ParseContext context(Set<String> statementIds, Set<String> variableIds) {
+        return new ParseContext(statementIds, variableIds, Collections.<CallableMethod>emptySet(),
+                Collections.<String>emptySet(), Collections.<String>emptySet(),
+                Collections.<String, String>emptyMap());
+    }
+
+    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
+                                       Set<CallableMethod> callableMethods) {
+        return new ParseContext(statementIds, variableIds, callableMethods, Collections.<String>emptySet(),
+                Collections.<String>emptySet(), Collections.<String, String>emptyMap());
+    }
+
+    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
+                                       Set<CallableMethod> callableMethods,
+                                       Set<String> observedCandidateKeys) {
+        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
+                Collections.<String>emptySet(), Collections.<String, String>emptyMap());
+    }
+
+    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
+                                       Set<CallableMethod> callableMethods,
+                                       Set<String> observedCandidateKeys,
+                                       Set<String> setupInputVariableIds) {
+        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
+                setupInputVariableIds, Collections.<String, String>emptyMap());
+    }
+
+    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
+                                       Set<CallableMethod> callableMethods,
+                                       Set<String> observedCandidateKeys,
+                                       Set<String> setupInputVariableIds,
+                                       Map<String, String> variableTypes) {
+        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
+                setupInputVariableIds, variableTypes);
+    }
+
+    public static LlmPostProcessingParseResult parse(String response, ParseContext context) {
+        if (response == null || response.trim().isEmpty()) {
+            return LlmPostProcessingParseResult.infrastructureFailure("Empty LLM post-processing response");
+        }
+
+        JsonNode root;
+        try {
+            root = JSON_MAPPER.readTree(normalizeJsonResponse(response));
+        } catch (IOException e) {
+            return LlmPostProcessingParseResult.infrastructureFailure("Response is not valid JSON: " + e.getMessage());
+        }
+        if (root == null || !root.isObject()) {
+            return LlmPostProcessingParseResult.infrastructureFailure("Response root must be a JSON object");
+        }
+
+        JsonNode schemaVersionNode = root.get("schemaVersion");
+        if (schemaVersionNode == null || !schemaVersionNode.isIntegralNumber()) {
+            return LlmPostProcessingParseResult.infrastructureFailure("Missing or non-integral schemaVersion");
+        }
+        int schemaVersion = schemaVersionNode.asInt();
+        if (schemaVersion != LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION) {
+            return LlmPostProcessingParseResult.infrastructureFailure("Unsupported schemaVersion: " + schemaVersion);
+        }
+
+        ParserState state = new ParserState(context == null ? ParseContext.empty() : context,
+                new LlmPostProcessingResponse(schemaVersion));
+        state.reportUnknownFields(root, "", ROOT_FIELDS);
+        state.parseTestName(root.get("testName"));
+        state.parseVariableNames(root.get("variableNames"));
+        state.parseComments(root.get("comments"));
+        state.parseSectionBreaks(root.get("sectionBreaksAfter"));
+        state.parseAssertions(root.get("assertions"));
+        return LlmPostProcessingParseResult.success(state.response, state.diagnostics);
+    }
+
+    static String normalizeJsonResponse(String response) {
+        String trimmed = response.trim();
+        if (!trimmed.startsWith("```")) {
+            return response;
+        }
+
+        int firstLineEnd = trimmed.indexOf('\n');
+        if (firstLineEnd < 0 || !trimmed.endsWith("```")) {
+            return response;
+        }
+
+        String fenceHeader = trimmed.substring(3, firstLineEnd).trim();
+        if (!fenceHeader.isEmpty() && !"json".equalsIgnoreCase(fenceHeader)) {
+            return response;
+        }
+
+        return trimmed.substring(firstLineEnd + 1, trimmed.length() - 3).trim();
+    }
+
+    private static Set<String> allowedFields(String... fields) {
+        Set<String> result = new HashSet<>();
+        Collections.addAll(result, fields);
+        return Collections.unmodifiableSet(result);
+    }
+
+    public static final class ParseContext {
+        private final Set<String> statementIds;
+        private final Set<String> variableIds;
+        private final Set<CallableMethod> callableMethods;
+        private final Set<String> observedCandidateKeys;
+        private final Set<String> setupInputVariableIds;
+        private final Map<String, String> variableTypes;
+        private final Map<CallableMethod, String> callableReturnTypes;
+
+        private ParseContext(Set<String> statementIds, Set<String> variableIds,
+                             Set<CallableMethod> callableMethods,
+                             Set<String> observedCandidateKeys,
+                             Set<String> setupInputVariableIds,
+                             Map<String, String> variableTypes) {
+            this.statementIds = copy(statementIds);
+            this.variableIds = copy(variableIds);
+            this.callableMethods = copy(callableMethods);
+            this.observedCandidateKeys = copy(observedCandidateKeys);
+            this.setupInputVariableIds = copy(setupInputVariableIds);
+            this.variableTypes = copyMap(variableTypes);
+            this.callableReturnTypes = callableReturnTypes(this.callableMethods);
+        }
+
+        public static ParseContext empty() {
+            return new ParseContext(Collections.<String>emptySet(), Collections.<String>emptySet(),
+                    Collections.<CallableMethod>emptySet(), Collections.<String>emptySet(),
+                    Collections.<String>emptySet(), Collections.<String, String>emptyMap());
+        }
+
+        private static <T> Set<T> copy(Set<T> values) {
+            if (values == null || values.isEmpty()) {
+                return Collections.emptySet();
+            }
+            return Collections.unmodifiableSet(new HashSet<>(values));
+        }
+
+        private static <K, V> Map<K, V> copyMap(Map<K, V> values) {
+            if (values == null || values.isEmpty()) {
+                return Collections.emptyMap();
+            }
+            return Collections.unmodifiableMap(new LinkedHashMap<>(values));
+        }
+
+        private static Map<CallableMethod, String> callableReturnTypes(Set<CallableMethod> callableMethods) {
+            if (callableMethods == null || callableMethods.isEmpty()) {
+                return Collections.emptyMap();
+            }
+            Map<CallableMethod, String> result = new LinkedHashMap<>();
+            for (CallableMethod method : callableMethods) {
+                if (method != null && method.returnType != null && !method.returnType.trim().isEmpty()) {
+                    result.put(method.withoutReturnType(), method.returnType.trim());
+                }
+            }
+            return Collections.unmodifiableMap(result);
+        }
+
+        boolean knowsStatementIds() {
+            return !statementIds.isEmpty();
+        }
+
+        boolean knowsVariableIds() {
+            return !variableIds.isEmpty();
+        }
+
+        boolean hasStatementId(String id) {
+            return statementIds.contains(id);
+        }
+
+        boolean hasVariableId(String id) {
+            return variableIds.contains(id);
+        }
+
+        boolean hasCallableMethod(String receiverId, String methodName, int argumentCount) {
+            for (CallableMethod method : callableMethods) {
+                if (java.util.Objects.equals(receiverId, method.receiverId)
+                        && java.util.Objects.equals(methodName, method.methodName)
+                        && argumentCount == method.argumentCount) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        boolean hasCallableTypeMethod(String ownerType, String methodName, int argumentCount) {
+            return callableMethods.contains(new CallableMethod(null, ownerType, methodName, argumentCount, null));
+        }
+
+        String variableType(String variableId) {
+            return variableTypes.get(variableId);
+        }
+
+        String callableReturnType(String receiverId, String methodName, int argumentCount) {
+            for (CallableMethod method : callableMethods) {
+                if (java.util.Objects.equals(receiverId, method.receiverId)
+                        && java.util.Objects.equals(methodName, method.methodName)
+                        && argumentCount == method.argumentCount) {
+                    return method.returnType;
+                }
+            }
+            return null;
+        }
+
+        String callableTypeReturnType(String ownerType, String methodName, int argumentCount) {
+            return callableReturnTypes.get(new CallableMethod(null, ownerType, methodName, argumentCount, null));
+        }
+
+        boolean hasObservedCandidateKey(String key) {
+            return observedCandidateKeys.contains(key);
+        }
+
+        boolean isSetupInputVariableId(String id) {
+            return setupInputVariableIds.contains(id);
+        }
+    }
+
+    public static final class CallableMethod {
+        private final String receiverId;
+        private final String ownerType;
+        private final String methodName;
+        private final int argumentCount;
+        private final String returnType;
+
+        public CallableMethod(String receiverId, String methodName, int argumentCount) {
+            this(receiverId, null, methodName, argumentCount, null);
+        }
+
+        public CallableMethod(String receiverId, String methodName, int argumentCount, String returnType) {
+            this(receiverId, null, methodName, argumentCount, returnType);
+        }
+
+        public CallableMethod(String receiverId, String ownerType, String methodName, int argumentCount,
+                              String returnType) {
+            this.receiverId = receiverId;
+            this.ownerType = ownerType;
+            this.methodName = methodName;
+            this.argumentCount = argumentCount;
+            this.returnType = returnType;
+        }
+
+        private CallableMethod withoutReturnType() {
+            return new CallableMethod(receiverId, ownerType, methodName, argumentCount, null);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) {
+                return true;
+            }
+            if (!(other instanceof CallableMethod)) {
+                return false;
+            }
+            CallableMethod that = (CallableMethod) other;
+            return argumentCount == that.argumentCount
+                    && java.util.Objects.equals(receiverId, that.receiverId)
+                    && java.util.Objects.equals(canonicalOwnerType(ownerType), canonicalOwnerType(that.ownerType))
+                    && java.util.Objects.equals(methodName, that.methodName);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(receiverId, canonicalOwnerType(ownerType), methodName, argumentCount);
+        }
+
+        private static String canonicalOwnerType(String typeName) {
+            if (typeName == null) {
+                return null;
+            }
+            String trimmed = typeName.trim();
+            int genericStart = trimmed.indexOf('<');
+            return genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
+        }
+    }
+
+    private static final class ParserState {
+        private final ParseContext context;
+        private final LlmPostProcessingResponse response;
+        private final java.util.List<Diagnostic> diagnostics = new java.util.ArrayList<>();
+
+        private ParserState(ParseContext context, LlmPostProcessingResponse response) {
+            this.context = context;
+            this.response = response;
+        }
+
+        private void parseTestName(JsonNode node) {
+            if (node == null || node.isNull()) {
+                return;
+            }
+            if (!node.isTextual()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "testName", "testName must be a string");
+                return;
+            }
+            String name = node.asText().trim();
+            if (!isValidJavaIdentifier(name)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "testName", "testName is not a valid Java identifier");
+                return;
+            }
+            response.setTestName(name);
+        }
+
+        private void parseVariableNames(JsonNode node) {
+            if (node == null || node.isNull()) {
+                return;
+            }
+            if (!node.isObject()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "variableNames", "variableNames must be an object");
+                return;
+            }
+            Iterator<String> fieldNames = node.fieldNames();
+            while (fieldNames.hasNext()) {
+                String variableId = fieldNames.next();
+                String path = "variableNames." + variableId;
+                JsonNode value = node.get(variableId);
+                if (context.knowsVariableIds() && !context.hasVariableId(variableId)) {
+                    diagnostic(DiagnosticCode.UNKNOWN_ID, path, "Unknown variable ID: " + variableId);
+                    continue;
+                }
+                if (value == null || !value.isTextual()) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Variable name must be a string");
+                    continue;
+                }
+                String name = value.asText().trim();
+                if (!isValidJavaIdentifier(name)) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Variable name is not a valid Java identifier");
+                    continue;
+                }
+                response.addVariableName(variableId, name);
+            }
+        }
+
+        private void parseComments(JsonNode node) {
+            if (node == null || node.isNull()) {
+                return;
+            }
+            if (!node.isArray()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "comments", "comments must be an array");
+                return;
+            }
+            Set<String> seen = new LinkedHashSet<>();
+            int accepted = 0;
+            for (int i = 0; i < node.size(); i++) {
+                String path = "comments[" + i + "]";
+                if (accepted >= Properties.LLM_POSTPROCESSING_MAX_COMMENTS_PER_TEST) {
+                    diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Comment limit exceeded");
+                    break;
+                }
+                JsonNode entry = node.get(i);
+                if (entry == null || !entry.isObject()) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Comment entry must be an object");
+                    continue;
+                }
+                reportUnknownFields(entry, path, COMMENT_FIELDS);
+                String afterStatementId = text(entry.get("afterStatementId"));
+                if (afterStatementId == null) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".afterStatementId",
+                            "afterStatementId must be a string");
+                    continue;
+                }
+                if (context.knowsStatementIds() && !context.hasStatementId(afterStatementId)) {
+                    diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".afterStatementId",
+                            "Unknown statement ID: " + afterStatementId);
+                    continue;
+                }
+                String comment = sanitizeComment(text(entry.get("text")));
+                if (comment == null || comment.isEmpty()) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".text", "Comment text must be non-empty");
+                    continue;
+                }
+                if (comment.length() > Properties.LLM_POSTPROCESSING_MAX_COMMENT_CHARS) {
+                    diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".text", "Comment text is too long");
+                    continue;
+                }
+                String key = afterStatementId + "\n" + comment;
+                if (!seen.add(key)) {
+                    diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate comment");
+                    continue;
+                }
+                response.addComment(new LlmPostProcessingResponse.CommentProposal(afterStatementId, comment));
+                accepted++;
+            }
+        }
+
+        private void parseSectionBreaks(JsonNode node) {
+            if (node == null || node.isNull()) {
+                return;
+            }
+            if (!node.isArray()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "sectionBreaksAfter", "sectionBreaksAfter must be an array");
+                return;
+            }
+            for (int i = 0; i < node.size(); i++) {
+                String path = "sectionBreaksAfter[" + i + "]";
+                String statementId = text(node.get(i));
+                if (statementId == null) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Section break ID must be a string");
+                    continue;
+                }
+                if (context.knowsStatementIds() && !context.hasStatementId(statementId)) {
+                    diagnostic(DiagnosticCode.UNKNOWN_ID, path, "Unknown statement ID: " + statementId);
+                    continue;
+                }
+                if (response.getSectionBreaksAfter().contains(statementId)) {
+                    diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate section break");
+                    continue;
+                }
+                response.addSectionBreakAfter(statementId);
+            }
+        }
+
+        private void parseAssertions(JsonNode node) {
+            if (node == null || node.isNull()) {
+                return;
+            }
+            if (!node.isArray()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "assertions", "assertions must be an array");
+                return;
+            }
+            Set<String> assertionIds = new LinkedHashSet<>();
+            Set<String> assertionKeys = new LinkedHashSet<>();
+            int accepted = 0;
+            for (int i = 0; i < node.size(); i++) {
+                String path = "assertions[" + i + "]";
+                if (accepted >= Properties.LLM_POSTPROCESSING_MAX_ASSERTIONS_PER_TEST) {
+                    diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Assertion limit exceeded");
+                    break;
+                }
+                JsonNode entry = node.get(i);
+                if (entry == null || !entry.isObject()) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion entry must be an object");
+                    continue;
+                }
+                reportUnknownFields(entry, path, ASSERTION_FIELDS);
+                String assertionId = text(entry.get("assertionId"));
+                if (assertionId == null || assertionId.trim().isEmpty()) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".assertionId",
+                            "assertionId must be a non-empty string");
+                    continue;
+                }
+                assertionId = assertionId.trim();
+                if (!assertionIds.add(assertionId)) {
+                    diagnostic(DiagnosticCode.DUPLICATE, path + ".assertionId",
+                            "Duplicate assertion ID: " + assertionId);
+                    continue;
+                }
+                LlmPostProcessingResponse.AssertionKind kind = parseKind(entry.get("kind"), path + ".kind");
+                if (kind == null) {
+                    continue;
+                }
+                if (!hasValidOperandShape(kind, entry, path)) {
+                    continue;
+                }
+                String expected = expression(expectedNode(kind, entry), path + expectedPathSuffix(kind),
+                        isExpectedRequired(kind));
+                String actual = expression(actualNode(kind, entry), path + actualPathSuffix(kind), true);
+                String delta = expression(entry.get("delta"), path + ".delta", false);
+                if ((isExpectedRequired(kind) && expected == null) || actual == null || delta == INVALID_EXPRESSION) {
+                    continue;
+                }
+                String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
+                if (intent == INVALID_EXPRESSION) {
+                    continue;
+                }
+                String afterStatementId = parseAssertionPlacement(entry.get("placement"), path + ".placement");
+                if (afterStatementId == INVALID_EXPRESSION) {
+                    continue;
+                }
+                if (!referencesAreAvailableAtPlacement(expected, actual, delta, afterStatementId, path)) {
+                    continue;
+                }
+                if (!hasCompatibleOperands(kind, expected, actual, delta, path)) {
+                    continue;
+                }
+                if (!canRenderCanonicalAssertion(kind, expected, actual, delta, path)) {
+                    continue;
+                }
+                String assertionKey = assertionKey(kind, expected, actual, delta);
+                if (!assertionKeys.add(assertionKey)) {
+                    diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate assertion expression");
+                    continue;
+                }
+                if (context.hasObservedCandidateKey(assertionKey)) {
+                    diagnostic(DiagnosticCode.DUPLICATE, path,
+                            "Assertion duplicates an EvoSuite-observed candidate fact");
+                    continue;
+                }
+                if (isDirectSetupInputAssertion(kind, expected, actual)) {
+                    diagnostic(DiagnosticCode.DUPLICATE, path,
+                            "Assertion directly restates an immutable setup input");
+                    continue;
+                }
+                if (isObviousTautology(kind, expected, actual)) {
+                    diagnostic(DiagnosticCode.DUPLICATE, path, "Assertion is an obvious tautology");
+                    continue;
+                }
+                String purpose = sanitizeComment(text(entry.get("purpose")));
+                if (purpose != null && purpose.length() > Properties.LLM_POSTPROCESSING_MAX_COMMENT_CHARS) {
+                    diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".purpose", "Assertion purpose is too long");
+                    purpose = null;
+                }
+                response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
+                        assertionId, kind, expected, actual, delta, purpose, intent, afterStatementId));
+                accepted++;
+            }
+        }
+
+        private JsonNode expectedNode(LlmPostProcessingResponse.AssertionKind kind, JsonNode entry) {
+            switch (kind) {
+                case CONTAINS:
+                case NOT_CONTAINS:
+                    return entry.has("expected") ? entry.get("expected") : entry.get("element");
+                case SIZE_EQUALS:
+                    return entry.has("expected") ? entry.get("expected") : entry.get("size");
+                case MAP_CONTAINS_KEY:
+                    return entry.has("expected") ? entry.get("expected") : entry.get("key");
+                default:
+                    return entry.get("expected");
+            }
+        }
+
+        private JsonNode actualNode(LlmPostProcessingResponse.AssertionKind kind, JsonNode entry) {
+            switch (kind) {
+                case CONTAINS:
+                case NOT_CONTAINS:
+                    return entry.has("actual") ? entry.get("actual") : entry.get("container");
+                case SIZE_EQUALS:
+                case IS_EMPTY:
+                    return entry.has("actual") ? entry.get("actual") : entry.get("target");
+                case MAP_CONTAINS_KEY:
+                    return entry.has("actual") ? entry.get("actual") : entry.get("map");
+                default:
+                    return entry.get("actual");
+            }
+        }
+
+        private String expectedPathSuffix(LlmPostProcessingResponse.AssertionKind kind) {
+            switch (kind) {
+                case CONTAINS:
+                case NOT_CONTAINS:
+                    return ".expected/.element";
+                case SIZE_EQUALS:
+                    return ".expected/.size";
+                case MAP_CONTAINS_KEY:
+                    return ".expected/.key";
+                default:
+                    return ".expected";
+            }
+        }
+
+        private String actualPathSuffix(LlmPostProcessingResponse.AssertionKind kind) {
+            switch (kind) {
+                case CONTAINS:
+                case NOT_CONTAINS:
+                    return ".actual/.container";
+                case SIZE_EQUALS:
+                case IS_EMPTY:
+                    return ".actual/.target";
+                case MAP_CONTAINS_KEY:
+                    return ".actual/.map";
+                default:
+                    return ".actual";
+            }
+        }
+
+        private String parseAssertionIntent(JsonNode node, String path) {
+            if (node == null || node.isNull()) {
+                return "REGRESSION";
+            }
+            String intent = text(node);
+            if (intent == null || intent.trim().isEmpty()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion intent must be a non-empty string");
+                return INVALID_EXPRESSION;
+            }
+            intent = intent.trim();
+            if (!"REGRESSION".equals(intent)) {
+                diagnostic(DiagnosticCode.UNSUPPORTED_KIND, path,
+                        "Only REGRESSION assertion intent is supported by schema version 1");
+                return INVALID_EXPRESSION;
+            }
+            return intent;
+        }
+
+        private String parseAssertionPlacement(JsonNode node, String path) {
+            if (node == null || node.isNull()) {
+                return null;
+            }
+            if (!node.isObject()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion placement must be an object");
+                return INVALID_EXPRESSION;
+            }
+            reportUnknownFields(node, path, ASSERTION_PLACEMENT_FIELDS);
+            String afterStatementId = text(node.get("afterStatementId"));
+            if (afterStatementId == null || afterStatementId.trim().isEmpty()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path + ".afterStatementId",
+                        "afterStatementId must be a non-empty string");
+                return INVALID_EXPRESSION;
+            }
+            afterStatementId = afterStatementId.trim();
+            if (context.knowsStatementIds() && !context.hasStatementId(afterStatementId)) {
+                diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".afterStatementId",
+                        "Unknown statement ID: " + afterStatementId);
+                return INVALID_EXPRESSION;
+            }
+            return afterStatementId;
+        }
+
+        private boolean referencesAreAvailableAtPlacement(String expected, String actual, String delta,
+                                                           String afterStatementId, String path) {
+            if (afterStatementId == null) {
+                return true;
+            }
+            int statementIndex = stableIdIndex(afterStatementId, 's');
+            if (statementIndex < 0) {
+                return true;
+            }
+            Set<String> variables = new LinkedHashSet<>();
+            variables.addAll(LlmPostProcessingExpressionUtils.extractSymbolicVariables(expected));
+            variables.addAll(LlmPostProcessingExpressionUtils.extractSymbolicVariables(actual));
+            variables.addAll(LlmPostProcessingExpressionUtils.extractSymbolicVariables(delta));
+            for (String variableId : variables) {
+                int variableIndex = stableIdIndex(variableId, 'v');
+                if (variableIndex > statementIndex) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".placement",
+                            "Assertion placement references a variable created after the placement statement");
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private int stableIdIndex(String id, char prefix) {
+            if (id == null || id.length() < 2 || id.charAt(0) != prefix) {
+                return -1;
+            }
+            try {
+                return Integer.parseInt(id.substring(1));
+            } catch (NumberFormatException e) {
+                return -1;
+            }
+        }
+
+        private boolean hasCompatibleOperands(LlmPostProcessingResponse.AssertionKind kind, String expected,
+                                              String actual, String delta, String path) {
+            ExprType actualType = resolveExpressionType(actual);
+            ExprType expectedType = resolveExpressionType(expected);
+            ExprType deltaType = resolveExpressionType(delta);
+            switch (kind) {
+                case TRUE:
+                case FALSE:
+                    if (actualType.isKnown() && !actualType.isBoolean()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".actual",
+                                "TRUE/FALSE actual must be boolean-compatible");
+                        return false;
+                    }
+                    return true;
+                case NULL:
+                case NOT_NULL:
+                    if (actualType.isKnown() && !actualType.isReferenceLike()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".actual",
+                                "NULL/NOT_NULL actual must be reference-typed");
+                        return false;
+                    }
+                    return true;
+                case SAME:
+                case NOT_SAME:
+                    if ((expectedType.isKnown() && !expectedType.isReferenceLike())
+                            || (actualType.isKnown() && !actualType.isReferenceLike())) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                                "SAME/NOT_SAME operands must be reference-typed");
+                        return false;
+                    }
+                    return true;
+                case EQUALS:
+                case NOT_EQUALS:
+                    if (actualType.isArray() || expectedType.isArray()) {
+                        return hasCompatibleArrayOperands(kind, expectedType, actualType, path);
+                    }
+                    if (actualType.isKnown() && expectedType.isKnown()
+                            && !areEqualsCompatible(expectedType, actualType)) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                                "EQUALS/NOT_EQUALS operands are not type-compatible");
+                        return false;
+                    }
+                    boolean floating = actualType.isFloatingPoint() || expectedType.isFloatingPoint();
+                    boolean bothOperandsKnown = actualType.isKnown() && expectedType.isKnown();
+                    if (floating && delta == null) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".delta",
+                                "Floating-point equality requires a delta");
+                        return false;
+                    }
+                    if (bothOperandsKnown && !floating && delta != null) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".delta",
+                                "Delta is only allowed for floating-point equality");
+                        return false;
+                    }
+                    if (delta != null && deltaType.isKnown() && !deltaType.isNumeric()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".delta", "Delta must be numeric");
+                        return false;
+                    }
+                    if (delta != null && isNegativeNumericLiteral(delta)) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".delta", "Delta must be non-negative");
+                        return false;
+                    }
+                    return true;
+                case CONTAINS:
+                case NOT_CONTAINS:
+                    if (actualType.isKnown() && !actualType.isReferenceLike()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".actual",
+                                "CONTAINS/NOT_CONTAINS container must be reference-typed");
+                        return false;
+                    }
+                    return hasCallableForRenderedPredicate(actual, "contains", 1, path + ".actual");
+                case SIZE_EQUALS:
+                    if (actualType.isKnown() && !actualType.isReferenceLike()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".actual",
+                                "SIZE_EQUALS target must be reference-typed");
+                        return false;
+                    }
+                    if (expectedType.isKnown() && !expectedType.isNumericLike()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".expected",
+                                "SIZE_EQUALS size must be numeric-compatible");
+                        return false;
+                    }
+                    return hasCallableForRenderedPredicate(actual, "size", 0, path + ".actual");
+                case MAP_CONTAINS_KEY:
+                    if (actualType.isKnown() && !actualType.isReferenceLike()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".actual",
+                                "MAP_CONTAINS_KEY map must be reference-typed");
+                        return false;
+                    }
+                    return hasCallableForRenderedPredicate(actual, "containsKey", 1, path + ".actual");
+                case IS_EMPTY:
+                    if (actualType.isKnown() && !actualType.isReferenceLike()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".actual",
+                                "IS_EMPTY target must be reference-typed");
+                        return false;
+                    }
+                    return hasCallableForRenderedPredicate(actual, "isEmpty", 0, path + ".actual");
+                case GREATER:
+                case LESS:
+                case GREATER_EQUALS:
+                case LESS_EQUALS:
+                    if (actualType.isKnown() && !actualType.isNumericLike()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".actual",
+                                "Relational operands must be numeric-compatible");
+                        return false;
+                    }
+                    if (expectedType.isKnown() && !expectedType.isNumericLike()) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".expected",
+                                "Relational operands must be numeric-compatible");
+                        return false;
+                    }
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        private boolean hasCallableForRenderedPredicate(String receiverExpression, String methodName, int arity,
+                                                        String path) {
+            try {
+                Expression parsed = StaticJavaParser.parseExpression(receiverExpression);
+                if (parsed instanceof NameExpr) {
+                    String receiverId = ((NameExpr) parsed).getNameAsString();
+                    if (context.hasCallableMethod(receiverId, methodName, arity)) {
+                        return true;
+                    }
+                }
+                ExprType receiverType = resolveExpressionType(parsed);
+                if (receiverType.isKnown() && context.hasCallableTypeMethod(receiverType.typeName, methodName, arity)) {
+                    return true;
+                }
+            } catch (RuntimeException ignored) {
+                // Syntax has already been validated by expression().
+            }
+            diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                    "Rendered predicate requires callable member " + methodName + "/" + arity);
+            return false;
+        }
+
+        private boolean hasCompatibleArrayOperands(LlmPostProcessingResponse.AssertionKind kind, ExprType expectedType,
+                                                   ExprType actualType, String path) {
+            if (kind == LlmPostProcessingResponse.AssertionKind.NOT_EQUALS) {
+                diagnostic(DiagnosticCode.UNSUPPORTED_KIND, path,
+                        "NOT_EQUALS on arrays is unsupported in schema version 1");
+                return false;
+            }
+            if ((expectedType.isArray() && !actualType.isKnown())
+                    || (actualType.isArray() && !expectedType.isKnown())) {
+                return true;
+            }
+            if (!expectedType.isArray() || !actualType.isArray()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Array equality requires array operands on both sides");
+                return false;
+            }
+            if (expectedType.arrayDepth != 1 || actualType.arrayDepth != 1) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Array equality supports one-dimensional arrays only");
+                return false;
+            }
+            if (expectedType.componentType != null && actualType.componentType != null
+                    && !sameType(expectedType.componentType, actualType.componentType)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Array equality requires matching component types");
+                return false;
+            }
+            return true;
+        }
+
+        private boolean canRenderCanonicalAssertion(LlmPostProcessingResponse.AssertionKind kind, String expected,
+                                                    String actual, String delta, String path) {
+            try {
+                ExprType actualType = resolveExpressionType(actual);
+                ExprType expectedType = resolveExpressionType(expected);
+                boolean arrayEquality = kind == LlmPostProcessingResponse.AssertionKind.EQUALS
+                        && delta == null
+                        && (actualType.isArray() || expectedType.isArray());
+                String rendered = CanonicalAssertionRenderer.forConfiguredFormat().render(kind, expected, actual, delta,
+                        arrayEquality);
+                if (rendered == null || rendered.trim().isEmpty()) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion cannot be rendered");
+                    return false;
+                }
+                return true;
+            } catch (RuntimeException e) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Assertion cannot be rendered for the configured output format");
+                return false;
+            }
+        }
+
+        private boolean areEqualsCompatible(ExprType expectedType, ExprType actualType) {
+            if (expectedType.isNull() || actualType.isNull()) {
+                return expectedType.isReferenceLike() || actualType.isReferenceLike();
+            }
+            if (expectedType.isNumericLike() && actualType.isNumericLike()) {
+                return true;
+            }
+            if (expectedType.isBooleanLike() && actualType.isBooleanLike()) {
+                return true;
+            }
+            if (expectedType.isCharLike() && actualType.isCharLike()) {
+                return true;
+            }
+            if (expectedType.isReferenceLike() && actualType.isReferenceLike()) {
+                return sameType(expectedType.typeName, actualType.typeName)
+                        || "java.lang.Object".equals(canonicalType(expectedType.typeName))
+                        || "java.lang.Object".equals(canonicalType(actualType.typeName));
+            }
+            return false;
+        }
+
+        private ExprType resolveExpressionType(String expression) {
+            if (expression == null || expression.trim().isEmpty()) {
+                return ExprType.unknown();
+            }
+            try {
+                return resolveExpressionType(StaticJavaParser.parseExpression(expression));
+            } catch (RuntimeException e) {
+                return ExprType.unknown();
+            }
+        }
+
+        private ExprType resolveExpressionType(Expression expression) {
+            if (expression == null) {
+                return ExprType.unknown();
+            }
+            if (expression.isEnclosedExpr()) {
+                return resolveExpressionType(expression.asEnclosedExpr().getInner());
+            }
+            if (expression.isBooleanLiteralExpr()) {
+                return ExprType.primitive("boolean");
+            }
+            if (expression.isNullLiteralExpr()) {
+                return ExprType.nullType();
+            }
+            if (expression.isStringLiteralExpr()) {
+                return ExprType.reference("java.lang.String");
+            }
+            if (expression.isCharLiteralExpr()) {
+                return ExprType.primitive("char");
+            }
+            if (expression.isIntegerLiteralExpr()) {
+                return ExprType.primitive("int");
+            }
+            if (expression.isLongLiteralExpr()) {
+                return ExprType.primitive("long");
+            }
+            if (expression.isDoubleLiteralExpr()) {
+                String value = expression.asDoubleLiteralExpr().getValue().toLowerCase();
+                return ExprType.primitive(value.endsWith("f") ? "float" : "double");
+            }
+            if (expression instanceof NameExpr) {
+                return ExprType.fromTypeName(context.variableType(((NameExpr) expression).getNameAsString()));
+            }
+            if (expression instanceof ArrayCreationExpr) {
+                ArrayCreationExpr arrayCreation = (ArrayCreationExpr) expression;
+                return ExprType.array(arrayCreation.getElementType().asString(), arrayCreation.getLevels().size());
+            }
+            if (expression instanceof ObjectCreationExpr) {
+                return ExprType.reference(((ObjectCreationExpr) expression).getTypeAsString());
+            }
+            if (expression instanceof MethodCallExpr) {
+                return resolveMethodCallType((MethodCallExpr) expression);
+            }
+            if (expression instanceof FieldAccessExpr) {
+                FieldAccessExpr fieldAccess = (FieldAccessExpr) expression;
+                if ("length".equals(fieldAccess.getNameAsString())
+                        && resolveExpressionType(fieldAccess.getScope()).isArray()) {
+                    return ExprType.primitive("int");
+                }
+                return ExprType.unknown();
+            }
+            if (expression instanceof UnaryExpr) {
+                UnaryExpr unaryExpr = (UnaryExpr) expression;
+                if (unaryExpr.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) {
+                    return ExprType.primitive("boolean");
+                }
+                return resolveExpressionType(unaryExpr.getExpression());
+            }
+            if (expression instanceof BinaryExpr) {
+                return resolveBinaryType((BinaryExpr) expression);
+            }
+            return ExprType.unknown();
+        }
+
+        private ExprType resolveMethodCallType(MethodCallExpr methodCall) {
+            if (methodCall.getScope().isPresent() && methodCall.getScope().get() instanceof NameExpr) {
+                String receiverId = ((NameExpr) methodCall.getScope().get()).getNameAsString();
+                String returnType = context.callableReturnType(receiverId, methodCall.getNameAsString(),
+                        methodCall.getArguments().size());
+                if (returnType != null) {
+                    return ExprType.fromTypeName(returnType);
+                }
+            }
+            if (methodCall.getScope().isPresent()
+                    && Properties.LLM_POSTPROCESSING_ALLOW_CHAINED_CALLS
+                    && isInstanceCallScope(methodCall.getScope().get())) {
+                ExprType receiverType = resolveExpressionType(methodCall.getScope().get());
+                String returnType = context.callableTypeReturnType(receiverType.typeName,
+                        methodCall.getNameAsString(), methodCall.getArguments().size());
+                if (returnType != null) {
+                    return ExprType.fromTypeName(returnType);
+                }
+            }
+            if (methodCall.getScope().isPresent() && !isInstanceCallScope(methodCall.getScope().get())) {
+                return staticMethodReturnType(methodCall.getScope().get().toString(), methodCall.getNameAsString());
+            }
+            return ExprType.unknown();
+        }
+
+        private ExprType staticMethodReturnType(String owner, String methodName) {
+            String canonicalOwner = canonicalType(owner);
+            if ("java.lang.Boolean".equals(canonicalOwner) && "valueOf".equals(methodName)) {
+                return ExprType.reference("java.lang.Boolean");
+            }
+            if ("java.lang.Byte".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseByte".equals(methodName))) {
+                return "parseByte".equals(methodName) ? ExprType.primitive("byte") : ExprType.reference("java.lang.Byte");
+            }
+            if ("java.lang.Short".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseShort".equals(methodName))) {
+                return "parseShort".equals(methodName) ? ExprType.primitive("short") : ExprType.reference("java.lang.Short");
+            }
+            if ("java.lang.Integer".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseInt".equals(methodName))) {
+                return "parseInt".equals(methodName) ? ExprType.primitive("int") : ExprType.reference("java.lang.Integer");
+            }
+            if ("java.lang.Long".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseLong".equals(methodName))) {
+                return "parseLong".equals(methodName) ? ExprType.primitive("long") : ExprType.reference("java.lang.Long");
+            }
+            if ("java.lang.Float".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseFloat".equals(methodName))) {
+                return "parseFloat".equals(methodName) ? ExprType.primitive("float") : ExprType.reference("java.lang.Float");
+            }
+            if ("java.lang.Double".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseDouble".equals(methodName))) {
+                return "parseDouble".equals(methodName) ? ExprType.primitive("double") : ExprType.reference("java.lang.Double");
+            }
+            if ("java.math.BigInteger".equals(canonicalOwner) && "valueOf".equals(methodName)) {
+                return ExprType.reference("java.math.BigInteger");
+            }
+            if ("java.math.BigDecimal".equals(canonicalOwner) && "valueOf".equals(methodName)) {
+                return ExprType.reference("java.math.BigDecimal");
+            }
+            if ("java.util.Optional".equals(canonicalOwner)) {
+                return ExprType.reference("java.util.Optional");
+            }
+            return ExprType.unknown();
+        }
+
+        private ExprType resolveBinaryType(BinaryExpr binaryExpr) {
+            switch (binaryExpr.getOperator()) {
+                case EQUALS:
+                case NOT_EQUALS:
+                case LESS:
+                case LESS_EQUALS:
+                case GREATER:
+                case GREATER_EQUALS:
+                case AND:
+                case OR:
+                    return ExprType.primitive("boolean");
+                case PLUS:
+                    ExprType left = resolveExpressionType(binaryExpr.getLeft());
+                    ExprType right = resolveExpressionType(binaryExpr.getRight());
+                    if ("java.lang.String".equals(canonicalType(left.typeName))
+                            || "java.lang.String".equals(canonicalType(right.typeName))) {
+                        return ExprType.reference("java.lang.String");
+                    }
+                    return promotedNumericType(left, right);
+                case MINUS:
+                case MULTIPLY:
+                case DIVIDE:
+                case REMAINDER:
+                    return promotedNumericType(resolveExpressionType(binaryExpr.getLeft()),
+                            resolveExpressionType(binaryExpr.getRight()));
+                default:
+                    return ExprType.unknown();
+            }
+        }
+
+        private ExprType promotedNumericType(ExprType left, ExprType right) {
+            if (!left.isNumericLike() || !right.isNumericLike()) {
+                return ExprType.unknown();
+            }
+            if (left.isDoubleLike() || right.isDoubleLike()) {
+                return ExprType.primitive("double");
+            }
+            if (left.isFloatLike() || right.isFloatLike()) {
+                return ExprType.primitive("float");
+            }
+            if (left.isLongLike() || right.isLongLike()) {
+                return ExprType.primitive("long");
+            }
+            return ExprType.primitive("int");
+        }
+
+        private boolean isNegativeNumericLiteral(String expression) {
+            try {
+                Expression parsed = StaticJavaParser.parseExpression(expression);
+                if (parsed instanceof UnaryExpr) {
+                    UnaryExpr unaryExpr = (UnaryExpr) parsed;
+                    return unaryExpr.getOperator() == UnaryExpr.Operator.MINUS
+                            && resolveExpressionType(unaryExpr.getExpression()).isNumeric();
+                }
+                return false;
+            } catch (RuntimeException e) {
+                return false;
+            }
+        }
+
+        private boolean sameType(String first, String second) {
+            return first != null && second != null && canonicalType(first).equals(canonicalType(second));
+        }
+
+        private String canonicalType(String typeName) {
+            if (typeName == null) {
+                return "";
+            }
+            String trimmed = typeName.trim();
+            if ("String".equals(trimmed)) {
+                return "java.lang.String";
+            }
+            if ("Boolean".equals(trimmed)) {
+                return "java.lang.Boolean";
+            }
+            if ("Byte".equals(trimmed)) {
+                return "java.lang.Byte";
+            }
+            if ("Short".equals(trimmed)) {
+                return "java.lang.Short";
+            }
+            if ("Character".equals(trimmed)) {
+                return "java.lang.Character";
+            }
+            if ("Integer".equals(trimmed)) {
+                return "java.lang.Integer";
+            }
+            if ("Long".equals(trimmed)) {
+                return "java.lang.Long";
+            }
+            if ("Float".equals(trimmed)) {
+                return "java.lang.Float";
+            }
+            if ("Double".equals(trimmed)) {
+                return "java.lang.Double";
+            }
+            if ("Object".equals(trimmed)) {
+                return "java.lang.Object";
+            }
+            if ("BigInteger".equals(trimmed)) {
+                return "java.math.BigInteger";
+            }
+            if ("BigDecimal".equals(trimmed)) {
+                return "java.math.BigDecimal";
+            }
+            if ("Optional".equals(trimmed)) {
+                return "java.util.Optional";
+            }
+            return trimmed;
+        }
+
+        private String assertionKey(LlmPostProcessingResponse.AssertionKind kind, String expected, String actual,
+                                    String delta) {
+            return kind.name()
+                    + "|" + normalizedExpression(expected)
+                    + "|" + normalizedExpression(actual)
+                    + "|" + normalizedExpression(delta);
+        }
+
+        private String normalizedExpression(String expression) {
+            return expression == null ? "" : expression.replaceAll("\\s+", "");
+        }
+
+        private boolean isDirectSetupInputAssertion(LlmPostProcessingResponse.AssertionKind kind,
+                                                    String expected, String actual) {
+            String normalizedActual = normalizedExpression(actual);
+            String normalizedExpected = normalizedExpression(expected);
+            if (normalizedActual.isEmpty()) {
+                return false;
+            }
+            if (isDirectSetupInputVariable(normalizedActual)
+                    && (normalizedExpected.isEmpty() || isLiteralOrNullExpression(normalizedExpected))) {
+                return true;
+            }
+            return isExpectedRequired(kind)
+                    && isDirectSetupInputVariable(normalizedExpected)
+                    && isLiteralOrNullExpression(normalizedActual);
+        }
+
+        private boolean isDirectSetupInputVariable(String expression) {
+            return context.isSetupInputVariableId(expression);
+        }
+
+        private boolean isLiteralOrNullExpression(String expression) {
+            if (expression == null || expression.isEmpty()) {
+                return false;
+            }
+            Expression parsed;
+            try {
+                parsed = StaticJavaParser.parseExpression(expression);
+            } catch (RuntimeException e) {
+                return false;
+            }
+            return parsed.isLiteralExpr() || parsed.isNullLiteralExpr();
+        }
+
+        private boolean isObviousTautology(LlmPostProcessingResponse.AssertionKind kind, String expected,
+                                           String actual) {
+            String normalizedExpected = normalizedExpression(expected);
+            String normalizedActual = normalizedExpression(actual);
+            if ((kind == LlmPostProcessingResponse.AssertionKind.EQUALS
+                    || kind == LlmPostProcessingResponse.AssertionKind.SAME)
+                    && !normalizedExpected.isEmpty()
+                    && normalizedExpected.equals(normalizedActual)) {
+                return true;
+            }
+            if (isRelationalKind(kind)
+                    && !normalizedExpected.isEmpty()
+                    && normalizedExpected.equals(normalizedActual)) {
+                // actual OP actual is degenerate: strict forms are always false,
+                // non-strict forms are always true. Neither adds value.
+                return true;
+            }
+            if (kind == LlmPostProcessingResponse.AssertionKind.NOT_EQUALS
+                    || kind == LlmPostProcessingResponse.AssertionKind.NOT_SAME) {
+                return false;
+            }
+            if ((kind == LlmPostProcessingResponse.AssertionKind.TRUE
+                    || kind == LlmPostProcessingResponse.AssertionKind.FALSE)
+                    && isSelfComparison(actual, kind == LlmPostProcessingResponse.AssertionKind.TRUE)) {
+                return true;
+            }
+            return false;
+        }
+
+        private boolean isSelfComparison(String expression, boolean assertedTrue) {
+            if (expression == null || expression.trim().isEmpty()) {
+                return false;
+            }
+            Expression parsed;
+            try {
+                parsed = StaticJavaParser.parseExpression(expression);
+            } catch (RuntimeException e) {
+                return false;
+            }
+            if (!(parsed instanceof BinaryExpr)) {
+                return false;
+            }
+            BinaryExpr binary = (BinaryExpr) parsed;
+            if (!normalizedExpression(binary.getLeft().toString())
+                    .equals(normalizedExpression(binary.getRight().toString()))) {
+                return false;
+            }
+            BinaryExpr.Operator operator = binary.getOperator();
+            if (assertedTrue) {
+                return operator == BinaryExpr.Operator.EQUALS
+                        || operator == BinaryExpr.Operator.LESS_EQUALS
+                        || operator == BinaryExpr.Operator.GREATER_EQUALS;
+            }
+            return operator == BinaryExpr.Operator.NOT_EQUALS
+                    || operator == BinaryExpr.Operator.LESS
+                    || operator == BinaryExpr.Operator.GREATER;
+        }
+
+        private boolean hasValidOperandShape(LlmPostProcessingResponse.AssertionKind kind, JsonNode entry,
+                                             String path) {
+            boolean valid = true;
+            if (isForbidden(entry, "expected") && !isExpectedRequired(kind)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path + ".expected",
+                        "expected is not allowed for assertion kind " + kind);
+                valid = false;
+            }
+            if (isForbidden(entry, "delta") && !isDeltaAllowed(kind)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path + ".delta",
+                        "delta is not allowed for assertion kind " + kind);
+                valid = false;
+            }
+            return valid;
+        }
+
+        private LlmPostProcessingResponse.AssertionKind parseKind(JsonNode node, String path) {
+            String kind = text(node);
+            if (kind == null || kind.trim().isEmpty()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion kind must be a non-empty string");
+                return null;
+            }
+            try {
+                return LlmPostProcessingResponse.AssertionKind.valueOf(kind.trim());
+            } catch (IllegalArgumentException e) {
+                diagnostic(DiagnosticCode.UNSUPPORTED_KIND, path, "Unsupported assertion kind: " + kind);
+                return null;
+            }
+        }
+
+        private String expression(JsonNode node, String path, boolean required) {
+            if (node == null || node.isNull()) {
+                if (required) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression is required");
+                }
+                return null;
+            }
+            if (!node.isTextual()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression must be a string");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            String expression = node.asText().trim();
+            if (expression.isEmpty()) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression must be non-empty");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (expression.endsWith(";")) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression must not end with a semicolon");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (expression.length() > Properties.LLM_POSTPROCESSING_MAX_EXPRESSION_CHARS) {
+                diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression is too long");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            Expression parsed;
+            try {
+                parsed = StaticJavaParser.parseExpression(expression);
+            } catch (RuntimeException e) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression is not valid Java syntax");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (exceedsExpressionNodeLimit(parsed)) {
+                diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression AST node limit exceeded");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (LlmPostProcessingExpressionUtils.containsUnsupportedExpressionConstruct(parsed)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Expression contains unsupported mutation or code block constructs");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (LlmPostProcessingExpressionUtils.containsRawAssertionCall(parsed)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Expression must not contain raw assertion calls");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (LlmPostProcessingExpressionUtils.containsArbitraryToStringCall(parsed)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Expression must not use arbitrary toString() calls");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (containsDisallowedObjectConstruction(parsed)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Expression contains non-allowlisted object construction");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (referencesUnknownVariableId(parsed)) {
+                diagnostic(DiagnosticCode.UNKNOWN_ID, path, "Expression references an unknown variable ID");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (containsDisallowedStaticMethodCall(parsed)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Expression contains a non-allowlisted static method call");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (exceedsChainDepthLimit(parsed)) {
+                diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression member-chain depth exceeded");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (containsDisallowedInstanceMethodCall(parsed)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Expression contains a non-allowlisted instance method call");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (exceedsLiteralCharLimit(parsed)) {
+                diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression literal character limit exceeded");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (exceedsConstructedArrayElementLimit(parsed)) {
+                diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Constructed array element limit exceeded");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            if (containsDisallowedArrayConstruction(parsed)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                        "Constructed arrays must be one-dimensional and contain only literal or null elements");
+                return required ? null : INVALID_EXPRESSION;
+            }
+            return expression;
+        }
+
+        private boolean exceedsExpressionNodeLimit(Expression expression) {
+            int limit = Properties.LLM_POSTPROCESSING_MAX_EXPRESSION_NODES;
+            if (limit <= 0) {
+                return false;
+            }
+            return expression.findAll(Node.class).size() > limit;
+        }
+
+        private boolean containsDisallowedObjectConstruction(Expression expression) {
+            for (ObjectCreationExpr objectCreation : expression.findAll(ObjectCreationExpr.class)) {
+                if (!isAllowedImmutableConstructorType(objectCreation.getTypeAsString())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean containsDisallowedStaticMethodCall(Expression expression) {
+            for (MethodCallExpr methodCall : expression.findAll(MethodCallExpr.class)) {
+                if (!methodCall.getScope().isPresent()) {
+                    continue;
+                }
+                Expression scope = methodCall.getScope().get();
+                if (isInstanceCallScope(scope)) {
+                    continue;
+                }
+                if (isDeniedStaticCall(scope.toString(), methodCall.getNameAsString())) {
+                    return true;
+                }
+                if (!isAllowedStaticCall(scope.toString(), methodCall.getNameAsString())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean isInstanceCallScope(Expression scope) {
+            if (scope instanceof NameExpr) {
+                return context.hasVariableId(((NameExpr) scope).getNameAsString());
+            }
+            if (scope instanceof MethodCallExpr) {
+                MethodCallExpr methodCall = (MethodCallExpr) scope;
+                return methodCall.getScope().isPresent() && isInstanceCallScope(methodCall.getScope().get());
+            }
+            if (scope instanceof FieldAccessExpr) {
+                return isInstanceCallScope(((FieldAccessExpr) scope).getScope());
+            }
+            return false;
+        }
+
+        private boolean containsDisallowedInstanceMethodCall(Expression expression) {
+            for (MethodCallExpr methodCall : expression.findAll(MethodCallExpr.class)) {
+                if (!methodCall.getScope().isPresent()) {
+                    continue;
+                }
+                Expression scope = methodCall.getScope().get();
+                if (!isInstanceCallScope(scope)) {
+                    continue;
+                }
+                if (isDeniedInstanceCall(methodCall.getNameAsString())) {
+                    return true;
+                }
+                if (scope instanceof NameExpr) {
+                    String receiverId = ((NameExpr) scope).getNameAsString();
+                    if (!context.hasCallableMethod(receiverId, methodCall.getNameAsString(),
+                            methodCall.getArguments().size())) {
+                        return true;
+                    }
+                    continue;
+                }
+                if (!Properties.LLM_POSTPROCESSING_ALLOW_CHAINED_CALLS) {
+                    return true;
+                }
+                ExprType receiverType = resolveExpressionType(scope);
+                if (!receiverType.isKnown()
+                        || !context.hasCallableTypeMethod(receiverType.typeName, methodCall.getNameAsString(),
+                        methodCall.getArguments().size())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean isDeniedStaticCall(String owner, String methodName) {
+            return DENIED_STATIC_OWNERS.contains(owner)
+                    || DENIED_STATIC_METHODS.contains(owner + "#" + methodName)
+                    || DENIED_STATIC_METHODS.contains(simpleName(owner) + "#" + methodName);
+        }
+
+        private boolean isDeniedInstanceCall(String methodName) {
+            return DENIED_INSTANCE_METHODS.contains(methodName);
+        }
+
+        private boolean isAllowedStaticCall(String owner, String methodName) {
+            for (String allowlistEntry : allStaticAllowlistEntries()) {
+                if (matchesStaticAllowlistEntry(owner, methodName, allowlistEntry)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private Set<String> allStaticAllowlistEntries() {
+            Set<String> entries = new LinkedHashSet<>(BUILT_IN_PURE_STATIC_METHODS);
+            if (Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST != null
+                    && !Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST.trim().isEmpty()) {
+                for (String rawEntry : Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST.split(",")) {
+                    String entry = rawEntry.trim();
+                    if (isValidConfiguredStaticAllowlistEntry(entry)) {
+                        entries.add(stripDescriptor(entry));
+                    }
+                }
+            }
+            return entries;
+        }
+
+        private boolean matchesStaticAllowlistEntry(String owner, String methodName, String entry) {
+            int separator = entry.indexOf('#');
+            if (separator <= 0 || separator == entry.length() - 1) {
+                return false;
+            }
+            String allowedOwner = entry.substring(0, separator);
+            String allowedMethod = entry.substring(separator + 1);
+            if (!owner.equals(allowedOwner) && !owner.equals(simpleName(allowedOwner))) {
+                return false;
+            }
+            return "*".equals(allowedMethod) || methodName.equals(allowedMethod);
+        }
+
+        private String stripDescriptor(String entry) {
+            int descriptorStart = entry.indexOf('(');
+            return descriptorStart < 0 ? entry : entry.substring(0, descriptorStart);
+        }
+
+        private boolean isValidConfiguredStaticAllowlistEntry(String entry) {
+            if (entry == null || entry.isEmpty()) {
+                return false;
+            }
+            int separator = entry.indexOf('#');
+            if (separator <= 0 || separator == entry.length() - 1) {
+                return false;
+            }
+            String owner = entry.substring(0, separator);
+            String member = entry.substring(separator + 1);
+            if (!isDottedTypeName(owner)) {
+                return false;
+            }
+            if ("*".equals(member)) {
+                return true;
+            }
+            int descriptorStart = member.indexOf('(');
+            int descriptorEnd = member.lastIndexOf(')');
+            if (descriptorStart <= 0 || descriptorEnd <= descriptorStart || descriptorEnd == member.length() - 1) {
+                return false;
+            }
+            String methodName = member.substring(0, descriptorStart);
+            String descriptor = member.substring(descriptorStart);
+            return SourceVersion.isIdentifier(methodName)
+                    && isPlausibleJvmMethodDescriptor(descriptor);
+        }
+
+        private boolean isDottedTypeName(String owner) {
+            String[] parts = owner.split("\\.");
+            if (parts.length == 0) {
+                return false;
+            }
+            for (String part : parts) {
+                if (!SourceVersion.isIdentifier(part)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        private boolean isPlausibleJvmMethodDescriptor(String descriptor) {
+            if (descriptor == null || descriptor.length() < 3 || descriptor.charAt(0) != '(') {
+                return false;
+            }
+            int close = descriptor.indexOf(')');
+            if (close <= 0 || close == descriptor.length() - 1) {
+                return false;
+            }
+            String arguments = descriptor.substring(1, close);
+            String returnType = descriptor.substring(close + 1);
+            return isPlausibleJvmDescriptorSequence(arguments, true)
+                    && isPlausibleJvmTypeDescriptor(returnType, true);
+        }
+
+        private boolean isPlausibleJvmDescriptorSequence(String descriptors, boolean allowEmpty) {
+            if (descriptors == null || descriptors.isEmpty()) {
+                return allowEmpty;
+            }
+            int index = 0;
+            while (index < descriptors.length()) {
+                int next = nextDescriptorIndex(descriptors, index, false);
+                if (next <= index) {
+                    return false;
+                }
+                index = next;
+            }
+            return true;
+        }
+
+        private boolean isPlausibleJvmTypeDescriptor(String descriptor, boolean allowVoid) {
+            return descriptor != null
+                    && nextDescriptorIndex(descriptor, 0, allowVoid) == descriptor.length();
+        }
+
+        private int nextDescriptorIndex(String descriptor, int start, boolean allowVoid) {
+            if (descriptor == null || start >= descriptor.length()) {
+                return -1;
+            }
+            int index = start;
+            while (index < descriptor.length() && descriptor.charAt(index) == '[') {
+                index++;
+            }
+            if (index >= descriptor.length()) {
+                return -1;
+            }
+            char kind = descriptor.charAt(index);
+            if ("ZBCSIJFD".indexOf(kind) >= 0) {
+                return index + 1;
+            }
+            if (kind == 'V') {
+                return allowVoid && index == start ? index + 1 : -1;
+            }
+            if (kind == 'L') {
+                int semicolon = descriptor.indexOf(';', index);
+                if (semicolon <= index + 1) {
+                    return -1;
+                }
+                return semicolon + 1;
+            }
+            return -1;
+        }
+
+        private boolean isAllowedImmutableConstructorType(String typeName) {
+            if (!Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS) {
+                return false;
+            }
+            if (BUILT_IN_IMMUTABLE_TYPES.contains(typeName)) {
+                return true;
+            }
+            for (String configuredType : splitConfiguredTypes(Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES)) {
+                if (configuredType.equals(typeName) || simpleName(configuredType).equals(typeName)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private Set<String> splitConfiguredTypes(String configuredTypes) {
+            if (configuredTypes == null || configuredTypes.trim().isEmpty()) {
+                return Collections.emptySet();
+            }
+            Set<String> result = new LinkedHashSet<>();
+            for (String rawType : configuredTypes.split(",")) {
+                String type = rawType.trim();
+                if (!type.isEmpty()) {
+                    result.add(type);
+                }
+            }
+            return result;
+        }
+
+        private String simpleName(String typeName) {
+            int lastDot = typeName.lastIndexOf('.');
+            return lastDot < 0 ? typeName : typeName.substring(lastDot + 1);
+        }
+
+        private boolean exceedsChainDepthLimit(Expression expression) {
+            return LlmPostProcessingExpressionUtils.exceedsMemberChainDepth(expression,
+                    Properties.LLM_POSTPROCESSING_MAX_CHAIN_DEPTH);
+        }
+
+        private boolean referencesUnknownVariableId(Expression expression) {
+            if (!context.knowsVariableIds()) {
+                return false;
+            }
+            for (NameExpr name : expression.findAll(NameExpr.class)) {
+                String identifier = name.getNameAsString();
+                if (LlmPostProcessingExpressionUtils.looksLikeVariableId(identifier)
+                        && !context.hasVariableId(identifier)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean exceedsLiteralCharLimit(Expression expression) {
+            int limit = Properties.LLM_POSTPROCESSING_MAX_LITERAL_CHARS;
+            if (limit <= 0) {
+                return false;
+            }
+            int chars = 0;
+            for (StringLiteralExpr literal : expression.findAll(StringLiteralExpr.class)) {
+                chars += literal.getValue().length();
+                if (chars > limit) {
+                    return true;
+                }
+            }
+            for (CharLiteralExpr literal : expression.findAll(CharLiteralExpr.class)) {
+                chars += literal.getValue().length();
+                if (chars > limit) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean exceedsConstructedArrayElementLimit(Expression expression) {
+            int limit = Properties.LLM_POSTPROCESSING_MAX_CONSTRUCTED_ARRAY_ELEMENTS;
+            if (limit <= 0) {
+                return false;
+            }
+            for (ArrayInitializerExpr initializer : expression.findAll(ArrayInitializerExpr.class)) {
+                if (initializer.getValues().size() > limit) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean containsDisallowedArrayConstruction(Expression expression) {
+            for (ArrayCreationExpr arrayCreation : expression.findAll(ArrayCreationExpr.class)) {
+                if (arrayCreation.getLevels().size() != 1 || !arrayCreation.getInitializer().isPresent()) {
+                    return true;
+                }
+                ArrayInitializerExpr initializer = arrayCreation.getInitializer().get();
+                for (Expression value : initializer.getValues()) {
+                    if (value instanceof ArrayInitializerExpr || !isLiteralOrNull(value)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private boolean isLiteralOrNull(Expression expression) {
+            return expression.isLiteralExpr() || expression.isNullLiteralExpr();
+        }
+
+        private static final class ExprType {
+            private enum Kind {
+                UNKNOWN,
+                NULL,
+                PRIMITIVE,
+                REFERENCE,
+                ARRAY
+            }
+
+            private final Kind kind;
+            private final String typeName;
+            private final String componentType;
+            private final int arrayDepth;
+
+            private ExprType(Kind kind, String typeName, String componentType, int arrayDepth) {
+                this.kind = kind;
+                this.typeName = typeName;
+                this.componentType = componentType;
+                this.arrayDepth = arrayDepth;
+            }
+
+            private static ExprType unknown() {
+                return new ExprType(Kind.UNKNOWN, null, null, 0);
+            }
+
+            private static ExprType nullType() {
+                return new ExprType(Kind.NULL, "null", null, 0);
+            }
+
+            private static ExprType primitive(String typeName) {
+                return new ExprType(Kind.PRIMITIVE, typeName, null, 0);
+            }
+
+            private static ExprType reference(String typeName) {
+                return new ExprType(Kind.REFERENCE, typeName, null, 0);
+            }
+
+            private static ExprType array(String componentType, int arrayDepth) {
+                return new ExprType(Kind.ARRAY, componentType + "[]", componentType, arrayDepth);
+            }
+
+            private static ExprType fromTypeName(String typeName) {
+                if (typeName == null || typeName.trim().isEmpty()) {
+                    return unknown();
+                }
+                String trimmed = typeName.trim();
+                int depth = 0;
+                while (trimmed.endsWith("[]")) {
+                    depth++;
+                    trimmed = trimmed.substring(0, trimmed.length() - 2);
+                }
+                if (depth > 0) {
+                    return array(trimmed, depth);
+                }
+                if (isPrimitiveName(trimmed)) {
+                    return primitive(trimmed);
+                }
+                return reference(trimmed);
+            }
+
+            private static boolean isPrimitiveName(String typeName) {
+                return "boolean".equals(typeName)
+                        || "byte".equals(typeName)
+                        || "short".equals(typeName)
+                        || "char".equals(typeName)
+                        || "int".equals(typeName)
+                        || "long".equals(typeName)
+                        || "float".equals(typeName)
+                        || "double".equals(typeName);
+            }
+
+            private boolean isKnown() {
+                return kind != Kind.UNKNOWN;
+            }
+
+            private boolean isNull() {
+                return kind == Kind.NULL;
+            }
+
+            private boolean isArray() {
+                return kind == Kind.ARRAY;
+            }
+
+            private boolean isReferenceLike() {
+                return kind == Kind.REFERENCE || kind == Kind.ARRAY || kind == Kind.NULL;
+            }
+
+            private boolean isBoolean() {
+                return "boolean".equals(typeName) || "java.lang.Boolean".equals(canonicalWrapper(typeName))
+                        || "Boolean".equals(typeName);
+            }
+
+            private boolean isBooleanLike() {
+                return isBoolean();
+            }
+
+            private boolean isCharLike() {
+                return "char".equals(typeName)
+                        || "java.lang.Character".equals(canonicalWrapper(typeName))
+                        || "Character".equals(typeName);
+            }
+
+            private boolean isNumeric() {
+                return isNumericPrimitive(typeName) || isNumericWrapper(typeName);
+            }
+
+            private boolean isNumericLike() {
+                return isNumeric() || isCharLike();
+            }
+
+            private boolean isFloatingPoint() {
+                return isFloatLike() || isDoubleLike();
+            }
+
+            private boolean isFloatLike() {
+                return "float".equals(typeName)
+                        || "java.lang.Float".equals(canonicalWrapper(typeName))
+                        || "Float".equals(typeName);
+            }
+
+            private boolean isDoubleLike() {
+                return "double".equals(typeName)
+                        || "java.lang.Double".equals(canonicalWrapper(typeName))
+                        || "Double".equals(typeName);
+            }
+
+            private boolean isLongLike() {
+                return "long".equals(typeName)
+                        || "java.lang.Long".equals(canonicalWrapper(typeName))
+                        || "Long".equals(typeName);
+            }
+
+            private static boolean isNumericPrimitive(String typeName) {
+                return "byte".equals(typeName)
+                        || "short".equals(typeName)
+                        || "int".equals(typeName)
+                        || "long".equals(typeName)
+                        || "float".equals(typeName)
+                        || "double".equals(typeName);
+            }
+
+            private static boolean isNumericWrapper(String typeName) {
+                String canonical = canonicalWrapper(typeName);
+                return "java.lang.Byte".equals(canonical)
+                        || "java.lang.Short".equals(canonical)
+                        || "java.lang.Integer".equals(canonical)
+                        || "java.lang.Long".equals(canonical)
+                        || "java.lang.Float".equals(canonical)
+                        || "java.lang.Double".equals(canonical);
+            }
+
+            private static String canonicalWrapper(String typeName) {
+                if ("Byte".equals(typeName)) {
+                    return "java.lang.Byte";
+                }
+                if ("Short".equals(typeName)) {
+                    return "java.lang.Short";
+                }
+                if ("Character".equals(typeName)) {
+                    return "java.lang.Character";
+                }
+                if ("Integer".equals(typeName)) {
+                    return "java.lang.Integer";
+                }
+                if ("Long".equals(typeName)) {
+                    return "java.lang.Long";
+                }
+                if ("Float".equals(typeName)) {
+                    return "java.lang.Float";
+                }
+                if ("Double".equals(typeName)) {
+                    return "java.lang.Double";
+                }
+                if ("Boolean".equals(typeName)) {
+                    return "java.lang.Boolean";
+                }
+                return typeName;
+            }
+        }
+
+        private static final String INVALID_EXPRESSION = new String("<invalid>");
+
+        private boolean isExpectedRequired(LlmPostProcessingResponse.AssertionKind kind) {
+            switch (kind) {
+                case EQUALS:
+                case NOT_EQUALS:
+                case SAME:
+                case NOT_SAME:
+                case CONTAINS:
+                case NOT_CONTAINS:
+                case SIZE_EQUALS:
+                case MAP_CONTAINS_KEY:
+                case GREATER:
+                case LESS:
+                case GREATER_EQUALS:
+                case LESS_EQUALS:
+                    return true;
+                case TRUE:
+                case FALSE:
+                case NULL:
+                case NOT_NULL:
+                case IS_EMPTY:
+                default:
+                    return false;
+            }
+        }
+
+        private boolean isDeltaAllowed(LlmPostProcessingResponse.AssertionKind kind) {
+            return kind == LlmPostProcessingResponse.AssertionKind.EQUALS
+                    || kind == LlmPostProcessingResponse.AssertionKind.NOT_EQUALS;
+        }
+
+        private boolean isRelationalKind(LlmPostProcessingResponse.AssertionKind kind) {
+            return kind == LlmPostProcessingResponse.AssertionKind.GREATER
+                    || kind == LlmPostProcessingResponse.AssertionKind.LESS
+                    || kind == LlmPostProcessingResponse.AssertionKind.GREATER_EQUALS
+                    || kind == LlmPostProcessingResponse.AssertionKind.LESS_EQUALS;
+        }
+
+        private boolean isForbidden(JsonNode entry, String fieldName) {
+            JsonNode node = entry.get(fieldName);
+            return node != null && !node.isNull();
+        }
+
+        private void diagnostic(DiagnosticCode code, String path, String message) {
+            diagnostics.add(new Diagnostic(code, path, message));
+        }
+
+        private void reportUnknownFields(JsonNode object, String path, Set<String> allowed) {
+            if (object == null || !object.isObject()) {
+                return;
+            }
+            Iterator<String> fieldNames = object.fieldNames();
+            while (fieldNames.hasNext()) {
+                String fieldName = fieldNames.next();
+                if (!allowed.contains(fieldName)) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path.isEmpty() ? fieldName : path + "." + fieldName,
+                            "Unknown field: " + fieldName);
+                }
+            }
+        }
+
+        private static String text(JsonNode node) {
+            if (node == null || node.isNull() || !node.isTextual()) {
+                return null;
+            }
+            return node.asText();
+        }
+
+        private static String sanitizeComment(String text) {
+            if (text == null) {
+                return null;
+            }
+            if (text.contains("*/") || text.contains("/*")) {
+                return null;
+            }
+            String sanitized = text.replace('\r', ' ').replace('\n', ' ').trim();
+            while (true) {
+                String next = stripCommentPrefix(sanitized).trim();
+                if (next.equals(sanitized)) {
+                    break;
+                }
+                sanitized = next;
+            }
+            for (int i = 0; i < sanitized.length(); i++) {
+                char ch = sanitized.charAt(i);
+                if (Character.isISOControl(ch)) {
+                    return null;
+                }
+            }
+            if (sanitized.startsWith("@")) {
+                return null;
+            }
+            return sanitized;
+        }
+
+        private static String stripCommentPrefix(String text) {
+            if (text.startsWith("//")) {
+                return text.substring(2);
+            }
+            if (text.startsWith("/*")) {
+                return text.substring(2);
+            }
+            if (text.startsWith("*")) {
+                return text.substring(1);
+            }
+            return text;
+        }
+
+        private static boolean isValidJavaIdentifier(String value) {
+            if (value == null || value.isEmpty() || SourceVersion.isKeyword(value)) {
+                return false;
+            }
+            if (!Character.isJavaIdentifierStart(value.charAt(0))) {
+                return false;
+            }
+            for (int i = 1; i < value.length(); i++) {
+                if (!Character.isJavaIdentifierPart(value.charAt(i))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+}

@@ -63,6 +63,8 @@ import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.testsuite.MinimizationResult;
+import org.evosuite.testsuite.MinimizationStopCause;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.testsuite.TestSuiteMinimizer;
@@ -486,10 +488,7 @@ public class TestSuiteGenerator {
             }
         }
 
-        // LLMSTRATEGY skips minimization, inlining, and assertion-generation phases
-        boolean isLlmStrategy = Properties.STRATEGY == Properties.Strategy.LLMSTRATEGY;
-
-        if (Properties.INLINE && !isLlmStrategy) {
+        if (Properties.INLINE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.INLINING);
             ConstantInliner inliner = new ConstantInliner();
             // progressMonitor.setCurrentPhase("Inlining constants");
@@ -500,11 +499,16 @@ public class TestSuiteGenerator {
             inliner.inline(testSuite);
         }
 
-        if (Properties.MINIMIZE && !isLlmStrategy) {
+        MinimizationResult minimizationResult = MinimizationResult.disabled(testSuite);
+        if (Properties.MINIMIZE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.MINIMIZATION);
             // progressMonitor.setCurrentPhase("Minimizing test cases");
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()
                     || isMemoryTooLowForPhase("minimization")) {
+                MinimizationStopCause stopCause = TimeController.getInstance().hasTimeToExecuteATestCase()
+                        ? MinimizationStopCause.LOW_MEMORY
+                        : MinimizationStopCause.TIMEOUT;
+                minimizationResult = MinimizationResult.preflightAborted(testSuite, stopCause);
                 if (TimeController.getInstance().hasTimeToExecuteATestCase()) {
                     // Time is available but memory is low — already logged by the check
                 } else {
@@ -515,6 +519,7 @@ public class TestSuiteGenerator {
                 ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
                 ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
                 ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
+                publishMinimizationResult(minimizationResult);
             } else {
                 double before = testSuite.getFitness();
                 TestSuiteMinimizer minimizer = new TestSuiteMinimizer(getFitnessFactories());
@@ -523,7 +528,7 @@ public class TestSuiteGenerator {
 
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Minimizing test suite");
-                minimizer.minimize(testSuite, true);
+                minimizationResult = minimizer.minimize(testSuite, true);
                 logger.info("Minimization changed suite size {} -> {}, length {} -> {}",
                         testsBeforeMinimization, testSuite.size(),
                         lengthBeforeMinimization, testSuite.totalLengthOfTestCases());
@@ -538,7 +543,7 @@ public class TestSuiteGenerator {
                 }
             }
         } else {
-            if (!isLlmStrategy && !TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping minimization because not enough time is left");
             }
@@ -547,6 +552,7 @@ public class TestSuiteGenerator {
             ClientServices.track(RuntimeVariable.Minimized_Size, testSuite.size());
             ClientServices.track(RuntimeVariable.Result_Length, testSuite.totalLengthOfTestCases());
             ClientServices.track(RuntimeVariable.Minimized_Length, testSuite.totalLengthOfTestCases());
+            publishMinimizationResult(minimizationResult);
         }
 
         if (Properties.COVERAGE) {
@@ -649,7 +655,7 @@ public class TestSuiteGenerator {
             }
         }
 
-        if (Properties.ASSERTIONS && !isLlmStrategy) {
+        if (Properties.ASSERTIONS) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
@@ -666,6 +672,29 @@ public class TestSuiteGenerator {
             // of
             // testsuitechromosomes?
         }
+
+        if (LlmPostProcessor.isAnyFeatureEnabled()) {
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Running unified LLM post-processing");
+            ClientServices.getInstance().getClientNode().changeState(ClientState.LLM_POSTPROCESSING);
+            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Skipping unified LLM post-processing because not enough time is left");
+                LlmPostProcessor.publishSkippedPostProcessingMetrics("timeout", minimizationResult);
+            } else if (isMemoryTooLowForPhase("unified LLM post-processing")) {
+                LlmPostProcessor.publishSkippedPostProcessingMetrics("low_memory", minimizationResult);
+            } else {
+                try {
+                    new LlmPostProcessor().runUnifiedPostProcessing(testSuite, minimizationResult);
+                } catch (RuntimeException e) {
+                    LoggingUtils.getEvoLogger().warn(
+                            "Unified LLM post-processing failed; continuing without changes", e);
+                }
+            }
+        }
+
+        int llmPostProcessingAssertionsBeforeFinalCheck =
+                LlmPostProcessor.countUnifiedTemplateAssertions(testSuite);
 
         if (Properties.NO_RUNTIME_DEPENDENCY) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
@@ -687,6 +716,8 @@ public class TestSuiteGenerator {
                 logger.warn("Cannot run Junit test. Cause {}", ClassPathHacker.getCause());
             }
         }
+        LlmPostProcessor.publishFinalAssertionReconciliation(testSuite,
+                llmPostProcessingAssertionsBeforeFinalCheck);
     }
 
     private void logSuiteDiagnostics(String phase, TestSuiteChromosome suite) {
@@ -736,6 +767,22 @@ public class TestSuiteGenerator {
                         + "timeouts={}, testExceptions={}, securityExceptions={}, firstExceptions={}",
                 phase, total, totalLength, emptyTests, withoutExecutionResult,
                 withTimeout, withTestException, withSecurityException, firstExceptionHistogram);
+    }
+
+    private void publishMinimizationResult(MinimizationResult result) {
+        ClientServices.track(RuntimeVariable.Minimization_Status, result.getStatus().name());
+        ClientServices.track(RuntimeVariable.Minimization_Stop_Cause,
+                result.getUnderlyingStopCause().name());
+        ClientServices.track(RuntimeVariable.Minimization_Original_Tests,
+                result.getOriginalTests());
+        ClientServices.track(RuntimeVariable.Minimization_Original_Length,
+                result.getOriginalLength());
+        ClientServices.track(RuntimeVariable.Minimization_Final_Tests,
+                result.getFinalTests());
+        ClientServices.track(RuntimeVariable.Minimization_Final_Length,
+                result.getFinalLength());
+        ClientServices.track(RuntimeVariable.Minimization_Elapsed_Millis,
+                result.getElapsedMillis());
     }
 
     /**
@@ -1043,16 +1090,6 @@ public class TestSuiteGenerator {
         List<TestCase> tests = testSuite.getTests();
         if (Properties.JUNIT_TESTS) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_TESTS);
-
-            // Run LLM post-processing (literal niceification) before writing, if enabled
-            if (LlmPostProcessor.isAnyFeatureEnabled()) {
-                try {
-                    LlmPostProcessor postProcessor = new LlmPostProcessor();
-                    postProcessor.runLiteralNiceification(testSuite);
-                } catch (Exception e) {
-                    LoggingUtils.getEvoLogger().warn("LLM post-processing failed; continuing without changes", e);
-                }
-            }
 
             TestSuiteWriter suiteWriter = new TestSuiteWriter();
             suiteWriter.insertTests(tests);

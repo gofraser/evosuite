@@ -17,23 +17,14 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
-package org.evosuite.llm;
+package org.evosuite.testsuite;
 
-/**
- * Tags the integration point that triggered an LLM call.
- */
-public enum LlmFeature {
-    SEEDING,
-    TEST_FACTORY,
-    ASYNC_PRODUCER,
-    STAGNATION,
-    LOCAL_SEARCH,
-    CONSTANT_POOL_ENRICHMENT,
-    OBJECT_POOL_ENRICHMENT,
-    CAST_CLASS_ENRICHMENT,
-    TEST_REPAIR,
-    POST_PROCESSING,
-    SEMANTIC_MUTATION,
-    SEMANTIC_CROSSOVER,
-    ITERATIVE_STRATEGY
+public enum MinimizationStatus {
+    COMPLETED,
+    TIMED_OUT,
+    LOW_MEMORY,
+    PREFLIGHT_ABORTED,
+    REEXECUTION_FAILED,
+    FAILED,
+    DISABLED
 }

@@ -36,6 +36,11 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.jar.Attributes;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
@@ -44,9 +49,41 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExecutableSnippetEngineImportFilterTest {
+
+    @Test
+    void evaluateAssertionTimesOutSlowAssertionBody() {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+
+        assertThrows(ExecutableSnippetEngine.AssertionEvaluationTimeoutException.class,
+                () -> engine.evaluateAssertion(
+                        "while (!Thread.currentThread().isInterrupted()) { }",
+                        Collections.<String, Type>emptyMap(),
+                        Collections.<String, Object>emptyMap(),
+                        2000,
+                        10));
+    }
+
+    @Test
+    void compileTimeoutCancelsSubmittedCompilationTask() throws Exception {
+        TimeoutExecutor executor = new TimeoutExecutor();
+        ExecutableSnippetEngine engine = new ExecutableSnippetEngine(executor);
+        Method compileSnippet = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "compileSnippet", String.class, String.class, ClassLoader.class, long.class);
+        compileSnippet.setAccessible(true);
+
+        java.lang.reflect.InvocationTargetException thrown = assertThrows(
+                java.lang.reflect.InvocationTargetException.class,
+                () -> compileSnippet.invoke(engine, "key", "return true;",
+                        Thread.currentThread().getContextClassLoader(), 1L));
+
+        assertTrue(thrown.getCause() instanceof ExecutableSnippetEngine.AssertionCompilationTimeoutException);
+        assertTrue(executor.future.cancelled);
+        assertTrue(executor.future.mayInterruptIfRunning);
+    }
 
     @Test
     void addClassImportSkipsPrimitiveArrayTypes() throws Exception {
@@ -938,5 +975,75 @@ class ExecutableSnippetEngineImportFilterTest {
             // Empty jar is enough; snippet classpath sanitization only inspects metadata.
         }
         jarFile.deleteOnExit();
+    }
+
+    private static final class TimeoutExecutor extends AbstractExecutorService {
+        private final RecordingFuture<Object> future = new RecordingFuture<>();
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T> Future<T> submit(Callable<T> task) {
+            return (Future<T>) future;
+        }
+
+        @Override
+        public void shutdown() {
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            return Collections.emptyList();
+        }
+
+        @Override
+        public boolean isShutdown() {
+            return false;
+        }
+
+        @Override
+        public boolean isTerminated() {
+            return false;
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, TimeUnit unit) {
+            return false;
+        }
+
+        @Override
+        public void execute(Runnable command) {
+        }
+    }
+
+    private static final class RecordingFuture<T> implements Future<T> {
+        private boolean cancelled;
+        private boolean mayInterruptIfRunning;
+
+        @Override
+        public boolean cancel(boolean mayInterruptIfRunning) {
+            this.cancelled = true;
+            this.mayInterruptIfRunning = mayInterruptIfRunning;
+            return true;
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return cancelled;
+        }
+
+        @Override
+        public boolean isDone() {
+            return false;
+        }
+
+        @Override
+        public T get() throws InterruptedException {
+            throw new InterruptedException("not used");
+        }
+
+        @Override
+        public T get(long timeout, TimeUnit unit) throws TimeoutException {
+            throw new TimeoutException("synthetic timeout");
+        }
     }
 }
