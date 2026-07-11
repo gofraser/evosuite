@@ -117,6 +117,15 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     /** Number of fresh syntheses that reached the call but missed the selected working goals. */
     public static int reachedNotCovered = 0;
 
+    /** Number of already-reaching fresh syntheses with no selected working goals to score. */
+    public static int workingGoalUnavailable = 0;
+
+    /** Number of already-reaching fresh syntheses that entered the R1 tuning gate. */
+    public static int tuningOpportunities = 0;
+
+    /** Number of R1 tuning opportunities skipped because the template had no primitive slots. */
+    public static int tuningNoSlotSkips = 0;
+
     /** Extra executions spent tuning primitive slots on already-reaching templates. */
     public static int tuningExecutions = 0;
 
@@ -496,19 +505,22 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
                 firstShotSuccesses++;
                 reachedTargetCall = true;
                 finalDistance = 0;
-                reachedNotCovered++;
-                double workingGoalFitness = bestWorkingGoalFitness(test, result);
-                immediateCoveredWorkingGoal = workingGoalFitness == 0.0;
-                if (immediateCoveredWorkingGoal) {
-                    reachedNotCovered--;
-                    immediateCoverage++;
+                if (!hasWorkingGoals()) {
+                    workingGoalUnavailable++;
                 } else {
-                    TuningResult tuningResult = tuneSlotsForWorkingGoals(test, workingGoalFitness);
-                    if (tuningResult != null) {
-                        test = tuningResult.test;
-                        result = tuningResult.result;
-                        templateChromosome.setTestCase(test);
-                        templateChromosome.setLastExecutionResult(result);
+                    double workingGoalFitness = bestWorkingGoalFitness(test, result);
+                    immediateCoveredWorkingGoal = workingGoalFitness == 0.0;
+                    if (immediateCoveredWorkingGoal) {
+                        immediateCoverage++;
+                    } else {
+                        reachedNotCovered++;
+                        TuningResult tuningResult = tuneSlotsForWorkingGoals(test, workingGoalFitness);
+                        if (tuningResult != null) {
+                            test = tuningResult.test;
+                            result = tuningResult.result;
+                            templateChromosome.setTestCase(test);
+                            templateChromosome.setLastExecutionResult(result);
+                        }
                     }
                 }
             } else if (!Properties.OBJECT_RULE_LEGITIMIZATION) {
@@ -648,6 +660,9 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         firstShotSuccesses = 0;
         immediateCoverage = 0;
         reachedNotCovered = 0;
+        workingGoalUnavailable = 0;
+        tuningOpportunities = 0;
+        tuningNoSlotSkips = 0;
         tuningExecutions = 0;
         tuningWins = 0;
         tuningCoverage = 0;
@@ -725,6 +740,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.ObjectRuleReachedNotCovered, reachedNotCovered);
         ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleWorkingGoalUnavailable, workingGoalUnavailable);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleTuningOpportunities, tuningOpportunities);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.ObjectRuleTuningNoSlotSkips, tuningNoSlotSkips);
+        ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.ObjectRuleTuningExecutions, tuningExecutions);
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.ObjectRuleTuningWins, tuningWins);
@@ -736,6 +757,10 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
     private static boolean coversWorkingGoal(TestCase test, ExecutionResult result) {
         return bestWorkingGoalFitness(test, result) == 0.0;
+    }
+
+    private static boolean hasWorkingGoals() {
+        return workingGoals4ObjectGraph != null && !workingGoals4ObjectGraph.isEmpty();
     }
 
     private static double bestWorkingGoalFitness(TestCase test, ExecutionResult result) {
@@ -781,8 +806,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
 
     private static TuningResult tuneSlotsForWorkingGoals(TestCase original, double originalFitness) {
         if (!Properties.OBJECT_RULE_SLOT_TUNING || Properties.OBJECT_RULE_SLOT_TUNING_ATTEMPTS <= 0
-                || originalFitness == 0.0 || workingGoals4ObjectGraph == null
-                || workingGoals4ObjectGraph.isEmpty()) {
+                || originalFitness == 0.0 || !hasWorkingGoals()) {
+            return null;
+        }
+        tuningOpportunities++;
+        if (!hasObjectRulePrimitiveSlot(original)) {
+            tuningNoSlotSkips++;
             return null;
         }
 
@@ -832,6 +861,20 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             tuningCoverage++;
         }
         return new TuningResult(bestTest, bestResult);
+    }
+
+    private static boolean hasObjectRulePrimitiveSlot(TestCase test) {
+        if (test == null) {
+            return false;
+        }
+        for (int i = 0; i < test.size(); i++) {
+            Statement statement = test.getStatement(i);
+            if (statement instanceof PrimitiveStatement
+                    && ((PrimitiveStatement<?>) statement).isObjectRuleSlot()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     static boolean mutateObjectRuleSlots(TestCase test) {

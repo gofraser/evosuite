@@ -1605,6 +1605,19 @@ public enum RuntimeVariable {
      * excluded.
      */
     ObjectRuleReachedNotCovered,
+    /**
+     * EvoObj: fresh syntheses whose first execution reached the target call but could not be
+     * scored against a selected working branch-direction goal. These are excluded from
+     * reached-not-covered and R1 tuning headroom.
+     */
+    ObjectRuleWorkingGoalUnavailable,
+    /**
+     * EvoObj: fresh syntheses eligible for R1 slot tuning: reached the target call, missed a
+     * selected working branch-direction goal, and ran with slot tuning enabled.
+     */
+    ObjectRuleTuningOpportunities,
+    /** EvoObj: R1 tuning opportunities skipped because the template had no primitive slots. */
+    ObjectRuleTuningNoSlotSkips,
     /** EvoObj: extra executions spent tuning primitive slots on already-reaching templates. */
     ObjectRuleTuningExecutions,
     /** EvoObj: fresh templates whose tuning pass found a strictly lower working-goal fitness. */

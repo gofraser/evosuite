@@ -118,6 +118,9 @@ public class ObjectRuleStatisticsTest {
         RandomLengthTestFactory.firstShotSuccesses = 2;
         RandomLengthTestFactory.immediateCoverage = 1;
         RandomLengthTestFactory.reachedNotCovered = 1;
+        RandomLengthTestFactory.workingGoalUnavailable = 1;
+        RandomLengthTestFactory.tuningOpportunities = 2;
+        RandomLengthTestFactory.tuningNoSlotSkips = 1;
         RandomLengthTestFactory.tuningExecutions = 3;
         RandomLengthTestFactory.tuningWins = 2;
         RandomLengthTestFactory.tuningCoverage = 1;
@@ -136,6 +139,9 @@ public class ObjectRuleStatisticsTest {
         assertEquals(0, RandomLengthTestFactory.firstShotSuccesses);
         assertEquals(0, RandomLengthTestFactory.immediateCoverage);
         assertEquals(0, RandomLengthTestFactory.reachedNotCovered);
+        assertEquals(0, RandomLengthTestFactory.workingGoalUnavailable);
+        assertEquals(0, RandomLengthTestFactory.tuningOpportunities);
+        assertEquals(0, RandomLengthTestFactory.tuningNoSlotSkips);
         assertEquals(0, RandomLengthTestFactory.tuningExecutions);
         assertEquals(0, RandomLengthTestFactory.tuningWins);
         assertEquals(0, RandomLengthTestFactory.tuningCoverage);
