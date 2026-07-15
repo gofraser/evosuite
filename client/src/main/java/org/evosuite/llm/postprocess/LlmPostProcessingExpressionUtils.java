@@ -166,7 +166,16 @@ public final class LlmPostProcessingExpressionUtils {
             return 1;
         }
         if (expression instanceof FieldAccessExpr) {
-            return 1 + memberChainDepth(((FieldAccessExpr) expression).getScope());
+            FieldAccessExpr fieldAccess = (FieldAccessExpr) expression;
+            // A package/type-qualified static field such as
+            // com.example.Status.ACTIVE is qualification, not a runtime member
+            // chain. Count field dereferences only when they are rooted in a
+            // stable test variable; method calls scoped by a type are still
+            // counted by the MethodCallExpr branch above.
+            if (extractSymbolicVariables(fieldAccess.toString()).isEmpty()) {
+                return 0;
+            }
+            return 1 + memberChainDepth(fieldAccess.getScope());
         }
         return 0;
     }

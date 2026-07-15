@@ -141,6 +141,22 @@ class LlmPostProcessingPromptContextTest {
     }
 
     @Test
+    void from_doesNotAdvertiseBoxedInstanceMethodsForPrimitiveVariables() {
+        DefaultTestCase test = new DefaultTestCase();
+        UninterpretedStatement statement = new UninterpretedStatement(test, boolean.class,
+                "return flag;", Collections.emptyMap(), "flag");
+        test.addStatement(statement);
+        ExecutionResult result = new ExecutionResult(test);
+        Scope scope = new Scope();
+        scope.setObject(statement.getReturnValue(), true);
+        result.setFinalScope(scope);
+
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(test, result);
+
+        assertEquals("none\n", context.toCallableMemberText());
+    }
+
+    @Test
     void from_exposesBoundedStructuredFinalScopeValues() {
         Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS = 2;
         DefaultTestCase test = new DefaultTestCase();
@@ -320,7 +336,7 @@ class LlmPostProcessingPromptContextTest {
         assertEquals("7", context.getCandidateFacts().get(0).getObservedValue());
         assertTrue(context.toCandidateFactText().contains("source=v0"));
         assertTrue(context.toCandidateFactText().contains("refs=v0"));
-        assertTrue(context.toCandidateFactText().contains("codeHint=\"assertEquals(7, v0);\""));
+        assertFalse(context.toCandidateFactText().contains("codeHint="));
     }
 
     @Test

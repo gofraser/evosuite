@@ -655,7 +655,8 @@ public class TestSuiteGenerator {
             }
         }
 
-        if (Properties.ASSERTIONS) {
+        boolean generateStandardAssertions = shouldGenerateStandardAssertions();
+        if (generateStandardAssertions) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
@@ -673,7 +674,8 @@ public class TestSuiteGenerator {
             // testsuitechromosomes?
         }
 
-        if (LlmPostProcessor.isAnyFeatureEnabled()) {
+        int llmPostProcessingAssertionsApplied = 0;
+        if (Properties.LLM_POSTPROCESSING_ENABLED) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Running unified LLM post-processing");
             ClientServices.getInstance().getClientNode().changeState(ClientState.LLM_POSTPROCESSING);
@@ -685,16 +687,17 @@ public class TestSuiteGenerator {
                 LlmPostProcessor.publishSkippedPostProcessingMetrics("low_memory", minimizationResult);
             } else {
                 try {
-                    new LlmPostProcessor().runUnifiedPostProcessing(testSuite, minimizationResult);
+                    llmPostProcessingAssertionsApplied =
+                            new LlmPostProcessor().runUnifiedPostProcessing(testSuite, minimizationResult);
                 } catch (RuntimeException e) {
                     LoggingUtils.getEvoLogger().warn(
                             "Unified LLM post-processing failed; continuing without changes", e);
+                    LlmPostProcessor.publishSkippedPostProcessingMetrics("phase_failure", minimizationResult);
                 }
             }
+        } else {
+            LlmPostProcessor.publishSkippedPostProcessingMetrics("disabled", minimizationResult);
         }
-
-        int llmPostProcessingAssertionsBeforeFinalCheck =
-                LlmPostProcessor.countUnifiedTemplateAssertions(testSuite);
 
         if (Properties.NO_RUNTIME_DEPENDENCY) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
@@ -717,7 +720,12 @@ public class TestSuiteGenerator {
             }
         }
         LlmPostProcessor.publishFinalAssertionReconciliation(testSuite,
-                llmPostProcessingAssertionsBeforeFinalCheck);
+                llmPostProcessingAssertionsApplied);
+    }
+
+    static boolean shouldGenerateStandardAssertions() {
+        return Properties.ASSERTIONS
+                && !(LlmPostProcessor.isAnyFeatureEnabled() && Properties.LLM_POSTPROCESSING_ASSERTIONS);
     }
 
     private void logSuiteDiagnostics(String phase, TestSuiteChromosome suite) {

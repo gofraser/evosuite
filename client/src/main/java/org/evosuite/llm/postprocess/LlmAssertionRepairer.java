@@ -49,7 +49,8 @@ final class LlmAssertionRepairer {
             String rawResponse,
             LlmPostProcessingParseResult parseResult,
             LlmPostProcessingResponse parsedResponse,
-            LlmPostProcessingResponse acceptedResponse) {
+            LlmPostProcessingResponse acceptedResponse,
+            List<LlmPostProcessingParseResult.Diagnostic> validationDiagnostics) {
         Map<String, RejectedAssertion> byId = rawAssertionEntries(rawResponse);
         if (byId.isEmpty()) {
             return Collections.emptyList();
@@ -57,11 +58,24 @@ final class LlmAssertionRepairer {
 
         Set<String> parsedIds = assertionIds(parsedResponse);
         Set<String> acceptedIds = assertionIds(acceptedResponse);
+        Map<String, List<LlmPostProcessingParseResult.Diagnostic>> validationById =
+                diagnosticsByAssertionId(validationDiagnostics);
         for (LlmPostProcessingResponse.AssertionProposal proposal : parsedResponse.getAssertions()) {
             if (!acceptedIds.contains(proposal.getAssertionId())) {
                 RejectedAssertion candidate = byId.get(proposal.getAssertionId());
                 if (candidate != null) {
-                    candidate.addDiagnostic("Observed-scope validation rejected the assertion");
+                    List<LlmPostProcessingParseResult.Diagnostic> exactDiagnostics =
+                            validationById.get(proposal.getAssertionId());
+                    if (exactDiagnostics == null || exactDiagnostics.isEmpty()) {
+                        candidate.addDiagnostic("Validation rejected the assertion");
+                    } else {
+                        for (LlmPostProcessingParseResult.Diagnostic diagnostic : exactDiagnostics) {
+                            candidate.addDiagnostic(diagnostic.getPath() + ": " + diagnostic.getMessage());
+                            if (!isRepairableDiagnostic(diagnostic)) {
+                                candidate.markNonRepairable();
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -109,13 +123,14 @@ final class LlmAssertionRepairer {
         return messages;
     }
 
-    static LlmPostProcessingResponse parseRepairResponse(String rawResponse,
-                                                         LlmPostProcessingResponseParser.ParseContext parseContext,
-                                                         Set<String> repairableIds) {
+    static LlmPostProcessingParseResult parseRepairResponse(
+            String rawResponse,
+            LlmPostProcessingResponseParser.ParseContext parseContext,
+            Set<String> repairableIds) {
         String response = normalizeRepairResponse(rawResponse);
         LlmPostProcessingParseResult parseResult = LlmPostProcessingResponseParser.parse(response, parseContext);
         if (parseResult.isInfrastructureFailure()) {
-            return new LlmPostProcessingResponse(LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION);
+            return parseResult;
         }
         LlmPostProcessingResponse filtered = new LlmPostProcessingResponse(
                 LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION);
@@ -125,7 +140,7 @@ final class LlmAssertionRepairer {
                 filtered.addAssertion(proposal);
             }
         }
-        return filtered;
+        return LlmPostProcessingParseResult.success(filtered, parseResult.getDiagnostics());
     }
 
     private static String repairPrompt(LlmPostProcessingPromptContext context,
@@ -152,7 +167,9 @@ final class LlmAssertionRepairer {
         builder.append(context.toObservationText());
         builder.append("\nCallable members:\n");
         builder.append(context.toCallableMemberText());
-        builder.append("\nSupported kinds: EQUALS, NOT_EQUALS, TRUE, FALSE, NULL, NOT_NULL, SAME, NOT_SAME\n");
+        builder.append("\nSupported kinds: EQUALS, NOT_EQUALS, TRUE, FALSE, NULL, NOT_NULL, SAME, NOT_SAME, ");
+        builder.append("CONTAINS, NOT_CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, IS_EMPTY, ");
+        builder.append("GREATER, LESS, GREATER_EQUALS, LESS_EQUALS\n");
         return builder.toString();
     }
 
@@ -160,7 +177,7 @@ final class LlmAssertionRepairer {
         if (rawResponse == null) {
             return "";
         }
-        String trimmed = rawResponse.trim();
+        String trimmed = LlmPostProcessingResponseParser.normalizeJsonResponse(rawResponse).trim();
         if (trimmed.startsWith("[")) {
             return "{\"schemaVersion\":1,\"assertions\":" + trimmed + "}";
         }
@@ -172,7 +189,8 @@ final class LlmAssertionRepairer {
             return Collections.emptyMap();
         }
         try {
-            JsonNode root = JSON_MAPPER.readTree(rawResponse);
+            JsonNode root = JSON_MAPPER.readTree(
+                    LlmPostProcessingResponseParser.normalizeJsonResponse(rawResponse));
             JsonNode assertions = root == null ? null : root.get("assertions");
             if (assertions == null || !assertions.isArray()) {
                 return Collections.emptyMap();
@@ -222,6 +240,26 @@ final class LlmAssertionRepairer {
         return result;
     }
 
+    private static Map<String, List<LlmPostProcessingParseResult.Diagnostic>> diagnosticsByAssertionId(
+            List<LlmPostProcessingParseResult.Diagnostic> diagnostics) {
+        if (diagnostics == null || diagnostics.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, List<LlmPostProcessingParseResult.Diagnostic>> result = new LinkedHashMap<>();
+        for (LlmPostProcessingParseResult.Diagnostic diagnostic : diagnostics) {
+            String path = diagnostic == null ? null : diagnostic.getPath();
+            if (path == null || !path.startsWith("assertions[")) {
+                continue;
+            }
+            int start = "assertions[".length();
+            int end = path.indexOf(']', start);
+            if (end > start) {
+                result.computeIfAbsent(path.substring(start, end), ignored -> new ArrayList<>()).add(diagnostic);
+            }
+        }
+        return result;
+    }
+
     private static int assertionIndex(String path) {
         if (path == null || !path.startsWith("assertions[")) {
             return -1;
@@ -240,7 +278,9 @@ final class LlmAssertionRepairer {
 
     private static boolean isRepairableDiagnostic(LlmPostProcessingParseResult.Diagnostic diagnostic) {
         return diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.INVALID_FIELD
-                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.UNSUPPORTED_KIND;
+                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.UNSUPPORTED_KIND
+                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.COMPILE
+                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION;
     }
 
     static final class RejectedAssertion {

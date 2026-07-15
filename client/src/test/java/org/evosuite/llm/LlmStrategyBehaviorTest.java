@@ -377,7 +377,7 @@ class LlmStrategyBehaviorTest {
         assertTrue(Properties.MINIMIZE,
                 "Minimization is controlled by its own property, not by STRATEGY=LLMSTRATEGY");
         assertTrue(Properties.ASSERTIONS,
-                "Standard assertion generation is controlled by its own property");
+                "The assertion property remains enabled while pipeline policy decides when it runs");
         assertFalse(LlmPostProcessor.isAnyFeatureEnabled(),
                 "Unified LLM post-processing is independently gated by provider and feature properties");
 

@@ -1316,6 +1316,12 @@ public enum RuntimeVariable {
     LLM_PostProcessing_Requested_Tests,
     /** Number of statements included in issued unified LLM post-processing requests. */
     LLM_PostProcessing_Requested_Statements,
+    /** Number of initial unified LLM post-processing calls issued. */
+    LLM_PostProcessing_Initial_Calls,
+    /** Number of assertion-repair calls issued by unified LLM post-processing. */
+    LLM_PostProcessing_Repair_Calls,
+    /** Number of otherwise-eligible assertion-repair calls skipped for lack of call budget. */
+    LLM_PostProcessing_Repair_Calls_Skipped_Budget,
     /** Number of parsed unified LLM post-processing responses accepted for application. */
     LLM_PostProcessing_Accepted_Responses,
     /** Number of tests skipped by unified LLM post-processing eligibility/scope gates. */
@@ -1374,8 +1380,16 @@ public enum RuntimeVariable {
     LLM_PostProcessing_Section_Breaks_Proposed,
     /** Number of section breaks applied by unified LLM post-processing. */
     LLM_PostProcessing_Section_Breaks_Applied,
-    /** Number of assertions proposed by unified LLM post-processing. */
+    /** Number of assertions proposed by initial unified LLM post-processing responses. */
     LLM_PostProcessing_Assertions_Proposed,
+    /** Number of assertions accepted after initial parsing and validation, before repair. */
+    LLM_PostProcessing_Assertions_Accepted_Initial,
+    /** Number of rejected assertions included in assertion-repair requests. */
+    LLM_PostProcessing_Assertions_Repair_Requested,
+    /** Number of raw assertion proposals returned by assertion-repair responses. */
+    LLM_PostProcessing_Assertions_Proposed_After_Repair,
+    /** Number of repaired assertions accepted after parsing and validation. */
+    LLM_PostProcessing_Assertions_Accepted_After_Repair,
     /** Number of assertions applied by unified LLM post-processing. */
     LLM_PostProcessing_Assertions_Applied,
     /** Number of unified LLM post-processing assertions removed or commented by final JUnit instability handling. */

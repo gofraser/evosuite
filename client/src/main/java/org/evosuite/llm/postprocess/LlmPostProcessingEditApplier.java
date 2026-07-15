@@ -22,6 +22,7 @@ package org.evosuite.llm.postprocess;
 import org.evosuite.Properties;
 import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.statements.Statement;
 
@@ -98,6 +99,10 @@ public final class LlmPostProcessingEditApplier {
                     proposalsByPosition.put(references.getVariablePosition(entry.getKey()), entry.getValue());
                 }
                 Set<String> usedNames = renderedLocalVariableNames(test, executionResult);
+                Map<Integer, String> currentNames = renderedVariableNames(test, executionResult);
+                for (Integer renamedPosition : proposalsByPosition.keySet()) {
+                    usedNames.remove(currentNames.get(renamedPosition));
+                }
                 for (Map.Entry<Integer, String> entry : proposalsByPosition.entrySet()) {
                     metadata.putVariableName(entry.getKey(), uniqueName(entry.getValue(), usedNames));
                     variableNames++;
@@ -279,6 +284,28 @@ public final class LlmPostProcessingEditApplier {
             }
         } catch (RuntimeException | AssertionError e) {
             // The render consistency check handles broken tests; do not reject names eagerly here.
+        }
+        return names;
+    }
+
+    private static Map<Integer, String> renderedVariableNames(TestCase test, ExecutionResult executionResult) {
+        Map<Integer, String> names = new LinkedHashMap<>();
+        if (test == null) {
+            return names;
+        }
+        try {
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            if (executionResult != null) {
+                visitor.setExceptions(executionResult.getCopyOfExceptionMapping());
+            }
+            visitor.visitTestCase(test);
+            for (int position = 0; position < test.size(); position++) {
+                if (test.getStatement(position).getReturnValue() != null) {
+                    names.put(position, visitor.getVariableName(test.getStatement(position).getReturnValue()));
+                }
+            }
+        } catch (RuntimeException | AssertionError ignored) {
+            // The category render check remains the authoritative fallback.
         }
         return names;
     }

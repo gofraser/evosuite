@@ -82,17 +82,13 @@ class LlmPostProcessingPromptBuilderTest {
         assertTrue(userPrompt.contains("Callable members:"));
         assertTrue(userPrompt.contains("purity allowlist"));
         assertTrue(userPrompt.contains("if it says none, do not call instance methods"));
-        assertTrue(userPrompt.contains("propose names for every nameable vN"));
-        assertTrue(userPrompt.contains("current rendered name is generic, type-only, or numeric-suffixed"));
-        assertTrue(userPrompt.contains("constructor arguments, method-call receivers/arguments"));
-        assertTrue(userPrompt.contains("normally include every current rendered name ending in digits"));
-        assertTrue(userPrompt.contains("Do not merely remove leading zeroes"));
-        assertTrue(userPrompt.contains("suffix-free type/role fallback"));
-        assertTrue(userPrompt.contains("For multiple variables of the same type, choose distinct role names"));
-        assertTrue(userPrompt.contains("keep a numeric suffix only as a last resort"));
+        assertFalse(userPrompt.contains("Propose names for every nameable vN"));
+        assertFalse(userPrompt.contains("current rendered name is generic, type-only, or numeric-suffixed"));
         assertTrue(userPrompt.contains("canonical Java expression dialect"));
         assertTrue(userPrompt.contains("Floating-point EQUALS assertions require"));
         assertTrue(userPrompt.contains("Array EQUALS assertions require compatible one-dimensional array operands"));
+        assertTrue(userPrompt.contains("preserve Java quoting and escaping"));
+        assertTrue(userPrompt.contains("Use CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, or IS_EMPTY only when"));
         assertFalse(userPrompt.contains("\"variableNames\""));
         assertFalse(userPrompt.contains("\"comments\""));
         assertFalse(userPrompt.contains("\"sectionBreaksAfter\""));
@@ -117,6 +113,8 @@ class LlmPostProcessingPromptBuilderTest {
         assertTrue(userPrompt.contains("Assertions are disabled for this test"));
         assertFalse(userPrompt.contains("\"assertions\""));
         assertFalse(userPrompt.contains("Assertion kind must be one of"));
+        assertFalse(userPrompt.contains("EvoSuite-observed candidate facts are existing filtered observations"));
+        assertFalse(userPrompt.contains("purity allowlist"));
     }
 
     @Test

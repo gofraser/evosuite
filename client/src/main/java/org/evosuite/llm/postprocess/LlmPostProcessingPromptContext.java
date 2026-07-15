@@ -333,9 +333,6 @@ public final class LlmPostProcessingPromptContext {
         if (fact.getObservedValue() != null) {
             builder.append(" observed=").append(fact.getObservedValue());
         }
-        if (fact.getCodeHint() != null) {
-            builder.append(" codeHint=").append(fact.getCodeHint());
-        }
         builder.append('\n');
         return builder.toString();
     }
@@ -352,7 +349,7 @@ public final class LlmPostProcessingPromptContext {
         for (CallableMember member : callableMembers) {
             callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
                     member.getReceiverId(), member.getOwnerType(), methodName(member.getSignature()),
-                    argumentCount(member.getSignature()), member.getReturnType()));
+                    methodDescriptor(member.getSignature()), member.getReturnType()));
         }
         Map<String, String> variableTypes = new LinkedHashMap<>();
         for (StatementContext statement : statements) {
@@ -458,7 +455,6 @@ public final class LlmPostProcessingPromptContext {
                     sourceId,
                     assertion.getClass().getSimpleName(),
                     valueSummaryText(assertion.getValue()),
-                    codeHint(references, assertion),
                     referencedIds,
                     assertionKey(references, assertion)));
         }
@@ -770,7 +766,7 @@ public final class LlmPostProcessingPromptContext {
 
     private static List<CallableMember> callableMembers(String variableId, VariableReference returnValue,
                                                         Object runtimeValue, Set<String> advertisedTypes) {
-        if (variableId == null || returnValue == null || returnValue.isVoid()) {
+        if (variableId == null || returnValue == null || returnValue.isVoid() || returnValue.isPrimitive()) {
             return Collections.emptyList();
         }
         String typeName = declaredType(returnValue);
@@ -1141,28 +1137,9 @@ public final class LlmPostProcessingPromptContext {
         return parameterStart < 0 ? signature : signature.substring(0, parameterStart);
     }
 
-    private static int argumentCount(String signature) {
+    private static String methodDescriptor(String signature) {
         int parameterStart = signature.indexOf('(');
-        int parameterEnd = signature.indexOf(')', parameterStart + 1);
-        if (parameterStart < 0 || parameterEnd < 0 || parameterEnd == parameterStart + 1) {
-            return 0;
-        }
-        int count = 0;
-        for (int i = parameterStart + 1; i < parameterEnd; i++) {
-            char c = signature.charAt(i);
-            if (c == '[') {
-                continue;
-            }
-            count++;
-            if (c == 'L') {
-                int objectEnd = signature.indexOf(';', i);
-                if (objectEnd < 0 || objectEnd > parameterEnd) {
-                    break;
-                }
-                i = objectEnd;
-            }
-        }
-        return count;
+        return parameterStart < 0 ? null : signature.substring(parameterStart);
     }
 
     private static String literalValue(Object value) {
@@ -1398,17 +1375,15 @@ public final class LlmPostProcessingPromptContext {
         private final String sourceId;
         private final String kind;
         private final String observedValue;
-        private final String codeHint;
         private final List<String> referencedIds;
         private final String assertionKey;
 
         private CandidateFact(String statementId, String sourceId, String kind, String observedValue,
-                              String codeHint, List<String> referencedIds, String assertionKey) {
+                              List<String> referencedIds, String assertionKey) {
             this.statementId = statementId;
             this.sourceId = sourceId;
             this.kind = kind;
             this.observedValue = observedValue;
-            this.codeHint = codeHint;
             this.referencedIds = Collections.unmodifiableList(new ArrayList<>(referencedIds));
             this.assertionKey = assertionKey;
         }
@@ -1427,10 +1402,6 @@ public final class LlmPostProcessingPromptContext {
 
         public String getObservedValue() {
             return observedValue;
-        }
-
-        public String getCodeHint() {
-            return codeHint;
         }
 
         public List<String> getReferencedIds() {

@@ -2411,7 +2411,7 @@ public class Properties {
     public static int LLM_POSTPROCESSING_LIMITED_MAX_CALLS = 40;
 
     @Parameter(key = "llm_postprocessing_pure_static_allowlist", group = "LLM",
-            description = "Comma-separated pure static method allowlist entries for unified LLM assertion expressions")
+            description = "Comma-separated pure static methods with full JVM descriptors; wildcards are rejected")
     public static String LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = "";
 
     @Parameter(key = "llm_postprocessing_allow_immutable_constructors", group = "LLM",
@@ -2443,9 +2443,14 @@ public class Properties {
     public static int LLM_POSTPROCESSING_MAX_LITERAL_CHARS = 200;
 
     @Parameter(key = "llm_postprocessing_assertion_eval_timeout_ms", group = "LLM",
-            description = "Per-candidate timeout for compiling or evaluating unified LLM assertions")
+            description = "Per-candidate timeout for evaluating unified LLM assertions")
     @IntValue(min = 1)
     public static int LLM_POSTPROCESSING_ASSERTION_EVAL_TIMEOUT_MS = 2000;
+
+    @Parameter(key = "llm_postprocessing_assertion_compile_timeout_ms", group = "LLM",
+            description = "Per-candidate timeout for compiling unified LLM assertions")
+    @IntValue(min = 1)
+    public static int LLM_POSTPROCESSING_ASSERTION_COMPILE_TIMEOUT_MS = 10000;
 
     public enum LlmPostProcessingOnIncompleteMinimization {
         SKIP, LIMITED, FULL

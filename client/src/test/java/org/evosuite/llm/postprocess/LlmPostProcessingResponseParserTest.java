@@ -121,6 +121,22 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
+    void parse_normalizesProposedVariableNamesInAssertionExpressions() {
+        String json = "{"
+                + "\"schemaVersion\":1,"
+                + "\"variableNames\":{\"v0\":\"account\"},"
+                + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"90\",\"actual\":\"account.getBalance()\"}]"
+                + "}";
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, context());
+
+        assertFalse(result.isInfrastructureFailure());
+        assertTrue(result.getDiagnostics().isEmpty());
+        assertEquals("v0.getBalance()", result.getResponse().getAssertions().get(0).getActual());
+    }
+
+    @Test
     void parse_markdownFencedJson_acceptsResponse() {
         String json = "```json\n"
                 + "{"
@@ -695,12 +711,12 @@ class LlmPostProcessingResponseParserTest {
                 + "\"schemaVersion\":1,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
-                + "\"expected\":\"Math.abs(v0)\",\"actual\":\"v1\"},"
+                + "\"expected\":\"Math.abs(v0)\",\"actual\":\"1\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\","
-                + "\"expected\":\"Values.normalize(v0)\",\"actual\":\"v1\"}"
+                + "\"expected\":\"Values.normalize(v0)\",\"actual\":\"1\"}"
                 + "]}";
 
-        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, context());
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, typedContext());
 
         assertFalse(result.isInfrastructureFailure());
         assertEquals(2, result.getResponse().getAssertions().size());
@@ -729,7 +745,7 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_allowsConfiguredPureStaticTypeWildcard() {
+    void parse_rejectsConfiguredPureStaticTypeWildcard() {
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST =
                 "com.example.Values#*";
         String json = "{"
@@ -741,6 +757,86 @@ class LlmPostProcessingResponseParserTest {
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, context());
 
         assertFalse(result.isInfrastructureFailure());
+        assertTrue(result.getResponse().getAssertions().isEmpty());
+        assertEquals(1, count(result, DiagnosticCode.INVALID_FIELD));
+    }
+
+    @Test
+    void parse_matchesConfiguredStaticDescriptorAgainstArgumentTypes() {
+        Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST =
+                "com.example.Values#normalize(I)I";
+        String json = "{\"schemaVersion\":1,\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"Values.normalize(v1)\",\"actual\":\"1\"}]}";
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, typedContext());
+
+        assertTrue(result.getResponse().getAssertions().isEmpty());
+        assertEquals(1, count(result, DiagnosticCode.INVALID_FIELD));
+    }
+
+    @Test
+    void parse_matchesInstanceCallableDescriptorAgainstArgumentTypes() {
+        Map<String, String> variableTypes = new LinkedHashMap<>();
+        variableTypes.put("v0", "com.example.Converter");
+        variableTypes.put("v1", "java.lang.String");
+        HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
+        callables.add(new LlmPostProcessingResponseParser.CallableMethod(
+                "v0", "com.example.Converter", "convert", "(I)I", "int"));
+        LlmPostProcessingResponseParser.ParseContext parseContext = LlmPostProcessingResponseParser.context(
+                new HashSet<>(Arrays.asList("s0", "s1")),
+                new HashSet<>(Arrays.asList("v0", "v1")), callables,
+                new HashSet<String>(), new HashSet<String>(), variableTypes);
+        String json = "{\"schemaVersion\":1,\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"v0.convert(v1)\",\"actual\":\"1\"}]}";
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, parseContext);
+
+        assertTrue(result.getResponse().getAssertions().isEmpty());
+        assertEquals(1, count(result, DiagnosticCode.INVALID_FIELD));
+    }
+
+    @Test
+    void parse_rejectsPrimitiveWideningFollowedByBoxingForCallableDescriptor() {
+        Map<String, String> variableTypes = new LinkedHashMap<>();
+        variableTypes.put("v0", "com.example.Consumer");
+        variableTypes.put("v1", "int");
+        HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
+        callables.add(new LlmPostProcessingResponseParser.CallableMethod(
+                "v0", "com.example.Consumer", "accept", "(Ljava/lang/Long;)Z", "boolean"));
+        LlmPostProcessingResponseParser.ParseContext parseContext = LlmPostProcessingResponseParser.context(
+                new HashSet<>(Arrays.asList("s0", "s1")),
+                new HashSet<>(Arrays.asList("v0", "v1")), callables,
+                new HashSet<String>(), new HashSet<String>(), variableTypes);
+        String json = "{\"schemaVersion\":1,\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
+                + "\"actual\":\"v0.accept(v1)\"}]}";
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, parseContext);
+
+        assertTrue(result.getResponse().getAssertions().isEmpty());
+        assertEquals(1, count(result, DiagnosticCode.INVALID_FIELD));
+    }
+
+    @Test
+    void parse_allowsWrapperUnboxingFollowedByPrimitiveWideningForCallableDescriptor() {
+        Map<String, String> variableTypes = new LinkedHashMap<>();
+        variableTypes.put("v0", "com.example.Consumer");
+        variableTypes.put("v1", "java.lang.Integer");
+        HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
+        callables.add(new LlmPostProcessingResponseParser.CallableMethod(
+                "v0", "com.example.Consumer", "accept", "(J)Z", "boolean"));
+        LlmPostProcessingResponseParser.ParseContext parseContext = LlmPostProcessingResponseParser.context(
+                new HashSet<>(Arrays.asList("s0", "s1")),
+                new HashSet<>(Arrays.asList("v0", "v1")), callables,
+                new HashSet<String>(), new HashSet<String>(), variableTypes);
+        String json = "{\"schemaVersion\":1,\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
+                + "\"actual\":\"v0.accept(v1)\"}]}";
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, parseContext);
+
         assertEquals(1, result.getResponse().getAssertions().size());
         assertTrue(result.getDiagnostics().isEmpty());
     }
@@ -1030,7 +1126,8 @@ class LlmPostProcessingResponseParserTest {
         variableTypes.put("v1", "java.util.List");
         HashSet<LlmPostProcessingResponseParser.CallableMethod> callableMethods = new HashSet<>(
                 Arrays.asList(
-                        new LlmPostProcessingResponseParser.CallableMethod("v1", "contains", 1),
+                        new LlmPostProcessingResponseParser.CallableMethod(
+                                "v1", "java.util.List", "contains", "(Ljava/lang/Object;)Z", "boolean"),
                         new LlmPostProcessingResponseParser.CallableMethod("v1", "size", 0),
                         new LlmPostProcessingResponseParser.CallableMethod("v1", "isEmpty", 0)));
         return LlmPostProcessingResponseParser.context(
@@ -1052,7 +1149,7 @@ class LlmPostProcessingResponseParserTest {
                 "v0", "com.example.Order", "getCart", 0, "com.example.Cart"));
         if (includeTypeContains) {
             callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
-                    null, "com.example.Cart", "contains", 1, "boolean"));
+                    null, "com.example.Cart", "contains", "(Lcom/example/Item;)Z", "boolean"));
         }
         return LlmPostProcessingResponseParser.context(
                 new HashSet<>(Arrays.asList("s0", "s1")),

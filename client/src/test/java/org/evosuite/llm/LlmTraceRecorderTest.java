@@ -26,6 +26,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -121,6 +123,61 @@ class LlmTraceRecorderTest {
         assertTrue(content.contains("\"postprocessing_minimization_stop_cause\":\"SEARCH_FINISHED\""));
         assertFalse(content.contains(System.lineSeparator() + System.lineSeparator()));
         assertEquals(2, Files.readAllLines(recorder.getTraceFile(), StandardCharsets.UTF_8).size());
+        assertTrue(new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8)
+                .contains("\"event_type\":\"llm_call\""));
+    }
+
+    @Test
+    void writesPostProcessingAssertionDiagnosticEvent() throws Exception {
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.OPENAI,
+                "model-1",
+                "",
+                "",
+                0.0,
+                256,
+                3,
+                1,
+                1,
+                true,
+                tempDir,
+                "run-diagnostic");
+
+        Map<String, Object> assertionJson = new LinkedHashMap<>();
+        assertionJson.put("assertionId", "a0");
+        assertionJson.put("kind", "EQUALS");
+        assertionJson.put("actual", "v0.getValue()");
+        assertionJson.put("expected", "42");
+
+        LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
+        recorder.recordPostProcessingAssertionDiagnostic(
+                new LlmTraceRecorder.PostProcessingAssertionDiagnosticRecord(
+                        7,
+                        "COMPLETED",
+                        "NONE",
+                        "initial",
+                        "validation",
+                        "COMPILE",
+                        "assertions[a0].actual",
+                        "Expression calls a method not listed as callable",
+                        "a0",
+                        "EQUALS",
+                        "v0.getValue()",
+                        "42",
+                        "",
+                        "REGRESSION",
+                        "s3",
+                        "check value",
+                        assertionJson));
+
+        String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
+        assertTrue(content.contains("\"event_type\":\"postprocessing_assertion_rejection\""));
+        assertTrue(content.contains("\"postprocessing_test_index\":7"));
+        assertTrue(content.contains("\"diagnostic_code\":\"COMPILE\""));
+        assertTrue(content.contains("\"diagnostic_source\":\"validation\""));
+        assertTrue(content.contains("\"diagnostic_message\":\"Expression calls a method not listed as callable\""));
+        assertTrue(content.contains("\"assertion_actual\":\"v0.getValue()\""));
+        assertTrue(content.contains("\"assertion_json\":{\"assertionId\":\"a0\""));
     }
 
     @Test

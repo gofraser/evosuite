@@ -20,6 +20,7 @@
 package org.evosuite.llm.postprocess;
 
 import org.evosuite.Properties;
+import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.CompleteAssertionGenerator;
 import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.assertion.TemplateCodeAssertion;
@@ -84,6 +85,7 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_LIMITED_MAX_TOTAL_STATEMENTS = 400;
         Properties.LLM_POSTPROCESSING_LIMITED_MAX_CALLS = 40;
         Properties.LLM_POSTPROCESSING_ASSERTION_EVAL_TIMEOUT_MS = 2000;
+        Properties.LLM_POSTPROCESSING_ASSERTION_COMPILE_TIMEOUT_MS = 10000;
         Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 1;
         Properties.LLM_POSTPROCESSING_ON_INCOMPLETE_MINIMIZATION =
                 Properties.LlmPostProcessingOnIncompleteMinimization.SKIP;
@@ -99,6 +101,7 @@ class LlmPostProcessorTest {
 
     @AfterEach
     void tearDown() {
+        Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
         Properties.LLM_POSTPROCESSING_ENABLED = false;
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_POSTPROCESSING_TEST_NAMES = true;
@@ -113,6 +116,7 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_LIMITED_MAX_TOTAL_STATEMENTS = 400;
         Properties.LLM_POSTPROCESSING_LIMITED_MAX_CALLS = 40;
         Properties.LLM_POSTPROCESSING_ASSERTION_EVAL_TIMEOUT_MS = 2000;
+        Properties.LLM_POSTPROCESSING_ASSERTION_COMPILE_TIMEOUT_MS = 10000;
         Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 1;
         Properties.LLM_POSTPROCESSING_ON_INCOMPLETE_MINIMIZATION =
                 Properties.LlmPostProcessingOnIncompleteMinimization.SKIP;
@@ -307,7 +311,7 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY =
                 Properties.LlmPostProcessingAssertionFallbackStrategy.ALL;
         CapturingClientNode node = installCapturingClientNode();
-        DefaultTestCase first = singleIntTest(7);
+        DefaultTestCase first = uninterpretedIntReturnTest();
         DefaultTestCase second = uninterpretedIntReturnTest();
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(first);
@@ -320,19 +324,24 @@ class LlmPostProcessorTest {
                 + "\"comments\":[{\"afterStatementId\":\"s9\",\"text\":\"invalid\"}]}\n```");
         model.enqueue("{\"schemaVersion\":1,"
                 + "\"assertions\":["
-                + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"}"
+                + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"},"
+                + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}"
                 + "]}");
-        model.enqueue("[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}]");
+        model.enqueue("[{\"assertionId\":\"a0\",\"kind\":\"NOT_EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"}]");
         LlmService service = createService(model, 3);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
 
-        processor(service, fallbackRunner, new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        int assertionsAppliedByPhase =
+                processor(service, fallbackRunner, new FinalScopeCandidateRunner(7))
+                        .runUnifiedPostProcessing(suite);
 
         assertEquals("", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
         assertEquals(2, node.value(RuntimeVariable.LLM_PostProcessing_Requested_Tests));
         assertEquals(2, node.value(RuntimeVariable.LLM_PostProcessing_Accepted_Responses));
         assertEquals(3, model.messages.size());
+        assertEquals(2, node.value(RuntimeVariable.LLM_PostProcessing_Initial_Calls));
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Repair_Calls));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Repair_Calls_Skipped_Budget));
         assertEquals(3, node.value(RuntimeVariable.LLM_PostProcessing_Rejected_Edits));
         assertEquals(2, node.value(RuntimeVariable.LLM_PostProcessing_Rejected_Unknown_Ids));
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Rejected_Observed_Execution));
@@ -344,16 +353,61 @@ class LlmPostProcessorTest {
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Variable_Names_Applied));
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Comments_Proposed));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Comments_Applied));
-        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed));
-        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Applied));
+        assertEquals(2, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed));
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_Initial));
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested));
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair));
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair));
+        assertEquals(2, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Applied));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped));
+        assertEquals(2, assertionsAppliedByPhase);
+        assertEquals(2, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
+
+        Assertion noLongerPresent = second.getAssertions().get(0);
+        noLongerPresent.getStatement().removeAssertion(noLongerPresent);
         assertEquals(1, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
 
-        LlmPostProcessor.publishFinalAssertionReconciliation(suite,
-                (Integer) node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Applied));
-        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
+        LlmPostProcessor.publishFinalAssertionReconciliation(suite, assertionsAppliedByPhase);
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped));
+    }
+
+    @Test
+    void runUnifiedPostProcessing_validEmptyResponseCountsAsProcessed() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.LLM_POSTPROCESSING_ASSERTIONS = false;
+        CapturingClientNode node = installCapturingClientNode();
+        TestSuiteChromosome suite = singleTestSuite(7);
+        markAllTestsExecutedNormally(suite);
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1}");
+
+        processor(createService(model, 1)).runUnifiedPostProcessing(suite);
+
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Processed_Tests));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Partially_Processed_Tests));
+    }
+
+    @Test
+    void runUnifiedPostProcessing_recordsFallbackAttemptEvenWhenItAddsNothing() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK =
+                Properties.LlmPostProcessingAssertionFallback.ON_NO_ACCEPTED_ASSERTIONS;
+        CapturingClientNode node = installCapturingClientNode();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(uninterpretedIntReturnTest());
+        markAllTestsExecutedNormally(suite);
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1}");
+
+        processor(createService(model, 1), new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
+                .runUnifiedPostProcessing(suite);
+
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Fallback_Assertions_Applied));
     }
 
     @Test
@@ -660,7 +714,7 @@ class LlmPostProcessorTest {
                 Properties.LlmPostProcessingAssertionFallback.ON_NO_ACCEPTED_ASSERTIONS;
         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY =
                 Properties.LlmPostProcessingAssertionFallbackStrategy.ALL;
-        DefaultTestCase test = singleIntTest(7);
+        DefaultTestCase test = uninterpretedIntReturnTest();
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
@@ -669,12 +723,55 @@ class LlmPostProcessorTest {
         LlmService service = createService(model, 1);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
 
-        processor(service, fallbackRunner).runUnifiedPostProcessing(suite);
+        processor(service, fallbackRunner, new FinalScopeCandidateRunner(7)).runUnifiedPostProcessing(suite);
 
         assertEquals("readableOnly", LlmPostProcessingMetadata.get(test).getTestName());
         assertTrue(test.hasAssertions());
         assertEquals(1, fallbackRunner.calls);
         assertEquals(Properties.LlmPostProcessingAssertionFallbackStrategy.ALL, fallbackRunner.strategy);
+    }
+
+    @Test
+    void runUnifiedPostProcessing_candidatePreparationFailureIsIsolatedPerTest() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        DefaultTestCase first = singleIntTest(1);
+        DefaultTestCase second = singleIntTest(2);
+        suite.addTest(first);
+        suite.addTest(second);
+        markAllTestsExecutedNormally(suite);
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.POST_PROCESSING,
+                "{\"schemaVersion\":1,\"testName\":\"secondProcessed\"}");
+        LlmService service = createService(model, 1);
+
+        processor(service, new RecordingFallbackRunner(0), new FailOnceCandidateRunner())
+                .runUnifiedPostProcessing(suite);
+
+        assertNull(LlmPostProcessingMetadata.get(first));
+        assertEquals("secondProcessed", LlmPostProcessingMetadata.get(second).getTestName());
+    }
+
+    @Test
+    void runUnifiedPostProcessing_rejectsAssertionsFromAbnormalOriginalExecution() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 0;
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.POST_PROCESSING,
+                "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+                        + "\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}]}");
+        LlmService service = createService(model, 1);
+
+        processor(service, new RecordingFallbackRunner(0), new AbnormalFinalScopeCandidateRunner(7))
+                .runUnifiedPostProcessing(suite);
+
+        assertFalse(test.hasAssertions());
     }
 
     @Test
@@ -810,6 +907,49 @@ class LlmPostProcessorTest {
     }
 
     @Test
+    void runUnifiedPostProcessing_buildsPromptFromExecutedCandidateClone() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        CapturingModel model = new CapturingModel();
+        LlmService service = createService(model, 1);
+
+        processor(service, new RecordingFallbackRunner(0), new ClonedFinalScopeCandidateRunner(7))
+                .runUnifiedPostProcessing(suite);
+
+        assertNotNull(model.messages);
+        String userPrompt = model.messages.get(1).getContent();
+        assertTrue(userPrompt.contains("provenance=SUT_RETURN complete=true relationalOnly=false value=7"));
+    }
+
+    @Test
+    void runUnifiedPostProcessing_doesNotRenderCandidateAssertionsAsGeneratedStatements() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        CapturingModel model = new CapturingModel();
+        LlmService service = createService(model, 1);
+
+        processor(service, new RecordingFallbackRunner(0), new CandidateAssertionCloneRunner(7))
+                .runUnifiedPostProcessing(suite);
+
+        assertNotNull(model.messages);
+        String userPrompt = model.messages.get(1).getContent();
+        String generatedStatements = userPrompt.substring(
+                userPrompt.indexOf("Generated test statements:"), userPrompt.indexOf("\nExceptions:"));
+        assertFalse(generatedStatements.contains("assertEquals("));
+        assertTrue(userPrompt.contains("kind=PrimitiveAssertion observed=7"));
+    }
+
+    @Test
     void runUnifiedPostProcessing_refreshesMissingExecutionResultBeforeAssertionEligibility() {
         Properties.LLM_POSTPROCESSING_ENABLED = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
@@ -919,6 +1059,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         QueueCapturingModel model = new QueueCapturingModel();
+        CapturingClientNode node = installCapturingClientNode();
         model.enqueue("{\"schemaVersion\":1,"
                 + "\"testName\":\"noBudgetForRepair\","
                 + "\"assertions\":["
@@ -933,6 +1074,15 @@ class LlmPostProcessorTest {
         assertEquals("noBudgetForRepair", LlmPostProcessingMetadata.get(test).getTestName());
         assertTrue(test.getAssertions().isEmpty());
         assertEquals(1, model.messages.size());
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Initial_Calls));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Repair_Calls));
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Repair_Calls_Skipped_Budget));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_Initial));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Processed_Tests));
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Partially_Processed_Tests));
     }
 
     @Test
@@ -1166,6 +1316,9 @@ class LlmPostProcessorTest {
     private static final RuntimeVariable[] ZERO_ON_SKIP_POSTPROCESSING_METRICS = {
             RuntimeVariable.LLM_PostProcessing_Requested_Tests,
             RuntimeVariable.LLM_PostProcessing_Requested_Statements,
+            RuntimeVariable.LLM_PostProcessing_Initial_Calls,
+            RuntimeVariable.LLM_PostProcessing_Repair_Calls,
+            RuntimeVariable.LLM_PostProcessing_Repair_Calls_Skipped_Budget,
             RuntimeVariable.LLM_PostProcessing_Accepted_Responses,
             RuntimeVariable.LLM_PostProcessing_Skipped_Tests,
             RuntimeVariable.LLM_PostProcessing_Cap_Skipped_Tests,
@@ -1196,6 +1349,10 @@ class LlmPostProcessorTest {
             RuntimeVariable.LLM_PostProcessing_Section_Breaks_Proposed,
             RuntimeVariable.LLM_PostProcessing_Section_Breaks_Applied,
             RuntimeVariable.LLM_PostProcessing_Assertions_Proposed,
+            RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_Initial,
+            RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested,
+            RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair,
+            RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair,
             RuntimeVariable.LLM_PostProcessing_Assertions_Applied,
             RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable,
             RuntimeVariable.LLM_PostProcessing_Assertions_Shipped
@@ -1315,6 +1472,72 @@ class LlmPostProcessorTest {
             result.setFinalScope(scope);
             return new CompleteAssertionGenerator.CandidateCollection(test, result,
                     Collections.emptyList());
+        }
+    }
+
+    private static final class ClonedFinalScopeCandidateRunner implements LlmPostProcessor.AssertionCandidateRunner {
+        private final int value;
+
+        private ClonedFinalScopeCandidateRunner(int value) {
+            this.value = value;
+        }
+
+        @Override
+        public CompleteAssertionGenerator.CandidateCollection collectCandidates(TestCase test) {
+            TestCase clone = test.clone();
+            return new FinalScopeCandidateRunner(value).collectCandidates(clone);
+        }
+    }
+
+    private static final class CandidateAssertionCloneRunner implements LlmPostProcessor.AssertionCandidateRunner {
+        private final int value;
+
+        private CandidateAssertionCloneRunner(int value) {
+            this.value = value;
+        }
+
+        @Override
+        public CompleteAssertionGenerator.CandidateCollection collectCandidates(TestCase test) {
+            TestCase clone = test.clone();
+            CompleteAssertionGenerator.CandidateCollection base =
+                    new FinalScopeCandidateRunner(value).collectCandidates(clone);
+            PrimitiveAssertion assertion = new PrimitiveAssertion();
+            assertion.setSource(clone.getStatement(clone.size() - 1).getReturnValue());
+            assertion.setValue(value);
+            clone.getStatement(clone.size() - 1).addAssertion(assertion);
+            return new CompleteAssertionGenerator.CandidateCollection(
+                    clone, base.getExecutionResult(), Collections.singletonList(assertion));
+        }
+    }
+
+    private static final class FailOnceCandidateRunner implements LlmPostProcessor.AssertionCandidateRunner {
+        private boolean failed;
+
+        @Override
+        public CompleteAssertionGenerator.CandidateCollection collectCandidates(TestCase test) {
+            if (!failed) {
+                failed = true;
+                throw new IllegalStateException("candidate collection failed");
+            }
+            return new FinalScopeCandidateRunner(2).collectCandidates(test);
+        }
+    }
+
+    private static final class AbnormalFinalScopeCandidateRunner
+            implements LlmPostProcessor.AssertionCandidateRunner {
+        private final int value;
+
+        private AbnormalFinalScopeCandidateRunner(int value) {
+            this.value = value;
+        }
+
+        @Override
+        public CompleteAssertionGenerator.CandidateCollection collectCandidates(TestCase test) {
+            CompleteAssertionGenerator.CandidateCollection collection =
+                    new FinalScopeCandidateRunner(value).collectCandidates(test);
+            collection.getExecutionResult().reportNewThrownException(test.size() - 1,
+                    new IllegalStateException("abnormal original execution"));
+            return collection;
         }
     }
 

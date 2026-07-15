@@ -715,6 +715,9 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Stop_Cause, "");
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Requested_Tests, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Requested_Statements, 0);
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Initial_Calls, 0);
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Repair_Calls, 0);
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Repair_Calls_Skipped_Budget, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Accepted_Responses, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Skipped_Tests, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Cap_Skipped_Tests, 0);
@@ -745,6 +748,10 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Proposed, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Applied, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed, 0);
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_Initial, 0);
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested, 0);
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair, 0);
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Applied, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped, 0);

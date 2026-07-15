@@ -242,6 +242,64 @@ public class LlmTraceRecorder {
         }
     }
 
+    public static final class PostProcessingAssertionDiagnosticRecord {
+        private final int testIndex;
+        private final String minimizationStatus;
+        private final String minimizationStopCause;
+        private final String callKind;
+        private final String diagnosticSource;
+        private final String diagnosticCode;
+        private final String diagnosticPath;
+        private final String diagnosticMessage;
+        private final String assertionId;
+        private final String assertionKind;
+        private final String actual;
+        private final String expected;
+        private final String delta;
+        private final String intent;
+        private final String placementAfterStatementId;
+        private final String purpose;
+        private final Map<String, Object> assertionJson;
+
+        public PostProcessingAssertionDiagnosticRecord(int testIndex,
+                                                       String minimizationStatus,
+                                                       String minimizationStopCause,
+                                                       String callKind,
+                                                       String diagnosticSource,
+                                                       String diagnosticCode,
+                                                       String diagnosticPath,
+                                                       String diagnosticMessage,
+                                                       String assertionId,
+                                                       String assertionKind,
+                                                       String actual,
+                                                       String expected,
+                                                       String delta,
+                                                       String intent,
+                                                       String placementAfterStatementId,
+                                                       String purpose,
+                                                       Map<String, Object> assertionJson) {
+            this.testIndex = testIndex;
+            this.minimizationStatus = minimizationStatus == null ? "" : minimizationStatus;
+            this.minimizationStopCause = minimizationStopCause == null ? "" : minimizationStopCause;
+            this.callKind = callKind == null ? "" : callKind;
+            this.diagnosticSource = diagnosticSource == null ? "" : diagnosticSource;
+            this.diagnosticCode = diagnosticCode == null ? "" : diagnosticCode;
+            this.diagnosticPath = diagnosticPath == null ? "" : diagnosticPath;
+            this.diagnosticMessage = diagnosticMessage == null ? "" : diagnosticMessage;
+            this.assertionId = assertionId == null ? "" : assertionId;
+            this.assertionKind = assertionKind == null ? "" : assertionKind;
+            this.actual = actual == null ? "" : actual;
+            this.expected = expected == null ? "" : expected;
+            this.delta = delta == null ? "" : delta;
+            this.intent = intent == null ? "" : intent;
+            this.placementAfterStatementId = placementAfterStatementId == null ? "" : placementAfterStatementId;
+            this.purpose = purpose == null ? "" : purpose;
+            this.assertionJson = assertionJson == null
+                    ? Collections.<String, Object>emptyMap()
+                    : new LinkedHashMap<>(assertionJson);
+        }
+    }
+
     public static void setPostProcessingTraceContext(String minimizationStatus, String minimizationStopCause,
                                                      int testIndex) {
         POST_PROCESSING_TRACE_CONTEXT.set(new PostProcessingTraceContext(minimizationStatus,
@@ -263,6 +321,7 @@ public class LlmTraceRecorder {
         PostProcessingTraceContext postProcessingContext = POST_PROCESSING_TRACE_CONTEXT.get();
         Map<String, Object> traceRecord = new LinkedHashMap<>();
         traceRecord.put("schema_version", TRACE_SCHEMA_VERSION);
+        traceRecord.put("event_type", "llm_call");
         traceRecord.put("run_id", configuration.getRunId());
         traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
         traceRecord.put("timestamp", Instant.now().toString());
@@ -318,6 +377,45 @@ public class LlmTraceRecorder {
         } catch (Throwable writeFailure) {
             logger.warn("Failed writing LLM trace: {}", writeFailure.getMessage());
             logger.debug("LLM trace write failure details", writeFailure);
+        }
+    }
+
+    public void recordPostProcessingAssertionDiagnostic(PostProcessingAssertionDiagnosticRecord record) {
+        if (!configuration.isTraceEnabled() || record == null) {
+            return;
+        }
+
+        Map<String, Object> traceRecord = new LinkedHashMap<>();
+        traceRecord.put("schema_version", TRACE_SCHEMA_VERSION);
+        traceRecord.put("event_type", "postprocessing_assertion_rejection");
+        traceRecord.put("run_id", configuration.getRunId());
+        traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
+        traceRecord.put("timestamp", Instant.now().toString());
+        traceRecord.put("feature", LlmFeature.POST_PROCESSING.name());
+        traceRecord.put("postprocessing_call_kind", record.callKind);
+        traceRecord.put("postprocessing_test_index", record.testIndex);
+        traceRecord.put("postprocessing_minimization_status", record.minimizationStatus);
+        traceRecord.put("postprocessing_minimization_stop_cause", record.minimizationStopCause);
+        traceRecord.put("diagnostic_source", record.diagnosticSource);
+        traceRecord.put("diagnostic_code", record.diagnosticCode);
+        traceRecord.put("diagnostic_path", record.diagnosticPath);
+        traceRecord.put("diagnostic_message", record.diagnosticMessage);
+        traceRecord.put("assertion_id", record.assertionId);
+        traceRecord.put("assertion_kind", record.assertionKind);
+        traceRecord.put("assertion_actual", record.actual);
+        traceRecord.put("assertion_expected", record.expected);
+        traceRecord.put("assertion_delta", record.delta);
+        traceRecord.put("assertion_intent", record.intent);
+        traceRecord.put("assertion_placement_after_statement_id", record.placementAfterStatementId);
+        traceRecord.put("assertion_purpose", record.purpose);
+        traceRecord.put("assertion_json", record.assertionJson);
+
+        String json = GSON.toJson(traceRecord);
+        try {
+            writeJsonLine(json);
+        } catch (Throwable writeFailure) {
+            logger.warn("Failed writing LLM post-processing diagnostic trace: {}", writeFailure.getMessage());
+            logger.debug("LLM post-processing diagnostic trace write failure details", writeFailure);
         }
     }
 

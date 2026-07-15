@@ -198,7 +198,8 @@ class LlmPostProcessingEditApplierTest {
 
         assertEquals(1, result.getVariableNamesApplied());
         LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
-        assertNotEquals("int0", metadata.getVariableName(0));
+        assertEquals("int0", metadata.getVariableName(0),
+                "A variable may retain its own collision-free rendered name");
 
         String code = test.toCode();
         assertTrue(code.contains("int " + metadata.getVariableName(0) + " = 7;"), code);
