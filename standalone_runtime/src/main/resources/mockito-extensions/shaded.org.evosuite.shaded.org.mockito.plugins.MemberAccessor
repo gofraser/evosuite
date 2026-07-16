@@ -1,0 +1,3 @@
+# Avoid inline/module instrumentation and Byte Buddy self-attachment in
+# generated-test JVMs and Defects4J's in-process Major runner.
+shaded.org.evosuite.shaded.org.mockito.internal.util.reflection.ReflectionMemberAccessor

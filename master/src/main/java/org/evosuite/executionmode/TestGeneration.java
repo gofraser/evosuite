@@ -74,6 +74,10 @@ public class TestGeneration {
     public static List<List<TestGenerationResult>> executeTestGeneration(Options options, List<String> javaOpts,
                                                                          CommandLine line) {
 
+        if (!configureStructuralSuiteMode(line, javaOpts)) {
+            return new ArrayList<>();
+        }
+
         Strategy strategy = getChosenStrategy(javaOpts, line);
 
         /* Updating properties strategy */
@@ -145,8 +149,93 @@ public class TestGeneration {
                 new Option("generateMOSuite", "use many objective test generation (MOSA). "
                         + "This is the default behavior."),
                 new Option("generateSuiteUsingDSE", "use Dynamic Symbolic Execution to generate test suite"),
-                new Option("generateLlmSuite", "use LLM-based test generation")
+                new Option("generateLlmSuite", "use LLM-based test generation"),
+                new Option("exportStructuralSuite", true,
+                        "serialize the post-minimization suite before oracle generation and stop"),
+                new Option("replayOracle", true,
+                        "load a structural-suite artifact and run oracle post-processing only"),
+                new Option("oracleStrategy", true,
+                        "oracle replay strategy: NONE, ALL, MUTATION, or LLM")
         };
+    }
+
+    static boolean configureStructuralSuiteMode(CommandLine line, List<String> javaOpts) {
+        boolean exportRequested = line.hasOption("exportStructuralSuite");
+        boolean replayRequested = line.hasOption("replayOracle");
+        boolean strategySpecified = line.hasOption("oracleStrategy");
+
+        if (exportRequested && replayRequested) {
+            LoggingUtils.getEvoLogger().error(
+                    "-exportStructuralSuite and -replayOracle cannot be used together");
+            return false;
+        }
+        if ((exportRequested || replayRequested) && !line.hasOption("class")) {
+            LoggingUtils.getEvoLogger().error(
+                    "Structural-suite export and oracle replay require one target class via -class");
+            return false;
+        }
+        if (strategySpecified && !replayRequested) {
+            LoggingUtils.getEvoLogger().error("-oracleStrategy requires -replayOracle");
+            return false;
+        }
+        if (replayRequested && !strategySpecified) {
+            LoggingUtils.getEvoLogger().error(
+                    "-replayOracle requires an explicit -oracleStrategy (NONE, ALL, MUTATION, or LLM)");
+            return false;
+        }
+        if (replayRequested && Properties.NUM_PARALLEL_CLIENTS != 1) {
+            LoggingUtils.getEvoLogger().error("-replayOracle requires -Dnum_parallel_clients=1");
+            return false;
+        }
+
+        if (exportRequested) {
+            String path = absolutePath(line.getOptionValue("exportStructuralSuite"));
+            if (path == null) {
+                LoggingUtils.getEvoLogger().error("-exportStructuralSuite requires a non-empty path");
+                return false;
+            }
+            Properties.STRUCTURAL_SUITE_EXPORT = path;
+            Properties.ORACLE_REPLAY_INPUT = "";
+            Properties.ORACLE_REPLAY_STRATEGY = Properties.OracleReplayStrategy.NONE;
+            javaOpts.add("-Dstructural_suite_export=" + path);
+            javaOpts.add("-Doracle_replay_input=");
+            javaOpts.add("-Doracle_replay_strategy=NONE");
+        }
+
+        if (replayRequested) {
+            String path = absolutePath(line.getOptionValue("replayOracle"));
+            if (path == null) {
+                LoggingUtils.getEvoLogger().error("-replayOracle requires a non-empty path");
+                return false;
+            }
+            Properties.ORACLE_REPLAY_INPUT = path;
+            Properties.STRUCTURAL_SUITE_EXPORT = "";
+            javaOpts.add("-Doracle_replay_input=" + path);
+            javaOpts.add("-Dstructural_suite_export=");
+
+            if (strategySpecified) {
+                String rawStrategy = line.getOptionValue("oracleStrategy");
+                try {
+                    Properties.OracleReplayStrategy strategy = Properties.OracleReplayStrategy.valueOf(
+                            rawStrategy.trim().toUpperCase(Locale.ROOT));
+                    Properties.ORACLE_REPLAY_STRATEGY = strategy;
+                    javaOpts.add("-Doracle_replay_strategy=" + strategy.name());
+                } catch (RuntimeException e) {
+                    LoggingUtils.getEvoLogger().error(
+                            "Invalid -oracleStrategy '{}'; expected NONE, ALL, MUTATION, or LLM",
+                            rawStrategy);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private static String absolutePath(String rawPath) {
+        if (rawPath == null || rawPath.trim().isEmpty()) {
+            return null;
+        }
+        return new File(rawPath.trim()).getAbsolutePath();
     }
 
     private static Strategy getChosenStrategy(List<String> javaOpts, CommandLine line) {

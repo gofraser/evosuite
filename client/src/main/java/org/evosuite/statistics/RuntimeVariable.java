@@ -329,6 +329,30 @@ public enum RuntimeVariable {
     Minimization_Final_Tests,
     Minimization_Final_Length,
     Minimization_Elapsed_Millis,
+    /** Whether this run successfully exported a structural-suite artifact. */
+    Structural_Suite_Exported,
+    /** Structural fingerprint written by an export run. */
+    Structural_Suite_Export_Fingerprint,
+    /** Number of tests written by a structural-suite export run. */
+    Structural_Suite_Export_Tests,
+    /** Number of statements written by a structural-suite export run. */
+    Structural_Suite_Export_Statements,
+    /** Oracle arm selected for a structural-suite replay. */
+    Oracle_Replay_Strategy,
+    /** Structural fingerprint stored in, and validated against, the replay artifact. */
+    Oracle_Replay_Input_Fingerprint,
+    /** Number of tests loaded from the replay artifact. */
+    Oracle_Replay_Input_Tests,
+    /** Number of statements loaded from the replay artifact. */
+    Oracle_Replay_Input_Statements,
+    /** Structural fingerprint after oracle generation and JUnit validation. */
+    Oracle_Replay_Output_Fingerprint,
+    /** Number of tests remaining after oracle generation and JUnit validation. */
+    Oracle_Replay_Output_Tests,
+    /** Number of statements remaining after oracle generation and JUnit validation. */
+    Oracle_Replay_Output_Statements,
+    /** Whether oracle materialization preserved the input suite structure. */
+    Oracle_Replay_Structure_Preserved,
     /**
      * The random seed used during the search. A random one was used if none was specified at the beginning.
      */

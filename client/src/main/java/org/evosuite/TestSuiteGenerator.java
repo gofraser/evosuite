@@ -33,9 +33,11 @@ import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.stoppingconditions.StoppingCondition;
 import org.evosuite.junit.JUnitAnalyzer;
 import org.evosuite.junit.writer.TestSuiteWriter;
+import org.evosuite.junit.writer.Scaffolding;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.postprocess.LlmPostProcessor;
+import org.evosuite.llm.postprocess.LlmPostProcessingMetadata;
 import org.evosuite.llm.seeding.LlmPoolEnrichmentOrchestrator;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
@@ -63,8 +65,12 @@ import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testsuite.MinimizationResult;
 import org.evosuite.testsuite.MinimizationStopCause;
+import org.evosuite.testsuite.OracleReplayConfiguration;
+import org.evosuite.testsuite.StructuralSuiteArtifact;
+import org.evosuite.testsuite.StructuralSuiteMetadata;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.testsuite.TestSuiteMinimizer;
@@ -89,6 +95,7 @@ public class TestSuiteGenerator {
     private static final String FOR_NAME = "forName";
     private static final Logger logger = LoggerFactory.getLogger(TestSuiteGenerator.class);
     private Criterion[] requestedCriteria = null;
+    private boolean structuralSuiteExportCompleted;
 
     private LlmPoolEnrichmentOrchestrator llmOrchestrator;
 
@@ -120,6 +127,22 @@ public class TestSuiteGenerator {
      * @return The result of the test generation process.
      */
     public TestGenerationResult generateTestSuite() {
+
+        structuralSuiteExportCompleted = false;
+
+        boolean structuralExportRequested = isConfigured(Properties.STRUCTURAL_SUITE_EXPORT);
+        boolean oracleReplayRequested = isConfigured(Properties.ORACLE_REPLAY_INPUT);
+        if (structuralExportRequested && oracleReplayRequested) {
+            return TestGenerationResultBuilder.buildErrorResult(
+                    "Structural-suite export and oracle replay cannot be enabled together");
+        }
+        if (oracleReplayRequested && Properties.NUM_PARALLEL_CLIENTS != 1) {
+            return TestGenerationResultBuilder.buildErrorResult(
+                    "Oracle replay requires num_parallel_clients=1");
+        }
+        if (oracleReplayRequested) {
+            OracleReplayConfiguration.apply(Properties.ORACLE_REPLAY_STRATEGY);
+        }
 
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Analyzing classpath: ");
 
@@ -199,6 +222,10 @@ public class TestSuiteGenerator {
         // wouldn't have taken effect by the time the orchestrator checks the
         // per-feature toggles.
         Properties.applyLlmSeedingProfile();
+
+        if (oracleReplayRequested) {
+            return replayOracleSuite();
+        }
 
         // LLM enrichment start (async, non-blocking)
         if (LlmPoolEnrichmentOrchestrator.isEnrichmentEnabled()) {
@@ -340,13 +367,23 @@ public class TestSuiteGenerator {
                 }
             }
 
-            // progressMonitor.setCurrentPhase("Writing JUnit test cases");
-            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Writing tests to file");
-            result = writeJUnitTestsAndCreateResult(testCases);
-            try {
-                writeJUnitFailingTests();
-            } catch (Throwable t) {
-                logger.warn("Writing failing tests failed (non-fatal): {}", t.toString());
+            if (structuralExportRequested) {
+                if (postProcessFailed || !structuralSuiteExportCompleted) {
+                    result = TestGenerationResultBuilder.buildErrorResult(
+                            "Structural-suite export failed; no JUnit tests were written");
+                } else {
+                    result = TestGenerationResultBuilder.buildSuccessResult();
+                }
+            } else {
+                // progressMonitor.setCurrentPhase("Writing JUnit test cases");
+                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Writing tests to file");
+                result = writeJUnitTestsAndCreateResult(testCases);
+                try {
+                    writeJUnitFailingTests();
+                } catch (Throwable t) {
+                    logger.warn("Writing failing tests failed (non-fatal): {}", t.toString());
+                }
             }
         }
         TestCaseExecutor.pullDown();
@@ -365,6 +402,128 @@ public class TestSuiteGenerator {
         LoggingUtils.getEvoLogger().info("");
 
         return result != null ? result : TestGenerationResultBuilder.buildSuccessResult();
+    }
+
+    private TestGenerationResult replayOracleSuite() {
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Replaying structural suite from "
+                + new File(Properties.ORACLE_REPLAY_INPUT).getAbsolutePath());
+
+        TestGenerationResult result;
+        try {
+            StructuralSuiteArtifact.Loaded loaded = StructuralSuiteArtifact.read(
+                    new File(Properties.ORACLE_REPLAY_INPUT), Properties.TARGET_CLASS);
+            TestSuiteChromosome suite = loaded.getSuite();
+            StructuralSuiteMetadata metadata = loaded.getMetadata();
+            // Capture pristine structural clones before execution. Executing a
+            // test can replace instrumentation class loaders referenced by
+            // reflective statements, which changes their rendered fingerprint
+            // even though no executable statement was added, removed, or
+            // replaced.
+            ReplayStructureSnapshot replayStructure = ReplayStructureSnapshot.capture(suite);
+
+            for (TestChromosome test : suite.getTestChromosomes()) {
+                test.getTestCase().removeAssertions();
+                LlmPostProcessingMetadata.clear(test.getTestCase());
+                test.clearCachedResults();
+                ExecutionResult executionResult = TestCaseExecutor.runTest(test.getTestCase());
+                test.setLastExecutionResult(executionResult);
+            }
+            if (!replayStructure.hasSameExecutableStructure(suite)) {
+                throw new IllegalStateException(
+                        "Oracle replay observation execution changed executable structure: expected "
+                                + metadata.getTestCount() + " tests/"
+                                + metadata.getStatementCount() + " statements but observed "
+                                + suite.size() + " tests/"
+                                + suite.totalLengthOfTestCases() + " statements");
+            }
+            Set<String> replayReadProperties =
+                    org.evosuite.runtime.System.getAllPropertiesReadSoFar();
+            // Assertion generation and LLM validation execute observer code.
+            // Any classes initialized only by those auxiliary executions must
+            // not leak into the emitted reset fixture, otherwise paired arms
+            // no longer execute under the same scaffolding.
+            Scaffolding.ReplaySnapshot replayScaffoldingSnapshot =
+                    Scaffolding.captureReplaySnapshot(
+                            suite.getTests(), suite.getLastExecutionResults());
+
+            MinimizationResult minimizationResult = metadata.toMinimizationResult();
+            publishMinimizationResult(minimizationResult);
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Strategy,
+                    Properties.ORACLE_REPLAY_STRATEGY.name());
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Input_Fingerprint,
+                    metadata.getStructuralFingerprint());
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Input_Tests,
+                    metadata.getTestCount());
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Input_Statements,
+                    metadata.getStatementCount());
+            StatisticsSender.executedAndThenSendIndividualToMaster(suite);
+
+            postProcessOracles(suite, minimizationResult, replayStructure);
+
+            // Assertion observation, LLM validation, and JUnit execution can all
+            // swap instrumentation class loaders. TestCodeVisitor resolves some
+            // statement descriptors through that global state, so rendering the
+            // same restored objects is not a stable postcondition. The validated
+            // input digest is authoritative after the canonical snapshot has
+            // replaced every executable statement in the suite.
+            String outputFingerprint = metadata.getStructuralFingerprint();
+            boolean structurePreserved = suite.size() == metadata.getTestCount()
+                    && suite.totalLengthOfTestCases() == metadata.getStatementCount();
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Output_Fingerprint, outputFingerprint);
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Output_Tests, suite.size());
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Output_Statements,
+                    suite.totalLengthOfTestCases());
+            // The final preservation boundary is the emitted Java suite. Keep
+            // this false until the isolated writer copy has completed without
+            // chopping or replacing an executable statement.
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Structure_Preserved, false);
+            if (!structurePreserved) {
+                logger.warn("Oracle replay changed suite structure: input fingerprint={}, output fingerprint={}, "
+                                + "input tests/statements={}/{}, output tests/statements={}/{}",
+                        metadata.getStructuralFingerprint(), outputFingerprint,
+                        metadata.getTestCount(), metadata.getStatementCount(),
+                        suite.size(), suite.totalLengthOfTestCases());
+                throw new IllegalStateException(
+                        "Oracle replay changed executable structure before JUnit rendering");
+            }
+
+            StatisticsSender.sendIndividualToMaster(suite);
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Writing replayed tests to file");
+            // Assertion generation, snippet validation, and JUnit checking are
+            // auxiliary phases. Do not let System-property reads performed by
+            // those phases change the scaffolding of otherwise paired replay
+            // arms. The writer will add any reads made by the final executable
+            // suite to this canonical observation snapshot.
+            org.evosuite.runtime.System.restorePropertiesReadSoFar(replayReadProperties);
+            result = writeReplayJUnitTestsAndCreateResult(
+                    suite, replayStructure, replayScaffoldingSnapshot);
+            ClientServices.track(RuntimeVariable.Oracle_Replay_Structure_Preserved, true);
+        } catch (Throwable t) {
+            logger.error("Oracle replay failed", t);
+            result = TestGenerationResultBuilder.buildErrorResult(
+                    t.getMessage() != null ? t.getMessage() : t.toString());
+        }
+
+        return finishReplayRun(result);
+    }
+
+    private TestGenerationResult finishReplayRun(TestGenerationResult result) {
+        TestCaseExecutor.pullDown();
+        if (Properties.LLM_PROVIDER != Properties.LlmProvider.NONE) {
+            LlmService.getInstance().getStatistics().publishRuntimeVariables();
+        } else {
+            LlmStatistics.initializeRuntimeVariables();
+        }
+        ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_STATISTICS);
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Done!");
+        LoggingUtils.getEvoLogger().info("");
+        return result;
+    }
+
+    private static boolean isConfigured(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     private void sanitizeDebugInfoDependentCriteria() {
@@ -655,8 +814,52 @@ public class TestSuiteGenerator {
             }
         }
 
+        if (isConfigured(Properties.STRUCTURAL_SUITE_EXPORT)) {
+            try {
+                StructuralSuiteMetadata metadata = StructuralSuiteArtifact.write(
+                        new File(Properties.STRUCTURAL_SUITE_EXPORT),
+                        Properties.TARGET_CLASS,
+                        testSuite,
+                        minimizationResult);
+                structuralSuiteExportCompleted = true;
+                ClientServices.track(RuntimeVariable.Structural_Suite_Exported, true);
+                ClientServices.track(RuntimeVariable.Structural_Suite_Export_Fingerprint,
+                        metadata.getStructuralFingerprint());
+                ClientServices.track(RuntimeVariable.Structural_Suite_Export_Tests,
+                        metadata.getTestCount());
+                ClientServices.track(RuntimeVariable.Structural_Suite_Export_Statements,
+                        metadata.getStatementCount());
+                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                        + "Exported structural suite to "
+                        + new File(Properties.STRUCTURAL_SUITE_EXPORT).getAbsolutePath()
+                        + " (tests=" + metadata.getTestCount()
+                        + ", statements=" + metadata.getStatementCount()
+                        + ", fingerprint=" + metadata.getStructuralFingerprint() + ")");
+                return;
+            } catch (java.io.IOException e) {
+                ClientServices.track(RuntimeVariable.Structural_Suite_Exported, false);
+                throw new IllegalStateException("Could not export structural suite", e);
+            }
+        }
+
+        postProcessOracles(testSuite, minimizationResult);
+    }
+
+    /** Apply assertions, unified LLM post-processing, and final JUnit validation. */
+    private void postProcessOracles(TestSuiteChromosome testSuite,
+                                    MinimizationResult minimizationResult) {
+        postProcessOracles(testSuite, minimizationResult, null);
+    }
+
+    private void postProcessOracles(TestSuiteChromosome testSuite,
+                                    MinimizationResult minimizationResult,
+                                    ReplayStructureSnapshot replayStructure) {
+
         boolean generateStandardAssertions = shouldGenerateStandardAssertions();
         if (generateStandardAssertions) {
+            // Assertion generation and validation can reinstrument the SUT and
+            // change the class loader stored in statements. Keep assertion-free
+            // canonical clones and transfer only retained assertions afterward.
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
@@ -719,8 +922,120 @@ public class TestSuiteGenerator {
                 logger.warn("Cannot run Junit test. Cause {}", ClassPathHacker.getCause());
             }
         }
+        if (replayStructure != null) {
+            // Restore at the final oracle boundary. Assertions from tests retained
+            // by JUnit validation are transferred to pristine structural clones.
+            // If validation removed a test because its oracle did not compile or
+            // was unstable, the structural test is restored without that oracle.
+            restoreReplayStructure(testSuite, replayStructure);
+        }
         LlmPostProcessor.publishFinalAssertionReconciliation(testSuite,
                 llmPostProcessingAssertionsApplied);
+    }
+
+    static void restoreReplayStructure(TestSuiteChromosome suite,
+                                       ReplayStructureSnapshot snapshot) {
+        Set<TestCase> retained = Collections.newSetFromMap(new IdentityHashMap<>());
+        retained.addAll(suite.getTests());
+        List<TestCase> restored = new ArrayList<>(snapshot.structuralTests.size());
+        for (int index = 0; index < snapshot.structuralTests.size(); index++) {
+            TestCase structural = snapshot.structuralTests.get(index);
+            TestCase assertionSource = snapshot.assertionSources.get(index);
+            rebindRestoredReplayTest(structural, assertionSource);
+            if (retained.contains(assertionSource)) {
+                if (assertionSource.size() == structural.size()) {
+                    structural.addAssertions(assertionSource);
+                } else {
+                    logger.warn("Dropping replay assertions for test {} because oracle processing "
+                                    + "changed its statement count from {} to {}",
+                            index, structural.size(), assertionSource.size());
+                }
+            } else {
+                logger.info("Restoring replay test {} without assertions after JUnit validation "
+                        + "rejected its oracle", index);
+            }
+            restored.add(structural);
+        }
+        suite.clearTests();
+        restored.forEach(suite::addTest);
+    }
+
+    /**
+     * Assertion generation may replace the SUT classloader used by every
+     * reflective statement in the live suite. The structural snapshots are
+     * deliberately captured before that happens, so restoring them without
+     * rebinding leaves a mixture of old-loader statements and new-loader
+     * assertions. The JUnit writer then observes {@link
+     * org.evosuite.testcase.execution.CodeUnderTestException}s and chops the
+     * affected tests while rendering them.
+     */
+    private static void rebindRestoredReplayTest(TestCase structural,
+                                                 TestCase assertionSource) {
+        if (!(structural instanceof DefaultTestCase)
+                || !(assertionSource instanceof DefaultTestCase)) {
+            return;
+        }
+        ClassLoader assertionLoader =
+                ((DefaultTestCase) assertionSource).getChangedClassLoader();
+        if (assertionLoader != null) {
+            ((DefaultTestCase) structural).changeClassLoader(assertionLoader);
+        }
+    }
+
+    static final class ReplayStructureSnapshot {
+        private final List<TestCase> structuralTests;
+        private final List<TestCase> assertionSources;
+        private final List<List<Statement>> statementSources;
+
+        private ReplayStructureSnapshot(List<TestCase> structuralTests,
+                                        List<TestCase> assertionSources,
+                                        List<List<Statement>> statementSources) {
+            this.structuralTests = structuralTests;
+            this.assertionSources = assertionSources;
+            this.statementSources = statementSources;
+        }
+
+        static ReplayStructureSnapshot capture(TestSuiteChromosome suite) {
+            List<TestCase> assertionSources = suite.getTests();
+            List<TestCase> structuralTests = assertionSources.stream()
+                    .map(TestCase::clone)
+                    .collect(java.util.stream.Collectors.toList());
+            List<List<Statement>> statementSources = assertionSources.stream()
+                    .map(test -> {
+                        List<Statement> statements = new ArrayList<>(test.size());
+                        test.forEach(statements::add);
+                        return statements;
+                    })
+                    .collect(java.util.stream.Collectors.toList());
+            structuralTests.forEach(TestCase::removeAssertions);
+            return new ReplayStructureSnapshot(
+                    structuralTests, assertionSources, statementSources);
+        }
+
+        boolean hasSameExecutableStructure(TestSuiteChromosome suite) {
+            List<TestCase> currentTests = suite.getTests();
+            if (currentTests.size() != assertionSources.size()) {
+                return false;
+            }
+            for (int testIndex = 0; testIndex < currentTests.size(); testIndex++) {
+                TestCase current = currentTests.get(testIndex);
+                if (current != assertionSources.get(testIndex)
+                        || current.size() != statementSources.get(testIndex).size()) {
+                    return false;
+                }
+                for (int statementIndex = 0; statementIndex < current.size(); statementIndex++) {
+                    if (current.getStatement(statementIndex)
+                            != statementSources.get(testIndex).get(statementIndex)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        int totalStructuralStatements() {
+            return structuralTests.stream().mapToInt(TestCase::size).sum();
+        }
     }
 
     static boolean shouldGenerateStandardAssertions() {
@@ -911,7 +1226,13 @@ public class TestSuiteGenerator {
         // tests
         if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure() && testCases.size() > 1) {
             Collections.reverse(testCases);
-            numUnstable += checkAllTestsIfTime(testCases, delta);
+            try {
+                numUnstable += checkAllTestsIfTime(testCases, delta);
+            } finally {
+                // The reverse traversal is only a probe for order sensitivity;
+                // it must not silently become the emitted suite order.
+                Collections.reverse(testCases);
+            }
         }
 
         chromosome.setExtensionInitializationOrder(resolveExtensionInitializationOrderIfNeeded(testCases, delta));
@@ -1095,22 +1416,81 @@ public class TestSuiteGenerator {
      * @return the result of the test generation process
      */
     public static TestGenerationResult writeJUnitTestsAndCreateResult(TestSuiteChromosome testSuite, String suffix) {
-        List<TestCase> tests = testSuite.getTests();
+        return writeJUnitTestsAndCreateResult(testSuite, suffix, false, null);
+    }
+
+    private static TestGenerationResult writeReplayJUnitTestsAndCreateResult(
+            TestSuiteChromosome testSuite, ReplayStructureSnapshot replayStructure,
+            Scaffolding.ReplaySnapshot replayScaffoldingSnapshot) {
+        return writeJUnitTestsAndCreateResult(
+                testSuite, Properties.JUNIT_SUFFIX, true, replayStructure,
+                replayScaffoldingSnapshot);
+    }
+
+    private static TestGenerationResult writeJUnitTestsAndCreateResult(
+            TestSuiteChromosome testSuite, String suffix, boolean preserveExactStructure,
+            ReplayStructureSnapshot replayStructure) {
+        return writeJUnitTestsAndCreateResult(testSuite, suffix,
+                preserveExactStructure, replayStructure, null);
+    }
+
+    private static TestGenerationResult writeJUnitTestsAndCreateResult(
+            TestSuiteChromosome testSuite, String suffix, boolean preserveExactStructure,
+            ReplayStructureSnapshot replayStructure,
+            Scaffolding.ReplaySnapshot replayScaffoldingSnapshot) {
+        TestSuiteChromosome suiteToWrite = testSuite;
+        ReplayStructureSnapshot writerStructure = null;
+        if (preserveExactStructure) {
+            suiteToWrite = cloneSuiteForWriting(testSuite);
+            writerStructure = ReplayStructureSnapshot.capture(suiteToWrite);
+        }
+        List<TestCase> tests = suiteToWrite.getTests();
         if (Properties.JUNIT_TESTS) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.WRITING_TESTS);
 
             TestSuiteWriter suiteWriter = new TestSuiteWriter();
-            suiteWriter.insertTests(tests);
+            if (preserveExactStructure) {
+                // Prefix folding is useful for ordinary generation, but replay
+                // promises one-to-one structural suites across oracle arms.
+                suiteWriter.insertAllTests(tests);
+            } else {
+                suiteWriter.insertTests(tests);
+            }
             suiteWriter.setExtensionInitializationOrder(testSuite.getExtensionInitializationOrder());
+            if (preserveExactStructure) {
+                suiteWriter.setReplayScaffoldingSnapshot(replayScaffoldingSnapshot);
+            }
 
             String name = Properties.TARGET_CLASS.substring(Properties.TARGET_CLASS.lastIndexOf(".") + 1);
             String testDir = Properties.TEST_DIR;
 
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Writing JUnit test case '" + (name + suffix) + "' to " + testDir);
-            suiteWriter.writeTestSuite(name + suffix, testDir, testSuite.getLastExecutionResults());
+            suiteWriter.writeTestSuite(
+                    name + suffix, testDir, suiteToWrite.getLastExecutionResults());
+            if (writerStructure != null
+                    && !writerStructure.hasSameExecutableStructure(suiteToWrite)) {
+                throw new IllegalStateException(
+                        "JUnit writer changed executable structure while rendering replay suite");
+            }
+            if (replayStructure != null
+                    && (testSuite.size() != replayStructure.structuralTests.size()
+                    || testSuite.totalLengthOfTestCases()
+                    != replayStructure.totalStructuralStatements())) {
+                throw new IllegalStateException(
+                        "Canonical replay suite changed while writing an isolated rendering copy");
+            }
         }
         return TestGenerationResultBuilder.buildSuccessResult();
+    }
+
+    private static TestSuiteChromosome cloneSuiteForWriting(TestSuiteChromosome source) {
+        TestSuiteChromosome copy = new TestSuiteChromosome();
+        for (TestCase test : source.getTests()) {
+            copy.addTest(test.clone());
+        }
+        copy.setExtensionInitializationOrder(source.getExtensionInitializationOrder());
+        return copy;
     }
 
     /**

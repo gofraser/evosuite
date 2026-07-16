@@ -85,6 +85,7 @@ public class TestCodeVisitor extends TestVisitor {
     protected VariableNameStrategy variableNameStrategy = VariableNameStrategyFactory.get();
     private boolean customVariableNameStrategy = false;
     private boolean emitAssertions = true;
+    private Boolean assertionsEnabledOverride = null;
 
     /**
      * Override the variable naming strategy used for code rendering.
@@ -110,6 +111,21 @@ public class TestCodeVisitor extends TestVisitor {
      */
     public void setEmitAssertions(boolean emitAssertions) {
         this.emitAssertions = emitAssertions;
+    }
+
+    /**
+     * Overrides the global assertion mode for this rendering only. This is
+     * useful for canonical structural rendering, which must not depend on the
+     * currently selected assertion-generation arm.
+     */
+    public void setAssertionsEnabledForRendering(boolean assertionsEnabled) {
+        this.assertionsEnabledOverride = assertionsEnabled;
+    }
+
+    private boolean assertionsEnabledForRendering() {
+        return assertionsEnabledOverride != null
+                ? assertionsEnabledOverride
+                : Properties.ASSERTIONS;
     }
 
     /**
@@ -3204,7 +3220,7 @@ public class TestCodeVisitor extends TestVisitor {
         boolean referenced = test != null && (test.hasReferences(retval)
                 || assertionReferencesReturnValue(statement, retval)
                 || assertionReferencesReturnValueInTest(retval));
-        boolean unused = !Properties.ASSERTIONS ? exception != null : !referenced;
+        boolean unused = !assertionsEnabledForRendering() ? exception != null : !referenced;
 
         if (!retval.isVoid() && retval.getAdditionalVariableReference() == null
                 && !unused) {
@@ -3336,7 +3352,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            if (Properties.ASSERTIONS) {
+            if (assertionsEnabledForRendering()) {
                 result += generateFailAssertion(statement, exception);
             }
 
@@ -4001,7 +4017,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
 
         if (shouldUseTryCatch(exception, statement.isDeclaredException(exception))) {
-            if (Properties.ASSERTIONS) {
+            if (assertionsEnabledForRendering()) {
                 result += generateFailAssertion(statement, exception);
             }
 

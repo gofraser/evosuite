@@ -30,6 +30,7 @@ import dev.langchain4j.model.output.Response;
 import dev.langchain4j.model.output.TokenUsage;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,11 +105,7 @@ public class LlmService implements AutoCloseable {
         this.statistics = statistics;
         this.traceRecorder = traceRecorder;
         this.jitterRandom = jitterRandom;
-        this.executorService = Executors.newCachedThreadPool(r -> {
-            Thread t = new Thread(r, "llm-timeout-guard");
-            t.setDaemon(true);
-            return t;
-        });
+        this.executorService = createExecutorService();
         this.available = available;
     }
 
@@ -622,11 +619,7 @@ public class LlmService implements AutoCloseable {
         } catch (Throwable ignored) {
             // Best effort — even if shutdown throws, we still want a fresh executor below.
         }
-        this.executorService = Executors.newCachedThreadPool(r -> {
-            Thread t = new Thread(r, "llm-timeout-guard");
-            t.setDaemon(true);
-            return t;
-        });
+        this.executorService = createExecutorService();
         if (available && configuration.getProvider() != Properties.LlmProvider.NONE) {
             try {
                 this.model = createProviderModel(configuration);
@@ -638,6 +631,26 @@ public class LlmService implements AutoCloseable {
                         t.getMessage());
             }
         }
+    }
+
+    private static ExecutorService createExecutorService() {
+        return Executors.newCachedThreadPool(r -> {
+            Thread worker = new Thread(r, "llm-timeout-guard");
+            worker.setDaemon(true);
+            if (Sandbox.isSecurityManagerInitialized()) {
+                try {
+                    // The request runs after SUT observation has initialized
+                    // the sandbox. Register the EvoSuite-owned HTTP worker at
+                    // creation time; otherwise socket writes are treated as
+                    // untrusted SUT activity and writeFileDescriptor is denied.
+                    Sandbox.addPrivilegedThread(worker);
+                } catch (SecurityException | IllegalStateException e) {
+                    logger.warn("Could not register LLM request worker as privileged: {}",
+                            e.getMessage());
+                }
+            }
+            return worker;
+        });
     }
 
     private void sleepBackoff(int attempt, long deadlineNanos) {

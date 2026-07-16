@@ -22,7 +22,31 @@ package org.evosuite.runtime;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.PropertyPermission;
+
 public class SystemTimeBehaviorTest {
+
+    @Test
+    public void shouldRestoreCapturedPropertyReads() {
+        org.evosuite.runtime.System.fullReset();
+        try {
+            org.evosuite.runtime.System.handlePropertyPermission(
+                    new PropertyPermission("evosuite.first", "read"));
+            java.util.Set<String> snapshot =
+                    org.evosuite.runtime.System.getAllPropertiesReadSoFar();
+            org.evosuite.runtime.System.handlePropertyPermission(
+                    new PropertyPermission("evosuite.auxiliary", "read"));
+
+            org.evosuite.runtime.System.restorePropertiesReadSoFar(snapshot);
+
+            Assertions.assertEquals(
+                    Collections.singleton("evosuite.first"),
+                    org.evosuite.runtime.System.getAllPropertiesReadSoFar());
+        } finally {
+            org.evosuite.runtime.System.fullReset();
+        }
+    }
 
     @Test
     public void shouldIncreaseMockedCurrentTimeMillisDeterministically() {

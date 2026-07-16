@@ -1044,7 +1044,13 @@ public abstract class JUnitAnalyzer {
     private static List<File> compileTests(List<TestCase> tests, File dir) {
 
         TestSuiteWriter suite = new TestSuiteWriter();
-        suite.insertAllTests(tests);
+        // Rendering performs output-only normalization (for example, removing
+        // redundant downcasts and assertions after exceptions). Compile checks
+        // must not leak those mutations back into the suite being validated.
+        List<TestCase> renderingCopies = tests.stream()
+                .map(TestCase::clone)
+                .collect(Collectors.toList());
+        suite.insertAllTests(renderingCopies);
         if (Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
                 && Properties.TEST_EXTENSION_MODE
                 && Properties.RESET_STATIC_FIELDS) {

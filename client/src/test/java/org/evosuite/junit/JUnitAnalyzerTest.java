@@ -20,6 +20,7 @@
 package org.evosuite.junit;
 
 import com.examples.with.different.packagename.sandbox.OpenStream;
+import com.examples.with.different.packagename.test.DowncastExample;
 import org.apache.commons.io.FileUtils;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHandler;
@@ -30,6 +31,8 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.symbolic.TestCaseBuilder;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -301,6 +304,41 @@ public class JUnitAnalyzerTest {
             Assertions.assertTrue(code.contains("private static final String[] EVO_INIT_ORDER = {\""
                     + Properties.TARGET_CLASS + "\"};"));
             Assertions.assertFalse(code.contains("_tmp_\"};"));
+        } finally {
+            FileUtils.deleteDirectory(dir);
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testCompileCheckRenderingDoesNotMutateInputTests() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.TARGET_CLASS = DowncastExample.class.getCanonicalName();
+
+        TestCaseBuilder builder = new TestCaseBuilder();
+        VariableReference receiver = builder.appendConstructor(DowncastExample.class.getConstructor());
+        VariableReference value = builder.appendIntPrimitive(42);
+        VariableReference number = builder.appendMethod(receiver,
+                DowncastExample.class.getMethod("getANumber", int.class), value);
+        number.setType(Integer.class);
+        builder.appendMethod(receiver,
+                DowncastExample.class.getMethod("testMe", Number.class), number);
+        TestCase test = builder.getDefaultTestCase();
+        String before = test.toCode();
+
+        File dir = JUnitAnalyzer.createNewTmpDir();
+        Assertions.assertNotNull(dir);
+        try {
+            Method compileTests = JUnitAnalyzer.class.getDeclaredMethod(
+                    "compileTests", List.class, File.class);
+            compileTests.setAccessible(true);
+            List<File> generated = (List<File>) compileTests.invoke(
+                    null, Collections.singletonList(test), dir);
+
+            Assertions.assertNotNull(generated);
+            Assertions.assertEquals(Integer.class, test.getStatement(2).getReturnClass());
+            Assertions.assertEquals(before, test.toCode());
         } finally {
             FileUtils.deleteDirectory(dir);
         }

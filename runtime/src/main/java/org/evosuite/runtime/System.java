@@ -183,6 +183,26 @@ public class System {
     }
 
     /**
+     * Restore a previously captured property-read set.
+     *
+     * <p>The set is intentionally cumulative across ordinary per-test runtime
+     * resets so reads performed by static initializers are retained. Multi-phase
+     * clients can use this method to discard reads introduced by an auxiliary
+     * phase while preserving the reads observed during the canonical execution.</p>
+     *
+     * @param properties snapshot returned by {@link #getAllPropertiesReadSoFar()}
+     */
+    public static void restorePropertiesReadSoFar(Set<String> properties) {
+        if (properties == null) {
+            throw new IllegalArgumentException("Property-read snapshot must not be null");
+        }
+        synchronized (readProperties) {
+            readProperties.clear();
+            readProperties.addAll(properties);
+        }
+    }
+
+    /**
      * <p>
      * This exception tells the test execution that it should stop at this point.
      * </p>

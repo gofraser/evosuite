@@ -21,6 +21,7 @@ package org.evosuite.junit.writer;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,7 @@ public class ScaffoldingRegressionTest {
         Properties.RESET_STATIC_FIELDS = defaultResetStaticFields;
         Properties.VIRTUAL_NET = defaultVirtualNet;
         Properties.NO_RUNTIME_DEPENDENCY = defaultNoRuntimeDependency;
+        ClassReInitializer.resetSingleton();
     }
 
     @Test
@@ -69,6 +71,38 @@ public class ScaffoldingRegressionTest {
         String code = Scaffolding.getScaffoldingFileContent("Bug4Test", results, false);
         Assertions.assertTrue(code.contains("import java.io.PrintStream;"));
         Assertions.assertTrue(code.contains("import javax.swing.DebugGraphics;"));
+    }
+
+    @Test
+    public void testScaffoldingHeaderIsDeterministic() {
+        configureDefaults();
+
+        String first = Scaffolding.getScaffoldingFileContent(
+                "DeterministicTest", Collections.emptyList(), false);
+        String second = Scaffolding.getScaffoldingFileContent(
+                "DeterministicTest", Collections.emptyList(), false);
+
+        Assertions.assertEquals(first, second);
+        Assertions.assertTrue(first.contains(
+                "Generation timestamp omitted for deterministic output"));
+    }
+
+    @Test
+    public void testExplicitResetClassSnapshotIgnoresLaterDiscoveries() {
+        configureDefaults();
+        Properties.RESET_STATIC_FIELDS = true;
+        Scaffolding.ReplaySnapshot snapshot = new Scaffolding.ReplaySnapshot(
+                Collections.singletonList("example.StructuralClass"),
+                Collections.singletonList("example.InitializedClass"),
+                Collections.singletonList("example.MockedType"));
+
+        String code = new Scaffolding().getBeforeAndAfterMethods(
+                "ReplayTest", false, Collections.emptyList(), snapshot);
+
+        Assertions.assertTrue(code.contains("\"example.StructuralClass\""));
+        Assertions.assertFalse(code.contains("example.PostProcessingClass"));
+        Assertions.assertTrue(code.contains("\"example.InitializedClass\""));
+        Assertions.assertTrue(code.contains("Class.forName(\"example.MockedType\""));
     }
 
     private static void configureDefaults() {

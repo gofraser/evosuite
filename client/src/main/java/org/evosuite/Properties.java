@@ -1385,6 +1385,22 @@ public class Properties {
             description = "Create JUnit test suites")
     public static boolean JUNIT_TESTS = true;
 
+    @Parameter(key = "structural_suite_export", group = "Output",
+            description = "Serialize the post-minimization suite before oracle generation and stop before JUnit output")
+    public static String STRUCTURAL_SUITE_EXPORT = "";
+
+    @Parameter(key = "oracle_replay_input", group = "Output",
+            description = "Load a structural-suite artifact and run only the selected oracle post-processing")
+    public static String ORACLE_REPLAY_INPUT = "";
+
+    public enum OracleReplayStrategy {
+        NONE, ALL, MUTATION, LLM
+    }
+
+    @Parameter(key = "oracle_replay_strategy", group = "Output",
+            description = "Oracle strategy to apply when replaying a structural-suite artifact")
+    public static OracleReplayStrategy ORACLE_REPLAY_STRATEGY = OracleReplayStrategy.NONE;
+
     public enum JUnitCheckValues {
         TRUE, OPTIONAL, FALSE
     }

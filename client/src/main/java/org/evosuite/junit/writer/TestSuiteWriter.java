@@ -89,6 +89,7 @@ public class TestSuiteWriter implements Opcodes {
 
     private TestNameGenerationStrategy nameGenerator = null;
     private List<String> extensionInitializationOrder = Collections.emptyList();
+    private Scaffolding.ReplaySnapshot replayScaffoldingSnapshot = null;
     private final Set<String> emittedMethodNames = new HashSet<>();
     private final Map<String, Integer> emittedMethodNameSuffixes = new HashMap<>();
 
@@ -103,6 +104,15 @@ public class TestSuiteWriter implements Opcodes {
             return;
         }
         this.extensionInitializationOrder = new ArrayList<>(extensionInitializationOrder);
+    }
+
+    /**
+     * Use a stable class-reset snapshot when rendering scaffolding. This is
+     * intentionally optional so ordinary generation keeps discovering reset
+     * classes through the end of the writer phase.
+     */
+    public void setReplayScaffoldingSnapshot(Scaffolding.ReplaySnapshot snapshot) {
+        this.replayScaffoldingSnapshot = snapshot;
     }
 
     /**
@@ -285,7 +295,9 @@ public class TestSuiteWriter implements Opcodes {
         // let's try to remove any remaining assertions. TODO: Better solution
         removeAssertionsAfterException(results);
 
-        RuntimeRequirements requirements = RuntimeRequirements.fromResults(results);
+        RuntimeRequirements requirements = replayScaffoldingSnapshot == null
+                ? RuntimeRequirements.fromResults(results)
+                : replayScaffoldingSnapshot.getRuntimeRequirements();
 
 
         if (Properties.OUTPUT_GRANULARITY == OutputGranularity.MERGED || testCases.size() == 0) {
@@ -308,7 +320,8 @@ public class TestSuiteWriter implements Opcodes {
         if (requirements.isScaffoldingFileMode()) {
             String scaffoldingName = Scaffolding.getFileName(name);
             File file = new File(dir + "/" + scaffoldingName + ".java");
-            String scaffoldingContent = Scaffolding.getScaffoldingFileContent(name, results, requirements);
+            String scaffoldingContent = Scaffolding.getScaffoldingFileContent(
+                    name, results, requirements, replayScaffoldingSnapshot);
             FileIOUtils.writeFile(scaffoldingContent, file);
             generated.add(file);
             content += scaffoldingContent;
@@ -385,7 +398,8 @@ public class TestSuiteWriter implements Opcodes {
         builder.append(getHeader(name, name, results, requirements));
 
         if (requirements.isInlineScaffoldingMode()) {
-            builder.append(new Scaffolding().getBeforeAndAfterMethods(name, needsThreadWrapper, results));
+            builder.append(new Scaffolding().getBeforeAndAfterMethods(
+                    name, needsThreadWrapper, results, replayScaffoldingSnapshot));
         }
 
         if (testCases.isEmpty()) {
@@ -418,8 +432,9 @@ public class TestSuiteWriter implements Opcodes {
         builder.append(getHeader(name + "_" + testId, name, results, requirements));
 
         if (requirements.isInlineScaffoldingMode()) {
-            builder.append(new Scaffolding().getBeforeAndAfterMethods(name + "_" + testId, needsThreadWrapper,
-                    results));
+            builder.append(new Scaffolding().getBeforeAndAfterMethods(
+                    name + "_" + testId, needsThreadWrapper, results,
+                    replayScaffoldingSnapshot));
         }
 
         builder.append(testToString(testId, testId, results.get(testId)));

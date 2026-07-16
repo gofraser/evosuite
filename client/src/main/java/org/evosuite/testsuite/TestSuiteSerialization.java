@@ -51,11 +51,11 @@ public class TestSuiteSerialization {
         Inputs.checkNull(list, target);
 
         File parent = target.getParentFile();
-        if (!parent.exists()) {
+        if (parent != null && !parent.exists()) {
             parent.mkdirs();
         }
 
-        try (ObjectOutputStream out = new DebuggingObjectOutputStream(new FileOutputStream(target))) {
+        try (ObjectOutputStream out = createObjectOutputStream(new FileOutputStream(target))) {
             for (TestSuiteChromosome ts : list) {
                 for (TestChromosome tc : ts.getTestChromosomes()) {
                     out.writeObject(tc);
@@ -81,12 +81,13 @@ public class TestSuiteSerialization {
      * @throws IllegalArgumentException if an error occurs.
      */
     public static boolean saveTests(TestSuiteChromosome ts, File target) throws IllegalArgumentException {
+        Inputs.checkNull(ts, target);
         File parent = target.getParentFile();
-        if (!parent.exists()) {
+        if (parent != null && !parent.exists()) {
             parent.mkdirs();
         }
 
-        try (ObjectOutputStream out = new DebuggingObjectOutputStream(new FileOutputStream(target))) {
+        try (ObjectOutputStream out = createObjectOutputStream(new FileOutputStream(target))) {
             for (TestChromosome tc : ts.getTestChromosomes()) {
                 out.writeObject(tc);
             }
@@ -99,6 +100,19 @@ public class TestSuiteSerialization {
         }
 
         return true;
+    }
+
+    private static ObjectOutputStream createObjectOutputStream(OutputStream output) throws IOException {
+        try {
+            return new DebuggingObjectOutputStream(output);
+        } catch (LinkageError | RuntimeException e) {
+            // Recent JDKs can deny reflective access to ObjectOutputStream's
+            // private depth field unless java.base/java.io is opened. The
+            // debugging stream is diagnostic only; serialization itself must
+            // continue to work without that optional access.
+            logger.debug("Debug serialization stream is unavailable; using ObjectOutputStream", e);
+            return new ObjectOutputStream(output);
+        }
     }
 
 

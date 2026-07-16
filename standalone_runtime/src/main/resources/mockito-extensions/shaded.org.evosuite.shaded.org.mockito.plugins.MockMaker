@@ -1,0 +1,3 @@
+# Required for the outer-shaded standalone runtime. Mockito resource names and
+# implementation-name strings are not rewritten by maven-shade-plugin.
+shaded.org.evosuite.shaded.org.mockito.internal.creation.bytebuddy.SubclassByteBuddyMockMaker

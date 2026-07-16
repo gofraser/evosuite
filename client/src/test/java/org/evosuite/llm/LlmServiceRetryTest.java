@@ -19,8 +19,12 @@
  */
 package org.evosuite.llm;
 
+import org.evosuite.runtime.sandbox.Sandbox;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.concurrent.TimeoutException;
@@ -29,6 +33,33 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LlmServiceRetryTest {
+
+    @Test
+    void requestWorkerIsPrivilegedWhenSandboxIsAlreadyActive() {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Sandbox.initializeSecurityManagerForSUT();
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            // SocketOutputStream construction performs the same
+            // writeFileDescriptor check as this constructor.
+            new FileOutputStream(FileDescriptor.out);
+            return new LlmService.LlmResponse("ok", 0, 0);
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 2, 0, 1,
+                false, Paths.get("target/llm-test-traces"), "sandbox-worker");
+        LlmService service = new LlmService(model,
+                new LlmBudgetCoordinator.Local(1), configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration));
+        try {
+            assertEquals("ok", service.query(
+                    Collections.singletonList(LlmMessage.user("generate")),
+                    LlmFeature.TEST_REPAIR));
+        } finally {
+            service.close();
+            Sandbox.resetDefaultSecurityManager();
+        }
+    }
 
     @Test
     void retries429ThenSucceeds() {
