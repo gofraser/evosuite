@@ -26,6 +26,7 @@ import org.evosuite.EvoSuite;
 import org.evosuite.Properties;
 import org.evosuite.Properties.Algorithm;
 import org.evosuite.Properties.Criterion;
+import org.evosuite.Properties.StoppingCondition;
 import org.evosuite.SystemTestBase;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.statistics.OutputVariable;
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import com.examples.with.different.packagename.objectconstruction.basicrules.Action;
 import com.examples.with.different.packagename.objectconstruction.basicrules.BasicRules;
 import com.examples.with.different.packagename.objectconstruction.basicrules.GameState;
+import com.examples.with.different.packagename.objectconstruction.wholeclass.LocalDerivedArrayWholeClassExample;
 
 /**
  * End-to-end system tests for EvoObj object-construction synthesis (EvoObj,
@@ -180,6 +182,48 @@ public class ObjectRuleSystemTest extends SystemTestBase {
         System.out.println("Whole-class object-rule coverage: " + best.getCoverage());
         Assertions.assertTrue(best.getCoverage() > 0.0,
                 "whole-class object rule should cover branches without a target method");
+    }
+
+    @Test
+    @Order(5)
+    public void graphInertWholeClassSearchIsExactlyBaselineTransparent() {
+        configureTransparencySearch();
+        Properties.APPLY_OBJECT_RULE = false;
+        Properties.OBJECT_RULE_WHOLE_CLASS = false;
+        TestSuiteChromosome baseline =
+                runSearch(LocalDerivedArrayWholeClassExample.class.getCanonicalName());
+        String baselineSuite = baseline.toString();
+        double baselineCoverage = baseline.getCoverage();
+
+        resetStaticVariables();
+        setDefaultPropertiesForTestCases();
+
+        configureTransparencySearch();
+        Properties.APPLY_OBJECT_RULE = true;
+        Properties.OBJECT_RULE_WHOLE_CLASS = true;
+        Properties.P_OBJECT_RULE_APPLICATION = 0.6;
+        TestSuiteChromosome inertEvoObj =
+                runSearch(LocalDerivedArrayWholeClassExample.class.getCanonicalName());
+
+        Assertions.assertEquals(baselineCoverage, inertEvoObj.getCoverage(), 0.0,
+                "a graph-inert EvoObj run must have exactly baseline coverage");
+        Assertions.assertEquals(baselineSuite, inertEvoObj.toString(),
+                "a graph-inert EvoObj run must produce the exact baseline suite");
+    }
+
+    private void configureTransparencySearch() {
+        Properties.STRATEGY = Properties.Strategy.MOSUITE;
+        Properties.ALGORITHM = Algorithm.DYNAMOSA;
+        Properties.CRITERION = new Criterion[] { Criterion.BRANCH };
+        Properties.ASSERTIONS = false;
+        Properties.MINIMIZE = false;
+        Properties.STOPPING_CONDITION = StoppingCondition.MAXGENERATIONS;
+        Properties.SEARCH_BUDGET = 3;
+        Properties.POPULATION = 10;
+        Properties.RANDOM_SEED = 47L;
+        Properties.TARGET_CLASS =
+                LocalDerivedArrayWholeClassExample.class.getCanonicalName();
+        Properties.TARGET_METHOD = "";
     }
 
     @Test

@@ -2,10 +2,8 @@ package org.evosuite.testcase.synthesizer;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +31,7 @@ public class UsedReferenceSearcher {
 				if (stat instanceof MethodStatement) {
 					MethodStatement mStat = (MethodStatement) stat;
 					VariableReference ref = mStat.getCallee();
-					if (ref != null && ref.equals(targetObject)) {
+					if (sameReference(test, ref, targetObject)) {
 						boolean isValidGetter = DataDependencyUtil.isFieldGetter(mStat.getMethod().getMethod(), field);
 						if (isValidGetter) {
 							relevantRefs.add(mStat.getReturnValue());
@@ -46,7 +44,7 @@ public class UsedReferenceSearcher {
 				}
 				else if(stat instanceof ConstructorStatement) {
 					ConstructorStatement constructorStat = (ConstructorStatement) stat;
-					if(constructorStat.getReturnValue().equals(targetObject)) {
+					if(sameReference(test, constructorStat.getReturnValue(), targetObject)) {
 						List<VariableReference> params = constructorStat.getParameterReferences();
 						String className = constructorStat.getDeclaringClassName();
 						String methodName = constructorStat.getMethodName() + constructorStat.getDescriptor();
@@ -102,14 +100,17 @@ public class UsedReferenceSearcher {
 
 		List<VariableReference> relevantRefs = new ArrayList<VariableReference>();
 		
-		Map<Integer,VariableReference> refPostions = new HashMap<Integer,VariableReference>();
+		Map<VariableReference, Integer> actionPositions = new IdentityHashMap<>();
 		
 		if (targetObject != null) {
 			/**
 			 * check the variables passed as parameters to the constructor of targetObject,
 			 * which are data-flow relevant to writing the field @{code field}
 			 */
-			int pos = targetObject.getStPosition();
+			int pos = ObjectConstructionActionTrace.definitionPosition(test, targetObject);
+			if (pos < 0) {
+				return null;
+			}
 			Statement s = test.getStatement(pos);
 			if (s instanceof NullStatement) {
 				TestFactory testFactory = TestFactory.getInstance();
@@ -128,14 +129,21 @@ public class UsedReferenceSearcher {
 					ParameterMatch result = searchRelevantParameterOfSetterInTest(className, methodName, field);
 					List<VariableReference> paramRefs = new ArrayList<>();
 					for(Integer index: result.parameterPoisitions) {
-						paramRefs.add(params.get(index));
+						if (index >= 0 && index < params.size()) {
+							paramRefs.add(params.get(index));
+						}
+					}
+					if (!paramRefs.isEmpty()) {
+						ObjectConstructionActionTrace.recordExistingAction(field,
+								constructorStat.getConstructor().getConstructor(),
+								result.parameterPoisitions, test, targetObject, paramRefs.get(0));
 					}
 					
 //					List<VariableReference> paramRefs = searchRelevantParameterOfSetterInTest(params, className, methodName, field);
 					relevantRefs.addAll(paramRefs);
 					
 					for(VariableReference vRef : paramRefs) {
-						refPostions.put(pos, vRef);
+						actionPositions.put(vRef, pos);
 					}
 //					System.currentTimeMillis();
 				}
@@ -150,7 +158,7 @@ public class UsedReferenceSearcher {
 				if (stat instanceof MethodStatement) {
 					MethodStatement mStat = (MethodStatement) stat;
 					VariableReference ref = mStat.getCallee();
-					if (ref != null && ref.equals(targetObject)) {
+					if (sameReference(test, ref, targetObject)) {
 						List<VariableReference> params = mStat.getParameterReferences();
 						String className = mStat.getDeclaringClassName();
 						String methodName = mStat.getMethodName() + mStat.getDescriptor();
@@ -158,16 +166,23 @@ public class UsedReferenceSearcher {
 						ParameterMatch result = searchRelevantParameterOfSetterInTest(className, methodName, field);
 						List<VariableReference> paramRefs = new ArrayList<>();
 						for(Integer index: result.parameterPoisitions) {
-							paramRefs.add(params.get(index));
+							if (index >= 0 && index < params.size()) {
+								paramRefs.add(params.get(index));
+							}
+						}
+						if (!paramRefs.isEmpty()) {
+							ObjectConstructionActionTrace.recordExistingAction(field,
+									mStat.getMethod().getMethod(), result.parameterPoisitions,
+									test, targetObject, paramRefs.get(0));
 						}
 						
 //						List<VariableReference> paramRefs = searchRelevantParameterOfSetterInTest(params, className, methodName,
 //								field);
 
 						for (VariableReference pRef : paramRefs) {
-							if (!relevantRefs.contains(pRef)) {
+							if (!containsIdentity(relevantRefs, pRef)) {
 								relevantRefs.add(pRef);
-								refPostions.put(i, pRef);
+								actionPositions.put(pRef, i);
 							}
 						}
 					}
@@ -178,11 +193,12 @@ public class UsedReferenceSearcher {
 					if (returnName.contains(".")) {
 						String fieldName = returnName.substring(returnName.lastIndexOf(".") + 1);
 						if (fieldName.equals(field.getName())
-								&& aStat.getReturnValue().getAdditionalVariableReference().equals(targetObject)) {
+								&& sameReference(test,
+										aStat.getReturnValue().getAdditionalVariableReference(), targetObject)) {
 							VariableReference ref = aStat.getValue();
-							if (!relevantRefs.contains(ref)) {
+							if (!containsIdentity(relevantRefs, ref)) {
 								relevantRefs.add(ref);
-								refPostions.put(i, ref);
+								actionPositions.put(ref, i);
 							}
 						}
 					}
@@ -200,31 +216,50 @@ public class UsedReferenceSearcher {
 		List<VariableReference> compatibles = getCompatibleRef(relevantRefs, field);
 		VariableReference ref = null;
 		if(!compatibles.isEmpty()) {
-			ref = getLast(compatibles, refPostions);
+			ref = getLast(compatibles, actionPositions);
 		}
 		else {
-			ref = getLast(relevantRefs, refPostions);
+			ref = getLast(relevantRefs, actionPositions);
 		}
 		
 		return ref;
 	}
 	
-	private VariableReference getLast(List<VariableReference> compatibles, Map<Integer, VariableReference> refPostions) {
-		Collections.sort(compatibles, new Comparator<VariableReference>() {
-			@Override
-			public int compare(VariableReference o1, VariableReference o2) {
-				
-				return o2.getStPosition() - o1.getStPosition();
+	private VariableReference getLast(List<VariableReference> compatibles,
+			Map<VariableReference, Integer> actionPositions) {
+		VariableReference result = null;
+		int lastActionPosition = Integer.MIN_VALUE;
+		for (VariableReference reference : compatibles) {
+			Integer actionPosition = actionPositions.get(reference);
+			if (actionPosition != null && actionPosition >= lastActionPosition) {
+				lastActionPosition = actionPosition;
+				result = reference;
 			}
-		});
-		
-		int lastPos = 0;
-		for(Integer i :refPostions.keySet()) {
-			lastPos = i > lastPos ? i : lastPos;
 		}
-		
-		VariableReference ref = refPostions.get(lastPos);
-		return ref;
+		return result;
+	}
+
+	private static boolean containsIdentity(List<VariableReference> references,
+			VariableReference candidate) {
+		for (VariableReference reference : references) {
+			if (reference == candidate) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean sameReference(TestCase test, VariableReference left,
+			VariableReference right) {
+		if (left == null || right == null) {
+			return false;
+		}
+		if (left == right) {
+			return true;
+		}
+		int leftPosition = ObjectConstructionActionTrace.definitionPosition(test, left);
+		int rightPosition = ObjectConstructionActionTrace.definitionPosition(test, right);
+		return leftPosition >= 0 && leftPosition == rightPosition;
 	}
 
 	private List<VariableReference> getCompatibleRef(List<VariableReference> relevantRefs, Field field) {

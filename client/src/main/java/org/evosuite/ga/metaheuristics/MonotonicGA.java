@@ -20,6 +20,7 @@
 package org.evosuite.ga.metaheuristics;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
@@ -30,7 +31,7 @@ import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
 import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.ga.*;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.factories.RandomLengthTestFactory;
+import org.evosuite.testcase.factories.ObjectRuleSession;
 import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
@@ -244,7 +245,7 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     // but hard to debug :(
 
     /**
-     * EvoObj: choose the {@link RandomLengthTestFactory#workingBranch4ObjectGraph} for the next
+     * EvoObj: choose the working branch for the next
      * generation from the uncovered branch goals (MonotonicGA hook). The choice is
      * delegated to {@link ObjectRuleBranchSelector}, which restricts it to branches with a
      * non-empty object graph and drops branches that repeatedly fail synthesis.
@@ -252,8 +253,9 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
      * generation.
      */
     private void selectObjectRuleWorkingBranch() {
-        RandomLengthTestFactory.workingBranch4ObjectGraph = null;
-        RandomLengthTestFactory.workingGoals4ObjectGraph = new ArrayList<>();
+        ObjectRuleSession session =
+                TestGenerationContext.getInstance().getObjectRuleSession();
+        session.clearWorkingTarget();
 
         List<BranchCoverageTestFitness> branchGoals = new BranchCoverageFactory().getCoverageGoals();
         Set<BranchCoverageGoal> uncoveredGoals = getUncoveredBranches(getBestIndividual(), branchGoals);
@@ -271,13 +273,11 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                             .add(fitness);
                 }
             }
-            RandomLengthTestFactory.setCurrentIteration(this.currentIteration);
-            RandomLengthTestFactory.workingBranch4ObjectGraph =
+            Branch workingBranch =
                     ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
             List<BranchCoverageTestFitness> workingGoals =
-                    uncoveredGoalsByBranch.get(RandomLengthTestFactory.workingBranch4ObjectGraph);
-            RandomLengthTestFactory.workingGoals4ObjectGraph =
-                    workingGoals == null ? new ArrayList<>() : new ArrayList<>(workingGoals);
+                    uncoveredGoalsByBranch.get(workingBranch);
+            session.setWorkingTarget(this.currentIteration, workingBranch, workingGoals);
             // Evict cached templates for branches that are now covered.
             TemplateCache.getInstance().retainUncovered(uncoveredBranches);
         }

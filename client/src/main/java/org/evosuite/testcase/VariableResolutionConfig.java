@@ -32,6 +32,7 @@ public final class VariableResolutionConfig {
     private final boolean canUseMocks;
     private final boolean canReuseExistingVariables;
     private final boolean excludeCalleeGenerators;
+    private final boolean preferConcreteGenerators;
     private final VariableReference excludeVar;
 
     private VariableResolutionConfig(Builder builder) {
@@ -39,6 +40,7 @@ public final class VariableResolutionConfig {
         this.canUseMocks = builder.canUseMocks;
         this.canReuseExistingVariables = builder.canReuseExistingVariables;
         this.excludeCalleeGenerators = builder.excludeCalleeGenerators;
+        this.preferConcreteGenerators = builder.preferConcreteGenerators;
         this.excludeVar = builder.excludeVar;
     }
 
@@ -58,6 +60,10 @@ public final class VariableResolutionConfig {
         return excludeCalleeGenerators;
     }
 
+    public boolean isPreferConcreteGenerators() {
+        return preferConcreteGenerators;
+    }
+
     public VariableReference getExcludeVar() {
         return excludeVar;
     }
@@ -67,6 +73,7 @@ public final class VariableResolutionConfig {
         private boolean canUseMocks = true;
         private boolean canReuseExistingVariables = true;
         private boolean excludeCalleeGenerators = false;
+        private boolean preferConcreteGenerators = false;
         private VariableReference excludeVar = null;
 
         /**
@@ -85,6 +92,7 @@ public final class VariableResolutionConfig {
             this.canUseMocks = other.canUseMocks;
             this.canReuseExistingVariables = other.canReuseExistingVariables;
             this.excludeCalleeGenerators = other.excludeCalleeGenerators;
+            this.preferConcreteGenerators = other.preferConcreteGenerators;
             this.excludeVar = other.excludeVar;
         }
 
@@ -105,6 +113,11 @@ public final class VariableResolutionConfig {
 
         public Builder withExcludeCalleeGenerators(boolean excludeCalleeGenerators) {
             this.excludeCalleeGenerators = excludeCalleeGenerators;
+            return this;
+        }
+
+        public Builder withPreferConcreteGenerators(boolean preferConcreteGenerators) {
+            this.preferConcreteGenerators = preferConcreteGenerators;
             return this;
         }
 

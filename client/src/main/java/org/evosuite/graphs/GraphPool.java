@@ -32,9 +32,11 @@ import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
@@ -268,9 +270,14 @@ public class GraphPool {
      * @param className the (dot-separated) name of the class to register
      */
     public void registerClass(String className) {
-        InputStream is = ResourceList.getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
-                .getClassAsStream(className);
-        try {
+        try (InputStream is = ResourceList
+                .getInstance(TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getClassAsStream(className)) {
+            if (is == null) {
+                logger.debug("Unable to register class {}: class bytes were not found on the SUT classpath",
+                        className);
+                return;
+            }
             ClassReader reader = new ClassReader(is);
             ClassNode cn = new ClassNode();
             reader.accept(cn, ClassReader.SKIP_FRAMES);
@@ -287,8 +294,8 @@ public class GraphPool {
                     bytecodeAnalyzer.retrieveCFGGenerator().registerCFGs();
                 }
             }
-        } catch (Exception e) {
-            logger.debug("Unable to register class " + className, e);
+        } catch (IOException | AnalyzerException e) {
+            logger.debug("Unable to read or analyze class " + className, e);
         }
     }
 

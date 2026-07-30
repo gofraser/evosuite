@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -27,12 +27,15 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.interprocedural.ConstructionPath;
 import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
+import org.evosuite.graphs.interprocedural.ObjectConstructionBoundary;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.EntityWithParametersStatement;
+import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
@@ -42,8 +45,13 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.objectweb.asm.tree.MethodInsnNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ConstructionPathSynthesizer {
+
+	private static final Logger logger = LoggerFactory.getLogger(ConstructionPathSynthesizer.class);
 
 	public ConstructionPathSynthesizer() {
 		super();
@@ -56,17 +64,24 @@ public class ConstructionPathSynthesizer {
 	 * @return
 	 */
 	public PartialGraph constructPartialComputationGraph(Branch b) {
-		PartialGraph graph = new PartialGraph();
-		
-		
 		Map<Branch, Set<DepVariable>> map =
 				ObjectConstructionContext.branchInterestedVarsMap.get(TargetContext.activeMethodSignature());
 		if (map == null) {
-			return graph;
+			return constructPartialComputationGraph(b, null);
 		}
-		Set<DepVariable> variables = map.get(b);
+		return constructPartialComputationGraph(b, map.get(b));
+	}
+
+	/**
+	 * Build the canonical, valid-root-filtered graph directly from one branch's analyzed leaves.
+	 * This overload lets diagnostic export snapshot every branch before the per-method map is
+	 * published in {@link ObjectConstructionContext}; normal synthesis continues to use the
+	 * map-backed overload above.
+	 */
+	public PartialGraph constructPartialComputationGraph(Branch b, Set<DepVariable> variables) {
+		PartialGraph graph = new PartialGraph();
 		graph.setBranch(b);
-		
+
 		if(variables == null) {
 			return graph;
 		}
@@ -75,6 +90,12 @@ public class ConstructionPathSynthesizer {
 			Map<DepVariable, ArrayList<ConstructionPath>> rootInfo = source.getRootVars();
 			
 			for(DepVariable root: rootInfo.keySet()) {
+				if (root.isStaticField() && ObjectConstructionBoundary.isExternalImplementationClass(
+						root.getInstruction().getClassName())) {
+					// VM caches and reflection singletons are fixed library implementation state.
+					// They cannot be constructed by a test and must not become graph roots.
+					continue;
+				}
 				/**
 				 *  this=> class; parameter => method; static field=> whatever
 				 */
@@ -92,8 +113,9 @@ public class ConstructionPathSynthesizer {
 						) {
 					
 					List<ConstructionPath> paths = rootInfo.get(root);
-					
-					for(ConstructionPath path: paths) {
+					ConstructionPath selectedPath = selectCoherentPath(paths);
+					if (selectedPath != null) {
+						ConstructionPath path = selectedPath;
 						for(int i=0; i<path.size()-1; i++) {
 							DepVariableWrapper child = graph.fetchAndMerge(path.get(i));
 							DepVariableWrapper parent = graph.fetchAndMerge(path.get(i+1));
@@ -109,12 +131,98 @@ public class ConstructionPathSynthesizer {
 				}
 			}
 		}
+
+		connectReturnedArrayElements(graph);
 		
 		return graph;
 	}
-	
+
+	/**
+	 * Interprocedural slicing maps a callee's receiver and parameters back to the caller, but an
+	 * accessor which returns an array element still appears as two paths: one ending at the
+	 * element and one starting at the call result. Join those paths so the call result's fields
+	 * are synthesized on the exact element selected by the accessor.
+	 *
+	 * <p>For example, {@code get(i).state} must become
+	 * {@code array -> array[i] -> get(i) -> state}. Without this alias edge EvoObj initializes an
+	 * arbitrary element and then tries to configure {@code state} on the target receiver.</p>
+	 */
+	private static void connectReturnedArrayElements(PartialGraph graph) {
+		List<DepVariableWrapper> nodes = graph.getNodes();
+		for (DepVariableWrapper call : nodes) {
+			if (call == null || call.var == null || !call.var.isMethodCall()
+					|| call.var.getInstruction() == null
+					|| !(call.var.getInstruction().getASMNode() instanceof MethodInsnNode)) {
+				continue;
+			}
+			MethodInsnNode invocation =
+					(MethodInsnNode) call.var.getInstruction().getASMNode();
+			String owner = invocation.owner.replace('/', '.');
+			String method = invocation.name + invocation.desc;
+			for (DepVariableWrapper element : nodes) {
+				if (element == null || element.var == null
+						|| !element.var.isLoadArrayElement()
+						|| element.var.getInstruction() == null
+						|| !owner.equals(element.var.getInstruction().getClassName())
+						|| !method.equals(element.var.getInstruction().getMethodName())) {
+					continue;
+				}
+				/*
+				 * This is an alias/dependency edge rather than a JVM operand edge. Keeping it in
+				 * the partial graph is enough to order synthesis and let the call wrapper reuse
+				 * the mapped array element; the original operand relations still identify the
+				 * real receiver and arguments.
+				 */
+				call.addParent(element);
+				element.addChild(call);
+			}
+		}
+	}
+
+	/**
+	 * A DepVariable may expose several equivalent root-to-value paths after interprocedural
+	 * analysis.  Merging every path creates a union of mutually exclusive callee alternatives and
+	 * asks graph-to-code synthesis to realize all of them at once.  Select one deterministic,
+	 * constructable-looking path per source/root pair.  Independent sources and roots are still all
+	 * retained, so this removes OR-alternatives without dropping AND-dependencies.
+	 */
+	static ConstructionPath selectCoherentPath(List<ConstructionPath> paths) {
+		if (paths == null || paths.isEmpty()) {
+			return null;
+		}
+		return Collections.min(paths, Comparator
+				.comparingInt(ConstructionPathSynthesizer::pathPenalty)
+				.thenComparingInt(ConstructionPath::size)
+				.thenComparing(ConstructionPath::toString));
+	}
+
+	private static int pathPenalty(ConstructionPath path) {
+		int penalty = 0;
+		String previousMethod = null;
+		for (DepVariable variable : path.getPath()) {
+			if (variable == null || variable.getInstruction() == null) {
+				penalty += 100;
+				continue;
+			}
+			if (variable.getType() == DepVariable.OTHER) {
+				penalty += 3;
+			}
+			String method = variable.getInstruction().getMethodName();
+			if (previousMethod != null && method != null && !method.equals(previousMethod)) {
+				penalty += 2;
+			}
+			if (ObjectConstructionBoundary.isExternalImplementationClass(
+					variable.getInstruction().getClassName())) {
+				penalty += 8;
+			}
+			previousMethod = method;
+		}
+		return penalty;
+	}
+
 	private PartialGraph partialGraph;
 	private Map<DepVariableWrapper, VarRelevance> graph2CodeMap;
+	private boolean unresolvedRequiredRoot;
 
 	public void buildNodeStatementCorrespondence(TestCase test, Branch b, boolean allowNullValue)
 			throws ConstructionFailedException, ClassNotFoundException {
@@ -129,12 +237,16 @@ public class ConstructionPathSynthesizer {
 		 * Therefore, we need to construct multiple fields/methods for different object of the same type.
 		 */
 		Map<DepVariableWrapper, VarRelevance> map = new HashMap<>();
+		boolean semanticInputHandled =
+				SemanticStringInputSynthesizer.apply(test, partialGraph, b);
+		bindTargetParameterRoots(test, topLayer, map);
 
 		/**
 		 * use BFS on partial graph to generate test code, but we need to check the dependency, making
 		 * sure that we have generated the code of its dependency.
 		 */
-		Queue<DepVariableWrapper> queue = new ArrayDeque<>(topLayer);
+		Queue<DepVariableWrapper> queue = semanticInputHandled
+				? new ArrayDeque<>() : new ArrayDeque<>(topLayer);
 		/**
 		 * when constructing some instruction, its dependency may not be ready.
 		 */
@@ -154,7 +266,8 @@ public class ConstructionPathSynthesizer {
 			boolean isValid = checkDependency(node, map);
 			if(isValid) {
 				VariableInTest testVariable = getCallerObject(map, node);
-				deriveCodeForTest(map, test, testVariable, b, allowNullValue, null);
+				boolean derived = deriveCodeForTest(
+						map, test, testVariable, b, allowNullValue, null);
 				
 				node.processed = true;
 
@@ -175,8 +288,10 @@ public class ConstructionPathSynthesizer {
 					}
 				});
 				
-				for (DepVariableWrapper child : node.children) {
-					queue.add(child);
+				if (node.traverseChildrenAfterGeneration(derived)) {
+					for (DepVariableWrapper child : node.children) {
+						queue.add(child);
+					}
 				}
 				
 			} else {
@@ -196,9 +311,39 @@ public class ConstructionPathSynthesizer {
 		
 		this.setPartialGraph(partialGraph);
 		this.setGraph2CodeMap(map);
+		validateRequiredRoots(test, partialGraph);
 
 		if (Properties.OBJECT_RULE_SLOT_BIAS) {
 			markObjectRuleSlots(test, map);
+		}
+	}
+
+	/**
+	 * Parameter roots denote arguments of the selected target invocation, so their correspondence
+	 * is known without performing any synthesis. Seed that identity before walking the graph. This
+	 * both gives child nodes the correct receiver and avoids losing the mapping when a wrapper
+	 * cannot rediscover a target statement that is no longer the last statement in the test.
+	 */
+	private void bindTargetParameterRoots(TestCase test, List<DepVariableWrapper> roots,
+			Map<DepVariableWrapper, VarRelevance> map) {
+		EntityWithParametersStatement targetCall =
+				test == null ? null : test.findTargetExecutableStatement();
+		if (targetCall == null) {
+			return;
+		}
+		for (DepVariableWrapper root : roots) {
+			if (root == null || !root.var.isParameter()) {
+				continue;
+			}
+			int parameterIndex = root.var.getParamOrder() - 1;
+			if (parameterIndex < 0
+					|| parameterIndex >= targetCall.getParameterReferences().size()) {
+				continue;
+			}
+			VariableReference argument = targetCall.getParameterReferences().get(parameterIndex);
+			List<VariableReference> references = new ArrayList<>();
+			references.add(argument);
+			map.put(root, new VarRelevance(references, references));
 		}
 	}
 
@@ -209,7 +354,8 @@ public class ConstructionPathSynthesizer {
 	 * them.
 	 */
 	private void markObjectRuleSlots(TestCase test, Map<DepVariableWrapper, VarRelevance> map) {
-		Set<VariableReference> slots = new HashSet<>();
+		Set<VariableReference> slots =
+				Collections.newSetFromMap(new IdentityHashMap<VariableReference, Boolean>());
 		for (VarRelevance relevance : map.values()) {
 			if (relevance == null) {
 				continue;
@@ -223,10 +369,70 @@ public class ConstructionPathSynthesizer {
 		}
 		for (int i = 0; i < test.size(); i++) {
 			Statement statement = test.getStatement(i);
-			if (statement instanceof PrimitiveStatement && slots.contains(statement.getReturnValue())) {
+			if (statement instanceof PrimitiveStatement
+					&& containsIdentity(slots, statement.getReturnValue())) {
 				((PrimitiveStatement<?>) statement).setObjectRuleSlot(true);
 			}
 		}
+	}
+
+	/** A root with child state must be the exact, non-null object passed to the target call. */
+	private void validateRequiredRoots(TestCase test, PartialGraph graph) {
+		unresolvedRequiredRoot = false;
+		EntityWithParametersStatement targetCall =
+				test == null ? null : test.findTargetExecutableStatement();
+		for (DepVariableWrapper root : graph.getTopLayer()) {
+			if (!root.var.isParameter() || root.children.isEmpty()) {
+				continue;
+			}
+			int parameterIndex = root.var.getParamOrder() - 1;
+			VariableReference mapped = targetCall == null || parameterIndex < 0
+					|| parameterIndex >= targetCall.getParameterReferences().size()
+					? null : targetCall.getParameterReferences().get(parameterIndex);
+			int nodeId = root.var.getInstruction() == null ? -1
+					: root.var.getInstruction().getInstructionId();
+			int mappedPosition = ObjectConstructionActionTrace.definitionPosition(test, mapped);
+			if (mappedPosition < 0 || test.getStatement(mappedPosition) instanceof NullStatement) {
+				unresolvedRequiredRoot = true;
+				ObjectConstructionActionTrace.issue("unresolved_required_parameter_root", nodeId,
+						root.getShortName(),
+						"A parameter root with dependent state has no non-null object");
+				continue;
+			}
+			if (targetCall == null || parameterIndex < 0
+					|| parameterIndex >= targetCall.getParameterReferences().size()
+					|| !sameReference(test, mapped,
+							targetCall.getParameterReferences().get(parameterIndex))) {
+				unresolvedRequiredRoot = true;
+				ObjectConstructionActionTrace.issue("target_parameter_mapping_mismatch", nodeId,
+						root.getShortName(),
+						"The graph root is not the object passed at target argument " + parameterIndex);
+			}
+		}
+	}
+
+	private static boolean sameReference(TestCase test, VariableReference left,
+			VariableReference right) {
+		if (left == right) {
+			return left != null;
+		}
+		int leftPosition = ObjectConstructionActionTrace.definitionPosition(test, left);
+		int rightPosition = ObjectConstructionActionTrace.definitionPosition(test, right);
+		return leftPosition >= 0 && leftPosition == rightPosition;
+	}
+
+	private static boolean containsIdentity(Iterable<VariableReference> references,
+			VariableReference candidate) {
+		for (VariableReference reference : references) {
+			if (reference == candidate) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public boolean hasUnresolvedRequiredRoot() {
+		return unresolvedRequiredRoot;
 	}
 
 	protected boolean checkDependency(DepVariableWrapper node, Map<DepVariableWrapper, VarRelevance> map) {
@@ -331,7 +537,11 @@ public class ConstructionPathSynthesizer {
 			 relevance = node.generateOrFindStatement(test, isLeaf, testVariable, map, b, allowNullValue, recommendation);
 		}
 		catch(Exception e) {
-//			e.printStackTrace();
+			int nodeId = node.var.getInstruction() == null ? -1
+					: node.var.getInstruction().getInstructionId();
+			ObjectConstructionActionTrace.issue("statement_derivation_failed", nodeId,
+					node.getShortName(), e.getClass().getSimpleName() + ": " + e.getMessage());
+			logger.debug("Object-rule statement derivation failed for {}", node.getShortName(), e);
 		}
 //		List<VariableReference> generatedVariables = node.generateOrFindStatement(test, isLeaf, testVariable, map, b, allowNullValue);
 		if (relevance != null) {

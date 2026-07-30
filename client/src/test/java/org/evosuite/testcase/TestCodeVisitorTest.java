@@ -87,6 +87,30 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 public class TestCodeVisitorTest {
 
+    public static class GenericTransition {
+    }
+
+    public static class GenericSingleTransition extends GenericTransition {
+    }
+
+    public static class GenericCompoundTransition extends GenericTransition {
+        public void consume() {
+        }
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static class GenericRawIterableTransition extends GenericSingleTransition implements Iterable {
+        @Override
+        public Iterator<GenericSingleTransition> iterator() {
+            return Collections.<GenericSingleTransition>emptyList().iterator();
+        }
+    }
+
+    public static <T extends GenericTransition> T coalesceForCodeGeneration(
+            Iterable<GenericSingleTransition> transitions) {
+        return null;
+    }
+
     public static <T extends FakeAbstractClass> T foo(T obj) {
         return obj;
     }
@@ -1168,6 +1192,74 @@ public class TestCodeVisitorTest {
 
         assertTrue(code.contains("(Class) "));
         assertFalse(code.contains("(Class<LinkedList<Integer>>) "));
+    }
+
+    @Test
+    public void testGenericFactoryArgumentCastPreservesReturnTypeInference() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type listType = TypeUtils.parameterize(ArrayList.class, GenericSingleTransition.class);
+        VariableReference transitions = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(ArrayList.class.getDeclaredConstructor(), listType),
+                0,
+                0);
+
+        Method factory = TestCodeVisitorTest.class.getDeclaredMethod(
+                "coalesceForCodeGeneration", Iterable.class);
+        GenericMethod genericFactory = new GenericMethod(factory, TestCodeVisitorTest.class)
+                .getGenericInstantiationFromReturnValue(
+                        GenericClassFactory.get(GenericCompoundTransition.class));
+        VariableReference compound = tc.addStatement(
+                new MethodStatement(tc, genericFactory, null, Arrays.asList(transitions)));
+        Method consume = GenericCompoundTransition.class.getDeclaredMethod("consume");
+        tc.addStatement(new MethodStatement(
+                tc,
+                new GenericMethod(consume, GenericCompoundTransition.class),
+                compound,
+                Collections.emptyList()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("GenericCompoundTransition"), code);
+        assertTrue(code.contains("(TestCodeVisitorTest.GenericCompoundTransition)"), code);
+        assertTrue(code.contains("(Iterable<TestCodeVisitorTest.GenericSingleTransition>)"), code);
+        assertFalse(code.contains("coalesceForCodeGeneration((Iterable)"), code);
+    }
+
+    @Test
+    public void testRawIterableImplementationGetsParameterizedFactoryCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference transitions = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(
+                        GenericRawIterableTransition.class.getDeclaredConstructor(),
+                        GenericRawIterableTransition.class),
+                0,
+                0);
+
+        Method factory = TestCodeVisitorTest.class.getDeclaredMethod(
+                "coalesceForCodeGeneration", Iterable.class);
+        GenericMethod genericFactory = new GenericMethod(factory, TestCodeVisitorTest.class)
+                .getGenericInstantiationFromReturnValue(
+                        GenericClassFactory.get(GenericCompoundTransition.class));
+        VariableReference compound = tc.addStatement(
+                new MethodStatement(tc, genericFactory, null, Arrays.asList(transitions)));
+        Method consume = GenericCompoundTransition.class.getDeclaredMethod("consume");
+        tc.addStatement(new MethodStatement(
+                tc,
+                new GenericMethod(consume, GenericCompoundTransition.class),
+                compound,
+                Collections.emptyList()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("(Iterable<TestCodeVisitorTest.GenericSingleTransition>)"), code);
+        assertTrue(code.contains("(TestCodeVisitorTest.GenericCompoundTransition)"), code);
+        assertFalse(code.contains("coalesceForCodeGeneration((Iterable)"), code);
     }
 
     @Test

@@ -69,6 +69,11 @@ public class DummyClientNodeImpl<T extends Chromosome<T>> extends ClientNodeImpl
     }
 
     @Override
+    public boolean awaitPendingOutputVariables(long timeoutInMs) {
+        return true;
+    }
+
+    @Override
     public void waitUntilDone() {
         // TODO Auto-generated method stub
 

@@ -42,6 +42,16 @@ public abstract class DepVariableWrapper {
 	}
 	
 	public abstract VariableReference find(TestCase test, boolean isLeaf, VariableReference callerObject, Map<DepVariableWrapper, VarRelevance> map);
+
+	/** Whether synthesis should continue through this node when it produced no corresponding value. */
+	public boolean traverseChildrenAfterFailedGeneration() {
+		return true;
+	}
+
+	/** Whether synthesis should continue through this node after the current generation attempt. */
+	public boolean traverseChildrenAfterGeneration(boolean generated) {
+		return generated || traverseChildrenAfterFailedGeneration();
+	}
 	
 	@Override
 	public int hashCode() {

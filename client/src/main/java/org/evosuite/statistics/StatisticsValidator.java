@@ -103,6 +103,35 @@ public class StatisticsValidator {
                 }
             }
 
+            Integer firstShotSuccesses =
+                    getIntegerValue(map, RuntimeVariable.ObjectRuleFirstShotSuccesses);
+            Integer immediateCoverage =
+                    getIntegerValue(map, RuntimeVariable.ObjectRuleImmediateCoverage);
+            Integer reachedNotCovered =
+                    getIntegerValue(map, RuntimeVariable.ObjectRuleReachedNotCovered);
+            Integer workingGoalUnavailable =
+                    getIntegerValue(map, RuntimeVariable.ObjectRuleWorkingGoalUnavailable);
+            if (firstShotSuccesses != null && immediateCoverage != null
+                    && reachedNotCovered != null && workingGoalUnavailable != null
+                    && firstShotSuccesses != immediateCoverage + reachedNotCovered + workingGoalUnavailable) {
+                logger.error("Invalid object-rule first-shot partition: " + firstShotSuccesses
+                        + " != " + immediateCoverage + " + " + reachedNotCovered
+                        + " + " + workingGoalUnavailable);
+                valid = false;
+            }
+
+            Integer mockOpportunities =
+                    getIntegerValue(map, RuntimeVariable.ObjectRuleMockSetupOpportunities);
+            Integer mockAttempts =
+                    getIntegerValue(map, RuntimeVariable.ObjectRuleMockSetupAttempts);
+            Integer mockSuccesses =
+                    getIntegerValue(map, RuntimeVariable.ObjectRuleMockSetupSuccesses);
+            if (mockOpportunities != null && mockAttempts != null && mockSuccesses != null
+                    && (mockSuccesses > mockAttempts || mockAttempts > mockOpportunities)) {
+                logger.error("Invalid object-rule mock-setup funnel: successes=" + mockSuccesses
+                        + ", attempts=" + mockAttempts + ", opportunities=" + mockOpportunities);
+                valid = false;
+            }
 
             /*
              * TODO there are more things we could check here

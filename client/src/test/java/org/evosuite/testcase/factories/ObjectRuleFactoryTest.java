@@ -48,6 +48,8 @@ import com.examples.with.different.packagename.objectconstruction.instancefield.
 
 import java.time.Duration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -66,12 +68,53 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 public class ObjectRuleFactoryTest {
 
+    @Test
+    public void nonCoveringSetupImprovementIsNotCached() {
+        assertFalse(ObjectRuleTemplateSynthesizer.shouldCacheTemplate(
+                true, false, true, true));
+        assertTrue(ObjectRuleTemplateSynthesizer.shouldCacheTemplate(
+                true, true, true, true));
+        assertTrue(ObjectRuleTemplateSynthesizer.shouldCacheTemplate(
+                true, false, true, false));
+    }
+
+    @Test
+    public void classWideNoPayoffCircuitBoundsExpensiveUnreachedSynthesis() {
+        Properties.StoppingCondition oldStoppingCondition = Properties.STOPPING_CONDITION;
+        long oldSearchBudget = Properties.SEARCH_BUDGET;
+        try {
+            Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXTIME;
+            Properties.SEARCH_BUDGET = 120;
+
+            assertFalse(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(1, 5_999),
+                    "construction below five percent of MaxTime remains enabled");
+            assertTrue(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(1, 6_000),
+                    "one unreached attempt consuming five percent of MaxTime opens the circuit");
+            assertFalse(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(
+                            0, 0, 1, 5_999),
+                    "a target-reaching but unbeneficial attempt remains allowed below the cap");
+            assertTrue(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(
+                            0, 0, 1, 6_000),
+                    "shared target-reaching setup must not evade the class-wide payoff cap");
+            assertFalse(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(
+                            0, 0, 29, 0),
+                    "a bounded portfolio of cheap attempts remains available");
+            assertTrue(ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff(
+                            0, 0, 30, 0),
+                    "cheap non-beneficial templates must not replace an unbounded population");
+        } finally {
+            Properties.STOPPING_CONDITION = oldStoppingCondition;
+            Properties.SEARCH_BUDGET = oldSearchBudget;
+        }
+    }
+
     @AfterEach
     public void tearDown() {
         Properties.TARGET_METHOD = "";
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
-        RandomLengthTestFactory.workingBranch4ObjectGraph = null;
+        Properties.P_OBJECT_RULE_APPLICATION = 0.6;
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
         org.evosuite.TestGenerationContext.getInstance().resetContext();
     }
 
@@ -158,7 +201,7 @@ public class ObjectRuleFactoryTest {
 
         boolean templateApplied = false;
         for (int attempt = 0; attempt < 60 && !templateApplied; attempt++) {
-            RandomLengthTestFactory.workingBranch4ObjectGraph = stateBranch;
+            org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
             TestChromosome chromosome = factory.getChromosome();
             TestCase test = chromosome.getTestCase();
 
@@ -184,7 +227,7 @@ public class ObjectRuleFactoryTest {
     public void factoryReturnsForSizeOneWithoutHanging() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1, true);
         Properties.CHROMOSOME_LENGTH = 1;
-        RandomLengthTestFactory.workingBranch4ObjectGraph = null;
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
 
         RandomLengthTestFactory factory = new RandomLengthTestFactory();
         TestChromosome chromosome = assertTimeoutPreemptively(Duration.ofSeconds(10),
@@ -196,6 +239,29 @@ public class ObjectRuleFactoryTest {
                 "size 1 should default to an empty test case");
     }
 
+    @Test
+    public void zeroApplicationProbabilityIsExactlyBaselineTransparent() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1, true);
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, pickStateBearingBranch(), java.util.Collections.emptyList());
+        Properties.P_OBJECT_RULE_APPLICATION = 0.0;
+        RandomLengthTestFactory factory = new RandomLengthTestFactory();
+
+        Randomness.setSeed(91L);
+        Properties.APPLY_OBJECT_RULE = false;
+        String baseline = factory.getChromosome().getTestCase().toCode();
+        long baselineNextRandom = Randomness.nextLong();
+
+        Randomness.setSeed(91L);
+        Properties.APPLY_OBJECT_RULE = true;
+        String inertEvoObj = factory.getChromosome().getTestCase().toCode();
+        long evoObjNextRandom = Randomness.nextLong();
+
+        assertEquals(baseline, inertEvoObj,
+                "method-level EvoObj with probability zero must emit the baseline chromosome");
+        assertEquals(baselineNextRandom, evoObjNextRandom,
+                "method-level EvoObj with probability zero must preserve the baseline RNG stream");
+    }
+
     /**
      * Regression: with {@code apply_object_rule=false} the factory follows the unchanged upstream
      * path — it never sets a working branch or invokes legitimization, and produces valid random
@@ -204,8 +270,8 @@ public class ObjectRuleFactoryTest {
     @Test
     public void factoryUnchangedWhenObjectRuleDisabled() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1, false);
-        RandomLengthTestFactory.workingBranch4ObjectGraph = null;
-        int trialsBefore = RandomLengthTestFactory.legitimizationTrials;
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
+        int trialsBefore = org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().legitimizationTrials;
 
         RandomLengthTestFactory factory = new RandomLengthTestFactory();
         for (int i = 0; i < 20; i++) {
@@ -215,9 +281,9 @@ public class ObjectRuleFactoryTest {
                     "a random test must respect the length bound");
         }
 
-        assertTrue(RandomLengthTestFactory.workingBranch4ObjectGraph == null,
+        assertTrue(org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().getWorkingBranch() == null,
                 "the disabled object rule must not select a working branch");
-        assertTrue(RandomLengthTestFactory.legitimizationTrials == trialsBefore,
+        assertTrue(org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().legitimizationTrials == trialsBefore,
                 "the disabled object rule must not run legitimization");
     }
 }

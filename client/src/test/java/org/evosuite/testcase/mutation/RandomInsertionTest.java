@@ -29,6 +29,13 @@ import static org.junit.jupiter.api.Assertions.*;
 public class RandomInsertionTest {
 
     @Test
+    public void staleRetryPositionIsClampedToReplacementTest() {
+        TestCase empty = new DefaultTestCase();
+        assertEquals(-1, RandomInsertion.normalizeLastPosition(empty, 0));
+        assertEquals(-1, RandomInsertion.normalizeLastPosition(empty, 50));
+    }
+
+    @Test
     public void testInsertionProbabilitiesLogWarning() {
         // Just checking it doesn't crash when probabilities are zero
         Properties.INSERTION_UUT = 0.0;

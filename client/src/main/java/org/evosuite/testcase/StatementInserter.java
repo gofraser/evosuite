@@ -19,8 +19,13 @@
  */
 package org.evosuite.testcase;
 
+import org.evosuite.testcase.statements.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 /**
  * Helper to manage atomic statement insertions and rollbacks.
@@ -33,35 +38,36 @@ class StatementInserter {
 
     private final TestCase test;
     private final int startPosition;
-    private final int originalSize;
+    private final Set<Statement> originalStatements;
 
     StatementInserter(TestCase test, int position) {
         this.test = test;
         this.startPosition = position;
-        this.originalSize = test.size();
+        this.originalStatements = Collections.newSetFromMap(new IdentityHashMap<Statement, Boolean>());
+        for (Statement statement : test) {
+            originalStatements.add(statement);
+        }
     }
 
     /**
      * Remove all statements added since this inserter was created.
      */
     void rollback() {
-        int currentSize = test.size();
-        int added = currentSize - originalSize;
-        if (added <= 0) {
-            return;
-        }
-
-        logger.debug("Rolling back {} statements starting at {}", added, startPosition);
-
-        // Remove in reverse order to maintain consistency
-        for (int i = added - 1; i >= 0; i--) {
-            int posToRemove = startPosition + i;
-            if (posToRemove < test.size()) {
+        int removed = 0;
+        // Recursive construction may insert dependencies before or after the requested
+        // position, so a positional range does not reliably identify the transaction's
+        // statements. Remove precisely the statement objects that did not exist when the
+        // insertion started, in reverse test order so their dependencies disappear last.
+        for (int position = test.size() - 1; position >= 0; position--) {
+            Statement statement = test.getStatement(position);
+            if (!originalStatements.contains(statement)) {
                 if (logger.isTraceEnabled()) {
-                    logger.trace("  Removing statement: {}", test.getStatement(posToRemove).getCode());
+                    logger.trace("  Removing inserted statement: {}", statement.getCode());
                 }
-                test.remove(posToRemove);
+                test.remove(position);
+                removed++;
             }
         }
+        logger.debug("Rolled back {} inserted statements for insertion at {}", removed, startPosition);
     }
 }

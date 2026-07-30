@@ -53,6 +53,7 @@ import org.evosuite.testcarver.extraction.CarvingManager;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
+import org.evosuite.testcase.factories.ObjectRuleSession;
 import org.evosuite.utils.MasterClassLoaderBridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +98,9 @@ public class TestGenerationContext {
      */
     private boolean assertionGenerationContext;
 
+    /** Mutable EvoObj state scoped to this test-generation context. */
+    private final ObjectRuleSession objectRuleSession = new ObjectRuleSession();
+
     /**
      * Private singleton constructor.
      */
@@ -107,6 +111,10 @@ public class TestGenerationContext {
 
     public static TestGenerationContext getInstance() {
         return singleton;
+    }
+
+    public ObjectRuleSession getObjectRuleSession() {
+        return objectRuleSession;
     }
 
     public boolean isAssertionGenerationContext() {
@@ -222,6 +230,7 @@ public class TestGenerationContext {
 
         // EvoObj: reset the object-construction analysis/synthesis statics so state does not leak
         // between runs or system-test methods.
+        objectRuleSession.reset();
         org.evosuite.graphs.interprocedural.ObjectConstructionContext.reset();
 
         CFGMethodAdapter.clear();

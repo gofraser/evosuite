@@ -797,7 +797,8 @@ public class TestCluster {
         // EvoObj (method-level targeting): never invoke the target method as a
         // modifier on another object; the target call is inserted exactly once
         // as a test call. No-op unless the object rule is enabled and TARGET_METHOD is set.
-        if (Properties.APPLY_OBJECT_RULE && !Properties.TARGET_METHOD.isEmpty()) {
+        if (Properties.APPLY_OBJECT_RULE && !Properties.TARGET_METHOD.isEmpty()
+                && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()) {
             calls.removeIf(TestGenerationUtil::isTargetMethod);
         }
 
@@ -1297,9 +1298,13 @@ public class TestCluster {
             return null;
         }
 
-        // EvoObj: prefer richer generators (more parameters) so synthesized objects carry more
-        // state. Only active when apply_object_rule is enabled.
-        if (Properties.APPLY_OBJECT_RULE) {
+        // EvoObj: prefer richer generators only while constructing the selected entry call.
+        // Applying this roulette to every ordinary random dependency made graphless EvoObj runs
+        // behaviorally different from baseline and was especially expensive for Jackson-heavy
+        // classes such as event-ruler's Event.
+        if (Properties.APPLY_OBJECT_RULE
+                && Properties.OBJECT_RULE_PREFER_CONCRETE_FACTORIES
+                && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()) {
             GenericAccessibleObject<?> biased = chooseByParamNumBias(compatible);
             if (biased != null) {
                 return biased;
@@ -1804,6 +1809,7 @@ public class TestCluster {
         // method, drop it from the candidates so exactly one call is inserted.
         // No-op unless the object rule is enabled and TARGET_METHOD is set.
         if (Properties.APPLY_OBJECT_RULE
+                && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()
                 && TestGenerationUtil.getTargetMethodPosition(test, test.size() - 1) != -1) {
             TestGenerationUtil.filterTargetMethod(test, candidateTestMethods);
         }
@@ -1833,6 +1839,7 @@ public class TestCluster {
             if (candidateTestMethods.isEmpty()) {
                 candidateTestMethods = new ArrayList<>(testMethods);
                 if (Properties.APPLY_OBJECT_RULE
+                        && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()
                         && TestGenerationUtil.getTargetMethodPosition(test, test.size() - 1) != -1) {
                     TestGenerationUtil.filterTargetMethod(test, candidateTestMethods);
                 }
@@ -1852,7 +1859,8 @@ public class TestCluster {
         // candidate (i.e. not yet present in the test), insert it first so that
         // every test calls the target method exactly once. No-op unless the
         // object rule is enabled and TARGET_METHOD is set.
-        if (Properties.APPLY_OBJECT_RULE && !Properties.TARGET_METHOD.isEmpty()) {
+        if (Properties.APPLY_OBJECT_RULE && !Properties.TARGET_METHOD.isEmpty()
+                && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()) {
             for (GenericAccessibleObject<?> candidate : candidateTestMethods) {
                 if (candidate instanceof GenericMethod) {
                     GenericMethod method = (GenericMethod) candidate;

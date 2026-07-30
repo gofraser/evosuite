@@ -29,6 +29,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.setup.callgraph.CallGraph;
 import org.evosuite.setup.callgraph.CallGraphEntry;
 import org.evosuite.utils.MethodUtil;
@@ -95,38 +96,100 @@ public class TargetContext {
 
     /**
      * Resolves the context for a branch in whole-class mode: its own containing method, if that
-     * method is public or protected and neither a class nor an instance initializer. Otherwise the
-     * branch is ineligible for object-rule synthesis (no call-graph search for now) and
-     * {@code null} is returned.
+     * method is a conservative public/protected synthesis entry and neither a class nor an
+     * instance initializer. With expanded entries enabled, EvoSuite's normal accessibility policy
+     * additionally permits package-private methods because generated tests share the CUT package.
+     * Keeping that broader surface behind the opt-in matters: directly synthesizing recursive
+     * package APIs can create cyclic inputs that ordinary random calls rarely produce. Otherwise
+     * the branch is ineligible and {@code null} is returned.
      */
     public static TargetContext forBranch(Branch branch) {
+        return resolveForBranch(branch, true);
+    }
+
+    /**
+     * Resolve a branch context for diagnostic export or other read-only inspection without
+     * changing the entry-rejection statistics. Diagnostics are allowed to observe an inaccessible
+     * branch, but must never make the experimental counters depend on whether diagnostics are
+     * enabled.
+     */
+    static TargetContext forBranchWithoutStatistics(Branch branch) {
+        return resolveForBranch(branch, false);
+    }
+
+    /**
+     * Stable diagnostic reason for a rejected whole-class entry. This is deliberately read-only:
+     * asking for the reason must not change rejection statistics or entry selection.
+     */
+    static String rejectionReasonForBranch(Branch branch) {
         if (branch == null || branch.getInstruction() == null) {
-            countOtherRejection();
+            return "missing_branch_instruction";
+        }
+        String className = branch.getInstruction().getClassName();
+        String methodSignature = branch.getInstruction().getMethodName();
+        if (className == null || methodSignature == null) {
+            return "missing_entry_identity";
+        }
+        if (methodSignature.startsWith("<clinit>")) {
+            return "class_initializer_not_callable";
+        }
+        if (methodSignature.startsWith("<init>") && !Properties.OBJECT_RULE_EXPANDED_ENTRIES) {
+            return "constructor_entry_disabled";
+        }
+        try {
+            Class<?> clazz =
+                    TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
+            for (Method method : clazz.getDeclaredMethods()) {
+                if ((method.getName() + MethodUtil.getSignature(method)).equals(methodSignature)) {
+                    if (isDirectlyAccessibleEntry(method, clazz)) {
+                        return "entry_resolution_inconsistent";
+                    }
+                    return Properties.OBJECT_RULE_EXPANDED_ENTRIES
+                            ? "no_accessible_caller"
+                            : "entry_not_accessible";
+                }
+            }
+            return "entry_method_not_found";
+        } catch (Throwable failure) {
+            return "entry_class_resolution_failed:" + failure.getClass().getSimpleName();
+        }
+    }
+
+    private static TargetContext resolveForBranch(Branch branch, boolean countRejections) {
+        if (branch == null || branch.getInstruction() == null) {
+            if (countRejections) {
+                countOtherRejection();
+            }
             return null;
         }
         String className = branch.getInstruction().getClassName();
         String methodSignature = branch.getInstruction().getMethodName();
         if (className == null || methodSignature == null) {
-            countOtherRejection();
+            if (countRejections) {
+                countOtherRejection();
+            }
             return null;
         }
         if (methodSignature.startsWith("<clinit>")) {
-            countConstructorRejection();
+            if (countRejections) {
+                countConstructorRejection();
+            }
             return null;
         }
         if (methodSignature.startsWith("<init>")) {
             if (Properties.OBJECT_RULE_EXPANDED_ENTRIES) {
                 return new TargetContext(className, methodSignature, branch, true);
             }
-            countConstructorRejection();
+            if (countRejections) {
+                countConstructorRejection();
+            }
             return null;
         }
         try {
             Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
             for (Method m : clazz.getDeclaredMethods()) {
                 if ((m.getName() + MethodUtil.getSignature(m)).equals(methodSignature)) {
-                    int modifiers = m.getModifiers();
-                    if (Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers)) {
+                    if (isDirectlyAccessibleEntry(m, clazz)) {
                         return new TargetContext(className, methodSignature, branch);
                     }
                     if (Properties.OBJECT_RULE_EXPANDED_ENTRIES) {
@@ -135,15 +198,21 @@ public class TargetContext {
                             return new TargetContext(className, caller, branch);
                         }
                     }
-                    countNonPublicRejection();
+                    if (countRejections) {
+                        countNonPublicRejection();
+                    }
                     return null;
                 }
             }
         } catch (Throwable t) {
-            countOtherRejection();
+            if (countRejections) {
+                countOtherRejection();
+            }
             return null;
         }
-        countOtherRejection();
+        if (countRejections) {
+            countOtherRejection();
+        }
         return null;
     }
 
@@ -190,11 +259,17 @@ public class TargetContext {
         }
         for (Method m : clazz.getDeclaredMethods()) {
             if ((m.getName() + MethodUtil.getSignature(m)).equals(methodSignature)) {
-                int modifiers = m.getModifiers();
-                return Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers);
+                return TestUsageChecker.canUse(m, clazz);
             }
         }
         return false;
+    }
+
+    private static boolean isDirectlyAccessibleEntry(Method method, Class<?> owner) {
+        int modifiers = method.getModifiers();
+        return Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers)
+                || (Properties.OBJECT_RULE_EXPANDED_ENTRIES
+                        && TestUsageChecker.canUse(method, owner));
     }
 
     private static void countConstructorRejection() {

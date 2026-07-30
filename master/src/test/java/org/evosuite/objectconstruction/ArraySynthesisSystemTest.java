@@ -79,7 +79,8 @@ public class ArraySynthesisSystemTest extends SystemTestBase {
         Properties.APPLY_OBJECT_RULE = true;
         Properties.OBJECT_RULE_WHOLE_CLASS = true;
 
-        RandomLengthTestFactory.inconsistentTemplatesDiscarded = 0;
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession()
+                .resetInconsistentTemplatesDiscarded();
 
         EvoSuite evosuite = new EvoSuite();
         Object result = evosuite.parseCommandLine(
@@ -98,7 +99,8 @@ public class ArraySynthesisSystemTest extends SystemTestBase {
         }
 
         System.out.println("ArgsParser inconsistentTemplatesDiscarded="
-                + RandomLengthTestFactory.inconsistentTemplatesDiscarded
+                + org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession()
+                        .getInconsistentTemplatesDiscarded()
                 + " (observability hook; see class Javadoc for why this is usually 0 in-process)");
     }
 }

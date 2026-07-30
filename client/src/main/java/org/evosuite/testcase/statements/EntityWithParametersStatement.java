@@ -51,7 +51,10 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
                                             Annotation[] annotations,
                                             Annotation[][] parameterAnnotations) throws IllegalArgumentException {
         super(tc, type);
-        this.parameters = parameters;
+        // Statements mutate parameter references throughout the GA. Callers may supply fixed-size
+        // or immutable convenience lists (eg Collections.singletonList), so retain an independent
+        // mutable list rather than their collection implementation.
+        this.parameters = new ArrayList<>(parameters);
         this.annotations = annotations;
         this.parameterAnnotations = parameterAnnotations;
         validateInputs();
@@ -61,7 +64,7 @@ public abstract class EntityWithParametersStatement extends AbstractStatement {
                                             Annotation[] annotations,
                                             Annotation[][] parameterAnnotations) throws IllegalArgumentException {
         super(tc, retval);
-        this.parameters = parameters;
+        this.parameters = new ArrayList<>(parameters);
         this.annotations = annotations;
         this.parameterAnnotations = parameterAnnotations;
         validateInputs();

@@ -641,6 +641,74 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
     }
 
     /**
+     * Immutable description of an invocation observed during the most recent execution which
+     * still needs one or more return values. This deliberately contains no listener or Mockito
+     * state, so setup-repair recipes can be copied and cached safely.
+     */
+    public static final class MockInvocationObservation {
+        private final MethodDescriptor descriptor;
+        private final Type returnType;
+        private final int missingReturnValues;
+
+        private MockInvocationObservation(MethodDescriptor descriptor, Type returnType,
+                                          int missingReturnValues) {
+            this.descriptor = descriptor.getCopy();
+            this.returnType = returnType;
+            this.missingReturnValues = missingReturnValues;
+        }
+
+        public MethodDescriptor getDescriptor() {
+            return descriptor.getCopy();
+        }
+
+        public Type getReturnType() {
+            return returnType;
+        }
+
+        public int getMissingReturnValues() {
+            return missingReturnValues;
+        }
+    }
+
+    /**
+     * Returns a non-mutating snapshot of newly required mock return values learned from the most
+     * recent execution. Existing stubs and the global functional-mocking input bound are honored.
+     */
+    public List<MockInvocationObservation> getInvocationObservationsNeedingStubs() {
+        if (listener == null || useLenientDefaultAnswer) {
+            return Collections.emptyList();
+        }
+        List<MockInvocationObservation> observations = new ArrayList<>();
+        GenericClass<?> calleeClass = GenericClassFactory.get(retval.getGenericClass());
+        for (MethodDescriptor descriptor : listener.getCopyOfMethodDescriptors()) {
+            if (descriptor == null || !descriptor.shouldBeMocked() || descriptor.getCounter() <= 0) {
+                continue;
+            }
+            int existing = 0;
+            int[] bounds = methodParameters.get(descriptor.getID());
+            if (bounds != null && bounds.length == 2 && bounds[0] >= 0
+                    && bounds[1] >= bounds[0] && bounds[1] < parameters.size()) {
+                existing = bounds[1] - bounds[0] + 1;
+            }
+            int required = Math.min(descriptor.getCounter(), Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT);
+            int missing = required - existing;
+            if (missing <= 0) {
+                continue;
+            }
+            try {
+                Type returnType = descriptor.getGenericMethodFor(calleeClass).getGeneratedType();
+                if (!Void.TYPE.equals(returnType)) {
+                    observations.add(new MockInvocationObservation(descriptor, returnType, missing));
+                }
+            } catch (ConstructionFailedException failure) {
+                logger.debug("Could not resolve observed functional-mock return type for {}",
+                        descriptor.getID(), failure);
+            }
+        }
+        return Collections.unmodifiableList(observations);
+    }
+
+    /**
      * The emitted code calls each stubbed method on the mock
      * ({@code doReturn(...).when(mock).method(args)}), so its checked
      * exceptions must be either caught or declared in the surrounding

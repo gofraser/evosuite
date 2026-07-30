@@ -23,9 +23,11 @@ import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.ArrayUtils;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.utils.LoggingUtils;
+import org.evosuite.utils.MasterClassLoaderBridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -260,6 +262,7 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
         String fieldName = (String) ois.readObject();
 
         ClassLoader[] candidateLoaders = new ClassLoader[]{
+                GenericClassImpl.getMasterSideClassLoaderIfInitialized(),
                 TestGenerationContext.getInstance().getClassLoaderForSUT(),
                 Thread.currentThread().getContextClassLoader(),
                 GenericField.class.getClassLoader(),
@@ -293,6 +296,15 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
                 new IllegalStateException("Unknown field " + fieldName + " in class " + className);
         if (lastError != null) {
             exception.initCause(lastError);
+        }
+        if (MasterClassLoaderBridge.isMasterProcess()) {
+            AtMostOnceLogger.warn(logger,
+                    "Falling back to placeholder field for unresolved "
+                            + className + "." + fieldName + " on master side");
+            logger.debug("Cause for unresolved field during master-side deserialization", exception);
+            this.field = SerializationFallbackMember.getFallbackField();
+            this.reflectionAccessible = makeFieldAccessible(this.field);
+            return;
         }
         throw exception;
     }

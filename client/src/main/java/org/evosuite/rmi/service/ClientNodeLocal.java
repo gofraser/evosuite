@@ -36,6 +36,14 @@ public interface ClientNodeLocal<T extends Chromosome<T>> extends Listenable<Set
 
     void trackOutputVariable(RuntimeVariable variable, Object value);
 
+    /**
+     * Wait until all output variables queued before this call have been delivered.
+     *
+     * @param timeoutInMs maximum time to wait
+     * @return {@code true} when the queue reached the barrier, {@code false} on timeout or sender failure
+     */
+    boolean awaitPendingOutputVariables(long timeoutInMs);
+
     void publishPermissionStatistics();
 
     void changeState(ClientState state);

@@ -227,22 +227,6 @@ public class TestMutator {
 
         List<Integer> pos = new ArrayList<>(toDelete);
 
-        // EvoObj (method-level targeting): never delete the target-method call;
-        // every test must keep exactly one call to it. No-op unless the object
-        // rule is enabled and TARGET_METHOD is set.
-        if (Properties.APPLY_OBJECT_RULE && !Properties.TARGET_METHOD.isEmpty()) {
-            for (Integer i : pos) {
-                Statement statement = test.getStatement(i);
-                if (statement instanceof MethodStatement) {
-                    GenericMethod method = ((MethodStatement) statement).getMethod();
-                    if (method.getDeclaringClass().getName().equals(Properties.TARGET_CLASS)
-                            && Properties.TARGET_METHOD.equals(method.getName() + method.getDescriptor())) {
-                        return false;
-                    }
-                }
-            }
-        }
-
         pos.sort(Collections.reverseOrder());
 
         for (int i : pos) {

@@ -73,7 +73,7 @@ public class ObjectRuleTelemetry {
     }
 
     public void recordPopulation(Collection<? extends TestChromosome> population, int iteration) {
-        if (population == null) {
+        if (population == null || lifetimes.isEmpty()) {
             return;
         }
         for (TestChromosome chromosome : population) {

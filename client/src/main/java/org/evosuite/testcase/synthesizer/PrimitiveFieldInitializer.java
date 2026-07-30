@@ -18,11 +18,23 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericField;
 
 public class PrimitiveFieldInitializer extends FieldInitializer{
+	private final Integer integerHint;
+
+	public PrimitiveFieldInitializer() {
+		this(null);
+	}
+
+	public PrimitiveFieldInitializer(Integer integerHint) {
+		this.integerHint = integerHint;
+	}
+
 	public VariableReference assignField(TestFactory testFactory, TestCase test, String fieldType, GenericField genericField,
 			int insertionPosition, FieldReference fieldVar, boolean allowNullValue) throws ConstructionFailedException {
 		try {
 			PrimitiveStatement<?> primStatement = createNewPrimitiveStatement(test, fieldType);
-			primStatement.randomize();
+			if (integerHint == null || !setIntegerHint(primStatement, fieldType, integerHint)) {
+				primStatement.randomize();
+			}
 			VariableReference varRef = testFactory.addPrimitive(test, primStatement, insertionPosition + 1);
 			return varRef;
 		} catch (ConstructionFailedException e) {
@@ -30,6 +42,49 @@ public class PrimitiveFieldInitializer extends FieldInitializer{
 		}
 		return null;
 		
+	}
+
+	@SuppressWarnings({"rawtypes", "unchecked"})
+	static boolean setIntegerHint(
+			PrimitiveStatement<?> statement, String fieldType, int value) {
+		if (statement == null) {
+			return false;
+		}
+		Object converted;
+		switch (fieldType) {
+		case "B":
+		case "byte":
+			converted = (byte) value;
+			break;
+		case "C":
+		case "char":
+			converted = (char) value;
+			break;
+		case "S":
+		case "short":
+			converted = (short) value;
+			break;
+		case "I":
+		case "int":
+			converted = value;
+			break;
+		case "J":
+		case "long":
+			converted = (long) value;
+			break;
+		case "F":
+		case "float":
+			converted = (float) value;
+			break;
+		case "D":
+		case "double":
+			converted = (double) value;
+			break;
+		default:
+			return false;
+		}
+		((PrimitiveStatement) statement).setValue(converted);
+		return true;
 	}
 	
 	@SuppressWarnings("rawtypes")

@@ -45,6 +45,11 @@ public class RandomInsertion implements InsertionStrategy {
 
     @Override
     public int insertStatement(TestCase test, int lastPosition) {
+        // Some speculative generation paths discard their partial test and retry with the previous
+        // position. Clamp that stale position to the replacement test before deriving the actual
+        // insertion index. Otherwise an empty retry can request index 1 and fail in
+        // DefaultTestCase.addStatement instead of reporting a normal insertion failure.
+        lastPosition = normalizeLastPosition(test, lastPosition);
         double r = Randomness.nextDouble();
         int oldSize = test.size();
 
@@ -128,6 +133,11 @@ public class RandomInsertion implements InsertionStrategy {
         } else {
             return INSERTION_ERROR;
         }
+    }
+
+    static int normalizeLastPosition(TestCase test, int requestedLastPosition) {
+        int actualLastPosition = test == null ? -1 : test.size() - 1;
+        return Math.max(-1, Math.min(requestedLastPosition, actualLastPosition));
     }
 
     private int insertCallOnObject(TestCase test, int lastPosition) {

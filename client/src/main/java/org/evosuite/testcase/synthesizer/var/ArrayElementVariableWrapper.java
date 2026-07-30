@@ -3,7 +3,11 @@ package org.evosuite.testcase.synthesizer.var;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,6 +23,8 @@ import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.AssignmentStatement;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FieldStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
@@ -31,6 +37,7 @@ import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.LongPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.ShortPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.VariableInTest;
+import org.evosuite.testcase.synthesizer.ObjectConstructionActionTrace;
 import org.evosuite.testcase.synthesizer.improvedsynth.Operation;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
@@ -41,6 +48,10 @@ import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.FieldInsnNode;
+import org.objectweb.asm.tree.InsnNode;
+import org.objectweb.asm.tree.IntInsnNode;
+import org.objectweb.asm.tree.LdcInsnNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 
 public class ArrayElementVariableWrapper extends DepVariableWrapper {
 
@@ -53,7 +64,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 			Map<DepVariableWrapper, VarRelevance> map, Branch b, boolean allowNullValue, Operation recommendation) {
 		
 		try {
-			return generateArrayElementStatement(test, isLeaf, variable);
+			return generateArrayElementStatement(test, isLeaf, variable, map);
 		} catch (ConstructionFailedException e) {
 			e.printStackTrace();
 		}
@@ -62,30 +73,61 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 	}
 
 	private VarRelevance generateArrayElementStatement(TestCase test, boolean isLeaf,
-			VariableInTest variable) throws ConstructionFailedException {
-		Statement stat = test.getStatement(variable.callerObject.getStPosition());
+			VariableInTest variable, Map<DepVariableWrapper, VarRelevance> map)
+			throws ConstructionFailedException {
+		int callerPosition = ObjectConstructionActionTrace.definitionPosition(test, variable.callerObject);
+		if (callerPosition < 0) {
+			ObjectConstructionActionTrace.issue("array_element_receiver_not_defined", nodeId(),
+					getShortName(), "The array-element receiver is not defined by this test");
+			return null;
+		}
+		Statement stat = test.getStatement(callerPosition);
 		if(stat instanceof NullStatement) {
-			List<VariableReference> list = new ArrayList<>();
-			list.add(stat.getReturnValue());
-			return new VarRelevance(list, list);
+			ObjectConstructionActionTrace.issue("null_array_element_receiver", nodeId(),
+					getShortName(), "A null array receiver cannot realize an array element");
+			return null;
 		}
 		
 		
 		int opcodeRead = this.var.getInstruction().getASMNode().getOpcode();			
 		int opcodeWrite = getCorrespondingWriteOpcode(opcodeRead);
+		Integer preferredIndex = preferredAccessorIndex(test, map);
 //		Statement statement = test.getStatement(variable.callerObject.getStPosition());
 
 		/**
 		 * check reused array element
 		 */
-		List<VariableReference> usedArrayElementList = searchUsedArrayElementReference(test, variable);
+		List<VariableReference> usedArrayElementList =
+				searchUsedArrayElementReference(test, variable, preferredIndex);
 		if(!usedArrayElementList.isEmpty()) {
 			return new VarRelevance(usedArrayElementList, usedArrayElementList);
 		}
+
+		ArrayAccessContext context = resolveArrayAccessContext(test, variable.callerObject);
+		List<VariableReference> existingSetters = searchArrayElementWritingReference(
+				test, variable, opcodeWrite, context);
+		if (!existingSetters.isEmpty()) {
+			return new VarRelevance(existingSetters, existingSetters);
+		}
+
+		// Reading a possibly-null element is not a realization of that node. Prefer an owner
+		// method whose parameter is proven to flow to the exact backing array field. This applies
+		// to non-leaf elements and to reference-array leaves: interprocedural analysis can expose
+		// dependent element state through a separate getter path, making the ARRAY_ELE wrapper look
+		// like a leaf even though the constructed object is semantically used downstream.
+		if (context.hasDistinctOwner(test)) {
+			VariableReference insertedElement = generateArrayElementSetter(
+					test, variable, opcodeWrite, context);
+			if (insertedElement != null) {
+				rewireMatchingArrayGetterUses(test, context, insertedElement, map);
+				List<VariableReference> result = Collections.singletonList(insertedElement);
+				return new VarRelevance(result, result);
+			}
+		}
 		
 		List<VariableReference> usedArrayRefs = isLeaf
-				? searchArrayElementWritingReference(test, variable, opcodeWrite)
-				: searchArrayElementReadingReference(test, variable, opcodeRead);
+				? Collections.emptyList()
+				: searchArrayElementReadingReference(test, variable, opcodeRead, context);
 		if (usedArrayRefs != null && !usedArrayRefs.isEmpty()) {
 			return new VarRelevance(usedArrayRefs, usedArrayRefs);
 		}
@@ -96,23 +138,23 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 				/**
 				 * generate setter
 				 */
-				ElementSetter setter = searchSetterForArrayElement(test, opcodeWrite, variable);
+				ElementSetter setter = searchSetterForArrayElement(opcodeWrite, variable, context);
 				if (setter != null) {
 					GenericMethod gMethod = new GenericMethod(setter.method, setter.method.getDeclaringClass());
-					TestFactory.getInstance().addMethodFor(test, variable.callerObject, gMethod,
-							variable.callerObject.getStPosition() + 1, false);
+					TestFactory.getInstance().addMethodFor(test, context.ownerReference, gMethod,
+							ObjectConstructionActionTrace.definitionPosition(test, context.ownerReference) + 1, false);
 					return null;
 				}
 			} else {
 				/**
 				 * generate getter
 				 */
-				Method getter = searchGetterForArrayElement(test, opcodeRead, variable);
+				Method getter = searchGetterForArrayElement(opcodeRead, variable, context);
 				if (getter != null) {
 					VariableReference newParentVarRef = null;
 					GenericMethod gMethod = new GenericMethod(getter, getter.getDeclaringClass());
-					newParentVarRef = TestFactory.getInstance().addMethodFor(test, variable.callerObject, gMethod,
-							variable.callerObject.getStPosition() + 1, false);
+					newParentVarRef = TestFactory.getInstance().addMethodFor(test, context.ownerReference, gMethod,
+							ObjectConstructionActionTrace.definitionPosition(test, context.ownerReference) + 1, false);
 //					V newParentVarRef;
 					List<VariableReference> vars = new ArrayList<>();
 					if(newParentVarRef != null) {
@@ -134,7 +176,9 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 				if(arrayRef.getArrayLength() <= 0) {
 					length = Randomness.nextInt(10) + 1;
 				}
-				int index = Randomness.nextInt(length);
+				int index = preferredIndex != null
+						&& preferredIndex >= 0 && preferredIndex < length
+						? preferredIndex : Randomness.nextInt(length);
 				
 				ArrayIndex arrayIndex = new ArrayIndex(test, arrayRef, index);
 				VariableReference varRef = createArrayElementVariable(test, arrayRef);
@@ -156,7 +200,8 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 		return null;
 	}
 
-	private List<VariableReference> searchUsedArrayElementReference(TestCase test, VariableInTest variable) {
+	private List<VariableReference> searchUsedArrayElementReference(TestCase test,
+			VariableInTest variable, Integer preferredIndex) {
 		List<VariableReference> elementList = new ArrayList<>();
 		if(variable.callerObject instanceof ArrayReference && variable.nodePath.size()==1) {
 			ArrayReference arrayObject = (ArrayReference)variable.callerObject;
@@ -168,7 +213,9 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 					if(var.isArrayIndex()) {
 						if(var instanceof ArrayIndex) {
 							ArrayIndex index = (ArrayIndex)var;
-							if(index.getArray().equals(arrayObject)) {
+							if(index.getArray().equals(arrayObject)
+									&& (preferredIndex == null
+										|| index.getArrayIndex() == preferredIndex)) {
 								elementList.add(aStat.getValue());
 							}
 						}
@@ -181,9 +228,124 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 		return elementList;
 	}
 
-	private Method searchGetterForArrayElement(TestCase test, int opcodeRead, VariableInTest variable) {
+	/**
+	 * If this element is returned by an accessor used in the target method, use the same index as
+	 * that accessor. This preserves identities such as
+	 * {@code values[parameter - 1] == get(parameter)} instead of initializing a random slot.
+	 */
+	private Integer preferredAccessorIndex(TestCase test,
+			Map<DepVariableWrapper, VarRelevance> map) {
+		if (test == null || map == null || var.getInstruction() == null) {
+			return null;
+		}
+		for (DepVariableWrapper child : children) {
+			if (child == null || child.var == null || !child.var.isMethodCall()
+					|| child.var.getInstruction() == null
+					|| !(child.var.getInstruction().getASMNode() instanceof MethodInsnNode)) {
+				continue;
+			}
+			MethodInsnNode invocation =
+					(MethodInsnNode) child.var.getInstruction().getASMNode();
+			if (!var.getInstruction().getClassName().equals(
+						invocation.owner.replace('/', '.'))
+					|| !var.getInstruction().getMethodName().equals(
+						invocation.name + invocation.desc)) {
+				continue;
+			}
+			for (DepVariableWrapper parent : child.parents) {
+				if (parent == null || parent.var == null || !parent.var.isParameter()) {
+					continue;
+				}
+				int operand = parent.findRelationPosition(child);
+				if (operand <= 0) {
+					continue;
+				}
+				VarRelevance relevance = map.get(parent);
+				if (relevance == null || relevance.matchedVars == null
+						|| relevance.matchedVars.isEmpty()) {
+					continue;
+				}
+				VariableReference argument = relevance.matchedVars.get(0);
+				Integer value = integerValue(test, argument);
+				if (value == null) {
+					continue;
+				}
+				BytecodeInstruction indexInstruction =
+						var.getInstruction().getSourceOfStackInstruction(0);
+				Integer index = evaluateInteger(indexInstruction, operand - 1, value, 12);
+				if (index != null) {
+					return index;
+				}
+			}
+		}
+		return null;
+	}
+
+	private static Integer integerValue(TestCase test, VariableReference reference) {
+		int position = ObjectConstructionActionTrace.definitionPosition(test, reference);
+		if (position < 0 || !(test.getStatement(position) instanceof PrimitiveStatement)) {
+			return null;
+		}
+		Object value = ((PrimitiveStatement<?>) test.getStatement(position)).getValue();
+		return value instanceof Number ? ((Number) value).intValue() : null;
+	}
+
+	private static Integer evaluateInteger(BytecodeInstruction instruction,
+			int parameterPosition, int parameterValue, int remaining) {
+		if (instruction == null || remaining <= 0) {
+			return null;
+		}
+		if (instruction.isParameter()
+				&& instruction.getParameterPosition() == parameterPosition) {
+			return parameterValue;
+		}
+		Integer constant = integerConstant(instruction);
+		if (constant != null) {
+			return constant;
+		}
+		int opcode = instruction.getASMNode().getOpcode();
+		if (opcode == Opcodes.IADD || opcode == Opcodes.ISUB) {
+			Integer left = evaluateInteger(instruction.getSourceOfStackInstruction(1),
+					parameterPosition, parameterValue, remaining - 1);
+			Integer right = evaluateInteger(instruction.getSourceOfStackInstruction(0),
+					parameterPosition, parameterValue, remaining - 1);
+			if (left != null && right != null) {
+				return opcode == Opcodes.IADD ? left + right : left - right;
+			}
+		}
+		return null;
+	}
+
+	private static Integer integerConstant(BytecodeInstruction instruction) {
+		if (instruction == null || instruction.getASMNode() == null) {
+			return null;
+		}
+		if (instruction.getASMNode() instanceof IntInsnNode) {
+			return ((IntInsnNode) instruction.getASMNode()).operand;
+		}
+		if (instruction.getASMNode() instanceof LdcInsnNode) {
+			Object value = ((LdcInsnNode) instruction.getASMNode()).cst;
+			return value instanceof Number ? ((Number) value).intValue() : null;
+		}
+		if (instruction.getASMNode() instanceof InsnNode) {
+			switch (instruction.getASMNode().getOpcode()) {
+			case Opcodes.ICONST_M1: return -1;
+			case Opcodes.ICONST_0: return 0;
+			case Opcodes.ICONST_1: return 1;
+			case Opcodes.ICONST_2: return 2;
+			case Opcodes.ICONST_3: return 3;
+			case Opcodes.ICONST_4: return 4;
+			case Opcodes.ICONST_5: return 5;
+			default: return null;
+			}
+		}
+		return null;
+	}
+
+	private Method searchGetterForArrayElement(int opcodeRead, VariableInTest variable,
+			ArrayAccessContext context) {
 		Set<Method> targetMethods = new HashSet<>();
-		Class<?> clazz = variable.callerObject.getGenericClass().getRawClass();
+		Class<?> clazz = context.ownerReference.getGenericClass().getRawClass();
 		for (Method method : clazz.getMethods()) {
 			boolean isValid = checkValidArrayElementGetter(method, opcodeRead, variable);
 			if (isValid) {
@@ -207,23 +369,34 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 		
 	}
 	
-	private ElementSetter searchSetterForArrayElement(TestCase test, int opcodeWrite, VariableInTest variable) {
-		Set<ElementSetter> targetMethods = new HashSet<>();
-		Class<?> clazz = variable.callerObject.getGenericClass().getRawClass();
+	private ElementSetter searchSetterForArrayElement(int opcodeWrite, VariableInTest variable,
+			ArrayAccessContext context) {
+		List<ElementSetter> targetMethods = findSettersForArrayElement(opcodeWrite, variable, context);
+		return Randomness.choice(targetMethods);
+	}
+
+	private List<ElementSetter> findSettersForArrayElement(int opcodeWrite, VariableInTest variable,
+			ArrayAccessContext context) {
+		List<ElementSetter> targetMethods = new ArrayList<>();
+		if (context.ownerReference == null) {
+			return targetMethods;
+		}
+		Class<?> clazz = context.ownerReference.getGenericClass().getRawClass();
 		for (Method method : clazz.getMethods()) {
 			Integer paramPos = checkValidArrayElementSetter(method, opcodeWrite, variable);
 			if (paramPos != -1) {
 				targetMethods.add(new ElementSetter(method, paramPos));
 			}
 		}
-
-		return Randomness.choice(targetMethods);
+		targetMethods.sort(Comparator.comparing(setter -> setter.method.toGenericString()));
+		return targetMethods;
 	}
 
 	/**
 	 * AASTORE, BASTORE, CASTORE, DASTORE, FASTORE, IASTORE, LASTORE, SASTORE
 	 */
-	private List<VariableReference> searchArrayElementWritingReference(TestCase test, VariableInTest variable, int opcodeWrite) {
+	private List<VariableReference> searchArrayElementWritingReference(TestCase test,
+			VariableInTest variable, int opcodeWrite, ArrayAccessContext context) {
 		
 		List<VariableReference> variableList = new ArrayList<VariableReference>(); 
 		/**
@@ -245,17 +418,22 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 		/**
 		 * check obj.m() which assign the array element
 		 */
-		else {
+		else if (context.ownerReference != null) {
 			for (int i = 0;i < test.size(); i ++) {
 				Statement stat = test.getStatement(i);
 				if (stat instanceof MethodStatement) {
 					MethodStatement mStat = (MethodStatement) stat;
 					VariableReference ref = mStat.getCallee();
-					if (ref != null && ref.equals(variable.callerObject)) {
+					if (sameReference(test, ref, context.ownerReference)) {
 						Integer parameterPosition = checkValidArrayElementSetter(mStat.getMethod().getMethod(), opcodeWrite, variable);
-						if(parameterPosition != -1) {
+						if(parameterPosition >= 0
+								&& parameterPosition < mStat.getParameterReferences().size()) {
 							VariableReference param = mStat.getParameterReferences().get(parameterPosition);
 							variableList.add(param);
+							FieldInsnNode field = backingArrayField();
+							ObjectConstructionActionTrace.recordExistingArrayElementAction(
+									fieldOwner(field), fieldName(field), mStat.getMethod().getMethod(),
+									parameterPosition, test, ref, param);
 						}
 						
 					}	
@@ -265,6 +443,150 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 		
 		
 		return variableList;
+	}
+
+	private VariableReference generateArrayElementSetter(TestCase test, VariableInTest variable,
+			int opcodeWrite, ArrayAccessContext context) throws ConstructionFailedException {
+		List<ElementSetter> setters = findSettersForArrayElement(opcodeWrite, variable, context);
+		LinkedHashMap<Method, Integer> candidates = new LinkedHashMap<>();
+		for (ElementSetter setter : setters) {
+			candidates.put(setter.method, setter.paramPos);
+		}
+		ElementSetter selected = setters.isEmpty() ? null : setters.get(0);
+		FieldInsnNode field = backingArrayField();
+		ObjectConstructionActionTrace.recordArrayElementCandidates(
+				fieldOwner(field), fieldName(field), context.ownerReference.getClassName(),
+				candidates, selected == null ? null : selected.method);
+		if (selected == null) {
+			return null;
+		}
+
+		Set<Statement> oldStatements = Collections.newSetFromMap(
+				new IdentityHashMap<Statement, Boolean>());
+		for (int i = 0; i < test.size(); i++) {
+			oldStatements.add(test.getStatement(i));
+		}
+		GenericMethod method = new GenericMethod(selected.method,
+				selected.method.getDeclaringClass());
+		int ownerPosition = ObjectConstructionActionTrace.definitionPosition(
+				test, context.ownerReference);
+		TestFactory.getInstance().addMethodFor(test, context.ownerReference, method,
+				ownerPosition + 1, false);
+
+		MethodStatement generated = null;
+		for (int i = 0; i < test.size(); i++) {
+			Statement statement = test.getStatement(i);
+			if (!oldStatements.contains(statement) && statement instanceof MethodStatement) {
+				MethodStatement candidate = (MethodStatement) statement;
+				if (selected.method.equals(candidate.getMethod().getMethod())
+						&& sameReference(test, candidate.getCallee(), context.ownerReference)) {
+					generated = candidate;
+					break;
+				}
+			}
+		}
+		if (generated == null || selected.paramPos < 0
+				|| selected.paramPos >= generated.getParameterReferences().size()) {
+			ObjectConstructionActionTrace.recordArrayElementOutcome(
+					fieldOwner(field), fieldName(field), selected.method,
+					"generation_failed", test, null, context.ownerReference);
+			ObjectConstructionActionTrace.issue("array_element_setter_generation_failed", nodeId(),
+					selected.method.toGenericString(),
+					"The selected setter call or its element parameter was not found after insertion");
+			return null;
+		}
+
+		VariableReference element = generated.getParameterReferences().get(selected.paramPos);
+		int elementPosition = ObjectConstructionActionTrace.definitionPosition(test, element);
+		if (elementPosition >= 0
+				&& !(test.getStatement(elementPosition) instanceof ConstructorStatement)
+				&& context.arrayReference instanceof ArrayReference) {
+			// The factory may reuse a prior getter result (which can be null) or a functional mock
+			// (which is not a real SUT construction). Replace either with an actual construction
+			// before the setter. Primitive arrays never enter this reference-construction helper.
+			VariableReference concreteElement = createReferenceElementVariable(test,
+					(ArrayReference) context.arrayReference,
+					ObjectConstructionActionTrace.definitionPosition(test, context.ownerReference) + 1);
+			if (concreteElement != null) {
+				generated.replace(element, concreteElement);
+				element = concreteElement;
+				elementPosition = ObjectConstructionActionTrace.definitionPosition(test, element);
+			}
+		}
+		if (elementPosition < 0 || test.getStatement(elementPosition) instanceof NullStatement) {
+			ObjectConstructionActionTrace.recordArrayElementOutcome(
+					fieldOwner(field), fieldName(field), selected.method,
+					"generated_null_element", test, element, context.ownerReference);
+			ObjectConstructionActionTrace.issue("array_element_setter_has_null_element", nodeId(),
+					selected.method.toGenericString(),
+					"The setter argument is not a test-defined non-null element");
+			return null;
+		}
+		ObjectConstructionActionTrace.recordArrayElementOutcome(
+				fieldOwner(field), fieldName(field), selected.method,
+				"generated_statement", test, element, context.ownerReference);
+		return element;
+	}
+
+	private void rewireMatchingArrayGetterUses(TestCase test, ArrayAccessContext context,
+			VariableReference element, Map<DepVariableWrapper, VarRelevance> map) {
+		String owner = var.getInstruction().getClassName();
+		String methodSignature = var.getInstruction().getMethodName();
+		for (int position = 0; position < test.size(); position++) {
+			Statement statement = test.getStatement(position);
+			if (!(statement instanceof MethodStatement)) {
+				continue;
+			}
+			MethodStatement getter = (MethodStatement) statement;
+			Method method = getter.getMethod().getMethod();
+			if (!owner.equals(method.getDeclaringClass().getName())
+					|| !methodSignature.equals(method.getName() + MethodUtil.getSignature(method))
+					|| !sameReference(test, getter.getCallee(), context.ownerReference)) {
+				continue;
+			}
+			VariableReference oldResult = getter.getReturnValue();
+			for (int usePosition = position + 1; usePosition < test.size(); usePosition++) {
+				test.getStatement(usePosition).replace(oldResult, element);
+			}
+			VariableCodeGenerationUtil.replaceMapFromNode2Code(map, oldResult, element);
+		}
+	}
+
+	private ArrayAccessContext resolveArrayAccessContext(TestCase test,
+			VariableReference arrayReference) {
+		VariableReference owner = arrayReference;
+		int position = ObjectConstructionActionTrace.definitionPosition(test, arrayReference);
+		if (position >= 0) {
+			Statement definition = test.getStatement(position);
+			if (definition instanceof MethodStatement) {
+				VariableReference callee = ((MethodStatement) definition).getCallee();
+				if (callee != null) {
+					owner = callee;
+				}
+			} else if (definition instanceof FieldStatement) {
+				VariableReference source = ((FieldStatement) definition).getSource();
+				if (source != null) {
+					owner = source;
+				}
+			}
+		}
+		return new ArrayAccessContext(arrayReference, owner);
+	}
+
+	private static final class ArrayAccessContext {
+		private final VariableReference arrayReference;
+		private final VariableReference ownerReference;
+
+		private ArrayAccessContext(VariableReference arrayReference,
+				VariableReference ownerReference) {
+			this.arrayReference = arrayReference;
+			this.ownerReference = ownerReference;
+		}
+
+		private boolean hasDistinctOwner(TestCase test) {
+			return ownerReference != null
+					&& !sameReference(test, arrayReference, ownerReference);
+		}
 	}
 
 	private int getCorrespondingWriteOpcode(int opcodeRead) {
@@ -318,7 +640,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 			for (BytecodeInstruction ins : insList) {
 				// *ASTORE
 				if (ins.getASMNode().getOpcode() == opcodeWrite) {
-					BytecodeInstruction param = isMatchPath(ins, variable);
+					BytecodeInstruction param = storedParameterForBackingArray(ins);
 					if(param != null) {
 						return param.getParameterPosition();
 					}
@@ -330,55 +652,67 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 	}
 
 	/**
-	 * check whether this method can cover the instructions on the node path,
-	 * 
-	 * if yes, we return the parameter with dataflow to setting the array element.
-	 * 
-	 * @param ins
-	 * @param variable
-	 * @return
+	 * For every JVM array-store instruction the value is stack operand 0 and the array reference
+	 * is operand 2. A setter is usable only when the stored value comes directly from a method
+	 * parameter and the array operand comes from the exact field represented by this graph node.
+	 * This deliberately rejects methods such as {@code removePlayer(Player)}, whose parameter is
+	 * used for the index but whose stored value is {@code null}.
 	 */
-	private BytecodeInstruction isMatchPath(BytecodeInstruction ins, VariableInTest variable) {
-		BytecodeInstruction param = null;
-		/**
-		 * correspond to each node in the path
-		 */
-		boolean[] visitedPath = new boolean[variable.nodePath.size()];
-		int cursor = variable.nodePath.size()-1;
-		visitedPath[cursor] = true;
-		cursor--;
-		
-		while(cursor >= 0) {
-			boolean isValid = false;
-			for (int i = 0; i < ins.getOperandNum(); i++) {
-				BytecodeInstruction defIns = ins.getSourceOfStackInstruction(i);
-				
-				if(defIns.isParameter()) {
-					param = defIns;
-				}
-				
-				if(defIns.equals(variable.nodePath.get(cursor).var.getInstruction())) {
-					cursor--;
-					isValid = true;
-					break;
-				}
-			}
-			
-			if(!isValid) {
-				break;
-			}
-		}
-		
-		boolean isMatch = true;
-		for(int i=0; i<visitedPath.length; i++) {
-			isMatch = isMatch & visitedPath[i];
-		}
-		
-		if(!isMatch) {
+	private BytecodeInstruction storedParameterForBackingArray(BytecodeInstruction store) {
+		FieldInsnNode expectedField = backingArrayField();
+		if (expectedField == null || store.getOperandNum() < 3) {
 			return null;
 		}
-		
-		return param;
+		BytecodeInstruction valueSource = store.getSourceOfStackInstruction(0);
+		BytecodeInstruction arraySource = store.getSourceOfStackInstruction(2);
+		if (valueSource == null || !valueSource.isParameter()
+				|| arraySource == null || !(arraySource.getASMNode() instanceof FieldInsnNode)) {
+			return null;
+		}
+		FieldInsnNode actualField = (FieldInsnNode) arraySource.getASMNode();
+		return sameField(expectedField, actualField) ? valueSource : null;
+	}
+
+	private FieldInsnNode backingArrayField() {
+		for (DepVariableWrapper parent : parents) {
+			if ((parent.var.getType() == DepVariable.INSTANCE_FIELD
+					|| parent.var.getType() == DepVariable.STATIC_FIELD)
+					&& parent.var.getInstruction() != null
+					&& parent.var.getInstruction().getASMNode() instanceof FieldInsnNode) {
+				FieldInsnNode field = (FieldInsnNode) parent.var.getInstruction().getASMNode();
+				if (field.desc != null && field.desc.startsWith("[")) {
+					return field;
+				}
+			}
+		}
+		return null;
+	}
+
+	private static boolean sameField(FieldInsnNode left, FieldInsnNode right) {
+		return left.owner.equals(right.owner) && left.name.equals(right.name)
+				&& left.desc.equals(right.desc);
+	}
+
+	private static String fieldOwner(FieldInsnNode field) {
+		return field == null ? null : field.owner.replace('/', '.');
+	}
+
+	private static String fieldName(FieldInsnNode field) {
+		return field == null ? "[element]" : field.name;
+	}
+
+	private int nodeId() {
+		return var.getInstruction() == null ? -1 : var.getInstruction().getInstructionId();
+	}
+
+	private static boolean sameReference(TestCase test, VariableReference left,
+			VariableReference right) {
+		if (left == right) {
+			return left != null;
+		}
+		int leftPosition = ObjectConstructionActionTrace.definitionPosition(test, left);
+		int rightPosition = ObjectConstructionActionTrace.definitionPosition(test, right);
+		return leftPosition >= 0 && leftPosition == rightPosition;
 	}
 
 	/**
@@ -436,7 +770,8 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 	/*
 	 * AALOAD, BALOAD, CALOAD, DALOAD, FALOAD, IALOAD, LALOAD, SALOAD
 	 */
-	private List<VariableReference> searchArrayElementReadingReference(TestCase test, VariableInTest variable, int opcodeRead) {
+	private List<VariableReference> searchArrayElementReadingReference(TestCase test,
+			VariableInTest variable, int opcodeRead, ArrayAccessContext context) {
 		List<VariableReference> varList = new ArrayList<VariableReference>();
 		
 		for (int i = 0;i < test.size(); i ++) {
@@ -446,7 +781,7 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 				MethodStatement mStat = (MethodStatement) stat;
 				Method method = mStat.getMethod().getMethod();
 				VariableReference ref = mStat.getCallee();
-				if (ref != null && ref.equals(variable.callerObject)) {
+				if (sameReference(test, ref, context.ownerReference)) {
 					boolean isValid = checkValidArrayElementGetter(method, opcodeRead, variable);
 					if (isValid) {
 						VariableReference var = mStat.getReturnValue();
@@ -479,6 +814,37 @@ public class ArrayElementVariableWrapper extends DepVariableWrapper {
 		} else {
 			return null;
 		}
+	}
+
+	/**
+	 * Materialize a reference-array element independently of any getter already present in the
+	 * template.  The ordinary argument generator is allowed to reuse a compatible method result;
+	 * for an array setter that is exactly the unsafe choice we are repairing, because the getter
+	 * reads the still-uninitialized array slot.  Prefer the smallest public constructor so this
+	 * repair is deterministic and adds as little unrelated state as possible.
+	 */
+	private VariableReference createReferenceElementVariable(TestCase test,
+			ArrayReference arrayRef, int position) throws ConstructionFailedException {
+		Class<?> componentClass = arrayRef.getComponentClass();
+		if (componentClass == null || componentClass.isPrimitive()
+				|| componentClass.isInterface()
+				|| java.lang.reflect.Modifier.isAbstract(componentClass.getModifiers())) {
+			return null;
+		}
+		List<Constructor<?>> constructors = new ArrayList<>();
+		Collections.addAll(constructors, componentClass.getConstructors());
+		constructors.sort(Comparator
+				.comparingInt((Constructor<?> constructor) -> constructor.getParameterTypes().length)
+				.thenComparing(Constructor::toGenericString));
+		if (constructors.isEmpty()) {
+			return null;
+		}
+
+		Constructor<?> constructor = constructors.get(0);
+		GenericConstructor genericConstructor = new GenericConstructor(constructor,
+				constructor.getDeclaringClass());
+		return TestFactory.getInstance().addConstructor(test, genericConstructor,
+				Math.max(0, position), 2);
 	}
 	
 	private VariableReference createArrayElementVariable(TestCase test, ArrayReference arrayRef) {

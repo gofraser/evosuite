@@ -29,16 +29,18 @@ public class FBranchDefUseAnalyzer {
 					// keep track of field method calls, though we do not know
 					// how to handle them at this point during the analysis
 					// (need complete CCFGs first)
-					DefUsePool.addAsFieldMethodCall(v);
+					if (!DefUsePool.isKnownAsFieldMethodCall(v)) {
+						DefUsePool.addAsFieldMethodCall(v);
+					}
 				} else {
 					// keep track of uses
 					try {
-						if (v.isUse()) {
+						if (v.isUse() && !DefUsePool.isKnownAsUse(v)) {
 							boolean success = DefUsePool.addAsUse(v);
-							if (!success) isValid = false;
+							if (!success && !DefUsePool.isKnownAsUse(v)) isValid = false;
 						}
 						// keep track of definitions
-						if (v.isDefinition()) {
+						if (v.isDefinition() && !DefUsePool.isKnownAsDefinition(v)) {
 							DefUsePool.addAsDefinition(v);
 						}
 					} catch (Exception e) {

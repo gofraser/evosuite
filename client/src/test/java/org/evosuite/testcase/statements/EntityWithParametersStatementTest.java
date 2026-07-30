@@ -31,11 +31,18 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class EntityWithParametersStatementTest {
+
+    private static class StringOwner {
+        public static void accept(String value) {
+            // no-op
+        }
+    }
 
     private static class GenericOwner<E> {
         public ArrayList<E> values;
@@ -75,5 +82,22 @@ public class EntityWithParametersStatementTest {
 
         VariableReference candidate = new VariableReferenceImpl(new DefaultTestCase(), arrayListOfStringType);
         assertTrue(candidate.isAssignableTo(fieldType));
+    }
+
+    @Test
+    public void testParametersRemainMutableWhenConstructedFromSingletonList() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Method method = StringOwner.class.getDeclaredMethod("accept", String.class);
+        VariableReference initial = new VariableReferenceImpl(tc, String.class);
+        VariableReference replacement = new VariableReferenceImpl(tc, String.class);
+        MethodStatement statement = new MethodStatement(
+                tc,
+                new GenericMethod(method, StringOwner.class),
+                null,
+                Collections.singletonList(initial));
+
+        statement.replaceParameterReference(replacement, 0);
+
+        assertEquals(replacement, statement.getParameterReferences().get(0));
     }
 }

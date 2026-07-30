@@ -501,6 +501,11 @@ public class TestFactory {
         }
         NullStatement nullStat = (NullStatement) statement;
         Type type = nullStat.getReturnType();
+        Set<Statement> originalStatements =
+                Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Statement existing : test) {
+            originalStatements.add(existing);
+        }
 
         try {
             VariableReference obj = null;
@@ -512,7 +517,7 @@ public class TestFactory {
             } else {
                 String className = type.getTypeName();
                 try {
-                    Class<?> clazz = Class.forName(className, true,
+                    Class<?> clazz = Class.forName(className, false,
                             TestGenerationContext.getInstance().getClassLoaderForSUT());
                     if (clazz.isInterface()) {
                         InheritanceTree inheritanceTree = DependencyAnalysis.getInheritanceTree();
@@ -520,7 +525,7 @@ public class TestFactory {
                         String subclass = Randomness.choice(subclasses);
                         if (subclass != null && !subclass.equals(type.getTypeName())) {
                             try {
-                                Class<?> subClazz = Class.forName(subclass, true,
+                                Class<?> subClazz = Class.forName(subclass, false,
                                         TestGenerationContext.getInstance().getClassLoaderForSUT());
                                 obj = createObject(test, subClazz, nullStat.getPosition(),
                                         GenerationContext.fromDepth(0), null, false, true, true);
@@ -534,8 +539,18 @@ public class TestFactory {
                             // Honor MOCK_IF_NO_GENERATOR / P_FUNCTIONAL_MOCKING: with no reachable
                             // implementation, let the resolver mock the interface itself, subject to
                             // the global mocking policy (so mocks appear only when actually allowed).
+                            VariableResolutionConfig config = new VariableResolutionConfig.Builder()
+                                    .withAllowNull(false)
+                                    .withCanUseMocks(true)
+                                    .withCanReuseExistingVariables(false)
+                                    .withPreferConcreteGenerators(
+                                            Properties.APPLY_OBJECT_RULE
+                                                    && Properties.OBJECT_RULE_PREFER_CONCRETE_FACTORIES
+                                                    && VariableResolver.isObjectRuleEntryConstruction()
+                                                    && isPreferredConcreteFactoryType(clazz))
+                                    .build();
                             obj = createObject(test, type, nullStat.getPosition(),
-                                    GenerationContext.fromDepth(0), null, false, true, false);
+                                    GenerationContext.fromDepth(0), config);
                         }
                     } else {
                         GenericClass<?> claz = GenericClassFactory.get(type);
@@ -546,8 +561,18 @@ public class TestFactory {
                         } else {
                             // Honor the global mock policy for concrete no-generator types too, so
                             // MOCK_IF_NO_GENERATOR applies here as it does elsewhere in generation.
+                            VariableResolutionConfig config = new VariableResolutionConfig.Builder()
+                                    .withAllowNull(false)
+                                    .withCanUseMocks(true)
+                                    .withCanReuseExistingVariables(false)
+                                    .withPreferConcreteGenerators(
+                                            Properties.APPLY_OBJECT_RULE
+                                                    && Properties.OBJECT_RULE_PREFER_CONCRETE_FACTORIES
+                                                    && VariableResolver.isObjectRuleEntryConstruction()
+                                                    && isPreferredConcreteFactoryType(clazz))
+                                    .build();
                             obj = createObject(test, type, nullStat.getPosition(),
-                                    GenerationContext.fromDepth(0), null, false, true, false);
+                                    GenerationContext.fromDepth(0), config);
                         }
                     }
                 } catch (Exception e) {
@@ -560,19 +585,45 @@ public class TestFactory {
                 test.replace(ref, obj);
                 test.remove(nullStat.getPosition());
             } else {
+                rollbackInsertedStatements(test, originalStatements);
                 return false;
             }
-        } catch (ConstructionFailedException e) {
+        } catch (ConstructionFailedException | RuntimeException | AssertionError e) {
+            /*
+             * Object construction is allowed to append helper statements before reporting that
+             * no implementation could be built. Leaving those fragments in the test shifts the
+             * original null and can strand references to an abandoned generated value. Roll back
+             * only statements introduced by this attempt; the original statement identities and
+             * their references remain untouched because replacement happens only after success.
+             */
+            rollbackInsertedStatements(test, originalStatements);
             return false;
         }
 
         return true;
     }
 
+    private static void rollbackInsertedStatements(
+            TestCase test, Set<Statement> originalStatements) {
+        for (int i = test.size() - 1; i >= 0; i--) {
+            if (!originalStatements.contains(test.getStatement(i))) {
+                test.remove(i);
+            }
+        }
+    }
+
     private boolean checkRealArray(String typeName) {
         int index = typeName.indexOf("[");
         String elementType = typeName.substring(0, index);
         return java.util.regex.Pattern.matches("[a-zA-Z.]*", elementType);
+    }
+
+    private static boolean isPreferredConcreteFactoryType(Class<?> type) {
+        String name = type.getName();
+        return "java.nio.file.Path".equals(name)
+                || "java.nio.charset.Charset".equals(name)
+                || "java.net.URI".equals(name)
+                || "java.io.File".equals(name);
     }
 
     /**
@@ -1819,7 +1870,7 @@ public class TestFactory {
                 }
                 if (!var.isAssignableTo(parameterType)) {
                     String message = var + " cannot be assigned to " + parameterType;
-                    throwCannotAssignIfNeeded(message, test, position, parameterType, var);
+                    logCannotAssignDiagnostic(message, test, position, parameterType, var);
                     throw new ConstructionFailedException(message);
                 }
             }
@@ -1875,7 +1926,15 @@ public class TestFactory {
     }
 
     /**
-     * Throws an IllegalStateException if a variable cannot be assigned to an expected type.
+     * Logs the complete diagnostic context when a generated variable cannot be assigned to an
+     * expected type.
+     *
+     * <p>A generic generator can legitimately become incompatible after its type variables are
+     * instantiated (for example {@code Supplier<Optional<Boolean>>} while constructing
+     * {@code Supplier<? extends Optional<? extends String>>}). This is a failed construction
+     * candidate, not a broken search. Every caller follows this method by throwing
+     * {@link ConstructionFailedException}, which rolls back the speculative statements. Do not
+     * turn that recoverable rejection into an unchecked client-wide failure.</p>
      *
      * @param message the error message
      * @param test the test case
@@ -1883,8 +1942,8 @@ public class TestFactory {
      * @param expectedType the expected type
      * @param actualVar the actual variable
      */
-    static void throwCannotAssignIfNeeded(String message, TestCase test, int position, Type expectedType,
-                                                  VariableReference actualVar) {
+    static void logCannotAssignDiagnostic(String message, TestCase test, int position, Type expectedType,
+                                          VariableReference actualVar) {
         if (actualVar != null && isClassLiteralAssignableByErasure(expectedType, actualVar.getType())) {
             return;
         }
@@ -1896,7 +1955,7 @@ public class TestFactory {
                     .append("\nActual var: ").append(actualVar)
                     .append("\nActual var type: ").append(actualVar == null ? "null" : actualVar.getType())
                     .append("\nTest:\n").append(test.toCode());
-            throw new IllegalStateException(diagnostic.toString());
+            logger.debug(diagnostic.toString());
         }
     }
 

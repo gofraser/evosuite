@@ -800,7 +800,8 @@ public class StatementFactory {
         Type expectedAssignmentType = testFactory.normalizeTypeVariablesToWildcardsIfNeeded(f.getType());
         if (!var.isAssignableTo(expectedAssignmentType)) {
             String message = var + " cannot be assigned to " + expectedAssignmentType;
-            testFactory.throwCannotAssignIfNeeded(message, test, position, expectedAssignmentType, var);
+            testFactory.logCannotAssignDiagnostic(
+                    message, test, position, expectedAssignmentType, var);
             throw new ConstructionFailedException(message);
         }
 
@@ -842,7 +843,8 @@ public class StatementFactory {
         Type expectedAssignmentType = testFactory.normalizeTypeVariablesToWildcardsIfNeeded(field.getFieldType());
         if (!value.isAssignableTo(expectedAssignmentType)) {
             String message = value + " cannot be assigned to " + expectedAssignmentType;
-            testFactory.throwCannotAssignIfNeeded(message, test, position, expectedAssignmentType, value);
+            testFactory.logCannotAssignDiagnostic(
+                    message, test, position, expectedAssignmentType, value);
             throw new ConstructionFailedException(message);
         }
 

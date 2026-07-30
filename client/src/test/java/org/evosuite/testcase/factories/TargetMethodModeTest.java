@@ -45,9 +45,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Milestone M1 (method-level targeting): with {@code Properties.TARGET_METHOD}
- * set and the object rule enabled, a generated test calls the target method and
- * that call is protected from deletion. All behaviour is a no-op unless both the
- * object rule is enabled and {@code TARGET_METHOD} is set.
+ * set and the object rule enabled, entry construction can force the target method.
+ * Ordinary mutation remains unchanged so an inert or rejected object-rule attempt
+ * cannot alter baseline search.
  */
 public class TargetMethodModeTest {
 
@@ -66,6 +66,7 @@ public class TargetMethodModeTest {
     private final String savedTargetClass = Properties.TARGET_CLASS;
     private final boolean savedObjectRule = Properties.APPLY_OBJECT_RULE;
     private final boolean savedSortCalls = Properties.SORT_CALLS;
+    private final double savedObjectRuleProbability = Properties.P_OBJECT_RULE_APPLICATION;
 
     @AfterEach
     public void restoreProperties() {
@@ -73,6 +74,7 @@ public class TargetMethodModeTest {
         Properties.TARGET_CLASS = savedTargetClass;
         Properties.APPLY_OBJECT_RULE = savedObjectRule;
         Properties.SORT_CALLS = savedSortCalls;
+        Properties.P_OBJECT_RULE_APPLICATION = savedObjectRuleProbability;
     }
 
     private static GenericMethod targetGenericMethod() throws Exception {
@@ -152,17 +154,14 @@ public class TargetMethodModeTest {
     }
 
     @Test
-    public void targetCallIsProtectedFromDeletion() throws Exception {
+    public void targetCallRemainsDeletableDuringOrdinaryMutation() throws Exception {
         selectTarget();
         DefaultTestCase tc = new DefaultTestCase();
         int targetPos = appendTargetCall(tc);
 
         TestFactory factory = TestFactory.getInstance();
-        // Deleting the target call itself is refused.
-        assertFalse(factory.deleteStatement(tc, targetPos));
-        // Deleting a statement the target depends on is refused too (cascade).
-        assertFalse(factory.deleteStatement(tc, 0));
-        assertNotNull(tc.findTargetMethodCallStatement());
+        assertTrue(factory.deleteStatement(tc, targetPos),
+                "EvoObj must not install a global mutation policy for ordinary tests");
     }
 
     @Test
@@ -208,6 +207,45 @@ public class TargetMethodModeTest {
 
         assertTrue(sawNonTarget,
                 "with the object rule disabled, getRandomTestCall must not force the target method");
+    }
+
+    @Test
+    public void inertObjectRuleDoesNotChangeOrdinaryTestCallSelection() throws Exception {
+        TestCluster.reset();
+        TestCluster cluster = TestCluster.getInstance();
+        cluster.addTestCall(targetGenericMethod());
+        cluster.addTestCall(otherGenericMethod());
+        Properties.TARGET_CLASS = Target.class.getName();
+        Properties.TARGET_METHOD = targetGenericMethod().getNameWithDescriptor();
+        Properties.P_OBJECT_RULE_APPLICATION = 0.0;
+        Properties.SORT_CALLS = false;
+
+        Randomness.setSeed(73L);
+        Properties.APPLY_OBJECT_RULE = false;
+        List<String> baseline = randomCallSequence(cluster, 20);
+        long baselineNextRandom = Randomness.nextLong();
+
+        Randomness.setSeed(73L);
+        Properties.APPLY_OBJECT_RULE = true;
+        List<String> inertEvoObj = randomCallSequence(cluster, 20);
+        long evoObjNextRandom = Randomness.nextLong();
+        TestCluster.reset();
+
+        assertEquals(baseline, inertEvoObj,
+                "ordinary call selection must not inherit EvoObj target forcing");
+        assertEquals(baselineNextRandom, evoObjNextRandom,
+                "ordinary call selection must consume the baseline RNG stream");
+    }
+
+    private static List<String> randomCallSequence(TestCluster cluster, int count)
+            throws Exception {
+        List<String> result = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            GenericAccessibleObject<?> call =
+                    cluster.getRandomTestCall(new DefaultTestCase());
+            result.add(call == null ? "<null>" : call.toString());
+        }
+        return result;
     }
 
     @Test

@@ -164,18 +164,16 @@ public class Properties {
             description = "How deep the call hierarchy is analyzed when constructing the object construction graph")
     public static int COMPUTATION_GRAPH_METHOD_CALL_DEPTH = 5;
 
+    @Parameter(key = "object_rule_analysis_timeout", group = "Test Creation",
+            description = "Maximum milliseconds spent analyzing one entry method on demand in whole-class EvoObj mode (0 disables the limit)")
+    @IntValue(min = 0)
+    public static int OBJECT_RULE_ANALYSIS_TIMEOUT = 2000;
+
     /**
      * Depth of the intra-class call-chain search when looking for a field's setter during EvoObj
      * template synthesis (see). Constant, not user-facing.
      */
     public static int FIELD_SETTER_SEARCH_DEPTH = 3;
-
-    /**
-     * Internal (not user-facing) switch that allows CFG/branch registration for classes
-     * outside the instrumented scope during EvoObj analysis. Toggled around forced CFG
-     * registration and always restored to {@code false} afterwards.
-     */
-    public static boolean ALWAYS_REGISTER_BRANCH = false;
 
     @Parameter(key = "individual_legitimization_budget", group = "Test Creation",
             description = "Per-template time budget (in seconds) for EvoObj legitimization")
@@ -203,54 +201,50 @@ public class Properties {
                     + "branch is negatively cached for the rest of the run")
     public static int OBJECT_RULE_MAX_FAILED_ATTEMPTS = 3;
 
-    @Parameter(key = "object_rule_frontier_targeting", group = "Test Creation",
-            description = "In DynaMOSA, select EvoObj working branches from the current frontier "
-                    + "goals when possible instead of uniformly across all archive-uncovered branches")
-    public static boolean OBJECT_RULE_FRONTIER_TARGETING = false;
-
     @Parameter(key = "object_rule_expanded_entries", group = "Test Creation",
             description = "Allow EvoObj whole-class mode to use expanded branch entry points such "
-                    + "as constructors. Off by default until benchmarked")
-    public static boolean OBJECT_RULE_EXPANDED_ENTRIES = false;
-
-    @Parameter(key = "object_rule_reflection_fallback", group = "Test Creation",
-            description = "When an EvoObj leaf field has no reachable public setter, set it via "
-                    + "reflection (PrivateFieldStatement) instead of leaving the template incomplete")
-    public static boolean OBJECT_RULE_REFLECTION_FALLBACK = false;
+                    + "as constructors and static factories")
+    public static boolean OBJECT_RULE_EXPANDED_ENTRIES = true;
 
     @Parameter(key = "object_rule_slot_bias", group = "Test Creation",
             description = "Bias mutation toward the primitive 'slots' created by EvoObj template "
                     + "synthesis, so the search tunes template values more often")
     public static boolean OBJECT_RULE_SLOT_BIAS = true;
 
-    @Parameter(key = "object_rule_slot_tuning", group = "Test Creation",
-            description = "When a fresh EvoObj template reaches the target call but misses the "
-                    + "working branch, try a bounded number of primitive-slot mutations before "
-                    + "the template enters the population")
-    public static boolean OBJECT_RULE_SLOT_TUNING = false;
-
-    @Parameter(key = "object_rule_slot_tuning_attempts", group = "Test Creation",
-            description = "Maximum number of in-place primitive-slot tuning executions per eligible "
-                    + "fresh EvoObj template")
-    public static int OBJECT_RULE_SLOT_TUNING_ATTEMPTS = 3;
-
-    @Parameter(key = "object_rule_variant_injections", group = "Test Creation",
-            description = "After an EvoObj template injection in a generation, allow later "
-                    + "new-test slots in that same generation to receive a slot-mutated clone "
-                    + "instead of a fresh random test")
-    public static boolean OBJECT_RULE_VARIANT_INJECTIONS = false;
-
-    @Parameter(key = "object_rule_structural_legitimization", group = "Test Creation",
-            description = "During EvoObj legitimization, also mutate the object-construction path "
-                    + "(insert/replace method calls that build the receiver), not just primitive and "
-                    + "null slots. Lets the legitimizer escape failures that no primitive value can "
-                    + "fix; every mutated test is re-checked for consistency before use")
-    public static boolean OBJECT_RULE_STRUCTURAL_LEGITIMIZATION = false;
-
     @Parameter(key = "object_rule_whole_class", group = "Test Creation",
             description = "Apply EvoObj without -Dtarget_method: derive the entry method per branch "
                     + "from the branch's own (public/protected) containing method")
     public static boolean OBJECT_RULE_WHOLE_CLASS = false;
+
+    @Parameter(key = "object_rule_graph_diagnostics", group = "Test Creation",
+            description = "Write diagnostic-only per-branch object-construction graph and "
+                    + "synthesis-attempt records as JSONL under report_dir. Disabled by default; "
+                    + "diagnostic I/O is best-effort and never affects test generation")
+    public static boolean OBJECT_RULE_GRAPH_DIAGNOSTICS = false;
+
+    @Parameter(key = "object_rule_prefer_concrete_factories", group = "Test Creation",
+            description = "During EvoObj synthesis, prefer reachable concrete factories for "
+                    + "environment/value types such as Path and Charset over functional mocks")
+    public static boolean OBJECT_RULE_PREFER_CONCRETE_FACTORIES = true;
+
+    @Parameter(key = "object_rule_mock_setup", group = "Test Creation",
+            description = "When an EvoObj template fails after invoking an unstubbed functional "
+                    + "mock method, synthesize bounded return-value stubs and retry conditionally. "
+                    + "Enabled by default: repair is considered only for functional mocks already "
+                    + "needed to construct the template, and extra executions remain bounded by "
+                    + "object_rule_setup_max_extra_executions")
+    public static boolean OBJECT_RULE_MOCK_SETUP = true;
+
+    @Parameter(key = "object_rule_mock_setup_max_failed_attempts", group = "Test Creation",
+            description = "Stop retrying the same observed functional-mock setup recipe after "
+                    + "this many executions failed to improve the template")
+    @IntValue(min = 1)
+    public static int OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS = 3;
+
+    @Parameter(key = "object_rule_setup_max_extra_executions", group = "Test Creation",
+            description = "Maximum conditional setup-repair executions per fresh EvoObj synthesis")
+    @IntValue(min = 0)
+    public static int OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS = 1;
 
     @Parameter(key = "object_rule_legitimization", group = "Test Creation",
             description = "Run the EvoObj legitimizer to repair a synthesized template that throws "
@@ -260,12 +254,6 @@ public class Properties {
                     + "coverage versus pure synthesis (it spends the search budget driving templates to "
                     + "reach calls that are typically blocked by environment-infeasible branches)")
     public static boolean OBJECT_RULE_LEGITIMIZATION = false;
-
-    @Parameter(key = "construction_fitness", group = "Test Creation",
-            description = "Grade METHODNOEXCEPTION goals with an object-construction distance (EvoObj "
-                    + "E9), giving the search a gradient toward successfully calling a method. Only "
-                    + "meaningful when METHODNOEXCEPTION is among the criteria")
-    public static boolean CONSTRUCTION_FITNESS = false;
 
     /**
      * Number of legitimization iterations during which the mutation-position discriminator keeps
@@ -3197,6 +3185,11 @@ public class Properties {
     @Parameter(key = "timeout", group = "Test Execution",
             description = "Milliseconds allowed to execute the body of a test")
     public static int TIMEOUT = 3000;
+
+    @Parameter(key = "runtime_bootstrap_grace_timeout", group = "Test Execution",
+            description = "Additional uninterrupted grace time in milliseconds when a test timeout "
+                    + "occurs inside a recognized dynamic-runtime bootstrap")
+    public static int RUNTIME_BOOTSTRAP_GRACE_TIMEOUT = 10000;
 
     @Parameter(key = "timeout_reset", group = "Test Execution",
             description = "Milliseconds allowed to execute the static reset of a test")

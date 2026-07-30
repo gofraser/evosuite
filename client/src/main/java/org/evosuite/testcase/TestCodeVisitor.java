@@ -812,8 +812,13 @@ public class TestCodeVisitor extends TestVisitor {
         // builds diagnostics via Statement#getCode(), which re-enters this visitor and
         // can recurse indefinitely while we are already rendering code.
         for (int i = 0; i < test.size(); i++) {
+            if (test.getStatement(i).getReturnValue() == variableReference) {
+                return i;
+            }
+        }
+        for (int i = 0; i < test.size(); i++) {
             VariableReference candidate = test.getStatement(i).getReturnValue();
-            if (candidate == variableReference || candidate.equals(variableReference)) {
+            if (candidate != null && candidate.equals(variableReference)) {
                 return i;
             }
         }
@@ -1999,6 +2004,14 @@ public class TestCodeVisitor extends TestVisitor {
         ParameterizedType declared = (ParameterizedType) declaredParamType;
         ParameterizedType actual = (ParameterizedType) actualParamType;
         if (declared.equals(actual)) {
+            return false;
+        }
+        // A parameterized subtype with compatible arguments is directly convertible to the
+        // declared type (eg LinkedHashSet<Single> -> Iterable<Single>). Erasing that cast is not
+        // merely unnecessary: for static generic factories whose return variable is inferred from
+        // the assignment target, a raw argument invocation erases the return to its upper bound.
+        // That produces uncompilable code such as `Compound c = coalesce((Iterable) values)`.
+        if (TypeUtils.isAssignable(actual, declared)) {
             return false;
         }
         Class<?> declaredRaw = safeErasure(declared);
@@ -3306,7 +3319,10 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
         String declarationVarName = getDeclarationVariableName(retval);
-        boolean isGenericMethod = method.hasTypeParameters();
+        // An instantiated GenericMethod may have no unresolved type parameters left, while the
+        // underlying Java invocation is still generic and subject to raw-invocation erasure.
+        boolean isGenericMethod = method.hasTypeParameters()
+                || method.getMethod().getTypeParameters().length > 0;
         String declarationTypeName = getMethodReturnDeclarationType(method, retval);
         if (exception != null && !statement.isDeclaredException(exception)) {
             result += "// Undeclared exception!" + NEWLINE;
@@ -3339,6 +3355,8 @@ public class TestCodeVisitor extends TestVisitor {
         Type[] renderedParameterTypes = forceRawReceiverInvocation
                 ? method.getMethod().getParameterTypes()
                 : method.getParameterTypes();
+        renderedParameterTypes = preserveConcreteGenericParameterDeclarations(
+                method, renderedParameterTypes);
         Type parameterRenderingOwnerType = forceRawReceiverInvocation
                 ? method.getMethod().getDeclaringClass()
                 : ownerTypeForParameterRendering;
@@ -3357,7 +3375,8 @@ public class TestCodeVisitor extends TestVisitor {
                 || requiresReturnValueCastForRawReceiver(statement, method, retval)
                 || requiresReturnCastDueToRawParameterCast(isGenericMethod, renderedParameterTypes, parameters, method, retval))
                 || (forceRawReceiverInvocation
-                && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType())))
+                && dependsOnGenericTypeInformation(method.getMethod().getGenericReturnType()))
+                || requiresStaticGenericReturnCast(method, retval))
                 && !retval.getVariableClass().isAnonymousClass()
                 // Static generic methods are a special case where we shouldn't add a cast
                 && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic());
@@ -3474,6 +3493,73 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    private boolean requiresStaticGenericReturnCast(GenericMethod method, VariableReference retval) {
+        if (method == null || retval == null || !method.isStatic()) {
+            return false;
+        }
+        Type genericReturn = method.getMethod().getGenericReturnType();
+        if (!dependsOnGenericTypeInformation(genericReturn)) {
+            return false;
+        }
+        Class<?> erasedReturn = method.getMethod().getReturnType();
+        Class<?> renderedReturn = retval.getVariableClass();
+        return erasedReturn != null && renderedReturn != null
+                && !erasedReturn.equals(renderedReturn)
+                && erasedReturn.isAssignableFrom(renderedReturn);
+    }
+
+    /**
+     * Generic return-type instantiation can occasionally over-specialize an unrelated parameter
+     * to the concrete argument class. In particular, a class implementing a raw generic interface
+     * can replace a declaration such as {@code Iterable<Single>} with the raw implementation type.
+     * Rendering that invocation as raw erases a method-level generic return to its upper bound.
+     * Restore reflective parameterized declarations that are already fully concrete; declarations
+     * containing method/owner variables still need the normal instantiated types.
+     */
+    private Type[] preserveConcreteGenericParameterDeclarations(GenericMethod method,
+                                                                  Type[] renderedTypes) {
+        if (method == null || renderedTypes == null
+                || (method.getMethod().getTypeParameters().length == 0
+                && !method.hasTypeParameters())) {
+            return renderedTypes;
+        }
+        Type[] declaredTypes = method.getMethod().getGenericParameterTypes();
+        if (declaredTypes.length != renderedTypes.length) {
+            return renderedTypes;
+        }
+        Type[] result = renderedTypes.clone();
+        for (int i = 0; i < declaredTypes.length; i++) {
+            Type declared = declaredTypes[i];
+            if (declared instanceof ParameterizedType
+                    && !containsUnresolvedTypeComponent(declared)
+                    && !(renderedTypes[i] instanceof ParameterizedType)) {
+                result[i] = declared;
+            }
+        }
+        return result;
+    }
+
+    private boolean containsUnresolvedTypeComponent(Type type) {
+        if (type instanceof TypeVariable || type instanceof WildcardType || type instanceof CaptureType) {
+            return true;
+        }
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterized = (ParameterizedType) type;
+            for (Type argument : parameterized.getActualTypeArguments()) {
+                if (containsUnresolvedTypeComponent(argument)) {
+                    return true;
+                }
+            }
+            return parameterized.getOwnerType() != null
+                    && containsUnresolvedTypeComponent(parameterized.getOwnerType());
+        }
+        if (type instanceof GenericArrayType) {
+            return containsUnresolvedTypeComponent(
+                    ((GenericArrayType) type).getGenericComponentType());
+        }
+        return false;
     }
 
     private boolean shouldForceRawReceiverInvocation(MethodStatement statement,

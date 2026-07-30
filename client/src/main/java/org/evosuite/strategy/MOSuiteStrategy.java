@@ -127,6 +127,11 @@ public class MOSuiteStrategy extends TestGenerationStrategy {
             ExecutionTracer.enableTraceCalls();
         }
 
+        // EvoObj eligibility discovery can expand interprocedural graphs for the complete target
+        // class. Keep that deterministic preparation in INITIALIZATION so graphless targets do not
+        // lose a portion of their effective evolutionary-search budget.
+        algorithm.prepareSearch();
+
         algorithm.resetStoppingConditions();
 
         TestSuiteChromosome testSuite;

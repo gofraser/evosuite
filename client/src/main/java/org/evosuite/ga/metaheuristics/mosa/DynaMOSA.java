@@ -20,8 +20,6 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
-import org.evosuite.coverage.branch.Branch;
-import org.evosuite.coverage.branch.BranchFitness;
 import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
@@ -63,43 +61,6 @@ public class DynaMOSA extends AbstractMOSA {
      */
     public DynaMOSA(ChromosomeFactory<TestChromosome> factory) {
         super(factory);
-    }
-
-    @Override
-    protected List<Branch> objectRuleCandidateBranches() {
-        List<Branch> fullUncovered = super.objectRuleCandidateBranches();
-        if (!Properties.OBJECT_RULE_FRONTIER_TARGETING || goalsManager == null) {
-            return fullUncovered;
-        }
-        List<Branch> frontier = frontierCandidateBranches(fullUncovered, goalsManager.getCurrentGoals());
-        return frontier.isEmpty() ? fullUncovered : frontier;
-    }
-
-    static List<Branch> frontierCandidateBranches(Collection<Branch> fullUncovered,
-                                                  Collection<TestFitnessFunction> currentGoals) {
-        if (fullUncovered == null || fullUncovered.isEmpty()
-                || currentGoals == null || currentGoals.isEmpty()) {
-            return Collections.emptyList();
-        }
-        Set<Branch> currentBranches = new LinkedHashSet<>();
-        for (TestFitnessFunction goal : currentGoals) {
-            if (goal instanceof BranchFitness) {
-                Branch branch = ((BranchFitness) goal).getBranchGoal().getBranch();
-                if (branch != null) {
-                    currentBranches.add(branch);
-                }
-            }
-        }
-        if (currentBranches.isEmpty()) {
-            return Collections.emptyList();
-        }
-        List<Branch> intersection = new ArrayList<>();
-        for (Branch branch : fullUncovered) {
-            if (currentBranches.contains(branch)) {
-                intersection.add(branch);
-            }
-        }
-        return intersection;
     }
 
     /**

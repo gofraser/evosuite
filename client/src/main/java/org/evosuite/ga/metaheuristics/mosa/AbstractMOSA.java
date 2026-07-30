@@ -20,15 +20,17 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties.SelectionFunction;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
+import org.evosuite.testcase.synthesizer.ObjectConstructionGraphDiagnostics;
 import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
 import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness;
-import org.evosuite.testcase.factories.RandomLengthTestFactory;
+import org.evosuite.testcase.factories.ObjectRuleSession;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
@@ -198,6 +200,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * instance, only re-evaluate suite tests if LS was actually applied.
      */
     private boolean lastLocalSearchScheduled;
+
+    /**
+     * Set after lazy discovery has classified the complete uncovered branch set and found no
+     * usable OCG. In that case EvoObj must be behaviorally close to baseline instead of rebuilding
+     * branch maps and scanning candidates in every remaining generation.
+     */
+    private transient boolean objectRulePermanentlyInert;
 
     /**
      * Pending LS-produced tests to be injected into the next generation's
@@ -646,7 +655,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         List<Branch> uncoveredBranches = null;
         List<Branch> candidateBranches = null;
         Map<Branch, List<BranchCoverageTestFitness>> uncoveredGoalsByBranch = null;
-        if (Properties.APPLY_OBJECT_RULE) {
+        boolean objectRuleActive =
+                Properties.APPLY_OBJECT_RULE && !objectRulePermanentlyInert;
+        if (objectRuleActive) {
             uncoveredGoalsByBranch = objectRuleUncoveredGoalsByBranch();
             uncoveredBranches = new ArrayList<>(uncoveredGoalsByBranch.keySet());
             candidateBranches = objectRuleCandidateBranches();
@@ -659,12 +670,24 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 // EvoObj: target an uncovered branch goal with the object-construction template for
                 // this newly generated test. ObjectRuleBranchSelector restricts the choice to
                 // branches with a non-empty object graph and drops repeatedly-failing ones.
-                if (Properties.APPLY_OBJECT_RULE) {
-                    RandomLengthTestFactory.setCurrentIteration(this.currentIteration);
-                    RandomLengthTestFactory.workingBranch4ObjectGraph =
+                if (objectRuleActive) {
+                    Branch workingBranch =
                             ObjectRuleBranchSelector.getInstance().selectWorkingBranch(candidateBranches);
-                    RandomLengthTestFactory.workingGoals4ObjectGraph = objectRuleWorkingGoals(
-                            RandomLengthTestFactory.workingBranch4ObjectGraph, uncoveredGoalsByBranch);
+                    ObjectRuleSession session =
+                            TestGenerationContext.getInstance().getObjectRuleSession();
+                    session.setWorkingTarget(
+                            this.currentIteration,
+                            workingBranch,
+                            objectRuleWorkingGoals(workingBranch, uncoveredGoalsByBranch));
+                    if (workingBranch == null
+                            && !ObjectRuleBranchSelector.getInstance()
+                                    .hasPotentialCandidate(uncoveredBranches)) {
+                        // The complete uncovered set, not merely the current DynaMOSA frontier,
+                        // has now been classified and contains no usable graph. From this point on
+                        // EvoObj must be transparent regardless of the frontier-targeting setting.
+                        objectRulePermanentlyInert = true;
+                        objectRuleActive = false;
+                    }
                 }
                 tch = this.chromosomeFactory.getChromosome();
                 tch.setChanged(true);
@@ -711,6 +734,44 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
         }
         return uncoveredGoalsByBranch;
+    }
+
+    /**
+     * Pre-computes whole-class object-rule eligibility before the search timer starts.
+     *
+     * <p>Eligibility discovery can trigger interprocedural analysis for every branch. Performing
+     * that work lazily in the first generation penalized graphless classes such as Event even
+     * though no template was ever injected. The fitness functions are already installed when the
+     * strategy invokes this hook, so they provide the complete branch search space without needing
+     * a population or archive state.</p>
+     */
+    @Override
+    public void prepareSearch() {
+        if (!Properties.APPLY_OBJECT_RULE) {
+            return;
+        }
+
+        LinkedHashSet<Branch> branches = new LinkedHashSet<>();
+        for (FitnessFunction<TestChromosome> fitness : this.fitnessFunctions) {
+            if (fitness instanceof BranchCoverageTestFitness) {
+                Branch branch = ((BranchCoverageTestFitness) fitness).getBranchGoal().getBranch();
+                if (branch != null) {
+                    branches.add(branch);
+                }
+            }
+        }
+
+        long started = System.currentTimeMillis();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+        selector.prepareEligibility(branches);
+        objectRulePermanentlyInert = !selector.hasPotentialCandidate(branches);
+        long elapsed = System.currentTimeMillis() - started;
+        ObjectConstructionGraphDiagnostics.recordPreparationSummary(
+                branches.size(), selector.getEverEligibleCount(),
+                objectRulePermanentlyInert, elapsed);
+        LoggingUtils.getEvoLogger().info(
+                "* Prepared EvoObj eligibility for {} branches in {} ms (eligible={}, inert={})",
+                branches.size(), elapsed, selector.getEverEligibleCount(), objectRulePermanentlyInert);
     }
 
     private static List<BranchCoverageTestFitness> objectRuleWorkingGoals(Branch branch,

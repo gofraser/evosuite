@@ -46,6 +46,17 @@ public class Randomness implements Serializable {
 
     private static Randomness instance = new Randomness();
 
+    /** Opaque snapshot of the deterministic search RNG, used for reversible speculative work. */
+    public static final class State {
+        private final Random random;
+        private final long seed;
+
+        private State(Random random, long seed) {
+            this.random = random;
+            this.seed = seed;
+        }
+    }
+
     private Randomness() {
         Long seedParameter = Properties.RANDOM_SEED;
         if (seedParameter != null) {
@@ -219,6 +230,27 @@ public class Randomness implements Serializable {
      */
     public static long getSeed() {
         return seed;
+    }
+
+    /**
+     * Captures the exact generator state without consuming a random value. EvoSuite always uses
+     * {@link MersenneTwister}, whose clone includes the full state vector and Gaussian cache.
+     */
+    public static State snapshot() {
+        try {
+            return new State((Random) ((MersenneTwister) random).clone(), seed);
+        } catch (CloneNotSupportedException | ClassCastException e) {
+            throw new IllegalStateException("Cannot snapshot EvoSuite random generator", e);
+        }
+    }
+
+    /** Restores a state returned by {@link #snapshot()}. */
+    public static void restore(State state) {
+        if (state == null) {
+            throw new IllegalArgumentException("Random state must not be null");
+        }
+        random = state.random;
+        seed = state.seed;
     }
 
     /**

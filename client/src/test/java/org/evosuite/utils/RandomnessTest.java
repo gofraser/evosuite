@@ -34,6 +34,26 @@ import static org.junit.jupiter.api.Assertions.*;
 public class RandomnessTest {
 
     @Test
+    public void testSnapshotRestoresExactSequence() {
+        Randomness.State original = Randomness.snapshot();
+        try {
+            Randomness.setSeed(987654321L);
+            Randomness.nextInt();
+            Randomness.State state = Randomness.snapshot();
+            double expectedDouble = Randomness.nextDouble();
+            int expectedInt = Randomness.nextInt();
+
+            Randomness.restore(state);
+
+            assertEquals(expectedDouble, Randomness.nextDouble(), 0.0);
+            assertEquals(expectedInt, Randomness.nextInt());
+            assertEquals(987654321L, Randomness.getSeed());
+        } finally {
+            Randomness.restore(original);
+        }
+    }
+
+    @Test
     public void testChoiceList() {
         List<String> list = Arrays.asList("a", "b", "c");
         String choice = Randomness.choice(list);

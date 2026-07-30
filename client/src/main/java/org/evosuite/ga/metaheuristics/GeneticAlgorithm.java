@@ -775,6 +775,17 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
     public abstract void initializePopulation();
 
     /**
+     * Performs optional analysis that must be completed before the effective search budget starts.
+     *
+     * <p>The default implementation is a no-op. Search algorithms with expensive, deterministic
+     * preparation can override this hook; strategies invoke it while the client is still in its
+     * initialization phase.</p>
+     */
+    public void prepareSearch() {
+        // Default: no pre-search analysis required.
+    }
+
+    /**
      * {@inheritDoc}
      *
      * <p>Generate solution.

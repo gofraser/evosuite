@@ -124,6 +124,11 @@ class ClassReInitializeExecutor {
     }
 
     private void resetClass(String className) {
+        if (shouldSkipInfrastructureReset(className)) {
+            logger.debug("Skipping static reset of shared logging infrastructure {}", className);
+            return;
+        }
+
         if (hardTimedOutClasses.contains(className)) {
             logger.debug("Skipping reset of {} — previously hard-timed out in this run", className);
             return;
@@ -327,6 +332,26 @@ class ClassReInitializeExecutor {
         }
 
         return false;
+    }
+
+    /**
+     * Logging implementations are process-wide infrastructure shared by the SUT, Mockito,
+     * instrumentation, and EvoSuite itself. Replaying their synthetic {@code __STATIC_RESET}
+     * methods can clear lazy singleton factories while another library is being loaded. Besides
+     * violating the libraries' lifecycle assumptions, resetting Netty's InternalLoggerFactory
+     * has been observed to crash HotSpot in monitor bookkeeping during subsequent Jackson
+     * instrumentation. Keep these dependencies stable, while still allowing a logging class to
+     * be reset when it is itself the class under test.
+     */
+    static boolean shouldSkipInfrastructureReset(String className) {
+        if (className == null || className.equals(Properties.TARGET_CLASS)) {
+            return false;
+        }
+        return className.startsWith("io.netty.util.internal.logging.")
+                || className.startsWith("org.slf4j.")
+                || className.startsWith("ch.qos.logback.")
+                || className.startsWith("org.apache.logging.log4j.")
+                || className.startsWith("org.apache.log4j.");
     }
 
     private static boolean isInTargetProjectScope(String className) {

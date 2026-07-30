@@ -29,6 +29,8 @@ import org.evosuite.ga.stoppingconditions.MaxTestsStoppingCondition;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -41,6 +43,10 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class StatisticsListener<T extends Chromosome<T>> implements SearchListener<T> {
 
     private static final long serialVersionUID = -8229756367168023616L;
+
+    private static final Logger logger = LoggerFactory.getLogger(StatisticsListener.class);
+
+    private static final long FINAL_OUTPUT_VARIABLE_TIMEOUT_MILLIS = 10_000L;
 
     private final BlockingQueue<T> individuals;
 
@@ -127,7 +133,8 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         }
         if (Properties.APPLY_OBJECT_RULE) {
             // EvoObj object-rule statistics.
-            org.evosuite.testcase.factories.RandomLengthTestFactory.trackObjectRuleStatistics();
+            org.evosuite.testcase.factories.ObjectRuleStatisticsReporter.publish(
+                    org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession());
         }
         done = true;
         if (notifier != null) {
@@ -137,6 +144,10 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
                 notifier.interrupt();
                 Thread.currentThread().interrupt();//interrupted flag was reset
             }
+        }
+        if (!ClientServices.getInstance().getClientNode()
+                .awaitPendingOutputVariables(FINAL_OUTPUT_VARIABLE_TIMEOUT_MILLIS)) {
+            logger.warn("Timed out waiting for final output variables to reach the master process");
         }
     }
 

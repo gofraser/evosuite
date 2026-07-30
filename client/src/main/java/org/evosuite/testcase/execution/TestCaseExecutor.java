@@ -690,23 +690,39 @@ public class TestCaseExecutor implements ThreadFactory {
             // grace branch first. Forcing TimeoutExceeded inside <clinit> can
             // poison class initialization and block later static reads.
             boolean initialInStaticInit = isInStaticInit();
-            ExecutionTracer.setKillSwitch(!initialInStaticInit);
+            boolean initialInRuntimeBootstrap = !initialInStaticInit && isInRuntimeBootstrap();
+            boolean initialInProtectedBootstrap = initialInStaticInit || initialInRuntimeBootstrap;
+            ExecutionTracer.setKillSwitch(!initialInProtectedBootstrap);
             if (initialInStaticInit) {
                 logger.info("Timeout happened inside <clinit>; entering grace handling before kill switch.");
+            } else if (initialInRuntimeBootstrap) {
+                logger.info("Timeout happened during dynamic-runtime bootstrap; granting up to {}ms "
+                                + "of uninterrupted grace time.",
+                        Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT);
             }
 
             // Interrupt immediately only when not in <clinit>. If we interrupt
             // during static initialization, LoopCounter.checkLoop() can convert
             // the interrupt into TooManyResourcesException, which then poisons
             // class initialization (NoClassDefFoundError on subsequent access).
-            if (currentThread != null && !initialInStaticInit) {
+            if (currentThread != null && !initialInProtectedBootstrap) {
                 currentThread.interrupt();
             } else if (initialInStaticInit) {
                 logger.info("Deferring thread interrupt while <clinit> grace handling is active.");
+            } else if (initialInRuntimeBootstrap) {
+                logger.info("Deferring thread interrupt while dynamic-runtime bootstrap grace is active.");
             }
             waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
 
             if (needsTimeoutCleanup(handler)) {
+                if (initialInRuntimeBootstrap && Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT > 0) {
+                    ExecutionTracer.setKillSwitch(false);
+                    waitForLastTask(handler, Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT);
+                    if (!needsTimeoutCleanup(handler)) {
+                        logger.info("Dynamic-runtime bootstrap completed during grace time.");
+                    }
+                }
+
                 // If the thread is in a static initializer or classloading, let it finish:
                 // throwing inside <clinit> would leave the class broken.
                 boolean loopCounter = LoopCounter.getInstance().isActivated();
@@ -787,7 +803,10 @@ public class TestCaseExecutor implements ThreadFactory {
 
             waitForTimeoutExitGracePeriod(handler);
 
-            if (needsTimeoutCleanup(handler)) {
+            boolean workerStillExecutingAfterCancellation = currentThread != null
+                    && currentThread.isAlive() && isThreadStuckInSutCode(currentThread);
+            if (shouldForceStopAfterCancellation(needsTimeoutCleanup(handler),
+                    workerStillExecutingAfterCancellation)) {
                 logger.warn("Run still not finished, thread {} is stuck at:",
                         currentThread == null ? "<null>" : currentThread.getName());
                 if (currentThread != null) {
@@ -953,12 +972,24 @@ public class TestCaseExecutor implements ThreadFactory {
         if (executor != null) {
             executor.shutdownNow();
         }
-        executor = Executors.newSingleThreadExecutor(this);
-        currentThread = null;
-        threadGroup = null;
         totalRotationCount++;
         lastRotationTimestamp = now;
         int numStalled = getNumStalledThreads();
+        if (reachedExecutorRotationLimit(totalRotationCount, numStalled,
+                Properties.MAX_TOTAL_ROTATIONS, Properties.MAX_STALLED_THREADS)) {
+            logger.warn("Executor rotation limit reached (stalled threads: {}/{}, rotations: {}/{}). "
+                            + "Pulling down the executor so initial-population evaluation cannot "
+                            + "continue a timeout cascade.",
+                    numStalled, Properties.MAX_STALLED_THREADS,
+                    totalRotationCount, Properties.MAX_TOTAL_ROTATIONS);
+            executor = null;
+            currentThread = null;
+            threadGroup = null;
+            return;
+        }
+        executor = Executors.newSingleThreadExecutor(this);
+        currentThread = null;
+        threadGroup = null;
         logger.warn("Executor rotation #{} complete. Stalled threads: {} (limit {}). "
                         + "Total rotations: {} (limit {}).",
                 totalRotationCount, numStalled, Properties.MAX_STALLED_THREADS,
@@ -984,6 +1015,43 @@ public class TestCaseExecutor implements ThreadFactory {
             }
         }
         return false;
+    }
+
+    private boolean isInRuntimeBootstrap() {
+        return currentThread != null
+                && isRuntimeBootstrapStack(currentThread.getStackTrace());
+    }
+
+    /**
+     * Recognizes bounded, one-time dynamic-language bootstrap work that can legitimately exceed
+     * the ordinary per-test timeout. Keep this deliberately narrow: application-level Groovy
+     * execution must still obey the normal timeout.
+     */
+    static boolean isRuntimeBootstrapStack(StackTraceElement[] stack) {
+        if (stack == null) {
+            return false;
+        }
+        for (StackTraceElement element : stack) {
+            String className = element.getClassName();
+            if (className.equals("org.codehaus.groovy.vmplugin.v8.CacheableCallSite")
+                    || className.equals("org.codehaus.groovy.vmplugin.v8.IndyInterface")
+                    || className.equals("org.codehaus.groovy.control.customizers.ASTTransformationCustomizer")
+                    || (className.equals("groovy.text.markup.MarkupTemplateEngine")
+                        && element.getMethodName().equals("<init>"))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean shouldForceStopAfterCancellation(boolean futureTaskPending,
+                                                     boolean workerStillExecutingSut) {
+        return futureTaskPending || workerStillExecutingSut;
+    }
+
+    static boolean reachedExecutorRotationLimit(int rotations, int stalledThreads,
+                                                int maxRotations, int maxStalledThreads) {
+        return rotations >= maxRotations || stalledThreads >= maxStalledThreads;
     }
 
     /**

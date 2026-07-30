@@ -42,6 +42,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
@@ -59,8 +60,56 @@ public class VariableResolver {
 
     private final TestFactory testFactory;
 
+    /** Restricts broad stable-generator ranking to construction of an EvoObj entry call. */
+    private static final ThreadLocal<Boolean> OBJECT_RULE_ENTRY_CONSTRUCTION =
+            ThreadLocal.withInitial(() -> Boolean.FALSE);
+
+    /**
+     * Restricts synthesis-only value policies to graph-to-code materialization. In particular,
+     * an unconstrained {@code Object} setter argument must not recursively select an arbitrary
+     * class from the cast-class pool.
+     */
+    private static final ThreadLocal<Boolean> OBJECT_RULE_SYNTHESIS_CONSTRUCTION =
+            ThreadLocal.withInitial(() -> Boolean.FALSE);
+
     public VariableResolver(TestFactory testFactory) {
         this.testFactory = testFactory;
+    }
+
+    /**
+     * Enables or restores stable entry-parameter construction on the current generation thread.
+     * The previous value is returned so callers can restore nested scopes in a finally block.
+     */
+    public static boolean setObjectRuleEntryConstruction(boolean enabled) {
+        boolean previous = OBJECT_RULE_ENTRY_CONSTRUCTION.get();
+        OBJECT_RULE_ENTRY_CONSTRUCTION.set(enabled);
+        return previous;
+    }
+
+    /**
+     * Whether the current thread is resolving the receiver/arguments of an EvoObj entry call.
+     *
+     * <p>Generator preferences must be scoped to this speculative operation. Applying them to
+     * ordinary random generation merely because EvoObj is enabled changes graphless searches and
+     * can make complex dependency construction dramatically slower.</p>
+     */
+    public static boolean isObjectRuleEntryConstruction() {
+        return OBJECT_RULE_ENTRY_CONSTRUCTION.get();
+    }
+
+    /**
+     * Enables or restores graph-to-code construction on the current generation thread.
+     *
+     * @return the previous value, for restoration in a {@code finally} block
+     */
+    public static boolean setObjectRuleSynthesisConstruction(boolean enabled) {
+        boolean previous = OBJECT_RULE_SYNTHESIS_CONSTRUCTION.get();
+        OBJECT_RULE_SYNTHESIS_CONSTRUCTION.set(enabled);
+        return previous;
+    }
+
+    public static boolean isObjectRuleSynthesisConstruction() {
+        return OBJECT_RULE_SYNTHESIS_CONSTRUCTION.get();
     }
 
     /**
@@ -74,7 +123,8 @@ public class VariableResolver {
         VariableReference ref = resolveVariableInternal(test, parameterType, position, context, config);
         if (!ref.isAssignableTo(normalizedParameterType)) {
             String message = ref + " cannot be assigned to " + normalizedParameterType;
-            testFactory.throwCannotAssignIfNeeded(message, test, position, normalizedParameterType, ref);
+            testFactory.logCannotAssignDiagnostic(
+                    message, test, position, normalizedParameterType, ref);
             throw new ConstructionFailedException(message);
         }
         return ref;
@@ -95,6 +145,20 @@ public class VariableResolver {
                                                       int position, GenerationContext context,
                                                       VariableResolutionConfig config)
             throws ConstructionFailedException {
+
+        /*
+         * SEED_TYPES deliberately treats Object as a request to explore observed casts. That is
+         * useful during ordinary search, but exactly the wrong policy for an unconstrained
+         * graph-to-code argument: it turns one opaque value into an arbitrary classpath graph
+         * before createObject() can apply the synthesis scalar rule.
+         */
+        if (OBJECT_RULE_SYNTHESIS_CONSTRUCTION.get()
+                && GenericClassFactory.get(parameterType).getRawClass() == Object.class) {
+            return createObject(test, Object.class, position, context,
+                    new VariableResolutionConfig.Builder(config)
+                            .withCanReuseExistingVariables(false)
+                            .build());
+        }
 
         if (Properties.SEED_TYPES && parameterType.equals(Object.class)) {
             return resolveObjectVariable(test, position, context, config);
@@ -392,6 +456,28 @@ public class VariableResolver {
         GenericClass<?> clazz = GenericClassFactory.get(type);
         VariableReference ret = null;
 
+        /*
+         * Object-rule mutators frequently contain semantically unconstrained Object parameters:
+         * map keys, rule names, and opaque user values. Their runtime type is irrelevant to the
+         * field mutation represented by the OCG. Asking the normal generator machinery for
+         * Object lets CastClassManager choose any class on the analyzed classpath and can grow
+         * large, unrelated graphs (ObjectMapper/type-resolver/recycler graphs were a concrete
+         * example for GenericMachine). A String is non-null, cheap, mutable by the GA, and valid
+         * for every truly unbounded Object slot.
+         *
+         * Keep this policy strictly inside fresh graph-to-code materialization. Entry creation,
+         * normal random generation, mutation, setup repair, and cached-template execution retain
+         * their existing behavior.
+         */
+        if (OBJECT_RULE_SYNTHESIS_CONSTRUCTION.get()
+                && clazz.getRawClass() == Object.class) {
+            StringPrimitiveStatement scalar = new StringPrimitiveStatement(test, "value");
+            scalar.setObjectRuleSlot(true);
+            ret = test.addStatement(scalar, position);
+            ret.setDistance(context.getDepth() + 1);
+            return ret;
+        }
+
         // When resolving a dependency (depth > 0) for an interface or abstract class,
         // use a baseline mock probability even when P_FUNCTIONAL_MOCKING is 0, and bypass
         // the FUNCTIONAL_MOCKING_PERCENT time gate. Concrete generators for types like
@@ -413,12 +499,23 @@ public class VariableResolver {
         boolean pastTimeGate = bypassTimeGate
                 || TimeController.getInstance().getPhasePercentage() >= Properties.FUNCTIONAL_MOCKING_PERCENT;
         boolean canUseMocks = config.isCanUseMocks();
+        // Entry-call construction happens before graph synthesis and therefore does not flow
+        // through TestFactory.changeNullStatement(). Apply the same narrow preference here while
+        // EvoObj is active, otherwise environment-bearing constructor arguments (notably Path)
+        // are already mocks by the time synthesis begins and no matching virtual setup is possible.
+        boolean preferConcreteGenerators = config.isPreferConcreteGenerators()
+                || (Properties.APPLY_OBJECT_RULE
+                        && Properties.OBJECT_RULE_PREFER_CONCRETE_FACTORIES
+                        && OBJECT_RULE_ENTRY_CONSTRUCTION.get());
         double roll = Randomness.nextDouble();
         boolean rollPassed = roll < effectiveMockProb;
         boolean canMock = rollPassed ? FunctionalMockStatement.canBeFunctionalMocked(type) : false;
-        if (canUseMocks && pastTimeGate && rollPassed && canMock) {
+        if (preferConcreteGenerators) {
+            ret = tryCreatePreferredConcreteValue(test, clazz, position, context);
+        }
+        if (ret == null && canUseMocks && pastTimeGate && rollPassed && canMock) {
             ret = testFactory.addFunctionalMock(test, type, position, context.deeper());
-        } else {
+        } else if (ret == null) {
             VariableReference generatorRefToExclude = config.isExcludeCalleeGenerators()
                     ? config.getExcludeVar() : null;
             GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(
@@ -507,6 +604,374 @@ public class VariableResolver {
             return abstractMethods == 1;
         } catch (LinkageError e) {
             return false;
+        }
+    }
+
+    private static boolean isPreferredConcreteFactoryType(Class<?> type) {
+        if (type == null) {
+            return false;
+        }
+        String name = type.getName();
+        return "java.nio.file.Path".equals(name)
+                || "java.nio.charset.Charset".equals(name)
+                || "java.net.URI".equals(name)
+                || "java.io.File".equals(name);
+    }
+
+    /**
+     * Constructs the small set of value/environment types for which a stable public factory is
+     * more useful than a behaviorless functional mock. Values are object-rule slots so the normal
+     * GA can still mutate them. Any partial insertion is rolled back before falling through to the
+     * ordinary generator/mock policy.
+     */
+    private VariableReference tryCreatePreferredConcreteValue(
+            TestCase test, GenericClass<?> requestedType, int position, GenerationContext context) {
+        Class<?> type = requestedType.getRawClass();
+        int originalSize = test.size();
+        int insertionStart = position;
+        try {
+            VariableReference schemaValue = tryCreateFactoryBackedInterface(
+                    test, requestedType, position);
+            if (schemaValue != null) {
+                return schemaValue;
+            }
+            VariableReference characterStream = tryCreateAntlrCharacterStream(
+                    test, requestedType, position);
+            if (characterStream != null) {
+                return characterStream;
+            }
+            if (java.io.InputStream.class.equals(type)) {
+                ArrayStatement bytes = new ArrayStatement(test, byte[].class, 0);
+                VariableReference bytesReference = test.addStatement(bytes, position++);
+                java.lang.reflect.Constructor<java.io.ByteArrayInputStream> constructor =
+                        java.io.ByteArrayInputStream.class.getConstructor(byte[].class);
+                return test.addStatement(new ConstructorStatement(
+                        test,
+                        new GenericConstructor(constructor, java.io.ByteArrayInputStream.class),
+                        Collections.singletonList(bytesReference)), position);
+            }
+            if (java.io.Reader.class.equals(type)) {
+                StringPrimitiveStatement text = new StringPrimitiveStatement(test, "");
+                text.setObjectRuleSlot(true);
+                VariableReference textReference = test.addStatement(text, position++);
+                java.lang.reflect.Constructor<java.io.StringReader> constructor =
+                        java.io.StringReader.class.getConstructor(String.class);
+                return test.addStatement(new ConstructorStatement(
+                        test,
+                        new GenericConstructor(constructor, java.io.StringReader.class),
+                        Collections.singletonList(textReference)), position);
+            }
+
+            String typeName = type.getName();
+            String value = "java.nio.file.Path".equals(typeName) ? "config.yml"
+                    : ("java.nio.charset.Charset".equals(typeName) ? "UTF-8" : "");
+            StringPrimitiveStatement text = new StringPrimitiveStatement(test, value);
+            text.setObjectRuleSlot(true);
+            VariableReference textReference = test.addStatement(text, position++);
+
+            if ("java.nio.file.Path".equals(typeName)) {
+                ArrayStatement remainder = new ArrayStatement(test, String[].class, 0);
+                VariableReference remainderReference = test.addStatement(remainder, position++);
+                java.lang.reflect.Method factory = java.nio.file.Paths.class.getMethod(
+                        "get", String.class, String[].class);
+                return test.addStatement(new MethodStatement(
+                        test,
+                        new GenericMethod(factory, java.nio.file.Paths.class),
+                        null,
+                        Arrays.asList(textReference, remainderReference)), position);
+            }
+            if ("java.nio.charset.Charset".equals(typeName)) {
+                java.lang.reflect.Method factory = java.nio.charset.Charset.class.getMethod(
+                        "forName", String.class);
+                return test.addStatement(new MethodStatement(
+                        test,
+                        new GenericMethod(factory, java.nio.charset.Charset.class),
+                        null,
+                        Collections.singletonList(textReference)), position);
+            }
+            if ("java.net.URI".equals(typeName)) {
+                java.lang.reflect.Method factory = java.net.URI.class.getMethod("create", String.class);
+                return test.addStatement(new MethodStatement(
+                        test,
+                        new GenericMethod(factory, java.net.URI.class),
+                        null,
+                        Collections.singletonList(textReference)), position);
+            }
+            if ("java.io.File".equals(typeName)) {
+                java.lang.reflect.Constructor<File> constructor = File.class.getConstructor(String.class);
+                return test.addStatement(new ConstructorStatement(
+                        test,
+                        new GenericConstructor(constructor, File.class),
+                        Collections.singletonList(textReference)), position);
+            }
+        } catch (Throwable failure) {
+            logger.debug("Could not create preferred concrete value for {}", type.getName(), failure);
+        }
+
+        rollbackInsertedStatements(test, originalSize, insertionStart);
+        // The specialized factories above advance their local insertion cursor. Once their
+        // speculative statements have been removed, all subsequent alternatives must start at
+        // the original cursor again.
+        position = insertionStart;
+
+        VariableReference publicConstant = tryCreatePublicConstant(
+                test, requestedType, position, context);
+        if (publicConstant != null) {
+            return publicConstant;
+        }
+
+        VariableReference standardContainer = tryCreateStandardContainer(
+                test, requestedType, position, context);
+        if (standardContainer != null) {
+            return standardContainer;
+        }
+
+        // General object-rule fallback: deterministic, low-complexity generators are much less
+        // likely to throw before the target call than a uniformly random constructor/factory.
+        // Prefer constants, zero-argument constructors/factories, then increasing arity. Trying a
+        // small ordered portfolio also handles interfaces such as FullHttpResponse and List whose
+        // useful implementations are registered as generators of the interface type.
+        List<GenericAccessibleObject<?>> generators;
+        try {
+            generators = new ArrayList<>(TestCluster.getInstance().getGenerators(requestedType));
+        } catch (Throwable failure) {
+            return null;
+        }
+        generators.removeIf(generator -> !isStableConcreteGenerator(generator)
+                || context.isVisited(generator));
+        generators.sort(Comparator
+                .comparingInt(VariableResolver::stableGeneratorPriority)
+                .thenComparing(Object::toString));
+
+        int attempts = 0;
+        for (GenericAccessibleObject<?> generator : generators) {
+            if (attempts++ >= 4) {
+                break;
+            }
+            int attemptSize = test.size();
+            try {
+                GenerationContext nextContext = context.withVisited(generator);
+                VariableReference candidate;
+                if (generator instanceof GenericField) {
+                    candidate = testFactory.addField(
+                            test, (GenericField) generator, position, nextContext);
+                } else if (generator instanceof GenericConstructor) {
+                    candidate = testFactory.addConstructor(test, (GenericConstructor) generator,
+                            requestedType.getType(), position, nextContext);
+                } else if (generator instanceof GenericMethod) {
+                    candidate = testFactory.addMethod(
+                            test, (GenericMethod) generator, position, nextContext);
+                } else {
+                    continue;
+                }
+                if (candidate != null && candidate.isAssignableTo(requestedType.getType())) {
+                    return candidate;
+                }
+            } catch (Throwable failure) {
+                logger.trace("Stable concrete generator {} failed for {}: {}",
+                        generator, type.getName(), failure.toString());
+            }
+            rollbackInsertedStatements(test, attemptSize, insertionStart);
+        }
+        return null;
+    }
+
+    /**
+     * XMLBeans and similar generated APIs expose an interface plus a nested {@code Factory} whose
+     * zero-argument {@code newInstance()} is the supported constructor. Instantiating their public
+     * implementation class directly requires an internal schema token and yields an object that
+     * throws before the target call.
+     */
+    private VariableReference tryCreateFactoryBackedInterface(
+            TestCase test, GenericClass<?> requestedType, int position) {
+        Class<?> requestedClass = requestedType.getRawClass();
+        if (!requestedClass.isInterface()) {
+            return null;
+        }
+        for (Class<?> nested : requestedClass.getDeclaredClasses()) {
+            if (!"Factory".equals(nested.getSimpleName())) {
+                continue;
+            }
+            try {
+                java.lang.reflect.Method factory = nested.getMethod("newInstance");
+                if (!Modifier.isStatic(factory.getModifiers())
+                        || factory.getParameterCount() != 0
+                        || !requestedClass.isAssignableFrom(factory.getReturnType())) {
+                    continue;
+                }
+                VariableReference document = test.addStatement(new MethodStatement(
+                        test, new GenericMethod(factory, nested), null,
+                        Collections.emptyList()), position);
+                initializeGeneratedDocumentRoot(test, requestedClass, document, position + 1);
+                return document;
+            } catch (ReflectiveOperationException ignored) {
+                // This nested Factory follows another convention; try the remaining alternatives.
+            }
+        }
+        return null;
+    }
+
+    /**
+     * A generated {@code *Document.Factory.newInstance()} creates the document container, not its
+     * root element. When the interface exposes one unambiguous zero-argument {@code addNewX()},
+     * initialize that root before handing the document to a SUT constructor.
+     */
+    private void initializeGeneratedDocumentRoot(TestCase test, Class<?> documentType,
+            VariableReference document, int position) {
+        if (!documentType.getSimpleName().endsWith("Document")) {
+            return;
+        }
+        List<java.lang.reflect.Method> rootBuilders = new ArrayList<>();
+        for (java.lang.reflect.Method method : documentType.getMethods()) {
+            if (method.getName().startsWith("addNew")
+                    && method.getParameterCount() == 0
+                    && !Modifier.isStatic(method.getModifiers())
+                    && method.getReturnType() != Void.TYPE) {
+                rootBuilders.add(method);
+            }
+        }
+        if (rootBuilders.size() != 1) {
+            return;
+        }
+        java.lang.reflect.Method builder = rootBuilders.get(0);
+        test.addStatement(new MethodStatement(
+                test, new GenericMethod(builder, builder.getDeclaringClass()),
+                document, Collections.emptyList()), position);
+    }
+
+    /**
+     * ANTLR token recognizers are controlled by the text behind {@code CharStream}. Prefer the
+     * mutable String-backed implementation so graph templates contain a GA-mutable input slot,
+     * rather than an empty byte stream followed by inert lookahead calls.
+     */
+    private VariableReference tryCreateAntlrCharacterStream(
+            TestCase test, GenericClass<?> requestedType, int position) {
+        Class<?> requestedClass = requestedType.getRawClass();
+        if (!"org.antlr.runtime.CharStream".equals(requestedClass.getName())) {
+            return null;
+        }
+        try {
+            Class<?> implementation = TestGenerationContext.getInstance()
+                    .getClassLoaderForSUT()
+                    .loadClass("org.antlr.runtime.ANTLRStringStream");
+            if (!requestedClass.isAssignableFrom(implementation)) {
+                return null;
+            }
+            java.lang.reflect.Constructor<?> constructor =
+                    implementation.getConstructor(String.class);
+            // A one-character stream reaches ordinary lexer predicates immediately; the marked
+            // slot remains freely mutable for whitespace, punctuation, keywords, and longer
+            // tokens. An empty stream makes nearly every generated token rule fail at EOF.
+            StringPrimitiveStatement text = new StringPrimitiveStatement(test, "a");
+            text.setObjectRuleSlot(true);
+            VariableReference textReference = test.addStatement(text, position++);
+            return test.addStatement(new ConstructorStatement(
+                    test, new GenericConstructor(constructor, implementation),
+                    Collections.singletonList(textReference)), position);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private VariableReference tryCreatePublicConstant(TestCase test, GenericClass<?> requestedType,
+            int position, GenerationContext context) {
+        List<Field> fields = new ArrayList<>(Arrays.asList(requestedType.getRawClass().getFields()));
+        fields.sort(Comparator.comparing(Field::getName));
+        for (Field field : fields) {
+            int modifiers = field.getModifiers();
+            if (!Modifier.isPublic(modifiers) || !Modifier.isStatic(modifiers)
+                    || !requestedType.getRawClass().isAssignableFrom(field.getType())) {
+                continue;
+            }
+            int originalSize = test.size();
+            try {
+                GenericField generator = new GenericField(field, field.getDeclaringClass());
+                // Do not send a known constant back through the normal generator machinery.
+                // addField() may recursively choose a different way of producing the declaring
+                // type (eg, constructing HttpVersion from random text instead of reading
+                // HttpVersion.HTTP_1_1), which defeats the stable-entry policy and can throw
+                // before the target invocation. A public static field needs no receiver and is
+                // already a complete, executable generator.
+                VariableReference result = test.addStatement(
+                        new FieldStatement(test, generator, null), position);
+                if (result != null && result.isAssignableTo(requestedType.getType())) {
+                    return result;
+                }
+            } catch (Throwable failure) {
+                logger.trace("Public constant {} failed for stable entry construction: {}",
+                        field, failure.toString());
+            }
+            rollbackInsertedStatements(test, originalSize, position);
+        }
+        return null;
+    }
+
+    private VariableReference tryCreateStandardContainer(TestCase test,
+            GenericClass<?> requestedType, int position, GenerationContext context) {
+        Class<?> requestedClass = requestedType.getRawClass();
+        Class<?> implementation = null;
+        if (Map.class.isAssignableFrom(requestedClass)) {
+            implementation = LinkedHashMap.class;
+        } else if (Set.class.isAssignableFrom(requestedClass)) {
+            implementation = LinkedHashSet.class;
+        } else if (Deque.class.isAssignableFrom(requestedClass)
+                || Queue.class.isAssignableFrom(requestedClass)) {
+            implementation = ArrayDeque.class;
+        } else if (Collection.class.isAssignableFrom(requestedClass)) {
+            implementation = ArrayList.class;
+        }
+        if (implementation == null || !requestedClass.isAssignableFrom(implementation)) {
+            return null;
+        }
+        int originalSize = test.size();
+        try {
+            GenericConstructor constructor = new GenericConstructor(
+                    implementation.getConstructor(), implementation);
+            VariableReference result = testFactory.addConstructor(
+                    test, constructor, implementation, position, context);
+            if (result != null && result.isAssignableTo(requestedType.getType())) {
+                return result;
+            }
+        } catch (Throwable failure) {
+            logger.trace("Standard container {} failed for {}: {}",
+                    implementation.getName(), requestedClass.getName(), failure.toString());
+        }
+        rollbackInsertedStatements(test, originalSize, position);
+        return null;
+    }
+
+    private static boolean isStableConcreteGenerator(GenericAccessibleObject<?> generator) {
+        if (generator instanceof GenericField) {
+            return generator.isStatic();
+        }
+        if (generator instanceof GenericConstructor) {
+            return generator.getNumParameters() <= 4;
+        }
+        if (generator instanceof GenericMethod) {
+            GenericMethod method = (GenericMethod) generator;
+            return generator.isStatic() && generator.getNumParameters() <= 4
+                    && !(method.getMethod().getGenericReturnType()
+                    instanceof java.lang.reflect.TypeVariable<?>);
+        }
+        return false;
+    }
+
+    private static int stableGeneratorPriority(GenericAccessibleObject<?> generator) {
+        if (generator instanceof GenericField) {
+            return 0;
+        }
+        if (generator instanceof GenericConstructor) {
+            return 10 + generator.getNumParameters();
+        }
+        return 20 + generator.getNumParameters();
+    }
+
+    private static void rollbackInsertedStatements(
+            TestCase test, int originalSize, int insertionStart) {
+        while (test.size() > originalSize) {
+            int removalPosition = insertionStart >= 0 && insertionStart < test.size()
+                    ? insertionStart : test.size() - 1;
+            test.remove(removalPosition);
         }
     }
 

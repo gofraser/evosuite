@@ -124,11 +124,20 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     private static class OutputVariable {
         public RuntimeVariable variable;
         public Object value;
+        public CountDownLatch acknowledgement;
 
         public OutputVariable(RuntimeVariable variable, Object value) {
             super();
             this.variable = variable;
             this.value = value;
+        }
+
+        private OutputVariable(CountDownLatch acknowledgement) {
+            this.acknowledgement = acknowledgement;
+        }
+
+        private boolean isBarrier() {
+            return acknowledgement != null;
         }
     }
 
@@ -332,6 +341,10 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             List<OutputVariable> vars = new ArrayList<>();
             outputVariableQueue.drainTo(vars);
             for (OutputVariable ov : vars) {
+                if (ov.isBarrier()) {
+                    ov.acknowledgement.countDown();
+                    continue;
+                }
                 if (!ensureMasterNode()) {
                     if (Properties.CLIENT_ON_THREAD) {
                         fallbackSetOutputVariable(ov.variable, ov.value);
@@ -402,6 +415,25 @@ public class ClientNodeImpl<T extends Chromosome<T>>
             return;
         }
         outputVariableQueue.offer(new OutputVariable(variable, value));
+    }
+
+    @Override
+    public boolean awaitPendingOutputVariables(long timeoutInMs) {
+        if (Properties.CLIENT_ON_THREAD) {
+            return true;
+        }
+        Thread sender = statisticsThread;
+        if (sender == null || !sender.isAlive()) {
+            return false;
+        }
+        CountDownLatch acknowledgement = new CountDownLatch(1);
+        outputVariableQueue.offer(new OutputVariable(acknowledgement));
+        try {
+            return acknowledgement.await(Math.max(0L, timeoutInMs), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     @Override
@@ -491,6 +523,10 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                 if (ov == POISON_PILL) {
                     continue;
                 }
+                if (ov.isBarrier()) {
+                    ov.acknowledgement.countDown();
+                    continue;
+                }
                 if (!ensureMasterNode()) {
                     if (Properties.CLIENT_ON_THREAD) {
                         fallbackSetOutputVariable(ov.variable, ov.value);
@@ -533,6 +569,10 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                             ov = outputVariableQueue.take(); //this is blocking
                             if (ov == POISON_PILL) {
                                 break; // clean exit after all real items have been sent
+                            }
+                            if (ov.isBarrier()) {
+                                ov.acknowledgement.countDown();
+                                continue;
                             }
                             if (!ensureMasterNode()) {
                                 if (Properties.CLIENT_ON_THREAD) {

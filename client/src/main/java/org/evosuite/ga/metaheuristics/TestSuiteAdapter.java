@@ -133,6 +133,11 @@ public abstract class TestSuiteAdapter<A extends GeneticAlgorithm<TestChromosome
     }
 
     @Override
+    public final void prepareSearch() {
+        algorithm.prepareSearch();
+    }
+
+    @Override
     public void generateSolution() {
         algorithm.generateSolution();
     }

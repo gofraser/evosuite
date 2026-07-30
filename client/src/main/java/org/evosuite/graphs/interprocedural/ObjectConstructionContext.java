@@ -43,10 +43,12 @@ public class ObjectConstructionContext {
 		branchInterestedVarsMap = new LinkedHashMap<>();
 		recommendedClasses = new LinkedHashMap<>();
 		FBranchDefUseAnalyzer.analyzedMethods.clear();
-		org.evosuite.testcase.factories.RandomLengthTestFactory.resetStatistics();
+		DefUseAnalyzer.resetSingleton();
 		org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector.getInstance().reset();
 		org.evosuite.testcase.synthesizer.TemplateCache.getInstance().reset();
 		org.evosuite.testcase.synthesizer.TargetContext.resetStatistics();
 		org.evosuite.testcase.synthesizer.ObjectRuleTelemetry.getInstance().reset();
+		org.evosuite.testcase.synthesizer.ObjectConstructionGraphDiagnostics.reset();
+		org.evosuite.testcase.synthesizer.DataDependencyUtil.resetSetterAnalysisCache();
 	}
 }

@@ -27,6 +27,13 @@ public class WholeClassExample {
 		return false;
 	}
 
+	boolean packageEntry(int x) {
+		if (state == x) {
+			return true;
+		}
+		return false;
+	}
+
 	public boolean publicCallsHidden(int x) {
 		return hiddenEntry(x);
 	}

@@ -153,7 +153,28 @@ public class ConstraintHelper {
             return true;
         }
 
-        Statement varSource = tc.getStatement(vr.getStPosition());
+        if (vr == null || tc == null) {
+            return false;
+        }
+
+        // Do not call VariableReference#getStPosition() here. If a synthesized test temporarily
+        // contains an orphan/stale argument, getStPosition() builds its assertion message by
+        // rendering every statement. During overload detection that re-enters TestCodeVisitor,
+        // which calls this method again and eventually overflows the stack. Statement parameters
+        // normally share the exact return-value object, so an identity lookup is both sufficient
+        // and safe; an orphan simply is not known to be null.
+        int position = -1;
+        for (int i = 0; i < tc.size(); i++) {
+            if (tc.getStatement(i).getReturnValue() == vr) {
+                position = i;
+                break;
+            }
+        }
+        if (position < 0) {
+            return false;
+        }
+
+        Statement varSource = tc.getStatement(position);
         if (varSource instanceof PrimitiveStatement) { //eg for String
             Object obj = ((PrimitiveStatement<?>) varSource).getValue();
             return obj == null;

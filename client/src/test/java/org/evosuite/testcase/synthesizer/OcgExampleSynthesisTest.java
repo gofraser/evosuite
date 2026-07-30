@@ -70,7 +70,7 @@ public class OcgExampleSynthesisTest {
         Properties.TARGET_METHOD = "";
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
-        RandomLengthTestFactory.workingBranch4ObjectGraph = null;
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
         org.evosuite.TestGenerationContext.getInstance().resetContext();
     }
 
@@ -136,7 +136,7 @@ public class OcgExampleSynthesisTest {
         RandomLengthTestFactory factory = new RandomLengthTestFactory();
         boolean produced = false;
         for (int attempt = 0; attempt < 60 && !produced; attempt++) {
-            RandomLengthTestFactory.workingBranch4ObjectGraph = stateBranch;
+            org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
             TestChromosome chromosome = factory.getChromosome();
             TestCase test = chromosome.getTestCase();
             if (test.findTargetMethodCallStatement() != null) {

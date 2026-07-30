@@ -1576,6 +1576,14 @@ public enum RuntimeVariable {
     ObjectRuleEverEligibleBranches,
     /** EvoObj: branches negatively cached after repeated failed synthesis attempts. */
     ObjectRuleBlacklistedBranches,
+    /** EvoObj R3 gate: distinct branches targeted by fresh synthesis. */
+    ObjectRuleTargetedBranches,
+    /** EvoObj R3 gate: largest number of fresh synthesis attempts for one branch. */
+    ObjectRuleMaxInjectionsPerBranch,
+    /** EvoObj R3 gate: branches that experienced two or more consecutive failed syntheses. */
+    ObjectRuleRepeatedFailureBranches,
+    /** EvoObj R3 gate: largest consecutive synthesis-failure streak for any branch. */
+    ObjectRuleMaxConsecutiveFailures,
     /** EvoObj: GA iteration of the last fresh non-cache synthesis. */
     ObjectRuleLastFreshSynthesisIteration,
     /** EvoObj whole-class: rejected branch entries in constructors or class initializers. */
@@ -1608,24 +1616,29 @@ public enum RuntimeVariable {
     /**
      * EvoObj: fresh syntheses whose first execution reached the target call but could not be
      * scored against a selected working branch-direction goal. These are excluded from
-     * reached-not-covered and R1 tuning headroom.
+     * reached-not-covered.
      */
     ObjectRuleWorkingGoalUnavailable,
-    /**
-     * EvoObj: fresh syntheses eligible for R1 slot tuning: reached the target call, missed a
-     * selected working branch-direction goal, and ran with slot tuning enabled.
-     */
-    ObjectRuleTuningOpportunities,
-    /** EvoObj: R1 tuning opportunities skipped because the template had no primitive slots. */
-    ObjectRuleTuningNoSlotSkips,
-    /** EvoObj: extra executions spent tuning primitive slots on already-reaching templates. */
-    ObjectRuleTuningExecutions,
-    /** EvoObj: fresh templates whose tuning pass found a strictly lower working-goal fitness. */
-    ObjectRuleTuningWins,
-    /** EvoObj: fresh templates whose tuning pass covered a working branch-direction goal. */
-    ObjectRuleTuningCoverage,
-    /** EvoObj: slot-mutated same-generation clones injected instead of fresh random tests. */
-    ObjectRuleVariantInjections;
+    /** EvoObj: failures while scoring a usable first-shot template. */
+    ObjectRuleWorkingGoalEvaluationFailures,
+    /** EvoObj mocks: failed templates with newly observed unstubbed mock methods. */
+    ObjectRuleMockSetupOpportunities,
+    /** EvoObj mocks: distinct method observations materialized in reactive candidates. */
+    ObjectRuleMockSetupMethodsObserved,
+    /** EvoObj mocks: return-value stubs added reactively or from cached recipes. */
+    ObjectRuleMockSetupStubsAdded,
+    /** EvoObj mocks: reactive candidates containing functional-mock setup. */
+    ObjectRuleMockSetupAttempts,
+    /** EvoObj mocks: functional-mock setup candidates which improved legitimacy. */
+    ObjectRuleMockSetupSuccesses,
+    /** EvoObj mocks: templates receiving cached stubs before their first execution. */
+    ObjectRuleMockSetupProactiveUses,
+    /** EvoObj mocks: shared repair executions whose candidate contained mock setup. */
+    ObjectRuleMockSetupExtraExecutions,
+    /** EvoObj mocks: proposals suppressed because the exact setup repeatedly failed. */
+    ObjectRuleMockSetupNegativeCacheHits,
+    /** EvoObj mocks: exact setup recipes which reached the failed-attempt limit. */
+    ObjectRuleMockSetupBlacklistedRecipes;
 
     /* -------------------------------------------------- */
 

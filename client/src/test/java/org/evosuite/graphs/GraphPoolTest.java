@@ -57,4 +57,12 @@ public class GraphPoolTest {
         pool.clear(className);
         assertNull(pool.getRawCFG(className, methodName));
     }
+
+    @Test
+    public void registerClassGracefullyHandlesMissingBytecode() {
+        GraphPool pool = GraphPool.getInstance(getClass().getClassLoader());
+
+        assertDoesNotThrow(() -> pool.registerClass(
+                "com.examples.with.different.packagename.ClassThatDoesNotExist"));
+    }
 }

@@ -39,13 +39,13 @@ public class ValueSettings {
 	public ValueSettings(BytecodeInstruction ins, List<BytecodeInstruction> cascadingCallRelations,
 			String targetClass, String signature) {
 		this.valueSettingInstruction = ins;
-		this.callChain = cascadingCallRelations;
+		this.callChain = new ArrayList<>(cascadingCallRelations);
 		
 		/**
 		 * infer influence/match
 		 */
-		Set<Integer> validParamPos = DataDependencyUtil.checkValidParameterPositions(ins, 
-				targetClass, signature, cascadingCallRelations);
+		Set<Integer> validParamPos = DataDependencyUtil.checkValidParameterPositions(ins,
+				targetClass, signature, new ArrayList<>(cascadingCallRelations));
 		
 		this.releventPrams = validParamPos;
 		this.dataflowType = validParamPos.isEmpty() ? DataflowProperty.MATCH : DataflowProperty.INFLUENCE;

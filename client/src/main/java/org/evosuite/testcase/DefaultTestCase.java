@@ -1014,9 +1014,38 @@ public class DefaultTestCase implements TestCase, Serializable {
     @Override
     public MethodStatement findTargetMethodCallStatement() {
         // In whole-class mode TARGET_METHOD is unset; the active TargetContext supplies
-        // the method signature. When TARGET_METHOD is set, this resolves to it (unchanged M1-M5).
+        // the class and method signature. Matching the class is essential for common inherited or
+        // sibling signatures (eg ByteTransition implementations all exposing getTransitions()).
         return findMethodCallStatement(
+                org.evosuite.testcase.synthesizer.TargetContext.activeClassName(),
                 org.evosuite.testcase.synthesizer.TargetContext.activeMethodSignature());
+    }
+
+    @Override
+    public org.evosuite.testcase.statements.EntityWithParametersStatement
+            findTargetExecutableStatement() {
+        String className = org.evosuite.testcase.synthesizer.TargetContext.activeClassName();
+        String signature = org.evosuite.testcase.synthesizer.TargetContext.activeMethodSignature();
+        if (className == null || className.isEmpty()
+                || signature == null || signature.isEmpty()) {
+            return null;
+        }
+        if (!signature.startsWith("<init>")) {
+            return findMethodCallStatement(className, signature);
+        }
+        for (int i = 0; i < this.size(); i++) {
+            Statement statement = this.getStatement(i);
+            if (!(statement instanceof org.evosuite.testcase.statements.ConstructorStatement)) {
+                continue;
+            }
+            org.evosuite.testcase.statements.ConstructorStatement constructor =
+                    (org.evosuite.testcase.statements.ConstructorStatement) statement;
+            if (constructor.getConstructor().getNameWithDescriptor().equals(signature)
+                    && constructor.getConstructor().getDeclaringClass().getName().equals(className)) {
+                return constructor;
+            }
+        }
+        return null;
     }
 
     @Override
@@ -1034,6 +1063,26 @@ public class DefaultTestCase implements TestCase, Serializable {
             }
         }
 
+        return null;
+    }
+
+    @Override
+    public MethodStatement findMethodCallStatement(String className, String methodSignature) {
+        if (className == null || className.isEmpty()
+                || methodSignature == null || methodSignature.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < this.size(); i++) {
+            Statement statement = this.getStatement(i);
+            if (!(statement instanceof MethodStatement)) {
+                continue;
+            }
+            MethodStatement methodStatement = (MethodStatement) statement;
+            if (methodStatement.getMethod().getNameWithDescriptor().equals(methodSignature)
+                    && methodStatement.getMethod().getDeclaringClass().getName().equals(className)) {
+                return methodStatement;
+            }
+        }
         return null;
     }
 

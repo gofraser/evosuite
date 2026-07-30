@@ -66,13 +66,16 @@ public class ThisVariableWrapper extends DepVariableWrapper {
 
 	private ConstructorStatement findActiveConstructorStatement(TestCase test) {
 		String signature = org.evosuite.testcase.synthesizer.TargetContext.activeMethodSignature();
+		String className = org.evosuite.testcase.synthesizer.TargetContext.activeClassName();
 		if (signature == null || signature.isEmpty()) {
 			return null;
 		}
 		for (int i = 0; i < test.size(); i++) {
 			if (test.getStatement(i) instanceof ConstructorStatement) {
 				ConstructorStatement cStat = (ConstructorStatement) test.getStatement(i);
-				if (cStat.getConstructor().getNameWithDescriptor().equals(signature)) {
+				if (cStat.getConstructor().getNameWithDescriptor().equals(signature)
+						&& className != null && className.equals(
+								cStat.getConstructor().getDeclaringClass().getName())) {
 					return cStat;
 				}
 			}

@@ -19,12 +19,15 @@
  */
 package org.evosuite.utils.generic;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
 /**
  * Provides stable placeholder members for best-effort master-side deserialization.
  */
 final class SerializationFallbackMember {
+
+    public static Object unresolvedFieldPlaceholder;
 
     private SerializationFallbackMember() {
     }
@@ -38,6 +41,14 @@ final class SerializationFallbackMember {
             return SerializationFallbackMember.class.getDeclaredMethod("unresolvedMemberPlaceholder");
         } catch (NoSuchMethodException e) {
             throw new IllegalStateException("Missing placeholder method", e);
+        }
+    }
+
+    static Field getFallbackField() {
+        try {
+            return SerializationFallbackMember.class.getDeclaredField("unresolvedFieldPlaceholder");
+        } catch (NoSuchFieldException e) {
+            throw new IllegalStateException("Missing placeholder field", e);
         }
     }
 }

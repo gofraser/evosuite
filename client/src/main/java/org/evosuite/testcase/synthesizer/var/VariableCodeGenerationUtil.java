@@ -8,6 +8,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -24,6 +25,7 @@ import org.evosuite.graphs.GraphPool;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
+import org.evosuite.graphs.interprocedural.ObjectConstructionBoundary;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
@@ -32,12 +34,13 @@ import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.AbstractStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.EntityWithParametersStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
 import org.evosuite.testcase.synthesizer.DataDependencyUtil;
 import org.evosuite.testcase.synthesizer.FieldInitializer;
 import org.evosuite.testcase.synthesizer.NonPrimitiveFieldInitializer;
+import org.evosuite.testcase.synthesizer.ObjectConstructionActionTrace;
 import org.evosuite.testcase.synthesizer.ParameterMatch;
 import org.evosuite.testcase.synthesizer.PrimitiveFieldInitializer;
 import org.evosuite.testcase.synthesizer.ReflectionUtil;
@@ -256,7 +259,7 @@ public class VariableCodeGenerationUtil {
 				}
 			}
 			else if (targetObjectReference == null) {
-				MethodStatement mStat = test.findTargetMethodCallStatement();
+				EntityWithParametersStatement mStat = test.findTargetExecutableStatement();
 				insertionPostion = mStat.getPosition() - 1;
 			}
 			else {
@@ -270,6 +273,7 @@ public class VariableCodeGenerationUtil {
 			if (targetObjectReference == null) {
 				newParentVarRef = TestFactory.getInstance().addMethod(test, gMethod, insertionPostion, 2, false);
 			} else {
+				gMethod = gMethod.copyWithNewOwner(targetObjectReference.getGenericClass());
 				newParentVarRef = TestFactory.getInstance().addMethodFor(test, targetObjectReference, gMethod,
 						insertionPostion, false);
 			}
@@ -367,7 +371,7 @@ public class VariableCodeGenerationUtil {
 				}
 			}
 			else if (targetObjectReference == null) {
-				MethodStatement mStat = test.findTargetMethodCallStatement();
+				EntityWithParametersStatement mStat = test.findTargetExecutableStatement();
 				insertionPostion = mStat.getPosition() - 1;
 			}
 			else {
@@ -384,6 +388,7 @@ public class VariableCodeGenerationUtil {
 			if (targetObjectReference == null) {
 				newParentVarRef = TestFactory.getInstance().addMethod(test, gMethod, insertionPostion, 2, false);
 			} else {
+				gMethod = gMethod.copyWithNewOwner(targetObjectReference.getGenericClass());
 				newParentVarRef = TestFactory.getInstance().addMethodFor(test, targetObjectReference, gMethod,
 						insertionPostion, false);
 			}
@@ -408,6 +413,7 @@ public class VariableCodeGenerationUtil {
 				VariableReference fieldObject = null;
 				GenericMethod gMethod = new GenericMethod(getter, getter.getDeclaringClass());
 				int insertionPostion = targetObjectReference.getStPosition() + 1;
+				gMethod = gMethod.copyWithNewOwner(targetObjectReference.getGenericClass());
 				fieldObject = TestFactory.getInstance().addMethodFor(test0, targetObjectReference, gMethod,
 						insertionPostion, false);
 
@@ -455,7 +461,17 @@ public class VariableCodeGenerationUtil {
 	public static Method searchForPotentialGetterInClass(Class<?> fieldDeclaringClass, Field field) {
 		Set<Method> targetMethods = new HashSet<>();
 
-		for (Method method : fieldDeclaringClass.getMethods()) {
+		Set<Method> methods = new HashSet<>();
+		Collections.addAll(methods, fieldDeclaringClass.getMethods());
+		Collections.addAll(methods, fieldDeclaringClass.getDeclaredMethods());
+		for (Method method : methods) {
+			// EvoSuite emits tests in the CUT package, so package-private/protected accessors are
+			// valid construction APIs. getMethods() silently omitted precisely those accessors
+			// (for example CompoundByteTransition.expand()), leaving a public factory input
+			// disconnected from the private final field it initializes.
+			if (Modifier.isPrivate(method.getModifiers())) {
+				continue;
+			}
 			boolean isValid = DataDependencyUtil.isFieldGetter(method, field);
 			if (isValid) {
 				targetMethods.add(method);
@@ -556,25 +572,39 @@ public class VariableCodeGenerationUtil {
 		}
 		
 		String targetClassName = checkTargetClassName(field, targetObjectReference);
-		Executable setter = searchForPotentialSetterInClass(field, targetClassName);
+		Executable setter = searchForPotentialSetterInClass(field, targetClassName,
+				targetObjectReference == null,
+				isFreshlyConstructedReceiver(test, targetObjectReference));
 //		System.currentTimeMillis();
 		if (setter != null && !isTarget(setter)) {
 			if(setter instanceof Method){
 				GenericMethod gMethod = new GenericMethod((Method)setter, setter.getDeclaringClass());
 				VariableReference generatedSetter = null;
 				if (targetObjectReference == null) {
-					MethodStatement mStat = test.findTargetMethodCallStatement();
+					EntityWithParametersStatement mStat = test.findTargetExecutableStatement();
 					generatedSetter = TestFactory.getInstance().addMethod(test, gMethod, mStat.getPosition() - 1, 2, allowNullValue);
 				} else {
-					generatedSetter = TestFactory.getInstance().addMethodFor(test, targetObjectReference, gMethod,
-							targetObjectReference.getStPosition() + 1, allowNullValue);
+					generatedSetter = generateMembershipSetterWithTargetArgument(
+							test, targetObjectReference, field, (Method) setter);
+					if (generatedSetter == null) {
+						gMethod = gMethod.copyWithNewOwner(targetObjectReference.getGenericClass());
+						generatedSetter = TestFactory.getInstance().addMethodFor(test,
+								targetObjectReference, gMethod,
+								targetObjectReference.getStPosition() + 1, allowNullValue);
+					}
 				}
+				ObjectConstructionActionTrace.recordSelectedOutcome(field, setter,
+						generatedSetter == null ? "generation_failed" : "generated_method",
+						test, generatedSetter, targetObjectReference);
 				return generatedSetter;
 			}
 			else if(setter instanceof Constructor){
 				
 				Statement constructorStatement = findConstructorStatement(test, (Constructor)setter, targetObjectReference);
 				if(constructorStatement != null) {
+					ObjectConstructionActionTrace.recordSelectedOutcome(field, setter,
+							"reused_constructor", test, constructorStatement.getReturnValue(),
+							targetObjectReference);
 					return constructorStatement.getReturnValue();
 				}
 				else {
@@ -604,6 +634,8 @@ public class VariableCodeGenerationUtil {
 						
 					}
 					
+					ObjectConstructionActionTrace.recordSelectedOutcome(field, setter,
+							"generated_constructor", test, returnedVar, targetObjectReference);
 					return returnedVar;
 				}
 			}
@@ -611,57 +643,50 @@ public class VariableCodeGenerationUtil {
 		
 		return null;
 	}
-	
+
 	/**
-	 * Reflection fallback for a non-public <em>leaf</em> field that has no reachable public setter
-	 *(gated by {@link Properties#OBJECT_RULE_REFLECTION_FALLBACK}). Creates a value of the
-	 * field's type (reusing the primitive/non-primitive initializers) just before the target-method
-	 * call, then sets the field on the caller object through a
-	 * {@link PrivateFieldStatement}. Returns the value variable (the mutation slot), or {@code null}
-	 * if a value could not be built or a non-static field has no caller instance.
-	 *
-	 * <p>Scoped strictly to writing a leaf field; reading a private field without a getter stays
-	 * unsupported.
+	 * A collection-membership guard requires object identity: populating the field with a newly
+	 * generated value and invoking the target with an equivalent but different object is useless.
+	 * When bytecode proves {@code field.contains(targetArgument)}, call the selected one-argument
+	 * container mutator with that exact argument.
 	 */
-	public static VariableReference generateFieldReflectionSetterInTest(TestCase test,
-			VariableReference targetObjectReference, String fieldType, Field field, boolean allowNullValue)
-			throws ConstructionFailedException {
-		MethodStatement mStat = test.findTargetMethodCallStatement();
-		if (mStat == null) {
+	private static VariableReference generateMembershipSetterWithTargetArgument(
+			TestCase test, VariableReference receiver, Field field, Method setter) {
+		if (test == null || receiver == null || field == null || setter == null
+				|| setter.getParameterCount() != 1
+				|| !(Collection.class.isAssignableFrom(field.getType())
+					|| Map.class.isAssignableFrom(field.getType()))) {
 			return null;
 		}
-
-		boolean isStatic = Modifier.isStatic(field.getModifiers());
-		if (!isStatic && targetObjectReference == null) {
-			// Need an instance to set a non-static field.
+		int targetParameter = DataDependencyUtil.membershipTargetParameter(field);
+		EntityWithParametersStatement target = test.findTargetExecutableStatement();
+		if (targetParameter < 0 || target == null
+				|| targetParameter >= target.getParameterReferences().size()) {
 			return null;
 		}
-
-		int insertionPosition = (targetObjectReference != null)
-				? targetObjectReference.getStPosition() + 1 : mStat.getPosition() - 1;
-		if (insertionPosition >= mStat.getPosition()) {
-			insertionPosition = mStat.getPosition() - 1;
-		}
-
-		GenericField genericField = new GenericField(field, field.getDeclaringClass());
-		FieldInitializer initializer =
-				java.util.Arrays.asList("Z", "B", "C", "S", "I", "J", "F", "D").contains(fieldType)
-						? new PrimitiveFieldInitializer() : new NonPrimitiveFieldInitializer();
-		VariableReference value = initializer.assignField(TestFactory.getInstance(), test, fieldType,
-				genericField, insertionPosition, null, allowNullValue);
-		if (value == null) {
+		VariableReference argument = target.getParameterReferences().get(targetParameter);
+		if (argument == null || !setter.getParameterTypes()[0]
+				.isAssignableFrom(argument.getVariableClass())) {
 			return null;
 		}
-
-		VariableReference callee = isStatic ? null : targetObjectReference;
-		try {
-			PrivateFieldStatement setter = new PrivateFieldStatement(test, field.getDeclaringClass(),
-					field.getName(), callee, value);
-			test.addStatement(setter, value.getStPosition() + 1);
-		} catch (NoSuchFieldException e) {
+		int receiverPosition =
+				ObjectConstructionActionTrace.definitionPosition(test, receiver);
+		int argumentPosition =
+				ObjectConstructionActionTrace.definitionPosition(test, argument);
+		if (receiverPosition < 0 || argumentPosition < 0) {
 			return null;
 		}
-		return value;
+		int insertionPosition = Math.max(receiverPosition, argumentPosition) + 1;
+		insertionPosition = Math.min(insertionPosition, target.getPosition());
+		GenericMethod method = new GenericMethod(setter, receiver.getGenericClass());
+		VariableReference result = test.addStatement(new MethodStatement(
+				test, method, receiver, Collections.singletonList(argument)),
+				insertionPosition);
+		ObjectConstructionActionTrace.setupAction(
+				"bind_membership_target_argument", null,
+				field.getDeclaringClass().getName() + "." + field.getName(),
+				ObjectConstructionActionTrace.definitionPosition(test, result));
+		return result;
 	}
 
 	public static VariableReference generateFieldSetterInTest(TestCase test, VariableReference targetObjectReference,
@@ -672,9 +697,12 @@ public class VariableCodeGenerationUtil {
 				GenericMethod genericFieldSetter = new GenericMethod((Method) fieldSetter, fieldSetter.getDeclaringClass());
 				VariableReference generatedSetter = null;
 				if (targetObjectReference == null) {
-					MethodStatement methodStatement = test.findTargetMethodCallStatement();
+					EntityWithParametersStatement methodStatement =
+							test.findTargetExecutableStatement();
 					generatedSetter = TestFactory.getInstance().addMethod(test, genericFieldSetter, methodStatement.getPosition() - 1, 2, allowNullValue);
 				} else {
+					genericFieldSetter = genericFieldSetter.copyWithNewOwner(
+							targetObjectReference.getGenericClass());
 					generatedSetter = TestFactory.getInstance().addMethodFor(test, targetObjectReference, genericFieldSetter,
 							targetObjectReference.getStPosition() + 1, allowNullValue);
 				}
@@ -722,7 +750,7 @@ public class VariableCodeGenerationUtil {
 				ConstructorStatement cStat = (ConstructorStatement)stat;
 				if(cStat.getConstructor().getConstructor().equals(setter)) {
 					
-					if(cStat.getReturnValue().equals(targetObjectReference)) {
+					if(cStat.getReturnValue() == targetObjectReference) {
 						return stat;						
 					}
 					
@@ -739,9 +767,9 @@ public class VariableCodeGenerationUtil {
 		for(DepVariableWrapper key: map.keySet()) {
 			List<VariableReference> list = map.get(key).influentialVars;
 			
-			if(list.contains(oldObject)) {
+			if(containsIdentity(list, oldObject)) {
 				for(int i=0; i<list.size(); i++) {
-					if(list.get(i).equals(oldObject)) {
+					if(list.get(i) == oldObject) {
 						list.set(i, newObject);
 					}
 				}
@@ -750,9 +778,9 @@ public class VariableCodeGenerationUtil {
 			
 			list = map.get(key).matchedVars;
 			
-			if(list.contains(oldObject)) {
+			if(containsIdentity(list, oldObject)) {
 				for(int i=0; i<list.size(); i++) {
-					if(list.get(i).equals(oldObject)) {
+					if(list.get(i) == oldObject) {
 						list.set(i, newObject);
 					}
 				}
@@ -760,6 +788,19 @@ public class VariableCodeGenerationUtil {
 			}
 		}
 		
+	}
+
+	private static boolean containsIdentity(List<VariableReference> references,
+			VariableReference candidate) {
+		if (references == null) {
+			return false;
+		}
+		for (VariableReference reference : references) {
+			if (reference == candidate) {
+				return true;
+			}
+		}
+		return false;
 	}
 	
 	private static boolean isTarget(Executable setter) {
@@ -796,6 +837,41 @@ public class VariableCodeGenerationUtil {
 	 * @throws IllegalArgumentException 
 	 */
 	public static Executable searchForPotentialSetterInClass(Field field, String targetClassName) throws ClassNotFoundException{
+		return searchForPotentialSetterInClass(field, targetClassName, true, false);
+	}
+
+	/**
+	 * Eligibility counterpart of field synthesis for an object which already exists in the entry
+	 * prefix. Constructors are deliberately excluded: runtime synthesis will not replace that
+	 * receiver, so a constructor-only dependency is not an executable setup opportunity.
+	 *
+	 * <p>The existing candidate ranking samples EvoSuite's RNG. Eligibility discovery must remain
+	 * invisible to ordinary search, hence the exact state is restored after this read-only probe.</p>
+	 */
+	public static boolean hasUsableSetterForExistingReceiver(
+			Field field, String targetClassName) {
+		if (field == null || targetClassName == null || targetClassName.isEmpty()) {
+			return false;
+		}
+		Randomness.State state = Randomness.snapshot();
+		try {
+			return searchForPotentialSetterInClass(
+					field, targetClassName, false, false) != null;
+		} catch (ClassNotFoundException | RuntimeException | LinkageError failure) {
+			return false;
+		} finally {
+			Randomness.restore(state);
+		}
+	}
+
+	private static Executable searchForPotentialSetterInClass(Field field, String targetClassName,
+			boolean allowConstructorReplacement, boolean freshReceiver) throws ClassNotFoundException{
+		if (isPlatformImplementationState(field, targetClassName)) {
+			ObjectConstructionActionTrace.issue("platform_state_not_actionable", null,
+					field == null ? targetClassName : field.toGenericString(),
+					"Platform implementation state is not a controllable synthesis target");
+			return null;
+		}
 		
 		LinkedHashMap<Executable, List<ValueSettings>> setterMap = DataDependencyUtil.searchForPotentialSettersInClass(field, targetClassName);
 //		List<Executable> fieldSettingMethods = potentialSetter.setterList;
@@ -807,43 +883,249 @@ public class VariableCodeGenerationUtil {
 		if(!setterMap.isEmpty()){
 //			Executable entry = Randomness.choice(fieldSettingMethods);
 			double[] scores = new double[setterMap.size()];
+			Map<Executable, String> rejectionReasons = new LinkedHashMap<>();
+			Set<Executable> directAssignments = new HashSet<>();
+			for (Entry<Executable, List<ValueSettings>> entry : setterMap.entrySet()) {
+				if (!(entry.getKey() instanceof Constructor)
+						&& !isTarget(entry.getKey())
+						&& DataDependencyUtil.isDirectFieldAssignmentSetting(
+								field, entry.getValue())) {
+					directAssignments.add(entry.getKey());
+				}
+			}
 			Iterator<Entry<Executable, List<ValueSettings>>> iter = setterMap.entrySet().iterator();
 			for(int i=0; i<scores.length; i++){
 				Entry<Executable, List<ValueSettings>> entry = iter.next();
-				ValueSettings valueSetting = entry.getValue().get(0);
 				scores[i] = estimateCoverageLikelihood(entry.getValue());
+				boolean directAssignment = directAssignments.contains(entry.getKey());
+				if (directAssignment) {
+					scores[i] += 100;
+				}
 
 				java.lang.reflect.Parameter[] pList = entry.getKey().getParameters();
-				boolean typeCompatible = false;
-				
-				for(Integer index: valueSetting.releventPrams) {
-					scores[i] += 1;
-					java.lang.reflect.Parameter p = pList[index];
-					Class<?> c = p.getType();
-					Class<?> c0 = field.getType();
-					
-					if(c0.isAssignableFrom(c)) {
-						scores[i] += 20;
-						typeCompatible = true;
+				boolean hasParameterIndependentSetting = false;
+				Set<Integer> relevantParameters = new HashSet<>();
+				for (ValueSettings valueSetting : entry.getValue()) {
+					if (valueSetting.releventPrams == null || valueSetting.releventPrams.isEmpty()) {
+						hasParameterIndependentSetting = true;
+					} else {
+						relevantParameters.addAll(valueSetting.releventPrams);
 					}
 				}
+
+				for(Integer index: relevantParameters) {
+					if (index == null || index < 0 || index >= pList.length) {
+						continue;
+					}
+					scores[i] += 1;
+					if(isValueParameterCompatible(field.getType(), pList[index].getType())) {
+						scores[i] += 20;
+					}
+				}
+				boolean typeCompatible = hasCompatibleRelevantParameter(
+						field, entry.getKey(), relevantParameters);
+				boolean containerMutation = DataDependencyUtil.isContainerMutationSetting(
+						field, entry.getValue());
+				boolean destructiveContainerMutation =
+						DataDependencyUtil.isDestructiveContainerMutationSetting(
+								field, entry.getValue());
 				
 				if(entry.getKey() instanceof Method && typeCompatible) {
 					scores[i] += 10;
+				}
+				if (containerMutation) {
+					// A Map/Collection mutator controls the field's contents through its key/value
+					// or element parameters; those parameters intentionally do not have the
+					// container's own type.
+					scores[i] += 15;
+				}
+				String rejectionReason = containerMutation ? null
+						: candidateRejectionReason(field, entry.getKey(),
+								relevantParameters, hasParameterIndependentSetting);
+				if (rejectionReason != null) {
+					/*
+					 * An indirect influence is not enough to make a useful synthesis action. For
+					 * example, Action.unpack(DataInputStream) reaches each int field through
+					 * readByte(), but the stream is neither the field value nor a tunable value
+					 * slot. Generating it can throw before the target call. Keep true fixed-effect
+					 * methods (which have a parameter-independent setting) and constructors, but
+					 * require parameter-driven methods to expose at least one field-compatible
+					 * relevant parameter.
+					 */
+					rejectionReasons.put(entry.getKey(), rejectionReason);
+				}
+				if (!allowConstructorReplacement && entry.getKey() instanceof Constructor) {
+					rejectionReasons.put(entry.getKey(), "would_replace_existing_receiver");
+				}
+				if (isTarget(entry.getKey())) {
+					rejectionReasons.put(entry.getKey(), "target_entry_call_not_setup");
+				}
+				if (!directAssignments.isEmpty() && !directAssignment) {
+					rejectionReasons.put(entry.getKey(),
+							"lower_priority_than_direct_field_assignment");
+				}
+				if (freshReceiver && destructiveContainerMutation) {
+					rejectionReasons.put(entry.getKey(),
+							"destructive_mutation_on_fresh_receiver");
 				}
 				
 //				System.currentTimeMillis();
 			}
 			
-			double[] probability = normalize(scores);
+			double[] probability = normalizeEligible(scores, setterMap, rejectionReasons);
+			if (rejectionReasons.size() == setterMap.size()) {
+				ObjectConstructionActionTrace.recordCandidates(field, targetClassName,
+						setterMap, scores, probability, -1, rejectionReasons);
+				return null;
+			}
 			double p = Randomness.nextDouble();
 //			System.currentTimeMillis();
 			int selected = select(p, probability);
+			Executable initiallySelected = (Executable) setterMap.keySet().toArray()[selected];
+			if (rejectionReasons.containsKey(initiallySelected)) {
+				selected = firstEligibleIndex(setterMap, rejectionReasons);
+			}
+			ObjectConstructionActionTrace.recordCandidates(field, targetClassName,
+					setterMap, scores, probability, selected, rejectionReasons);
 			Executable e = (Executable) setterMap.keySet().toArray()[selected];
 			return e;
 		}
+		ObjectConstructionActionTrace.recordCandidates(field, targetClassName,
+				setterMap, new double[0], new double[0], -1, new LinkedHashMap<Executable, String>());
 		
 		return null;
+	}
+
+	/**
+	 * A directly constructed receiver with no intervening instance call still has its initial
+	 * container state. This is the point at which remove/clear-style candidates are guaranteed not
+	 * to perform construction work for the common empty-container initialization pattern.
+	 */
+	static boolean isFreshlyConstructedReceiver(
+			TestCase test, VariableReference targetObjectReference) {
+		if (test == null || targetObjectReference == null) {
+			return false;
+		}
+		int definition = targetObjectReference.getStPosition();
+		if (definition < 0 || definition >= test.size()
+				|| !(test.getStatement(definition) instanceof ConstructorStatement)) {
+			return false;
+		}
+		EntityWithParametersStatement target = test.findTargetExecutableStatement();
+		int limit = target == null ? test.size() : target.getPosition();
+		for (int position = definition + 1; position < limit; position++) {
+			Statement statement = test.getStatement(position);
+			if (statement instanceof MethodStatement) {
+				VariableReference callee = ((MethodStatement) statement).getCallee();
+				if (targetObjectReference.equals(callee)) {
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
+	static boolean isPlatformImplementationState(Field field, String targetClassName) {
+		String fieldOwner = field == null ? null : field.getDeclaringClass().getName();
+		return ObjectConstructionBoundary.isExternalImplementationClass(fieldOwner)
+				|| ObjectConstructionBoundary.isExternalImplementationClass(targetClassName);
+	}
+
+	static String candidateRejectionReason(Field field, Executable executable,
+			Set<Integer> relevantParameters, boolean hasParameterIndependentSetting) {
+		if (!(executable instanceof Method)) {
+			return null;
+		}
+		if (hasCompatibleRelevantParameter(field, executable, relevantParameters)) {
+			return null;
+		}
+		if (hasParameterIndependentSetting) {
+			return null;
+		}
+		return "no_directly_compatible_value_parameter";
+	}
+
+	private static boolean hasCompatibleRelevantParameter(Field field, Executable executable,
+			Set<Integer> relevantParameters) {
+		if (field == null || executable == null || relevantParameters == null) {
+			return false;
+		}
+		Class<?>[] parameterTypes = executable.getParameterTypes();
+		for (Integer index : relevantParameters) {
+			if (index != null && index >= 0 && index < parameterTypes.length
+					&& isValueParameterCompatible(field.getType(), parameterTypes[index])) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private static boolean isValueParameterCompatible(Class<?> fieldType, Class<?> parameterType) {
+		Class<?> boxedFieldType = boxPrimitive(fieldType);
+		Class<?> boxedParameterType = boxPrimitive(parameterType);
+		return boxedFieldType != null && boxedParameterType != null
+				&& boxedFieldType.isAssignableFrom(boxedParameterType);
+	}
+
+	private static Class<?> boxPrimitive(Class<?> type) {
+		if (type == null || !type.isPrimitive()) {
+			return type;
+		}
+		if (type == boolean.class) return Boolean.class;
+		if (type == byte.class) return Byte.class;
+		if (type == char.class) return Character.class;
+		if (type == short.class) return Short.class;
+		if (type == int.class) return Integer.class;
+		if (type == long.class) return Long.class;
+		if (type == float.class) return Float.class;
+		if (type == double.class) return Double.class;
+		if (type == void.class) return Void.class;
+		return type;
+	}
+
+	private static double[] normalizeEligible(double[] scores,
+			LinkedHashMap<Executable, List<ValueSettings>> candidates,
+			Map<Executable, String> rejectionReasons) {
+		double sum = 0.0;
+		int eligibleCount = 0;
+		int index = 0;
+		for (Executable executable : candidates.keySet()) {
+			if (!rejectionReasons.containsKey(executable)) {
+				sum += Math.max(0.0, scores[index]);
+				eligibleCount++;
+			}
+			index++;
+		}
+		double[] cumulative = new double[scores.length];
+		double running = 0.0;
+		int lastEligible = -1;
+		index = 0;
+		for (Executable executable : candidates.keySet()) {
+			if (!rejectionReasons.containsKey(executable) && eligibleCount > 0) {
+				running += sum > 0.0 ? Math.max(0.0, scores[index]) / sum : 1.0 / eligibleCount;
+				lastEligible = index;
+			}
+			cumulative[index] = running;
+			index++;
+		}
+		if (lastEligible >= 0) {
+			for (int i = lastEligible; i < cumulative.length; i++) {
+				cumulative[i] = 1.0;
+			}
+		}
+		return cumulative;
+	}
+
+	private static int firstEligibleIndex(LinkedHashMap<Executable, List<ValueSettings>> candidates,
+			Map<Executable, String> rejectionReasons) {
+		int index = 0;
+		for (Executable executable : candidates.keySet()) {
+			if (!rejectionReasons.containsKey(executable)) {
+				return index;
+			}
+			index++;
+		}
+		return -1;
 	}
 	
 	/**
@@ -918,11 +1200,16 @@ public class VariableCodeGenerationUtil {
 	}
 	
 public static VariableReference generatePublicFieldSetterOrGetter(TestCase test, VariableReference targetObjectReference,
-			String fieldType, GenericField genericField, boolean allowNullValue) throws ConstructionFailedException {
+			String fieldType, GenericField genericField, boolean allowNullValue, Branch branch)
+			throws ConstructionFailedException {
 		AbstractStatement stmt;
 		if (java.util.Arrays.asList("Z", "B", "C", "S", "I", "J", "F", "D").contains(fieldType)) {
 			stmt = addStatementToSetOrGetPublicField(test, fieldType,
-					genericField, targetObjectReference, new PrimitiveFieldInitializer(), allowNullValue);
+					genericField, targetObjectReference,
+					new PrimitiveFieldInitializer(
+							DataDependencyUtil.switchCaseValueForField(
+									branch, genericField.getField())),
+					allowNullValue);
 		} else {
 			stmt = addStatementToSetOrGetPublicField(test, fieldType,
 					genericField, targetObjectReference, new NonPrimitiveFieldInitializer(), allowNullValue);
@@ -943,7 +1230,7 @@ public static VariableReference generatePublicFieldSetterOrGetter(TestCase test,
 	private static AbstractStatement addStatementToSetOrGetPublicField(TestCase test, String fieldType,
 			GenericField genericField, VariableReference parentVarRef, FieldInitializer fieldInitializer, boolean allowNullValue) 
 					throws ConstructionFailedException {
-		MethodStatement mStat = test.findTargetMethodCallStatement();
+		EntityWithParametersStatement mStat = test.findTargetExecutableStatement();
 		int insertionPosition = (parentVarRef != null) ? 
 				parentVarRef.getStPosition() + 1 : mStat.getPosition() - 1; 
 		

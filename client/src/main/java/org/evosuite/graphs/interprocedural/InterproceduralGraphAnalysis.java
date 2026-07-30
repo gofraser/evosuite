@@ -22,6 +22,7 @@ import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.graphs.interprocedural.var.DepVariableFactory;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.testcase.synthesizer.ObjectConstructionGraphDiagnostics;
 import org.evosuite.testcase.synthesizer.TargetContext;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -154,39 +155,6 @@ public class InterproceduralGraphAnalysis {
 		}
 	}
 
-	/**
-	 * Construction fitness: analyze the object-construction graph of an arbitrary method
-	 * on demand and cache it in {@link ObjectConstructionContext#branchInterestedVarsMap}, keyed by
-	 * the method signature. Idempotent per method; returns the per-branch map (possibly empty).
-	 */
-	public static synchronized Map<Branch, Set<DepVariable>> analyzeMethodOnDemand(String className,
-			String methodName, IInterestedNodeFilter interestedNodeFilter) {
-		Map<Branch, Set<DepVariable>> cached = ObjectConstructionContext.branchInterestedVarsMap.get(methodName);
-		if (cached != null) {
-			return cached;
-		}
-		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-		ActualControlFlowGraph cfg = GraphPool.getInstance(classLoader).getActualCFG(className, methodName);
-		if (cfg == null) {
-			return new LinkedHashMap<>();
-		}
-		try {
-			FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
-			Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
-			ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
-			ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
-			return map;
-		} catch (Exception | StackOverflowError e) {
-			// Best-effort, on-demand analysis: never let a failure here abort test generation.
-			// Cache an empty result so this method is not re-analyzed (and re-failed) each generation.
-			logger.warn("On-demand object-construction analysis failed for {}.{}: {}",
-					className, methodName, e.toString());
-			Map<Branch, Set<DepVariable>> empty = new LinkedHashMap<>();
-			ObjectConstructionContext.branchInterestedVarsMap.put(methodName, empty);
-			return empty;
-		}
-	}
-
 	@SuppressWarnings("rawtypes")
 	public static Map<Integer, List<String>> analyzeRecommendationClasses(ActualControlFlowGraph cfg) {
 		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
@@ -247,14 +215,21 @@ public class InterproceduralGraphAnalysis {
 	@SuppressWarnings("rawtypes")
 	public static Map<Branch, Set<DepVariable>> analyzeIndividualMethod(ActualControlFlowGraph cfg, IInterestedNodeFilter interestedNodeFilter) {
 		Map<Branch, Set<DepVariable>> map = new LinkedHashMap<>();
+		long deadlineNanos = analysisDeadlineNanos();
 
 		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
 		String className = cfg.getClassName();
 		String methodName = cfg.getMethodName();
 
 		for (Branch b : BranchPool.getInstance(classLoader).retrieveBranchesInMethod(className, methodName)) {
-			InterproceduralGraphAnalyzer graphAnalyzer = new InterproceduralGraphAnalyzer(b, interestedNodeFilter);
 			Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
+			if (deadlineReached(deadlineNanos)) {
+				map.put(b, inputRootVars);
+				ObjectConstructionGraphDiagnostics.recordAnalysis(b, inputRootVars);
+				continue;
+			}
+			InterproceduralGraphAnalyzer graphAnalyzer = new InterproceduralGraphAnalyzer(
+					b, interestedNodeFilter, deadlineNanos);
 			Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
 			try {
 				if (!b.isInstrumented()) {
@@ -273,12 +248,18 @@ public class InterproceduralGraphAnalysis {
 				// runaway recursion on a complex method), skip that branch's graph rather than
 				// aborting the whole method's analysis — and with it the entire test generation.
 				// A branch with no graph simply falls back to plain random generation.
-				logger.warn("Skipping object-construction analysis for branch {} in {}.{}: {}",
-						b, className, methodName, e.toString());
+				if (e instanceof InterproceduralGraphAnalyzer.AnalysisTimeoutException) {
+					logger.debug("Object-construction analysis budget exhausted in {}.{}",
+							className, methodName);
+				} else {
+					logger.warn("Skipping object-construction analysis for branch {} in {}.{}: {}",
+							b, className, methodName, e.toString());
+				}
 				inputRootVars.clear();
 			}
 
 			map.put(b, inputRootVars);
+			ObjectConstructionGraphDiagnostics.recordAnalysis(b, inputRootVars);
 		}
 
 		return map;
@@ -288,7 +269,8 @@ public class InterproceduralGraphAnalysis {
 	public static Map<Branch, Set<DepVariable>> analyzeIndividualBranch(ActualControlFlowGraph cfg, Branch branch, IInterestedNodeFilter interestedNodeFilter) {
 		Map<Branch, Set<DepVariable>> map = new LinkedHashMap<>();
 
-		InterproceduralGraphAnalyzer graphAnalyzer = new InterproceduralGraphAnalyzer(branch, interestedNodeFilter);
+		InterproceduralGraphAnalyzer graphAnalyzer = new InterproceduralGraphAnalyzer(
+				branch, interestedNodeFilter, analysisDeadlineNanos());
 		Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
 		Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
 		if (!branch.isInstrumented()) {
@@ -303,8 +285,21 @@ public class InterproceduralGraphAnalysis {
 		}
 
 		map.put(branch, inputRootVars);
+		ObjectConstructionGraphDiagnostics.recordAnalysis(branch, inputRootVars);
 
 		return map;
+	}
+
+	private static long analysisDeadlineNanos() {
+		if (!Properties.OBJECT_RULE_WHOLE_CLASS || Properties.OBJECT_RULE_ANALYSIS_TIMEOUT <= 0) {
+			return Long.MAX_VALUE;
+		}
+		return System.nanoTime()
+				+ Properties.OBJECT_RULE_ANALYSIS_TIMEOUT * 1_000_000L;
+	}
+
+	private static boolean deadlineReached(long deadlineNanos) {
+		return deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0;
 	}
 
 	private static boolean isCUT(String className) {

@@ -35,10 +35,8 @@ import org.evosuite.testcase.execution.ExecutionResult;
  *
  * <p>Given the position at which a test threw, this locates the bytecode instruction that threw,
  * finds the branch(es) it is control-dependent on, and returns the normalized branch distance of the
- * direction that would have <em>avoided</em> the throw. This is the targeted, directed gradient used
- * both by the {@code construction_fitness} METHODNOEXCEPTION grading (EvoObj E9) and by the
- * legitimizer's legitimacy distance, so the two agree on one definition rather than approximating it
- * independently.
+ * direction that would have <em>avoided</em> the throw. The optional EvoObj legitimizer uses this
+ * directed gradient to distinguish candidates that fail at the same test statement.
  */
 public final class GuardBranchDistance {
 

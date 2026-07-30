@@ -24,6 +24,7 @@ import com.examples.with.different.packagename.utils.generic.ClassWithOverloaded
 import com.examples.with.different.packagename.utils.generic.ClassWithoutOverloadedMethods;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
@@ -37,6 +38,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -69,6 +71,14 @@ public class TestOverloading {
 
         protected static Object convert(URL value, Class<?> clazz) {
             return null;
+        }
+    }
+
+    public static class StaleArgumentOverload {
+        public static void consume(String value) {
+        }
+
+        public static void consume(URL value) {
         }
     }
 
@@ -215,5 +225,17 @@ public class TestOverloading {
 
         assertTrue(genericMethod.isOverloaded(parameters),
                 "protected/package-private overloads must also trigger source-code disambiguation casts");
+    }
+
+    @Test
+    public void testStaleArgumentDoesNotReenterCodeRenderingDuringOverloadCheck() throws Exception {
+        TestCase test = new DefaultTestCase();
+        VariableReference stale = new VariableReferenceImpl(test, String.class);
+        Method method = StaleArgumentOverload.class.getMethod("consume", String.class);
+        GenericMethod genericMethod = new GenericMethod(method, StaleArgumentOverload.class);
+        test.addStatement(new MethodStatement(
+                test, genericMethod, null, Arrays.asList(stale)));
+
+        assertDoesNotThrow(() -> genericMethod.isOverloaded(Arrays.asList(stale)));
     }
 }

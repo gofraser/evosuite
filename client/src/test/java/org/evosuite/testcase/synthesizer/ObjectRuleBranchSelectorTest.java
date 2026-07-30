@@ -43,8 +43,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.examples.with.different.packagename.objectconstruction.instancefield.PublicInstanceFieldExample;
+import com.examples.with.different.packagename.objectconstruction.tuning.ConstructorOnlyNestedState;
+import com.examples.with.different.packagename.objectconstruction.tuning.ObserverOnlyInput;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -136,6 +139,30 @@ public class ObjectRuleBranchSelectorTest {
     }
 
     @Test
+    public void constructorOnlyNestedStateIsNotEligible() {
+        analyze(ConstructorOnlyNestedState.class, "target", 0);
+        Branch branch = stateBearingBranch();
+
+        assertFalse(ObjectRuleBranchSelector.getInstance().isEligible(branch),
+                "runtime synthesis cannot replace an already-constructed nested receiver");
+    }
+
+    @Test
+    public void observerOnlyInputIsNotEligible() {
+        boolean oldMockSetup = Properties.OBJECT_RULE_MOCK_SETUP;
+        try {
+            Properties.OBJECT_RULE_MOCK_SETUP = false;
+            analyze(ObserverOnlyInput.class, "target", 1);
+            Branch branch = stateBearingBranch();
+
+            assertFalse(ObjectRuleBranchSelector.getInstance().isEligible(branch),
+                    "a query without a setter, builder, collection recipe, or mock recipe is inert");
+        } finally {
+            Properties.OBJECT_RULE_MOCK_SETUP = oldMockSetup;
+        }
+    }
+
+    @Test
     public void nullAndEmptyCandidatesYieldNoBranch() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1);
         ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
@@ -145,6 +172,48 @@ public class ObjectRuleBranchSelectorTest {
         assertNull(selector.selectWorkingBranch(new ArrayList<>()));
         // A single null candidate is not eligible, so nothing is selected.
         assertNull(selector.selectWorkingBranch(Arrays.asList((Branch) null)));
+    }
+
+    @Test
+    public void unsuccessfulEligibilityDiscoveryDoesNotPerturbSearchRandomness() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        Branch branch = stateBearingBranch();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+        selector.reset();
+
+        // Make this otherwise valid branch unknown and graph-less. Supplying it twice ensures the
+        // discovery list has a size for which a shuffle would consume randomness.
+        ObjectConstructionContext.branchInterestedVarsMap.clear();
+        Randomness.setSeed(12345L);
+        double expectedNext = Randomness.nextDouble();
+        Randomness.setSeed(12345L);
+
+        assertTrue(selector.hasPotentialCandidate(Arrays.asList(branch, branch)),
+                "an unknown branch must be considered before lazy discovery");
+        assertNull(selector.selectWorkingBranch(Arrays.asList(branch, branch)));
+        assertFalse(selector.hasPotentialCandidate(Arrays.asList(branch, branch)),
+                "a completely classified graph-less set enables the inert fast path");
+        assertEquals(expectedNext, Randomness.nextDouble(), 0.0,
+                "no-op eligibility discovery must not shift the GA's random stream");
+    }
+
+    @Test
+    public void preparationClassifiesGraphlessBranchesBeforeSelection() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        Branch branch = stateBearingBranch();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+        selector.reset();
+
+        ObjectConstructionContext.branchInterestedVarsMap.clear();
+        assertTrue(selector.hasPotentialCandidate(Arrays.asList(branch)),
+                "the branch starts unclassified");
+
+        selector.prepareEligibility(Arrays.asList(branch));
+
+        assertFalse(selector.hasPotentialCandidate(Arrays.asList(branch)),
+                "preparation must fully classify a graphless search space");
+        assertNull(selector.selectWorkingBranch(Arrays.asList(branch)),
+                "selection after preparation must use the cached negative verdict");
     }
 
     @Test
@@ -167,16 +236,53 @@ public class ObjectRuleBranchSelectorTest {
     }
 
     @Test
-    public void usableTemplateResetsTheFailureCounterEvenWhenItThrows() {
+    public void entryConstructionFailureImmediatelyRejectsBranch() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1);
         Branch branch = stateBearingBranch();
         ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
 
-        // Two discarded syntheses, then a usable-but-throwing template clears the streak.
+        assertTrue(selector.isEligible(branch));
+        selector.recordEntryConstructionFailure(branch);
+
+        assertFalse(selector.isEligible(branch),
+                "an entry that cannot be constructed must not be retried");
+        assertNull(selector.selectWorkingBranch(Arrays.asList(branch)));
+        assertEquals(1, selector.getBlacklistedCount());
+        assertEquals(0, selector.getTargetedBranchCount(),
+                "entry rejection happens before synthesis starts");
+
+        selector.reset();
+        assertTrue(selector.isEligible(branch), "per-run reset restores eligibility");
+    }
+
+    @Test
+    public void retryableEntryFailuresUseBoundWithoutCountingAsSynthesis() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        Branch branch = stateBearingBranch();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+
+        for (int i = 0; i < Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS - 1; i++) {
+            selector.recordRetryableEntryConstructionFailure(branch);
+            assertTrue(selector.isEligible(branch));
+        }
+        assertEquals(0, selector.getTargetedBranchCount());
+        selector.recordRetryableEntryConstructionFailure(branch);
+        assertFalse(selector.isEligible(branch));
+        assertEquals(1, selector.getBlacklistedCount());
+        assertEquals(0, selector.getTargetedBranchCount());
+    }
+
+    @Test
+    public void reachingTemplateResetsTheFailureCounter() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        Branch branch = stateBearingBranch();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+
+        // Two pre-target failures, then a target-reaching template clears the streak.
         selector.recordSynthesisAttempt(branch, false);
         selector.recordSynthesisAttempt(branch, false);
         selector.recordSynthesisAttempt(branch, true);
-        assertTrue(selector.isEligible(branch), "a usable template resets the failure count");
+        assertTrue(selector.isEligible(branch), "a reaching template resets the failure count");
 
         // It now takes a fresh full streak of discarded syntheses to drop the branch.
         for (int i = 0; i < Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS - 1; i++) {
@@ -185,6 +291,35 @@ public class ObjectRuleBranchSelectorTest {
         assertTrue(selector.isEligible(branch), "counter restarted after the usable template");
         selector.recordSynthesisAttempt(branch, false);
         assertFalse(selector.isEligible(branch), "dropped once the fresh streak reaches the threshold");
+    }
+
+    @Test
+    public void reachingWithoutWorkingGoalBenefitDoesNotResetFailureCounter() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        Branch branch = stateBearingBranch();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+
+        for (int i = 0; i < Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS; i++) {
+            selector.recordSynthesisAttempt(branch, true, false);
+        }
+
+        assertFalse(selector.isEligible(branch),
+                "reaching an entry without improving its selected branch is bounded");
+        assertEquals(Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS,
+                selector.getMaxInjectionsPerBranch());
+    }
+
+    @Test
+    public void repeatedWorkingGoalImprovementWithoutCoverageIsBounded() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        Branch branch = stateBearingBranch();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+
+        selector.recordSynthesisAttempt(branch, true, false);
+        selector.recordSynthesisAttempt(branch, true, false);
+        selector.recordSynthesisAttempt(branch, true, false);
+        assertFalse(selector.isEligible(branch),
+                "fitness improvement alone must not permit unbounded repeated synthesis");
     }
 
     @Test
@@ -198,5 +333,29 @@ public class ObjectRuleBranchSelectorTest {
         assertTrue(selector.isEligible(branch), "one discard is below the configured threshold");
         selector.recordSynthesisAttempt(branch, false);
         assertFalse(selector.isEligible(branch), "second discard reaches the configured threshold");
+    }
+
+    @Test
+    public void recordsConcentrationAndRepeatedFailureGateTelemetry() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1);
+        Branch branch = stateBearingBranch();
+        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+
+        selector.recordSynthesisAttempt(branch, false);
+        selector.recordSynthesisAttempt(branch, false);
+        selector.recordSynthesisAttempt(branch, true);
+        selector.recordSynthesisAttempt(branch, false);
+
+        assertEquals(1, selector.getTargetedBranchCount());
+        assertEquals(4, selector.getMaxInjectionsPerBranch());
+        assertEquals(1, selector.getRepeatedFailureBranchCount());
+        assertEquals(2, selector.getMaxConsecutiveFailures(),
+                "a successful synthesis resets the current streak, not its observed maximum");
+
+        selector.reset();
+        assertEquals(0, selector.getTargetedBranchCount());
+        assertEquals(0, selector.getMaxInjectionsPerBranch());
+        assertEquals(0, selector.getRepeatedFailureBranchCount());
+        assertEquals(0, selector.getMaxConsecutiveFailures());
     }
 }

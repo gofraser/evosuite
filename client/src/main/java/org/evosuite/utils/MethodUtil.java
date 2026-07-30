@@ -8,7 +8,6 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.graphs.GraphPool;
@@ -18,6 +17,7 @@ import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.analysis.AnalyzerException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -204,14 +204,10 @@ public class MethodUtil {
 		if (cfg == null && innerNode != null) {
 			try {
 				bytecodeAnalyzer.analyze(classLoader, className, methodName, innerNode);
-				Properties.ALWAYS_REGISTER_BRANCH = true;
 				bytecodeAnalyzer.retrieveCFGGenerator().registerCFGs();
 				cfg = GraphPool.getInstance(classLoader).getActualCFG(className, methodName);
-				Properties.ALWAYS_REGISTER_BRANCH = false;
-			} catch (Exception e) {
-				/*
-				 * the cfg (e.g., jdk/library class) is out of our consideration
-				 */
+			} catch (AnalyzerException e) {
+				log.debug("Could not analyze method {}#{}", className, methodName, e);
 				return null;
 			}
 		}

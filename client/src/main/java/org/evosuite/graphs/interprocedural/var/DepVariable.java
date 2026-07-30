@@ -438,7 +438,8 @@ public abstract class DepVariable {
 			if (directParents != null && !directParents.isEmpty()) {
 				DepVariable p = directParents.get(0);
 				String relation = p.inferRelationWithChild(this, i);
-				if (relation.equals(Relation.FIELD) || relation.equals(Relation.ARRAY_ELEMENT)) {
+				if (relation.equals(Relation.FIELD) || relation.equals(Relation.ARRAY_ELEMENT)
+						|| (this.isMethodCall() && relation.equals(Relation.OTHER))) {
 					for (DepVariable parent : directParents) {
 						ArrayList<DepVariable> partialPath = (ArrayList<DepVariable>) path.clone();
 						partialPath.add(parent);

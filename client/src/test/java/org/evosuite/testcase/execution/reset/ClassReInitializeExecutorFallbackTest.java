@@ -69,6 +69,37 @@ public class ClassReInitializeExecutorFallbackTest {
         assertTrue(invokeShouldSkipReflectiveFallback("java.lang.String"));
     }
 
+    @Test
+    public void testSkipsStaticResetForSharedLoggingInfrastructure() {
+        Properties.TARGET_CLASS = Cut.class.getName();
+
+        assertTrue(ClassReInitializeExecutor.shouldSkipInfrastructureReset(
+                "io.netty.util.internal.logging.InternalLoggerFactory"));
+        assertTrue(ClassReInitializeExecutor.shouldSkipInfrastructureReset(
+                "org.slf4j.LoggerFactory"));
+        assertTrue(ClassReInitializeExecutor.shouldSkipInfrastructureReset(
+                "ch.qos.logback.classic.LoggerContext"));
+        assertTrue(ClassReInitializeExecutor.shouldSkipInfrastructureReset(
+                "org.apache.logging.log4j.LogManager"));
+    }
+
+    @Test
+    public void testDoesNotSkipInfrastructureClassWhenItIsTheTarget() {
+        Properties.TARGET_CLASS =
+                "io.netty.util.internal.logging.InternalLoggerFactory";
+
+        assertFalse(ClassReInitializeExecutor.shouldSkipInfrastructureReset(
+                Properties.TARGET_CLASS));
+    }
+
+    @Test
+    public void testDoesNotSkipOrdinaryDependencyReset() {
+        Properties.TARGET_CLASS = Cut.class.getName();
+
+        assertFalse(ClassReInitializeExecutor.shouldSkipInfrastructureReset(
+                "com.fasterxml.jackson.databind.ObjectMapper"));
+    }
+
     private static boolean invokeShouldSkipReflectiveFallback(String className) throws Exception {
         Method method = ClassReInitializeExecutor.class
                 .getDeclaredMethod("shouldSkipReflectiveFallback", String.class);

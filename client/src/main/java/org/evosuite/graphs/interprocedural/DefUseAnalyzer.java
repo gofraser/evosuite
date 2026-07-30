@@ -51,6 +51,11 @@ public class DefUseAnalyzer {
 		String methodName = insOfuse.getMethodName();
 		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
 		MethodNode node = getMethodNode(classLoader, className, methodName);
+		if (node == null) {
+			logger.debug("Unable to resolve bytecode for {}#{} while following def-use information",
+					className, methodName);
+			return new ArrayList<>();
+		}
 
 		DefUseAnalyzer defUseAnalyzer = new DefUseAnalyzer();
 		defUseAnalyzer.analyze(classLoader, node, className, methodName, node.access);
@@ -58,7 +63,7 @@ public class DefUseAnalyzer {
 		try {
 			use = DefUseFactory.makeUse(insOfuse);
 		}
-		catch (Exception e) {
+		catch (IllegalArgumentException e) {
 			logger.debug("unable to build a Use for instruction " + insOfuse, e);
 		}
 
@@ -106,13 +111,32 @@ public class DefUseAnalyzer {
 
 	public static BytecodeInstruction convert2BytecodeInstruction(ActualControlFlowGraph cfg, MethodNode node,
 			AbstractInsnNode ins) {
-		BytecodeInstruction defIns = cfg.getInstruction(node.instructions.indexOf(ins));
-		return defIns;
+		// SourceValue frames normally retain the exact ASM nodes used to build the CFG. Resolve
+		// those by identity first. Looking up the node only in a freshly parsed MethodNode is not
+		// reliable for pre-built project JARs: AbstractInsnNode uses identity equality, so indexOf
+		// returns -1 even though the instruction is present. That was the reason the real Gangup
+		// BasicRules graph lost actor/target/action dependencies while the source fixture passed.
+		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+		RawControlFlowGraph rawCfg = GraphPool.getInstance(classLoader)
+				.getRawCFG(cfg.getClassName(), cfg.getMethodName());
+		if (rawCfg != null) {
+			for (BytecodeInstruction candidate : rawCfg.vertexSet()) {
+				if (candidate.getASMNode() == ins) {
+					return candidate;
+				}
+			}
+		}
+
+		int instructionIndex = node == null ? -1 : node.instructions.indexOf(ins);
+		return instructionIndex < 0 ? null : cfg.getInstruction(instructionIndex);
 	}
 
 	public static MethodNode getMethodNode(InstrumentingClassLoader classLoader, String className, String methodName) {
-		InputStream is = ResourceList.getInstance(classLoader).getClassAsStream(className);
-		try {
+		try (InputStream is = ResourceList.getInstance(classLoader).getClassAsStream(className)) {
+			if (is == null) {
+				logger.debug("No class bytes found for {} while resolving {}", className, methodName);
+				return null;
+			}
 			ClassReader reader = new ClassReader(is);
 			ClassNode cn = new ClassNode();
 			reader.accept(cn, ClassReader.SKIP_FRAMES);
@@ -138,7 +162,8 @@ public class DefUseAnalyzer {
 			}
 
 		} catch (IOException e) {
-			// class bytes not readable; give up
+			logger.debug("Unable to read class bytes for {} while resolving {}", className,
+					methodName, e);
 		}
 
 		return null;
@@ -146,12 +171,22 @@ public class DefUseAnalyzer {
 
 	public void analyze(ClassLoader classLoader, MethodNode mn, String className,
 	        String methodName, int access) {
+		if (mn == null) {
+			logger.debug("Skipping def-use analysis for {}#{} because its MethodNode is unavailable",
+					className, methodName);
+			return;
+		}
 		String methodId = String.format("%s#%s%s", className, methodName, mn.desc);
 		if (analizedList.contains(methodId)) {
 			return;
 		}
 
 		RawControlFlowGraph completeCFG = GraphPool.getInstance(classLoader).getRawCFG(className, methodName);
+		if (completeCFG == null) {
+			logger.debug("Skipping def-use analysis for {}#{} because its raw CFG is unavailable",
+					className, methodName);
+			return;
+		}
 		Iterator<AbstractInsnNode> j = mn.instructions.iterator();
 		while (j.hasNext()) {
 			AbstractInsnNode in = j.next();
