@@ -41,6 +41,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -145,6 +146,31 @@ class LlmPostProcessingOutputRenderingTest {
         assertTrue(code.indexOf("// Keep the observed count.") < code.indexOf("int count = 7;"), code);
         assertTrue(code.indexOf("int count = 7;") < code.indexOf("int int0 = 8;"), code);
         assertTrue(code.indexOf("int int0 = 8;") < code.indexOf("assertEquals(7, count);"), code);
+    }
+
+    @Test
+    void renderedSourceMatchesGoldenDigest() throws Exception {
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+        test.addStatement(new IntPrimitiveStatement(test, 8));
+        LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
+        LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":1,"
+                        + "\"testName\":\"usesReadablePostProcessedOutput\","
+                        + "\"variableNames\":{\"v0\":\"count\"},"
+                        + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Keep the observed count.\"}],"
+                        + "\"sectionBreaksAfter\":[\"s0\"],"
+                        + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                        + "\"expected\":\"7\",\"actual\":\"v0\","
+                        + "\"purpose\":\"The count remains stable.\"}]}",
+                references.toParseContext()).getResponse();
+        LlmPostProcessingEditApplier.apply(test, references, response);
+
+        String code = writeCompileAndRunSuite(test, "GoldenReadableOutputTest",
+                "usesReadablePostProcessedOutput");
+
+        assertEquals("26538cc06e8d0e1ec166be9db2fc721be72de03760d6ce18743672c69157bdac",
+                sha256(code));
     }
 
     @Test
@@ -334,5 +360,15 @@ class LlmPostProcessingOutputRenderingTest {
                         }
                     });
         }
+    }
+
+    private static String sha256(String value) throws Exception {
+        byte[] digest = MessageDigest.getInstance("SHA-256")
+                .digest(value.getBytes(StandardCharsets.UTF_8));
+        StringBuilder hex = new StringBuilder(digest.length * 2);
+        for (byte item : digest) {
+            hex.append(String.format("%02x", item & 0xff));
+        }
+        return hex.toString();
     }
 }

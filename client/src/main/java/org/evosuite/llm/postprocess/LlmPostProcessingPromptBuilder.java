@@ -49,6 +49,12 @@ final class LlmPostProcessingPromptBuilder {
     /** Production entry point; new requests always use the frozen production protocol. */
     static PromptResult build(LlmPostProcessingPromptContext context, int testIndex,
                               boolean assertionsEnabled, PostProcessingOptions options) {
+        return PostProcessingPromptRenderer.build(
+                OracleContextFactory.capture(context), assertionsEnabled, options);
+    }
+
+    static PromptResult build(OracleContext context, int testIndex,
+                              boolean assertionsEnabled, PostProcessingOptions options) {
         return PostProcessingPromptRenderer.build(context, assertionsEnabled, options);
     }
 

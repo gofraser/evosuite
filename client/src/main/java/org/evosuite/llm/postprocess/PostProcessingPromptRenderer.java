@@ -33,7 +33,7 @@ final class PostProcessingPromptRenderer {
         // Utility class.
     }
 
-    static PromptResult build(LlmPostProcessingPromptContext context,
+    static PromptResult build(PostProcessingPromptFacts context,
                               boolean assertionsEnabled,
                               PostProcessingOptions options) {
         if (options == null) {
@@ -45,7 +45,7 @@ final class PostProcessingPromptRenderer {
         return new PromptResult.Builder().messages(messages).build();
     }
 
-    private static String userPrompt(LlmPostProcessingPromptContext context,
+    private static String userPrompt(PostProcessingPromptFacts context,
                                      boolean assertionsEnabled,
                                      PostProcessingOptions options) {
         boolean testNames = options.features().testNames();
@@ -117,7 +117,7 @@ final class PostProcessingPromptRenderer {
         return builder.toString();
     }
 
-    static String annotatedText(LlmPostProcessingPromptContext context,
+    static String annotatedText(PostProcessingPromptFacts context,
                                 boolean includeActionRoles) {
         StringBuilder builder = new StringBuilder();
         for (LlmPostProcessingPromptContext.StatementContext statement : context.getStatements()) {
@@ -152,7 +152,7 @@ final class PostProcessingPromptRenderer {
         return builder.toString();
     }
 
-    static String observationText(LlmPostProcessingPromptContext context,
+    static String observationText(PostProcessingPromptFacts context,
                                   Set<String> relevantVariableIds,
                                   PostProcessingOptions options) {
         if (context.getObservations().isEmpty()) {
@@ -191,7 +191,7 @@ final class PostProcessingPromptRenderer {
         return builder.length() == 0 ? "none\n" : builder.toString();
     }
 
-    static String exceptionText(LlmPostProcessingPromptContext context) {
+    static String exceptionText(PostProcessingPromptFacts context) {
         if (context.getExceptions().isEmpty()) {
             return "none\n";
         }
@@ -208,7 +208,7 @@ final class PostProcessingPromptRenderer {
         return builder.toString();
     }
 
-    static String candidateFactText(LlmPostProcessingPromptContext context,
+    static String candidateFactText(PostProcessingPromptFacts context,
                                     boolean includeCandidateIds,
                                     boolean canonicalSemantics,
                                     boolean includeActionRoles,
@@ -249,7 +249,7 @@ final class PostProcessingPromptRenderer {
         return builder.toString();
     }
 
-    static String callableMemberText(LlmPostProcessingPromptContext context,
+    static String callableMemberText(PostProcessingPromptFacts context,
                                      Set<String> relevantVariableIds,
                                      PostProcessingOptions options) {
         if (context.getCallableMembers().isEmpty()) {
@@ -417,7 +417,7 @@ final class PostProcessingPromptRenderer {
     }
 
     private static void appendAssertionExamples(StringBuilder builder,
-                                                LlmPostProcessingPromptContext context) {
+                                                PostProcessingPromptFacts context) {
         builder.append("Assertion object forms:\n");
         builder.append("- TRUE/FALSE/NULL/NOT_NULL: assertionId, kind, actual; never expected.\n");
         builder.append("- EQUALS/NOT_EQUALS/SAME/NOT_SAME and comparisons: assertionId, kind, expected, actual.\n");

@@ -68,6 +68,7 @@ final class LlmTestPostProcessor {
                     prePromptStabilityResult,
                     candidateCollection == null ? Collections.emptyList()
                             : candidateCollection.getAssertions(), options);
+            OracleContext oracleContext = OracleContextFactory.capture(context);
             assertionEligible = assertionEligible && LlmPostProcessor.hasAssertionOpportunity(context);
             if (Properties.LlmPostProcessingScope.ASSERTION_ELIGIBLE_TESTS
                     == options.phaseBudget().scope()
@@ -76,7 +77,7 @@ final class LlmTestPostProcessor {
                 return result;
             }
             boolean assertionsEnabledForTest = options.features().assertions() && assertionEligible;
-            PromptResult prompt = LlmPostProcessingPromptBuilder.build(context, testIndex,
+            PromptResult prompt = LlmPostProcessingPromptBuilder.build(oracleContext, testIndex,
                     assertionsEnabledForTest, options);
             result.requestedTests = 1;
             result.calls = 1;
@@ -85,7 +86,7 @@ final class LlmTestPostProcessor {
             String rawResponse = processor.queryWithPostProcessingTraceContext(prompt, testIndex,
                     minimizationResult, 1);
             LlmPostProcessingParseResult parseResult = LlmPostProcessingResponseParser.parse(
-                    rawResponse, context.toParseContext());
+                    rawResponse, oracleContext.toParseContext());
             if (parseResult.isInfrastructureFailure()) {
                 logger.warn("Unified LLM post-processing ignored response for test {}: {}",
                         testIndex, parseResult.getInfrastructureFailureReason());

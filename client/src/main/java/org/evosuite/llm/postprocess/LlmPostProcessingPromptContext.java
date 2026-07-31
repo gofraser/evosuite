@@ -62,7 +62,7 @@ import java.util.Set;
 /**
  * Test-local prompt context with stable statement and variable IDs.
  */
-public final class LlmPostProcessingPromptContext {
+public final class LlmPostProcessingPromptContext implements PostProcessingPromptFacts {
 
     private static final Set<String> DENIED_INSPECTOR_METHODS = new LinkedHashSet<>(Arrays.asList(
             "wait",
