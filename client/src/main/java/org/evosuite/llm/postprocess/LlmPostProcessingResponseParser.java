@@ -645,11 +645,14 @@ public final class LlmPostProcessingResponseParser {
                 if (!hasValidOperandShape(kind, entry, path)) {
                     continue;
                 }
-                String expected = expression(expectedNode(kind, entry), path + expectedPathSuffix(kind),
-                        isExpectedRequired(kind));
-                String actual = expression(actualNode(kind, entry), path + actualPathSuffix(kind), true);
+                String expected = expression(PostProcessingAssertionKindRules.expectedNode(kind, entry),
+                        path + PostProcessingAssertionKindRules.expectedPathSuffix(kind),
+                        PostProcessingAssertionKindRules.requiresExpected(kind));
+                String actual = expression(PostProcessingAssertionKindRules.actualNode(kind, entry),
+                        path + PostProcessingAssertionKindRules.actualPathSuffix(kind), true);
                 String delta = expression(entry.get("delta"), path + ".delta", false);
-                if ((isExpectedRequired(kind) && expected == null) || actual == null || delta == INVALID_EXPRESSION) {
+                if ((PostProcessingAssertionKindRules.requiresExpected(kind) && expected == null)
+                        || actual == null || delta == INVALID_EXPRESSION) {
                     continue;
                 }
                 ExprType originalExpectedType = resolveExpressionType(expected);
@@ -818,64 +821,6 @@ public final class LlmPostProcessingResponseParser {
             String owner = "float".equals(typeName) || "java.lang.Float".equals(typeName)
                     ? "Float" : "Double";
             return owner + "." + member;
-        }
-
-        private JsonNode expectedNode(LlmPostProcessingResponse.AssertionKind kind, JsonNode entry) {
-            switch (kind) {
-                case CONTAINS:
-                case NOT_CONTAINS:
-                    return entry.has("expected") ? entry.get("expected") : entry.get("element");
-                case SIZE_EQUALS:
-                    return entry.has("expected") ? entry.get("expected") : entry.get("size");
-                case MAP_CONTAINS_KEY:
-                    return entry.has("expected") ? entry.get("expected") : entry.get("key");
-                default:
-                    return entry.get("expected");
-            }
-        }
-
-        private JsonNode actualNode(LlmPostProcessingResponse.AssertionKind kind, JsonNode entry) {
-            switch (kind) {
-                case CONTAINS:
-                case NOT_CONTAINS:
-                    return entry.has("actual") ? entry.get("actual") : entry.get("container");
-                case SIZE_EQUALS:
-                case IS_EMPTY:
-                    return entry.has("actual") ? entry.get("actual") : entry.get("target");
-                case MAP_CONTAINS_KEY:
-                    return entry.has("actual") ? entry.get("actual") : entry.get("map");
-                default:
-                    return entry.get("actual");
-            }
-        }
-
-        private String expectedPathSuffix(LlmPostProcessingResponse.AssertionKind kind) {
-            switch (kind) {
-                case CONTAINS:
-                case NOT_CONTAINS:
-                    return ".expected/.element";
-                case SIZE_EQUALS:
-                    return ".expected/.size";
-                case MAP_CONTAINS_KEY:
-                    return ".expected/.key";
-                default:
-                    return ".expected";
-            }
-        }
-
-        private String actualPathSuffix(LlmPostProcessingResponse.AssertionKind kind) {
-            switch (kind) {
-                case CONTAINS:
-                case NOT_CONTAINS:
-                    return ".actual/.container";
-                case SIZE_EQUALS:
-                case IS_EMPTY:
-                    return ".actual/.target";
-                case MAP_CONTAINS_KEY:
-                    return ".actual/.map";
-                default:
-                    return ".actual";
-            }
         }
 
         private String parseAssertionIntent(JsonNode node, String path) {
@@ -1443,7 +1388,7 @@ public final class LlmPostProcessingResponseParser {
                     && (normalizedExpected.isEmpty() || isLiteralOrNullExpression(normalizedExpected))) {
                 return true;
             }
-            return isExpectedRequired(kind)
+            return PostProcessingAssertionKindRules.requiresExpected(kind)
                     && isDirectSetupInputVariable(normalizedExpected)
                     && isLiteralOrNullExpression(normalizedActual);
         }
@@ -1475,7 +1420,7 @@ public final class LlmPostProcessingResponseParser {
                     && normalizedExpected.equals(normalizedActual)) {
                 return true;
             }
-            if (isRelationalKind(kind)
+            if (PostProcessingAssertionKindRules.isRelational(kind)
                     && !normalizedExpected.isEmpty()
                     && normalizedExpected.equals(normalizedActual)) {
                 // actual OP actual is degenerate: strict forms are always false,
@@ -1526,12 +1471,12 @@ public final class LlmPostProcessingResponseParser {
         private boolean hasValidOperandShape(LlmPostProcessingResponse.AssertionKind kind, JsonNode entry,
                                              String path) {
             boolean valid = true;
-            if (isForbidden(entry, "expected") && !isExpectedRequired(kind)) {
+            if (isForbidden(entry, "expected") && !PostProcessingAssertionKindRules.requiresExpected(kind)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path + ".expected",
                         "expected is not allowed for assertion kind " + kind);
                 valid = false;
             }
-            if (isForbidden(entry, "delta") && !isDeltaAllowed(kind)) {
+            if (isForbidden(entry, "delta") && !PostProcessingAssertionKindRules.allowsDelta(kind)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path + ".delta",
                         "delta is not allowed for assertion kind " + kind);
                 valid = false;
@@ -2333,43 +2278,6 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private static final String INVALID_EXPRESSION = new String("<invalid>");
-
-        private boolean isExpectedRequired(LlmPostProcessingResponse.AssertionKind kind) {
-            switch (kind) {
-                case EQUALS:
-                case NOT_EQUALS:
-                case SAME:
-                case NOT_SAME:
-                case CONTAINS:
-                case NOT_CONTAINS:
-                case SIZE_EQUALS:
-                case MAP_CONTAINS_KEY:
-                case GREATER:
-                case LESS:
-                case GREATER_EQUALS:
-                case LESS_EQUALS:
-                    return true;
-                case TRUE:
-                case FALSE:
-                case NULL:
-                case NOT_NULL:
-                case IS_EMPTY:
-                default:
-                    return false;
-            }
-        }
-
-        private boolean isDeltaAllowed(LlmPostProcessingResponse.AssertionKind kind) {
-            return kind == LlmPostProcessingResponse.AssertionKind.EQUALS
-                    || kind == LlmPostProcessingResponse.AssertionKind.NOT_EQUALS;
-        }
-
-        private boolean isRelationalKind(LlmPostProcessingResponse.AssertionKind kind) {
-            return kind == LlmPostProcessingResponse.AssertionKind.GREATER
-                    || kind == LlmPostProcessingResponse.AssertionKind.LESS
-                    || kind == LlmPostProcessingResponse.AssertionKind.GREATER_EQUALS
-                    || kind == LlmPostProcessingResponse.AssertionKind.LESS_EQUALS;
-        }
 
         private boolean isForbidden(JsonNode entry, String fieldName) {
             JsonNode node = entry.get(fieldName);
