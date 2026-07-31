@@ -37,8 +37,6 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testsuite.MinimizationResult;
-import org.evosuite.testsuite.MinimizationStatus;
-import org.evosuite.testsuite.MinimizationStopCause;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -187,28 +185,6 @@ public class LlmPostProcessor {
      */
     public int runUnifiedPostProcessing(TestSuiteChromosome suite) {
         return runUnifiedPostProcessing(suite, MinimizationResult.disabled(suite));
-    }
-
-    /**
-     * Run unified LLM post-processing.
-     *
-     * @param suite the final structurally post-processed suite
-     * @param minimizationIncomplete whether the preceding minimization phase was skipped or incomplete
-     * @deprecated use {@link #runUnifiedPostProcessing(TestSuiteChromosome, MinimizationResult)} when the real
-     * minimization result is available. This overload is retained only as a compatibility shim for older callers.
-     */
-    @Deprecated
-    public int runUnifiedPostProcessing(TestSuiteChromosome suite, boolean minimizationIncomplete) {
-        MinimizationResult result;
-        if (minimizationIncomplete) {
-            int tests = suite == null ? 0 : suite.size();
-            int length = suite == null ? 0 : suite.totalLengthOfTestCases();
-            result = new MinimizationResult(MinimizationStatus.TIMED_OUT, MinimizationStopCause.TIMEOUT,
-                    tests, length, tests, length, 0L);
-        } else {
-            result = MinimizationResult.disabled(suite);
-        }
-        return runUnifiedPostProcessing(suite, result);
     }
 
     /**
