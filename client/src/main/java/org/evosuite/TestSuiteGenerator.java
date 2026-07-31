@@ -36,6 +36,7 @@ import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.junit.writer.Scaffolding;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
+import org.evosuite.llm.postprocess.LlmPostProcessingPhaseContext;
 import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.llm.seeding.LlmPoolEnrichmentOrchestrator;
@@ -892,6 +893,8 @@ public class TestSuiteGenerator {
         // Keep one explicit post-processing session from phase entry through
         // final JUnit reconciliation, including skipped/failed phase paths.
         activeLlmPostProcessor = new LlmPostProcessor();
+        LlmPostProcessingPhaseContext postProcessingContext =
+                activeLlmPostProcessor.createPhaseContext();
         if (Properties.LLM_POSTPROCESSING_ENABLED) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Running unified LLM post-processing");
@@ -899,22 +902,26 @@ public class TestSuiteGenerator {
             if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping unified LLM post-processing because not enough time is left");
-                activeLlmPostProcessor.publishSkippedPostProcessingMetricsForPhase("timeout", minimizationResult);
+                activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
+                        postProcessingContext, "timeout", minimizationResult);
             } else if (isMemoryTooLowForPhase("unified LLM post-processing")) {
-                activeLlmPostProcessor.publishSkippedPostProcessingMetricsForPhase("low_memory", minimizationResult);
+                activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
+                        postProcessingContext, "low_memory", minimizationResult);
             } else {
                 try {
                     llmPostProcessingAssertionsApplied =
-                            activeLlmPostProcessor.runUnifiedPostProcessing(testSuite, minimizationResult);
+                            activeLlmPostProcessor.runUnifiedPostProcessing(
+                                    testSuite, minimizationResult, postProcessingContext);
                 } catch (RuntimeException e) {
                     LoggingUtils.getEvoLogger().warn(
                             "Unified LLM post-processing failed; continuing without changes", e);
-                    activeLlmPostProcessor.publishSkippedPostProcessingMetricsForPhase(
-                            "phase_failure", minimizationResult);
+                    activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
+                            postProcessingContext, "phase_failure", minimizationResult);
                 }
             }
         } else {
-            activeLlmPostProcessor.publishSkippedPostProcessingMetricsForPhase("disabled", minimizationResult);
+            activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
+                    postProcessingContext, "disabled", minimizationResult);
         }
 
         if (Properties.NO_RUNTIME_DEPENDENCY) {
@@ -926,7 +933,7 @@ public class TestSuiteGenerator {
                 || Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL)) {
             if (ClassPathHacker.isJunitCheckAvailable()) {
                 int beforeJUnitCheck = testSuite.size();
-                compileAndCheckTests(testSuite);
+                compileAndCheckTests(testSuite, postProcessingContext);
                 logger.info("JUnit compile-check changed suite size {} -> {}",
                         beforeJUnitCheck, testSuite.size());
                 if (beforeJUnitCheck > 0 && testSuite.size() == 0) {
@@ -945,8 +952,8 @@ public class TestSuiteGenerator {
             // hybrid arm restores its validated mutation-assertion baseline.
             restoreReplayStructure(testSuite, replayStructure);
         }
-        activeLlmPostProcessor.publishFinalAssertionReconciliationForPhase(testSuite,
-                llmPostProcessingAssertionsApplied);
+        activeLlmPostProcessor.publishFinalAssertionReconciliation(
+                postProcessingContext, testSuite, llmPostProcessingAssertionsApplied);
     }
 
     static void restoreReplayStructure(TestSuiteChromosome suite,
@@ -1190,7 +1197,8 @@ public class TestSuiteGenerator {
      *
      * @param chromosome the test suite to compile and check
      */
-    private void compileAndCheckTests(TestSuiteChromosome chromosome) {
+    private void compileAndCheckTests(TestSuiteChromosome chromosome,
+                                      LlmPostProcessingPhaseContext postProcessingContext) {
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                 + "Compiling and checking tests");
         final int originalSuiteSize = chromosome.size();
@@ -1239,7 +1247,8 @@ public class TestSuiteGenerator {
                     compileRemovedTests.add(testCase);
                 }
             }
-            activeLlmPostProcessor.recordAssertionsRemovedByCompileFilterForPhase(compileRemovedTests);
+            activeLlmPostProcessor.recordAssertionsRemovedByCompileFilter(
+                    postProcessingContext, compileRemovedTests);
             logger.warn("JUnit compile filter removed {} test(s) out of {} before runtime checks",
                     removedByCompileFilter, beforeCompileFilter);
         }

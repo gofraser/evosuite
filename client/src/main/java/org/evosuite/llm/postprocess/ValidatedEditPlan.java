@@ -32,6 +32,25 @@ public final class ValidatedEditPlan {
         return new ValidatedEditPlan(response, diagnostics);
     }
 
+    static ValidatedEditPlan success(LlmPostProcessingResponse response) {
+        return create(response, Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList());
+    }
+
+    static ValidatedEditPlan rejectedAll(
+            LlmPostProcessingResponse response,
+            LlmPostProcessingParseResult.DiagnosticCode code,
+            String message) {
+        List<LlmPostProcessingParseResult.Diagnostic> diagnostics = new ArrayList<>();
+        for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
+            LlmPostProcessingParseResult.DiagnosticReason reason =
+                    code == LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION
+                            ? LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY : null;
+            diagnostics.add(new LlmPostProcessingParseResult.Diagnostic(code,
+                    "assertions[" + proposal.getAssertionId() + "]", message, reason));
+        }
+        return create(response.withoutAssertions(), diagnostics);
+    }
+
     public LlmPostProcessingResponse getResponse() {
         return response.copy();
     }

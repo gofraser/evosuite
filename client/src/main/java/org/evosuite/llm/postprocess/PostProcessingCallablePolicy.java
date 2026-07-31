@@ -121,6 +121,8 @@ final class PostProcessingCallablePolicy {
     private final LlmPostProcessingResponseParser.ParseContext context;
     private final PostProcessingOptions options;
     private final ExpressionTypeResolver typeResolver;
+    private final Set<StaticAllowlistEntry> staticAllowlistEntries;
+    private final Set<String> immutableTypes;
 
     PostProcessingCallablePolicy(LlmPostProcessingResponseParser.ParseContext context,
                                  PostProcessingOptions options,
@@ -128,6 +130,8 @@ final class PostProcessingCallablePolicy {
         this.context = context;
         this.options = options;
         this.typeResolver = typeResolver;
+        this.staticAllowlistEntries = buildStaticAllowlist(options);
+        this.immutableTypes = buildImmutableTypes(options);
     }
 
     boolean isInstanceCallScope(Expression scope) {
@@ -225,19 +229,16 @@ final class PostProcessingCallablePolicy {
         if ("java.util.Optional".equals(canonicalOwner)) {
             return ExprType.reference("java.util.Optional");
         }
-        for (String entry : allStaticAllowlistEntries()) {
-            if (!isBuiltInStaticEntry(entry) && matchesStaticAllowlistEntry(owner, call, entry)) {
-                int descriptorStart = entry.indexOf('(');
-                int close = entry.indexOf(')', descriptorStart + 1);
-                if (descriptorStart > 0 && close > descriptorStart) {
-                    JvmMethodDescriptor signature = JvmMethodDescriptor.parse(
-                            entry.substring(descriptorStart));
-                    String returnType = signature == null || !signature.isValid()
-                            ? null : descriptorTypeName(signature.returnDescriptor());
-                    if (returnType != null) {
-                        return ExprType.fromTypeName(returnType);
-                    }
-                }
+        for (StaticAllowlistEntry entry : staticAllowlistEntries) {
+            if (entry.builtIn || entry.descriptor == null
+                    || !matchesStaticAllowlistEntry(owner, call, entry)) {
+                continue;
+            }
+            JvmMethodDescriptor signature = JvmMethodDescriptor.parse(entry.descriptor);
+            String returnType = signature == null || !signature.isValid()
+                    ? null : descriptorTypeName(signature.returnDescriptor());
+            if (returnType != null) {
+                return ExprType.fromTypeName(returnType);
             }
         }
         return ExprType.unknown();
@@ -310,7 +311,7 @@ final class PostProcessingCallablePolicy {
     }
 
     private boolean isAllowedStaticCall(String owner, MethodCallExpr call) {
-        for (String allowlistEntry : allStaticAllowlistEntries()) {
+        for (StaticAllowlistEntry allowlistEntry : staticAllowlistEntries) {
             if (matchesStaticAllowlistEntry(owner, call, allowlistEntry)) {
                 return true;
             }
@@ -318,47 +319,24 @@ final class PostProcessingCallablePolicy {
         return false;
     }
 
-    private Set<String> allStaticAllowlistEntries() {
-        Set<String> entries = new LinkedHashSet<>(BUILT_IN_PURE_STATIC_METHODS);
-        if (!options.assertionPolicy().pureStaticAllowlist().isEmpty()) {
-            for (String entry : options.assertionPolicy().pureStaticAllowlist()) {
-                if (isValidConfiguredStaticAllowlistEntry(entry)) {
-                    entries.add(entry);
-                }
-            }
-        }
-        return entries;
-    }
-
-    private boolean matchesStaticAllowlistEntry(String owner, MethodCallExpr call, String entry) {
-        int separator = entry.indexOf('#');
-        if (separator <= 0 || separator == entry.length() - 1) {
+    private boolean matchesStaticAllowlistEntry(String owner, MethodCallExpr call,
+                                                StaticAllowlistEntry entry) {
+        if (!owner.equals(entry.owner) && !owner.equals(simpleName(entry.owner))) {
             return false;
         }
-        String allowedOwner = entry.substring(0, separator);
-        String allowedMember = entry.substring(separator + 1);
-        if (!owner.equals(allowedOwner) && !owner.equals(simpleName(allowedOwner))) {
+        if (entry.wildcard) {
+            return entry.builtIn && !"random".equals(call.getNameAsString());
+        }
+        if (!call.getNameAsString().equals(entry.method)) {
             return false;
         }
-        if ("*".equals(allowedMember)) {
-            return isBuiltInStaticEntry(entry) && !"random".equals(call.getNameAsString());
+        if (entry.descriptor == null) {
+            return entry.builtIn;
         }
-        int descriptorStart = allowedMember.indexOf('(');
-        String allowedMethod = descriptorStart < 0 ? allowedMember : allowedMember.substring(0, descriptorStart);
-        if (!call.getNameAsString().equals(allowedMethod)) {
-            return false;
-        }
-        if (descriptorStart < 0) {
-            return isBuiltInStaticEntry(entry);
-        }
-        return argumentsMatchDescriptor(call, allowedMember.substring(descriptorStart));
+        return argumentsMatchDescriptor(call, entry.descriptor);
     }
 
-    private boolean isBuiltInStaticEntry(String entry) {
-        return BUILT_IN_PURE_STATIC_METHODS.contains(entry);
-    }
-
-    private boolean isValidConfiguredStaticAllowlistEntry(String entry) {
+    private static boolean isValidConfiguredStaticAllowlistEntry(String entry) {
         if (entry == null || entry.isEmpty()) {
             return false;
         }
@@ -540,7 +518,7 @@ final class PostProcessingCallablePolicy {
         }
     }
 
-    private boolean isDottedTypeName(String owner) {
+    private static boolean isDottedTypeName(String owner) {
         String[] parts = owner.split("\\.");
         if (parts.length == 0) {
             return false;
@@ -557,15 +535,78 @@ final class PostProcessingCallablePolicy {
         if (!options.assertionPolicy().allowImmutableConstructors()) {
             return false;
         }
-        if (BUILT_IN_IMMUTABLE_TYPES.contains(typeName)) {
+        if (immutableTypes.contains(typeName) || immutableTypes.contains(simpleName(typeName))) {
             return true;
         }
-        for (String configuredType : options.assertionPolicy().immutableTypes()) {
-            if (configuredType.equals(typeName) || simpleName(configuredType).equals(typeName)) {
-                return true;
+        return false;
+    }
+
+    private static Set<StaticAllowlistEntry> buildStaticAllowlist(PostProcessingOptions options) {
+        Set<StaticAllowlistEntry> entries = new LinkedHashSet<>();
+        for (String entry : BUILT_IN_PURE_STATIC_METHODS) {
+            entries.add(StaticAllowlistEntry.parse(entry, true));
+        }
+        for (String entry : options.assertionPolicy().pureStaticAllowlist()) {
+            if (isValidConfiguredStaticAllowlistEntry(entry)) {
+                entries.add(StaticAllowlistEntry.parse(entry, false));
             }
         }
-        return false;
+        return Collections.unmodifiableSet(entries);
+    }
+
+    private static Set<String> buildImmutableTypes(PostProcessingOptions options) {
+        Set<String> types = new LinkedHashSet<>(BUILT_IN_IMMUTABLE_TYPES);
+        for (String type : options.assertionPolicy().immutableTypes()) {
+            types.add(type);
+            types.add(simpleName(type));
+        }
+        return Collections.unmodifiableSet(types);
+    }
+
+    private static final class StaticAllowlistEntry {
+        private final String owner;
+        private final String method;
+        private final String descriptor;
+        private final boolean wildcard;
+        private final boolean builtIn;
+
+        private StaticAllowlistEntry(String owner, String method, String descriptor,
+                                     boolean wildcard, boolean builtIn) {
+            this.owner = owner;
+            this.method = method;
+            this.descriptor = descriptor;
+            this.wildcard = wildcard;
+            this.builtIn = builtIn;
+        }
+
+        private static StaticAllowlistEntry parse(String entry, boolean builtIn) {
+            int separator = entry.indexOf('#');
+            String owner = entry.substring(0, separator);
+            String member = entry.substring(separator + 1);
+            if ("*".equals(member)) {
+                return new StaticAllowlistEntry(owner, null, null, true, builtIn);
+            }
+            int descriptorStart = member.indexOf('(');
+            String method = descriptorStart < 0 ? member : member.substring(0, descriptorStart);
+            String descriptor = descriptorStart < 0 ? null : member.substring(descriptorStart);
+            return new StaticAllowlistEntry(owner, method, descriptor, false, builtIn);
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof StaticAllowlistEntry)) {
+                return false;
+            }
+            StaticAllowlistEntry entry = (StaticAllowlistEntry) other;
+            return owner.equals(entry.owner)
+                    && java.util.Objects.equals(method, entry.method)
+                    && java.util.Objects.equals(descriptor, entry.descriptor);
+        }
+
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(owner, method, descriptor);
+        }
     }
 
     private static Set<String> allowedFields(String... fields) {

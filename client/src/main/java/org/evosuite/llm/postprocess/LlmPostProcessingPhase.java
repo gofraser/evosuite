@@ -26,13 +26,15 @@ final class LlmPostProcessingPhase {
     private final LlmPostProcessor processor;
     private final LlmTestPostProcessor testProcessor;
 
-    LlmPostProcessingPhase(LlmPostProcessor processor) {
+    LlmPostProcessingPhase(LlmPostProcessor processor,
+                           LlmPostProcessingPhaseContext phaseContext) {
         this.processor = processor;
-        this.testProcessor = new LlmTestPostProcessor(processor);
+        this.testProcessor = new LlmTestPostProcessor(processor, phaseContext);
     }
 
     Result run(TestSuiteChromosome suite, MinimizationResult minimizationResult,
-               PostProcessingOptions options) {
+               LlmPostProcessingPhaseContext phaseContext) {
+        PostProcessingOptions options = phaseContext.options();
         boolean limitedIncompleteMinimization = minimizationResult.isIncomplete()
                 && options.phaseBudget().incompletePolicy()
                 == Properties.LlmPostProcessingOnIncompleteMinimization.LIMITED;
@@ -40,13 +42,11 @@ final class LlmPostProcessingPhase {
                 options.phaseBudget(), minimizationResult.isIncomplete());
         PostProcessingMetricsAccumulator metricsAccumulator = new PostProcessingMetricsAccumulator();
         StopReason stopReason = StopReason.NONE;
-        long phaseStartMillis = processor.phaseStartMillis();
-
         List<TestChromosome> tests = suite.getTestChromosomes();
         List<LlmPostProcessor.WorkItem> workItems = LlmPostProcessor.WorkItem.from(
                 tests, limitedIncompleteMinimization);
         for (int workIndex = 0; workIndex < workItems.size(); workIndex++) {
-            if (processor.isPhaseTimedOut(phaseStartMillis)) {
+            if (processor.isPhaseTimedOut(phaseContext)) {
                 stopReason = StopReason.TIMEOUT;
                 metricsAccumulator.addCapSkippedTests(
                         LlmPostProcessor.remainingItems(workItems, workIndex));
@@ -72,7 +72,7 @@ final class LlmPostProcessingPhase {
                 continue;
             }
             TestCase test = chromosome.getTestCase();
-            if (processor.isLowMemory()) {
+            if (processor.isLowMemory(phaseContext)) {
                 logger.info("Unified LLM post-processing stopped before test {}: low memory", testIndex);
                 stopReason = StopReason.LOW_MEMORY;
                 metricsAccumulator.addCapSkippedTests(
@@ -98,7 +98,7 @@ final class LlmPostProcessingPhase {
                         LlmPostProcessor.remainingItems(workItems, workIndex));
                 break;
             }
-            if (!processor.canStartAnotherLlmCall(phaseStartMillis)) {
+            if (!processor.canStartAnotherLlmCall(phaseContext)) {
                 stopReason = StopReason.TIMEOUT;
                 metricsAccumulator.addCapSkippedTests(
                         LlmPostProcessor.remainingItems(workItems, workIndex));
@@ -106,7 +106,7 @@ final class LlmPostProcessingPhase {
             }
 
             LlmPostProcessor.TestProcessingResult result = testProcessor.process(
-                    workItem, minimizationResult, limits, metricsAccumulator.requestedCalls(), phaseStartMillis,
+                    workItem, minimizationResult, limits, metricsAccumulator.requestedCalls(),
                     assertionEligible);
             metricsAccumulator.add(result);
             if (result.stopReason != StopReason.NONE) {
@@ -123,17 +123,14 @@ final class LlmPostProcessingPhase {
                 metricsAccumulator.testNamesApplied(), metricsAccumulator.variableNamesApplied(),
                 metricsAccumulator.commentsApplied(), metricsAccumulator.sectionBreaksApplied(),
                 metricsAccumulator.assertionsApplied());
-        return new Result(metricsAccumulator.finish(stopReason.value),
-                metricsAccumulator.assertionsApplied());
+        return new Result(metricsAccumulator.finish(stopReason.value));
     }
 
     static final class Result {
         final LlmPostProcessor.PostProcessingMetrics metrics;
-        final int assertionsApplied;
 
-        private Result(LlmPostProcessor.PostProcessingMetrics metrics, int assertionsApplied) {
+        private Result(LlmPostProcessor.PostProcessingMetrics metrics) {
             this.metrics = metrics;
-            this.assertionsApplied = assertionsApplied;
         }
     }
 

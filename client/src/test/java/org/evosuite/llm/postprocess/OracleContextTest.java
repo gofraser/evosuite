@@ -33,7 +33,7 @@ class OracleContextTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingPromptContext source = LlmPostProcessingPromptContext.from(test);
 
-        OracleContext snapshot = OracleContextFactory.capture(source);
+        OracleContext snapshot = OracleContext.from(source);
 
         assertEquals(source.getStatements().size(), snapshot.getStatements().size());
         assertEquals(source.getObservations().size(), snapshot.getObservations().size());
@@ -48,7 +48,7 @@ class OracleContextTest {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingPromptContext source = LlmPostProcessingPromptContext.from(test);
-        OracleContext snapshot = OracleContextFactory.capture(source);
+        OracleContext snapshot = OracleContext.from(source);
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
 
         PromptResult throughBuilder = LlmPostProcessingPromptBuilder.build(
@@ -73,7 +73,7 @@ class OracleContextTest {
         primitiveAssertion.setSource(statement.getReturnValue());
         primitiveAssertion.setValue(7);
 
-        OracleContext snapshot = OracleContextFactory.capture(
+        OracleContext snapshot = OracleContextCollector.capture(
                 test, null, null, Arrays.asList(nullAssertion, primitiveAssertion),
                 PostProcessingOptions.fromProperties());
 

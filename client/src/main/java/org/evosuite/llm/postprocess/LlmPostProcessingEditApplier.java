@@ -34,16 +34,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.IntSupplier;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Applies parsed non-assertion unified post-processing edits as test metadata.
  */
 public final class LlmPostProcessingEditApplier {
-    private static final Pattern LOCAL_DECLARATION_NAME =
-            Pattern.compile("\\b[A-Za-z_$][A-Za-z0-9_$<>\\[\\]., ?]*\\s+([A-Za-z_$][A-Za-z0-9_$]*)\\s*(?:=|;)");
-
     private LlmPostProcessingEditApplier() {
         // Utility class.
     }
@@ -293,22 +288,7 @@ public final class LlmPostProcessingEditApplier {
     }
 
     private static Set<String> renderedLocalVariableNames(TestCase test, ExecutionResult executionResult) {
-        Set<String> names = new LinkedHashSet<>();
-        if (test == null) {
-            return names;
-        }
-        try {
-            String code = executionResult == null
-                    ? test.toCode()
-                    : test.toCode(executionResult.getCopyOfExceptionMapping());
-            Matcher matcher = LOCAL_DECLARATION_NAME.matcher(code);
-            while (matcher.find()) {
-                names.add(matcher.group(1));
-            }
-        } catch (RuntimeException | AssertionError e) {
-            // The render consistency check handles broken tests; do not reject names eagerly here.
-        }
-        return names;
+        return new LinkedHashSet<>(renderedVariableNames(test, executionResult).values());
     }
 
     private static Map<Integer, String> renderedVariableNames(TestCase test, ExecutionResult executionResult) {

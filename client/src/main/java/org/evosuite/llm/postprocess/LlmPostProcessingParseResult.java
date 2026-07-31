@@ -30,52 +30,43 @@ import java.util.LinkedHashMap;
  */
 public final class LlmPostProcessingParseResult {
 
-    private final LlmPostProcessingResponse response;
     private final boolean infrastructureFailure;
     private final String infrastructureFailureReason;
     private final List<Diagnostic> diagnostics;
-    private final PostProcessingCounts proposedCounts;
-    private final List<RawAssertion> rawAssertions;
     private final DecodedPostProcessingResponse decodedResponse;
 
-    private LlmPostProcessingParseResult(LlmPostProcessingResponse response,
+    private LlmPostProcessingParseResult(DecodedPostProcessingResponse decodedResponse,
                                          boolean infrastructureFailure,
                                          String infrastructureFailureReason,
-                                         List<Diagnostic> diagnostics,
-                                         PostProcessingCounts proposedCounts,
-                                         List<RawAssertion> rawAssertions) {
-        this.response = response;
+                                         List<Diagnostic> diagnostics) {
         this.infrastructureFailure = infrastructureFailure;
         this.infrastructureFailureReason = infrastructureFailureReason;
         this.diagnostics = Collections.unmodifiableList(new ArrayList<>(diagnostics));
-        this.proposedCounts = proposedCounts == null ? PostProcessingCounts.none() : proposedCounts;
-        this.rawAssertions = Collections.unmodifiableList(new ArrayList<>(
-                rawAssertions == null ? Collections.<RawAssertion>emptyList() : rawAssertions));
-        this.decodedResponse = response == null ? null : new DecodedPostProcessingResponse(
-                response, this.proposedCounts, this.rawAssertions);
+        this.decodedResponse = decodedResponse;
     }
 
     public static LlmPostProcessingParseResult success(LlmPostProcessingResponse response,
                                                        List<Diagnostic> diagnostics) {
-        return new LlmPostProcessingParseResult(response, false, null, diagnostics,
-                PostProcessingCounts.none(), Collections.<RawAssertion>emptyList());
+        return success(response, diagnostics, PostProcessingCounts.none(),
+                Collections.<RawAssertion>emptyList());
     }
 
     public static LlmPostProcessingParseResult infrastructureFailure(String reason) {
-        return new LlmPostProcessingParseResult(null, true, reason, Collections.<Diagnostic>emptyList(),
-                PostProcessingCounts.none(), Collections.<RawAssertion>emptyList());
+        return new LlmPostProcessingParseResult(null, true, reason,
+                Collections.<Diagnostic>emptyList());
     }
 
     public static LlmPostProcessingParseResult success(LlmPostProcessingResponse response,
                                                        List<Diagnostic> diagnostics,
                                                        PostProcessingCounts proposedCounts,
                                                        List<RawAssertion> rawAssertions) {
-        return new LlmPostProcessingParseResult(response, false, null, diagnostics,
-                proposedCounts, rawAssertions);
+        return new LlmPostProcessingParseResult(
+                new DecodedPostProcessingResponse(response, proposedCounts, rawAssertions),
+                false, null, diagnostics);
     }
 
     public LlmPostProcessingResponse getResponse() {
-        return response;
+        return decodedResponse == null ? null : decodedResponse.getResponse();
     }
 
     /** Return the immutable decoded wire state retained by this parse result. */
@@ -95,10 +86,15 @@ public final class LlmPostProcessingParseResult {
         return diagnostics;
     }
 
-    public PostProcessingCounts getProposedCounts() { return proposedCounts; }
+    public PostProcessingCounts getProposedCounts() {
+        return decodedResponse == null ? PostProcessingCounts.none() : decodedResponse.getProposedCounts();
+    }
 
     /** Decoded raw assertion entries retained for diagnostics and repair prompts. */
-    public List<RawAssertion> getRawAssertions() { return rawAssertions; }
+    public List<RawAssertion> getRawAssertions() {
+        return decodedResponse == null
+                ? Collections.<RawAssertion>emptyList() : decodedResponse.getRawAssertions();
+    }
 
     public static final class RawAssertion {
         private final int index;
@@ -197,36 +193,23 @@ public final class LlmPostProcessingParseResult {
 
         public Diagnostic(DiagnosticCode code, String path, String message,
                           DiagnosticReason reason) {
-            this(code, path, message, reason, assertionIndex(path), assertionId(path), null);
+            this(code, path, message, reason, assertionIndex(path), assertionId(path));
         }
 
         public static Diagnostic withReason(DiagnosticCode code, String path, String message,
                                             DiagnosticReason reason, int assertionIndex,
                                             String assertionId) {
-            return new Diagnostic(code, path, message, reason, assertionIndex, assertionId, null);
-        }
-
-        public Diagnostic(DiagnosticCode code, String path, String message,
-                          Repairability repairability) {
-            this(code, path, message, repairability, assertionIndex(path), assertionId(path));
-        }
-
-        public Diagnostic(DiagnosticCode code, String path, String message,
-                          Repairability repairability, int assertionIndex,
-                          String assertionId) {
-            this(code, path, message, reasonForRepairability(code, repairability),
-                    assertionIndex, assertionId, repairability);
+            return new Diagnostic(code, path, message, reason, assertionIndex, assertionId);
         }
 
         private Diagnostic(DiagnosticCode code, String path, String message,
                            DiagnosticReason reason, int assertionIndex,
-                           String assertionId, Repairability explicitRepairability) {
+                           String assertionId) {
             this.code = code;
             this.path = path;
             this.message = message;
             this.reason = reason == null ? reasonForCode(code) : reason;
-            this.repairability = explicitRepairability == null
-                    ? this.reason.repairability() : explicitRepairability;
+            this.repairability = this.reason.repairability();
             this.assertionIndex = assertionIndex;
             this.assertionId = assertionId;
         }
@@ -318,12 +301,5 @@ public final class LlmPostProcessingParseResult {
             }
         }
 
-        private static DiagnosticReason reasonForRepairability(DiagnosticCode code,
-                                                                Repairability repairability) {
-            if (repairability == Repairability.NON_REPAIRABLE) {
-                return DiagnosticReason.SAFETY_POLICY;
-            }
-            return reasonForCode(code);
-        }
     }
 }

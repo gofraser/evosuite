@@ -136,10 +136,10 @@ final class OracleContext implements PostProcessingPromptFacts {
                 setupInputVariableIds.add(observation.getVariableId());
             }
         }
-        return LlmPostProcessingResponseParser.context(
+        return LlmPostProcessingResponseParser.production(
                 references.getStatementIds(), expressionVariableIds, callableMethods,
                 observedCandidateKeys, setupInputVariableIds, variableTypes,
-                selectableCandidates, throwingStatementId).withOptions(options);
+                selectableCandidates, throwingStatementId, options);
     }
 
     @Override

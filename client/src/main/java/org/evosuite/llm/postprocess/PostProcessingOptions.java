@@ -92,7 +92,7 @@ public final class PostProcessingOptions {
                         Properties.LLM_POSTPROCESSING_LIMITED_MAX_TOTAL_STATEMENTS,
                         Properties.LLM_POSTPROCESSING_LIMITED_MAX_CALLS,
                         Properties.LLM_POSTPROCESSING_SCOPE),
-                new RepairFallbackPolicy(Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS,
+                new RepairFallbackPolicy(Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS > 0,
                         Properties.LLM_POSTPROCESSING_REPAIR_POLICY,
                         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK,
                         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY),
@@ -293,16 +293,16 @@ public final class PostProcessingOptions {
     }
 
     public static final class RepairFallbackPolicy {
-        private final int assertionRepairAttempts;
+        private final boolean assertionRepairEnabled;
         private final Properties.LlmPostProcessingRepairPolicy repairPolicy;
         private final Properties.LlmPostProcessingAssertionFallback fallback;
         private final Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy;
 
-        public RepairFallbackPolicy(int assertionRepairAttempts,
+        public RepairFallbackPolicy(boolean assertionRepairEnabled,
                                     Properties.LlmPostProcessingRepairPolicy repairPolicy,
                                     Properties.LlmPostProcessingAssertionFallback fallback,
                                     Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy) {
-            this.assertionRepairAttempts = nonNegative(assertionRepairAttempts);
+            this.assertionRepairEnabled = assertionRepairEnabled;
             this.repairPolicy = repairPolicy == null
                     ? Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE : repairPolicy;
             this.fallback = fallback == null
@@ -311,7 +311,23 @@ public final class PostProcessingOptions {
                     ? Properties.LlmPostProcessingAssertionFallbackStrategy.ALL : fallbackStrategy;
         }
 
-        public int assertionRepairAttempts() { return assertionRepairAttempts; }
+        /** Compatibility constructor for the former integer configuration. */
+        @Deprecated
+        public RepairFallbackPolicy(int assertionRepairAttempts,
+                                    Properties.LlmPostProcessingRepairPolicy repairPolicy,
+                                    Properties.LlmPostProcessingAssertionFallback fallback,
+                                    Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy) {
+            this(assertionRepairAttempts > 0, repairPolicy, fallback, fallbackStrategy);
+        }
+
+        public boolean assertionRepairEnabled() { return assertionRepairEnabled; }
+
+        /**
+         * Compatibility view for callers that still expose the old count.
+         * The protocol supports one bounded repair request.
+         */
+        @Deprecated
+        public int assertionRepairAttempts() { return assertionRepairEnabled ? 1 : 0; }
         public Properties.LlmPostProcessingRepairPolicy repairPolicy() { return repairPolicy; }
         public Properties.LlmPostProcessingAssertionFallback fallback() { return fallback; }
         public Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy() { return fallbackStrategy; }

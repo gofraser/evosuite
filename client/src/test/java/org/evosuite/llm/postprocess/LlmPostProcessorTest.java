@@ -301,7 +301,7 @@ class LlmPostProcessorTest {
         assertZeroPostProcessingOutcomeMetrics(node);
 
         node.clear();
-        LlmPostProcessor.publishSkippedPostProcessingMetrics("low_memory",
+        LlmPostProcessingLegacyBridge.publishSkipped("low_memory",
                 incompleteMinimizationResult(suite, MinimizationStatus.COMPLETED,
                         MinimizationStopCause.NONE));
         assertEquals("low_memory", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
@@ -380,7 +380,7 @@ class LlmPostProcessorTest {
         noLongerPresent.getStatement().removeAssertion(noLongerPresent);
         assertEquals(1, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
 
-        LlmPostProcessor.publishFinalAssertionReconciliation(suite, assertionsAppliedByPhase);
+        LlmPostProcessingLegacyBridge.publishFinal(suite, assertionsAppliedByPhase);
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped));
@@ -944,7 +944,7 @@ class LlmPostProcessorTest {
 
         int applied = processor(service, new RecordingFallbackRunner(0),
                 new FinalScopeCandidateRunner(7)).runUnifiedPostProcessing(suite);
-        LlmPostProcessor.publishFinalAssertionReconciliation(suite, applied);
+        LlmPostProcessingLegacyBridge.publishFinal(suite, applied);
 
         String trace = new String(Files.readAllBytes(traceDir.resolve("llm-trace.jsonl")),
                 StandardCharsets.UTF_8);
@@ -980,9 +980,9 @@ class LlmPostProcessorTest {
 
         int applied = processor(service, new RecordingFallbackRunner(0),
                 new FinalScopeCandidateRunner(7)).runUnifiedPostProcessing(suite);
-        LlmPostProcessor.recordAssertionsRemovedByCompileFilter(Collections.singletonList(test));
+        LlmPostProcessingLegacyBridge.recordCompileRemoved(Collections.singletonList(test));
         suite.clearTests();
-        LlmPostProcessor.publishFinalAssertionReconciliation(suite, applied);
+        LlmPostProcessingLegacyBridge.publishFinal(suite, applied);
 
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));

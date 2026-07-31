@@ -145,7 +145,7 @@ class LlmAssertionRepairerTest {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingPromptContext promptContext = LlmPostProcessingPromptContext.from(test);
-        OracleContext oracleContext = OracleContextFactory.capture(promptContext);
+        OracleContext oracleContext = OracleContext.from(promptContext);
         LlmPostProcessingResponse response = new LlmPostProcessingResponse(2);
         response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
                 "a0", LlmPostProcessingResponse.AssertionKind.TRUE,

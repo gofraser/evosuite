@@ -122,7 +122,22 @@ public final class LlmPostProcessingResponseParser {
                 setupInputVariableIds, variableTypes, selectableCandidates, throwingStatementId);
     }
 
+    static ParseContext production(Set<String> statementIds, Set<String> variableIds,
+                                   Set<CallableMethod> callableMethods,
+                                   Set<String> observedCandidateKeys,
+                                   Set<String> setupInputVariableIds,
+                                   Map<String, String> variableTypes,
+                                   Map<String, SelectableCandidate> selectableCandidates,
+                                   String throwingStatementId,
+                                   PostProcessingOptions options) {
+        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
+                setupInputVariableIds, variableTypes, selectableCandidates, throwingStatementId, options);
+    }
+
     public static LlmPostProcessingParseResult parse(String response, ParseContext context) {
+        if (context == null) {
+            throw new IllegalArgumentException("Post-processing parse context must not be null");
+        }
         PostProcessingResponseDecoder.DecodeResult decoded =
                 PostProcessingResponseDecoder.decode(response);
         if (!decoded.isSuccess()) {
@@ -130,8 +145,7 @@ public final class LlmPostProcessingResponseParser {
         }
         JsonNode root = decoded.getRoot();
         int schemaVersion = decoded.getSchemaVersion();
-        ParserState state = new ParserState(context == null ? ParseContext.empty() : context,
-                new LlmPostProcessingResponse(schemaVersion));
+        ParserState state = new ParserState(context, new LlmPostProcessingResponse(schemaVersion));
         state.reportUnknownFields(root, "", ROOT_FIELDS);
         state.parseBasicEdits(root);
         state.parseAssertions(root.get("assertions"));
@@ -161,11 +175,11 @@ public final class LlmPostProcessingResponseParser {
                 continue;
             }
             String assertionId = textValue(assertion.get("assertionId"));
-            if (assertionId != null && !assertionId.trim().isEmpty()) {
-                result.add(new LlmPostProcessingParseResult.RawAssertion(
-                        index, assertionId.trim(), assertion.toString(),
-                        JSON_MAPPER.convertValue(assertion, LinkedHashMap.class)));
-            }
+            String normalizedId = assertionId == null || assertionId.trim().isEmpty()
+                    ? null : assertionId.trim();
+            result.add(new LlmPostProcessingParseResult.RawAssertion(
+                    index, normalizedId, assertion.toString(),
+                    JSON_MAPPER.convertValue(assertion, LinkedHashMap.class)));
         }
         return result;
     }
@@ -201,7 +215,7 @@ public final class LlmPostProcessingResponseParser {
         private final Map<String, String> variableTypes;
         private final Map<String, SelectableCandidate> selectableCandidates;
         private final String throwingStatementId;
-        private PostProcessingOptions options;
+        private final PostProcessingOptions options;
 
         private ParseContext(Set<String> statementIds, Set<String> variableIds,
                              Set<CallableMethod> callableMethods,
@@ -220,6 +234,19 @@ public final class LlmPostProcessingResponseParser {
                              Map<String, String> variableTypes,
                              Map<String, SelectableCandidate> selectableCandidates,
                              String throwingStatementId) {
+            this(statementIds, variableIds, callableMethods, observedCandidateKeys,
+                    setupInputVariableIds, variableTypes, selectableCandidates,
+                    throwingStatementId, PostProcessingOptions.fromProperties());
+        }
+
+        private ParseContext(Set<String> statementIds, Set<String> variableIds,
+                             Set<CallableMethod> callableMethods,
+                             Set<String> observedCandidateKeys,
+                             Set<String> setupInputVariableIds,
+                             Map<String, String> variableTypes,
+                             Map<String, SelectableCandidate> selectableCandidates,
+                             String throwingStatementId,
+                             PostProcessingOptions options) {
             this.statementIds = copy(statementIds);
             this.variableIds = copy(variableIds);
             this.callableMethods = copy(callableMethods);
@@ -228,15 +255,10 @@ public final class LlmPostProcessingResponseParser {
             this.variableTypes = copyMap(variableTypes);
             this.selectableCandidates = copyMap(selectableCandidates);
             this.throwingStatementId = throwingStatementId;
-            this.options = null;
-        }
-
-        ParseContext withOptions(PostProcessingOptions options) {
-            ParseContext copy = new ParseContext(statementIds, variableIds, callableMethods,
-                    observedCandidateKeys, setupInputVariableIds, variableTypes,
-                    selectableCandidates, throwingStatementId);
-            copy.options = options;
-            return copy;
+            if (options == null) {
+                throw new IllegalArgumentException("Production parse context requires options");
+            }
+            this.options = options;
         }
 
         public static ParseContext empty() {
@@ -483,7 +505,7 @@ public final class LlmPostProcessingResponseParser {
         private ParserState(ParseContext context, LlmPostProcessingResponse response) {
             this.context = context;
             this.response = response;
-            this.options = context.options() == null ? PostProcessingOptions.fromProperties() : context.options();
+            this.options = context.options();
             this.expressionTypes = new PostProcessingExpressionTypeResolver(context, this::resolveMethodCallType);
             this.callablePolicy = new PostProcessingCallablePolicy(context, options, expressionTypes::resolve);
             this.operandPolicy = new PostProcessingOperandPolicy(expressionTypes);
@@ -570,7 +592,7 @@ public final class LlmPostProcessingResponseParser {
                         continue;
                     }
                     String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
-                    if (intent == INVALID_EXPRESSION) {
+                    if (intent == null) {
                         continue;
                     }
                     String purpose = sanitizeComment(text(entry.get("purpose")));
@@ -593,14 +615,20 @@ public final class LlmPostProcessingResponseParser {
                 if (!hasValidOperandShape(kind, entry, path)) {
                     continue;
                 }
-                String expected = expression(PostProcessingAssertionKindRules.expectedNode(kind, entry),
+                ExpressionParseResult expectedResult = expression(
+                        PostProcessingAssertionKindRules.expectedNode(kind, entry),
                         path + PostProcessingAssertionKindRules.expectedPathSuffix(kind),
                         PostProcessingAssertionKindRules.requiresExpected(kind));
-                String actual = expression(PostProcessingAssertionKindRules.actualNode(kind, entry),
+                ExpressionParseResult actualResult = expression(
+                        PostProcessingAssertionKindRules.actualNode(kind, entry),
                         path + PostProcessingAssertionKindRules.actualPathSuffix(kind), true);
-                String delta = expression(entry.get("delta"), path + ".delta", false);
-                if ((PostProcessingAssertionKindRules.requiresExpected(kind) && expected == null)
-                        || actual == null || delta == INVALID_EXPRESSION) {
+                ExpressionParseResult deltaResult = expression(entry.get("delta"), path + ".delta", false);
+                String expected = expectedResult.value;
+                String actual = actualResult.value;
+                String delta = deltaResult.value;
+                if (!expectedResult.valid || !actualResult.valid || !deltaResult.valid
+                        || (PostProcessingAssertionKindRules.requiresExpected(kind) && expected == null)
+                        || actual == null) {
                     continue;
                 }
                 ExprType originalExpectedType = resolveExpressionType(expected);
@@ -608,7 +636,7 @@ public final class LlmPostProcessingResponseParser {
                 expected = canonicalSpecialFloatingLiteral(expected, originalActualType);
                 actual = canonicalSpecialFloatingLiteral(actual, originalExpectedType);
                 String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
-                if (intent == INVALID_EXPRESSION) {
+                if (intent == null) {
                     continue;
                 }
                 if (!PostProcessingPlacementValidator.referencesAreAvailable(
@@ -778,13 +806,13 @@ public final class LlmPostProcessingResponseParser {
             String intent = text(node);
             if (intent == null || intent.trim().isEmpty()) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion intent must be a non-empty string");
-                return INVALID_EXPRESSION;
+                return null;
             }
             intent = intent.trim();
             if (!"REGRESSION".equals(intent)) {
                 diagnostic(DiagnosticCode.UNSUPPORTED_KIND, path,
                         "Only REGRESSION assertion intent is supported by schema version 1");
-                return INVALID_EXPRESSION;
+                return null;
             }
             return intent;
         }
@@ -1165,101 +1193,101 @@ public final class LlmPostProcessingResponseParser {
             }
         }
 
-        private String expression(JsonNode node, String path, boolean required) {
+        private ExpressionParseResult expression(JsonNode node, String path, boolean required) {
             if (node == null || node.isNull()) {
                 if (required) {
                     diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression is required");
                 }
-                return null;
+                return required ? ExpressionParseResult.invalid() : ExpressionParseResult.missing();
             }
             if (!node.isTextual()) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression must be a string");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             String expression = node.asText().trim();
             if (expression.isEmpty()) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression must be non-empty");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (expression.endsWith(";")) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression must not end with a semicolon");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (expression.length() > options().assertionPolicy().maxExpressionChars()) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression is too long");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             Expression parsed;
             try {
                 parsed = StaticJavaParser.parseExpression(expression);
             } catch (RuntimeException e) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression is not valid Java syntax");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             boolean normalizedVariableAlias = normalizeProposedVariableAliases(parsed);
             if (expressionSafety.exceedsNodeLimit(parsed)) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression AST node limit exceeded");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (LlmPostProcessingExpressionUtils.containsUnsupportedExpressionConstruct(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression contains unsupported mutation or code block constructs",
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (LlmPostProcessingExpressionUtils.containsRawAssertionCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression must not contain raw assertion calls",
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (LlmPostProcessingExpressionUtils.containsArbitraryToStringCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression must not use arbitrary toString() calls",
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (callablePolicy.containsDisallowedObjectConstruction(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression contains non-allowlisted object construction",
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (expressionSafety.referencesUnknownVariableId(parsed)) {
                 diagnostic(DiagnosticCode.UNKNOWN_ID, path, "Expression references an unknown variable ID");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (callablePolicy.containsDisallowedStaticMethodCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression contains a non-allowlisted static method call",
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (expressionSafety.exceedsChainDepthLimit(parsed)) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression member-chain depth exceeded");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (callablePolicy.containsDisallowedInstanceMethodCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression contains a non-allowlisted instance method call",
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (expressionSafety.exceedsLiteralCharLimit(parsed)) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression literal character limit exceeded");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (expressionSafety.exceedsConstructedArrayElementLimit(parsed)) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Constructed array element limit exceeded");
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
             if (expressionSafety.containsDisallowedArrayConstruction(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Constructed arrays must be one-dimensional and contain only literal or null elements",
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
-                return required ? null : INVALID_EXPRESSION;
+                return ExpressionParseResult.invalid();
             }
-            return normalizedVariableAlias ? parsed.toString() : expression;
+            return ExpressionParseResult.valid(normalizedVariableAlias ? parsed.toString() : expression);
         }
 
         private boolean normalizeProposedVariableAliases(Expression expression) {
@@ -1313,7 +1341,27 @@ public final class LlmPostProcessingResponseParser {
             return callablePolicy.isCallableMethod(receiverId, ownerType, call);
         }
 
-        private static final String INVALID_EXPRESSION = new String("<invalid>");
+        private static final class ExpressionParseResult {
+            private final String value;
+            private final boolean valid;
+
+            private ExpressionParseResult(String value, boolean valid) {
+                this.value = value;
+                this.valid = valid;
+            }
+
+            private static ExpressionParseResult valid(String value) {
+                return new ExpressionParseResult(value, true);
+            }
+
+            private static ExpressionParseResult missing() {
+                return valid(null);
+            }
+
+            private static ExpressionParseResult invalid() {
+                return new ExpressionParseResult(null, false);
+            }
+        }
 
         private boolean isForbidden(JsonNode entry, String fieldName) {
             JsonNode node = entry.get(fieldName);
@@ -1321,7 +1369,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private void diagnostic(DiagnosticCode code, String path, String message) {
-            diagnostics.add(new Diagnostic(code, path, message, null,
+            diagnostics.add(Diagnostic.withReason(code, path, message, null,
                     currentAssertionIndex, currentAssertionId));
         }
 
@@ -1353,43 +1401,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private static String sanitizeComment(String text) {
-            if (text == null) {
-                return null;
-            }
-            if (text.contains("*/") || text.contains("/*")) {
-                return null;
-            }
-            String sanitized = text.replace('\r', ' ').replace('\n', ' ').trim();
-            while (true) {
-                String next = stripCommentPrefix(sanitized).trim();
-                if (next.equals(sanitized)) {
-                    break;
-                }
-                sanitized = next;
-            }
-            for (int i = 0; i < sanitized.length(); i++) {
-                char ch = sanitized.charAt(i);
-                if (Character.isISOControl(ch)) {
-                    return null;
-                }
-            }
-            if (sanitized.startsWith("@")) {
-                return null;
-            }
-            return sanitized;
-        }
-
-        private static String stripCommentPrefix(String text) {
-            if (text.startsWith("//")) {
-                return text.substring(2);
-            }
-            if (text.startsWith("/*")) {
-                return text.substring(2);
-            }
-            if (text.startsWith("*")) {
-                return text.substring(1);
-            }
-            return text;
+            return PostProcessingTextPolicy.sanitizeComment(text);
         }
 
     }

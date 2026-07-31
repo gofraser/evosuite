@@ -27,22 +27,24 @@ final class LlmTestPostProcessor {
     private static final Logger logger = LoggerFactory.getLogger(LlmTestPostProcessor.class);
 
     private final LlmPostProcessor processor;
+    private final LlmPostProcessingPhaseContext phaseContext;
 
-    LlmTestPostProcessor(LlmPostProcessor processor) {
+    LlmTestPostProcessor(LlmPostProcessor processor,
+                         LlmPostProcessingPhaseContext phaseContext) {
         this.processor = processor;
+        this.phaseContext = phaseContext;
     }
 
     LlmPostProcessor.TestProcessingResult process(LlmPostProcessor.WorkItem workItem,
                                                  MinimizationResult minimizationResult,
                                                  LlmPostProcessor.ProcessingLimits limits,
                                                  int requestedCallsBeforeTest,
-                                                 long phaseStartMillis,
                                                  boolean assertionEligible) {
         LlmPostProcessor.TestProcessingResult result = new LlmPostProcessor.TestProcessingResult();
         int testIndex = workItem.originalIndex;
         TestChromosome chromosome = workItem.chromosome;
         TestCase test = chromosome.getTestCase();
-        PostProcessingOptions options = processor.options;
+        PostProcessingOptions options = phaseContext.options();
         try {
             boolean repairSkippedForBudget = false;
             boolean collectAssertionContext = options.features().assertions() && assertionEligible;
@@ -53,14 +55,11 @@ final class LlmTestPostProcessor {
             ExecutionResult contextExecutionResult = candidateCollection == null
                     ? chromosome.getLastExecutionResult()
                     : candidateCollection.getExecutionResult();
-            LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
-                    validationTest,
-                    contextExecutionResult,
-                    null,
+            OracleContext oracleContext = OracleContextCollector.capture(
+                    validationTest, contextExecutionResult, null,
                     candidateCollection == null ? Collections.emptyList()
                             : candidateCollection.getAssertions(), options);
-            OracleContext oracleContext = OracleContextFactory.capture(context);
-            assertionEligible = assertionEligible && LlmPostProcessor.hasAssertionOpportunity(context);
+            assertionEligible = assertionEligible && LlmPostProcessor.hasAssertionOpportunity(oracleContext);
             if (Properties.LlmPostProcessingScope.ASSERTION_ELIGIBLE_TESTS
                     == options.phaseBudget().scope()
                     && !assertionEligible) {
@@ -71,7 +70,7 @@ final class LlmTestPostProcessor {
             PromptResult prompt = LlmPostProcessingPromptBuilder.build(oracleContext, testIndex,
                     assertionsEnabledForTest, options);
             result.requestedTests = 1;
-            result.calls = 1;
+            result.requestedCalls = 1;
             result.initialCalls = 1;
             result.requestedStatements = test.size();
             String rawResponse = processor.queryWithPostProcessingTraceContext(prompt, testIndex,
@@ -88,11 +87,10 @@ final class LlmTestPostProcessor {
             }
             result.diagnosticCounters.add(parseResult);
             DecodedPostProcessingResponse decodedResponse = parseResult.getDecodedResponse();
-            LlmPostProcessingResponse response = decodedResponse == null
-                    ? parseResult.getResponse() : decodedResponse.getResponse();
+            LlmPostProcessingResponse response = decodedResponse.getResponse();
             processor.recordAssertionDiagnostics(parseResult.getDiagnostics(), response,
-                    parseResult.getRawAssertions(), testIndex, minimizationResult, "initial", "parse");
-            PostProcessingCounts proposedCounts = parseResult.getProposedCounts();
+                    decodedResponse.getRawAssertions(), testIndex, minimizationResult, "initial", "parse");
+            PostProcessingCounts proposedCounts = decodedResponse.getProposedCounts();
             result.testNamesProposed = proposedCounts.getTestNames();
             result.variableNamesProposed = proposedCounts.getVariableNames();
             result.commentsProposed = proposedCounts.getComments();
@@ -103,41 +101,41 @@ final class LlmTestPostProcessor {
                 List<LlmPostProcessingParseResult.Diagnostic> initialValidationDiagnostics =
                         Collections.emptyList();
                 LlmPostProcessingPhase.StopReason stopReason = LlmPostProcessingPhase.StopReason.NONE;
-                if (processor.isLowMemory()) {
+                if (processor.isLowMemory(phaseContext)) {
                     response = LlmPostProcessor.withoutAssertions(response);
                     stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
                 } else if (!response.getAssertions().isEmpty()) {
-                    LlmPostProcessor.AssertionValidationResult validationResult =
-                            processor.validateAssertionsAgainstScopes(response, validationTest,
+                    ValidatedEditPlan validationResult =
+                            processor.validateAssertionsAgainstScopes(phaseContext, response, validationTest,
                                     contextExecutionResult, null, null);
-                    processor.recordAssertionDiagnostics(validationResult.plan.getDiagnostics(), response,
-                            parseResult.getRawAssertions(), testIndex, minimizationResult,
+                    processor.recordAssertionDiagnostics(validationResult.getDiagnostics(), response,
+                            decodedResponse.getRawAssertions(), testIndex, minimizationResult,
                             "initial", "validation");
-                    response = validationResult.plan.getResponse();
-                    initialValidationDiagnostics = validationResult.plan.getDiagnostics();
-                    result.diagnosticCounters.add(validationResult.plan.getDiagnostics());
+                    response = validationResult.getResponse();
+                    initialValidationDiagnostics = validationResult.getDiagnostics();
+                    result.diagnosticCounters.add(validationResult.getDiagnostics());
                 }
                 if (stopReason == LlmPostProcessingPhase.StopReason.NONE
-                        && processor.isLowMemory()) {
+                        && processor.isLowMemory(phaseContext)) {
                     stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
                 }
                 if (stopReason == LlmPostProcessingPhase.StopReason.NONE
-                        && processor.isPhaseTimedOut(phaseStartMillis)) {
+                        && processor.isPhaseTimedOut(phaseContext)) {
                     stopReason = LlmPostProcessingPhase.StopReason.TIMEOUT;
                 }
                 if (stopReason == LlmPostProcessingPhase.StopReason.NONE) {
                     result.assertionsAcceptedInitial = response.getAssertions().size();
                     LlmPostProcessor.AssertionRepairResult repairResult =
-                            processor.repairRejectedAssertionsIfPossible(parseResult,
+                            processor.repairRejectedAssertionsIfPossible(phaseContext, parseResult,
                                     parsedResponse, response, initialValidationDiagnostics, oracleContext, validationTest,
                                     contextExecutionResult, limits,
-                                    requestedCallsBeforeTest + result.calls, testIndex, minimizationResult,
-                                    phaseStartMillis, options);
+                                    requestedCallsBeforeTest + result.requestedCalls, testIndex, minimizationResult,
+                                    options);
                     processor.recordAssertionDiagnostics(repairResult.diagnostics, repairResult.response,
                             repairResult.rawAssertions,
                             testIndex, minimizationResult, "repair", "validation");
                     response = repairResult.response;
-                    result.calls += repairResult.calls;
+                    result.requestedCalls += repairResult.calls;
                     result.repairCalls = repairResult.calls;
                     result.repairCallsSkippedBudget = repairResult.callsSkippedBudget;
                     repairSkippedForBudget = repairResult.callsSkippedBudget > 0;
@@ -152,22 +150,22 @@ final class LlmTestPostProcessor {
             } else if (!response.getAssertions().isEmpty()) {
                 response = LlmPostProcessor.withoutAssertions(response);
             }
-            processor.recordAssertionLifecycle(response.getAssertions(), testIndex,
+            processor.recordAssertionLifecycle(phaseContext, response.getAssertions(), testIndex,
                     minimizationResult, "accepted_final", "final");
             LlmPostProcessingEditApplier.ApplyResult applied = LlmPostProcessingEditApplier.apply(
-                    test, context.getReferences(), response, assertionEligible, contextExecutionResult,
+                    test, oracleContext.getReferences(), response, assertionEligible, contextExecutionResult,
                     options);
             result.testNamesApplied = applied.getTestNamesApplied();
             result.variableNamesApplied = applied.getVariableNamesApplied();
             result.commentsApplied = applied.getCommentsApplied();
             result.sectionBreaksApplied = applied.getSectionBreaksApplied();
             result.assertionsApplied = applied.getAssertionsApplied();
-            processor.recordAppliedAssertionLifecycle(response, applied.getAppliedAssertions(), testIndex,
+            processor.recordAppliedAssertionLifecycle(phaseContext, response, applied.getAppliedAssertions(), testIndex,
                     minimizationResult);
             if (result.stopReason == LlmPostProcessingPhase.StopReason.LOW_MEMORY
-                    || processor.isLowMemory()) {
+                    || processor.isLowMemory(phaseContext)) {
                 result.stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
-                result.acceptedTests = 1;
+                result.acceptedResponses = 1;
                 result.partiallyProcessedTests = 1;
                 return result;
             }
@@ -175,7 +173,7 @@ final class LlmTestPostProcessor {
                 result.fallbackCounters.add(processor.runAssertionFallback(test, assertionEligible,
                         LlmPostProcessor.FallbackTrigger.NO_ACCEPTED_ASSERTIONS, options));
             }
-            result.acceptedTests = 1;
+            result.acceptedResponses = 1;
             if (repairSkippedForBudget) {
                 result.partiallyProcessedTests = 1;
             } else {

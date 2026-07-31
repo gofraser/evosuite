@@ -61,12 +61,13 @@ final class PostProcessingEditValidator {
         private Validator(LlmPostProcessingResponseParser.ParseContext context,
                           LlmPostProcessingResponse response,
                           List<Diagnostic> diagnostics) {
-            this.context = context == null
-                    ? LlmPostProcessingResponseParser.ParseContext.empty() : context;
+            if (context == null) {
+                throw new IllegalArgumentException("Post-processing parse context must not be null");
+            }
+            this.context = context;
             this.response = response;
             this.diagnostics = diagnostics;
-            this.options = this.context.options() == null
-                    ? PostProcessingOptions.fromProperties() : this.context.options();
+            this.options = this.context.options();
         }
 
         private void testName(JsonNode node) {
@@ -213,7 +214,7 @@ final class PostProcessingEditValidator {
         }
 
         private void diagnostic(DiagnosticCode code, String path, String message) {
-            diagnostics.add(new Diagnostic(code, path, message, null, -1, null));
+            diagnostics.add(Diagnostic.withReason(code, path, message, null, -1, null));
         }
 
         private static String text(JsonNode node) {
@@ -224,30 +225,7 @@ final class PostProcessingEditValidator {
         }
 
         private static String sanitizeComment(String text) {
-            if (text == null || text.contains("*/") || text.contains("/*")) {
-                return null;
-            }
-            String sanitized = text.replace('\r', ' ').replace('\n', ' ').trim();
-            while (true) {
-                String next = stripCommentPrefix(sanitized).trim();
-                if (next.equals(sanitized)) {
-                    break;
-                }
-                sanitized = next;
-            }
-            for (int i = 0; i < sanitized.length(); i++) {
-                if (Character.isISOControl(sanitized.charAt(i))) {
-                    return null;
-                }
-            }
-            return sanitized.startsWith("@") ? null : sanitized;
-        }
-
-        private static String stripCommentPrefix(String text) {
-            if (text.startsWith("//") || text.startsWith("/*")) {
-                return text.substring(2);
-            }
-            return text.startsWith("*") ? text.substring(1) : text;
+            return PostProcessingTextPolicy.sanitizeComment(text);
         }
 
         private static boolean isValidJavaIdentifier(String value) {

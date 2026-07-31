@@ -308,7 +308,7 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
     }
 
     public LlmPostProcessingResponseParser.ParseContext toParseContext() {
-        return OracleContextFactory.capture(this).toParseContext();
+        return OracleContext.from(this).toParseContext();
     }
 
     static LlmPostProcessingResponseParser.SelectableCandidate candidateWithDefaultPlacement(

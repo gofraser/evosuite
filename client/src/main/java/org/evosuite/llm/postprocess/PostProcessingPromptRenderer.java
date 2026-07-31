@@ -252,8 +252,15 @@ final class PostProcessingPromptRenderer {
     static String callableMemberText(PostProcessingPromptFacts context,
                                      Set<String> relevantVariableIds,
                                      PostProcessingOptions options) {
+        return renderCallableMembers(context, relevantVariableIds, options).text;
+    }
+
+    private static CallableMemberRendering renderCallableMembers(
+            PostProcessingPromptFacts context,
+            Set<String> relevantVariableIds,
+            PostProcessingOptions options) {
         if (context.getCallableMembers().isEmpty()) {
-            return "none\n";
+            return new CallableMemberRendering("none\n", 0, 0);
         }
         Map<String, LinkedHashSet<String>> membersByType = new LinkedHashMap<>();
         LinkedHashSet<String> receiverBindings = new LinkedHashSet<>();
@@ -287,6 +294,7 @@ final class PostProcessingPromptRenderer {
             appendCapped(builder, "observed: " + String.join(", ", observedResults) + "\n", maxChars);
         }
         int truncatedTypes = 0;
+        int emittedMembers = 0;
         for (Map.Entry<String, LinkedHashSet<String>> entry : membersByType.entrySet()) {
             String line = "owner=" + entry.getKey() + " members=" + String.join(", ", entry.getValue()) + "\n";
             if (maxChars > 0 && builder.length() + line.length() > maxChars) {
@@ -294,11 +302,15 @@ final class PostProcessingPromptRenderer {
                 continue;
             }
             builder.append(line);
+            emittedMembers += entry.getValue().size();
         }
         if (truncatedTypes > 0) {
             appendCapped(builder, "truncatedCallableTypes=" + truncatedTypes + "\n", maxChars);
         }
-        return builder.length() == 0 ? "none\n" : builder.toString();
+        int dropped = Math.max(0, context.getCallableMembers().size() - emittedMembers);
+        return new CallableMemberRendering(
+                builder.length() == 0 ? "none\n" : builder.toString(),
+                emittedMembers, dropped);
     }
 
     static String observedSafeExpressionText(PostProcessingPromptFacts context,
@@ -327,25 +339,26 @@ final class PostProcessingPromptRenderer {
 
     static String additionalLegalCallText(PostProcessingPromptFacts context,
                                            PostProcessingOptions options) {
-        String text = callableMemberText(context, null, options);
-        int rendered = 0;
-        for (String line : text.split("\\n")) {
-            if (line.startsWith("owner=")) {
-                int members = line.indexOf(" members=");
-                if (members >= 0) {
-                    String values = line.substring(members + " members=".length());
-                    rendered += values.isEmpty() ? 0 : values.split(", ").length;
-                }
-            }
+        CallableMemberRendering rendering = renderCallableMembers(context, null, options);
+        if (rendering.droppedCount == 0) {
+            return rendering.text;
         }
-        int dropped = Math.max(0, context.getCallableMembers().size() - rendered);
-        if (dropped == 0) {
-            return text;
-        }
-        StringBuilder builder = new StringBuilder(text);
-        appendCapped(builder, "droppedMethods=" + dropped + "\n",
+        StringBuilder builder = new StringBuilder(rendering.text);
+        appendCapped(builder, "droppedMethods=" + rendering.droppedCount + "\n",
                 options.contextLimits().callableChars());
         return builder.toString();
+    }
+
+    static final class CallableMemberRendering {
+        final String text;
+        final int emittedCount;
+        final int droppedCount;
+
+        private CallableMemberRendering(String text, int emittedCount, int droppedCount) {
+            this.text = text;
+            this.emittedCount = emittedCount;
+            this.droppedCount = droppedCount;
+        }
     }
 
     static String safeAssertionSiteText(PostProcessingPromptFacts context) {

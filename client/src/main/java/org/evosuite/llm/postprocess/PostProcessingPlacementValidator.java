@@ -213,7 +213,7 @@ final class PostProcessingPlacementValidator {
     private static void diagnostic(List<Diagnostic> diagnostics, DiagnosticCode code,
                                    String path, String message,
                                    int assertionIndex, String assertionId) {
-        diagnostics.add(new Diagnostic(code, path, message, null,
+        diagnostics.add(Diagnostic.withReason(code, path, message, null,
                 assertionIndex, assertionId));
     }
 

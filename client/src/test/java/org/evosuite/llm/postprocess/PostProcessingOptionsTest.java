@@ -84,4 +84,17 @@ class PostProcessingOptionsTest {
         assertEquals(0, limits.observationChars());
         assertFalse(policy.allowChainedCalls());
     }
+
+    @Test
+    void repairPolicyExposesItsSingleRequestContract() {
+        PostProcessingOptions.RepairFallbackPolicy enabled = new PostProcessingOptions.RepairFallbackPolicy(
+                4, null, null, null);
+        PostProcessingOptions.RepairFallbackPolicy disabled = new PostProcessingOptions.RepairFallbackPolicy(
+                0, null, null, null);
+
+        assertTrue(enabled.assertionRepairEnabled());
+        assertEquals(1, enabled.assertionRepairAttempts());
+        assertFalse(disabled.assertionRepairEnabled());
+        assertEquals(0, disabled.assertionRepairAttempts());
+    }
 }

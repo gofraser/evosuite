@@ -208,6 +208,20 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
+    void rawAssertionsRetainEntriesWithoutAnAssertionId() {
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":2,\"assertions\":["
+                        + "{\"kind\":\"TRUE\",\"actual\":\"v0\"},"
+                        + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\",\"actual\":\"v0\"}]}",
+                context());
+
+        assertEquals(2, result.getRawAssertions().size());
+        assertEquals(0, result.getRawAssertions().get(0).getIndex());
+        assertNull(result.getRawAssertions().get(0).getAssertionId());
+        assertEquals(1, result.getRawAssertions().get(1).getIndex());
+    }
+
+    @Test
     void diagnosticsCarryTypedRepairability() {
         LlmPostProcessingParseResult.Diagnostic repairable =
                 new LlmPostProcessingParseResult.Diagnostic(

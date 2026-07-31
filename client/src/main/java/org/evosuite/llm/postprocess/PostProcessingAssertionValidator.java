@@ -62,7 +62,7 @@ final class PostProcessingAssertionValidator {
         }
     }
 
-    LlmPostProcessor.AssertionValidationResult validate(
+    ValidatedEditPlan validate(
             LlmPostProcessingResponse response,
             TestCase validationTest,
             ExecutionResult executionResult,
@@ -70,7 +70,7 @@ final class PostProcessingAssertionValidator {
             ExecutionResult reusableStabilityExecutionResult,
             PostProcessingOptions options) {
         if (response.getAssertions().isEmpty()) {
-            return LlmPostProcessor.AssertionValidationResult.success(response);
+            return ValidatedEditPlan.success(response);
         }
 
         TestCase stabilityTest = reusableStabilityTest;
@@ -88,7 +88,7 @@ final class PostProcessingAssertionValidator {
                 stabilityTest, stabilityExecutionResult, options);
     }
 
-    private LlmPostProcessor.AssertionValidationResult filterAssertionsByValidatedScopes(
+    private ValidatedEditPlan filterAssertionsByValidatedScopes(
             LlmPostProcessingResponse response,
             TestCase validationTest,
             ExecutionResult executionResult,
@@ -96,14 +96,14 @@ final class PostProcessingAssertionValidator {
             ExecutionResult stabilityExecutionResult,
             PostProcessingOptions options) {
         if (response.getAssertions().isEmpty()) {
-            return LlmPostProcessor.AssertionValidationResult.success(response);
+            return ValidatedEditPlan.success(response);
         }
         if (validationTest == null || validationTest.size() == 0
                 || executionResult == null || executionResult.getFinalScope() == null
                 || executionResult.hasTimeout() || executionResult.hasTestException()
                 || (!executionResult.noThrownExceptions()
                 && !allAssertionsUseExceptionAdjacentSites(response))) {
-            return LlmPostProcessor.AssertionValidationResult.rejectedAll(response,
+            return ValidatedEditPlan.rejectedAll(response,
                     LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION,
                     "Original observed final scope is unavailable");
         }
@@ -113,7 +113,7 @@ final class PostProcessingAssertionValidator {
                 || stabilityExecutionResult.hasTestException()
                 || (!stabilityExecutionResult.noThrownExceptions()
                 && !allAssertionsUseExceptionAdjacentSites(response))) {
-            return LlmPostProcessor.AssertionValidationResult.rejectedAll(response,
+            return ValidatedEditPlan.rejectedAll(response,
                     LlmPostProcessingParseResult.DiagnosticCode.STABILITY_EXECUTION,
                     "Stability re-execution did not produce a normal final scope");
         }
@@ -150,7 +150,7 @@ final class PostProcessingAssertionValidator {
             }
             filtered.addAssertion(proposal);
         }
-        return new LlmPostProcessor.AssertionValidationResult(filtered, diagnostics);
+        return ValidatedEditPlan.create(filtered, diagnostics);
     }
 
     private static boolean allAssertionsUseExceptionAdjacentSites(LlmPostProcessingResponse response) {
