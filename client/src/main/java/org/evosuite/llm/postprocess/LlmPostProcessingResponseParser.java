@@ -459,7 +459,7 @@ public final class LlmPostProcessingResponseParser {
         private final String ownerType;
         private final String methodName;
         private final int argumentCount;
-        private final String descriptor;
+        private final JvmMethodDescriptor signature;
         private final String returnType;
 
         public CallableMethod(String receiverId, String methodName, int argumentCount) {
@@ -476,7 +476,7 @@ public final class LlmPostProcessingResponseParser {
             this.ownerType = ownerType;
             this.methodName = methodName;
             this.argumentCount = argumentCount;
-            this.descriptor = null;
+            this.signature = null;
             this.returnType = returnType;
         }
 
@@ -485,8 +485,8 @@ public final class LlmPostProcessingResponseParser {
             this.receiverId = receiverId;
             this.ownerType = ownerType;
             this.methodName = methodName;
-            this.descriptor = descriptor;
-            this.argumentCount = descriptorArgumentCount(descriptor);
+            this.signature = JvmMethodDescriptor.parse(descriptor);
+            this.argumentCount = signature == null ? 0 : signature.argumentCount();
             this.returnType = returnType;
         }
 
@@ -503,47 +503,21 @@ public final class LlmPostProcessingResponseParser {
                     && java.util.Objects.equals(receiverId, that.receiverId)
                     && java.util.Objects.equals(canonicalOwnerType(ownerType), canonicalOwnerType(that.ownerType))
                     && java.util.Objects.equals(methodName, that.methodName)
-                    && java.util.Objects.equals(descriptor, that.descriptor);
+                    && java.util.Objects.equals(signatureText(), that.signatureText());
         }
 
         @Override
         public int hashCode() {
             return java.util.Objects.hash(receiverId, canonicalOwnerType(ownerType), methodName, argumentCount,
-                    descriptor);
+                    signatureText());
         }
 
-        private static int descriptorArgumentCount(String descriptor) {
-            if (descriptor == null || !descriptor.startsWith("(")) {
-                return 0;
-            }
-            int close = descriptor.indexOf(')');
-            if (close < 0) {
-                return 0;
-            }
-            int count = 0;
-            for (int index = 1; index < close; count++) {
-                int next = nextDescriptorIndex(descriptor, index);
-                if (next <= index || next > close) {
-                    return 0;
-                }
-                index = next;
-            }
-            return count;
+        private String signatureText() {
+            return signature == null ? null : signature.descriptor();
         }
 
-        private static int nextDescriptorIndex(String descriptor, int start) {
-            int index = start;
-            while (index < descriptor.length() && descriptor.charAt(index) == '[') {
-                index++;
-            }
-            if (index >= descriptor.length()) {
-                return -1;
-            }
-            if (descriptor.charAt(index) == 'L') {
-                int end = descriptor.indexOf(';', index);
-                return end < 0 ? -1 : end + 1;
-            }
-            return "ZBCSIJFD".indexOf(descriptor.charAt(index)) >= 0 ? index + 1 : -1;
+        private JvmMethodDescriptor signature() {
+            return signature;
         }
 
         private static String canonicalOwnerType(String typeName) {
@@ -1275,7 +1249,7 @@ public final class LlmPostProcessingResponseParser {
                         || call.getArguments().size() != method.argumentCount) {
                     continue;
                 }
-                int score = descriptorMatchScore(call, method.descriptor);
+                int score = descriptorMatchScore(call, method.signature());
                 if (score >= 0 && score < selectedScore) {
                     selectedScore = score;
                     selectedReturnType = method.returnType;
@@ -1322,7 +1296,10 @@ public final class LlmPostProcessingResponseParser {
                     int descriptorStart = entry.indexOf('(');
                     int close = entry.indexOf(')', descriptorStart + 1);
                     if (descriptorStart > 0 && close > descriptorStart) {
-                        String returnType = descriptorTypeName(entry.substring(close + 1));
+                        JvmMethodDescriptor signature = JvmMethodDescriptor.parse(
+                                entry.substring(descriptorStart));
+                        String returnType = signature == null || !signature.isValid()
+                                ? null : descriptorTypeName(signature.returnDescriptor());
                         if (returnType != null) {
                             return ExprType.fromTypeName(returnType);
                         }
@@ -1788,7 +1765,7 @@ public final class LlmPostProcessingResponseParser {
                         || call.getArguments().size() != method.argumentCount) {
                     continue;
                 }
-                if (argumentsMatchDescriptor(call, method.descriptor)) {
+                if (argumentsMatchDescriptor(call, method.signature())) {
                     return true;
                 }
             }
@@ -1877,34 +1854,33 @@ public final class LlmPostProcessingResponseParser {
             }
             String methodName = member.substring(0, descriptorStart);
             String descriptor = member.substring(descriptorStart);
+            JvmMethodDescriptor signature = JvmMethodDescriptor.parse(descriptor);
             return SourceVersion.isIdentifier(methodName)
-                    && isPlausibleJvmMethodDescriptor(descriptor);
+                    && signature != null && signature.isValid();
+        }
+
+        private boolean argumentsMatchDescriptor(MethodCallExpr call, JvmMethodDescriptor signature) {
+            return descriptorMatchScore(call, signature) >= 0;
         }
 
         private boolean argumentsMatchDescriptor(MethodCallExpr call, String descriptor) {
-            return descriptorMatchScore(call, descriptor) >= 0;
+            return argumentsMatchDescriptor(call, JvmMethodDescriptor.parse(descriptor));
         }
 
         private int descriptorMatchScore(MethodCallExpr call, String descriptor) {
-            if (descriptor == null) {
+            return descriptorMatchScore(call, JvmMethodDescriptor.parse(descriptor));
+        }
+
+        private int descriptorMatchScore(MethodCallExpr call, JvmMethodDescriptor signature) {
+            if (signature == null) {
                 // A zero-argument method cannot have a same-name overload selected by
                 // argument types. Parameterized callables must carry a full descriptor.
                 return call.getArguments().isEmpty() ? 0 : -1;
             }
-            int close = descriptor.indexOf(')');
-            if (!descriptor.startsWith("(") || close < 0) {
+            if (!signature.isValid()) {
                 return -1;
             }
-            java.util.List<String> parameterDescriptors = new java.util.ArrayList<>();
-            int index = 1;
-            while (index < close) {
-                int next = nextDescriptorIndex(descriptor, index, false);
-                if (next <= index || next > close) {
-                    return -1;
-                }
-                parameterDescriptors.add(descriptor.substring(index, next));
-                index = next;
-            }
+            List<String> parameterDescriptors = signature.parameterDescriptors();
             if (parameterDescriptors.size() != call.getArguments().size()) {
                 return -1;
             }
@@ -2068,68 +2044,6 @@ public final class LlmPostProcessingResponseParser {
                 }
             }
             return true;
-        }
-
-        private boolean isPlausibleJvmMethodDescriptor(String descriptor) {
-            if (descriptor == null || descriptor.length() < 3 || descriptor.charAt(0) != '(') {
-                return false;
-            }
-            int close = descriptor.indexOf(')');
-            if (close <= 0 || close == descriptor.length() - 1) {
-                return false;
-            }
-            String arguments = descriptor.substring(1, close);
-            String returnType = descriptor.substring(close + 1);
-            return isPlausibleJvmDescriptorSequence(arguments, true)
-                    && isPlausibleJvmTypeDescriptor(returnType, true);
-        }
-
-        private boolean isPlausibleJvmDescriptorSequence(String descriptors, boolean allowEmpty) {
-            if (descriptors == null || descriptors.isEmpty()) {
-                return allowEmpty;
-            }
-            int index = 0;
-            while (index < descriptors.length()) {
-                int next = nextDescriptorIndex(descriptors, index, false);
-                if (next <= index) {
-                    return false;
-                }
-                index = next;
-            }
-            return true;
-        }
-
-        private boolean isPlausibleJvmTypeDescriptor(String descriptor, boolean allowVoid) {
-            return descriptor != null
-                    && nextDescriptorIndex(descriptor, 0, allowVoid) == descriptor.length();
-        }
-
-        private int nextDescriptorIndex(String descriptor, int start, boolean allowVoid) {
-            if (descriptor == null || start >= descriptor.length()) {
-                return -1;
-            }
-            int index = start;
-            while (index < descriptor.length() && descriptor.charAt(index) == '[') {
-                index++;
-            }
-            if (index >= descriptor.length()) {
-                return -1;
-            }
-            char kind = descriptor.charAt(index);
-            if ("ZBCSIJFD".indexOf(kind) >= 0) {
-                return index + 1;
-            }
-            if (kind == 'V') {
-                return allowVoid && index == start ? index + 1 : -1;
-            }
-            if (kind == 'L') {
-                int semicolon = descriptor.indexOf(';', index);
-                if (semicolon <= index + 1) {
-                    return -1;
-                }
-                return semicolon + 1;
-            }
-            return -1;
         }
 
         private boolean isAllowedImmutableConstructorType(String typeName) {
