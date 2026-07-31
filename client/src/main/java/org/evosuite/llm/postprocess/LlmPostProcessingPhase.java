@@ -24,9 +24,11 @@ final class LlmPostProcessingPhase {
     private static final Logger logger = LoggerFactory.getLogger(LlmPostProcessingPhase.class);
 
     private final LlmPostProcessor processor;
+    private final LlmTestPostProcessor testProcessor;
 
     LlmPostProcessingPhase(LlmPostProcessor processor) {
         this.processor = processor;
+        this.testProcessor = new LlmTestPostProcessor(processor);
     }
 
     Result run(TestSuiteChromosome suite, MinimizationResult minimizationResult,
@@ -125,7 +127,7 @@ final class LlmPostProcessingPhase {
                 break;
             }
 
-            LlmPostProcessor.TestProcessingResult result = processor.processTest(
+            LlmPostProcessor.TestProcessingResult result = testProcessor.process(
                     workItem, minimizationResult, limits, requestedCalls, phaseStartMillis,
                     assertionEligible);
             requestedTests += result.requestedTests;
