@@ -19,10 +19,10 @@
  */
 package org.evosuite.llm.postprocess;
 
-import org.evosuite.Properties;
 import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.statements.Statement;
 
@@ -60,10 +60,20 @@ public final class LlmPostProcessingEditApplier {
     public static ApplyResult apply(TestCase test, LlmPostProcessingReferences references,
                                     LlmPostProcessingResponse response, boolean assertionsAllowed,
                                     ExecutionResult executionResult) {
+        return apply(test, references, response, assertionsAllowed, executionResult, null);
+    }
+
+    /** Apply using one phase snapshot; null is retained only for old callers. */
+    public static ApplyResult apply(TestCase test, LlmPostProcessingReferences references,
+                                    LlmPostProcessingResponse response, boolean assertionsAllowed,
+                                    ExecutionResult executionResult, PostProcessingOptions options) {
         if (test == null || references == null || response == null) {
-            return new ApplyResult(0, 0, 0, 0, 0);
+            return new ApplyResult(0, 0, 0, 0, java.util.Collections.<TemplateCodeAssertion>emptyList());
         }
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.getOrCreate(test);
+        PostProcessingOptions effectiveOptions = options == null
+                ? PostProcessingOptions.fromProperties() : options;
+        PostProcessingOptions.Features features = effectiveOptions.features();
+        TestPresentationMetadata metadata = TestPresentationMetadata.getOrCreate(test);
         Integer firstExceptionPosition = executionResult == null
                 ? null
                 : executionResult.getFirstPositionOfThrownException();
@@ -71,10 +81,10 @@ public final class LlmPostProcessingEditApplier {
         int variableNames = 0;
         int comments = 0;
         int sectionBreaks = 0;
-        int assertions = 0;
+        List<TemplateCodeAssertion> appliedAssertions = new ArrayList<>();
 
-        if (Properties.LLM_POSTPROCESSING_TEST_NAMES && response.getTestName() != null) {
-            LlmPostProcessingMetadata snapshot = metadata.copy();
+        if (features.testNames() && response.getTestName() != null) {
+            TestPresentationMetadata snapshot = metadata.copy();
             try {
                 metadata.setTestName(response.getTestName());
                 testNames = 1;
@@ -88,8 +98,8 @@ public final class LlmPostProcessingEditApplier {
             }
         }
 
-        if (Properties.LLM_POSTPROCESSING_VARIABLE_NAMES) {
-            LlmPostProcessingMetadata snapshot = metadata.copy();
+        if (features.variableNames()) {
+            TestPresentationMetadata snapshot = metadata.copy();
             try {
                 Map<Integer, String> proposalsByPosition = new TreeMap<>();
                 for (Map.Entry<String, String> entry : response.getVariableNames().entrySet()) {
@@ -117,8 +127,8 @@ public final class LlmPostProcessingEditApplier {
             }
         }
 
-        if (Properties.LLM_POSTPROCESSING_COMMENTS) {
-            LlmPostProcessingMetadata snapshot = metadata.copy();
+        if (features.comments()) {
+            TestPresentationMetadata snapshot = metadata.copy();
             try {
                 for (LlmPostProcessingResponse.CommentProposal comment : response.getComments()) {
                     if (!references.hasStatementId(comment.getAfterStatementId())) {
@@ -141,8 +151,8 @@ public final class LlmPostProcessingEditApplier {
             }
         }
 
-        if (Properties.LLM_POSTPROCESSING_SECTION_BREAKS) {
-            LlmPostProcessingMetadata snapshot = metadata.copy();
+        if (features.sectionBreaks()) {
+            TestPresentationMetadata snapshot = metadata.copy();
             try {
                 for (String statementId : response.getSectionBreaksAfter()) {
                     if (!references.hasStatementId(statementId)) {
@@ -165,7 +175,7 @@ public final class LlmPostProcessingEditApplier {
             }
         }
 
-        if (assertionsAllowed && Properties.LLM_POSTPROCESSING_ASSERTIONS && test.size() > 0) {
+        if (assertionsAllowed && features.assertions() && test.size() > 0) {
             List<AttachedAssertion> attached = new ArrayList<>();
             for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
                 TemplateCodeAssertion assertion = toTemplateAssertion(proposal, references);
@@ -177,24 +187,24 @@ public final class LlmPostProcessingEditApplier {
                     assertion.setStatement(host);
                     host.addAssertion(assertion);
                     attached.add(new AttachedAssertion(host, assertion));
-                    assertions++;
+                    appliedAssertions.add(assertion);
                 } catch (RuntimeException | AssertionError e) {
                     for (AttachedAssertion attachedAssertion : attached) {
                         attachedAssertion.host.removeAssertion(attachedAssertion.assertion);
                     }
-                    assertions = 0;
+                    appliedAssertions.clear();
                     break;
                 }
             }
-            if (assertions > 0 && !canRender(test, executionResult)) {
+            if (!appliedAssertions.isEmpty() && !canRender(test, executionResult)) {
                 for (AttachedAssertion attachedAssertion : attached) {
                     attachedAssertion.host.removeAssertion(attachedAssertion.assertion);
                 }
-                assertions = 0;
+                appliedAssertions.clear();
             }
         }
 
-        return new ApplyResult(testNames, variableNames, comments, sectionBreaks, assertions);
+        return new ApplyResult(testNames, variableNames, comments, sectionBreaks, appliedAssertions);
     }
 
     private static TemplateCodeAssertion toTemplateAssertion(LlmPostProcessingResponse.AssertionProposal proposal,
@@ -216,7 +226,8 @@ public final class LlmPostProcessingEditApplier {
             return null;
         }
         TemplateCodeAssertion assertion = new TemplateCodeAssertion(proposal.getAssertionId(), proposal.getKind(),
-                proposal.getExpected(), proposal.getActual(), proposal.getDelta(), bindings, proposal.getPurpose());
+                proposal.getExpected(), proposal.getActual(), proposal.getDelta(), bindings, proposal.getPurpose(),
+                templatePlacement(proposal.getSite()));
         if (proposal.getPurpose() != null && !proposal.getPurpose().trim().isEmpty()) {
             assertion.setComment("// " + proposal.getPurpose().trim());
         }
@@ -225,14 +236,30 @@ public final class LlmPostProcessingEditApplier {
 
     private static Statement hostStatementForAssertion(TestCase test, LlmPostProcessingReferences references,
                                                        LlmPostProcessingResponse.AssertionProposal proposal) {
-        String afterStatementId = proposal.getAfterStatementId();
-        if (afterStatementId != null && references.hasStatementId(afterStatementId)) {
-            int position = references.getStatementPosition(afterStatementId);
-            if (position >= 0 && position < test.size()) {
-                return test.getStatement(position);
-            }
+        if (proposal.getSite() == LlmPostProcessingResponse.AssertionSite.BEFORE_TRY
+                && proposal.getAfterStatementId() != null
+                && references.hasStatementId(proposal.getAfterStatementId())) {
+            return references.resolveStatement(test, proposal.getAfterStatementId());
         }
         return test.getStatement(test.size() - 1);
+    }
+
+    private static TemplateCodeAssertion.Placement templatePlacement(
+            LlmPostProcessingResponse.AssertionSite site) {
+        if (site == null) {
+            return TemplateCodeAssertion.Placement.END_OF_TEST;
+        }
+        switch (site) {
+            case BEFORE_TRY:
+                return TemplateCodeAssertion.Placement.BEFORE_TRY;
+            case IN_CATCH:
+                return TemplateCodeAssertion.Placement.IN_CATCH;
+            case AFTER_CATCH:
+                return TemplateCodeAssertion.Placement.AFTER_CATCH;
+            case END_OF_TEST:
+            default:
+                return TemplateCodeAssertion.Placement.END_OF_TEST;
+        }
     }
 
     private static String uniqueName(String requestedName, Set<String> usedNames) {
@@ -314,6 +341,9 @@ public final class LlmPostProcessingEditApplier {
                                           Map<String, Integer> bindings) {
         Set<String> symbolicVariables = TemplateCodeAssertion.extractSymbolicVariables(expression);
         for (String variableId : symbolicVariables) {
+            if ("e0".equals(variableId)) {
+                continue;
+            }
             if (!references.hasVariableId(variableId)) {
                 return false;
             }
@@ -337,15 +367,17 @@ public final class LlmPostProcessingEditApplier {
         private final int variableNamesApplied;
         private final int commentsApplied;
         private final int sectionBreaksApplied;
-        private final int assertionsApplied;
+        private final List<TemplateCodeAssertion> appliedAssertions;
 
         private ApplyResult(int testNamesApplied, int variableNamesApplied,
-                            int commentsApplied, int sectionBreaksApplied, int assertionsApplied) {
+                            int commentsApplied, int sectionBreaksApplied,
+                            List<TemplateCodeAssertion> appliedAssertions) {
             this.testNamesApplied = testNamesApplied;
             this.variableNamesApplied = variableNamesApplied;
             this.commentsApplied = commentsApplied;
             this.sectionBreaksApplied = sectionBreaksApplied;
-            this.assertionsApplied = assertionsApplied;
+            this.appliedAssertions = java.util.Collections.unmodifiableList(
+                    new ArrayList<>(appliedAssertions));
         }
 
         public int getTestNamesApplied() {
@@ -365,7 +397,11 @@ public final class LlmPostProcessingEditApplier {
         }
 
         public int getAssertionsApplied() {
-            return assertionsApplied;
+            return appliedAssertions.size();
+        }
+
+        public List<TemplateCodeAssertion> getAppliedAssertions() {
+            return appliedAssertions;
         }
 
         public boolean hasAppliedEdits() {
@@ -373,7 +409,7 @@ public final class LlmPostProcessingEditApplier {
                     || variableNamesApplied > 0
                     || commentsApplied > 0
                     || sectionBreaksApplied > 0
-                    || assertionsApplied > 0;
+                    || !appliedAssertions.isEmpty();
         }
     }
 }

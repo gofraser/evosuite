@@ -1418,6 +1418,8 @@ public enum RuntimeVariable {
     LLM_PostProcessing_Assertions_Applied,
     /** Number of unified LLM post-processing assertions removed or commented by final JUnit instability handling. */
     LLM_PostProcessing_Assertions_Removed_Unstable,
+    /** Number of unified LLM post-processing assertions removed by the final JUnit compilation filter. */
+    LLM_PostProcessing_Assertions_Removed_Compile,
     /** Number of unified LLM post-processing assertions shipped in the final generated suite. */
     LLM_PostProcessing_Assertions_Shipped,
 

@@ -22,6 +22,9 @@ package org.evosuite.llm;
 import com.google.gson.Gson;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.postprocess.LlmPostProcessingProtocol;
+import org.evosuite.llm.postprocess.PromptVariantCapabilities;
+import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,7 +50,7 @@ public class LlmTraceRecorder {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmTraceRecorder.class);
     private static final Gson GSON = new Gson();
-    private static final int TRACE_SCHEMA_VERSION = 2;
+    private static final int TRACE_SCHEMA_VERSION = 3;
     private static final ThreadLocal<PostProcessingTraceContext> POST_PROCESSING_TRACE_CONTEXT =
             new ThreadLocal<>();
 
@@ -259,6 +262,8 @@ public class LlmTraceRecorder {
         private final String intent;
         private final String placementAfterStatementId;
         private final String purpose;
+        private final String assertionSource;
+        private final String candidateId;
         private final Map<String, Object> assertionJson;
 
         public PostProcessingAssertionDiagnosticRecord(int testIndex,
@@ -278,6 +283,31 @@ public class LlmTraceRecorder {
                                                        String placementAfterStatementId,
                                                        String purpose,
                                                        Map<String, Object> assertionJson) {
+            this(testIndex, minimizationStatus, minimizationStopCause, callKind,
+                    diagnosticSource, diagnosticCode, diagnosticPath, diagnosticMessage,
+                    assertionId, assertionKind, actual, expected, delta, intent,
+                    placementAfterStatementId, purpose, "", "", assertionJson);
+        }
+
+        public PostProcessingAssertionDiagnosticRecord(int testIndex,
+                                                       String minimizationStatus,
+                                                       String minimizationStopCause,
+                                                       String callKind,
+                                                       String diagnosticSource,
+                                                       String diagnosticCode,
+                                                       String diagnosticPath,
+                                                       String diagnosticMessage,
+                                                       String assertionId,
+                                                       String assertionKind,
+                                                       String actual,
+                                                       String expected,
+                                                       String delta,
+                                                       String intent,
+                                                       String placementAfterStatementId,
+                                                       String purpose,
+                                                       String assertionSource,
+                                                       String candidateId,
+                                                       Map<String, Object> assertionJson) {
             this.testIndex = testIndex;
             this.minimizationStatus = minimizationStatus == null ? "" : minimizationStatus;
             this.minimizationStopCause = minimizationStopCause == null ? "" : minimizationStopCause;
@@ -294,9 +324,107 @@ public class LlmTraceRecorder {
             this.intent = intent == null ? "" : intent;
             this.placementAfterStatementId = placementAfterStatementId == null ? "" : placementAfterStatementId;
             this.purpose = purpose == null ? "" : purpose;
+            this.assertionSource = assertionSource == null ? "" : assertionSource;
+            this.candidateId = candidateId == null ? "" : candidateId;
             this.assertionJson = assertionJson == null
                     ? Collections.<String, Object>emptyMap()
                     : new LinkedHashMap<>(assertionJson);
+        }
+    }
+
+    /** Structured lifecycle event for an assertion accepted by post-processing. */
+    public static final class PostProcessingAssertionLifecycleRecord {
+        private final int testIndex;
+        private final String minimizationStatus;
+        private final String minimizationStopCause;
+        private final String lifecycleState;
+        private final String callKind;
+        private final String assertionId;
+        private final String assertionKind;
+        private final String actual;
+        private final String expected;
+        private final String delta;
+        private final String intent;
+        private final String placementAfterStatementId;
+        private final String placementSite;
+        private final String placementExceptionId;
+        private final String purpose;
+        private final String assertionSource;
+        private final String candidateId;
+
+        public PostProcessingAssertionLifecycleRecord(int testIndex,
+                                                      String minimizationStatus,
+                                                      String minimizationStopCause,
+                                                      String lifecycleState,
+                                                      String callKind,
+                                                      String assertionId,
+                                                      String assertionKind,
+                                                      String actual,
+                                                      String expected,
+                                                      String delta,
+                                                      String intent,
+                                                      String placementAfterStatementId,
+                                                      String purpose) {
+            this(testIndex, minimizationStatus, minimizationStopCause, lifecycleState, callKind,
+                    assertionId, assertionKind, actual, expected, delta, intent,
+                    placementAfterStatementId, purpose, "", "", "", "");
+        }
+
+        public PostProcessingAssertionLifecycleRecord(int testIndex,
+                                                      String minimizationStatus,
+                                                      String minimizationStopCause,
+                                                      String lifecycleState,
+                                                      String callKind,
+                                                      String assertionId,
+                                                      String assertionKind,
+                                                      String actual,
+                                                      String expected,
+                                                      String delta,
+                                                      String intent,
+                                                      String placementAfterStatementId,
+                                                      String purpose,
+                                                      String assertionSource,
+                                                      String candidateId) {
+            this(testIndex, minimizationStatus, minimizationStopCause, lifecycleState, callKind,
+                    assertionId, assertionKind, actual, expected, delta, intent,
+                    placementAfterStatementId, purpose, assertionSource, candidateId, "", "");
+        }
+
+        public PostProcessingAssertionLifecycleRecord(int testIndex,
+                                                      String minimizationStatus,
+                                                      String minimizationStopCause,
+                                                      String lifecycleState,
+                                                      String callKind,
+                                                      String assertionId,
+                                                      String assertionKind,
+                                                      String actual,
+                                                      String expected,
+                                                      String delta,
+                                                      String intent,
+                                                      String placementAfterStatementId,
+                                                      String purpose,
+                                                      String assertionSource,
+                                                      String candidateId,
+                                                      String placementSite,
+                                                      String placementExceptionId) {
+            this.testIndex = testIndex;
+            this.minimizationStatus = minimizationStatus == null ? "" : minimizationStatus;
+            this.minimizationStopCause = minimizationStopCause == null ? "" : minimizationStopCause;
+            this.lifecycleState = lifecycleState == null ? "" : lifecycleState;
+            this.callKind = callKind == null ? "" : callKind;
+            this.assertionId = assertionId == null ? "" : assertionId;
+            this.assertionKind = assertionKind == null ? "" : assertionKind;
+            this.actual = actual == null ? "" : actual;
+            this.expected = expected == null ? "" : expected;
+            this.delta = delta == null ? "" : delta;
+            this.intent = intent == null ? "" : intent;
+            this.placementAfterStatementId = placementAfterStatementId == null
+                    ? "" : placementAfterStatementId;
+            this.placementSite = placementSite == null ? "" : placementSite;
+            this.placementExceptionId = placementExceptionId == null ? "" : placementExceptionId;
+            this.purpose = purpose == null ? "" : purpose;
+            this.assertionSource = assertionSource == null ? "" : assertionSource;
+            this.candidateId = candidateId == null ? "" : candidateId;
         }
     }
 
@@ -338,7 +466,37 @@ public class LlmTraceRecorder {
                 postProcessingContext == null ? "" : postProcessingContext.minimizationStopCause);
         traceRecord.put("provider", configuration.getProvider().name());
         traceRecord.put("model", configuration.getModel());
+        traceRecord.put("effective_temperature", configuration.getTemperature());
+        traceRecord.put("effective_max_tokens", configuration.getMaxTokens());
+        traceRecord.put("effective_timeout_seconds", configuration.getTimeoutSeconds());
+        traceRecord.put("effective_retry_max_attempts", configuration.getRetryMaxAttempts());
+        traceRecord.put("effective_retry_base_delay_ms", configuration.getRetryBaseDelayMs());
         traceRecord.put("prompt_hash", deterministicPromptHash(safeMessages));
+        traceRecord.put("system_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.SYSTEM));
+        traceRecord.put("user_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.USER));
+        traceRecord.put("postprocessing_prompt_version",
+                record.feature == LlmFeature.POST_PROCESSING
+                        ? LlmPostProcessingProtocol.promptVersion() : "");
+        traceRecord.put("postprocessing_response_schema_version",
+                record.feature == LlmFeature.POST_PROCESSING
+                        ? LlmPostProcessingProtocol.responseSchemaVersion() : 0);
+        traceRecord.put("postprocessing_parser_version",
+                record.feature == LlmFeature.POST_PROCESSING
+                        ? LlmPostProcessingProtocol.PARSER_VERSION : "");
+        traceRecord.put("postprocessing_prompt_variant",
+                record.feature == LlmFeature.POST_PROCESSING
+                        ? Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION.name() : "");
+        traceRecord.put("postprocessing_capabilities",
+                record.feature == LlmFeature.POST_PROCESSING
+                        ? PromptVariantCapabilities.forVariant(
+                                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION).enabledNames()
+                        : Collections.emptyList());
+        traceRecord.put("postprocessing_internal_context_truncated",
+                record.feature == LlmFeature.POST_PROCESSING
+                        && hasInternalContextTruncation(safeMessages));
+        traceRecord.put("postprocessing_repair_policy",
+                record.feature == LlmFeature.POST_PROCESSING
+                        ? Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE.name() : "");
         traceRecord.put("messages", toSerializableMessages(safeMessages));
         traceRecord.put("response_text", record.responseText);
         traceRecord.put("parse_status", record.parseStatus);
@@ -392,6 +550,7 @@ public class LlmTraceRecorder {
         traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
         traceRecord.put("timestamp", Instant.now().toString());
         traceRecord.put("feature", LlmFeature.POST_PROCESSING.name());
+        addPostProcessingProtocolMetadata(traceRecord);
         traceRecord.put("postprocessing_call_kind", record.callKind);
         traceRecord.put("postprocessing_test_index", record.testIndex);
         traceRecord.put("postprocessing_minimization_status", record.minimizationStatus);
@@ -407,7 +566,13 @@ public class LlmTraceRecorder {
         traceRecord.put("assertion_delta", record.delta);
         traceRecord.put("assertion_intent", record.intent);
         traceRecord.put("assertion_placement_after_statement_id", record.placementAfterStatementId);
+        traceRecord.put("assertion_placement_site",
+                placementJsonField(record.assertionJson, "site"));
+        traceRecord.put("assertion_placement_exception_id",
+                placementJsonField(record.assertionJson, "exceptionId"));
         traceRecord.put("assertion_purpose", record.purpose);
+        traceRecord.put("assertion_source", record.assertionSource);
+        traceRecord.put("candidate_id", record.candidateId);
         traceRecord.put("assertion_json", record.assertionJson);
 
         String json = GSON.toJson(traceRecord);
@@ -416,6 +581,46 @@ public class LlmTraceRecorder {
         } catch (Throwable writeFailure) {
             logger.warn("Failed writing LLM post-processing diagnostic trace: {}", writeFailure.getMessage());
             logger.debug("LLM post-processing diagnostic trace write failure details", writeFailure);
+        }
+    }
+
+    /** Records one transition in the accepted assertion's lifecycle. */
+    public void recordPostProcessingAssertionLifecycle(PostProcessingAssertionLifecycleRecord record) {
+        if (!configuration.isTraceEnabled() || record == null) {
+            return;
+        }
+
+        Map<String, Object> traceRecord = new LinkedHashMap<>();
+        traceRecord.put("schema_version", TRACE_SCHEMA_VERSION);
+        traceRecord.put("event_type", "postprocessing_assertion_lifecycle");
+        traceRecord.put("run_id", configuration.getRunId());
+        traceRecord.put("target_class", Properties.TARGET_CLASS == null ? "" : Properties.TARGET_CLASS);
+        traceRecord.put("timestamp", Instant.now().toString());
+        traceRecord.put("feature", LlmFeature.POST_PROCESSING.name());
+        addPostProcessingProtocolMetadata(traceRecord);
+        traceRecord.put("postprocessing_test_index", record.testIndex);
+        traceRecord.put("postprocessing_minimization_status", record.minimizationStatus);
+        traceRecord.put("postprocessing_minimization_stop_cause", record.minimizationStopCause);
+        traceRecord.put("lifecycle_state", record.lifecycleState);
+        traceRecord.put("postprocessing_call_kind", record.callKind);
+        traceRecord.put("assertion_id", record.assertionId);
+        traceRecord.put("assertion_kind", record.assertionKind);
+        traceRecord.put("assertion_actual", record.actual);
+        traceRecord.put("assertion_expected", record.expected);
+        traceRecord.put("assertion_delta", record.delta);
+        traceRecord.put("assertion_intent", record.intent);
+        traceRecord.put("assertion_placement_after_statement_id", record.placementAfterStatementId);
+        traceRecord.put("assertion_placement_site", record.placementSite);
+        traceRecord.put("assertion_placement_exception_id", record.placementExceptionId);
+        traceRecord.put("assertion_purpose", record.purpose);
+        traceRecord.put("assertion_source", record.assertionSource);
+        traceRecord.put("candidate_id", record.candidateId);
+
+        try {
+            writeJsonLine(GSON.toJson(traceRecord));
+        } catch (Throwable writeFailure) {
+            logger.warn("Failed writing LLM post-processing lifecycle trace: {}", writeFailure.getMessage());
+            logger.debug("LLM post-processing lifecycle trace write failure details", writeFailure);
         }
     }
 
@@ -431,6 +636,86 @@ public class LlmTraceRecorder {
                 digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
                 digest.update((byte) 0x1E);
             }
+            return toHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
+    }
+
+    private String messageContentHash(List<LlmMessage> messages, LlmMessage.Role role) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            boolean found = false;
+            for (LlmMessage message : messages) {
+                if (message != null && message.getRole() == role) {
+                    digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
+                    digest.update((byte) 0x1E);
+                    found = true;
+                }
+            }
+            return found ? toHex(digest.digest()) : "";
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is not available", e);
+        }
+    }
+
+    private static boolean hasInternalContextTruncation(List<LlmMessage> messages) {
+        for (LlmMessage message : messages) {
+            if (message == null || message.getRole() != LlmMessage.Role.USER) {
+                continue;
+            }
+            String content = message.getContent();
+            if (content != null && (content.contains("truncated=true")
+                    || content.contains("truncatedCandidates=")
+                    || content.contains("truncatedCallableTypes=")
+                    || content.contains("droppedMethods=")
+                    || content.contains("droppedRelationalOpportunities="))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String placementJsonField(Map<String, Object> assertionJson, String field) {
+        if (assertionJson == null) {
+            return "";
+        }
+        Object placement = assertionJson.get("placement");
+        if (!(placement instanceof Map<?, ?>)) {
+            return "";
+        }
+        Object value = ((Map<?, ?>) placement).get(field);
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private void addPostProcessingProtocolMetadata(Map<String, Object> traceRecord) {
+        traceRecord.put("provider", configuration.getProvider().name());
+        traceRecord.put("model", configuration.getModel());
+        traceRecord.put("effective_temperature", configuration.getTemperature());
+        traceRecord.put("effective_max_tokens", configuration.getMaxTokens());
+        traceRecord.put("effective_timeout_seconds", configuration.getTimeoutSeconds());
+        traceRecord.put("effective_retry_max_attempts", configuration.getRetryMaxAttempts());
+        traceRecord.put("effective_retry_base_delay_ms", configuration.getRetryBaseDelayMs());
+        traceRecord.put("postprocessing_prompt_version", LlmPostProcessingProtocol.promptVersion());
+        traceRecord.put("postprocessing_response_schema_version",
+                LlmPostProcessingProtocol.responseSchemaVersion());
+        traceRecord.put("postprocessing_parser_version", LlmPostProcessingProtocol.PARSER_VERSION);
+        traceRecord.put("postprocessing_prompt_variant",
+                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION.name());
+        traceRecord.put("postprocessing_capabilities",
+                PromptVariantCapabilities.forVariant(
+                        Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION).enabledNames());
+        traceRecord.put("postprocessing_repair_policy",
+                Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE.name());
+        traceRecord.put("system_prompt_hash", contentHash(
+                new SystemPromptProvider().getPostProcessingSystemPrompt()));
+    }
+
+    private String contentHash(String content) {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
+            digest.update((byte) 0x1E);
             return toHex(digest.digest());
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not available", e);

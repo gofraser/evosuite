@@ -60,6 +60,44 @@ class TestSuiteGeneratorReplayTest {
     }
 
     @Test
+    void hybridRestoreRetainsMutationAssertionsWhenLlmOracleIsRejected() {
+        TestSuiteChromosome suite = suiteWithValue(7);
+        TestCase mutationSource = suite.getTestChromosome(0).getTestCase();
+        PrimitiveAssertion mutationAssertion = new PrimitiveAssertion();
+        mutationAssertion.setSource(mutationSource.getStatement(0).getReturnValue());
+        mutationAssertion.setValue(7);
+        mutationSource.getStatement(0).addAssertion(mutationAssertion);
+        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
+                TestSuiteGenerator.ReplayStructureSnapshot.captureWithFallbackAssertions(suite);
+
+        suite.clearTests();
+        TestSuiteGenerator.restoreReplayStructure(suite, snapshot);
+
+        assertEquals(1, suite.size());
+        assertEquals(1, suite.getTestChromosome(0).getTestCase().getAssertions().size());
+    }
+
+    @Test
+    void hybridRestoreTransfersMutationAndLlmAssertionsWhenOracleIsRetained() {
+        TestSuiteChromosome suite = suiteWithValue(7);
+        TestCase source = suite.getTestChromosome(0).getTestCase();
+        PrimitiveAssertion mutationAssertion = new PrimitiveAssertion();
+        mutationAssertion.setSource(source.getStatement(0).getReturnValue());
+        mutationAssertion.setValue(7);
+        source.getStatement(0).addAssertion(mutationAssertion);
+        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
+                TestSuiteGenerator.ReplayStructureSnapshot.captureWithFallbackAssertions(suite);
+        PrimitiveAssertion llmStandIn = new PrimitiveAssertion();
+        llmStandIn.setSource(source.getStatement(0).getReturnValue());
+        llmStandIn.setValue(8);
+        source.getStatement(0).addAssertion(llmStandIn);
+
+        TestSuiteGenerator.restoreReplayStructure(suite, snapshot);
+
+        assertEquals(2, suite.getTestChromosome(0).getTestCase().getAssertions().size());
+    }
+
+    @Test
     void replaySnapshotDetectsSameSizeStatementReplacement() {
         TestSuiteChromosome suite = suiteWithValue(7);
         TestSuiteGenerator.ReplayStructureSnapshot snapshot =
@@ -101,6 +139,69 @@ class TestSuiteGeneratorReplayTest {
         test.chop(1);
 
         assertFalse(snapshot.hasSameExecutableStructure(suite));
+    }
+
+    @Test
+    void writerGuardToleratesSameCountStatementReconstruction() {
+        // The JUnit writer may reconstruct statement objects while rendering
+        // (for example when TestCodeVisitor resolves descriptors through a
+        // swapped instrumentation class loader). A structure-preserving
+        // rendering keeps the same test and statement counts and must not be
+        // reported as a change, even though object identity differs.
+        TestSuiteChromosome suite = suiteWithValue(7);
+        int inputTests = suite.size();
+        int inputStatements = suite.totalLengthOfTestCases();
+
+        TestCase test = suite.getTestChromosome(0).getTestCase();
+        test.setStatement(new IntPrimitiveStatement(test, 8), 0);
+
+        assertTrue(TestSuiteGenerator.writerPreservedExecutableStructure(
+                suite, inputTests, inputStatements));
+    }
+
+    @Test
+    void writerGuardToleratesExceptionChopping() {
+        // The writer chops statements after an uncaught exception so the emitted
+        // JUnit compiles. That reduces the statement count while keeping the same
+        // test, is deterministic, and is applied identically for every arm
+        // replaying the same structural suite, so it must be tolerated.
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+        test.addStatement(new IntPrimitiveStatement(test, 8));
+        TestSuiteChromosome suite = suiteContaining(test);
+        int inputTests = suite.size();
+        int inputStatements = suite.totalLengthOfTestCases();
+
+        test.chop(1);
+
+        assertTrue(TestSuiteGenerator.writerPreservedExecutableStructure(
+                suite, inputTests, inputStatements));
+    }
+
+    @Test
+    void writerGuardRejectsDroppedTest() {
+        // Chopping only removes trailing statements; it never removes a whole
+        // test. A change in the number of tests is a genuine structural change.
+        DefaultTestCase first = new DefaultTestCase();
+        first.addStatement(new IntPrimitiveStatement(first, 7));
+        TestSuiteChromosome suite = suiteContaining(first);
+        int inputTests = suite.size() + 1;
+        int inputStatements = suite.totalLengthOfTestCases() + 1;
+
+        assertFalse(TestSuiteGenerator.writerPreservedExecutableStructure(
+                suite, inputTests, inputStatements));
+    }
+
+    @Test
+    void writerGuardRejectsGrownSuite() {
+        // The writer must never add statements; a grown suite is a real change.
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+        test.addStatement(new IntPrimitiveStatement(test, 8));
+        TestSuiteChromosome suite = suiteContaining(test);
+
+        assertFalse(TestSuiteGenerator.writerPreservedExecutableStructure(
+                suite, suite.size(), suite.totalLengthOfTestCases() - 1));
     }
 
     private static TestSuiteChromosome suiteWithValue(int value) {

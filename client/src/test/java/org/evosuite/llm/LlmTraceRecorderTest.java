@@ -71,7 +71,7 @@ class LlmTraceRecorderTest {
         assertTrue(Files.exists(traceFile));
 
         String content = new String(Files.readAllBytes(traceFile), StandardCharsets.UTF_8);
-        assertTrue(content.contains("\"schema_version\":2"));
+        assertTrue(content.contains("\"schema_version\":3"));
         assertTrue(content.contains("\"run_id\":\"run-abc\""));
         assertTrue(content.contains("\"feature\":\"TEST_REPAIR\""));
         assertTrue(content.contains("\"expanded_classes\":[\"java.util.ArrayList\"]"));
@@ -121,6 +121,12 @@ class LlmTraceRecorderTest {
         assertTrue(content.contains("\"postprocessing_test_index\":4"));
         assertTrue(content.contains("\"postprocessing_minimization_status\":\"COMPLETE\""));
         assertTrue(content.contains("\"postprocessing_minimization_stop_cause\":\"SEARCH_FINISHED\""));
+        assertTrue(content.contains("\"postprocessing_prompt_version\":\"postprocessing-p2-v2\""));
+        assertTrue(content.contains("\"postprocessing_response_schema_version\":2"));
+        assertTrue(content.contains("\"postprocessing_parser_version\":\"postprocessing-parser-v4\""));
+        assertTrue(content.contains("\"effective_temperature\":0.0"));
+        assertTrue(content.contains("\"system_prompt_hash\":"));
+        assertTrue(content.contains("\"user_prompt_hash\":"));
         assertFalse(content.contains(System.lineSeparator() + System.lineSeparator()));
         assertEquals(2, Files.readAllLines(recorder.getTraceFile(), StandardCharsets.UTF_8).size());
         assertTrue(new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8)
@@ -178,6 +184,29 @@ class LlmTraceRecorderTest {
         assertTrue(content.contains("\"diagnostic_message\":\"Expression calls a method not listed as callable\""));
         assertTrue(content.contains("\"assertion_actual\":\"v0.getValue()\""));
         assertTrue(content.contains("\"assertion_json\":{\"assertionId\":\"a0\""));
+    }
+
+    @Test
+    void writesPostProcessingAssertionLifecycleEvent() throws Exception {
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.OPENAI,
+                "model-1", "", "", 0.0, 256, 3, 1, 1,
+                true, tempDir, "run-lifecycle");
+        LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
+
+        recorder.recordPostProcessingAssertionLifecycle(
+                new LlmTraceRecorder.PostProcessingAssertionLifecycleRecord(
+                        3, "COMPLETED", "NONE", "shipped", "final_validation",
+                        "a2", "EQUALS", "v0", "42", "", "REGRESSION",
+                        "s1", "preserve the result", "SELECTED_CANDIDATE", "c4"));
+
+        String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
+        assertTrue(content.contains("\"event_type\":\"postprocessing_assertion_lifecycle\""));
+        assertTrue(content.contains("\"lifecycle_state\":\"shipped\""));
+        assertTrue(content.contains("\"assertion_id\":\"a2\""));
+        assertTrue(content.contains("\"postprocessing_call_kind\":\"final_validation\""));
+        assertTrue(content.contains("\"assertion_source\":\"SELECTED_CANDIDATE\""));
+        assertTrue(content.contains("\"candidate_id\":\"c4\""));
     }
 
     @Test

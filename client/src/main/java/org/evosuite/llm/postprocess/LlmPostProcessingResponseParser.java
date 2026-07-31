@@ -21,6 +21,7 @@ package org.evosuite.llm.postprocess;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.expr.ArrayCreationExpr;
@@ -35,15 +36,17 @@ import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 import org.evosuite.assertion.CanonicalAssertionRenderer;
-import org.evosuite.Properties;
+import org.evosuite.assertion.TemplateAssertionKind;
 
 import javax.lang.model.SourceVersion;
+import java.util.ArrayList;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -57,11 +60,17 @@ public final class LlmPostProcessingResponseParser {
 
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
     private static final Set<String> ROOT_FIELDS = allowedFields("schemaVersion", "testName", "variableNames",
-            "comments", "sectionBreaksAfter", "assertions");
+            "comments", "sectionBreaksAfter", "assertions", "assertionDecision", "noAssertionReason");
+    private static final Set<String> ASSERTION_DECISIONS = allowedFields("PROPOSED", "NO_SAFE_ORACLE");
+    private static final Set<String> NO_ASSERTION_REASONS = allowedFields(
+            "NO_STABLE_OBSERVATION", "NO_LEGAL_CALLABLE", "THROWING_TEST", "CANDIDATE_REDUNDANCY",
+            "ONLY_SETUP_VALUES", "TRUNCATED_OBSERVATION", "OTHER");
     private static final Set<String> COMMENT_FIELDS = allowedFields("afterStatementId", "text");
     private static final Set<String> ASSERTION_FIELDS = allowedFields("assertionId", "kind", "expected", "actual",
-            "delta", "purpose", "intent", "placement", "container", "element", "target", "size", "map", "key");
-    private static final Set<String> ASSERTION_PLACEMENT_FIELDS = allowedFields("afterStatementId");
+            "delta", "purpose", "intent", "placement", "container", "element", "target", "size", "map", "key",
+            "candidateId", "value", "expression");
+    private static final Set<String> ASSERTION_PLACEMENT_FIELDS =
+            allowedFields("site", "afterStatementId", "exceptionId");
     private static final Set<String> BUILT_IN_PURE_STATIC_METHODS = allowedFields(
             "java.lang.Math#*",
             "Math#*",
@@ -150,20 +159,22 @@ public final class LlmPostProcessingResponseParser {
     public static ParseContext context(Set<String> statementIds, Set<String> variableIds) {
         return new ParseContext(statementIds, variableIds, Collections.<CallableMethod>emptySet(),
                 Collections.<String>emptySet(), Collections.<String>emptySet(),
-                Collections.<String, String>emptyMap());
+                Collections.<String, String>emptyMap(), Collections.<String, SelectableCandidate>emptyMap());
     }
 
     public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
                                        Set<CallableMethod> callableMethods) {
         return new ParseContext(statementIds, variableIds, callableMethods, Collections.<String>emptySet(),
-                Collections.<String>emptySet(), Collections.<String, String>emptyMap());
+                Collections.<String>emptySet(), Collections.<String, String>emptyMap(),
+                Collections.<String, SelectableCandidate>emptyMap());
     }
 
     public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
                                        Set<CallableMethod> callableMethods,
                                        Set<String> observedCandidateKeys) {
         return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                Collections.<String>emptySet(), Collections.<String, String>emptyMap());
+                Collections.<String>emptySet(), Collections.<String, String>emptyMap(),
+                Collections.<String, SelectableCandidate>emptyMap());
     }
 
     public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
@@ -171,7 +182,8 @@ public final class LlmPostProcessingResponseParser {
                                        Set<String> observedCandidateKeys,
                                        Set<String> setupInputVariableIds) {
         return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, Collections.<String, String>emptyMap());
+                setupInputVariableIds, Collections.<String, String>emptyMap(),
+                Collections.<String, SelectableCandidate>emptyMap());
     }
 
     public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
@@ -180,7 +192,28 @@ public final class LlmPostProcessingResponseParser {
                                        Set<String> setupInputVariableIds,
                                        Map<String, String> variableTypes) {
         return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, variableTypes);
+                setupInputVariableIds, variableTypes, Collections.<String, SelectableCandidate>emptyMap());
+    }
+
+    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
+                                       Set<CallableMethod> callableMethods,
+                                       Set<String> observedCandidateKeys,
+                                       Set<String> setupInputVariableIds,
+                                       Map<String, String> variableTypes,
+                                       Map<String, SelectableCandidate> selectableCandidates) {
+        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
+                setupInputVariableIds, variableTypes, selectableCandidates);
+    }
+
+    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
+                                       Set<CallableMethod> callableMethods,
+                                       Set<String> observedCandidateKeys,
+                                       Set<String> setupInputVariableIds,
+                                       Map<String, String> variableTypes,
+                                       Map<String, SelectableCandidate> selectableCandidates,
+                                       String throwingStatementId) {
+        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
+                setupInputVariableIds, variableTypes, selectableCandidates, throwingStatementId);
     }
 
     public static LlmPostProcessingParseResult parse(String response, ParseContext context) {
@@ -203,10 +236,10 @@ public final class LlmPostProcessingResponseParser {
             return LlmPostProcessingParseResult.infrastructureFailure("Missing or non-integral schemaVersion");
         }
         int schemaVersion = schemaVersionNode.asInt();
-        if (schemaVersion != LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION) {
+        if (schemaVersion < LlmPostProcessingProtocol.MIN_RESPONSE_SCHEMA_VERSION
+                || schemaVersion > LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION) {
             return LlmPostProcessingParseResult.infrastructureFailure("Unsupported schemaVersion: " + schemaVersion);
         }
-
         ParserState state = new ParserState(context == null ? ParseContext.empty() : context,
                 new LlmPostProcessingResponse(schemaVersion));
         state.reportUnknownFields(root, "", ROOT_FIELDS);
@@ -215,7 +248,50 @@ public final class LlmPostProcessingResponseParser {
         state.parseComments(root.get("comments"));
         state.parseSectionBreaks(root.get("sectionBreaksAfter"));
         state.parseAssertions(root.get("assertions"));
-        return LlmPostProcessingParseResult.success(state.response, state.diagnostics);
+        state.parseAssertionDecision(root.get("assertionDecision"), root.get("noAssertionReason"));
+        return LlmPostProcessingParseResult.success(state.response, state.diagnostics,
+                proposedCounts(root), rawAssertions(root));
+    }
+
+    private static PostProcessingCounts proposedCounts(JsonNode root) {
+        return new PostProcessingCounts(
+                root.hasNonNull("testName") ? 1 : 0,
+                sizeIfObject(root.get("variableNames")),
+                sizeIfArray(root.get("comments")),
+                sizeIfArray(root.get("sectionBreaksAfter")),
+                sizeIfArray(root.get("assertions")));
+    }
+
+    private static List<LlmPostProcessingParseResult.RawAssertion> rawAssertions(JsonNode root) {
+        List<LlmPostProcessingParseResult.RawAssertion> result = new ArrayList<>();
+        JsonNode assertions = root == null ? null : root.get("assertions");
+        if (assertions == null || !assertions.isArray()) {
+            return result;
+        }
+        for (JsonNode assertion : assertions) {
+            if (assertion == null || !assertion.isObject()) {
+                continue;
+            }
+            String assertionId = textValue(assertion.get("assertionId"));
+            if (assertionId != null && !assertionId.trim().isEmpty()) {
+                result.add(new LlmPostProcessingParseResult.RawAssertion(
+                        assertionId.trim(), assertion.toString(),
+                        JSON_MAPPER.convertValue(assertion, LinkedHashMap.class)));
+            }
+        }
+        return result;
+    }
+
+    private static int sizeIfObject(JsonNode node) {
+        return node != null && node.isObject() ? node.size() : 0;
+    }
+
+    private static int sizeIfArray(JsonNode node) {
+        return node != null && node.isArray() ? node.size() : 0;
+    }
+
+    private static String textValue(JsonNode node) {
+        return node == null || node.isNull() || !node.isTextual() ? null : node.asText();
     }
 
     static String normalizeJsonResponse(String response) {
@@ -250,24 +326,51 @@ public final class LlmPostProcessingResponseParser {
         private final Set<String> observedCandidateKeys;
         private final Set<String> setupInputVariableIds;
         private final Map<String, String> variableTypes;
+        private final Map<String, SelectableCandidate> selectableCandidates;
+        private final String throwingStatementId;
+        private PostProcessingOptions options;
 
         private ParseContext(Set<String> statementIds, Set<String> variableIds,
                              Set<CallableMethod> callableMethods,
                              Set<String> observedCandidateKeys,
                              Set<String> setupInputVariableIds,
-                             Map<String, String> variableTypes) {
+                             Map<String, String> variableTypes,
+                             Map<String, SelectableCandidate> selectableCandidates) {
+            this(statementIds, variableIds, callableMethods, observedCandidateKeys,
+                    setupInputVariableIds, variableTypes, selectableCandidates, null);
+        }
+
+        private ParseContext(Set<String> statementIds, Set<String> variableIds,
+                             Set<CallableMethod> callableMethods,
+                             Set<String> observedCandidateKeys,
+                             Set<String> setupInputVariableIds,
+                             Map<String, String> variableTypes,
+                             Map<String, SelectableCandidate> selectableCandidates,
+                             String throwingStatementId) {
             this.statementIds = copy(statementIds);
             this.variableIds = copy(variableIds);
             this.callableMethods = copy(callableMethods);
             this.observedCandidateKeys = copy(observedCandidateKeys);
             this.setupInputVariableIds = copy(setupInputVariableIds);
             this.variableTypes = copyMap(variableTypes);
+            this.selectableCandidates = copyMap(selectableCandidates);
+            this.throwingStatementId = throwingStatementId;
+            this.options = null;
+        }
+
+        ParseContext withOptions(PostProcessingOptions options) {
+            ParseContext copy = new ParseContext(statementIds, variableIds, callableMethods,
+                    observedCandidateKeys, setupInputVariableIds, variableTypes,
+                    selectableCandidates, throwingStatementId);
+            copy.options = options;
+            return copy;
         }
 
         public static ParseContext empty() {
             return new ParseContext(Collections.<String>emptySet(), Collections.<String>emptySet(),
                     Collections.<CallableMethod>emptySet(), Collections.<String>emptySet(),
-                    Collections.<String>emptySet(), Collections.<String, String>emptyMap());
+                    Collections.<String>emptySet(), Collections.<String, String>emptyMap(),
+                    Collections.<String, SelectableCandidate>emptyMap());
         }
 
         private static <T> Set<T> copy(Set<T> values) {
@@ -310,6 +413,83 @@ public final class LlmPostProcessingResponseParser {
 
         boolean isSetupInputVariableId(String id) {
             return setupInputVariableIds.contains(id);
+        }
+
+        boolean hasThrowingStatement() {
+            return throwingStatementId != null;
+        }
+
+        PostProcessingOptions options() {
+            return options;
+        }
+    }
+
+    public static final class SelectableCandidate {
+        private final LlmPostProcessingResponse.AssertionKind kind;
+        private final String expected;
+        private final String actual;
+        private final String delta;
+        private final LlmPostProcessingResponse.AssertionSite defaultSite;
+        private final String defaultAfterStatementId;
+        private final String defaultExceptionId;
+
+        public SelectableCandidate(LlmPostProcessingResponse.AssertionKind kind, String expected,
+                                   String actual, String delta) {
+            this(kind, expected, actual, delta, null, null, null);
+        }
+
+        private SelectableCandidate(LlmPostProcessingResponse.AssertionKind kind, String expected,
+                                    String actual, String delta,
+                                    LlmPostProcessingResponse.AssertionSite defaultSite,
+                                    String defaultAfterStatementId, String defaultExceptionId) {
+            this.kind = kind;
+            this.expected = expected;
+            this.actual = actual;
+            this.delta = delta;
+            this.defaultSite = defaultSite;
+            this.defaultAfterStatementId = defaultAfterStatementId;
+            this.defaultExceptionId = defaultExceptionId;
+        }
+
+        SelectableCandidate withDefaultPlacement(
+                LlmPostProcessingResponse.AssertionSite site,
+                String afterStatementId, String exceptionId) {
+            return new SelectableCandidate(kind, expected, actual, delta,
+                    site, afterStatementId, exceptionId);
+        }
+
+        public LlmPostProcessingResponse.AssertionKind getKind() {
+            return kind;
+        }
+
+        public String getExpected() {
+            return expected;
+        }
+
+        public String getActual() {
+            return actual;
+        }
+
+        public String getDelta() {
+            return delta;
+        }
+    }
+
+    private static final class PlacementValue {
+        private final LlmPostProcessingResponse.AssertionSite site;
+        private final String afterStatementId;
+        private final String exceptionId;
+
+        private PlacementValue(LlmPostProcessingResponse.AssertionSite site,
+                               String afterStatementId, String exceptionId) {
+            this.site = site;
+            this.afterStatementId = afterStatementId;
+            this.exceptionId = exceptionId;
+        }
+
+        private static PlacementValue endOfTest() {
+            return new PlacementValue(LlmPostProcessingResponse.AssertionSite.END_OF_TEST,
+                    null, null);
         }
     }
 
@@ -425,6 +605,10 @@ public final class LlmPostProcessingResponseParser {
             this.response = response;
         }
 
+        private PostProcessingOptions options() {
+            return context.options() == null ? PostProcessingOptions.fromProperties() : context.options();
+        }
+
         private void parseTestName(JsonNode node) {
             if (node == null || node.isNull()) {
                 return;
@@ -483,7 +667,7 @@ public final class LlmPostProcessingResponseParser {
             int accepted = 0;
             for (int i = 0; i < node.size(); i++) {
                 String path = "comments[" + i + "]";
-                if (accepted >= Properties.LLM_POSTPROCESSING_MAX_COMMENTS_PER_TEST) {
+                if (accepted >= options().contextLimits().commentsPerTest()) {
                     diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Comment limit exceeded");
                     break;
                 }
@@ -509,7 +693,7 @@ public final class LlmPostProcessingResponseParser {
                     diagnostic(DiagnosticCode.INVALID_FIELD, path + ".text", "Comment text must be non-empty");
                     continue;
                 }
-                if (comment.length() > Properties.LLM_POSTPROCESSING_MAX_COMMENT_CHARS) {
+                if (comment.length() > options().contextLimits().commentChars()) {
                     diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".text", "Comment text is too long");
                     continue;
                 }
@@ -563,7 +747,7 @@ public final class LlmPostProcessingResponseParser {
             int accepted = 0;
             for (int i = 0; i < node.size(); i++) {
                 String path = "assertions[" + i + "]";
-                if (accepted >= Properties.LLM_POSTPROCESSING_MAX_ASSERTIONS_PER_TEST) {
+                if (accepted >= options().assertionPolicy().maxAssertions()) {
                     diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Assertion limit exceeded");
                     break;
                 }
@@ -572,6 +756,7 @@ public final class LlmPostProcessingResponseParser {
                     diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion entry must be an object");
                     continue;
                 }
+                entry = normalizeAssertionEntry(entry);
                 reportUnknownFields(entry, path, ASSERTION_FIELDS);
                 String assertionId = text(entry.get("assertionId"));
                 if (assertionId == null || assertionId.trim().isEmpty()) {
@@ -583,6 +768,50 @@ public final class LlmPostProcessingResponseParser {
                 if (!assertionIds.add(assertionId)) {
                     diagnostic(DiagnosticCode.DUPLICATE, path + ".assertionId",
                             "Duplicate assertion ID: " + assertionId);
+                    continue;
+                }
+                String candidateId = text(entry.get("candidateId"));
+                boolean selectedCandidate = candidateId != null && !candidateId.trim().isEmpty();
+                SelectableCandidate candidate = null;
+                if (selectedCandidate) {
+                    candidate = context.selectableCandidates.get(candidateId.trim());
+                    if (candidate == null) {
+                        diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".candidateId",
+                                "Unknown candidate ID: " + candidateId.trim());
+                        continue;
+                    }
+                }
+                PlacementValue placement = parseAssertionPlacement(
+                        entry.get("placement"), path + ".placement", candidate);
+                if (placement == null) {
+                    continue;
+                }
+                if (selectedCandidate) {
+                    if (!referencesAreAvailableAtPlacement(candidate.expected, candidate.actual,
+                            candidate.delta, placement, path)) {
+                        continue;
+                    }
+                    if (!hasCompatibleOperands(candidate.kind, candidate.expected, candidate.actual,
+                            candidate.delta, path)
+                            || !canRenderCanonicalAssertion(candidate.kind, candidate.expected,
+                            candidate.actual, candidate.delta, path)) {
+                        continue;
+                    }
+                    String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
+                    if (intent == INVALID_EXPRESSION) {
+                        continue;
+                    }
+                    String purpose = sanitizeComment(text(entry.get("purpose")));
+                    if (purpose != null && purpose.length() > options().contextLimits().commentChars()) {
+                        diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".purpose",
+                                "Assertion purpose is too long");
+                        purpose = null;
+                    }
+                    response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
+                            assertionId, candidate.kind, candidate.expected, candidate.actual,
+                            candidate.delta, purpose, intent, placement.site,
+                            placement.afterStatementId, placement.exceptionId, candidateId.trim()));
+                    accepted++;
                     continue;
                 }
                 LlmPostProcessingResponse.AssertionKind kind = parseKind(entry.get("kind"), path + ".kind");
@@ -599,16 +828,20 @@ public final class LlmPostProcessingResponseParser {
                 if ((isExpectedRequired(kind) && expected == null) || actual == null || delta == INVALID_EXPRESSION) {
                     continue;
                 }
+                ExprType originalExpectedType = resolveExpressionType(expected);
+                ExprType originalActualType = resolveExpressionType(actual);
+                expected = canonicalSpecialFloatingLiteral(expected, originalActualType);
+                actual = canonicalSpecialFloatingLiteral(actual, originalExpectedType);
                 String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
                 if (intent == INVALID_EXPRESSION) {
                     continue;
                 }
-                String afterStatementId = parseAssertionPlacement(entry.get("placement"), path + ".placement");
-                if (afterStatementId == INVALID_EXPRESSION) {
+                if (!referencesAreAvailableAtPlacement(expected, actual, delta, placement, path)) {
                     continue;
                 }
-                if (!referencesAreAvailableAtPlacement(expected, actual, delta, afterStatementId, path)) {
-                    continue;
+                if (delta == null && (kind == LlmPostProcessingResponse.AssertionKind.EQUALS
+                        || kind == LlmPostProcessingResponse.AssertionKind.NOT_EQUALS)) {
+                    delta = defaultFloatingDelta(expected, actual);
                 }
                 if (!hasCompatibleOperands(kind, expected, actual, delta, path)) {
                     continue;
@@ -621,7 +854,7 @@ public final class LlmPostProcessingResponseParser {
                     diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate assertion expression");
                     continue;
                 }
-                if (context.hasObservedCandidateKey(assertionKey)) {
+                if (!selectedCandidate && context.hasObservedCandidateKey(assertionKey)) {
                     diagnostic(DiagnosticCode.DUPLICATE, path,
                             "Assertion duplicates an EvoSuite-observed candidate fact");
                     continue;
@@ -636,14 +869,127 @@ public final class LlmPostProcessingResponseParser {
                     continue;
                 }
                 String purpose = sanitizeComment(text(entry.get("purpose")));
-                if (purpose != null && purpose.length() > Properties.LLM_POSTPROCESSING_MAX_COMMENT_CHARS) {
+                if (purpose != null && purpose.length() > options().contextLimits().commentChars()) {
                     diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".purpose", "Assertion purpose is too long");
                     purpose = null;
                 }
                 response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
-                        assertionId, kind, expected, actual, delta, purpose, intent, afterStatementId));
+                        assertionId, kind, expected, actual, delta, purpose, intent,
+                        placement.site, placement.afterStatementId, placement.exceptionId, null));
                 accepted++;
             }
+        }
+
+        private void parseAssertionDecision(JsonNode decisionNode, JsonNode reasonNode) {
+            String decision = text(decisionNode);
+            String reason = text(reasonNode);
+            if (decisionNode != null && !decisionNode.isNull()
+                    && (decision == null || !ASSERTION_DECISIONS.contains(decision.trim()))) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "assertionDecision",
+                        "assertionDecision must be PROPOSED or NO_SAFE_ORACLE");
+                decision = null;
+            }
+            if (reasonNode != null && !reasonNode.isNull()
+                    && (reason == null || !NO_ASSERTION_REASONS.contains(reason.trim()))) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "noAssertionReason",
+                        "Unknown noAssertionReason");
+                reason = null;
+            }
+            if (decision != null) {
+                decision = decision.trim();
+            }
+            if (reason != null) {
+                reason = reason.trim();
+            }
+            if (!response.getAssertions().isEmpty() && "NO_SAFE_ORACLE".equals(decision)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "assertionDecision",
+                        "NO_SAFE_ORACLE cannot accompany accepted assertions");
+                decision = null;
+                reason = null;
+            } else if (response.getAssertions().isEmpty() && "PROPOSED".equals(decision)) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "assertionDecision",
+                        "PROPOSED requires at least one accepted assertion");
+                decision = null;
+            }
+            if (!"NO_SAFE_ORACLE".equals(decision) && reason != null) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, "noAssertionReason",
+                        "noAssertionReason is only valid with NO_SAFE_ORACLE");
+                reason = null;
+            }
+            response.setAssertionDecision(decision);
+            response.setNoAssertionReason(reason);
+        }
+
+        private JsonNode normalizeAssertionEntry(JsonNode original) {
+            ObjectNode entry = ((ObjectNode) original).deepCopy();
+            String kind = text(entry.get("kind"));
+            if (!entry.has("actual") && entry.has("expression")) {
+                entry.set("actual", entry.get("expression"));
+            }
+            if (entry.has("value")) {
+                if (!entry.has("expected") && entry.has("actual")
+                        && ("EQUALS".equals(kind) || "NOT_EQUALS".equals(kind)
+                        || "SAME".equals(kind) || "NOT_SAME".equals(kind))) {
+                    entry.set("expected", entry.get("value"));
+                } else if (!entry.has("actual")) {
+                    entry.set("actual", entry.get("value"));
+                }
+            }
+            entry.remove("value");
+            entry.remove("expression");
+            if ("TRUE".equals(kind) || "FALSE".equals(kind) || "NULL".equals(kind)
+                    || "NOT_NULL".equals(kind) || "IS_EMPTY".equals(kind)) {
+                entry.remove("expected");
+            }
+            for (String field : new String[]{"expected", "actual", "delta", "container", "element",
+                    "target", "size", "map", "key"}) {
+                JsonNode value = entry.get(field);
+                if (value != null && (value.isNumber() || value.isBoolean())) {
+                    entry.put(field, value.asText());
+                } else if (value != null && value.isNull() && "expected".equals(field)) {
+                    entry.put(field, "null");
+                }
+            }
+            return entry;
+        }
+
+        private String defaultFloatingDelta(String expected, String actual) {
+            ExprType expectedType = resolveExpressionType(expected);
+            ExprType actualType = resolveExpressionType(actual);
+            if (!expectedType.isFloatingPoint() && !actualType.isFloatingPoint()) {
+                return null;
+            }
+            String type = expectedType.isFloatingPoint() ? expectedType.typeName : actualType.typeName;
+            return "float".equals(type) || "java.lang.Float".equals(type) || "Float".equals(type)
+                    ? "0.0F" : "0.0D";
+        }
+
+        /**
+         * Runtime floating values are commonly rendered by libraries as
+         * {@code Infinity}, {@code -Infinity}, or {@code NaN}. Those are not
+         * Java expressions. Normalize the complete bare token using the other
+         * operand's declared type, defaulting to {@code Double} when no type is
+         * available.
+         */
+        private String canonicalSpecialFloatingLiteral(String expression, ExprType inferredType) {
+            if (expression == null) {
+                return null;
+            }
+            String token = expression.trim();
+            String member;
+            if ("Infinity".equals(token) || "+Infinity".equals(token)) {
+                member = "POSITIVE_INFINITY";
+            } else if ("-Infinity".equals(token)) {
+                member = "NEGATIVE_INFINITY";
+            } else if ("NaN".equals(token)) {
+                member = "NaN";
+            } else {
+                return expression;
+            }
+            String typeName = inferredType == null ? null : canonicalType(inferredType.typeName);
+            String owner = "float".equals(typeName) || "java.lang.Float".equals(typeName)
+                    ? "Float" : "Double";
+            return owner + "." + member;
         }
 
         private JsonNode expectedNode(LlmPostProcessingResponse.AssertionKind kind, JsonNode entry) {
@@ -722,36 +1068,100 @@ public final class LlmPostProcessingResponseParser {
             return intent;
         }
 
-        private String parseAssertionPlacement(JsonNode node, String path) {
+        private PlacementValue parseAssertionPlacement(JsonNode node, String path,
+                                                       SelectableCandidate candidate) {
             if (node == null || node.isNull()) {
-                return null;
+                if (response.getSchemaVersion() >= 3 && context.hasThrowingStatement()) {
+                    if (candidate != null && candidate.defaultSite != null) {
+                        return new PlacementValue(candidate.defaultSite,
+                                candidate.defaultAfterStatementId, candidate.defaultExceptionId);
+                    }
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                            "Throwing-test assertions require an advertised placement site");
+                    return null;
+                }
+                return PlacementValue.endOfTest();
             }
             if (!node.isObject()) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion placement must be an object");
-                return INVALID_EXPRESSION;
+                return null;
             }
             reportUnknownFields(node, path, ASSERTION_PLACEMENT_FIELDS);
+            if (response.getSchemaVersion() <= 2) {
+                String legacyAfter = text(node.get("afterStatementId"));
+                if (legacyAfter == null || legacyAfter.trim().isEmpty()) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".afterStatementId",
+                            "afterStatementId must be a non-empty string");
+                    return null;
+                }
+                if (context.knowsStatementIds() && !context.hasStatementId(legacyAfter.trim())) {
+                    diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".afterStatementId",
+                            "Unknown statement ID: " + legacyAfter.trim());
+                    return null;
+                }
+                return PlacementValue.endOfTest();
+            }
+            String siteText = text(node.get("site"));
+            LlmPostProcessingResponse.AssertionSite site;
+            try {
+                site = siteText == null ? null
+                        : LlmPostProcessingResponse.AssertionSite.valueOf(siteText.trim());
+            } catch (IllegalArgumentException error) {
+                site = null;
+            }
+            if (site == null) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path + ".site",
+                        "Unknown or missing assertion site");
+                return null;
+            }
             String afterStatementId = text(node.get("afterStatementId"));
-            if (afterStatementId == null || afterStatementId.trim().isEmpty()) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, path + ".afterStatementId",
-                        "afterStatementId must be a non-empty string");
-                return INVALID_EXPRESSION;
+            String exceptionId = text(node.get("exceptionId"));
+            if (!context.hasThrowingStatement()) {
+                if (site != LlmPostProcessingResponse.AssertionSite.END_OF_TEST) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".site",
+                            "Non-throwing tests only advertise END_OF_TEST");
+                    return null;
+                }
+                return PlacementValue.endOfTest();
             }
-            afterStatementId = afterStatementId.trim();
-            if (context.knowsStatementIds() && !context.hasStatementId(afterStatementId)) {
-                diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".afterStatementId",
-                        "Unknown statement ID: " + afterStatementId);
-                return INVALID_EXPRESSION;
+            if (site == LlmPostProcessingResponse.AssertionSite.END_OF_TEST) {
+                diagnostic(DiagnosticCode.INVALID_FIELD, path + ".site",
+                        "END_OF_TEST is unavailable for a throwing test");
+                return null;
             }
-            return afterStatementId;
+            if (site == LlmPostProcessingResponse.AssertionSite.BEFORE_TRY) {
+                if (afterStatementId == null || afterStatementId.trim().isEmpty()
+                        || !context.hasStatementId(afterStatementId.trim())
+                        || stableIdIndex(afterStatementId.trim(), 's')
+                        >= stableIdIndex(context.throwingStatementId, 's')) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".afterStatementId",
+                            "BEFORE_TRY requires an advertised pre-throw statement");
+                    return null;
+                }
+                return new PlacementValue(site, afterStatementId.trim(), null);
+            }
+            if (site == LlmPostProcessingResponse.AssertionSite.IN_CATCH) {
+                if (!"e0".equals(exceptionId)) {
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".exceptionId",
+                            "IN_CATCH requires the advertised exceptionId e0");
+                    return null;
+                }
+                return new PlacementValue(site, null, "e0");
+            }
+            return new PlacementValue(site, null, null);
         }
 
         private boolean referencesAreAvailableAtPlacement(String expected, String actual, String delta,
-                                                           String afterStatementId, String path) {
-            if (afterStatementId == null) {
+                                                           PlacementValue placement, String path) {
+            int statementIndex;
+            if (placement.site == LlmPostProcessingResponse.AssertionSite.BEFORE_TRY) {
+                statementIndex = stableIdIndex(placement.afterStatementId, 's');
+            } else if (placement.site == LlmPostProcessingResponse.AssertionSite.IN_CATCH
+                    || placement.site == LlmPostProcessingResponse.AssertionSite.AFTER_CATCH) {
+                statementIndex = stableIdIndex(context.throwingStatementId, 's') - 1;
+            } else {
                 return true;
             }
-            int statementIndex = stableIdIndex(afterStatementId, 's');
             if (statementIndex < 0) {
                 return true;
             }
@@ -760,6 +1170,14 @@ public final class LlmPostProcessingResponseParser {
             variables.addAll(LlmPostProcessingExpressionUtils.extractSymbolicVariables(actual));
             variables.addAll(LlmPostProcessingExpressionUtils.extractSymbolicVariables(delta));
             for (String variableId : variables) {
+                if ("e0".equals(variableId)) {
+                    if (placement.site != LlmPostProcessingResponse.AssertionSite.IN_CATCH) {
+                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".placement",
+                                "Caught exception e0 is available only IN_CATCH");
+                        return false;
+                    }
+                    continue;
+                }
                 int variableIndex = stableIdIndex(variableId, 'v');
                 if (variableIndex > statementIndex) {
                     diagnostic(DiagnosticCode.INVALID_FIELD, path + ".placement",
@@ -963,7 +1381,8 @@ public final class LlmPostProcessingResponseParser {
                 boolean arrayEquality = kind == LlmPostProcessingResponse.AssertionKind.EQUALS
                         && delta == null
                         && (actualType.isArray() || expectedType.isArray());
-                String rendered = CanonicalAssertionRenderer.forConfiguredFormat().render(kind, expected, actual, delta,
+                String rendered = CanonicalAssertionRenderer.forConfiguredFormat().render(
+                        TemplateAssertionKind.valueOf(kind.name()), expected, actual, delta,
                         arrayEquality);
                 if (rendered == null || rendered.trim().isEmpty()) {
                     diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion cannot be rendered");
@@ -1107,7 +1526,7 @@ public final class LlmPostProcessingResponseParser {
                 }
             }
             if (methodCall.getScope().isPresent()
-                    && Properties.LLM_POSTPROCESSING_ALLOW_CHAINED_CALLS
+                    && options().assertionPolicy().allowChainedCalls()
                     && isInstanceCallScope(methodCall.getScope().get())) {
                 ExprType receiverType = resolveExpressionType(methodCall.getScope().get());
                 String returnType = callableReturnType(null, receiverType.typeName, methodCall);
@@ -1454,7 +1873,7 @@ public final class LlmPostProcessingResponseParser {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path, "Expression must not end with a semicolon");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (expression.length() > Properties.LLM_POSTPROCESSING_MAX_EXPRESSION_CHARS) {
+            if (expression.length() > options().assertionPolicy().maxExpressionChars()) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression is too long");
                 return required ? null : INVALID_EXPRESSION;
             }
@@ -1556,7 +1975,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean exceedsExpressionNodeLimit(Expression expression) {
-            int limit = Properties.LLM_POSTPROCESSING_MAX_EXPRESSION_NODES;
+            int limit = options().assertionPolicy().maxExpressionNodes();
             if (limit <= 0) {
                 return false;
             }
@@ -1624,7 +2043,7 @@ public final class LlmPostProcessingResponseParser {
                     }
                     continue;
                 }
-                if (!Properties.LLM_POSTPROCESSING_ALLOW_CHAINED_CALLS) {
+                if (!options().assertionPolicy().allowChainedCalls()) {
                     return true;
                 }
                 ExprType receiverType = resolveExpressionType(scope);
@@ -1674,10 +2093,8 @@ public final class LlmPostProcessingResponseParser {
 
         private Set<String> allStaticAllowlistEntries() {
             Set<String> entries = new LinkedHashSet<>(BUILT_IN_PURE_STATIC_METHODS);
-            if (Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST != null
-                    && !Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST.trim().isEmpty()) {
-                for (String rawEntry : Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST.split(",")) {
-                    String entry = rawEntry.trim();
+            if (!options().assertionPolicy().pureStaticAllowlist().isEmpty()) {
+                for (String entry : options().assertionPolicy().pureStaticAllowlist()) {
                     if (isValidConfiguredStaticAllowlistEntry(entry)) {
                         entries.add(entry);
                     }
@@ -1993,13 +2410,13 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean isAllowedImmutableConstructorType(String typeName) {
-            if (!Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS) {
+            if (!options().assertionPolicy().allowImmutableConstructors()) {
                 return false;
             }
             if (BUILT_IN_IMMUTABLE_TYPES.contains(typeName)) {
                 return true;
             }
-            for (String configuredType : splitConfiguredTypes(Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES)) {
+            for (String configuredType : options().assertionPolicy().immutableTypes()) {
                 if (configuredType.equals(typeName) || simpleName(configuredType).equals(typeName)) {
                     return true;
                 }
@@ -2028,7 +2445,7 @@ public final class LlmPostProcessingResponseParser {
 
         private boolean exceedsChainDepthLimit(Expression expression) {
             return LlmPostProcessingExpressionUtils.exceedsMemberChainDepth(expression,
-                    Properties.LLM_POSTPROCESSING_MAX_CHAIN_DEPTH);
+                    options().assertionPolicy().maxChainDepth());
         }
 
         private boolean referencesUnknownVariableId(Expression expression) {
@@ -2046,7 +2463,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean exceedsLiteralCharLimit(Expression expression) {
-            int limit = Properties.LLM_POSTPROCESSING_MAX_LITERAL_CHARS;
+            int limit = options().assertionPolicy().maxLiteralChars();
             if (limit <= 0) {
                 return false;
             }
@@ -2067,7 +2484,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean exceedsConstructedArrayElementLimit(Expression expression) {
-            int limit = Properties.LLM_POSTPROCESSING_MAX_CONSTRUCTED_ARRAY_ELEMENTS;
+            int limit = options().assertionPolicy().maxConstructedArrayElements();
             if (limit <= 0) {
                 return false;
             }

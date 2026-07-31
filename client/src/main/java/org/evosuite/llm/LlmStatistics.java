@@ -754,6 +754,7 @@ public class LlmStatistics {
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Applied, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable, 0);
+        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile, 0);
         ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped, 0);
         ClientServices.track(RuntimeVariable.LLM_StagnationCalls, 0);
         ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls, 0);

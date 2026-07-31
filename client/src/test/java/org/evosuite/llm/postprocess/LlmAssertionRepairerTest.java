@@ -18,6 +18,10 @@
  */
 package org.evosuite.llm.postprocess;
 
+import org.evosuite.Properties;
+import org.evosuite.llm.LlmMessage;
+import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -70,6 +74,20 @@ class LlmAssertionRepairerTest {
     }
 
     @Test
+    void snippetHarnessCompilationFailuresAreNotSentBackForAssertionRepair() {
+        String raw = "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+                + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";
+        LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(raw, booleanContext());
+        List<LlmPostProcessingParseResult.Diagnostic> diagnostics = Collections.singletonList(
+                new LlmPostProcessingParseResult.Diagnostic(
+                        LlmPostProcessingParseResult.DiagnosticCode.COMPILE, "assertions[a0]",
+                        "type Class does not take parameters"));
+
+        assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
+                raw, parsed, parsed.getResponse(), new LlmPostProcessingResponse(1), diagnostics).isEmpty());
+    }
+
+    @Test
     void repairParseResultPreservesPerAssertionDiagnostics() {
         String raw = "```json\n[{\"assertionId\":\"a0\",\"kind\":\"UNKNOWN\","
                 + "\"actual\":\"v0\"}]\n```";
@@ -80,6 +98,86 @@ class LlmAssertionRepairerTest {
         assertFalse(result.isInfrastructureFailure());
         assertTrue(result.getResponse().getAssertions().isEmpty());
         assertEquals(1, result.getDiagnostics().size());
+    }
+
+    @Test
+    void repairPromptUsesSpecificCorrectionAndOnlyReferencedVariableContext() {
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+        test.addStatement(new IntPrimitiveStatement(test, 9));
+        LlmPostProcessingPromptContext promptContext = LlmPostProcessingPromptContext.from(test);
+        String raw = "{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\","
+                + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";
+        LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(
+                raw, promptContext.toParseContext());
+
+        List<LlmAssertionRepairer.RejectedAssertion> rejected =
+                LlmAssertionRepairer.collectRepairableRejectedAssertions(raw, parsed,
+                        parsed.getResponse(), new LlmPostProcessingResponse(2), Collections.emptyList());
+        List<LlmMessage> messages = LlmAssertionRepairer.buildRepairMessages(promptContext, rejected);
+        String repairPrompt = messages.get(1).getContent();
+
+        assertTrue(repairPrompt.contains("exact required type"));
+        assertTrue(repairPrompt.contains("s0 v0"));
+        assertFalse(repairPrompt.contains("s1 v1"));
+        assertTrue(repairPrompt.contains("\"schemaVersion\":2"));
+    }
+
+    @Test
+    void callablePolicyFailuresAreNotRepairable() {
+        String raw = "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+                + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";
+        LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(raw, booleanContext());
+        List<LlmPostProcessingParseResult.Diagnostic> diagnostics = Collections.singletonList(
+                new LlmPostProcessingParseResult.Diagnostic(
+                        LlmPostProcessingParseResult.DiagnosticCode.INVALID_FIELD,
+                        "assertions[a0].actual", "Method is not listed in the callable policy"));
+
+        assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
+                raw, parsed, parsed.getResponse(), new LlmPostProcessingResponse(1), diagnostics).isEmpty());
+    }
+
+    @Test
+    void schemaThreeRepairPromptCanCorrectMalformedPlacementRepresentation() {
+        Properties.LlmPostProcessingPromptVariant original =
+                Properties.LLM_POSTPROCESSING_PROMPT_VARIANT;
+        try {
+            Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                    Properties.LlmPostProcessingPromptVariant.P12_ORACLE_CONTEXT_V2;
+            DefaultTestCase test = new DefaultTestCase();
+            test.addStatement(new IntPrimitiveStatement(test, 7));
+            LlmPostProcessingPromptContext promptContext =
+                    LlmPostProcessingPromptContext.from(test);
+            String raw = "{\"schemaVersion\":3,\"assertions\":[{\"assertionId\":\"a0\","
+                    + "\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v0\","
+                    + "\"placement\":\"END_OF_TEST\"}]}";
+            LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(
+                    raw, promptContext.toParseContext());
+
+            List<LlmAssertionRepairer.RejectedAssertion> rejected =
+                    LlmAssertionRepairer.collectRepairableRejectedAssertions(
+                            raw, parsed, parsed.getResponse(),
+                            new LlmPostProcessingResponse(3), Collections.emptyList());
+            assertEquals(1, rejected.size());
+
+            String repairPrompt = LlmAssertionRepairer.buildRepairMessages(
+                    promptContext, rejected).get(1).getContent();
+            assertTrue(repairPrompt.contains(
+                    "Preserve the semantic placement site"));
+            assertTrue(repairPrompt.contains(
+                    "correct that representation or required field"));
+            assertTrue(repairPrompt.contains(
+                    "placement must be a JSON object with a site field"));
+            assertTrue(repairPrompt.contains(
+                    "Encode placement as an object with a valid site field"));
+            assertTrue(repairPrompt.contains("{\"site\":\"END_OF_TEST\"}"));
+            assertTrue(repairPrompt.contains(
+                    "Safe assertion sites:\n- END_OF_TEST"));
+            assertFalse(repairPrompt.contains(
+                    "Preserve each assertion placement exactly"));
+        } finally {
+            Properties.LLM_POSTPROCESSING_PROMPT_VARIANT = original;
+        }
     }
 
     private static LlmPostProcessingResponseParser.ParseContext booleanContext() {

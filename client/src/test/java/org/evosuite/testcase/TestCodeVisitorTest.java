@@ -30,7 +30,9 @@ import org.evosuite.assertion.ChainedInspector;
 import org.evosuite.assertion.Inspector;
 import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
+import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.AssignmentStatement;
@@ -46,6 +48,7 @@ import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.statements.numeric.CharPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.ArrayIndex;
+import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
@@ -1722,6 +1725,27 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void testGenerateCatchBlockBindsSemanticExceptionForTemplateAssertion() {
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        visitor.testCode.append("MouseEvent e = null;\n");
+        DefaultTestCase tc = new DefaultTestCase();
+        IntPrimitiveStatement stmt = new IntPrimitiveStatement(tc, 1);
+        tc.addStatement(stmt);
+        TemplateCodeAssertion assertion = new TemplateCodeAssertion(
+                "a0", LlmPostProcessingResponse.AssertionKind.NOT_NULL,
+                null, "e0.getMessage()", null, Collections.<String, Integer>emptyMap(),
+                null, TemplateCodeAssertion.Placement.IN_CATCH);
+        assertion.setStatement(stmt);
+        stmt.addAssertion(assertion);
+
+        String catchBlock = visitor.generateCatchBlock(stmt, new IllegalArgumentException("boom"));
+
+        assertTrue(catchBlock.contains("assertNotNull(e1.getMessage());"), catchBlock);
+        assertTrue(catchBlock.indexOf("assertNotNull") < catchBlock.lastIndexOf("}"), catchBlock);
+        assertFalse(catchBlock.contains("e0.getMessage()"), catchBlock);
+    }
+
+    @Test
     public void testPrivateFieldReadsUsePrivateAccessHelper() throws Exception {
         TestCase tc = new DefaultTestCase();
         VariableReference holder = TestFactory.getInstance().addConstructor(
@@ -1891,4 +1915,320 @@ public class TestCodeVisitorTest {
             Properties.CLASS_PREFIX = oldClassPrefix;
         }
     }
+
+    /**
+     * Overloaded constructors whose ambiguity is only visible through a
+     * non-public (here package-private) overload, mirroring Jackson's
+     * {@code ObjectMapper(JsonFactory)} / protected {@code ObjectMapper(ObjectMapper)}.
+     */
+    public static class OverloadedNullConstructors {
+        public OverloadedNullConstructors(String text) {
+        }
+
+        OverloadedNullConstructors(Integer number) {
+        }
+    }
+
+    /** A private nested class whose {@code .class} literal is not referenceable. */
+    private static class PrivateHidden {
+    }
+
+    /** A public nested class -- its render-time modifiers cannot be trusted. */
+    public static class PublicNested {
+    }
+
+    @Test
+    public void inaccessibleClassLiteralIsRenderedReflectively() {
+        // A private class cannot be named as HttpConnection.Base.class even from
+        // the same package (PrivateAccess field reads hit this); use Class.forName.
+        TestCase tc = new DefaultTestCase();
+        ConstantValue classConstant = new ConstantValue(
+                tc, GenericClassFactory.get(Class.class), PrivateHidden.class);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        String rendered = visitor.getVariableName(classConstant);
+
+        assertEquals("Class.forName(\"" + PrivateHidden.class.getName() + "\")", rendered);
+        assertFalse(rendered.contains(".class"),
+                "A private class literal must not be emitted as a .class reference: " + rendered);
+    }
+
+    @Test
+    public void topLevelClassLiteralWithDollarStillUsesDotClass() {
+        // A top-level class whose name merely contains '$' (e.g. Gson's $Gson$Types)
+        // has no loadable enclosing prefix, so the render-time nested-class detection
+        // must NOT treat it as nested and must keep the concise ".class" form. The
+        // fixture is package-private, so emit into its package to make it accessible
+        // and isolate the nesting decision from the accessibility decision.
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = $TopLevel$Dollar.class.getPackage().getName();
+        try {
+            TestCase tc = new DefaultTestCase();
+            ConstantValue classConstant = new ConstantValue(
+                    tc, GenericClassFactory.get(Class.class), $TopLevel$Dollar.class);
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            String rendered = visitor.getVariableName(classConstant);
+
+            assertTrue(rendered.endsWith(".class"),
+                    "A top-level class literal must keep .class: " + rendered);
+            assertFalse(rendered.contains("Class.forName"),
+                    "A top-level class literal must not be rendered reflectively: " + rendered);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
+    }
+
+    @Test
+    public void nestedClassLiteralIsRenderedReflectivelyEvenWhenPublic() {
+        // At render time the SUT is instrumented, and AccessibleClassAdapter
+        // promotes source-private nested classes to public in the class-file
+        // access flags, so getModifiers() cannot distinguish a real public nested
+        // class from a promoted private one (this is the org.jsoup HttpConnection
+        // .Base failure). Any nested class must therefore be emitted reflectively,
+        // never as a ".class" literal.
+        TestCase tc = new DefaultTestCase();
+        ConstantValue classConstant = new ConstantValue(
+                tc, GenericClassFactory.get(Class.class), PublicNested.class);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        String rendered = visitor.getVariableName(classConstant);
+
+        assertEquals("Class.forName(\"" + PublicNested.class.getName() + "\")", rendered);
+        assertFalse(rendered.contains(".class"),
+                "A nested class literal must not be emitted as a .class reference: " + rendered);
+    }
+
+    @Test
+    public void accessibleClassLiteralStillUsesDotClass() {
+        // Top-level public classes keep the concise ".class" form.
+        TestCase tc = new DefaultTestCase();
+        ConstantValue classConstant = new ConstantValue(
+                tc, GenericClassFactory.get(Class.class), String.class);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        assertEquals("String.class", visitor.getVariableName(classConstant));
+    }
+
+    private static java.lang.reflect.ParameterizedType parameterizedType(Class<?> raw, Type... args) {
+        return new java.lang.reflect.ParameterizedType() {
+            public Type[] getActualTypeArguments() { return args; }
+            public Type getRawType() { return raw; }
+            public Type getOwnerType() { return null; }
+        };
+    }
+
+    @Test
+    public void fBoundedTypeArgumentObjectIsRenderedAsWildcard() {
+        // Enum<E extends Enum<E>> is F-bounded, so Enum<Object> is a compile error
+        // ("type argument Object is not within bounds"). EvoSuite substitutes Object
+        // for unresolved type variables (this is the Jackson VisibilityChecker<T
+        // extends VisibilityChecker<T>> / TypeResolverBuilder / MapperConfig family);
+        // it must be rendered as the always-legal Enum<?> instead.
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        assertEquals("Enum<?>",
+                visitor.getTypeName(parameterizedType(Enum.class, Object.class)));
+    }
+
+    @Test
+    public void unboundedTypeArgumentObjectIsPreserved() {
+        // List<E> has no real bound, so List<Object> is legal and must be kept.
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        assertEquals("List<Object>",
+                visitor.getTypeName(parameterizedType(List.class, Object.class)));
+    }
+
+    @Test
+    public void ambiguousNullMethodArgumentIsCastWhenResolvedToInheritedOverload()
+            throws NoSuchMethodException {
+        // FastDateFormat has format(Date) and format(Calendar), and inherits the
+        // final format(Object) from java.text.Format. If EvoSuite resolves the call
+        // to the inherited format(Object), method.getDeclaringClass() is
+        // java.text.Format -- which has neither format(Date) nor format(Calendar) --
+        // so overload enumeration must use the *receiver's* static type
+        // (FastDateFormat), the type javac actually resolves against. Otherwise the
+        // bare "format(null)" is emitted and fails: "reference to format is ambiguous".
+        TestCase tc = new DefaultTestCase();
+        java.lang.reflect.Method getInstance =
+                org.apache.commons.lang3.time.FastDateFormat.class.getMethod("getInstance");
+        VariableReference callee = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(getInstance, org.apache.commons.lang3.time.FastDateFormat.class),
+                (VariableReference) null, Collections.emptyList()));
+
+        NullReference nullArg = new NullReference(tc, Object.class);
+        java.lang.reflect.Method formatObject =
+                org.apache.commons.lang3.time.FastDateFormat.class.getMethod("format", Object.class);
+        MethodStatement ms = new MethodStatement(tc,
+                new GenericMethod(formatObject, org.apache.commons.lang3.time.FastDateFormat.class),
+                callee, Collections.singletonList((VariableReference) nullArg));
+        tc.addStatement(ms);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertFalse(code.matches("(?s).*\\.format\\(null\\).*"),
+                "Ambiguous null across inherited overloads must be cast:\n" + code);
+    }
+
+    public static class GBase<T> {
+    }
+
+    public static class GConcrete extends GBase<String> {
+        public GConcrete() {
+        }
+    }
+
+    public static class GHolder {
+        public GBase<Object> slot;
+    }
+
+    public static class GConsumer {
+        public GConsumer(GBase<Object> param) {
+        }
+    }
+
+    @Test
+    public void returnCastInconvertibilityDetectsNestedRawVsParameterizedMismatch() {
+        // The production case: a variable declared Set<Class<Object>> receiving a
+        // method that returns raw Set<Class> (old Mockito-internal APIs). javac:
+        // "Set<Class> cannot be converted to Set<Class<Object>>".
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        Type declaredSetClassObject = parameterizedType(java.util.Set.class,
+                parameterizedType(Class.class, Object.class));
+        Type actualSetRawClass = parameterizedType(java.util.Set.class, Class.class);
+
+        assertTrue(visitor.returnCastIsInconvertible(declaredSetClassObject, actualSetRawClass),
+                "Set<Class<Object>> vs raw Set<Class> must be inconvertible");
+        // Same parameterization -> convertible, no raw fallback.
+        assertFalse(visitor.returnCastIsInconvertible(declaredSetClassObject, declaredSetClassObject),
+                "Identical parameterizations must be convertible");
+        // A wildcard on the actual side is convertible (unchecked), not inconvertible.
+        assertFalse(visitor.returnCastIsInconvertible(
+                        parameterizedType(java.util.List.class, String.class),
+                        parameterizedType(java.util.List.class,
+                                new java.lang.reflect.WildcardType() {
+                                    public Type[] getUpperBounds() { return new Type[]{Object.class}; }
+                                    public Type[] getLowerBounds() { return new Type[0]; }
+                                })),
+                "A wildcard on the actual side must remain convertible");
+    }
+
+    @Test
+    public void inconvertibleGenericFieldAssignmentIsErasedThroughRawCast()
+            throws NoSuchMethodException, NoSuchFieldException, ConstructionFailedException {
+        // Assigning a GConcrete (statically GBase<String>) into a GBase<Object> field
+        // is generic-inconvertible: "(GBase<Object>) gConcrete0" does not compile.
+        // It must be erased through a raw intermediate cast "(GBase<Object>)(GBase)".
+        // (Mirrors Jackson: DocumentDeserializer -> JsonDeserializer<Object> field.)
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(GHolder.class.getDeclaredConstructor(), GHolder.class), 0, 0);
+        VariableReference concrete = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(GConcrete.class.getDeclaredConstructor(), GConcrete.class), 0, 0);
+
+        FieldReference slot = new FieldReference(tc,
+                new GenericField(GHolder.class.getField("slot"), GHolder.class), holder);
+        tc.addStatement(new AssignmentStatement(tc, slot, concrete));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        // The intermediate cast must be to the *raw* type (no type arguments);
+        // "(GBase<?>)" would re-introduce the inconvertibility.
+        assertTrue(code.matches("(?s).*=\\s*\\([^)]*GBase<[^)]*>\\)\\s*\\(([\\w.]*)GBase\\)\\s*\\w+;.*"),
+                "Inconvertible generic field assignment must be erased through a raw cast:\n" + code);
+    }
+
+    @Test
+    public void inconvertibleGenericConstructorArgumentIsErasedThroughRawCast()
+            throws NoSuchMethodException, ConstructionFailedException {
+        // Passing a GConcrete (GBase<String>) to a GBase<Object> constructor param
+        // is generic-inconvertible; erasure-based isAssignable may accept it but
+        // javac rejects the invocation. It must be passed via a raw cast "(GBase)".
+        // (Mirrors Jackson-62: DocumentDeserializer -> CollectionDeserializer param.)
+        TestCase tc = new DefaultTestCase();
+        VariableReference concrete = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(GConcrete.class.getDeclaredConstructor(), GConcrete.class), 0, 0);
+        tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(GConsumer.class.getDeclaredConstructor(GBase.class), GConsumer.class),
+                Collections.singletonList(concrete)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.matches("(?s).*new [\\w.]*GConsumer\\(\\s*\\(([\\w.]*)GBase\\)\\s*\\w+\\).*"),
+                "Inconvertible generic constructor argument must be passed via a raw cast:\n" + code);
+    }
+
+    static class InheritedOverloadParent {
+        void take(String s) {
+        }
+
+        void take(Integer i) {
+        }
+    }
+
+    static class InheritedOverloadChild extends InheritedOverloadParent {
+    }
+
+    @Test
+    public void ambiguousNullArgumentIsCastForInheritedNonPublicOverloadOnSubclassReceiver()
+            throws NoSuchMethodException, ConstructionFailedException {
+        // take(String)/take(Integer) are package-private and declared in the parent;
+        // the receiver is the subclass. javac resolves against the subclass and sees
+        // both (same package), so bare null is ambiguous. Overload enumeration must
+        // walk the receiver's superclass chain to find the inherited non-public
+        // overloads (mirrors Jsoup Token.Tag.appendAttributeValue on a Token.EndTag).
+        TestCase tc = new DefaultTestCase();
+        VariableReference callee = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(
+                        InheritedOverloadChild.class.getDeclaredConstructor(),
+                        InheritedOverloadChild.class), 0, 0);
+
+        NullReference nullArg = new NullReference(tc, String.class);
+        Method take = InheritedOverloadParent.class.getDeclaredMethod("take", String.class);
+        MethodStatement ms = new MethodStatement(tc,
+                new GenericMethod(take, InheritedOverloadChild.class),
+                callee, Collections.singletonList((VariableReference) nullArg));
+        tc.addStatement(ms);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertFalse(code.matches("(?s).*\\.take\\(null\\).*"),
+                "Ambiguous null across inherited non-public overloads must be cast:\n" + code);
+    }
+
+    @Test
+    public void testAmbiguousNullConstructorArgumentIsCastAcrossNonPublicOverload()
+            throws NoSuchMethodException {
+        // The *_ESTest is emitted into the target's package, so javac resolves
+        // new OverloadedNullConstructors(null) against the package-private
+        // Integer overload too and reports ambiguity. The bare null must be cast.
+        TestCase tc = new DefaultTestCase();
+        NullReference nullArgument = new NullReference(tc, String.class);
+        ConstructorStatement statement = new ConstructorStatement(tc,
+                new GenericConstructor(
+                        OverloadedNullConstructors.class.getDeclaredConstructor(String.class),
+                        OverloadedNullConstructors.class),
+                java.util.Collections.singletonList((VariableReference) nullArgument));
+        tc.addStatement(statement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("(String) null"),
+                "Ambiguous null across a non-public overload must be cast:\n" + code);
+        assertFalse(code.contains("OverloadedNullConstructors(null)"),
+                "Bare ambiguous null must not be emitted:\n" + code);
+    }
+}
+
+/** Top-level (non-nested) public class whose name contains '$'. */
+class $TopLevel$Dollar {
 }

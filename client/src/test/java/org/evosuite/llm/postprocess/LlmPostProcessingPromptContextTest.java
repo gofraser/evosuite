@@ -25,9 +25,14 @@ import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.statements.ArrayStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
+import org.evosuite.testcase.statements.numeric.DoublePrimitiveStatement;
+import org.evosuite.testcase.statements.numeric.FloatPrimitiveStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,20 +50,38 @@ class LlmPostProcessingPromptContextTest {
 
     private int originalMaxLiteralChars;
     private int originalMaxObservationChars;
+    private int originalMaxCandidateChars;
+    private int originalMaxCandidateFacts;
+    private int originalMaxCallableChars;
     private int originalMaxCollectionElements;
+    private String originalTargetClass;
+    private Properties.LlmPostProcessingPromptVariant originalPromptVariant;
+    private Properties.LlmPostProcessingCallablePolicy originalCallablePolicy;
 
     @BeforeEach
     void saveProperties() {
         originalMaxLiteralChars = Properties.LLM_POSTPROCESSING_MAX_LITERAL_CHARS;
         originalMaxObservationChars = Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS;
+        originalMaxCandidateChars = Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_CHARS;
+        originalMaxCandidateFacts = Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_FACTS;
+        originalMaxCallableChars = Properties.LLM_POSTPROCESSING_MAX_CALLABLE_CHARS;
         originalMaxCollectionElements = Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS;
+        originalTargetClass = Properties.TARGET_CLASS;
+        originalPromptVariant = Properties.LLM_POSTPROCESSING_PROMPT_VARIANT;
+        originalCallablePolicy = Properties.LLM_POSTPROCESSING_CALLABLE_POLICY;
     }
 
     @AfterEach
     void restoreProperties() {
         Properties.LLM_POSTPROCESSING_MAX_LITERAL_CHARS = originalMaxLiteralChars;
         Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS = originalMaxObservationChars;
+        Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_CHARS = originalMaxCandidateChars;
+        Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_FACTS = originalMaxCandidateFacts;
+        Properties.LLM_POSTPROCESSING_MAX_CALLABLE_CHARS = originalMaxCallableChars;
         Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS = originalMaxCollectionElements;
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT = originalPromptVariant;
+        Properties.LLM_POSTPROCESSING_CALLABLE_POLICY = originalCallablePolicy;
     }
 
     @Test
@@ -118,6 +141,45 @@ class LlmPostProcessingPromptContextTest {
     }
 
     @Test
+    void from_rendersSpecialFloatingInputsAsJavaConstants() {
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new DoublePrimitiveStatement(test, Double.POSITIVE_INFINITY));
+        test.addStatement(new DoublePrimitiveStatement(test, Double.NEGATIVE_INFINITY));
+        test.addStatement(new DoublePrimitiveStatement(test, Double.NaN));
+        test.addStatement(new FloatPrimitiveStatement(test, Float.POSITIVE_INFINITY));
+        test.addStatement(new FloatPrimitiveStatement(test, Float.NEGATIVE_INFINITY));
+        test.addStatement(new FloatPrimitiveStatement(test, Float.NaN));
+
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(test);
+
+        assertEquals("Double.POSITIVE_INFINITY", context.getObservations().get(0).getValue());
+        assertEquals("Double.NEGATIVE_INFINITY", context.getObservations().get(1).getValue());
+        assertEquals("Double.NaN", context.getObservations().get(2).getValue());
+        assertEquals("Float.POSITIVE_INFINITY", context.getObservations().get(3).getValue());
+        assertEquals("Float.NEGATIVE_INFINITY", context.getObservations().get(4).getValue());
+        assertEquals("Float.NaN", context.getObservations().get(5).getValue());
+    }
+
+    @Test
+    void from_classifiesConstructedArraysAsSetupInputs() {
+        DefaultTestCase test = new DefaultTestCase();
+        ArrayStatement statement = new ArrayStatement(test, String[].class, 0);
+        test.addStatement(statement);
+        ExecutionResult result = new ExecutionResult(test);
+        Scope scope = new Scope();
+        scope.setObject(statement.getReturnValue(), new String[0]);
+        result.setFinalScope(scope);
+
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(test, result);
+
+        assertEquals("SETUP", context.getStatements().get(0).getPhase());
+        assertEquals(1, context.getObservations().size());
+        assertEquals("INPUT", context.getObservations().get(0).getProvenance());
+        assertTrue(context.getObservations().get(0).isRelationalOnly());
+        assertTrue(context.toParseContext().isSetupInputVariableId("v0"));
+    }
+
+    @Test
     void from_exposesFinalScopePrimitiveReturnValuesAsSutObservations() {
         DefaultTestCase test = new DefaultTestCase();
         UninterpretedStatement statement = new UninterpretedStatement(test, String.class,
@@ -157,6 +219,35 @@ class LlmPostProcessingPromptContextTest {
     }
 
     @Test
+    void from_limitsCallableMembersToTheCompileTimeDeclaredType() throws Exception {
+        Properties.LLM_POSTPROCESSING_CALLABLE_POLICY =
+                Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED;
+        DefaultTestCase test = new DefaultTestCase();
+        MethodStatement statement = new MethodStatement(test,
+                new GenericMethod(LlmPostProcessingPromptContextTest.class
+                        .getDeclaredMethod("numberValue"), LlmPostProcessingPromptContextTest.class),
+                null, Collections.emptyList());
+        test.addStatement(statement);
+        ExecutionResult result = new ExecutionResult(test);
+        Scope scope = new Scope();
+        scope.setObject(statement.getReturnValue(), BigDecimal.ZERO);
+        result.setFinalScope(scope);
+
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(test, result);
+        String callables = context.toCallableMemberText();
+
+        assertFalse(callables.contains("signum()"), callables);
+        assertFalse(callables.contains("java.math.BigDecimal"), callables);
+        LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+                        + "\"kind\":\"EQUALS\",\"expected\":\"0\",\"actual\":\"v0.signum()\"}]}",
+                context.toParseContext());
+        assertTrue(parsed.getResponse().getAssertions().isEmpty());
+        assertEquals(LlmPostProcessingParseResult.DiagnosticCode.INVALID_FIELD,
+                parsed.getDiagnostics().get(0).getCode());
+    }
+
+    @Test
     void from_exposesBoundedStructuredFinalScopeValues() {
         Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS = 2;
         DefaultTestCase test = new DefaultTestCase();
@@ -174,7 +265,8 @@ class LlmPostProcessingPromptContextTest {
         assertEquals("collection size=3 elements=[\"a\", \"b\"]", context.getObservations().get(0).getValue());
         assertFalse(context.getObservations().get(0).isComplete());
         assertTrue(context.getObservations().get(0).isRelationalOnly());
-        assertTrue(context.toCallableMemberText().contains("owner=java.util.Arrays$ArrayList members=size()I->int"));
+        assertTrue(context.toCallableMemberText().contains("members=size()I->int"),
+                context.toCallableMemberText());
         assertTrue(context.toCallableMemberText().contains("get(I)Ljava/lang/Object;->java.lang.String"));
         assertTrue(context.toCallableMemberText().contains("v0.size()I=3"));
         assertTrue(context.toCallableMemberText().contains("v0.isEmpty()Z=false"));
@@ -268,7 +360,7 @@ class LlmPostProcessingPromptContextTest {
         LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(test, result);
         String callableText = context.toCallableMemberText();
 
-        assertTrue(callableText.contains("owner=java.util.HashMap members=size()I->int"));
+        assertTrue(callableText.contains("members=size()I->int"), callableText);
         assertTrue(callableText.contains("v0.size()I=1"));
         assertTrue(callableText.contains("v0.isEmpty()Z=false"));
         assertTrue(callableText.contains("containsKey(Ljava/lang/Object;)Z->boolean"));
@@ -334,9 +426,15 @@ class LlmPostProcessingPromptContextTest {
         assertEquals("v0", context.getCandidateFacts().get(0).getSourceId());
         assertEquals("PrimitiveAssertion", context.getCandidateFacts().get(0).getKind());
         assertEquals("7", context.getCandidateFacts().get(0).getObservedValue());
+        assertEquals("c0", context.getCandidateFacts().get(0).getCandidateId());
+        assertTrue(context.toCandidateFactText().contains("candidateId=c0"));
         assertTrue(context.toCandidateFactText().contains("source=v0"));
         assertTrue(context.toCandidateFactText().contains("refs=v0"));
         assertFalse(context.toCandidateFactText().contains("codeHint="));
+        String canonicalFacts = context.toCandidateFactText(
+                true, true, false, false, false);
+        assertTrue(canonicalFacts.contains(
+                "select={\"assertionId\":\"aN\",\"candidateId\":\"c0\"}"));
     }
 
     @Test
@@ -362,6 +460,42 @@ class LlmPostProcessingPromptContextTest {
         assertEquals(1, result.getDiagnostics().size());
         assertEquals(LlmPostProcessingParseResult.DiagnosticCode.DUPLICATE,
                 result.getDiagnostics().get(0).getCode());
+
+        LlmPostProcessingParseResult selected = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":1,\"assertions\":["
+                        + "{\"assertionId\":\"a1\",\"candidateId\":\"c0\"}]}",
+                context.toParseContext());
+        assertEquals(1, selected.getResponse().getAssertions().size());
+        assertEquals("7", selected.getResponse().getAssertions().get(0).getExpected());
+    }
+
+    @Test
+    void toParseContextAssignsImplicitPreThrowPlacementToCandidate() {
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P12_ORACLE_CONTEXT_V2;
+        DefaultTestCase test = new DefaultTestCase();
+        IntPrimitiveStatement value = new IntPrimitiveStatement(test, 7);
+        test.addStatement(value);
+        test.addStatement(new UninterpretedStatement(test,
+                "throw new IllegalArgumentException();"));
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        assertion.setSource(value.getReturnValue());
+        assertion.setValue(7);
+        ExecutionResult executionResult = new ExecutionResult(test);
+        executionResult.reportNewThrownException(1, new IllegalArgumentException("boom"));
+
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
+                test, executionResult, null, Collections.singletonList(assertion));
+        LlmPostProcessingParseResult selected = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":3,\"assertions\":["
+                        + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}",
+                context.toParseContext());
+
+        assertTrue(selected.getDiagnostics().isEmpty(), selected.getDiagnostics().toString());
+        assertEquals(1, selected.getResponse().getAssertions().size());
+        assertEquals(LlmPostProcessingResponse.AssertionSite.BEFORE_TRY,
+                selected.getResponse().getAssertions().get(0).getSite());
+        assertEquals("s0", selected.getResponse().getAssertions().get(0).getAfterStatementId());
     }
 
     @Test
@@ -389,7 +523,7 @@ class LlmPostProcessingPromptContextTest {
 
     @Test
     void toCandidateFactText_prioritizesAndTruncatesWholeCandidateLines() {
-        Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS = 2000;
+        Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_CHARS = 2000;
         DefaultTestCase test = new DefaultTestCase();
         IntPrimitiveStatement statement = new IntPrimitiveStatement(test, 7);
         test.addStatement(statement);
@@ -406,12 +540,129 @@ class LlmPostProcessingPromptContextTest {
 
         assertTrue(firstLine.contains("kind=PrimitiveAssertion"));
 
-        Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS =
+        Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_CHARS =
                 firstLine.length() + "truncatedCandidates=1\n".length();
         String bounded = context.toCandidateFactText();
 
         assertEquals(firstLine + "truncatedCandidates=1\n", bounded);
         assertFalse(bounded.contains("kind=NullAssertion"));
+    }
+
+    @Test
+    void candidateFactLimitKeepsAStableDiversePrefix() {
+        Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_FACTS = 1;
+        DefaultTestCase test = new DefaultTestCase();
+        IntPrimitiveStatement statement = new IntPrimitiveStatement(test, 7);
+        test.addStatement(statement);
+        PrimitiveAssertion primitive = new PrimitiveAssertion();
+        primitive.setSource(statement.getReturnValue());
+        primitive.setValue(7);
+        NullAssertion nonNull = new NullAssertion();
+        nonNull.setSource(statement.getReturnValue());
+        nonNull.setValue(false);
+
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
+                test, null, Arrays.asList(nonNull, primitive));
+
+        assertEquals(1, context.getCandidateFacts().size());
+        assertEquals("c0", context.getCandidateFacts().get(0).getCandidateId());
+    }
+
+    @Test
+    void unstableCandidateIsNotAdvertisedWhenStabilityLabelsAreActive() {
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P12_ORACLE_CONTEXT_V2;
+        DefaultTestCase test = new DefaultTestCase();
+        IntPrimitiveStatement statement = new IntPrimitiveStatement(test, 7);
+        test.addStatement(statement);
+        PrimitiveAssertion unstableAssertion = new PrimitiveAssertion();
+        unstableAssertion.setSource(statement.getReturnValue());
+        unstableAssertion.setValue(7);
+        PrimitiveAssertion stableAssertion = new PrimitiveAssertion();
+        stableAssertion.setSource(statement.getReturnValue());
+        stableAssertion.setValue(8);
+        ExecutionResult stabilityResult = new ExecutionResult(test);
+        Scope stabilityScope = new Scope();
+        stabilityScope.setObject(statement.getReturnValue(), 8);
+        stabilityResult.setFinalScope(stabilityScope);
+
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
+                test, null, stabilityResult,
+                Arrays.asList(unstableAssertion, stableAssertion));
+        String facts = context.toCandidateFactText(true, true, true, true, true);
+
+        assertTrue(facts.contains("candidateId=c1"));
+        assertTrue(facts.contains("expected=\"8\""));
+        assertTrue(facts.contains("stability=STABLE"));
+        assertTrue(facts.contains(
+                "select={\"assertionId\":\"aN\",\"candidateId\":\"c1\"}"));
+        assertTrue(facts.endsWith("unstableCandidatesOmitted=1\n"));
+        assertFalse(facts.contains("expected=\"7\""));
+        assertFalse(facts.contains("candidateId=c0"));
+
+        LlmPostProcessingParseResult selected = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":3,\"assertions\":["
+                        + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\","
+                        + "\"placement\":{\"site\":\"END_OF_TEST\"}}]}",
+                context.toParseContext());
+        assertTrue(selected.getResponse().getAssertions().isEmpty());
+        assertEquals(LlmPostProcessingParseResult.DiagnosticCode.UNKNOWN_ID,
+                selected.getDiagnostics().get(0).getCode());
+
+        LlmPostProcessingParseResult stableSelected = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":3,\"assertions\":["
+                        + "{\"assertionId\":\"a1\",\"candidateId\":\"c1\","
+                        + "\"placement\":{\"site\":\"END_OF_TEST\"}}]}",
+                context.toParseContext());
+        assertEquals(1, stableSelected.getResponse().getAssertions().size());
+    }
+
+    @Test
+    void candidateUsingPublicNestedTypeInNonPublicOuterIsNotSnippetAssertable() {
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P12_ORACLE_CONTEXT_V2;
+        Properties.TARGET_CLASS = "org.evosuite.llm.postprocess.ExampleTarget";
+        DefaultTestCase test = new DefaultTestCase();
+        UninterpretedStatement statement = new UninterpretedStatement(
+                test, PackagePrivateOuter.PublicNestedType.class,
+                "return nested;", Collections.emptyMap(), "nested");
+        test.addStatement(statement);
+        NullAssertion assertion = new NullAssertion();
+        assertion.setSource(statement.getReturnValue());
+        assertion.setValue(false);
+
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
+                test, null, null, Collections.singletonList(assertion));
+        String facts = context.toCandidateFactText(true, true, true, true, true);
+
+        assertTrue(facts.contains("assertable=false"));
+        assertTrue(facts.contains("reason=INACCESSIBLE_TYPE"));
+        assertTrue(facts.contains("selectable=false"));
+        assertFalse(facts.contains("candidateId="));
+        assertFalse(facts.contains("select={"));
+    }
+
+    @Test
+    void callableCapPrioritizesReceiverBindingsAndObservedValues() {
+        DefaultTestCase test = new DefaultTestCase();
+        UninterpretedStatement statement = new UninterpretedStatement(test, String.class,
+                "return value;", Collections.emptyMap(), "value");
+        test.addStatement(statement);
+        ExecutionResult result = new ExecutionResult(test);
+        Scope scope = new Scope();
+        scope.setObject(statement.getReturnValue(), "text");
+        result.setFinalScope(scope);
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(test, result);
+        String full = context.toCallableMemberText();
+        int firstOwner = full.indexOf("owner=");
+        assertTrue(firstOwner > 0);
+
+        Properties.LLM_POSTPROCESSING_MAX_CALLABLE_CHARS = firstOwner;
+        String bounded = context.toCallableMemberText();
+
+        assertTrue(bounded.contains("receivers:"));
+        assertTrue(bounded.contains("observed:"));
+        assertFalse(bounded.contains("owner="));
     }
 
     @Test
@@ -452,5 +703,15 @@ class LlmPostProcessingPromptContextTest {
         LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(test);
 
         assertEquals("none\n", context.toCallableMemberText());
+    }
+
+    static class PackagePrivateOuter {
+        public static class PublicNestedType {
+            // Public itself, but inaccessible through its non-public outer type.
+        }
+    }
+
+    public static Number numberValue() {
+        return BigDecimal.ZERO;
     }
 }

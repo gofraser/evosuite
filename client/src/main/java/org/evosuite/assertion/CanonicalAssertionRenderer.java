@@ -20,19 +20,18 @@
 package org.evosuite.assertion;
 
 import org.evosuite.Properties;
-import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 
 /**
  * Renders canonical unified LLM assertion kinds for the configured test format.
  */
 public interface CanonicalAssertionRenderer {
 
-    String render(LlmPostProcessingResponse.AssertionKind kind,
+    String render(TemplateAssertionKind kind,
                   String expected,
                   String actual,
                   String delta);
 
-    String render(LlmPostProcessingResponse.AssertionKind kind,
+    String render(TemplateAssertionKind kind,
                   String expected,
                   String actual,
                   String delta,

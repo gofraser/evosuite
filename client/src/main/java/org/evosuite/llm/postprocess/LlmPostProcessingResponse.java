@@ -32,9 +32,11 @@ import java.util.Set;
  */
 public class LlmPostProcessingResponse {
 
-    public static final int SUPPORTED_SCHEMA_VERSION = 1;
+    public static final int SUPPORTED_SCHEMA_VERSION = LlmPostProcessingProtocol.MAX_RESPONSE_SCHEMA_VERSION;
 
     private final int schemaVersion;
+    private String assertionDecision;
+    private String noAssertionReason;
     private String testName;
     private final Map<String, String> variableNames = new LinkedHashMap<>();
     private final List<CommentProposal> comments = new ArrayList<>();
@@ -47,6 +49,22 @@ public class LlmPostProcessingResponse {
 
     public int getSchemaVersion() {
         return schemaVersion;
+    }
+
+    public String getAssertionDecision() {
+        return assertionDecision;
+    }
+
+    void setAssertionDecision(String assertionDecision) {
+        this.assertionDecision = assertionDecision;
+    }
+
+    public String getNoAssertionReason() {
+        return noAssertionReason;
+    }
+
+    void setNoAssertionReason(String noAssertionReason) {
+        this.noAssertionReason = noAssertionReason;
     }
 
     public String getTestName() {
@@ -109,6 +127,13 @@ public class LlmPostProcessingResponse {
         LESS_EQUALS
     }
 
+    public enum AssertionSite {
+        END_OF_TEST,
+        BEFORE_TRY,
+        IN_CATCH,
+        AFTER_CATCH
+    }
+
     public static final class CommentProposal {
         private final String afterStatementId;
         private final String text;
@@ -136,6 +161,9 @@ public class LlmPostProcessingResponse {
         private final String purpose;
         private final String intent;
         private final String afterStatementId;
+        private final String candidateId;
+        private final AssertionSite site;
+        private final String exceptionId;
 
         public AssertionProposal(String assertionId, AssertionKind kind, String expected,
                                  String actual, String delta, String purpose) {
@@ -145,6 +173,12 @@ public class LlmPostProcessingResponse {
         public AssertionProposal(String assertionId, AssertionKind kind, String expected,
                                  String actual, String delta, String purpose,
                                  String intent, String afterStatementId) {
+            this(assertionId, kind, expected, actual, delta, purpose, intent, afterStatementId, null);
+        }
+
+        public AssertionProposal(String assertionId, AssertionKind kind, String expected,
+                                 String actual, String delta, String purpose,
+                                 String intent, String afterStatementId, String candidateId) {
             this.assertionId = assertionId;
             this.kind = kind;
             this.expected = expected;
@@ -153,6 +187,26 @@ public class LlmPostProcessingResponse {
             this.purpose = purpose;
             this.intent = intent;
             this.afterStatementId = afterStatementId;
+            this.candidateId = candidateId;
+            this.site = afterStatementId == null ? AssertionSite.END_OF_TEST : AssertionSite.BEFORE_TRY;
+            this.exceptionId = null;
+        }
+
+        public AssertionProposal(String assertionId, AssertionKind kind, String expected,
+                                 String actual, String delta, String purpose,
+                                 String intent, AssertionSite site, String afterStatementId,
+                                 String exceptionId, String candidateId) {
+            this.assertionId = assertionId;
+            this.kind = kind;
+            this.expected = expected;
+            this.actual = actual;
+            this.delta = delta;
+            this.purpose = purpose;
+            this.intent = intent;
+            this.afterStatementId = afterStatementId;
+            this.candidateId = candidateId;
+            this.site = site == null ? AssertionSite.END_OF_TEST : site;
+            this.exceptionId = exceptionId;
         }
 
         public String getAssertionId() {
@@ -185,6 +239,22 @@ public class LlmPostProcessingResponse {
 
         public String getAfterStatementId() {
             return afterStatementId;
+        }
+
+        public String getCandidateId() {
+            return candidateId;
+        }
+
+        public AssertionSite getSite() {
+            return site;
+        }
+
+        public String getExceptionId() {
+            return exceptionId;
+        }
+
+        public String getSource() {
+            return candidateId == null ? "SYNTHESIZED" : "SELECTED_CANDIDATE";
         }
     }
 }

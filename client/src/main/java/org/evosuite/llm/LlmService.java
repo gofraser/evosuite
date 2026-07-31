@@ -741,6 +741,17 @@ public class LlmService implements AutoCloseable {
         }
     }
 
+    public void recordPostProcessingAssertionLifecycle(
+            LlmTraceRecorder.PostProcessingAssertionLifecycleRecord record) {
+        try {
+            traceRecorder.recordPostProcessingAssertionLifecycle(record);
+        } catch (Throwable traceFailure) {
+            logger.warn("LLM post-processing lifecycle trace recording failed; continuing without trace: {}",
+                    traceFailure.getClass().getSimpleName());
+            logger.debug("LLM post-processing lifecycle trace failure details", traceFailure);
+        }
+    }
+
     @Override
     public void close() {
         executorService.shutdownNow();

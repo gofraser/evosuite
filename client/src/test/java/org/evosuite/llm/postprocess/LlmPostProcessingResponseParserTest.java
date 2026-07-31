@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -46,6 +47,7 @@ class LlmPostProcessingResponseParserTest {
     private boolean originalAllowImmutableConstructors;
     private String originalImmutableTypes;
     private String originalPureStaticAllowlist;
+    private Properties.LlmPostProcessingPromptVariant originalPromptVariant;
 
     @BeforeEach
     void saveProperties() {
@@ -61,6 +63,7 @@ class LlmPostProcessingResponseParserTest {
         originalAllowImmutableConstructors = Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS;
         originalImmutableTypes = Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES;
         originalPureStaticAllowlist = Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST;
+        originalPromptVariant = Properties.LLM_POSTPROCESSING_PROMPT_VARIANT;
         Properties.LLM_POSTPROCESSING_MAX_ASSERTIONS_PER_TEST = 5;
         Properties.LLM_POSTPROCESSING_MAX_COMMENTS_PER_TEST = 3;
         Properties.LLM_POSTPROCESSING_MAX_COMMENT_CHARS = 160;
@@ -73,6 +76,8 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS = true;
         Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES = "";
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = "";
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
     }
 
     @AfterEach
@@ -89,6 +94,57 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS = originalAllowImmutableConstructors;
         Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES = originalImmutableTypes;
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = originalPureStaticAllowlist;
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT = originalPromptVariant;
+    }
+
+    @Test
+    void parse_schemaThreeAcceptsAdvertisedInCatchSite() {
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P11_EXCEPTION_ADJACENT_ASSERTIONS;
+        HashSet<String> statements = new HashSet<>(Arrays.asList("s0", "s1"));
+        HashSet<String> variables = new HashSet<>(Arrays.asList("v0", "e0"));
+        HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
+        callables.add(new LlmPostProcessingResponseParser.CallableMethod(
+                "e0", "java.lang.Throwable", "getMessage", "()Ljava/lang/String;",
+                "java.lang.String"));
+        Map<String, String> types = new LinkedHashMap<>();
+        types.put("v0", "int");
+        types.put("e0", "java.lang.Throwable");
+        LlmPostProcessingResponseParser.ParseContext throwingContext =
+                LlmPostProcessingResponseParser.context(
+                        statements, variables, callables, Collections.<String>emptySet(),
+                        Collections.<String>emptySet(), types,
+                        Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(),
+                        "s1");
+        String json = "{\"schemaVersion\":3,\"assertions\":[{"
+                + "\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"\\\"boom\\\"\",\"actual\":\"e0.getMessage()\","
+                + "\"placement\":{\"site\":\"IN_CATCH\",\"exceptionId\":\"e0\"}}]}";
+
+        LlmPostProcessingParseResult result =
+                LlmPostProcessingResponseParser.parse(json, throwingContext);
+
+        assertFalse(result.isInfrastructureFailure());
+        assertTrue(result.getDiagnostics().isEmpty(), result.getDiagnostics().toString());
+        assertEquals(LlmPostProcessingResponse.AssertionSite.IN_CATCH,
+                result.getResponse().getAssertions().get(0).getSite());
+    }
+
+    @Test
+    void parse_schemaThreeRejectsUnavailableExceptionSite() {
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P11_EXCEPTION_ADJACENT_ASSERTIONS;
+        String json = "{\"schemaVersion\":3,\"assertions\":[{"
+                + "\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0 > 0\","
+                + "\"placement\":{\"site\":\"IN_CATCH\",\"exceptionId\":\"e0\"}}]}";
+
+        LlmPostProcessingParseResult result =
+                LlmPostProcessingResponseParser.parse(json, context());
+
+        assertFalse(result.isInfrastructureFailure());
+        assertTrue(result.getResponse().getAssertions().isEmpty());
+        assertTrue(result.getDiagnostics().stream()
+                .anyMatch(diagnostic -> diagnostic.getCode() == DiagnosticCode.INVALID_FIELD));
     }
 
     @Test
@@ -199,13 +255,47 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_unsupportedSchemaVersion_isInfrastructureFailure() {
+    void parse_schemaThreeIsReadableForReplay() {
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":2,\"testName\":\"someTest\"}", context());
+                "{\"schemaVersion\":3,\"testName\":\"someTest\"}", context());
 
-        assertTrue(result.isInfrastructureFailure());
-        assertNull(result.getResponse());
-        assertTrue(result.getInfrastructureFailureReason().contains("Unsupported"));
+        assertFalse(result.isInfrastructureFailure());
+        assertNotNull(result.getResponse());
+        assertEquals(3, result.getResponse().getSchemaVersion());
+    }
+
+    @Test
+    void parse_unknownSchemaVersionsFailClosed() {
+        for (int schema : new int[]{0, 4, 99}) {
+            LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                    "{\"schemaVersion\":" + schema + "}", context());
+            assertTrue(result.isInfrastructureFailure(), "schema " + schema);
+            assertNull(result.getResponse());
+        }
+    }
+
+    @Test
+    void parse_schemaTwoRecordsStructuredNoAssertionDecision() {
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":2,\"assertionDecision\":\"NO_SAFE_ORACLE\","
+                        + "\"noAssertionReason\":\"ONLY_SETUP_VALUES\",\"assertions\":[]}", context());
+
+        assertFalse(result.isInfrastructureFailure());
+        assertEquals("NO_SAFE_ORACLE", result.getResponse().getAssertionDecision());
+        assertEquals("ONLY_SETUP_VALUES", result.getResponse().getNoAssertionReason());
+        assertTrue(result.getDiagnostics().isEmpty());
+    }
+
+    @Test
+    void parse_invalidNoAssertionReasonDoesNotInvalidateOtherwiseEmptyResponse() {
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":2,\"assertionDecision\":\"NO_SAFE_ORACLE\","
+                        + "\"noAssertionReason\":\"MADE_UP\",\"assertions\":[]}", context());
+
+        assertFalse(result.isInfrastructureFailure());
+        assertTrue(result.getResponse().getAssertions().isEmpty());
+        assertNull(result.getResponse().getNoAssertionReason());
+        assertEquals(1, count(result, DiagnosticCode.INVALID_FIELD));
     }
 
     @Test
@@ -483,22 +573,23 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_acceptsAssertionPlacementAndRejectsFutureVariableReferences() {
+    void parse_normalizesLegacyAssertionPlacementToEndOfTest() {
         String json = "{"
                 + "\"schemaVersion\":1,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"NOT_NULL\",\"actual\":\"v1\","
                 + "\"placement\":{\"afterStatementId\":\"s1\"}},"
-                + "{\"assertionId\":\"a1\",\"kind\":\"NOT_NULL\",\"actual\":\"v2\","
+                + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\",\"actual\":\"v2\","
                 + "\"placement\":{\"afterStatementId\":\"s1\"}}"
                 + "]}";
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, typedContext());
 
         assertFalse(result.isInfrastructureFailure());
-        assertEquals(1, result.getResponse().getAssertions().size());
-        assertEquals("s1", result.getResponse().getAssertions().get(0).getAfterStatementId());
-        assertEquals(1, count(result, DiagnosticCode.INVALID_FIELD));
+        assertEquals(2, result.getResponse().getAssertions().size());
+        assertNull(result.getResponse().getAssertions().get(0).getAfterStatementId());
+        assertNull(result.getResponse().getAssertions().get(1).getAfterStatementId());
+        assertEquals(0, count(result, DiagnosticCode.INVALID_FIELD));
     }
 
     @Test
@@ -551,10 +642,11 @@ class LlmPostProcessingResponseParserTest {
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, context());
 
         assertFalse(result.isInfrastructureFailure());
-        assertEquals(2, result.getResponse().getAssertions().size());
-        assertEquals("a3", result.getResponse().getAssertions().get(0).getAssertionId());
-        assertEquals("a4", result.getResponse().getAssertions().get(1).getAssertionId());
-        assertEquals(3, count(result, DiagnosticCode.INVALID_FIELD));
+        assertEquals(3, result.getResponse().getAssertions().size());
+        assertEquals("a0", result.getResponse().getAssertions().get(0).getAssertionId());
+        assertEquals("a3", result.getResponse().getAssertions().get(1).getAssertionId());
+        assertEquals("a4", result.getResponse().getAssertions().get(2).getAssertionId());
+        assertEquals(2, count(result, DiagnosticCode.INVALID_FIELD));
     }
 
     @Test
@@ -1003,7 +1095,7 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_requiresDeltaOnlyForFloatingPointEquality() {
+    void parse_addsExactDeltaForFloatingEqualityAndRejectsInvalidExplicitDelta() {
         String json = "{"
                 + "\"schemaVersion\":1,"
                 + "\"assertions\":["
@@ -1016,9 +1108,129 @@ class LlmPostProcessingResponseParserTest {
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, typedContext());
 
         assertFalse(result.isInfrastructureFailure());
+        assertEquals(2, result.getResponse().getAssertions().size());
+        assertEquals("a0", result.getResponse().getAssertions().get(0).getAssertionId());
+        assertEquals("0.0D", result.getResponse().getAssertions().get(0).getDelta());
+        assertEquals("a3", result.getResponse().getAssertions().get(1).getAssertionId());
+        assertEquals(2, count(result, DiagnosticCode.INVALID_FIELD));
+    }
+
+    @Test
+    void parse_canonicalizesRuntimeSpecialFloatingTokensUsingDeclaredType() {
+        String json = "{\"schemaVersion\":1,\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"Infinity\",\"actual\":\"v3\"},"
+                + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"-Infinity\",\"actual\":\"v7\"},"
+                + "{\"assertionId\":\"a2\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"NaN\",\"actual\":\"v3\"}]}";
+
+        LlmPostProcessingParseResult result =
+                LlmPostProcessingResponseParser.parse(json, typedContext());
+
+        assertTrue(result.getDiagnostics().isEmpty(), result.getDiagnostics().toString());
+        assertEquals(3, result.getResponse().getAssertions().size());
+        assertEquals("Double.POSITIVE_INFINITY",
+                result.getResponse().getAssertions().get(0).getExpected());
+        assertEquals("0.0D", result.getResponse().getAssertions().get(0).getDelta());
+        assertEquals("Float.NEGATIVE_INFINITY",
+                result.getResponse().getAssertions().get(1).getExpected());
+        assertEquals("0.0F", result.getResponse().getAssertions().get(1).getDelta());
+        assertEquals("Double.NaN",
+                result.getResponse().getAssertions().get(2).getExpected());
+    }
+
+    @Test
+    void parse_normalizesMechanicalAssertionShapeErrorsBeforeValidation() {
+        String json = "{\"schemaVersion\":1,\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v2\",\"expected\":false},"
+                + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"actual\":\"v0\",\"value\":7}]}";
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, typedContext());
+
+        assertEquals(2, result.getResponse().getAssertions().size(),
+                result.getDiagnostics().stream().map(diagnostic -> diagnostic.getMessage())
+                        .collect(java.util.stream.Collectors.joining(" | ")));
+        assertEquals("v2", result.getResponse().getAssertions().get(0).getActual());
+        assertEquals("7", result.getResponse().getAssertions().get(1).getExpected());
+        assertTrue(result.getDiagnostics().isEmpty());
+    }
+
+    @Test
+    void parse_selectsValidatedCandidateByStableId() {
+        Map<String, LlmPostProcessingResponseParser.SelectableCandidate> candidates = new LinkedHashMap<>();
+        candidates.put("c0", new LlmPostProcessingResponseParser.SelectableCandidate(
+                LlmPostProcessingResponse.AssertionKind.EQUALS, "7", "v0", null));
+        LlmPostProcessingResponseParser.ParseContext context = LlmPostProcessingResponseParser.context(
+                new HashSet<>(Arrays.asList("s0")), new HashSet<>(Arrays.asList("v0")),
+                new HashSet<LlmPostProcessingResponseParser.CallableMethod>(),
+                new HashSet<>(Arrays.asList("EQUALS|7|v0|")), new HashSet<String>(),
+                new LinkedHashMap<String, String>(), candidates);
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}",
+                context);
+
         assertEquals(1, result.getResponse().getAssertions().size());
-        assertEquals("a3", result.getResponse().getAssertions().get(0).getAssertionId());
-        assertEquals(3, count(result, DiagnosticCode.INVALID_FIELD));
+        assertEquals("7", result.getResponse().getAssertions().get(0).getExpected());
+        assertEquals("c0", result.getResponse().getAssertions().get(0).getCandidateId());
+        assertEquals("SELECTED_CANDIDATE", result.getResponse().getAssertions().get(0).getSource());
+        assertTrue(result.getDiagnostics().isEmpty());
+    }
+
+    @Test
+    void parse_revalidatesSelectedCandidateAgainstDeclaredOperandTypes() {
+        Map<String, LlmPostProcessingResponseParser.SelectableCandidate> candidates = new LinkedHashMap<>();
+        candidates.put("c0", new LlmPostProcessingResponseParser.SelectableCandidate(
+                LlmPostProcessingResponse.AssertionKind.EQUALS, "0.0F", "v0", "0.0F"));
+        Map<String, String> variableTypes = new LinkedHashMap<>();
+        variableTypes.put("v0", "java.lang.Number");
+        LlmPostProcessingResponseParser.ParseContext parseContext =
+                LlmPostProcessingResponseParser.context(
+                        new HashSet<>(Collections.singletonList("s0")),
+                        new HashSet<>(Collections.singletonList("v0")),
+                        Collections.<LlmPostProcessingResponseParser.CallableMethod>emptySet(),
+                        Collections.<String>emptySet(), Collections.<String>emptySet(),
+                        variableTypes, candidates);
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":1,\"assertions\":["
+                        + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}",
+                parseContext);
+
+        assertTrue(result.getResponse().getAssertions().isEmpty());
+        assertEquals(1, count(result, DiagnosticCode.INVALID_FIELD));
+    }
+
+    @Test
+    void parse_usesValidatedImplicitPlacementForThrowingCandidateSelection() {
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P11_EXCEPTION_ADJACENT_ASSERTIONS;
+        Map<String, LlmPostProcessingResponseParser.SelectableCandidate> candidates = new LinkedHashMap<>();
+        candidates.put("c0", new LlmPostProcessingResponseParser.SelectableCandidate(
+                LlmPostProcessingResponse.AssertionKind.EQUALS, "7", "v0", null)
+                .withDefaultPlacement(
+                        LlmPostProcessingResponse.AssertionSite.BEFORE_TRY, "s0", null));
+        Map<String, String> variableTypes = new LinkedHashMap<>();
+        variableTypes.put("v0", "int");
+        LlmPostProcessingResponseParser.ParseContext throwingContext =
+                LlmPostProcessingResponseParser.context(
+                        new HashSet<>(Arrays.asList("s0", "s1")),
+                        new HashSet<>(Collections.singletonList("v0")),
+                        Collections.<LlmPostProcessingResponseParser.CallableMethod>emptySet(),
+                        Collections.<String>emptySet(), Collections.<String>emptySet(),
+                        variableTypes, candidates, "s1");
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":3,\"assertions\":["
+                        + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}",
+                throwingContext);
+
+        assertTrue(result.getDiagnostics().isEmpty(), result.getDiagnostics().toString());
+        assertEquals(1, result.getResponse().getAssertions().size());
+        assertEquals(LlmPostProcessingResponse.AssertionSite.BEFORE_TRY,
+                result.getResponse().getAssertions().get(0).getSite());
+        assertEquals("s0", result.getResponse().getAssertions().get(0).getAfterStatementId());
     }
 
     @Test
@@ -1112,9 +1324,10 @@ class LlmPostProcessingResponseParserTest {
         variableTypes.put("v4", "int[]");
         variableTypes.put("v5", "int[]");
         variableTypes.put("v6", "long[]");
+        variableTypes.put("v7", "float");
         return LlmPostProcessingResponseParser.context(
-                new HashSet<>(Arrays.asList("s0", "s1", "s2", "s3", "s4", "s5", "s6")),
-                new HashSet<>(Arrays.asList("v0", "v1", "v2", "v3", "v4", "v5", "v6")),
+                new HashSet<>(Arrays.asList("s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7")),
+                new HashSet<>(Arrays.asList("v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7")),
                 new HashSet<LlmPostProcessingResponseParser.CallableMethod>(),
                 new HashSet<String>(),
                 new HashSet<String>(),

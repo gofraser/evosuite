@@ -37,7 +37,7 @@ import org.evosuite.junit.writer.Scaffolding;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.postprocess.LlmPostProcessor;
-import org.evosuite.llm.postprocess.LlmPostProcessingMetadata;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.llm.seeding.LlmPoolEnrichmentOrchestrator;
 import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
@@ -98,6 +98,7 @@ public class TestSuiteGenerator {
     private boolean structuralSuiteExportCompleted;
 
     private LlmPoolEnrichmentOrchestrator llmOrchestrator;
+    private LlmPostProcessor activeLlmPostProcessor;
 
 
     private void initializeTargetClass() throws Throwable {
@@ -424,7 +425,7 @@ public class TestSuiteGenerator {
 
             for (TestChromosome test : suite.getTestChromosomes()) {
                 test.getTestCase().removeAssertions();
-                LlmPostProcessingMetadata.clear(test.getTestCase());
+                TestPresentationMetadata.clear(test.getTestCase());
                 test.clearCachedResults();
                 ExecutionResult executionResult = TestCaseExecutor.runTest(test.getTestCase());
                 test.setLastExecutionResult(executionResult);
@@ -877,7 +878,18 @@ public class TestSuiteGenerator {
             // testsuitechromosomes?
         }
 
+        if (replayStructure != null && isMutationLlmReplay()) {
+            // Mutation assertion generation may simplify or replace working
+            // statements. Move only its retained assertions onto the pristine
+            // replay structure before the LLM sees the suite, then retain that
+            // mutation oracle as the fallback if final LLM/JUnit validation
+            // rejects a hybrid test.
+            restoreReplayStructure(testSuite, replayStructure);
+            replayStructure = ReplayStructureSnapshot.captureWithFallbackAssertions(testSuite);
+        }
+
         int llmPostProcessingAssertionsApplied = 0;
+        activeLlmPostProcessor = null;
         if (Properties.LLM_POSTPROCESSING_ENABLED) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Running unified LLM post-processing");
@@ -890,8 +902,9 @@ public class TestSuiteGenerator {
                 LlmPostProcessor.publishSkippedPostProcessingMetrics("low_memory", minimizationResult);
             } else {
                 try {
+                    activeLlmPostProcessor = new LlmPostProcessor();
                     llmPostProcessingAssertionsApplied =
-                            new LlmPostProcessor().runUnifiedPostProcessing(testSuite, minimizationResult);
+                            activeLlmPostProcessor.runUnifiedPostProcessing(testSuite, minimizationResult);
                 } catch (RuntimeException e) {
                     LoggingUtils.getEvoLogger().warn(
                             "Unified LLM post-processing failed; continuing without changes", e);
@@ -926,11 +939,17 @@ public class TestSuiteGenerator {
             // Restore at the final oracle boundary. Assertions from tests retained
             // by JUnit validation are transferred to pristine structural clones.
             // If validation removed a test because its oracle did not compile or
-            // was unstable, the structural test is restored without that oracle.
+            // was unstable, pure arms restore it without an oracle while the
+            // hybrid arm restores its validated mutation-assertion baseline.
             restoreReplayStructure(testSuite, replayStructure);
         }
-        LlmPostProcessor.publishFinalAssertionReconciliation(testSuite,
-                llmPostProcessingAssertionsApplied);
+        if (activeLlmPostProcessor == null) {
+            LlmPostProcessor.publishFinalAssertionReconciliation(testSuite,
+                    llmPostProcessingAssertionsApplied);
+        } else {
+            activeLlmPostProcessor.publishFinalAssertionReconciliationForPhase(testSuite,
+                    llmPostProcessingAssertionsApplied);
+        }
     }
 
     static void restoreReplayStructure(TestSuiteChromosome suite,
@@ -941,15 +960,24 @@ public class TestSuiteGenerator {
         for (int index = 0; index < snapshot.structuralTests.size(); index++) {
             TestCase structural = snapshot.structuralTests.get(index);
             TestCase assertionSource = snapshot.assertionSources.get(index);
-            rebindRestoredReplayTest(structural, assertionSource);
-            if (retained.contains(assertionSource)) {
-                if (assertionSource.size() == structural.size()) {
-                    structural.addAssertions(assertionSource);
-                } else {
-                    logger.warn("Dropping replay assertions for test {} because oracle processing "
-                                    + "changed its statement count from {} to {}",
-                            index, structural.size(), assertionSource.size());
-                }
+            TestCase fallbackSource = snapshot.fallbackAssertionSources == null
+                    ? null : snapshot.fallbackAssertionSources.get(index);
+            boolean useProcessedAssertions = retained.contains(assertionSource)
+                    && assertionSource.size() == structural.size();
+            TestCase retainedAssertionSource = useProcessedAssertions
+                    ? assertionSource : fallbackSource;
+            rebindRestoredReplayTest(structural,
+                    retainedAssertionSource == null ? assertionSource : retainedAssertionSource);
+            if (useProcessedAssertions) {
+                structural.addAssertions(assertionSource);
+            } else if (fallbackSource != null && fallbackSource.size() == structural.size()) {
+                structural.addAssertions(fallbackSource);
+                logger.info("Restoring replay test {} with its baseline mutation assertions after "
+                        + "hybrid oracle validation rejected the LLM-processed oracle", index);
+            } else if (retained.contains(assertionSource)) {
+                logger.warn("Dropping replay assertions for test {} because oracle processing "
+                                + "changed its statement count from {} to {}",
+                        index, structural.size(), assertionSource.size());
             } else {
                 logger.info("Restoring replay test {} without assertions after JUnit validation "
                         + "rejected its oracle", index);
@@ -986,20 +1014,37 @@ public class TestSuiteGenerator {
         private final List<TestCase> structuralTests;
         private final List<TestCase> assertionSources;
         private final List<List<Statement>> statementSources;
+        private final List<TestCase> fallbackAssertionSources;
 
         private ReplayStructureSnapshot(List<TestCase> structuralTests,
                                         List<TestCase> assertionSources,
-                                        List<List<Statement>> statementSources) {
+                                        List<List<Statement>> statementSources,
+                                        List<TestCase> fallbackAssertionSources) {
             this.structuralTests = structuralTests;
             this.assertionSources = assertionSources;
             this.statementSources = statementSources;
+            this.fallbackAssertionSources = fallbackAssertionSources;
         }
 
         static ReplayStructureSnapshot capture(TestSuiteChromosome suite) {
+            return capture(suite, false);
+        }
+
+        static ReplayStructureSnapshot captureWithFallbackAssertions(TestSuiteChromosome suite) {
+            return capture(suite, true);
+        }
+
+        private static ReplayStructureSnapshot capture(TestSuiteChromosome suite,
+                                                       boolean retainFallbackAssertions) {
             List<TestCase> assertionSources = suite.getTests();
             List<TestCase> structuralTests = assertionSources.stream()
                     .map(TestCase::clone)
                     .collect(java.util.stream.Collectors.toList());
+            List<TestCase> fallbackAssertionSources = retainFallbackAssertions
+                    ? assertionSources.stream()
+                    .map(TestCase::clone)
+                    .collect(java.util.stream.Collectors.toList())
+                    : null;
             List<List<Statement>> statementSources = assertionSources.stream()
                     .map(test -> {
                         List<Statement> statements = new ArrayList<>(test.size());
@@ -1009,7 +1054,7 @@ public class TestSuiteGenerator {
                     .collect(java.util.stream.Collectors.toList());
             structuralTests.forEach(TestCase::removeAssertions);
             return new ReplayStructureSnapshot(
-                    structuralTests, assertionSources, statementSources);
+                    structuralTests, assertionSources, statementSources, fallbackAssertionSources);
         }
 
         boolean hasSameExecutableStructure(TestSuiteChromosome suite) {
@@ -1040,7 +1085,14 @@ public class TestSuiteGenerator {
 
     static boolean shouldGenerateStandardAssertions() {
         return Properties.ASSERTIONS
-                && !(LlmPostProcessor.isAnyFeatureEnabled() && Properties.LLM_POSTPROCESSING_ASSERTIONS);
+                && (isMutationLlmReplay()
+                || !(LlmPostProcessor.isAnyFeatureEnabled() && Properties.LLM_POSTPROCESSING_ASSERTIONS));
+    }
+
+    private static boolean isMutationLlmReplay() {
+        return isConfigured(Properties.ORACLE_REPLAY_INPUT)
+                && Properties.ORACLE_REPLAY_STRATEGY
+                == Properties.OracleReplayStrategy.MUTATION_LLM;
     }
 
     private void logSuiteDiagnostics(String phase, TestSuiteChromosome suite) {
@@ -1175,12 +1227,26 @@ public class TestSuiteGenerator {
 
         List<TestCase> testCases = chromosome.getTests(); // make copy of
         // current tests
+        List<TestCase> testsBeforeCompileFilter = new ArrayList<>(testCases);
         int beforeCompileFilter = testCases.size();
 
         // first, let's just get rid of all the tests that do not compile
         JUnitAnalyzer.removeTestsThatDoNotCompile(testCases);
         int removedByCompileFilter = beforeCompileFilter - testCases.size();
         if (removedByCompileFilter > 0) {
+            Set<TestCase> retainedAfterCompile = Collections.newSetFromMap(new IdentityHashMap<TestCase, Boolean>());
+            retainedAfterCompile.addAll(testCases);
+            List<TestCase> compileRemovedTests = new ArrayList<>();
+            for (TestCase testCase : testsBeforeCompileFilter) {
+                if (!retainedAfterCompile.contains(testCase)) {
+                    compileRemovedTests.add(testCase);
+                }
+            }
+            if (activeLlmPostProcessor == null) {
+                LlmPostProcessor.recordAssertionsRemovedByCompileFilter(compileRemovedTests);
+            } else {
+                activeLlmPostProcessor.recordAssertionsRemovedByCompileFilterForPhase(compileRemovedTests);
+            }
             logger.warn("JUnit compile filter removed {} test(s) out of {} before runtime checks",
                     removedByCompileFilter, beforeCompileFilter);
         }
@@ -1439,10 +1505,14 @@ public class TestSuiteGenerator {
             ReplayStructureSnapshot replayStructure,
             Scaffolding.ReplaySnapshot replayScaffoldingSnapshot) {
         TestSuiteChromosome suiteToWrite = testSuite;
-        ReplayStructureSnapshot writerStructure = null;
+        boolean checkWriterStructure = false;
+        int writerInputTests = 0;
+        int writerInputStatements = 0;
         if (preserveExactStructure) {
             suiteToWrite = cloneSuiteForWriting(testSuite);
-            writerStructure = ReplayStructureSnapshot.capture(suiteToWrite);
+            checkWriterStructure = true;
+            writerInputTests = suiteToWrite.size();
+            writerInputStatements = suiteToWrite.totalLengthOfTestCases();
         }
         List<TestCase> tests = suiteToWrite.getTests();
         if (Properties.JUNIT_TESTS) {
@@ -1468,10 +1538,23 @@ public class TestSuiteGenerator {
                     + "Writing JUnit test case '" + (name + suffix) + "' to " + testDir);
             suiteWriter.writeTestSuite(
                     name + suffix, testDir, suiteToWrite.getLastExecutionResults());
-            if (writerStructure != null
-                    && !writerStructure.hasSameExecutableStructure(suiteToWrite)) {
+            // The writer renders from a throwaway clone, so it may legitimately
+            // reconstruct individual statement objects (for example when
+            // TestCodeVisitor resolves descriptors through swapped
+            // instrumentation class loaders). Object identity is therefore not a
+            // stable postcondition of rendering; the executable structure that
+            // must be preserved is the test count and the total statement count,
+            // matching the authoritative preservation signal computed before
+            // rendering. Compare those counts rather than object identity so a
+            // structure-preserving rendering is not misreported as a change.
+            if (checkWriterStructure
+                    && !writerPreservedExecutableStructure(
+                            suiteToWrite, writerInputTests, writerInputStatements)) {
                 throw new IllegalStateException(
-                        "JUnit writer changed executable structure while rendering replay suite");
+                        "JUnit writer added or dropped a test, or grew the replay suite,"
+                                + " while rendering (tests " + writerInputTests + "->"
+                                + suiteToWrite.size() + ", statements " + writerInputStatements
+                                + "->" + suiteToWrite.totalLengthOfTestCases() + ")");
             }
             if (replayStructure != null
                     && (testSuite.size() != replayStructure.structuralTests.size()
@@ -1482,6 +1565,32 @@ public class TestSuiteGenerator {
             }
         }
         return TestGenerationResultBuilder.buildSuccessResult();
+    }
+
+    /**
+     * Decides whether the JUnit writer preserved the executable structure of a
+     * replay suite. The writer renders from a throwaway clone and may
+     * reconstruct individual statement objects, so structure preservation is
+     * not defined by object identity.
+     *
+     * <p>The writer also chops every statement after an uncaught exception,
+     * because code after an exception cannot compile (see
+     * {@link org.evosuite.junit.writer.TestSuiteWriter} and
+     * {@link org.evosuite.testcase.TestCase#chop(int)}). That reduction is
+     * deterministic, required for compilable output, and applied identically for
+     * every arm replaying the same structural suite, so it is not a structural
+     * divergence between arms. It only ever <em>reduces</em> the statement count
+     * and never adds or drops a whole test. The invariant that must hold is
+     * therefore that the writer neither adds nor removes a test and never grows
+     * the suite; the canonical (unchopped) suite is validated separately against
+     * the pre-render replay snapshot. Requiring an exact statement count here
+     * would reject large exception-throwing suites (e.g. Closure NodeUtil) whose
+     * only change is the compilability-required chop.
+     */
+    static boolean writerPreservedExecutableStructure(
+            TestSuiteChromosome renderedSuite, int inputTests, int inputStatements) {
+        return renderedSuite.size() == inputTests
+                && renderedSuite.totalLengthOfTestCases() <= inputStatements;
     }
 
     private static TestSuiteChromosome cloneSuiteForWriting(TestSuiteChromosome source) {

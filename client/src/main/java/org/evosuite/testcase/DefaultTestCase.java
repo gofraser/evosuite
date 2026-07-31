@@ -25,7 +25,7 @@ import org.evosuite.assertion.InspectorAssertion;
 import org.evosuite.assertion.PrimitiveFieldAssertion;
 import org.evosuite.contracts.ContractViolation;
 import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.llm.postprocess.LlmPostProcessingMetadata;
+// Presentation metadata is stored natively on the test case.
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.execution.CodeUnderTestException;
@@ -91,7 +91,7 @@ public class DefaultTestCase implements TestCase, Serializable {
 
     private int id;
 
-    private LlmPostProcessingMetadata llmPostProcessingMetadata;
+    private TestPresentationMetadata presentationMetadata;
 
     /**
      * Constructs an empty test case, i.e., initially containing no statements.
@@ -105,19 +105,19 @@ public class DefaultTestCase implements TestCase, Serializable {
         return id;
     }
 
-    public LlmPostProcessingMetadata getLlmPostProcessingMetadata() {
-        return llmPostProcessingMetadata;
+    public TestPresentationMetadata getPresentationMetadata() {
+        return presentationMetadata;
     }
 
-    public LlmPostProcessingMetadata getOrCreateLlmPostProcessingMetadata() {
-        if (llmPostProcessingMetadata == null) {
-            llmPostProcessingMetadata = new LlmPostProcessingMetadata();
+    public TestPresentationMetadata getOrCreatePresentationMetadata() {
+        if (presentationMetadata == null) {
+            presentationMetadata = new TestPresentationMetadata();
         }
-        return llmPostProcessingMetadata;
+        return presentationMetadata;
     }
 
-    public void clearLlmPostProcessingMetadata() {
-        llmPostProcessingMetadata = null;
+    public void clearPresentationMetadata() {
+        presentationMetadata = null;
     }
 
     /* (non-Javadoc)
@@ -440,7 +440,7 @@ public class DefaultTestCase implements TestCase, Serializable {
         t.id = idGenerator.getAndIncrement(); //always create new ID when making a clone
         //t.exception_statement = exception_statement;
         //t.exceptionThrown = exceptionThrown;
-        LlmPostProcessingMetadata.copyTo(this, t, 0);
+        TestPresentationMetadata.copyTo(this, t, 0);
         return t;
     }
 

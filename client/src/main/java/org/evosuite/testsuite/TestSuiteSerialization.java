@@ -176,25 +176,36 @@ public class TestSuiteSerialization {
 
         try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(target))) {
 
-            try {
-                Object obj = in.readObject();
-                while (obj != null) {
-                    if (obj instanceof TestChromosome) {
-                        //this check might fail if old version is used, and EvoSuite got updated
-                        TestChromosome tc = (TestChromosome) obj;
-                        for (Statement st : tc.getTestCase()) {
-                            st.changeClassLoader(TestGenerationContext.getInstance().getClassLoaderForSUT());
-                        }
-
-                        list.add(tc);
-                    }
+            while (true) {
+                final Object obj;
+                try {
                     obj = in.readObject();
+                } catch (EOFException e) {
+                    break;
+                } catch (Exception e) {
+                    // A stream-level error is not recoverable because the next
+                    // object boundary is unknown.
+                    logger.warn("Problems when reading a serialized test from "
+                            + target.getAbsolutePath() + " : " + e.getMessage());
+                    break;
                 }
-            } catch (EOFException e) {
-                //fine
-            } catch (Exception e) {
-                logger.warn("Problems when reading a serialized test from " + target.getAbsolutePath() + " : "
-                        + e.getMessage());
+                if (!(obj instanceof TestChromosome)) {
+                    continue;
+                }
+                TestChromosome tc = (TestChromosome) obj;
+                try {
+                    for (Statement st : tc.getTestCase()) {
+                        st.changeClassLoader(TestGenerationContext.getInstance()
+                                .getClassLoaderForSUT());
+                    }
+                    list.add(tc);
+                } catch (LinkageError | RuntimeException e) {
+                    // The object was consumed successfully, so the stream can
+                    // continue with later tests. Structural artifact export
+                    // will reserialize and validate the retained subset.
+                    logger.warn("Skipping serialized test that cannot be normalized from "
+                            + target.getAbsolutePath() + " : " + e.getMessage());
+                }
             }
 
             in.close();

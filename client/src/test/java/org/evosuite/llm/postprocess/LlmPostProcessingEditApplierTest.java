@@ -523,7 +523,7 @@ class LlmPostProcessingEditApplierTest {
     }
 
     @Test
-    void templateAssertionsAttachToRequestedPlacementStatement() {
+    void templateAssertionsNormalizeLegacyPlacementToEndOfTest() {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
         test.addStatement(new IntPrimitiveStatement(test, 8));
@@ -540,7 +540,7 @@ class LlmPostProcessingEditApplierTest {
 
         assertEquals(1, result.getAssertionsApplied());
         Assertion assertion = test.getAssertions().get(0);
-        assertSame(test.getStatement(0), assertion.getStatement());
+        assertSame(test.getStatement(1), assertion.getStatement());
     }
 
     @Test

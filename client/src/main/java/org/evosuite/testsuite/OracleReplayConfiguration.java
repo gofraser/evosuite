@@ -34,7 +34,8 @@ public final class OracleReplayConfiguration {
         }
 
         // Replay arms measure assertions only. Readability edits and fallback
-        // assertions would otherwise make the arms overlap.
+        // assertions would otherwise make the pure arms overlap; MUTATION_LLM
+        // explicitly re-enables both assertion generators below.
         Properties.LLM_POSTPROCESSING_ENABLED = false;
         Properties.LLM_POSTPROCESSING_ASSERTIONS = false;
         Properties.LLM_POSTPROCESSING_TEST_NAMES = false;
@@ -58,6 +59,12 @@ public final class OracleReplayConfiguration {
                 break;
             case LLM:
                 Properties.ASSERTIONS = false;
+                Properties.LLM_POSTPROCESSING_ENABLED = true;
+                Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
+                break;
+            case MUTATION_LLM:
+                Properties.ASSERTIONS = true;
+                Properties.ASSERTION_STRATEGY = Properties.AssertionStrategy.MUTATION;
                 Properties.LLM_POSTPROCESSING_ENABLED = true;
                 Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
                 break;

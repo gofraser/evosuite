@@ -55,6 +55,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -87,6 +90,10 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_ASSERTION_EVAL_TIMEOUT_MS = 2000;
         Properties.LLM_POSTPROCESSING_ASSERTION_COMPILE_TIMEOUT_MS = 10000;
         Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 1;
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
+        Properties.LLM_POSTPROCESSING_REPAIR_POLICY =
+                Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE;
         Properties.LLM_POSTPROCESSING_ON_INCOMPLETE_MINIMIZATION =
                 Properties.LlmPostProcessingOnIncompleteMinimization.SKIP;
         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK =
@@ -118,6 +125,10 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_ASSERTION_EVAL_TIMEOUT_MS = 2000;
         Properties.LLM_POSTPROCESSING_ASSERTION_COMPILE_TIMEOUT_MS = 10000;
         Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 1;
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
+        Properties.LLM_POSTPROCESSING_REPAIR_POLICY =
+                Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE;
         Properties.LLM_POSTPROCESSING_ON_INCOMPLETE_MINIMIZATION =
                 Properties.LlmPostProcessingOnIncompleteMinimization.SKIP;
         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK =
@@ -360,6 +371,7 @@ class LlmPostProcessorTest {
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair));
         assertEquals(2, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Applied));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped));
         assertEquals(2, assertionsAppliedByPhase);
         assertEquals(2, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
@@ -370,6 +382,7 @@ class LlmPostProcessorTest {
 
         LlmPostProcessor.publishFinalAssertionReconciliation(suite, assertionsAppliedByPhase);
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped));
     }
 
@@ -811,7 +824,7 @@ class LlmPostProcessorTest {
         assertNotNull(model.messages);
         assertEquals(2, model.messages.size());
         assertTrue(model.messages.get(1).getContent().contains("s0 v0"));
-        assertTrue(model.messages.get(1).getContent().contains("\"schemaVersion\":1"));
+        assertTrue(model.messages.get(1).getContent().contains("\"schemaVersion\":2"));
     }
 
     @Test
@@ -907,6 +920,80 @@ class LlmPostProcessorTest {
     }
 
     @Test
+    void runUnifiedPostProcessing_tracesAcceptedAppliedAndShippedAssertionLifecycle() throws Exception {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 0;
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.POST_PROCESSING,
+                "{\"schemaVersion\":1,\"assertions\":["
+                        + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                        + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
+        Path traceDir = Files.createTempDirectory("llm-lifecycle");
+        LlmConfiguration configuration = new LlmConfiguration(
+                Properties.LlmProvider.NONE, "mock", "", "", 0.0,
+                1024, 2, 0, 1, true, traceDir, "test-lifecycle");
+        LlmService service = new LlmService(
+                model, new LlmBudgetCoordinator.Local(1), configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration));
+
+        int applied = processor(service, new RecordingFallbackRunner(0),
+                new FinalScopeCandidateRunner(7)).runUnifiedPostProcessing(suite);
+        LlmPostProcessor.publishFinalAssertionReconciliation(suite, applied);
+
+        String trace = new String(Files.readAllBytes(traceDir.resolve("llm-trace.jsonl")),
+                StandardCharsets.UTF_8);
+        assertTrue(trace.contains("\"lifecycle_state\":\"accepted_final\""));
+        assertTrue(trace.contains("\"lifecycle_state\":\"applied\""));
+        assertTrue(trace.contains("\"lifecycle_state\":\"shipped\""));
+        assertFalse(trace.contains("\"lifecycle_state\":\"removed_unstable\""));
+    }
+
+    @Test
+    void finalReconciliation_classifiesCompileFilteredAssertionsSeparately() throws Exception {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 0;
+        CapturingClientNode node = installCapturingClientNode();
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.POST_PROCESSING,
+                "{\"schemaVersion\":1,\"assertions\":["
+                        + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                        + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
+        Path traceDir = Files.createTempDirectory("llm-compile-lifecycle");
+        LlmConfiguration configuration = new LlmConfiguration(
+                Properties.LlmProvider.NONE, "mock", "", "", 0.0,
+                1024, 2, 0, 1, true, traceDir, "test-compile-lifecycle");
+        LlmService service = new LlmService(
+                model, new LlmBudgetCoordinator.Local(1), configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration));
+
+        int applied = processor(service, new RecordingFallbackRunner(0),
+                new FinalScopeCandidateRunner(7)).runUnifiedPostProcessing(suite);
+        LlmPostProcessor.recordAssertionsRemovedByCompileFilter(Collections.singletonList(test));
+        suite.clearTests();
+        LlmPostProcessor.publishFinalAssertionReconciliation(suite, applied);
+
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
+        assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));
+        assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped));
+        String trace = new String(Files.readAllBytes(traceDir.resolve("llm-trace.jsonl")),
+                StandardCharsets.UTF_8);
+        assertTrue(trace.contains("\"lifecycle_state\":\"removed_compile\""));
+        assertFalse(trace.contains("\"lifecycle_state\":\"removed_unstable\""));
+    }
+
+    @Test
     void runUnifiedPostProcessing_buildsPromptFromExecutedCandidateClone() {
         Properties.LLM_POSTPROCESSING_ENABLED = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
@@ -927,7 +1014,7 @@ class LlmPostProcessorTest {
     }
 
     @Test
-    void runUnifiedPostProcessing_doesNotRenderCandidateAssertionsAsGeneratedStatements() {
+    void runUnifiedPostProcessing_enablesAssertionsForCandidateFactsWithoutDuplicateObservations() {
         Properties.LLM_POSTPROCESSING_ENABLED = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
         Properties.TARGET_CLASS = null;
@@ -947,6 +1034,32 @@ class LlmPostProcessorTest {
                 userPrompt.indexOf("Generated test statements:"), userPrompt.indexOf("\nExceptions:"));
         assertFalse(generatedStatements.contains("assertEquals("));
         assertTrue(userPrompt.contains("kind=PrimitiveAssertion observed=7"));
+        assertTrue(userPrompt.contains("candidateId=c0"));
+        assertTrue(userPrompt.contains("\"candidateId\":\"c0\""));
+        assertTrue(userPrompt.contains("Enabled fields: testName variableNames comments sectionBreaksAfter assertions"));
+        assertTrue(userPrompt.contains("\"assertions\""));
+        assertFalse(userPrompt.contains("Assertions are disabled for this test"));
+    }
+
+    @Test
+    void runUnifiedPostProcessing_appliesCandidateSelectedByStableId() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 0;
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        QueueCapturingModel model = new QueueCapturingModel();
+        model.enqueue("{\"schemaVersion\":1,\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}");
+
+        int applied = processor(createService(model, 1), new RecordingFallbackRunner(0),
+                new CandidateAssertionCloneRunner(7)).runUnifiedPostProcessing(suite);
+
+        assertEquals(1, applied);
+        assertEquals(1, test.getAssertions().size());
     }
 
     @Test
@@ -993,6 +1106,49 @@ class LlmPostProcessorTest {
                 .runUnifiedPostProcessing(suite);
 
         assertTrue(test.getAssertions().isEmpty());
+    }
+
+    @Test
+    void runUnifiedPostProcessing_preservesBaselineMutationAssertionsWhenAllProposalsRejected() {
+        // Workstream G: the executable MUTATION_LLM arm ships a mutation oracle
+        // plus accepted LLM assertions. When every LLM proposal is rejected the
+        // pre-existing (mutation) assertions must survive byte-for-byte -- the
+        // hybrid must never silently weaken its own baseline oracle.
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        PrimitiveAssertion baseline = new PrimitiveAssertion();
+        baseline.setSource(test.getStatement(0).getReturnValue());
+        baseline.setValue(7);
+        baseline.setStatement(test.getStatement(0));
+        test.getStatement(0).addAssertion(baseline);
+        String baselineCode = baseline.getCode();
+
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        // Proposes an LLM assertion whose expected value disagrees with the
+        // stability scope, so it is rejected during validation.
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,"
+                + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
+        LlmService service = createService(model, 1);
+
+        // The production candidate runner (TraceAssertionCandidateRunner) collects
+        // candidates on a clone; use the cloning double so the real test's
+        // baseline assertions are not detached by candidate collection.
+        new LlmPostProcessor(service, new RecordingFallbackRunner(0), new ClonedFinalScopeCandidateRunner(7),
+                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner())
+                .runUnifiedPostProcessing(suite);
+
+        // No LLM template assertion shipped, and the mutation baseline is intact:
+        // same instance, same rendered code, and it is still the test's only assertion.
+        assertEquals(0, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
+        assertEquals(1, test.getAssertions().size());
+        assertSame(baseline, test.getAssertions().get(0));
+        assertEquals(baselineCode, test.getAssertions().get(0).getCode());
     }
 
     @Test
@@ -1355,6 +1511,7 @@ class LlmPostProcessorTest {
             RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair,
             RuntimeVariable.LLM_PostProcessing_Assertions_Applied,
             RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable,
+            RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile,
             RuntimeVariable.LLM_PostProcessing_Assertions_Shipped
     };
 

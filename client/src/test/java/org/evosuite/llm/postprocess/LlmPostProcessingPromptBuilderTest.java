@@ -27,7 +27,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LlmPostProcessingPromptBuilderTest {
@@ -37,6 +40,7 @@ class LlmPostProcessingPromptBuilderTest {
     private boolean originalVariableNames;
     private boolean originalComments;
     private boolean originalSectionBreaks;
+    private Properties.LlmPostProcessingPromptVariant originalPromptVariant;
 
     @BeforeEach
     void saveProperties() {
@@ -45,6 +49,9 @@ class LlmPostProcessingPromptBuilderTest {
         originalVariableNames = Properties.LLM_POSTPROCESSING_VARIABLE_NAMES;
         originalComments = Properties.LLM_POSTPROCESSING_COMMENTS;
         originalSectionBreaks = Properties.LLM_POSTPROCESSING_SECTION_BREAKS;
+        originalPromptVariant = Properties.LLM_POSTPROCESSING_PROMPT_VARIANT;
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
     }
 
     @AfterEach
@@ -54,6 +61,7 @@ class LlmPostProcessingPromptBuilderTest {
         Properties.LLM_POSTPROCESSING_VARIABLE_NAMES = originalVariableNames;
         Properties.LLM_POSTPROCESSING_COMMENTS = originalComments;
         Properties.LLM_POSTPROCESSING_SECTION_BREAKS = originalSectionBreaks;
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT = originalPromptVariant;
     }
 
     @Test
@@ -70,12 +78,19 @@ class LlmPostProcessingPromptBuilderTest {
                 LlmPostProcessingPromptContext.from(test), 0);
         String userPrompt = prompt.getMessages().get(1).getContent();
 
-        assertTrue(userPrompt.contains("\"schemaVersion\":1"));
+        assertTrue(userPrompt.contains("\"schemaVersion\":2"));
+        assertTrue(userPrompt.contains("Prompt version: postprocessing-p2-v2"));
+        assertTrue(userPrompt.contains("\"assertionDecision\""));
+        assertTrue(userPrompt.contains("NO_SAFE_ORACLE"));
         assertTrue(userPrompt.contains("\"testName\""));
         assertTrue(userPrompt.contains("\"assertions\""));
         assertTrue(userPrompt.contains("Observations:"));
         assertTrue(userPrompt.contains("EvoSuite-observed candidate facts:"));
-        assertTrue(userPrompt.contains("propose only assertions that add semantic value beyond them"));
+        assertTrue(userPrompt.contains("Candidate facts with candidateId are validated EvoSuite assertions"));
+        assertTrue(userPrompt.contains("Return up to "
+                + Properties.LLM_POSTPROCESSING_MAX_ASSERTIONS_PER_TEST + " grounded assertions"));
+        assertTrue(userPrompt.contains("normally return at least one"));
+        assertTrue(userPrompt.contains("whether selected candidates or novel assertions"));
         assertTrue(userPrompt.contains("provenance=INPUT"));
         assertTrue(userPrompt.contains("do not assert them directly"));
         assertTrue(userPrompt.contains("complete=false are truncated"));
@@ -89,6 +104,10 @@ class LlmPostProcessingPromptBuilderTest {
         assertTrue(userPrompt.contains("Array EQUALS assertions require compatible one-dimensional array operands"));
         assertTrue(userPrompt.contains("preserve Java quoting and escaping"));
         assertTrue(userPrompt.contains("Use CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, or IS_EMPTY only when"));
+        assertTrue(userPrompt.contains("\"kind\":\"TRUE\",\"actual\":\"optionalExpression\",\"intent\""));
+        assertFalse(userPrompt.contains("\"kind\":\"TRUE\",\"actual\":\"optionalExpression\",\"expected\""));
+        assertFalse(userPrompt.contains("Collection size:"));
+        assertTrue(userPrompt.contains("do not emit placement or afterStatementId for assertions"));
         assertFalse(userPrompt.contains("\"variableNames\""));
         assertFalse(userPrompt.contains("\"comments\""));
         assertFalse(userPrompt.contains("\"sectionBreaksAfter\""));
@@ -108,12 +127,12 @@ class LlmPostProcessingPromptBuilderTest {
                 LlmPostProcessingPromptContext.from(test), 0, false);
         String userPrompt = prompt.getMessages().get(1).getContent();
 
-        assertTrue(userPrompt.contains("\"schemaVersion\":1"));
+        assertTrue(userPrompt.contains("\"schemaVersion\":2"));
         assertTrue(userPrompt.contains("\"testName\""));
         assertTrue(userPrompt.contains("Assertions are disabled for this test"));
         assertFalse(userPrompt.contains("\"assertions\""));
         assertFalse(userPrompt.contains("Assertion kind must be one of"));
-        assertFalse(userPrompt.contains("EvoSuite-observed candidate facts are existing filtered observations"));
+        assertFalse(userPrompt.contains("Candidate facts with candidateId are validated EvoSuite assertions"));
         assertFalse(userPrompt.contains("purity allowlist"));
     }
 
@@ -147,5 +166,127 @@ class LlmPostProcessingPromptBuilderTest {
         assertTrue(userPrompt.contains("Do not add section breaks after every statement"));
         assertTrue(userPrompt.contains("Do not add a trailing section break"));
         assertTrue(userPrompt.contains("Omit sectionBreaksAfter for very short tests"));
+    }
+
+    @Test
+    void build_exposesFourStablePromptVariants() {
+        Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(test);
+
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P0_CURRENT;
+        String p0 = LlmPostProcessingPromptBuilder.build(context, 0).getMessages().get(1).getContent();
+        assertTrue(p0.contains("Prompt version: postprocessing-p0-v2"));
+        assertTrue(p0.contains("novel assertions only"));
+        assertFalse(p0.contains("Context-valid candidate selection"));
+
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P1_GROUNDED_PRODUCTIVE;
+        String p1 = LlmPostProcessingPromptBuilder.build(context, 0).getMessages().get(1).getContent();
+        assertTrue(p1.contains("Prompt version: postprocessing-p1-v2"));
+        assertTrue(p1.contains("prefer 1-3 high-value assertions"));
+        assertFalse(p1.contains("Context-valid candidate selection"));
+
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
+        String p2 = LlmPostProcessingPromptBuilder.build(context, 0).getMessages().get(1).getContent();
+        assertTrue(p2.contains("Prompt version: postprocessing-p2-v2"));
+        assertTrue(p2.contains("select useful candidates"));
+
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P3_TYPED_TEMPLATES;
+        String p3 = LlmPostProcessingPromptBuilder.build(context, 0).getMessages().get(1).getContent();
+        assertTrue(p3.contains("Prompt version: postprocessing-p3-v2"));
+        assertTrue(p3.contains("GREATER/LESS/GREATER_EQUALS/LESS_EQUALS"));
+        assertFalse(p3.contains("TRUE/FALSE: assertionId"));
+    }
+
+    @Test
+    void build_exposesOracleContextVariantsAndKeepsTheirPrefixesCacheable() {
+        Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
+        DefaultTestCase first = new DefaultTestCase();
+        first.addStatement(new IntPrimitiveStatement(first, 7));
+        DefaultTestCase second = new DefaultTestCase();
+        second.addStatement(new IntPrimitiveStatement(second, 11));
+        Properties.LlmPostProcessingPromptVariant[] variants = {
+                Properties.LlmPostProcessingPromptVariant.P4_CANONICAL_CANDIDATES,
+                Properties.LlmPostProcessingPromptVariant.P5_ACTION_RANKED_CANDIDATES,
+                Properties.LlmPostProcessingPromptVariant.P6_RELATIONAL_OPPORTUNITIES,
+                Properties.LlmPostProcessingPromptVariant.P7_STABILITY_LABELS,
+                Properties.LlmPostProcessingPromptVariant.P8_COMPACT_OBSERVED_CALLS,
+                Properties.LlmPostProcessingPromptVariant.P9_LITERAL_DISCIPLINE,
+                Properties.LlmPostProcessingPromptVariant.P10_ASSERTABLE_TYPES_ONLY,
+                Properties.LlmPostProcessingPromptVariant.P11_EXCEPTION_ADJACENT_ASSERTIONS,
+                Properties.LlmPostProcessingPromptVariant.P12_ORACLE_CONTEXT_V2
+        };
+        String[] expectedVersions = {
+                "postprocessing-p4-v3",
+                "postprocessing-p5-v3",
+                "postprocessing-p6-v3",
+                "postprocessing-p7-v5",
+                "postprocessing-p8-v3",
+                "postprocessing-p9-v3",
+                "postprocessing-p10-v4",
+                "postprocessing-p11-v3",
+                "postprocessing-p12-v6"
+        };
+        for (int index = 0; index < variants.length; index++) {
+            Properties.LLM_POSTPROCESSING_PROMPT_VARIANT = variants[index];
+            String firstPrompt = LlmPostProcessingPromptBuilder.build(
+                    LlmPostProcessingPromptContext.from(first), 0).getMessages().get(1).getContent();
+            String secondPrompt = LlmPostProcessingPromptBuilder.build(
+                    LlmPostProcessingPromptContext.from(second), 1).getMessages().get(1).getContent();
+            assertTrue(firstPrompt.contains("Prompt version: " + expectedVersions[index]));
+            assertEquals(cacheablePrefix(firstPrompt), cacheablePrefix(secondPrompt), variants[index].name());
+        }
+
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P12_ORACLE_CONTEXT_V2;
+        String cumulative = LlmPostProcessingPromptBuilder.build(
+                LlmPostProcessingPromptContext.from(first), 0).getMessages().get(1).getContent();
+        assertTrue(cumulative.contains("\"schemaVersion\":3"));
+        assertTrue(cumulative.contains("candidateId entries already contain the complete validated oracle"));
+        assertTrue(cumulative.contains("Relational opportunities:"));
+        assertTrue(cumulative.contains("Observed safe expressions:"));
+        assertTrue(cumulative.contains("Java/JSON literal examples:"));
+        assertTrue(cumulative.contains(
+                "Candidate selection form: {\"assertionId\":\"a0\",\"candidateId\":\"cN\"}"));
+        assertTrue(cumulative.contains(
+                "Select a candidate with exactly {\"assertionId\":\"aN\",\"candidateId\":\"cN\"}"));
+        assertTrue(cumulative.contains(
+                "Candidate selection must omit placement; EvoSuite applies the candidate's validated assertion site"));
+        assertTrue(cumulative.contains("\"placement\":{\"site\":\"END_OF_TEST\"}"));
+        assertTrue(cumulative.contains(
+                "{\"site\":\"BEFORE_TRY\",\"afterStatementId\":\"sN\"}"));
+        assertTrue(cumulative.contains(
+                "{\"site\":\"IN_CATCH\",\"exceptionId\":\"e0\"}"));
+        assertTrue(cumulative.contains("{\"site\":\"AFTER_CATCH\"}"));
+        assertTrue(cumulative.contains(
+                "placement, when present, must be a JSON object with a site field"));
+        assertFalse(cumulative.contains("END_OF_TEST_or_advertised_safe_site"));
+    }
+
+    @Test
+    void productionBuildIgnoresHistoricalVariantAndFreezesP2SchemaTwo() {
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P12_ORACLE_CONTEXT_V2;
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+        PostProcessingOptions options = PostProcessingOptions.fromProperties();
+        String prompt = LlmPostProcessingPromptBuilder.build(
+                LlmPostProcessingPromptContext.from(test, null, null, Collections.emptyList(), options),
+                0, true, options).getMessages().get(1).getContent();
+
+        assertTrue(prompt.contains("Prompt version: postprocessing-p2-v2"));
+        assertTrue(prompt.contains("\"schemaVersion\":2"));
+        assertFalse(prompt.contains("postprocessing-p12-v6"));
+        assertFalse(prompt.contains("Relational opportunities:"));
+    }
+
+    private static String cacheablePrefix(String prompt) {
+        int marker = prompt.indexOf("Generated test statements:");
+        return marker < 0 ? prompt : prompt.substring(0, marker);
     }
 }

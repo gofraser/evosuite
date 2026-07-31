@@ -95,6 +95,22 @@ class OracleReplayConfigurationTest {
     }
 
     @Test
+    void mutationLlmArmEnablesMutationThenLlmAssertionsWithoutFallback() {
+        OracleReplayConfiguration.apply(Properties.OracleReplayStrategy.MUTATION_LLM);
+
+        assertTrue(Properties.ASSERTIONS);
+        assertEquals(Properties.AssertionStrategy.MUTATION, Properties.ASSERTION_STRATEGY);
+        assertTrue(Properties.LLM_POSTPROCESSING_ENABLED);
+        assertTrue(Properties.LLM_POSTPROCESSING_ASSERTIONS);
+        assertFalse(Properties.LLM_POSTPROCESSING_TEST_NAMES);
+        assertFalse(Properties.LLM_POSTPROCESSING_VARIABLE_NAMES);
+        assertFalse(Properties.LLM_POSTPROCESSING_COMMENTS);
+        assertFalse(Properties.LLM_POSTPROCESSING_SECTION_BREAKS);
+        assertEquals(Properties.LlmPostProcessingAssertionFallback.NONE,
+                Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK);
+    }
+
+    @Test
     void noneArmDisablesEveryOracle() {
         OracleReplayConfiguration.apply(Properties.OracleReplayStrategy.NONE);
         assertFalse(Properties.ASSERTIONS);

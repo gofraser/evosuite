@@ -21,7 +21,7 @@ package org.evosuite.testsuite;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import org.evosuite.llm.postprocess.LlmPostProcessingMetadata;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 
@@ -63,7 +63,7 @@ public final class StructuralSuiteArtifact {
         TestSuiteChromosome structuralSuite = suite.clone();
         for (TestCase test : structuralSuite.getTests()) {
             test.removeAssertions();
-            LlmPostProcessingMetadata.clear(test);
+            TestPresentationMetadata.clear(test);
         }
         Path artifactPath = artifact.toPath();
         Path metadataPath = metadataFile(artifact).toPath();
@@ -89,17 +89,48 @@ public final class StructuralSuiteArtifact {
             for (TestChromosome test : normalizedTests) {
                 normalizedSuite.addTestChromosome(test);
             }
-            if (normalizedSuite.size() != structuralSuite.size()
+            boolean normalizationChangedShape = normalizedSuite.size() != structuralSuite.size()
                     || normalizedSuite.totalLengthOfTestCases()
-                    != structuralSuite.totalLengthOfTestCases()) {
-                throw new IOException("Serialized structural suite failed round-trip validation: expected "
-                        + structuralSuite.size() + " tests/"
-                        + structuralSuite.totalLengthOfTestCases() + " statements but loaded "
-                        + normalizedSuite.size() + " tests/"
-                        + normalizedSuite.totalLengthOfTestCases() + " statements");
+                    != structuralSuite.totalLengthOfTestCases();
+            if (normalizationChangedShape) {
+                // A test can deserialize yet fail class-loader normalization.
+                // Persist the successfully normalized subset as the canonical
+                // common input rather than leaving a truncated, unusable
+                // artifact or losing every test that followed the bad one.
+                if (!TestSuiteSerialization.saveTests(normalizedSuite, artifactTemp.toFile())) {
+                    throw new IOException("Could not serialize normalized structural suite to "
+                            + artifact);
+                }
+                List<TestChromosome> validationTests = TestSuiteSerialization.loadTests(
+                        artifactTemp.toFile());
+                TestSuiteChromosome validationSuite = new TestSuiteChromosome();
+                for (TestChromosome test : validationTests) {
+                    validationSuite.addTestChromosome(test);
+                }
+                if (validationSuite.size() != normalizedSuite.size()
+                        || validationSuite.totalLengthOfTestCases()
+                        != normalizedSuite.totalLengthOfTestCases()) {
+                    throw new IOException("Normalized structural suite is not round-trip stable: expected "
+                            + normalizedSuite.size() + " tests/"
+                            + normalizedSuite.totalLengthOfTestCases() + " statements but loaded "
+                            + validationSuite.size() + " tests/"
+                            + validationSuite.totalLengthOfTestCases() + " statements");
+                }
+                normalizedSuite = validationSuite;
+            }
+            MinimizationResult persistedMinimization = minimizationResult;
+            if (normalizationChangedShape && minimizationResult != null) {
+                persistedMinimization = new MinimizationResult(
+                        minimizationResult.getStatus(),
+                        minimizationResult.getUnderlyingStopCause(),
+                        minimizationResult.getOriginalTests(),
+                        minimizationResult.getOriginalLength(),
+                        normalizedSuite.size(),
+                        normalizedSuite.totalLengthOfTestCases(),
+                        minimizationResult.getElapsedMillis());
             }
             metadata = StructuralSuiteMetadata.create(
-                    targetClass.trim(), normalizedSuite, minimizationResult);
+                    targetClass.trim(), normalizedSuite, persistedMinimization);
             JSON.writeValue(metadataTemp.toFile(), metadata);
             moveReplacing(artifactTemp, artifactPath);
             moveReplacing(metadataTemp, metadataPath);

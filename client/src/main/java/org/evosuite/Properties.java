@@ -1394,7 +1394,7 @@ public class Properties {
     public static String ORACLE_REPLAY_INPUT = "";
 
     public enum OracleReplayStrategy {
-        NONE, ALL, MUTATION, LLM
+        NONE, ALL, MUTATION, LLM, MUTATION_LLM
     }
 
     @Parameter(key = "oracle_replay_strategy", group = "Output",
@@ -2328,6 +2328,29 @@ public class Properties {
             description = "Allow unified LLM post-processing to propose section boundaries")
     public static boolean LLM_POSTPROCESSING_SECTION_BREAKS = true;
 
+    public enum LlmPostProcessingPromptVariant {
+        P0_CURRENT,
+        P1_GROUNDED_PRODUCTIVE,
+        P2_CANDIDATE_SELECTION,
+        P3_TYPED_TEMPLATES,
+        P4_CANONICAL_CANDIDATES,
+        P5_ACTION_RANKED_CANDIDATES,
+        P6_RELATIONAL_OPPORTUNITIES,
+        P7_STABILITY_LABELS,
+        P8_COMPACT_OBSERVED_CALLS,
+        P9_LITERAL_DISCIPLINE,
+        P10_ASSERTABLE_TYPES_ONLY,
+        P11_EXCEPTION_ADJACENT_ASSERTIONS,
+        P12_ORACLE_CONTEXT_V2
+    }
+
+    /*
+     * Historical replay/provenance value.  It is intentionally not a
+     * @Parameter: fresh requests are always the evaluated P2 treatment.
+     */
+    public static LlmPostProcessingPromptVariant LLM_POSTPROCESSING_PROMPT_VARIANT =
+            LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
+
     @Parameter(key = "llm_postprocessing_max_assertions_per_test", group = "LLM",
             description = "Maximum unified LLM assertion proposals accepted per test")
     @IntValue(min = 0)
@@ -2348,6 +2371,36 @@ public class Properties {
     @IntValue(min = 0)
     public static int LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS = 12000;
 
+    @Parameter(key = "llm_postprocessing_max_candidate_facts", group = "LLM",
+            description = "Maximum ranked selectable candidate facts per unified LLM request (0 = unlimited)")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CANDIDATE_FACTS = 40;
+
+    @Parameter(key = "llm_postprocessing_max_candidate_chars", group = "LLM",
+            description = "Maximum characters of ranked candidate-fact context per unified LLM request")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CANDIDATE_CHARS = 6000;
+
+    @Parameter(key = "llm_postprocessing_max_callable_chars", group = "LLM",
+            description = "Maximum characters of callable-member context per unified LLM request")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_CALLABLE_CHARS = 6000;
+
+    @Parameter(key = "llm_postprocessing_max_observed_expression_chars", group = "LLM",
+            description = "Maximum characters of observed safe-expression context per unified LLM request")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_OBSERVED_EXPRESSION_CHARS = 3000;
+
+    @Parameter(key = "llm_postprocessing_max_relational_opportunities", group = "LLM",
+            description = "Maximum grounded relational opportunities per unified LLM request")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_RELATIONAL_OPPORTUNITIES = 12;
+
+    @Parameter(key = "llm_postprocessing_max_relational_chars", group = "LLM",
+            description = "Maximum characters of grounded relational-opportunity context per unified LLM request")
+    @IntValue(min = 0)
+    public static int LLM_POSTPROCESSING_MAX_RELATIONAL_CHARS = 3000;
+
     @Parameter(key = "llm_postprocessing_max_collection_elements", group = "LLM",
             description = "Maximum collection or array elements summarized in unified LLM observations")
     @IntValue(min = 0)
@@ -2357,6 +2410,17 @@ public class Properties {
             description = "Maximum targeted assertion repair requests per test")
     @IntValue(min = 0)
     public static int LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 1;
+
+    public enum LlmPostProcessingRepairPolicy {
+        NONE,
+        TARGETED_ONE,
+        BATCHED
+    }
+
+    @Parameter(key = "llm_postprocessing_repair_policy", group = "LLM",
+            description = "Assertion repair policy: none, one targeted rejection, or the current batch")
+    public static LlmPostProcessingRepairPolicy LLM_POSTPROCESSING_REPAIR_POLICY =
+            LlmPostProcessingRepairPolicy.TARGETED_ONE;
 
     @Parameter(key = "llm_postprocessing_max_tests", group = "LLM",
             description = "Maximum tests processed by unified LLM post-processing (0 = unlimited)")

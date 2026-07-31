@@ -22,6 +22,8 @@ package org.evosuite.llm.postprocess;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 /**
  * Result of parsing a unified LLM post-processing response.
@@ -32,24 +34,41 @@ public final class LlmPostProcessingParseResult {
     private final boolean infrastructureFailure;
     private final String infrastructureFailureReason;
     private final List<Diagnostic> diagnostics;
+    private final PostProcessingCounts proposedCounts;
+    private final List<RawAssertion> rawAssertions;
 
     private LlmPostProcessingParseResult(LlmPostProcessingResponse response,
                                          boolean infrastructureFailure,
                                          String infrastructureFailureReason,
-                                         List<Diagnostic> diagnostics) {
+                                         List<Diagnostic> diagnostics,
+                                         PostProcessingCounts proposedCounts,
+                                         List<RawAssertion> rawAssertions) {
         this.response = response;
         this.infrastructureFailure = infrastructureFailure;
         this.infrastructureFailureReason = infrastructureFailureReason;
         this.diagnostics = Collections.unmodifiableList(new ArrayList<>(diagnostics));
+        this.proposedCounts = proposedCounts == null ? PostProcessingCounts.none() : proposedCounts;
+        this.rawAssertions = Collections.unmodifiableList(new ArrayList<>(
+                rawAssertions == null ? Collections.<RawAssertion>emptyList() : rawAssertions));
     }
 
     public static LlmPostProcessingParseResult success(LlmPostProcessingResponse response,
                                                        List<Diagnostic> diagnostics) {
-        return new LlmPostProcessingParseResult(response, false, null, diagnostics);
+        return new LlmPostProcessingParseResult(response, false, null, diagnostics,
+                PostProcessingCounts.none(), Collections.<RawAssertion>emptyList());
     }
 
     public static LlmPostProcessingParseResult infrastructureFailure(String reason) {
-        return new LlmPostProcessingParseResult(null, true, reason, Collections.<Diagnostic>emptyList());
+        return new LlmPostProcessingParseResult(null, true, reason, Collections.<Diagnostic>emptyList(),
+                PostProcessingCounts.none(), Collections.<RawAssertion>emptyList());
+    }
+
+    public static LlmPostProcessingParseResult success(LlmPostProcessingResponse response,
+                                                       List<Diagnostic> diagnostics,
+                                                       PostProcessingCounts proposedCounts,
+                                                       List<RawAssertion> rawAssertions) {
+        return new LlmPostProcessingParseResult(response, false, null, diagnostics,
+                proposedCounts, rawAssertions);
     }
 
     public LlmPostProcessingResponse getResponse() {
@@ -66,6 +85,32 @@ public final class LlmPostProcessingParseResult {
 
     public List<Diagnostic> getDiagnostics() {
         return diagnostics;
+    }
+
+    public PostProcessingCounts getProposedCounts() { return proposedCounts; }
+
+    /** Decoded raw assertion entries retained for diagnostics and repair prompts. */
+    public List<RawAssertion> getRawAssertions() { return rawAssertions; }
+
+    public static final class RawAssertion {
+        private final String assertionId;
+        private final String rawJson;
+        private final Map<String, Object> fields;
+
+        public RawAssertion(String assertionId, String rawJson) {
+            this(assertionId, rawJson, Collections.<String, Object>emptyMap());
+        }
+
+        public RawAssertion(String assertionId, String rawJson, Map<String, Object> fields) {
+            this.assertionId = assertionId;
+            this.rawJson = rawJson;
+            this.fields = Collections.unmodifiableMap(new LinkedHashMap<>(
+                    fields == null ? Collections.<String, Object>emptyMap() : fields));
+        }
+
+        public String getAssertionId() { return assertionId; }
+        public String getRawJson() { return rawJson; }
+        public Map<String, Object> getFields() { return fields; }
     }
 
     public enum DiagnosticCode {

@@ -19,7 +19,7 @@
  */
 package org.evosuite.testsuite;
 
-import org.evosuite.llm.postprocess.LlmPostProcessingMetadata;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 
@@ -49,7 +49,7 @@ public final class StructuralSuiteFingerprint {
             for (TestCase original : suite.getTests()) {
                 TestCase structuralCopy = original.clone();
                 structuralCopy.removeAssertions();
-                LlmPostProcessingMetadata.clear(structuralCopy);
+                TestPresentationMetadata.clear(structuralCopy);
 
                 update(digest, "test:");
                 update(digest, Integer.toString(index++));

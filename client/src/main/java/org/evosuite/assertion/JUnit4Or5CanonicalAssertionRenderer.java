@@ -19,7 +19,6 @@
  */
 package org.evosuite.assertion;
 
-import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 
 final class JUnit4Or5CanonicalAssertionRenderer implements CanonicalAssertionRenderer {
 
@@ -29,7 +28,7 @@ final class JUnit4Or5CanonicalAssertionRenderer implements CanonicalAssertionRen
     }
 
     @Override
-    public String render(LlmPostProcessingResponse.AssertionKind kind,
+    public String render(TemplateAssertionKind kind,
                          String expected,
                          String actual,
                          String delta) {
@@ -37,7 +36,7 @@ final class JUnit4Or5CanonicalAssertionRenderer implements CanonicalAssertionRen
     }
 
     @Override
-    public String render(LlmPostProcessingResponse.AssertionKind kind,
+    public String render(TemplateAssertionKind kind,
                          String expected,
                          String actual,
                          String delta,

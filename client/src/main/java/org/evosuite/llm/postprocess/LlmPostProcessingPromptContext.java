@@ -19,6 +19,10 @@
  */
 package org.evosuite.llm.postprocess;
 
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
 import org.evosuite.Properties;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.ArrayLengthAssertion;
@@ -32,7 +36,10 @@ import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.statements.ArrayStatement;
 import org.evosuite.testcase.statements.FieldStatement;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -72,19 +79,29 @@ public final class LlmPostProcessingPromptContext {
     private final List<CallableMember> callableMembers;
     private final List<ExceptionContext> exceptions;
     private final List<CandidateFact> candidateFacts;
+    private final List<RelationalOpportunity> relationalOpportunities;
+    private final PromptVariantCapabilities capabilities;
+    private final PostProcessingOptions options;
 
     private LlmPostProcessingPromptContext(LlmPostProcessingReferences references,
                                            List<StatementContext> statements,
                                            List<Observation> observations,
                                            List<CallableMember> callableMembers,
                                            List<ExceptionContext> exceptions,
-                                           List<CandidateFact> candidateFacts) {
+                                           List<CandidateFact> candidateFacts,
+                                           List<RelationalOpportunity> relationalOpportunities,
+                                           PromptVariantCapabilities capabilities,
+                                           PostProcessingOptions options) {
         this.references = references;
         this.statements = Collections.unmodifiableList(new ArrayList<>(statements));
         this.observations = Collections.unmodifiableList(new ArrayList<>(observations));
         this.callableMembers = Collections.unmodifiableList(new ArrayList<>(callableMembers));
         this.exceptions = Collections.unmodifiableList(new ArrayList<>(exceptions));
         this.candidateFacts = Collections.unmodifiableList(new ArrayList<>(candidateFacts));
+        this.relationalOpportunities = Collections.unmodifiableList(
+                new ArrayList<>(relationalOpportunities));
+        this.capabilities = capabilities;
+        this.options = options;
     }
 
     public static LlmPostProcessingPromptContext from(TestCase test) {
@@ -97,19 +114,48 @@ public final class LlmPostProcessingPromptContext {
 
     public static LlmPostProcessingPromptContext from(TestCase test, ExecutionResult executionResult,
                                                       List<Assertion> candidateAssertions) {
+        return from(test, executionResult, null, candidateAssertions);
+    }
+
+    public static LlmPostProcessingPromptContext from(TestCase test, ExecutionResult executionResult,
+                                                      ExecutionResult stabilityExecutionResult,
+                                                      List<Assertion> candidateAssertions) {
+        return from(test, executionResult, stabilityExecutionResult, candidateAssertions, null);
+    }
+
+    /** Production context capture using the phase's immutable options snapshot. */
+    public static LlmPostProcessingPromptContext from(TestCase test, ExecutionResult executionResult,
+                                                      ExecutionResult stabilityExecutionResult,
+                                                      List<Assertion> candidateAssertions,
+                                                      PostProcessingOptions options) {
+        PostProcessingOptions effectiveOptions = options == null
+                ? PostProcessingOptions.fromProperties() : options;
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         List<StatementContext> statements = new ArrayList<>();
         List<Observation> observations = new ArrayList<>();
         List<CallableMember> callableMembers = new ArrayList<>();
         Set<String> advertisedTypes = new LinkedHashSet<>();
-        List<ExceptionContext> exceptions = exceptionContexts(executionResult);
-        List<CandidateFact> candidateFacts = candidateFacts(references, candidateAssertions);
+        List<ExceptionContext> exceptions = exceptionContexts(executionResult, effectiveOptions);
+        PromptVariantCapabilities capabilities = PromptVariantCapabilities.forVariant(options == null
+                ? Properties.LLM_POSTPROCESSING_PROMPT_VARIANT
+                : Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION);
+        List<CandidateFact> candidateFacts = candidateFacts(
+                references, candidateAssertions, stabilityExecutionResult, capabilities, effectiveOptions);
+        candidateFacts = appendExceptionCandidateFacts(
+                candidateFacts, exceptions, stabilityExecutionResult, capabilities, effectiveOptions);
         // A candidate fact already tells the model this variable's observed value,
         // so emitting the same value again as an observation is redundant (plan 6.6:
         // observations are only supplemental to the candidate pool).
         Set<String> candidateCoveredVariableIds = new LinkedHashSet<>();
         for (CandidateFact fact : candidateFacts) {
-            if (fact.getSourceId() != null && fact.getObservedValue() != null) {
+            boolean completeCanonicalFact = isCandidateSelectable(
+                    fact, capabilities.hasAssertableTypesOnly(),
+                    capabilities.hasStabilityLabels());
+            boolean preserveLegacySuppression = !capabilities.hasCanonicalCandidates()
+                    && !capabilities.hasCompactObservedCalls()
+                    && !capabilities.hasAssertableTypesOnly();
+            if (fact.getSourceId() != null && fact.getObservedValue() != null
+                    && (preserveLegacySuppression || completeCanonicalFact)) {
                 candidateCoveredVariableIds.add(fact.getSourceId());
             }
         }
@@ -122,28 +168,39 @@ public final class LlmPostProcessingPromptContext {
                         ? LlmPostProcessingReferences.variableId(position)
                         : null;
                 VariableReference returnValue = statement.getReturnValue();
+                String declaredType = declaredType(statement, returnValue);
                 statements.add(new StatementContext(
                         statementId,
                         variableId,
-                        declaredType(returnValue),
+                        declaredType,
                         runtimeType(returnValue, finalScope),
-                        normalizeCode(statement.getCode())));
-                Observation observation = primitiveInputObservation(statementId, variableId, statement);
+                        normalizeCode(statement.getCode()),
+                        statementPhase(statement),
+                        statementReceiverId(references, statement),
+                        statementArgumentIds(references, statement)));
+                Observation observation = primitiveInputObservation(
+                        statementId, variableId, statement, effectiveOptions);
                 if (observation != null) {
                     observations.add(observation);
                 }
-                Observation finalScopeObservation = finalScopeObservation(statementId, variableId, statement, returnValue,
-                        finalScope);
+                Observation finalScopeObservation = finalScopeObservation(
+                        statementId, variableId, statement, returnValue, finalScope, effectiveOptions);
                 if (finalScopeObservation != null
                         && (variableId == null || !candidateCoveredVariableIds.contains(variableId))) {
                     observations.add(finalScopeObservation);
                 }
                 Object runtimeValue = finalScopeValue(returnValue, finalScope);
-                callableMembers.addAll(callableMembers(variableId, returnValue, runtimeValue, advertisedTypes));
+                callableMembers.addAll(callableMembers(
+                        variableId, returnValue, declaredType, runtimeValue, advertisedTypes, effectiveOptions));
             }
         }
+        if (capabilities.hasActionRoles()) {
+            candidateFacts = actionRankedCandidateFacts(candidateFacts, statements);
+        }
+        List<RelationalOpportunity> relationalOpportunities =
+                relationalOpportunities(statements, candidateFacts, callableMembers);
         return new LlmPostProcessingPromptContext(references, statements, observations, callableMembers, exceptions,
-                candidateFacts);
+                candidateFacts, relationalOpportunities, capabilities, effectiveOptions);
     }
 
     public LlmPostProcessingReferences getReferences() {
@@ -170,7 +227,15 @@ public final class LlmPostProcessingPromptContext {
         return candidateFacts;
     }
 
+    public List<RelationalOpportunity> getRelationalOpportunities() {
+        return relationalOpportunities;
+    }
+
     public String toAnnotatedText() {
+        return toAnnotatedText(false);
+    }
+
+    String toAnnotatedText(boolean includeActionRoles) {
         StringBuilder builder = new StringBuilder();
         for (StatementContext statement : statements) {
             builder.append(statement.getStatementId());
@@ -184,6 +249,18 @@ public final class LlmPostProcessingPromptContext {
                     && !statement.getRuntimeType().equals(statement.getDeclaredType())) {
                 builder.append(" runtime=").append(statement.getRuntimeType());
             }
+            if (includeActionRoles) {
+                builder.append(" phase=").append(statement.getPhase());
+                if (statement.getReceiverId() != null) {
+                    builder.append(" receiver=").append(statement.getReceiverId());
+                }
+                if (!statement.getArgumentIds().isEmpty()) {
+                    builder.append(" args=").append(String.join(",", statement.getArgumentIds()));
+                }
+                if (statement.getVariableId() != null && "ACTION".equals(statement.getPhase())) {
+                    builder.append(" role=RESULT_OF_").append(statement.getStatementId());
+                }
+            }
             builder.append(" | ").append(statement.getCode());
             if (!statement.getCode().endsWith("\n")) {
                 builder.append('\n');
@@ -193,12 +270,21 @@ public final class LlmPostProcessingPromptContext {
     }
 
     public String toObservationText() {
+        return toObservationText(null);
+    }
+
+    String toObservationText(Set<String> relevantVariableIds) {
         if (observations.isEmpty()) {
             return "none\n";
         }
         StringBuilder builder = new StringBuilder();
-        int maxChars = Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS;
+        int maxChars = options.contextLimits().observationChars();
         for (Observation observation : observations) {
+            if (relevantVariableIds != null
+                    && (observation.getVariableId() == null
+                    || !relevantVariableIds.contains(observation.getVariableId()))) {
+                continue;
+            }
             String line = observationLine(observation);
             if (maxChars > 0 && builder.length() + line.length() > maxChars) {
                 String truncationLine = "truncated=true\n";
@@ -209,7 +295,7 @@ public final class LlmPostProcessingPromptContext {
             }
             builder.append(line);
         }
-        return builder.toString();
+        return builder.length() == 0 ? "none\n" : builder.toString();
     }
 
     private String observationLine(Observation observation) {
@@ -230,6 +316,65 @@ public final class LlmPostProcessingPromptContext {
     }
 
     public String toCallableMemberText() {
+        return toCallableMemberText(null);
+    }
+
+    public String toObservedSafeExpressionText() {
+        LinkedHashSet<String> lines = new LinkedHashSet<>();
+        int maxChars = options.contextLimits().observedExpressionChars();
+        StringBuilder builder = new StringBuilder();
+        for (CallableMember member : callableMembers) {
+            if (member.getReceiverId() == null || member.getObservedResult() == null) {
+                continue;
+            }
+            String expression = member.getReceiverId() + "." + readableSignature(member.getSignature());
+            String line = expression + " -> " + jsonString(member.getObservedResult()) + "\n";
+            if (lines.add(line) && (maxChars <= 0 || builder.length() + line.length() <= maxChars)) {
+                builder.append(line);
+            }
+        }
+        for (CandidateFact fact : candidateFacts) {
+            LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
+            if (candidate == null || candidate.getActual() == null || fact.getObservedValue() == null) {
+                continue;
+            }
+            String line = candidate.getActual() + " -> " + jsonString(fact.getObservedValue()) + "\n";
+            if (lines.add(line) && (maxChars <= 0 || builder.length() + line.length() <= maxChars)) {
+                builder.append(line);
+            }
+        }
+        return builder.length() == 0 ? "none\n" : builder.toString();
+    }
+
+    public String toAdditionalLegalCallText() {
+        String text = toCallableMemberText();
+        int total = callableMembers.size();
+        int rendered = 0;
+        for (String line : text.split("\\n")) {
+            if (line.startsWith("owner=")) {
+                int members = line.indexOf(" members=");
+                if (members >= 0) {
+                    String values = line.substring(members + " members=".length());
+                    rendered += values.isEmpty() ? 0 : values.split(", ").length;
+                }
+            }
+        }
+        int dropped = Math.max(0, total - rendered);
+        if (dropped == 0) {
+            return text;
+        }
+        int maxChars = options.contextLimits().callableChars();
+        StringBuilder builder = new StringBuilder(text);
+        appendCapped(builder, "droppedMethods=" + dropped + "\n", maxChars);
+        return builder.toString();
+    }
+
+    private static String readableSignature(String signature) {
+        String name = methodName(signature);
+        return name + "()";
+    }
+
+    String toCallableMemberText(Set<String> relevantVariableIds) {
         if (callableMembers.isEmpty()) {
             return "none\n";
         }
@@ -241,6 +386,11 @@ public final class LlmPostProcessingPromptContext {
         LinkedHashSet<String> receiverBindings = new LinkedHashSet<>();
         LinkedHashSet<String> observedResults = new LinkedHashSet<>();
         for (CallableMember member : callableMembers) {
+            if (relevantVariableIds != null
+                    && (member.getReceiverId() == null
+                    || !relevantVariableIds.contains(member.getReceiverId()))) {
+                continue;
+            }
             LinkedHashSet<String> typeMembers = membersByType.get(member.getOwnerType());
             if (typeMembers == null) {
                 typeMembers = new LinkedHashSet<>();
@@ -255,10 +405,13 @@ public final class LlmPostProcessingPromptContext {
                 }
             }
         }
-        int maxChars = Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS;
+        int maxChars = options.contextLimits().callableChars();
         StringBuilder builder = new StringBuilder();
         if (!receiverBindings.isEmpty()) {
             appendCapped(builder, "receivers: " + String.join(", ", receiverBindings) + "\n", maxChars);
+        }
+        if (!observedResults.isEmpty()) {
+            appendCapped(builder, "observed: " + String.join(", ", observedResults) + "\n", maxChars);
         }
         int truncatedTypes = 0;
         for (Map.Entry<String, LinkedHashSet<String>> entry : membersByType.entrySet()) {
@@ -271,9 +424,6 @@ public final class LlmPostProcessingPromptContext {
         }
         if (truncatedTypes > 0) {
             appendCapped(builder, "truncatedCallableTypes=" + truncatedTypes + "\n", maxChars);
-        }
-        if (!observedResults.isEmpty()) {
-            appendCapped(builder, "observed: " + String.join(", ", observedResults) + "\n", maxChars);
         }
         return builder.length() == 0 ? "none\n" : builder.toString();
     }
@@ -301,27 +451,94 @@ public final class LlmPostProcessingPromptContext {
         return builder.toString();
     }
 
+    public String toSafeAssertionSiteText() {
+        if (exceptions.isEmpty()) {
+            return "- END_OF_TEST available=" + String.join(",", references.getVariableIds()) + "\n";
+        }
+        ExceptionContext exception = exceptions.get(0);
+        int throwingPosition = stableIdIndex(exception.getStatementId());
+        List<String> completedStatements = new ArrayList<>();
+        List<String> availableVariables = new ArrayList<>();
+        for (int position = 0; position < throwingPosition; position++) {
+            String statementId = LlmPostProcessingReferences.statementId(position);
+            if (references.hasStatementId(statementId)) {
+                completedStatements.add(statementId);
+            }
+            String variableId = LlmPostProcessingReferences.variableId(position);
+            if (references.hasVariableId(variableId)) {
+                availableVariables.add(variableId);
+            }
+        }
+        String available = String.join(",", availableVariables);
+        StringBuilder builder = new StringBuilder();
+        if (!completedStatements.isEmpty()) {
+            builder.append("- BEFORE_TRY after=")
+                    .append(String.join(",", completedStatements))
+                    .append(" available=").append(available).append('\n');
+        }
+        builder.append("- IN_CATCH exception=e0 available=e0");
+        if (!available.isEmpty()) {
+            builder.append(',').append(available);
+        }
+        builder.append('\n');
+        builder.append("- AFTER_CATCH available=").append(available).append('\n');
+        return builder.toString();
+    }
+
     public String toCandidateFactText() {
+        return toCandidateFactText(true);
+    }
+
+    String toCandidateFactText(boolean includeCandidateIds) {
+        return toCandidateFactText(includeCandidateIds, false, false, false, false);
+    }
+
+    String toCandidateFactText(boolean includeCandidateIds, boolean canonicalSemantics,
+                               boolean includeActionRoles, boolean includeStability,
+                               boolean assertableTypesOnly) {
         if (candidateFacts.isEmpty()) {
             return "none\n";
         }
         StringBuilder builder = new StringBuilder();
-        int maxChars = Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS;
+        int maxChars = options.contextLimits().candidateChars();
         int emitted = 0;
+        int unstableOmitted = 0;
+        if (includeStability) {
+            for (CandidateFact fact : candidateFacts) {
+                if ("UNSTABLE".equals(fact.getStability())) {
+                    unstableOmitted++;
+                }
+            }
+        }
+        int displayableFacts = candidateFacts.size() - unstableOmitted;
         for (CandidateFact fact : candidateFacts) {
-            String line = candidateFactLine(fact);
+            if (includeStability && "UNSTABLE".equals(fact.getStability())) {
+                continue;
+            }
+            String line = candidateFactLine(fact, includeCandidateIds, canonicalSemantics,
+                    includeActionRoles, includeStability, assertableTypesOnly);
             if (maxChars > 0 && builder.length() + line.length() > maxChars) {
-                appendCandidateTruncation(builder, candidateFacts.size() - emitted, maxChars);
+                appendCandidateTruncation(builder, displayableFacts - emitted, maxChars);
                 break;
             }
             builder.append(line);
             emitted++;
         }
+        if (unstableOmitted > 0) {
+            appendCapped(builder, "unstableCandidatesOmitted=" + unstableOmitted + "\n", maxChars);
+        }
         return builder.toString();
     }
 
-    private static String candidateFactLine(CandidateFact fact) {
+    private static String candidateFactLine(CandidateFact fact, boolean includeCandidateIds,
+                                            boolean canonicalSemantics, boolean includeActionRoles,
+                                            boolean includeStability, boolean assertableTypesOnly) {
         StringBuilder builder = new StringBuilder();
+        boolean selectable = isCandidateSelectable(
+                fact, assertableTypesOnly, includeStability);
+        if (includeCandidateIds && selectable) {
+            builder.append("candidateId=").append(fact.getCandidateId()).append(' ');
+        }
         builder.append(fact.getStatementId());
         if (fact.getSourceId() != null) {
             builder.append(" source=").append(fact.getSourceId());
@@ -330,11 +547,95 @@ public final class LlmPostProcessingPromptContext {
             builder.append(" refs=").append(String.join(",", fact.getReferencedIds()));
         }
         builder.append(" kind=").append(fact.getKind());
+        if (canonicalSemantics && fact.getSelectableCandidate() != null) {
+            LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
+            builder.append(" canonicalKind=").append(candidate.getKind());
+            appendJsonExpression(builder, "expected", candidate.getExpected());
+            appendJsonExpression(builder, "actual", candidate.getActual());
+            appendJsonExpression(builder, "delta", candidate.getDelta());
+        }
         if (fact.getObservedValue() != null) {
-            builder.append(" observed=").append(fact.getObservedValue());
+            builder.append(" observed=").append(canonicalSemantics
+                    ? jsonString(fact.getObservedValue()) : fact.getObservedValue());
+        }
+        if (includeActionRoles) {
+            builder.append(" phase=").append(fact.getPhase());
+            builder.append(" rank=").append(fact.getRank());
+        }
+        if (includeStability) {
+            builder.append(" stability=").append(fact.getStability());
+            if (fact.getStabilityReason() != null) {
+                builder.append(" stabilityReason=").append(fact.getStabilityReason());
+            }
+        }
+        if (canonicalSemantics || assertableTypesOnly) {
+            builder.append(" selectable=").append(selectable);
+        }
+        if (includeCandidateIds && canonicalSemantics && selectable) {
+            builder.append(" select={\"assertionId\":\"aN\",\"candidateId\":\"")
+                    .append(fact.getCandidateId()).append("\"}");
+        }
+        if (assertableTypesOnly) {
+            builder.append(" assertable=").append(fact.isAssertable());
+            if (!fact.isAssertable()) {
+                builder.append(" reason=INACCESSIBLE_TYPE");
+            }
         }
         builder.append('\n');
         return builder.toString();
+    }
+
+    private static boolean isCandidateSelectable(CandidateFact fact,
+                                                 boolean assertableTypesOnly,
+                                                 boolean stabilityLabels) {
+        return fact != null
+                && fact.getCandidateId() != null
+                && fact.getSelectableCandidate() != null
+                && (!assertableTypesOnly || fact.isAssertable())
+                && (!stabilityLabels || !"UNSTABLE".equals(fact.getStability()));
+    }
+
+    private static void appendJsonExpression(StringBuilder builder, String name, String expression) {
+        if (expression != null) {
+            builder.append(' ').append(name).append('=').append(jsonString(expression));
+        }
+    }
+
+    private static String jsonString(String value) {
+        if (value == null) {
+            return "null";
+        }
+        return "\"" + escapeJava(value) + "\"";
+    }
+
+    public String toRelationalOpportunityText() {
+        if (relationalOpportunities.isEmpty()) {
+            return "none\n";
+        }
+        StringBuilder builder = new StringBuilder();
+        int maxCount = options.contextLimits().relationalOpportunities();
+        int maxChars = options.contextLimits().relationalChars();
+        int emitted = 0;
+        for (RelationalOpportunity opportunity : relationalOpportunities) {
+            if (maxCount > 0 && emitted >= maxCount) {
+                break;
+            }
+            String line = opportunity.getId()
+                    + " left=" + jsonString(opportunity.getLeft())
+                    + " right=" + jsonString(opportunity.getRight())
+                    + " type=" + opportunity.getType()
+                    + " relation=" + opportunity.getRelation() + "\n";
+            if (maxChars > 0 && builder.length() + line.length() > maxChars) {
+                break;
+            }
+            builder.append(line);
+            emitted++;
+        }
+        int dropped = relationalOpportunities.size() - emitted;
+        if (dropped > 0) {
+            appendCapped(builder, "droppedRelationalOpportunities=" + dropped + "\n", maxChars);
+        }
+        return builder.length() == 0 ? "none\n" : builder.toString();
     }
 
     private static void appendCandidateTruncation(StringBuilder builder, int truncatedCount, int maxChars) {
@@ -357,10 +658,30 @@ public final class LlmPostProcessingPromptContext {
                 variableTypes.put(statement.getVariableId(), statement.getDeclaredType());
             }
         }
+        Set<String> expressionVariableIds = new LinkedHashSet<>(references.getVariableIds());
+        String throwingStatementId = exceptions.isEmpty() ? null : exceptions.get(0).getStatementId();
+        if (throwingStatementId != null) {
+            expressionVariableIds.add("e0");
+            variableTypes.put("e0", "java.lang.Throwable");
+            callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
+                    "e0", "java.lang.Throwable", "getMessage", "()Ljava/lang/String;",
+                    "java.lang.String"));
+            callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
+                    "e0", "java.lang.Throwable", "getCause", "()Ljava/lang/Throwable;",
+                    "java.lang.Throwable"));
+        }
         Set<String> observedCandidateKeys = new LinkedHashSet<>();
+        Map<String, LlmPostProcessingResponseParser.SelectableCandidate> selectableCandidates =
+                new LinkedHashMap<>();
+        PromptVariantCapabilities capabilities = this.capabilities;
         for (CandidateFact fact : candidateFacts) {
             if (fact.getAssertionKey() != null) {
                 observedCandidateKeys.add(fact.getAssertionKey());
+            }
+            if (isCandidateSelectable(fact, capabilities.hasAssertableTypesOnly(),
+                    capabilities.hasStabilityLabels())) {
+                selectableCandidates.put(fact.getCandidateId(),
+                        candidateWithDefaultPlacement(fact, throwingStatementId));
             }
         }
         Set<String> setupInputVariableIds = new LinkedHashSet<>();
@@ -370,15 +691,56 @@ public final class LlmPostProcessingPromptContext {
             }
         }
         return LlmPostProcessingResponseParser.context(
-                references.getStatementIds(), references.getVariableIds(), callableMethods, observedCandidateKeys,
-                setupInputVariableIds, variableTypes);
+                references.getStatementIds(), expressionVariableIds, callableMethods, observedCandidateKeys,
+                setupInputVariableIds, variableTypes, selectableCandidates, throwingStatementId)
+                .withOptions(options);
     }
 
-    private static String declaredType(VariableReference returnValue) {
+    private static LlmPostProcessingResponseParser.SelectableCandidate candidateWithDefaultPlacement(
+            CandidateFact fact, String throwingStatementId) {
+        LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
+        if (candidate == null || throwingStatementId == null) {
+            return candidate;
+        }
+        if (fact.getReferencedIds().contains("e0") || "IN_CATCH".equals(fact.getPhase())) {
+            return candidate.withDefaultPlacement(
+                    LlmPostProcessingResponse.AssertionSite.IN_CATCH, null, "e0");
+        }
+        int throwingPosition = stableIdIndex(throwingStatementId);
+        int latestReferencedPosition = -1;
+        for (String referencedId : fact.getReferencedIds()) {
+            if (referencedId != null && referencedId.startsWith("v")) {
+                latestReferencedPosition = Math.max(latestReferencedPosition,
+                        stableIdIndex(referencedId));
+            }
+        }
+        if (latestReferencedPosition < 0 && fact.getStatementId() != null) {
+            latestReferencedPosition = stableIdIndex(fact.getStatementId());
+        }
+        if (latestReferencedPosition >= 0 && latestReferencedPosition < throwingPosition) {
+            return candidate.withDefaultPlacement(
+                    LlmPostProcessingResponse.AssertionSite.BEFORE_TRY,
+                    LlmPostProcessingReferences.statementId(latestReferencedPosition), null);
+        }
+        return candidate;
+    }
+
+    private static String declaredType(Statement statement, VariableReference returnValue) {
         if (returnValue == null || returnValue.isVoid()) {
             return null;
         }
-        Type type = returnValue.getType();
+        Type type = null;
+        if (statement instanceof MethodStatement && ((MethodStatement) statement).getMethod() != null) {
+            type = ((MethodStatement) statement).getMethod().getReturnType();
+        } else if (statement instanceof ConstructorStatement
+                && ((ConstructorStatement) statement).getConstructor() != null) {
+            type = ((ConstructorStatement) statement).getConstructor().getReturnType();
+        } else if (statement instanceof FieldStatement && ((FieldStatement) statement).getField() != null) {
+            type = ((FieldStatement) statement).getField().getFieldType();
+        }
+        if (type == null) {
+            type = returnValue.getType();
+        }
         return type == null ? null : type.getTypeName();
     }
 
@@ -401,7 +763,8 @@ public final class LlmPostProcessingPromptContext {
         return code.trim().replace("\r\n", "\n").replace('\r', '\n');
     }
 
-    private static List<ExceptionContext> exceptionContexts(ExecutionResult executionResult) {
+    private static List<ExceptionContext> exceptionContexts(ExecutionResult executionResult,
+                                                            PostProcessingOptions options) {
         if (executionResult == null || executionResult.noThrownExceptions()) {
             return Collections.emptyList();
         }
@@ -416,26 +779,40 @@ public final class LlmPostProcessingPromptContext {
                     LlmPostProcessingReferences.statementId(position),
                     throwable.getClass().getName(),
                     Boolean.TRUE.equals(executionResult.getExplicitExceptions().get(position)),
-                    sanitizedMessage(throwable.getMessage())));
+                    sanitizedMessage(throwable.getMessage(), options),
+                    isCompleteExceptionMessage(throwable.getMessage(), options),
+                    throwable.getCause() == null));
         }
         contexts.sort((left, right) -> left.getStatementId().compareTo(right.getStatementId()));
         return contexts;
     }
 
-    private static String sanitizedMessage(String message) {
+    private static String sanitizedMessage(String message, PostProcessingOptions options) {
         if (message == null || message.isEmpty()) {
             return null;
         }
         String sanitized = message.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ').trim();
-        int maxChars = Math.max(1, Properties.LLM_POSTPROCESSING_MAX_LITERAL_CHARS);
+        int maxChars = Math.max(1, options.assertionPolicy().maxLiteralChars());
         if (sanitized.length() > maxChars) {
             sanitized = sanitized.substring(0, maxChars);
         }
         return "\"" + escapeJava(sanitized) + "\"";
     }
 
+    private static boolean isCompleteExceptionMessage(String message, PostProcessingOptions options) {
+        if (message == null || message.isEmpty()) {
+            return true;
+        }
+        String sanitized = message.replace('\r', ' ').replace('\n', ' ')
+                .replace('\t', ' ').trim();
+        return sanitized.length() <= Math.max(1, options.assertionPolicy().maxLiteralChars());
+    }
+
     private static List<CandidateFact> candidateFacts(LlmPostProcessingReferences references,
-                                                      List<Assertion> assertions) {
+                                                      List<Assertion> assertions,
+                                                      ExecutionResult stabilityExecutionResult,
+                                                      PromptVariantCapabilities capabilities,
+                                                      PostProcessingOptions options) {
         if (assertions == null || assertions.isEmpty()) {
             return Collections.emptyList();
         }
@@ -450,16 +827,30 @@ public final class LlmPostProcessingPromptContext {
             if (statementId == null && sourceId == null && referencedIds.isEmpty()) {
                 continue;
             }
+            LlmPostProcessingResponseParser.SelectableCandidate selectable =
+                    selectableCandidate(references, assertion);
+            boolean assertable = candidateIsAssertable(references, assertion);
+            StabilityEvidence stability = stabilityEvidence(assertion, stabilityExecutionResult);
             facts.add(new CandidateFact(
+                    null,
                     statementId == null ? "s?" : statementId,
                     sourceId,
                     assertion.getClass().getSimpleName(),
-                    valueSummaryText(assertion.getValue()),
+                    valueSummaryText(assertion.getValue(), options),
                     referencedIds,
-                    assertionKey(references, assertion)));
+                    assertionKey(references, assertion, options),
+                    selectable,
+                    "UNKNOWN",
+                    50,
+                    stability.label,
+                    stability.reason,
+                    assertable));
         }
+        facts = assignCandidateRolesAndRanks(facts);
         facts.sort((left, right) -> {
-            int priority = Integer.compare(candidatePriority(left.getKind()), candidatePriority(right.getKind()));
+            int leftRank = capabilities.hasActionRoles() ? left.getRank() : candidatePriority(left.getKind());
+            int rightRank = capabilities.hasActionRoles() ? right.getRank() : candidatePriority(right.getKind());
+            int priority = Integer.compare(leftRank, rightRank);
             if (priority != 0) {
                 return priority;
             }
@@ -475,10 +866,431 @@ public final class LlmPostProcessingPromptContext {
             }
             return left.getKind().compareTo(right.getKind());
         });
-        return facts;
+        int limit = options.contextLimits().candidateFacts();
+        if (limit > 0 && facts.size() > limit) {
+            List<CandidateFact> ranked = new ArrayList<>();
+            Set<String> diversityKeys = new LinkedHashSet<>();
+            for (CandidateFact fact : facts) {
+                String key = String.valueOf(fact.getSourceId()) + "|" + fact.getKind();
+                if (diversityKeys.add(key)) {
+                    ranked.add(fact);
+                    if (ranked.size() >= limit) {
+                        break;
+                    }
+                }
+            }
+            if (ranked.size() < limit) {
+                for (CandidateFact fact : facts) {
+                    if (!ranked.contains(fact)) {
+                        ranked.add(fact);
+                        if (ranked.size() >= limit) {
+                            break;
+                        }
+                    }
+                }
+            }
+            facts = ranked;
+        }
+        List<CandidateFact> identified = new ArrayList<>();
+        int candidateIndex = 0;
+        for (CandidateFact fact : facts) {
+            String candidateId = fact.getSelectableCandidate() == null ? null : "c" + candidateIndex++;
+            identified.add(fact.withCandidateId(candidateId));
+        }
+        return identified;
     }
 
-    private static String assertionKey(LlmPostProcessingReferences references, Assertion assertion) {
+    private static List<CandidateFact> appendExceptionCandidateFacts(
+            List<CandidateFact> original,
+            List<ExceptionContext> exceptions,
+            ExecutionResult stabilityExecutionResult,
+            PromptVariantCapabilities capabilities,
+            PostProcessingOptions options) {
+        if (!capabilities.hasExceptionAdjacentPlacements() || exceptions.isEmpty()) {
+            return original;
+        }
+        ExceptionContext observed = exceptions.get(0);
+        Throwable repeated = repeatedExceptionAt(
+                stabilityExecutionResult, stableIdIndex(observed.getStatementId()));
+        String repeatedMessage = repeated == null
+                ? null : sanitizedMessage(repeated.getMessage(), options);
+        boolean stable = observed.isMessageComplete()
+                && repeated != null
+                && isCompleteExceptionMessage(repeated.getMessage(), options)
+                && repeated.getClass().getName().equals(observed.getType())
+                && java.util.Objects.equals(repeatedMessage, observed.getMessage());
+        if (!stable) {
+            return original;
+        }
+        List<CandidateFact> result = new ArrayList<>(original);
+        int nextId = 0;
+        for (CandidateFact fact : original) {
+            if (fact.getCandidateId() != null) {
+                nextId++;
+            }
+        }
+        LlmPostProcessingResponse.AssertionKind kind = observed.getMessage() == null
+                ? LlmPostProcessingResponse.AssertionKind.NULL
+                : LlmPostProcessingResponse.AssertionKind.EQUALS;
+        LlmPostProcessingResponseParser.SelectableCandidate selectable =
+                new LlmPostProcessingResponseParser.SelectableCandidate(
+                        kind, observed.getMessage(), "e0.getMessage()", null);
+        result.add(new CandidateFact("c" + nextId, observed.getStatementId(), "e0",
+                "ExceptionMessageAssertion", observed.getMessage(),
+                Collections.singletonList("e0"),
+                assertionKey(kind.name(), observed.getMessage(), "e0.getMessage()", null),
+                selectable, "IN_CATCH", 10, "STABLE", null, true));
+        if (observed.isCauseNull() && repeated.getCause() == null) {
+            LlmPostProcessingResponseParser.SelectableCandidate causeCandidate =
+                    new LlmPostProcessingResponseParser.SelectableCandidate(
+                            LlmPostProcessingResponse.AssertionKind.NULL,
+                            null, "e0.getCause()", null);
+            result.add(new CandidateFact("c" + (nextId + 1), observed.getStatementId(), "e0",
+                    "ExceptionCauseNullAssertion", "null", Collections.singletonList("e0"),
+                    assertionKey("NULL", null, "e0.getCause()", null),
+                    causeCandidate, "IN_CATCH", 20, "STABLE", null, true));
+        }
+        return result;
+    }
+
+    private static Throwable repeatedExceptionAt(ExecutionResult result, int position) {
+        if (result == null || position < 0) {
+            return null;
+        }
+        return result.getCopyOfExceptionMapping().get(position);
+    }
+
+    private static List<CandidateFact> assignCandidateRolesAndRanks(List<CandidateFact> facts) {
+        int latestStatement = -1;
+        for (CandidateFact fact : facts) {
+            latestStatement = Math.max(latestStatement, stableIdIndex(fact.getStatementId()));
+        }
+        List<CandidateFact> result = new ArrayList<>();
+        for (CandidateFact fact : facts) {
+            int position = stableIdIndex(fact.getStatementId());
+            String phase = position == latestStatement ? "RESULT" : "POST_STATE";
+            int rank;
+            if (position == latestStatement && !"NullAssertion".equals(fact.getKind())) {
+                rank = 10;
+            } else if ("EqualsAssertion".equals(fact.getKind())
+                    || "CompareAssertion".equals(fact.getKind())
+                    || "SameAssertion".equals(fact.getKind())) {
+                rank = 20;
+            } else if ("PrimitiveAssertion".equals(fact.getKind())
+                    && !"0".equals(fact.getObservedValue())
+                    && !"false".equals(fact.getObservedValue())
+                    && !"null".equals(fact.getObservedValue())) {
+                rank = 30;
+            } else {
+                rank = 60 + candidatePriority(fact.getKind());
+            }
+            result.add(fact.withRoleAndRank(phase, rank));
+        }
+        return result;
+    }
+
+    private static List<CandidateFact> actionRankedCandidateFacts(
+            List<CandidateFact> facts, List<StatementContext> statements) {
+        StatementContext lastAction = null;
+        for (StatementContext statement : statements) {
+            if ("ACTION".equals(statement.getPhase())) {
+                lastAction = statement;
+            }
+        }
+        if (lastAction == null) {
+            return facts;
+        }
+        List<CandidateFact> ranked = new ArrayList<>();
+        Set<String> postStateIds = new LinkedHashSet<>(lastAction.getArgumentIds());
+        if (lastAction.getReceiverId() != null) {
+            postStateIds.add(lastAction.getReceiverId());
+        }
+        for (CandidateFact fact : facts) {
+            String phase;
+            int rank;
+            if (lastAction.getVariableId() != null
+                    && lastAction.getVariableId().equals(fact.getSourceId())) {
+                phase = "RESULT";
+                rank = 10;
+            } else if (postStateIds.contains(fact.getSourceId())) {
+                phase = "POST_STATE";
+                rank = 20;
+            } else if (fact.getReferencedIds().size() > 1) {
+                phase = "RELATION";
+                rank = 30;
+            } else {
+                phase = "SETUP";
+                rank = 80 + candidatePriority(fact.getKind());
+            }
+            ranked.add(fact.withCandidateId(null).withRoleAndRank(phase, rank));
+        }
+        ranked.sort(Comparator.comparingInt(CandidateFact::getRank)
+                .thenComparing(CandidateFact::getStatementId)
+                .thenComparing(fact -> fact.getSourceId() == null ? "" : fact.getSourceId())
+                .thenComparing(CandidateFact::getKind));
+        List<CandidateFact> identified = new ArrayList<>();
+        int candidateId = 0;
+        for (CandidateFact fact : ranked) {
+            identified.add(fact.withCandidateId(
+                    fact.getSelectableCandidate() == null ? null : "c" + candidateId++));
+        }
+        return identified;
+    }
+
+    private static int stableIdIndex(String id) {
+        if (id == null || id.length() < 2) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(id.substring(1));
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private static StabilityEvidence stabilityEvidence(Assertion assertion,
+                                                       ExecutionResult stabilityExecutionResult) {
+        if (stabilityExecutionResult == null || stabilityExecutionResult.getFinalScope() == null) {
+            return new StabilityEvidence("UNKNOWN", "missing_scope");
+        }
+        if (stabilityExecutionResult.hasTimeout() || stabilityExecutionResult.hasTestException()) {
+            return new StabilityEvidence("UNKNOWN", "exception_or_timeout");
+        }
+        try {
+            return assertion.evaluate(stabilityExecutionResult.getFinalScope())
+                    ? new StabilityEvidence("STABLE", null)
+                    : new StabilityEvidence("UNSTABLE", "changed_value");
+        } catch (RuntimeException | AssertionError error) {
+            return new StabilityEvidence("UNKNOWN", "evaluation_failure");
+        }
+    }
+
+    private static boolean candidateIsAssertable(LlmPostProcessingReferences references, Assertion assertion) {
+        for (VariableReference variable : assertion.getReferencedVariables()) {
+            if (variableId(references, variable) == null || !isAccessibleType(variable.getVariableClass())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isAccessibleType(Class<?> type) {
+        if (type == null || type.isPrimitive()) {
+            return true;
+        }
+        if (type.isArray()) {
+            return isAccessibleType(type.getComponentType());
+        }
+        for (Class<?> current = type; current != null; current = current.getEnclosingClass()) {
+            if (!Modifier.isPublic(current.getModifiers())) {
+                // Assertion snippets are compiled in a generated helper class,
+                // not in the SUT package. Same-package access in the final
+                // EvoSuite test does not make this type snippet-safe.
+                return false;
+            }
+        }
+        return OracleTypeAccessibility.isAccessible(type);
+    }
+
+    private static List<RelationalOpportunity> relationalOpportunities(
+            List<StatementContext> statements, List<CandidateFact> facts,
+            List<CallableMember> callableMembers) {
+        List<RelationalOperand> operands = new ArrayList<>();
+        Set<String> seenExpressions = new LinkedHashSet<>();
+        for (CandidateFact fact : facts) {
+            LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
+            if (candidate != null && candidate.getActual() != null
+                    && candidate.getActual().matches("v[0-9]+")
+                    && seenExpressions.add(candidate.getActual())) {
+                operands.add(new RelationalOperand(candidate.getActual(),
+                        declaredTypeForId(statements, fact.getSourceId()), fact.getPhase()));
+            }
+        }
+        for (CallableMember member : callableMembers) {
+            if (member.getReceiverId() == null || member.getObservedResult() == null
+                    || !member.getSignature().contains("()")) {
+                continue;
+            }
+            String expression = member.getReceiverId() + "." + readableSignature(member.getSignature());
+            if (seenExpressions.add(expression)) {
+                operands.add(new RelationalOperand(expression, member.getReturnType(), "OBSERVED"));
+            }
+        }
+        for (StatementContext statement : statements) {
+            if (statement.getVariableId() != null && statement.getDeclaredType() != null
+                    && seenExpressions.add(statement.getVariableId())) {
+                operands.add(new RelationalOperand(statement.getVariableId(),
+                        statement.getDeclaredType(), statement.getPhase()));
+            }
+        }
+        List<RelationalOpportunity> result = new ArrayList<>();
+        Set<String> seenPairs = new LinkedHashSet<>();
+        for (int leftIndex = 0; leftIndex < operands.size(); leftIndex++) {
+            RelationalOperand left = operands.get(leftIndex);
+            for (int rightIndex = leftIndex + 1; rightIndex < operands.size(); rightIndex++) {
+                RelationalOperand right = operands.get(rightIndex);
+                if (!compatibleRelationalTypes(left.type, right.type)) {
+                    continue;
+                }
+                String key = left.expression + "\n" + right.expression;
+                if (!seenPairs.add(key)) {
+                    continue;
+                }
+                String relation = isNumericType(left.type)
+                        ? "COMPARE_RESULTS" : "IDENTITY_OR_EQUALITY";
+                result.add(new RelationalOpportunity("r" + result.size(), left.expression,
+                        right.expression, left.type, relation));
+            }
+        }
+        return result;
+    }
+
+    private static String declaredTypeForId(List<StatementContext> statements, String variableId) {
+        if (variableId == null) {
+            return null;
+        }
+        for (StatementContext statement : statements) {
+            if (variableId.equals(statement.getVariableId())) {
+                return statement.getDeclaredType();
+            }
+        }
+        return null;
+    }
+
+    private static boolean compatibleRelationalTypes(String left, String right) {
+        if (left == null || right == null) {
+            return false;
+        }
+        return left.equals(right) || (isNumericType(left) && isNumericType(right));
+    }
+
+    private static boolean isNumericType(String type) {
+        return type != null && type.replace("java.lang.", "")
+                .matches("byte|short|int|long|float|double|Byte|Short|Integer|Long|Float|Double");
+    }
+
+    private static String statementPhase(Statement statement) {
+        if (statement instanceof ConstructorStatement || statement instanceof PrimitiveStatement<?>
+                || statement instanceof ArrayStatement) {
+            return "SETUP";
+        }
+        if (statement instanceof MethodStatement) {
+            MethodStatement method = (MethodStatement) statement;
+            Class<?> declaringClass = method.getMethod() == null ? null
+                    : method.getMethod().getDeclaringClass();
+            if (declaringClass != null && Properties.TARGET_CLASS != null
+                    && Properties.TARGET_CLASS.equals(declaringClass.getName())) {
+                return "ACTION";
+            }
+        }
+        return "UNKNOWN";
+    }
+
+    private static String statementReceiverId(LlmPostProcessingReferences references, Statement statement) {
+        if (!(statement instanceof MethodStatement)) {
+            return null;
+        }
+        return variableId(references, ((MethodStatement) statement).getCallee());
+    }
+
+    private static List<String> statementArgumentIds(LlmPostProcessingReferences references, Statement statement) {
+        if (!(statement instanceof org.evosuite.testcase.statements.EntityWithParametersStatement)) {
+            return Collections.emptyList();
+        }
+        List<String> result = new ArrayList<>();
+        for (VariableReference parameter :
+                ((org.evosuite.testcase.statements.EntityWithParametersStatement) statement)
+                        .getParameterReferences()) {
+            String id = variableId(references, parameter);
+            if (id != null) {
+                result.add(id);
+            }
+        }
+        return result;
+    }
+
+    private static LlmPostProcessingResponseParser.SelectableCandidate selectableCandidate(
+            LlmPostProcessingReferences references, Assertion assertion) {
+        String code;
+        try {
+            code = assertion.getCode();
+        } catch (RuntimeException | AssertionError error) {
+            return null;
+        }
+        if (code == null) {
+            return null;
+        }
+        Map<String, String> stableVariableIds = new LinkedHashMap<>();
+        for (VariableReference variable : assertion.getReferencedVariables()) {
+            String id = variableId(references, variable);
+            if (id != null && variable.getName() != null) {
+                stableVariableIds.put(variable.getName(), id);
+            }
+        }
+        code = code.trim();
+        if (code.endsWith(";")) {
+            code = code.substring(0, code.length() - 1);
+        }
+        try {
+            Expression expression = StaticJavaParser.parseExpression(code);
+            for (NameExpr name : expression.findAll(NameExpr.class)) {
+                String id = stableVariableIds.get(name.getNameAsString());
+                if (id != null) {
+                    name.setName(id);
+                }
+            }
+            if (!(expression instanceof MethodCallExpr)) {
+                return null;
+            }
+            MethodCallExpr call = (MethodCallExpr) expression;
+            String method = call.getNameAsString();
+            List<Expression> arguments = call.getArguments();
+            LlmPostProcessingResponse.AssertionKind kind;
+            String expected = null;
+            String actual;
+            String delta = null;
+            if (("assertEquals".equals(method) || "assertArrayEquals".equals(method))
+                    && arguments.size() >= 2) {
+                kind = LlmPostProcessingResponse.AssertionKind.EQUALS;
+                expected = arguments.get(0).toString();
+                actual = arguments.get(1).toString();
+                delta = arguments.size() >= 3 ? arguments.get(2).toString() : null;
+            } else if ("assertNotEquals".equals(method) && arguments.size() >= 2) {
+                kind = LlmPostProcessingResponse.AssertionKind.NOT_EQUALS;
+                expected = arguments.get(0).toString();
+                actual = arguments.get(1).toString();
+            } else if ("assertTrue".equals(method) && arguments.size() == 1) {
+                kind = LlmPostProcessingResponse.AssertionKind.TRUE;
+                actual = arguments.get(0).toString();
+            } else if ("assertFalse".equals(method) && arguments.size() == 1) {
+                kind = LlmPostProcessingResponse.AssertionKind.FALSE;
+                actual = arguments.get(0).toString();
+            } else if ("assertNull".equals(method) && arguments.size() == 1) {
+                kind = LlmPostProcessingResponse.AssertionKind.NULL;
+                actual = arguments.get(0).toString();
+            } else if ("assertNotNull".equals(method) && arguments.size() == 1) {
+                kind = LlmPostProcessingResponse.AssertionKind.NOT_NULL;
+                actual = arguments.get(0).toString();
+            } else if ("assertSame".equals(method) && arguments.size() == 2) {
+                kind = LlmPostProcessingResponse.AssertionKind.SAME;
+                expected = arguments.get(0).toString();
+                actual = arguments.get(1).toString();
+            } else if ("assertNotSame".equals(method) && arguments.size() == 2) {
+                kind = LlmPostProcessingResponse.AssertionKind.NOT_SAME;
+                expected = arguments.get(0).toString();
+                actual = arguments.get(1).toString();
+            } else {
+                return null;
+            }
+            return new LlmPostProcessingResponseParser.SelectableCandidate(
+                    kind, expected, actual, delta);
+        } catch (RuntimeException error) {
+            return null;
+        }
+    }
+
+    private static String assertionKey(LlmPostProcessingReferences references, Assertion assertion,
+                                       PostProcessingOptions options) {
         String sourceId = variableId(references, assertion.getSource());
         if (sourceId == null) {
             return null;
@@ -508,7 +1320,7 @@ public final class LlmPostProcessingPromptContext {
             return assertionKey("EQUALS", String.valueOf(value), sourceId + ".length", null);
         }
         Object value = assertion.getValue();
-        String expected = valueSummaryText(value);
+        String expected = valueSummaryText(value, options);
         if (expected == null) {
             return null;
         }
@@ -594,8 +1406,8 @@ public final class LlmPostProcessingPromptContext {
         return references.hasVariableId(variableId) ? variableId : null;
     }
 
-    private static String valueSummaryText(Object value) {
-        ValueSummary summary = valueSummary(value);
+    private static String valueSummaryText(Object value, PostProcessingOptions options) {
+        ValueSummary summary = valueSummary(value, options);
         return summary == null ? null : summary.value;
     }
 
@@ -620,7 +1432,8 @@ public final class LlmPostProcessingPromptContext {
     }
 
     private static Observation primitiveInputObservation(String statementId, String variableId,
-                                                         Statement statement) {
+                                                         Statement statement,
+                                                         PostProcessingOptions options) {
         if (variableId == null || !(statement instanceof PrimitiveStatement<?>)) {
             return null;
         }
@@ -629,7 +1442,7 @@ public final class LlmPostProcessingPromptContext {
         if (literal == null) {
             return null;
         }
-        int maxChars = Math.max(1, Properties.LLM_POSTPROCESSING_MAX_LITERAL_CHARS);
+        int maxChars = Math.max(1, options.assertionPolicy().maxLiteralChars());
         boolean complete = literal.length() <= maxChars;
         if (!complete) {
             literal = literal.substring(0, maxChars);
@@ -638,48 +1451,53 @@ public final class LlmPostProcessingPromptContext {
     }
 
     private static Observation finalScopeObservation(String statementId, String variableId, Statement statement,
-                                                     VariableReference returnValue, Scope finalScope) {
+                                                     VariableReference returnValue, Scope finalScope,
+                                                     PostProcessingOptions options) {
         if (variableId == null || finalScope == null || statement instanceof PrimitiveStatement<?>) {
             return null;
         }
         Object value = finalScopeValue(returnValue, finalScope);
-        ValueSummary summary = valueSummary(value);
+        ValueSummary summary = valueSummary(value, options);
         if (summary == null) {
             return null;
         }
-        return new Observation(statementId, variableId, provenance(statement), summary.value, summary.complete,
-                summary.relationalOnly);
+        String provenance = provenance(statement);
+        return new Observation(statementId, variableId, provenance, summary.value, summary.complete,
+                "INPUT".equals(provenance) || summary.relationalOnly);
     }
 
     private static String provenance(Statement statement) {
+        if ("SETUP".equals(statementPhase(statement))) {
+            return "INPUT";
+        }
         if (statement instanceof FieldStatement) {
             return "FIELD_OBSERVATION";
         }
         return "SUT_RETURN";
     }
 
-    private static ValueSummary valueSummary(Object value) {
+    private static ValueSummary valueSummary(Object value, PostProcessingOptions options) {
         String literal = literalValue(value);
         if (literal != null) {
-            int maxChars = Math.max(1, Properties.LLM_POSTPROCESSING_MAX_LITERAL_CHARS);
+            int maxChars = Math.max(1, options.assertionPolicy().maxLiteralChars());
             boolean complete = literal.length() <= maxChars;
             return new ValueSummary(complete ? literal : literal.substring(0, maxChars), complete, !complete);
         }
         if (value != null && value.getClass().isArray()) {
-            return arraySummary(value);
+            return arraySummary(value, options);
         }
         if (value instanceof Collection<?>) {
-            return collectionSummary((Collection<?>) value);
+            return collectionSummary((Collection<?>) value, options);
         }
         if (value instanceof Map<?, ?>) {
-            return mapSummary((Map<?, ?>) value);
+            return mapSummary((Map<?, ?>) value, options);
         }
         return null;
     }
 
-    private static ValueSummary arraySummary(Object array) {
+    private static ValueSummary arraySummary(Object array, PostProcessingOptions options) {
         int length = Array.getLength(array);
-        int maxElements = Math.max(0, Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS);
+        int maxElements = options.contextLimits().collectionElements();
         List<String> elements = new ArrayList<>();
         boolean complete = length <= maxElements;
         for (int i = 0; i < length && i < maxElements; i++) {
@@ -694,8 +1512,8 @@ public final class LlmPostProcessingPromptContext {
                 complete, !complete);
     }
 
-    private static ValueSummary collectionSummary(Collection<?> collection) {
-        int maxElements = Math.max(0, Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS);
+    private static ValueSummary collectionSummary(Collection<?> collection, PostProcessingOptions options) {
+        int maxElements = options.contextLimits().collectionElements();
         List<String> elements = new ArrayList<>();
         int size;
         java.util.Iterator<?> iterator;
@@ -727,8 +1545,8 @@ public final class LlmPostProcessingPromptContext {
                 + String.join(", ", elements) + "]", complete, !complete);
     }
 
-    private static ValueSummary mapSummary(Map<?, ?> map) {
-        int maxElements = Math.max(0, Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS);
+    private static ValueSummary mapSummary(Map<?, ?> map, PostProcessingOptions options) {
+        int maxElements = options.contextLimits().collectionElements();
         List<String> entries = new ArrayList<>();
         int size;
         Set<? extends Map.Entry<?, ?>> entrySet;
@@ -765,16 +1583,18 @@ public final class LlmPostProcessingPromptContext {
     }
 
     private static List<CallableMember> callableMembers(String variableId, VariableReference returnValue,
-                                                        Object runtimeValue, Set<String> advertisedTypes) {
+                                                        String typeName, Object runtimeValue,
+                                                        Set<String> advertisedTypes,
+                                                        PostProcessingOptions options) {
         if (variableId == null || returnValue == null || returnValue.isVoid() || returnValue.isPrimitive()) {
             return Collections.emptyList();
         }
-        String typeName = declaredType(returnValue);
         if (typeName == null) {
             return Collections.emptyList();
         }
         List<CallableMember> members = new ArrayList<>();
-        addCuratedCallableMembers(members, variableId, typeName, runtimeValue);
+        Class<?> declaredClass = classForTypeName(typeName, runtimeValue);
+        addCuratedCallableMembers(members, variableId, typeName, runtimeValue, options);
         if ("java.lang.Boolean".equals(typeName) || "Boolean".equals(typeName)) {
             add(members, variableId, "java.lang.Boolean", "booleanValue()Z", "boolean");
         } else if ("java.lang.Byte".equals(typeName) || "Byte".equals(typeName)) {
@@ -814,19 +1634,20 @@ public final class LlmPostProcessingPromptContext {
                             : null);
             add(members, variableId, "java.math.BigDecimal", "compareTo(Ljava/math/BigDecimal;)I", "int");
         }
-        if (Properties.LLM_POSTPROCESSING_CALLABLE_POLICY == Properties.LlmPostProcessingCallablePolicy.INSPECTORS_ONLY
-                || Properties.LLM_POSTPROCESSING_CALLABLE_POLICY == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
-            addInspectorMembers(members, variableId, runtimeValue);
+        if (options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.INSPECTORS_ONLY
+                || options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
+            addInspectorMembers(members, variableId, declaredClass, runtimeValue);
         }
-        if (Properties.LLM_POSTPROCESSING_CALLABLE_POLICY == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED
-                && runtimeValue != null) {
-            addPureBoundedMembers(members, variableId, runtimeValue.getClass(), advertisedTypes, 0);
+        if (options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED
+                && declaredClass != null) {
+            addPureBoundedMembers(members, variableId, declaredClass, advertisedTypes, 0, options);
         }
         return deduplicateCallableMembers(members);
     }
 
     private static void addCuratedCallableMembers(List<CallableMember> members, String receiverId,
-                                                  String typeName, Object runtimeValue) {
+                                                  String typeName, Object runtimeValue,
+                                                  PostProcessingOptions options) {
         Class<?> type = classForTypeName(typeName, runtimeValue);
         String owner = type == null ? typeName : type.getTypeName();
         if (isStringType(typeName, type)) {
@@ -851,7 +1672,7 @@ public final class LlmPostProcessingPromptContext {
                 // return type is the observed homogeneous element type so numeric or
                 // string element equality passes the operand type check; otherwise
                 // it degrades to Object (still usable for null/identity assertions).
-                String elementType = commonElementTypeName(collection);
+                String elementType = commonElementTypeName(collection, options);
                 add(members, receiverId, owner, "get(I)Ljava/lang/Object;",
                         elementType == null ? "java.lang.Object" : elementType);
             }
@@ -896,17 +1717,48 @@ public final class LlmPostProcessingPromptContext {
     }
 
     private static Class<?> classForTypeName(String typeName, Object runtimeValue) {
-        if (runtimeValue != null) {
-            return runtimeValue.getClass();
-        }
         if (typeName == null || typeName.trim().isEmpty()) {
             return null;
+        }
+        if (runtimeValue != null) {
+            Class<?> matchingRuntimeType = namedSupertype(runtimeValue.getClass(), typeName,
+                    new LinkedHashSet<Class<?>>());
+            if (matchingRuntimeType != null) {
+                return matchingRuntimeType;
+            }
+        }
+        try {
+            ClassLoader loader = org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT();
+            return Class.forName(typeName, false, loader);
+        } catch (Throwable ignored) {
+            // Fall back to EvoSuite's own loader for JDK and harness types.
         }
         try {
             return Class.forName(typeName);
         } catch (Throwable ignored) {
+            // Some legacy/uninterpreted statements retain only a runtime-resolved
+            // local type name (notably package-private JDK collection classes).
+            // Method/constructor/field statements are handled above with their
+            // recoverable compile-time declaration, so this fallback is limited
+            // to cases where no declared class can be resolved at all.
+            return runtimeValue == null ? null : runtimeValue.getClass();
+        }
+    }
+
+    private static Class<?> namedSupertype(Class<?> type, String typeName, Set<Class<?>> visited) {
+        if (type == null || !visited.add(type)) {
             return null;
         }
+        if (typeName.equals(type.getTypeName()) || typeName.equals(type.getName())) {
+            return type;
+        }
+        for (Class<?> interfaceType : type.getInterfaces()) {
+            Class<?> match = namedSupertype(interfaceType, typeName, visited);
+            if (match != null) {
+                return match;
+            }
+        }
+        return namedSupertype(type.getSuperclass(), typeName, visited);
     }
 
     private static boolean isStringType(String typeName, Class<?> type) {
@@ -918,7 +1770,7 @@ public final class LlmPostProcessingPromptContext {
      * elements are homogeneous, otherwise {@code null}. Used to give {@code get}
      * a concrete return type instead of the erased {@code Object}.
      */
-    private static String commonElementTypeName(Collection<?> collection) {
+    private static String commonElementTypeName(Collection<?> collection, PostProcessingOptions options) {
         if (collection == null) {
             return null;
         }
@@ -934,7 +1786,7 @@ public final class LlmPostProcessingPromptContext {
         if (iterator == null) {
             return null;
         }
-        int maxElements = Math.max(1, Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS);
+        int maxElements = Math.max(1, options.contextLimits().collectionElements());
         Class<?> common = null;
         int seen = 0;
         while (iterator.hasNext()) {
@@ -956,11 +1808,12 @@ public final class LlmPostProcessingPromptContext {
     }
 
     private static void addPureBoundedMembers(List<CallableMember> members, String receiverId, Class<?> receiverType,
-                                              Set<String> advertisedTypes, int depth) {
+                                              Set<String> advertisedTypes, int depth,
+                                              PostProcessingOptions options) {
         if (receiverType == null || !TestUsageChecker.canUse(receiverType)) {
             return;
         }
-        int limit = Math.max(0, Properties.LLM_POSTPROCESSING_MAX_CALLABLE_MEMBERS_PER_TYPE);
+        int limit = options.assertionPolicy().maxCallableMembersPerType();
         int accepted = 0;
         List<Method> methods = new ArrayList<>(Arrays.asList(receiverType.getMethods()));
         // Rank the most assertable members first so the per-type cap keeps them:
@@ -973,26 +1826,29 @@ public final class LlmPostProcessingPromptContext {
             if (accepted >= limit) {
                 break;
             }
-            if (!isPureBoundedCallable(method)) {
+            if (!isPureBoundedCallable(method, options)) {
                 continue;
             }
             add(members, receiverId, receiverType.getTypeName(),
                     method.getName() + org.objectweb.asm.Type.getMethodDescriptor(method),
                     method.getReturnType().getTypeName());
             accepted++;
-            addCallableTypeMembersForReturnType(members, method.getReturnType(), advertisedTypes, depth + 1);
+            addCallableTypeMembersForReturnType(
+                    members, method.getReturnType(), advertisedTypes, depth + 1, options);
         }
     }
 
     private static void addCallableTypeMembersForReturnType(List<CallableMember> members, Class<?> returnType,
-                                                            Set<String> advertisedTypes, int depth) {
-        if (!Properties.LLM_POSTPROCESSING_ALLOW_CHAINED_CALLS || returnType == null || returnType.equals(Void.TYPE)) {
+                                                            Set<String> advertisedTypes, int depth,
+                                                            PostProcessingOptions options) {
+        if (!options.assertionPolicy().allowChainedCalls()
+                || returnType == null || returnType.equals(Void.TYPE)) {
             return;
         }
-        if (depth > Math.max(0, Properties.LLM_POSTPROCESSING_MAX_CHAIN_DEPTH)) {
+        if (depth > options.assertionPolicy().maxChainDepth()) {
             return;
         }
-        int maxTypes = Math.max(0, Properties.LLM_POSTPROCESSING_MAX_CALLABLE_TYPES_PER_TEST);
+        int maxTypes = options.assertionPolicy().maxCallableTypesPerTest();
         if (maxTypes > 0 && advertisedTypes.size() >= maxTypes) {
             return;
         }
@@ -1000,9 +1856,10 @@ public final class LlmPostProcessingPromptContext {
         if (!advertisedTypes.add(typeName)) {
             return;
         }
-        addCuratedCallableMembers(members, null, typeName, null);
-        if (Properties.LLM_POSTPROCESSING_CALLABLE_POLICY == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
-            addPureBoundedMembers(members, null, returnType, advertisedTypes, depth);
+        addCuratedCallableMembers(members, null, typeName, null, options);
+        if (options.assertionPolicy().callablePolicy()
+                == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
+            addPureBoundedMembers(members, null, returnType, advertisedTypes, depth, options);
         }
     }
 
@@ -1030,7 +1887,7 @@ public final class LlmPostProcessingPromptContext {
         return rank;
     }
 
-    private static boolean isPureBoundedCallable(Method method) {
+    private static boolean isPureBoundedCallable(Method method, PostProcessingOptions options) {
         if (method == null || !Modifier.isPublic(method.getModifiers()) || Modifier.isStatic(method.getModifiers())
                 || method.isBridge() || method.isSynthetic() || method.getReturnType().equals(Void.TYPE)) {
             return false;
@@ -1039,7 +1896,7 @@ public final class LlmPostProcessingPromptContext {
                 || DENIED_INSPECTOR_METHODS.contains(method.getName())) {
             return false;
         }
-        if (method.getParameterTypes().length > Math.max(0, Properties.LLM_POSTPROCESSING_MAX_CALLABLE_ARGS)) {
+        if (method.getParameterTypes().length > options.assertionPolicy().maxCallableArgs()) {
             return false;
         }
         if (!TestUsageChecker.canUse(method)) {
@@ -1048,17 +1905,18 @@ public final class LlmPostProcessingPromptContext {
         return CheapPurityAnalyzer.getInstance().isPure(method);
     }
 
-    private static void addInspectorMembers(List<CallableMember> members, String variableId, Object runtimeValue) {
-        if (runtimeValue == null) {
+    private static void addInspectorMembers(List<CallableMember> members, String variableId,
+                                            Class<?> declaredClass, Object runtimeValue) {
+        if (declaredClass == null || runtimeValue == null) {
             return;
         }
-        Class<?> runtimeClass = runtimeValue.getClass();
-        if (runtimeClass.isArray()) {
+        if (declaredClass.isArray()) {
             return;
         }
-        for (Inspector inspector : InspectorManager.getInstance().getInspectors(runtimeClass)) {
+        for (Inspector inspector : InspectorManager.getInstance().getInspectors(declaredClass)) {
             Method method = inspector.getMethod();
-            if (!isAllowedInspectorMethod(method)) {
+            if (!isAllowedInspectorMethod(method)
+                    || !method.getDeclaringClass().isAssignableFrom(declaredClass)) {
                 continue;
             }
             String observedResult = observedInspectorResult(inspector, runtimeValue);
@@ -1152,6 +2010,30 @@ public final class LlmPostProcessingPromptContext {
         if (value instanceof Character) {
             return "'" + escapeJava(String.valueOf(value)) + "'";
         }
+        if (value instanceof Double) {
+            double doubleValue = (Double) value;
+            if (Double.isNaN(doubleValue)) {
+                return "Double.NaN";
+            }
+            if (doubleValue == Double.POSITIVE_INFINITY) {
+                return "Double.POSITIVE_INFINITY";
+            }
+            if (doubleValue == Double.NEGATIVE_INFINITY) {
+                return "Double.NEGATIVE_INFINITY";
+            }
+        }
+        if (value instanceof Float) {
+            float floatValue = (Float) value;
+            if (Float.isNaN(floatValue)) {
+                return "Float.NaN";
+            }
+            if (floatValue == Float.POSITIVE_INFINITY) {
+                return "Float.POSITIVE_INFINITY";
+            }
+            if (floatValue == Float.NEGATIVE_INFINITY) {
+                return "Float.NEGATIVE_INFINITY";
+            }
+        }
         if (value instanceof Number || value instanceof Boolean) {
             return String.valueOf(value);
         }
@@ -1217,14 +2099,20 @@ public final class LlmPostProcessingPromptContext {
         private final String declaredType;
         private final String runtimeType;
         private final String code;
+        private final String phase;
+        private final String receiverId;
+        private final List<String> argumentIds;
 
         private StatementContext(String statementId, String variableId, String declaredType, String runtimeType,
-                                 String code) {
+                                 String code, String phase, String receiverId, List<String> argumentIds) {
             this.statementId = statementId;
             this.variableId = variableId;
             this.declaredType = declaredType;
             this.runtimeType = runtimeType;
             this.code = code;
+            this.phase = phase;
+            this.receiverId = receiverId;
+            this.argumentIds = Collections.unmodifiableList(new ArrayList<>(argumentIds));
         }
 
         public String getStatementId() {
@@ -1245,6 +2133,18 @@ public final class LlmPostProcessingPromptContext {
 
         public String getCode() {
             return code;
+        }
+
+        public String getPhase() {
+            return phase;
+        }
+
+        public String getReceiverId() {
+            return receiverId;
+        }
+
+        public List<String> getArgumentIds() {
+            return argumentIds;
         }
     }
 
@@ -1345,12 +2245,17 @@ public final class LlmPostProcessingPromptContext {
         private final String type;
         private final boolean explicit;
         private final String message;
+        private final boolean messageComplete;
+        private final boolean causeNull;
 
-        private ExceptionContext(String statementId, String type, boolean explicit, String message) {
+        private ExceptionContext(String statementId, String type, boolean explicit, String message,
+                                 boolean messageComplete, boolean causeNull) {
             this.statementId = statementId;
             this.type = type;
             this.explicit = explicit;
             this.message = message;
+            this.messageComplete = messageComplete;
+            this.causeNull = causeNull;
         }
 
         public String getStatementId() {
@@ -1368,24 +2273,65 @@ public final class LlmPostProcessingPromptContext {
         public String getMessage() {
             return message;
         }
+
+        public boolean isMessageComplete() {
+            return messageComplete;
+        }
+
+        public boolean isCauseNull() {
+            return causeNull;
+        }
     }
 
     public static final class CandidateFact {
+        private final String candidateId;
         private final String statementId;
         private final String sourceId;
         private final String kind;
         private final String observedValue;
         private final List<String> referencedIds;
         private final String assertionKey;
+        private final LlmPostProcessingResponseParser.SelectableCandidate selectableCandidate;
+        private final String phase;
+        private final int rank;
+        private final String stability;
+        private final String stabilityReason;
+        private final boolean assertable;
 
-        private CandidateFact(String statementId, String sourceId, String kind, String observedValue,
-                              List<String> referencedIds, String assertionKey) {
+        private CandidateFact(String candidateId, String statementId, String sourceId, String kind,
+                              String observedValue, List<String> referencedIds, String assertionKey,
+                              LlmPostProcessingResponseParser.SelectableCandidate selectableCandidate,
+                              String phase, int rank, String stability, String stabilityReason,
+                              boolean assertable) {
+            this.candidateId = candidateId;
             this.statementId = statementId;
             this.sourceId = sourceId;
             this.kind = kind;
             this.observedValue = observedValue;
             this.referencedIds = Collections.unmodifiableList(new ArrayList<>(referencedIds));
             this.assertionKey = assertionKey;
+            this.selectableCandidate = selectableCandidate;
+            this.phase = phase;
+            this.rank = rank;
+            this.stability = stability;
+            this.stabilityReason = stabilityReason;
+            this.assertable = assertable;
+        }
+
+        private CandidateFact withCandidateId(String id) {
+            return new CandidateFact(id, statementId, sourceId, kind, observedValue,
+                    referencedIds, assertionKey, selectableCandidate, phase, rank,
+                    stability, stabilityReason, assertable);
+        }
+
+        private CandidateFact withRoleAndRank(String candidatePhase, int candidateRank) {
+            return new CandidateFact(candidateId, statementId, sourceId, kind, observedValue,
+                    referencedIds, assertionKey, selectableCandidate, candidatePhase, candidateRank,
+                    stability, stabilityReason, assertable);
+        }
+
+        public String getCandidateId() {
+            return candidateId;
         }
 
         public String getStatementId() {
@@ -1410,6 +2356,88 @@ public final class LlmPostProcessingPromptContext {
 
         public String getAssertionKey() {
             return assertionKey;
+        }
+
+        public String getPhase() {
+            return phase;
+        }
+
+        public int getRank() {
+            return rank;
+        }
+
+        public String getStability() {
+            return stability;
+        }
+
+        public String getStabilityReason() {
+            return stabilityReason;
+        }
+
+        public boolean isAssertable() {
+            return assertable;
+        }
+
+        LlmPostProcessingResponseParser.SelectableCandidate getSelectableCandidate() {
+            return selectableCandidate;
+        }
+    }
+
+    public static final class RelationalOpportunity {
+        private final String id;
+        private final String left;
+        private final String right;
+        private final String type;
+        private final String relation;
+
+        private RelationalOpportunity(String id, String left, String right, String type, String relation) {
+            this.id = id;
+            this.left = left;
+            this.right = right;
+            this.type = type;
+            this.relation = relation;
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public String getLeft() {
+            return left;
+        }
+
+        public String getRight() {
+            return right;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public String getRelation() {
+            return relation;
+        }
+    }
+
+    private static final class StabilityEvidence {
+        private final String label;
+        private final String reason;
+
+        private StabilityEvidence(String label, String reason) {
+            this.label = label;
+            this.reason = reason;
+        }
+    }
+
+    private static final class RelationalOperand {
+        private final String expression;
+        private final String type;
+        private final String phase;
+
+        private RelationalOperand(String expression, String type, String phase) {
+            this.expression = expression;
+            this.type = type;
+            this.phase = phase;
         }
     }
 }

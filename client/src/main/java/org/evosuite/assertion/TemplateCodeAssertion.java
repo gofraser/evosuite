@@ -23,8 +23,6 @@ import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.expr.ArrayCreationExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.NameExpr;
-import org.evosuite.llm.postprocess.LlmPostProcessingExpressionUtils;
-import org.evosuite.llm.postprocess.LlmPostProcessingResponse;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
@@ -54,11 +52,14 @@ public class TemplateCodeAssertion extends Assertion {
     private static final long serialVersionUID = 1L;
 
     public enum Placement {
-        END_OF_TEST
+        END_OF_TEST,
+        BEFORE_TRY,
+        IN_CATCH,
+        AFTER_CATCH
     }
 
     private final String assertionId;
-    private final LlmPostProcessingResponse.AssertionKind kind;
+    private final TemplateAssertionKind kind;
     private final String expectedExpression;
     private final String actualExpression;
     private final String deltaExpression;
@@ -67,7 +68,7 @@ public class TemplateCodeAssertion extends Assertion {
     private final Placement placement;
 
     public TemplateCodeAssertion(String assertionId,
-                                 LlmPostProcessingResponse.AssertionKind kind,
+                                 Enum<?> kind,
                                  String expectedExpression,
                                  String actualExpression,
                                  String deltaExpression,
@@ -78,7 +79,7 @@ public class TemplateCodeAssertion extends Assertion {
     }
 
     public TemplateCodeAssertion(String assertionId,
-                                 LlmPostProcessingResponse.AssertionKind kind,
+                                 Enum<?> kind,
                                  String expectedExpression,
                                  String actualExpression,
                                  String deltaExpression,
@@ -86,7 +87,7 @@ public class TemplateCodeAssertion extends Assertion {
                                  String purpose,
                                  Placement placement) {
         this.assertionId = assertionId;
-        this.kind = kind;
+        this.kind = toTemplateKind(kind);
         this.expectedExpression = normalize(expectedExpression);
         this.actualExpression = normalize(actualExpression);
         this.deltaExpression = normalize(deltaExpression);
@@ -102,7 +103,7 @@ public class TemplateCodeAssertion extends Assertion {
         return assertionId;
     }
 
-    public LlmPostProcessingResponse.AssertionKind getKind() {
+    public TemplateAssertionKind getKind() {
         return kind;
     }
 
@@ -124,10 +125,14 @@ public class TemplateCodeAssertion extends Assertion {
     }
 
     public String render(TestCodeVisitor visitor) {
-        String actual = resolveExpression(actualExpression, visitor);
-        String expected = resolveExpression(expectedExpression, visitor);
-        String delta = resolveExpression(deltaExpression, visitor);
-        boolean arrayEquality = kind == LlmPostProcessingResponse.AssertionKind.EQUALS
+        return render(visitor, null);
+    }
+
+    public String render(TestCodeVisitor visitor, String catchVariableName) {
+        String actual = resolveExceptionId(resolveExpression(actualExpression, visitor), catchVariableName);
+        String expected = resolveExceptionId(resolveExpression(expectedExpression, visitor), catchVariableName);
+        String delta = resolveExceptionId(resolveExpression(deltaExpression, visitor), catchVariableName);
+        boolean arrayEquality = kind == TemplateAssertionKind.EQUALS
                 && delta == null
                 && (isArrayOperand(expectedExpression) || isArrayOperand(actualExpression));
         return CanonicalAssertionRenderer.forConfiguredFormat().render(kind, expected, actual, delta, arrayEquality);
@@ -180,7 +185,6 @@ public class TemplateCodeAssertion extends Assertion {
     public boolean isValid() {
         return assertionId != null && !assertionId.trim().isEmpty()
                 && kind != null
-                && placement == Placement.END_OF_TEST
                 && actualExpression != null && !actualExpression.isEmpty()
                 && bindings != null;
     }
@@ -213,7 +217,11 @@ public class TemplateCodeAssertion extends Assertion {
     }
 
     public static Set<String> extractSymbolicVariables(String expression) {
-        return LlmPostProcessingExpressionUtils.extractSymbolicVariables(expression);
+        return SymbolicExpressionUtils.extractSymbolicVariables(expression);
+    }
+
+    private static TemplateAssertionKind toTemplateKind(Enum<?> kind) {
+        return kind == null ? null : TemplateAssertionKind.valueOf(kind.name());
     }
 
     private String resolveExpression(String expression, TestCodeVisitor visitor) {
@@ -244,6 +252,13 @@ public class TemplateCodeAssertion extends Assertion {
             }
             return rendered;
         }
+    }
+
+    private static String resolveExceptionId(String expression, String catchVariableName) {
+        if (expression == null || catchVariableName == null) {
+            return expression;
+        }
+        return expression.replaceAll("\\be0\\b", Matcher.quoteReplacement(catchVariableName));
     }
 
     private boolean isArrayOperand(String expression) {
