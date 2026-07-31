@@ -107,6 +107,27 @@ public class LlmPostProcessingResponse {
         assertions.add(assertion);
     }
 
+    /**
+     * Returns the non-assertion edits as a separate response for validation or
+     * repair flows that temporarily remove assertion proposals.
+     */
+    LlmPostProcessingResponse withoutAssertions() {
+        LlmPostProcessingResponse copy = new LlmPostProcessingResponse(schemaVersion);
+        copy.setAssertionDecision(assertionDecision);
+        copy.setNoAssertionReason(noAssertionReason);
+        copy.setTestName(testName);
+        for (Map.Entry<String, String> entry : variableNames.entrySet()) {
+            copy.addVariableName(entry.getKey(), entry.getValue());
+        }
+        for (CommentProposal comment : comments) {
+            copy.addComment(comment);
+        }
+        for (String sectionBreak : sectionBreaksAfter) {
+            copy.addSectionBreakAfter(sectionBreak);
+        }
+        return copy;
+    }
+
     public enum AssertionKind {
         EQUALS,
         NOT_EQUALS,

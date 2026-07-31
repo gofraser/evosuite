@@ -737,7 +737,7 @@ public class LlmPostProcessor {
         LlmPostProcessingReferences stabilityReferences = LlmPostProcessingReferences.from(stabilityTest);
         Scope originalFinalScope = executionResult.getFinalScope();
         Scope stabilityFinalScope = stabilityExecutionResult.getFinalScope();
-        LlmPostProcessingResponse filtered = copyWithoutAssertions(response);
+        LlmPostProcessingResponse filtered = response.withoutAssertions();
         List<LlmPostProcessingParseResult.Diagnostic> diagnostics = new ArrayList<>();
         for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
             EvaluationOutcome originalOutcome =
@@ -1017,24 +1017,7 @@ public class LlmPostProcessor {
     }
 
     static LlmPostProcessingResponse withoutAssertions(LlmPostProcessingResponse response) {
-        return copyWithoutAssertions(response);
-    }
-
-    private static LlmPostProcessingResponse copyWithoutAssertions(LlmPostProcessingResponse response) {
-        LlmPostProcessingResponse copy = new LlmPostProcessingResponse(response.getSchemaVersion());
-        copy.setAssertionDecision(response.getAssertionDecision());
-        copy.setNoAssertionReason(response.getNoAssertionReason());
-        copy.setTestName(response.getTestName());
-        for (Map.Entry<String, String> entry : response.getVariableNames().entrySet()) {
-            copy.addVariableName(entry.getKey(), entry.getValue());
-        }
-        for (LlmPostProcessingResponse.CommentProposal comment : response.getComments()) {
-            copy.addComment(comment);
-        }
-        for (String sectionBreak : response.getSectionBreaksAfter()) {
-            copy.addSectionBreakAfter(sectionBreak);
-        }
-        return copy;
+        return response.withoutAssertions();
     }
 
     AssertionRepairResult repairRejectedAssertionsIfPossible(
@@ -1133,7 +1116,7 @@ public class LlmPostProcessor {
             LlmPostProcessingResponse acceptedResponse,
             LlmPostProcessingResponse repairedResponse,
             int maxAssertions) {
-        LlmPostProcessingResponse merged = copyWithoutAssertions(acceptedResponse);
+        LlmPostProcessingResponse merged = acceptedResponse.withoutAssertions();
         Set<String> seenIds = new HashSet<>();
         int accepted = 0;
         for (LlmPostProcessingResponse.AssertionProposal proposal : acceptedResponse.getAssertions()) {
