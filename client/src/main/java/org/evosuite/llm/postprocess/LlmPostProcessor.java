@@ -33,11 +33,9 @@ import org.evosuite.llm.LlmTraceRecorder;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.execution.ExecutableSnippetEngine;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.execution.TestCaseExecutor;
-import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.MinimizationResult;
 import org.evosuite.testsuite.MinimizationStatus;
 import org.evosuite.testsuite.MinimizationStopCause;
@@ -55,7 +53,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.lang.reflect.Type;
 
 /**
  * Orchestrator for unified LLM post-processing. The unified phase runs after
@@ -74,6 +71,7 @@ public class LlmPostProcessor {
     final AssertionCandidateRunner assertionCandidateRunner;
     final StabilityExecutionRunner stabilityExecutionRunner;
     private final AssertionEvaluationRunner assertionEvaluationRunner;
+    private final PostProcessingAssertionValidator assertionValidator;
     final ResourceGuard resourceGuard;
     private final PhaseClock phaseClock;
     PostProcessingOptions options;
@@ -100,7 +98,7 @@ public class LlmPostProcessor {
                      AssertionCandidateRunner assertionCandidateRunner,
                      StabilityExecutionRunner stabilityExecutionRunner) {
         this(llmService, assertionFallbackRunner, assertionCandidateRunner, stabilityExecutionRunner,
-                new TemplateAssertionEvaluationRunner());
+                PostProcessingAssertionValidator.defaultEvaluationRunner());
     }
 
     LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
@@ -131,6 +129,8 @@ public class LlmPostProcessor {
         this.assertionCandidateRunner = assertionCandidateRunner;
         this.stabilityExecutionRunner = stabilityExecutionRunner;
         this.assertionEvaluationRunner = assertionEvaluationRunner;
+        this.assertionValidator = new PostProcessingAssertionValidator(
+                stabilityExecutionRunner, assertionEvaluationRunner);
         this.resourceGuard = resourceGuard == null ? new DefaultResourceGuard() : resourceGuard;
         this.phaseClock = phaseClock == null ? new SystemPhaseClock() : phaseClock;
         this.options = PostProcessingOptions.fromProperties();
@@ -209,9 +209,7 @@ public class LlmPostProcessor {
         // collaborators receive this snapshot instead of observing mutable
         // Properties at different points in the request lifecycle.
         options = PostProcessingOptions.fromProperties();
-        if (assertionEvaluationRunner instanceof TemplateAssertionEvaluationRunner) {
-            ((TemplateAssertionEvaluationRunner) assertionEvaluationRunner).setOptions(options);
-        }
+        PostProcessingAssertionValidator.setOptions(assertionEvaluationRunner, options);
         session.clear();
         MinimizationResult effectiveMinimizationResult = minimizationResult == null
                 ? MinimizationResult.disabled(suite)
@@ -685,160 +683,8 @@ public class LlmPostProcessor {
     AssertionValidationResult validateAssertionsAgainstScopes(
             LlmPostProcessingResponse response, TestCase validationTest, ExecutionResult executionResult,
             TestCase reusableStabilityTest, ExecutionResult reusableStabilityExecutionResult) {
-        if (response.getAssertions().isEmpty()) {
-            return AssertionValidationResult.success(response);
-        }
-        TestCase stabilityTest = reusableStabilityTest;
-        ExecutionResult stabilityExecutionResult = reusableStabilityExecutionResult;
-        if (stabilityTest == null) {
-            stabilityTest = validationTest == null ? null : validationTest.clone();
-            if (stabilityTest != null) {
-                stabilityTest.removeAssertions();
-            }
-            stabilityExecutionResult = stabilityTest == null
-                    ? null
-                    : stabilityExecutionRunner.execute(stabilityTest);
-        }
-        return filterAssertionsByValidatedScopes(response, validationTest, executionResult,
-                stabilityTest, stabilityExecutionResult, assertionEvaluationRunner, options);
-    }
-
-    private static AssertionValidationResult filterAssertionsByValidatedScopes(
-            LlmPostProcessingResponse response,
-            TestCase validationTest,
-            ExecutionResult executionResult,
-            TestCase stabilityTest,
-            ExecutionResult stabilityExecutionResult,
-            AssertionEvaluationRunner assertionEvaluationRunner,
-            PostProcessingOptions options) {
-        if (response.getAssertions().isEmpty()) {
-            return AssertionValidationResult.success(response);
-        }
-        if (validationTest == null || validationTest.size() == 0
-                || executionResult == null || executionResult.getFinalScope() == null
-                || executionResult.hasTimeout() || executionResult.hasTestException()
-                || (!executionResult.noThrownExceptions()
-                && !allAssertionsUseExceptionAdjacentSites(response))) {
-            return AssertionValidationResult.rejectedAll(response,
-                    LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION,
-                    "Original observed final scope is unavailable");
-        }
-        if (stabilityTest == null || stabilityTest.size() == 0
-                || stabilityExecutionResult == null || stabilityExecutionResult.getFinalScope() == null
-                || stabilityExecutionResult.hasTimeout()
-                || stabilityExecutionResult.hasTestException()
-                || (!stabilityExecutionResult.noThrownExceptions()
-                && !allAssertionsUseExceptionAdjacentSites(response))) {
-            return AssertionValidationResult.rejectedAll(response,
-                    LlmPostProcessingParseResult.DiagnosticCode.STABILITY_EXECUTION,
-                    "Stability re-execution did not produce a normal final scope");
-        }
-        LlmPostProcessingReferences validationReferences = LlmPostProcessingReferences.from(validationTest);
-        LlmPostProcessingReferences stabilityReferences = LlmPostProcessingReferences.from(stabilityTest);
-        Scope originalFinalScope = executionResult.getFinalScope();
-        Scope stabilityFinalScope = stabilityExecutionResult.getFinalScope();
-        LlmPostProcessingResponse filtered = response.withoutAssertions();
-        List<LlmPostProcessingParseResult.Diagnostic> diagnostics = new ArrayList<>();
-        for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
-            EvaluationOutcome originalOutcome =
-                    proposal.getSite() == LlmPostProcessingResponse.AssertionSite.IN_CATCH
-                            ? evaluateAgainstCaughtException(proposal, validationTest,
-                                    validationReferences, originalFinalScope, executionResult, options)
-                            : assertionEvaluationRunner.evaluate(proposal, validationTest,
-                                    validationReferences, originalFinalScope);
-            if (!originalOutcome.isAccepted()) {
-                diagnostics.add(validationDiagnostic(proposal, originalOutcome,
-                        "Assertion rejected against original observed final scope"));
-                continue;
-            }
-            EvaluationOutcome stabilityOutcome =
-                    proposal.getSite() == LlmPostProcessingResponse.AssertionSite.IN_CATCH
-                            ? evaluateAgainstCaughtException(proposal, stabilityTest,
-                                    stabilityReferences, stabilityFinalScope, stabilityExecutionResult, options)
-                            : assertionEvaluationRunner.evaluate(proposal, stabilityTest,
-                                    stabilityReferences, stabilityFinalScope);
-            if (!stabilityOutcome.isAccepted()) {
-                diagnostics.add(validationDiagnostic(proposal, stabilityOutcome.asStabilityFailure(),
-                        "Assertion rejected against stability final scope"));
-                continue;
-            }
-            filtered.addAssertion(proposal);
-        }
-        return new AssertionValidationResult(filtered, diagnostics);
-    }
-
-    private static boolean allAssertionsUseExceptionAdjacentSites(LlmPostProcessingResponse response) {
-        if (response == null || response.getAssertions().isEmpty()) {
-            return false;
-        }
-        for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
-            if (proposal.getSite() == LlmPostProcessingResponse.AssertionSite.END_OF_TEST) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private static EvaluationOutcome evaluateAgainstCaughtException(
-            LlmPostProcessingResponse.AssertionProposal proposal,
-            TestCase validationTest,
-            LlmPostProcessingReferences references,
-            Scope finalScope,
-            ExecutionResult executionResult,
-            PostProcessingOptions options) {
-        try {
-            if (executionResult == null || executionResult.noThrownExceptions()) {
-                return EvaluationOutcome.observedFailure("Expected throwing execution was not reproduced");
-            }
-            Integer throwingPosition = executionResult.getFirstPositionOfThrownException();
-            Throwable caught = throwingPosition == null ? null
-                    : executionResult.getCopyOfExceptionMapping().get(throwingPosition);
-            if (caught == null) {
-                return EvaluationOutcome.observedFailure("Caught exception object is unavailable");
-            }
-            TemplateCodeAssertion assertion =
-                    LlmPostProcessingEditApplier.toTemplateAssertionForValidation(proposal, references);
-            if (assertion == null || validationTest == null || validationTest.size() == 0) {
-                return EvaluationOutcome.observedFailure("Catch assertion could not be bound");
-            }
-            assertion.setStatement(validationTest.getStatement(validationTest.size() - 1));
-            Map<String, Type> variableTypes = new LinkedHashMap<>();
-            Map<String, Object> variableValues = new LinkedHashMap<>();
-            variableTypes.put("e0", Throwable.class);
-            variableValues.put("e0", caught);
-            for (Map.Entry<String, Integer> entry : assertion.getBindings().entrySet()) {
-                int position = entry.getValue();
-                if (position < 0 || position >= validationTest.size()) {
-                    return EvaluationOutcome.observedFailure("Catch assertion binding is outside the test");
-                }
-                VariableReference variable = validationTest.getStatement(position).getReturnValue();
-                Class<?> accessibleType = OracleTypeAccessibility.accessibleView(
-                        variable.getVariableClass(), options.targetClass());
-                variableTypes.put(entry.getKey(),
-                        accessibleType == null ? variable.getType() : accessibleType);
-                variableValues.put(entry.getKey(), variable.getObject(finalScope));
-            }
-            return ExecutableSnippetEngine.INSTANCE.evaluateAssertion(
-                    assertion.render(null, "e0"), variableTypes, variableValues,
-                    options.assertionPolicy().compileTimeoutMs(),
-                    options.assertionPolicy().evalTimeoutMs())
-                    ? EvaluationOutcome.accepted()
-                    : EvaluationOutcome.observedFailure("Assertion did not hold for the caught exception");
-        } catch (ExecutableSnippetEngine.AssertionCompilationTimeoutException error) {
-            return EvaluationOutcome.compileFailure(error.getMessage());
-        } catch (Throwable error) {
-            return EvaluationOutcome.observedFailure(error.getMessage());
-        }
-    }
-
-    private static LlmPostProcessingParseResult.Diagnostic validationDiagnostic(
-            LlmPostProcessingResponse.AssertionProposal proposal,
-            EvaluationOutcome outcome,
-            String defaultMessage) {
-        String id = proposal == null ? "?" : proposal.getAssertionId();
-        String message = outcome.message == null ? defaultMessage : outcome.message;
-        return new LlmPostProcessingParseResult.Diagnostic(outcome.diagnosticCode,
-                "assertions[" + id + "]", message);
+        return assertionValidator.validate(response, validationTest, executionResult,
+                reusableStabilityTest, reusableStabilityExecutionResult, options);
     }
 
     void recordAssertionDiagnostics(List<LlmPostProcessingParseResult.Diagnostic> diagnostics,
@@ -1260,60 +1106,6 @@ public class LlmPostProcessor {
         }
     }
 
-    private static final class TemplateAssertionEvaluationRunner implements AssertionEvaluationRunner {
-        private PostProcessingOptions options = PostProcessingOptions.fromProperties();
-
-        private void setOptions(PostProcessingOptions options) {
-            this.options = options == null ? PostProcessingOptions.fromProperties() : options;
-        }
-
-        @Override
-        public EvaluationOutcome evaluate(LlmPostProcessingResponse.AssertionProposal proposal,
-                                          TestCase validationTest,
-                                          LlmPostProcessingReferences references,
-                                          Scope finalScope) {
-            try {
-                TemplateCodeAssertion assertion = LlmPostProcessingEditApplier.toTemplateAssertionForValidation(
-                        proposal, references);
-                if (assertion == null || validationTest == null || validationTest.size() == 0 || finalScope == null) {
-                    return EvaluationOutcome.observedFailure("Assertion could not be bound to the final scope");
-                }
-                assertion.setStatement(validationTest.getStatement(validationTest.size() - 1));
-                Map<String, Type> variableTypes = new LinkedHashMap<>();
-                Map<String, Object> variableValues = new LinkedHashMap<>();
-                for (Map.Entry<String, Integer> entry : assertion.getBindings().entrySet()) {
-                    int position = entry.getValue();
-                    if (position < 0 || position >= validationTest.size()) {
-                        return EvaluationOutcome.observedFailure("Assertion binding is outside the test");
-                    }
-                    VariableReference variable = validationTest.getStatement(position).getReturnValue();
-                    if (variable == null) {
-                        return EvaluationOutcome.observedFailure("Assertion binding has no variable");
-                    }
-                    Class<?> accessibleType = OracleTypeAccessibility.accessibleView(
-                            variable.getVariableClass(), options.targetClass());
-                    variableTypes.put(entry.getKey(),
-                            accessibleType == null ? variable.getType() : accessibleType);
-                    variableValues.put(entry.getKey(), variable.getObject(finalScope));
-                }
-                int compileTimeoutMs = options.assertionPolicy().compileTimeoutMs();
-                int evaluationTimeoutMs = options.assertionPolicy().evalTimeoutMs();
-                return ExecutableSnippetEngine.INSTANCE.evaluateAssertion(assertion.render(null),
-                        variableTypes, variableValues, compileTimeoutMs, evaluationTimeoutMs)
-                        ? EvaluationOutcome.accepted()
-                        : EvaluationOutcome.observedFailure("Assertion did not hold in the final scope");
-            } catch (ExecutableSnippetEngine.AssertionCompilationTimeoutException e) {
-                return EvaluationOutcome.compileFailure(e.getMessage());
-            } catch (ExecutableSnippetEngine.AssertionEvaluationTimeoutException e) {
-                return EvaluationOutcome.observedFailure(e.getMessage());
-            } catch (RuntimeException | AssertionError e) {
-                return EvaluationOutcome.compileFailure(e.getMessage());
-            } catch (Throwable e) {
-                return EvaluationOutcome.observedFailure(e.getMessage());
-            }
-        }
-    }
-
     private static final class TraceAssertionFallbackRunner implements AssertionFallbackRunner {
         @Override
         public int applyFallbackAssertions(TestCase test,
@@ -1688,8 +1480,8 @@ public class LlmPostProcessor {
         final LlmPostProcessingResponse response;
         final List<LlmPostProcessingParseResult.Diagnostic> diagnostics;
 
-        private AssertionValidationResult(LlmPostProcessingResponse response,
-                                          List<LlmPostProcessingParseResult.Diagnostic> diagnostics) {
+        AssertionValidationResult(LlmPostProcessingResponse response,
+                                  List<LlmPostProcessingParseResult.Diagnostic> diagnostics) {
             this.response = response;
             this.diagnostics = diagnostics == null
                     ? java.util.Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList()
@@ -1697,12 +1489,12 @@ public class LlmPostProcessor {
             this.plan = ValidatedEditPlan.create(this.response, this.diagnostics);
         }
 
-        private static AssertionValidationResult success(LlmPostProcessingResponse response) {
+        static AssertionValidationResult success(LlmPostProcessingResponse response) {
             return new AssertionValidationResult(response,
                     java.util.Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList());
         }
 
-        private static AssertionValidationResult rejectedAll(
+        static AssertionValidationResult rejectedAll(
                 LlmPostProcessingResponse response,
                 LlmPostProcessingParseResult.DiagnosticCode code,
                 String message) {
@@ -1780,6 +1572,14 @@ public class LlmPostProcessor {
 
         boolean isAccepted() {
             return diagnosticCode == null;
+        }
+
+        LlmPostProcessingParseResult.DiagnosticCode diagnosticCode() {
+            return diagnosticCode;
+        }
+
+        String message() {
+            return message;
         }
 
         EvaluationOutcome asStabilityFailure() {
