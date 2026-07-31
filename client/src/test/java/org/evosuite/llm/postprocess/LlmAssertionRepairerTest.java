@@ -74,6 +74,22 @@ class LlmAssertionRepairerTest {
     }
 
     @Test
+    void repairCorrelationUsesOriginalAssertionIndexWhenEarlierEntryHasNoId() {
+        String raw = "{\"schemaVersion\":1,\"assertions\":["
+                + "{\"kind\":\"TRUE\",\"actual\":\"v0\"},"
+                + "{\"assertionId\":\"a1\",\"kind\":\"UNKNOWN\",\"actual\":\"v0\"}]}";
+        LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(raw, booleanContext());
+
+        List<LlmAssertionRepairer.RejectedAssertion> repairable =
+                LlmAssertionRepairer.collectRepairableRejectedAssertions(
+                        parsed, parsed.getResponse(), new LlmPostProcessingResponse(1),
+                        Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList());
+
+        assertEquals(1, repairable.size());
+        assertEquals("a1", repairable.get(0).getAssertionId());
+    }
+
+    @Test
     void snippetHarnessCompilationFailuresAreNotSentBackForAssertionRepair() {
         String raw = "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
                 + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";

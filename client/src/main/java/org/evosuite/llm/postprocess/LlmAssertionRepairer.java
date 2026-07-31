@@ -91,14 +91,16 @@ final class LlmAssertionRepairer {
 
         Map<Integer, List<LlmPostProcessingParseResult.Diagnostic>> diagnosticsByIndex =
                 diagnosticsByAssertionIndex(parseResult);
-        List<String> rawIds = new ArrayList<>(byId.keySet());
+        Map<Integer, LlmPostProcessingParseResult.RawAssertion> rawByIndex =
+                rawAssertionsByIndex(parseResult);
         for (Map.Entry<Integer, List<LlmPostProcessingParseResult.Diagnostic>> entry
                 : diagnosticsByIndex.entrySet()) {
             int index = entry.getKey();
-            if (index < 0 || index >= rawIds.size()) {
+            LlmPostProcessingParseResult.RawAssertion rawAssertion = rawByIndex.get(index);
+            if (rawAssertion == null) {
                 continue;
             }
-            String assertionId = rawIds.get(index);
+            String assertionId = rawAssertion.getAssertionId();
             RejectedAssertion candidate = byId.get(assertionId);
             if (candidate == null || parsedIds.contains(assertionId)) {
                 continue;
@@ -119,6 +121,20 @@ final class LlmAssertionRepairer {
         for (RejectedAssertion candidate : byId.values()) {
             if (candidate.isRepairable()) {
                 result.add(candidate);
+            }
+        }
+        return result;
+    }
+
+    private static Map<Integer, LlmPostProcessingParseResult.RawAssertion> rawAssertionsByIndex(
+            LlmPostProcessingParseResult parseResult) {
+        if (parseResult == null || parseResult.getRawAssertions().isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Integer, LlmPostProcessingParseResult.RawAssertion> result = new LinkedHashMap<>();
+        for (LlmPostProcessingParseResult.RawAssertion assertion : parseResult.getRawAssertions()) {
+            if (assertion != null && assertion.getIndex() >= 0) {
+                result.put(assertion.getIndex(), assertion);
             }
         }
         return result;
