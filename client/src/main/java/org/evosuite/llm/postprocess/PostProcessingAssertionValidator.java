@@ -187,7 +187,8 @@ final class PostProcessingAssertionValidator {
             TemplateCodeAssertion assertion =
                     LlmPostProcessingEditApplier.toTemplateAssertionForValidation(proposal, references);
             if (assertion == null || validationTest == null || validationTest.size() == 0) {
-                return LlmPostProcessor.EvaluationOutcome.observedFailure(
+                return LlmPostProcessor.EvaluationOutcome.safetyFailure(
+                        LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION,
                         "Catch assertion could not be bound");
             }
             assertion.setStatement(validationTest.getStatement(validationTest.size() - 1));
@@ -198,7 +199,8 @@ final class PostProcessingAssertionValidator {
             for (Map.Entry<String, Integer> entry : assertion.getBindings().entrySet()) {
                 int position = entry.getValue();
                 if (position < 0 || position >= validationTest.size()) {
-                    return LlmPostProcessor.EvaluationOutcome.observedFailure(
+                    return LlmPostProcessor.EvaluationOutcome.safetyFailure(
+                            LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION,
                             "Catch assertion binding is outside the test");
                 }
                 VariableReference variable = validationTest.getStatement(position).getReturnValue();
@@ -228,8 +230,12 @@ final class PostProcessingAssertionValidator {
             String defaultMessage) {
         String id = proposal == null ? "?" : proposal.getAssertionId();
         String message = outcome.message() == null ? defaultMessage : outcome.message();
+        if (outcome.diagnosticReason() == null) {
+            return new LlmPostProcessingParseResult.Diagnostic(outcome.diagnosticCode(),
+                    "assertions[" + id + "]", message);
+        }
         return new LlmPostProcessingParseResult.Diagnostic(outcome.diagnosticCode(),
-                "assertions[" + id + "]", message);
+                "assertions[" + id + "]", message, outcome.diagnosticReason());
     }
 
     private static final class TemplateAssertionEvaluationRunner
@@ -251,7 +257,8 @@ final class PostProcessingAssertionValidator {
                         .toTemplateAssertionForValidation(proposal, references);
                 if (assertion == null || validationTest == null || validationTest.size() == 0
                         || finalScope == null) {
-                    return LlmPostProcessor.EvaluationOutcome.observedFailure(
+                    return LlmPostProcessor.EvaluationOutcome.safetyFailure(
+                            LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION,
                             "Assertion could not be bound to the final scope");
                 }
                 assertion.setStatement(validationTest.getStatement(validationTest.size() - 1));
@@ -260,12 +267,14 @@ final class PostProcessingAssertionValidator {
                 for (Map.Entry<String, Integer> entry : assertion.getBindings().entrySet()) {
                     int position = entry.getValue();
                     if (position < 0 || position >= validationTest.size()) {
-                        return LlmPostProcessor.EvaluationOutcome.observedFailure(
+                        return LlmPostProcessor.EvaluationOutcome.safetyFailure(
+                                LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION,
                                 "Assertion binding is outside the test");
                     }
                     VariableReference variable = validationTest.getStatement(position).getReturnValue();
                     if (variable == null) {
-                        return LlmPostProcessor.EvaluationOutcome.observedFailure(
+                        return LlmPostProcessor.EvaluationOutcome.safetyFailure(
+                                LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION,
                                 "Assertion binding has no variable");
                     }
                     Class<?> accessibleType = OracleTypeAccessibility.accessibleView(

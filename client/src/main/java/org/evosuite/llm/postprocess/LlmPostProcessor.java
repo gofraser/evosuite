@@ -1465,8 +1465,11 @@ public class LlmPostProcessor {
                 String message) {
             List<LlmPostProcessingParseResult.Diagnostic> diagnostics = new ArrayList<>();
             for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
+                LlmPostProcessingParseResult.DiagnosticReason reason =
+                        code == LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION
+                                ? LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY : null;
                 diagnostics.add(new LlmPostProcessingParseResult.Diagnostic(code,
-                        "assertions[" + proposal.getAssertionId() + "]", message));
+                        "assertions[" + proposal.getAssertionId() + "]", message, reason));
             }
             return new AssertionValidationResult(withoutAssertions(response), diagnostics);
         }
@@ -1512,10 +1515,18 @@ public class LlmPostProcessor {
 
     static final class EvaluationOutcome {
         private final LlmPostProcessingParseResult.DiagnosticCode diagnosticCode;
+        private final LlmPostProcessingParseResult.DiagnosticReason diagnosticReason;
         private final String message;
 
         private EvaluationOutcome(LlmPostProcessingParseResult.DiagnosticCode diagnosticCode, String message) {
+            this(diagnosticCode, null, message);
+        }
+
+        private EvaluationOutcome(LlmPostProcessingParseResult.DiagnosticCode diagnosticCode,
+                                  LlmPostProcessingParseResult.DiagnosticReason diagnosticReason,
+                                  String message) {
             this.diagnosticCode = diagnosticCode;
+            this.diagnosticReason = diagnosticReason;
             this.message = message;
         }
 
@@ -1525,6 +1536,12 @@ public class LlmPostProcessor {
 
         static EvaluationOutcome compileFailure(String message) {
             return new EvaluationOutcome(LlmPostProcessingParseResult.DiagnosticCode.COMPILE, message);
+        }
+
+        static EvaluationOutcome safetyFailure(
+                LlmPostProcessingParseResult.DiagnosticCode code, String message) {
+            return new EvaluationOutcome(code,
+                    LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY, message);
         }
 
         static EvaluationOutcome observedFailure(String message) {
@@ -1541,6 +1558,10 @@ public class LlmPostProcessor {
 
         LlmPostProcessingParseResult.DiagnosticCode diagnosticCode() {
             return diagnosticCode;
+        }
+
+        LlmPostProcessingParseResult.DiagnosticReason diagnosticReason() {
+            return diagnosticReason;
         }
 
         String message() {

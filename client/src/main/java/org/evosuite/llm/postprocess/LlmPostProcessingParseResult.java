@@ -146,17 +146,64 @@ public final class LlmPostProcessingParseResult {
         NON_REPAIRABLE
     }
 
+    /**
+     * Stable reason used to decide whether an assertion rejection can be sent
+     * through the bounded assertion-repair request.
+     *
+     * <p>The human-readable diagnostic is presentation data.  Repair policy
+     * must not change because wording changes.</p>
+     */
+    public enum DiagnosticReason {
+        STRUCTURAL,
+        UNKNOWN_REFERENCE,
+        DUPLICATE,
+        LIMIT,
+        UNSUPPORTED_KIND,
+        SAFETY_POLICY,
+        COMPILE_FAILURE,
+        OBSERVED_EXECUTION_FAILURE,
+        STABILITY_EXECUTION_FAILURE;
+
+        private Repairability repairability() {
+            switch (this) {
+                case UNKNOWN_REFERENCE:
+                case DUPLICATE:
+                case LIMIT:
+                case SAFETY_POLICY:
+                case STABILITY_EXECUTION_FAILURE:
+                    return Repairability.NON_REPAIRABLE;
+                case STRUCTURAL:
+                case UNSUPPORTED_KIND:
+                case COMPILE_FAILURE:
+                case OBSERVED_EXECUTION_FAILURE:
+                default:
+                    return Repairability.REPAIRABLE;
+            }
+        }
+    }
+
     public static final class Diagnostic {
         private final DiagnosticCode code;
         private final String path;
         private final String message;
+        private final DiagnosticReason reason;
         private final Repairability repairability;
         private final int assertionIndex;
         private final String assertionId;
 
         public Diagnostic(DiagnosticCode code, String path, String message) {
-            this(code, path, message, classifyRepairability(code, message),
-                    assertionIndex(path), assertionId(path));
+            this(code, path, message, reasonForCode(code));
+        }
+
+        public Diagnostic(DiagnosticCode code, String path, String message,
+                          DiagnosticReason reason) {
+            this(code, path, message, reason, assertionIndex(path), assertionId(path), null);
+        }
+
+        public static Diagnostic withReason(DiagnosticCode code, String path, String message,
+                                            DiagnosticReason reason, int assertionIndex,
+                                            String assertionId) {
+            return new Diagnostic(code, path, message, reason, assertionIndex, assertionId, null);
         }
 
         public Diagnostic(DiagnosticCode code, String path, String message,
@@ -167,11 +214,19 @@ public final class LlmPostProcessingParseResult {
         public Diagnostic(DiagnosticCode code, String path, String message,
                           Repairability repairability, int assertionIndex,
                           String assertionId) {
+            this(code, path, message, reasonForRepairability(code, repairability),
+                    assertionIndex, assertionId, repairability);
+        }
+
+        private Diagnostic(DiagnosticCode code, String path, String message,
+                           DiagnosticReason reason, int assertionIndex,
+                           String assertionId, Repairability explicitRepairability) {
             this.code = code;
             this.path = path;
             this.message = message;
-            this.repairability = repairability == null
-                    ? classifyRepairability(code, message) : repairability;
+            this.reason = reason == null ? reasonForCode(code) : reason;
+            this.repairability = explicitRepairability == null
+                    ? this.reason.repairability() : explicitRepairability;
             this.assertionIndex = assertionIndex;
             this.assertionId = assertionId;
         }
@@ -186,6 +241,10 @@ public final class LlmPostProcessingParseResult {
 
         public String getMessage() {
             return message;
+        }
+
+        public DiagnosticReason getReason() {
+            return reason;
         }
 
         public Repairability getRepairability() {
@@ -234,28 +293,37 @@ public final class LlmPostProcessingParseResult {
             return end <= start ? null : path.substring(start, end);
         }
 
-        private static Repairability classifyRepairability(DiagnosticCode code, String message) {
-            if (code == DiagnosticCode.UNKNOWN_ID
-                    || code == DiagnosticCode.DUPLICATE
-                    || code == DiagnosticCode.LIMIT_EXCEEDED
-                    || code == DiagnosticCode.STABILITY_EXECUTION) {
-                return Repairability.NON_REPAIRABLE;
+        private static DiagnosticReason reasonForCode(DiagnosticCode code) {
+            if (code == null) {
+                return DiagnosticReason.STRUCTURAL;
             }
-            String normalized = message == null ? "" : message.toLowerCase();
-            if (normalized.contains("not listed") || normalized.contains("not allowlisted")
-                    || normalized.contains("not callable") || normalized.contains("purity")
-                    || normalized.contains("unknown variable") || normalized.contains("unknown candidate")
-                    || normalized.contains("could not be bound") || normalized.contains("outside the test")
-                    || normalized.contains("has no variable") || normalized.contains("final scope")) {
-                return Repairability.NON_REPAIRABLE;
+            switch (code) {
+                case UNKNOWN_ID:
+                    return DiagnosticReason.UNKNOWN_REFERENCE;
+                case DUPLICATE:
+                    return DiagnosticReason.DUPLICATE;
+                case LIMIT_EXCEEDED:
+                    return DiagnosticReason.LIMIT;
+                case UNSUPPORTED_KIND:
+                    return DiagnosticReason.UNSUPPORTED_KIND;
+                case COMPILE:
+                    return DiagnosticReason.COMPILE_FAILURE;
+                case OBSERVED_EXECUTION:
+                    return DiagnosticReason.OBSERVED_EXECUTION_FAILURE;
+                case STABILITY_EXECUTION:
+                    return DiagnosticReason.STABILITY_EXECUTION_FAILURE;
+                case INVALID_FIELD:
+                default:
+                    return DiagnosticReason.STRUCTURAL;
             }
-            if (code == DiagnosticCode.COMPILE
-                    && (normalized.contains("defined in an inaccessible class or interface")
-                    || normalized.contains("cannot be accessed from outside package")
-                    || (normalized.contains("type class") && normalized.contains("does not take parameters")))) {
-                return Repairability.NON_REPAIRABLE;
+        }
+
+        private static DiagnosticReason reasonForRepairability(DiagnosticCode code,
+                                                                Repairability repairability) {
+            if (repairability == Repairability.NON_REPAIRABLE) {
+                return DiagnosticReason.SAFETY_POLICY;
             }
-            return Repairability.REPAIRABLE;
+            return reasonForCode(code);
         }
     }
 }

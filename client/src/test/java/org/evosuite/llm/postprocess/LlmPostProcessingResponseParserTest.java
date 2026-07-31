@@ -214,12 +214,22 @@ class LlmPostProcessingResponseParserTest {
                         DiagnosticCode.INVALID_FIELD, "assertions[a0].actual", "bad expression");
         LlmPostProcessingParseResult.Diagnostic policyRejected =
                 new LlmPostProcessingParseResult.Diagnostic(
-                        DiagnosticCode.INVALID_FIELD, "assertions[a0].actual", "unknown variable v9");
+                        DiagnosticCode.INVALID_FIELD, "assertions[a0].actual", "unknown variable v9",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
 
         assertEquals(LlmPostProcessingParseResult.Repairability.REPAIRABLE,
                 repairable.getRepairability());
         assertEquals(LlmPostProcessingParseResult.Repairability.NON_REPAIRABLE,
                 policyRejected.getRepairability());
+        assertEquals(LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY,
+                policyRejected.getReason());
+
+        LlmPostProcessingParseResult.Diagnostic wordingChange =
+                new LlmPostProcessingParseResult.Diagnostic(
+                        DiagnosticCode.INVALID_FIELD, "assertions[a0].actual",
+                        "callable policy rejected this expression");
+        assertEquals(LlmPostProcessingParseResult.Repairability.REPAIRABLE,
+                wordingChange.getRepairability());
     }
 
     @Test

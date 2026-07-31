@@ -1203,22 +1203,26 @@ public final class LlmPostProcessingResponseParser {
             }
             if (LlmPostProcessingExpressionUtils.containsUnsupportedExpressionConstruct(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Expression contains unsupported mutation or code block constructs");
+                        "Expression contains unsupported mutation or code block constructs",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
                 return required ? null : INVALID_EXPRESSION;
             }
             if (LlmPostProcessingExpressionUtils.containsRawAssertionCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Expression must not contain raw assertion calls");
+                        "Expression must not contain raw assertion calls",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
                 return required ? null : INVALID_EXPRESSION;
             }
             if (LlmPostProcessingExpressionUtils.containsArbitraryToStringCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Expression must not use arbitrary toString() calls");
+                        "Expression must not use arbitrary toString() calls",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
                 return required ? null : INVALID_EXPRESSION;
             }
             if (callablePolicy.containsDisallowedObjectConstruction(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Expression contains non-allowlisted object construction");
+                        "Expression contains non-allowlisted object construction",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
                 return required ? null : INVALID_EXPRESSION;
             }
             if (expressionSafety.referencesUnknownVariableId(parsed)) {
@@ -1227,7 +1231,8 @@ public final class LlmPostProcessingResponseParser {
             }
             if (callablePolicy.containsDisallowedStaticMethodCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Expression contains a non-allowlisted static method call");
+                        "Expression contains a non-allowlisted static method call",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
                 return required ? null : INVALID_EXPRESSION;
             }
             if (expressionSafety.exceedsChainDepthLimit(parsed)) {
@@ -1236,7 +1241,8 @@ public final class LlmPostProcessingResponseParser {
             }
             if (callablePolicy.containsDisallowedInstanceMethodCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Expression contains a non-allowlisted instance method call");
+                        "Expression contains a non-allowlisted instance method call",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
                 return required ? null : INVALID_EXPRESSION;
             }
             if (expressionSafety.exceedsLiteralCharLimit(parsed)) {
@@ -1249,7 +1255,8 @@ public final class LlmPostProcessingResponseParser {
             }
             if (expressionSafety.containsDisallowedArrayConstruction(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Constructed arrays must be one-dimensional and contain only literal or null elements");
+                        "Constructed arrays must be one-dimensional and contain only literal or null elements",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY);
                 return required ? null : INVALID_EXPRESSION;
             }
             return normalizedVariableAlias ? parsed.toString() : expression;
@@ -1315,6 +1322,12 @@ public final class LlmPostProcessingResponseParser {
 
         private void diagnostic(DiagnosticCode code, String path, String message) {
             diagnostics.add(new Diagnostic(code, path, message, null,
+                    currentAssertionIndex, currentAssertionId));
+        }
+
+        private void diagnostic(DiagnosticCode code, String path, String message,
+                                LlmPostProcessingParseResult.DiagnosticReason reason) {
+            diagnostics.add(Diagnostic.withReason(code, path, message, reason,
                     currentAssertionIndex, currentAssertionId));
         }
 

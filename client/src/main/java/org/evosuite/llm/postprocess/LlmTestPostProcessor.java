@@ -53,19 +53,10 @@ final class LlmTestPostProcessor {
             ExecutionResult contextExecutionResult = candidateCollection == null
                     ? chromosome.getLastExecutionResult()
                     : candidateCollection.getExecutionResult();
-            PromptVariantCapabilities capabilities = PromptVariantCapabilities.production();
-            TestCase prePromptStabilityTest = null;
-            ExecutionResult prePromptStabilityResult = null;
-            if ((capabilities.hasStabilityLabels()
-                    || capabilities.hasExceptionAdjacentPlacements()) && validationTest != null) {
-                prePromptStabilityTest = validationTest.clone();
-                prePromptStabilityTest.removeAssertions();
-                prePromptStabilityResult = processor.stabilityExecutionRunner.execute(prePromptStabilityTest);
-            }
             LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
                     validationTest,
                     contextExecutionResult,
-                    prePromptStabilityResult,
+                    null,
                     candidateCollection == null ? Collections.emptyList()
                             : candidateCollection.getAssertions(), options);
             OracleContext oracleContext = OracleContextFactory.capture(context);
@@ -118,7 +109,7 @@ final class LlmTestPostProcessor {
                 } else if (!response.getAssertions().isEmpty()) {
                     LlmPostProcessor.AssertionValidationResult validationResult =
                             processor.validateAssertionsAgainstScopes(response, validationTest,
-                                    contextExecutionResult, prePromptStabilityTest, prePromptStabilityResult);
+                                    contextExecutionResult, null, null);
                     processor.recordAssertionDiagnostics(validationResult.plan.getDiagnostics(), response,
                             parseResult.getRawAssertions(), testIndex, minimizationResult,
                             "initial", "validation");

@@ -97,7 +97,8 @@ class LlmAssertionRepairerTest {
         List<LlmPostProcessingParseResult.Diagnostic> diagnostics = Collections.singletonList(
                 new LlmPostProcessingParseResult.Diagnostic(
                         LlmPostProcessingParseResult.DiagnosticCode.COMPILE, "assertions[a0]",
-                        "type Class does not take parameters"));
+                        "type Class does not take parameters",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY));
 
         assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
                 raw, parsed, parsed.getResponse(), new LlmPostProcessingResponse(1), diagnostics).isEmpty());
@@ -175,7 +176,8 @@ class LlmAssertionRepairerTest {
         List<LlmPostProcessingParseResult.Diagnostic> diagnostics = Collections.singletonList(
                 new LlmPostProcessingParseResult.Diagnostic(
                         LlmPostProcessingParseResult.DiagnosticCode.INVALID_FIELD,
-                        "assertions[a0].actual", "Method is not listed in the callable policy"));
+                        "assertions[a0].actual", "Method is not listed in the callable policy",
+                        LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY));
 
         assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
                 raw, parsed, parsed.getResponse(), new LlmPostProcessingResponse(1), diagnostics).isEmpty());
