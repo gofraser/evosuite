@@ -261,7 +261,7 @@ final class LlmAssertionRepairer {
         }
         Map<Integer, List<LlmPostProcessingParseResult.Diagnostic>> result = new LinkedHashMap<>();
         for (LlmPostProcessingParseResult.Diagnostic diagnostic : parseResult.getDiagnostics()) {
-            int index = assertionIndex(diagnostic.getPath());
+            int index = diagnostic.getAssertionIndex();
             if (index < 0) {
                 continue;
             }
@@ -277,33 +277,13 @@ final class LlmAssertionRepairer {
         }
         Map<String, List<LlmPostProcessingParseResult.Diagnostic>> result = new LinkedHashMap<>();
         for (LlmPostProcessingParseResult.Diagnostic diagnostic : diagnostics) {
-            String path = diagnostic == null ? null : diagnostic.getPath();
-            if (path == null || !path.startsWith("assertions[")) {
+            if (diagnostic == null || diagnostic.getAssertionId() == null) {
                 continue;
             }
-            int start = "assertions[".length();
-            int end = path.indexOf(']', start);
-            if (end > start) {
-                result.computeIfAbsent(path.substring(start, end), ignored -> new ArrayList<>()).add(diagnostic);
-            }
+            result.computeIfAbsent(diagnostic.getAssertionId(), ignored -> new ArrayList<>())
+                    .add(diagnostic);
         }
         return result;
-    }
-
-    private static int assertionIndex(String path) {
-        if (path == null || !path.startsWith("assertions[")) {
-            return -1;
-        }
-        int start = "assertions[".length();
-        int end = path.indexOf(']', start);
-        if (end <= start) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(path.substring(start, end));
-        } catch (NumberFormatException e) {
-            return -1;
-        }
     }
 
     private static boolean isRepairableDiagnostic(LlmPostProcessingParseResult.Diagnostic diagnostic) {

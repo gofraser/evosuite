@@ -101,21 +101,29 @@ public final class LlmPostProcessingParseResult {
     public List<RawAssertion> getRawAssertions() { return rawAssertions; }
 
     public static final class RawAssertion {
+        private final int index;
         private final String assertionId;
         private final String rawJson;
         private final Map<String, Object> fields;
 
         public RawAssertion(String assertionId, String rawJson) {
-            this(assertionId, rawJson, Collections.<String, Object>emptyMap());
+            this(-1, assertionId, rawJson, Collections.<String, Object>emptyMap());
         }
 
         public RawAssertion(String assertionId, String rawJson, Map<String, Object> fields) {
+            this(-1, assertionId, rawJson, fields);
+        }
+
+        public RawAssertion(int index, String assertionId, String rawJson,
+                            Map<String, Object> fields) {
+            this.index = index;
             this.assertionId = assertionId;
             this.rawJson = rawJson;
             this.fields = Collections.unmodifiableMap(new LinkedHashMap<>(
                     fields == null ? Collections.<String, Object>emptyMap() : fields));
         }
 
+        public int getIndex() { return index; }
         public String getAssertionId() { return assertionId; }
         public String getRawJson() { return rawJson; }
         public Map<String, Object> getFields() { return fields; }
@@ -143,18 +151,29 @@ public final class LlmPostProcessingParseResult {
         private final String path;
         private final String message;
         private final Repairability repairability;
+        private final int assertionIndex;
+        private final String assertionId;
 
         public Diagnostic(DiagnosticCode code, String path, String message) {
-            this(code, path, message, classifyRepairability(code, message));
+            this(code, path, message, classifyRepairability(code, message),
+                    assertionIndex(path), assertionId(path));
         }
 
         public Diagnostic(DiagnosticCode code, String path, String message,
                           Repairability repairability) {
+            this(code, path, message, repairability, assertionIndex(path), assertionId(path));
+        }
+
+        public Diagnostic(DiagnosticCode code, String path, String message,
+                          Repairability repairability, int assertionIndex,
+                          String assertionId) {
             this.code = code;
             this.path = path;
             this.message = message;
             this.repairability = repairability == null
                     ? classifyRepairability(code, message) : repairability;
+            this.assertionIndex = assertionIndex;
+            this.assertionId = assertionId;
         }
 
         public DiagnosticCode getCode() {
@@ -171,6 +190,48 @@ public final class LlmPostProcessingParseResult {
 
         public Repairability getRepairability() {
             return repairability;
+        }
+
+        public int getAssertionIndex() {
+            return assertionIndex;
+        }
+
+        public String getAssertionId() {
+            return assertionId;
+        }
+
+        private static int assertionIndex(String path) {
+            String token = assertionToken(path);
+            if (token == null) {
+                return -1;
+            }
+            try {
+                return Integer.parseInt(token);
+            } catch (NumberFormatException ignored) {
+                return -1;
+            }
+        }
+
+        private static String assertionId(String path) {
+            String token = assertionToken(path);
+            if (token == null) {
+                return null;
+            }
+            try {
+                Integer.parseInt(token);
+                return null;
+            } catch (NumberFormatException ignored) {
+                return token;
+            }
+        }
+
+        private static String assertionToken(String path) {
+            if (path == null || !path.startsWith("assertions[")) {
+                return null;
+            }
+            int start = "assertions[".length();
+            int end = path.indexOf(']', start);
+            return end <= start ? null : path.substring(start, end);
         }
 
         private static Repairability classifyRepairability(DiagnosticCode code, String message) {

@@ -268,14 +268,15 @@ public final class LlmPostProcessingResponseParser {
         if (assertions == null || !assertions.isArray()) {
             return result;
         }
-        for (JsonNode assertion : assertions) {
+        for (int index = 0; index < assertions.size(); index++) {
+            JsonNode assertion = assertions.get(index);
             if (assertion == null || !assertion.isObject()) {
                 continue;
             }
             String assertionId = textValue(assertion.get("assertionId"));
             if (assertionId != null && !assertionId.trim().isEmpty()) {
                 result.add(new LlmPostProcessingParseResult.RawAssertion(
-                        assertionId.trim(), assertion.toString(),
+                        index, assertionId.trim(), assertion.toString(),
                         JSON_MAPPER.convertValue(assertion, LinkedHashMap.class)));
             }
         }
@@ -599,6 +600,8 @@ public final class LlmPostProcessingResponseParser {
         private final ParseContext context;
         private final LlmPostProcessingResponse response;
         private final java.util.List<Diagnostic> diagnostics = new java.util.ArrayList<>();
+        private int currentAssertionIndex = -1;
+        private String currentAssertionId;
 
         private ParserState(ParseContext context, LlmPostProcessingResponse response) {
             this.context = context;
@@ -746,6 +749,8 @@ public final class LlmPostProcessingResponseParser {
             Set<String> assertionKeys = new LinkedHashSet<>();
             int accepted = 0;
             for (int i = 0; i < node.size(); i++) {
+                currentAssertionIndex = i;
+                currentAssertionId = null;
                 String path = "assertions[" + i + "]";
                 if (accepted >= options().assertionPolicy().maxAssertions()) {
                     diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Assertion limit exceeded");
@@ -765,6 +770,7 @@ public final class LlmPostProcessingResponseParser {
                     continue;
                 }
                 assertionId = assertionId.trim();
+                currentAssertionId = assertionId;
                 if (!assertionIds.add(assertionId)) {
                     diagnostic(DiagnosticCode.DUPLICATE, path + ".assertionId",
                             "Duplicate assertion ID: " + assertionId);
@@ -878,6 +884,8 @@ public final class LlmPostProcessingResponseParser {
                         placement.site, placement.afterStatementId, placement.exceptionId, null));
                 accepted++;
             }
+            currentAssertionIndex = -1;
+            currentAssertionId = null;
         }
 
         private void parseAssertionDecision(JsonNode decisionNode, JsonNode reasonNode) {
@@ -2740,7 +2748,8 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private void diagnostic(DiagnosticCode code, String path, String message) {
-            diagnostics.add(new Diagnostic(code, path, message));
+            diagnostics.add(new Diagnostic(code, path, message, null,
+                    currentAssertionIndex, currentAssertionId));
         }
 
         private void reportUnknownFields(JsonNode object, String path, Set<String> allowed) {

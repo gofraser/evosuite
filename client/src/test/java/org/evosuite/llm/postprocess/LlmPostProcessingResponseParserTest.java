@@ -192,6 +192,22 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
+    void assertionDiagnosticsCarryTypedIdentityAndWireIndex() {
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":2,\"assertions\":["
+                        + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0;\"},"
+                        + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\",\"actual\":\"v0\"}]}",
+                context());
+
+        LlmPostProcessingParseResult.Diagnostic diagnostic = result.getDiagnostics().stream()
+                .filter(value -> value.getPath().startsWith("assertions["))
+                .findFirst().orElseThrow(AssertionError::new);
+        assertEquals("a0", diagnostic.getAssertionId());
+        assertEquals(0, diagnostic.getAssertionIndex());
+        assertEquals(0, result.getRawAssertions().get(0).getIndex());
+    }
+
+    @Test
     void diagnosticsCarryTypedRepairability() {
         LlmPostProcessingParseResult.Diagnostic repairable =
                 new LlmPostProcessingParseResult.Diagnostic(

@@ -857,10 +857,14 @@ public class LlmPostProcessor {
             if (diagnostic == null || !isAssertionDiagnostic(diagnostic)) {
                 continue;
             }
-            String pathToken = assertionPathToken(diagnostic.getPath());
+            String pathToken = diagnostic.getAssertionId();
+            if (pathToken == null && diagnostic.getAssertionIndex() >= 0) {
+                pathToken = String.valueOf(diagnostic.getAssertionIndex());
+            }
             LlmPostProcessingResponse.AssertionProposal proposal =
                     proposalsById.get(pathToken);
-            LlmPostProcessingParseResult.RawAssertion rawAssertion = rawAssertion(rawAssertions, pathToken);
+            LlmPostProcessingParseResult.RawAssertion rawAssertion =
+                    rawAssertion(rawAssertions, diagnostic);
             Map<String, Object> assertionJson = rawAssertion == null
                     ? assertionJson(proposal)
                     : rawAssertion.getFields();
@@ -893,20 +897,7 @@ public class LlmPostProcessor {
     }
 
     private static boolean isAssertionDiagnostic(LlmPostProcessingParseResult.Diagnostic diagnostic) {
-        String path = diagnostic.getPath();
-        return path != null && path.startsWith("assertions[");
-    }
-
-    private static String assertionPathToken(String path) {
-        if (path == null) {
-            return "";
-        }
-        int start = path.indexOf('[');
-        int end = path.indexOf(']', start + 1);
-        if (start < 0 || end <= start) {
-            return "";
-        }
-        return path.substring(start + 1, end);
+        return diagnostic.getAssertionId() != null || diagnostic.getAssertionIndex() >= 0;
     }
 
     private static Map<String, LlmPostProcessingResponse.AssertionProposal> proposalsById(
@@ -924,21 +915,25 @@ public class LlmPostProcessor {
     }
 
     private static LlmPostProcessingParseResult.RawAssertion rawAssertion(
-            List<LlmPostProcessingParseResult.RawAssertion> rawAssertions, String pathToken) {
-        if (rawAssertions == null || pathToken == null || pathToken.isEmpty()) {
+            List<LlmPostProcessingParseResult.RawAssertion> rawAssertions,
+            LlmPostProcessingParseResult.Diagnostic diagnostic) {
+        if (rawAssertions == null || diagnostic == null) {
             return null;
         }
-        try {
-            int index = Integer.parseInt(pathToken);
-            return index >= 0 && index < rawAssertions.size() ? rawAssertions.get(index) : null;
-        } catch (NumberFormatException ignored) {
-            for (LlmPostProcessingParseResult.RawAssertion assertion : rawAssertions) {
-                if (assertion != null && pathToken.equals(assertion.getAssertionId())) {
-                    return assertion;
-                }
+        for (LlmPostProcessingParseResult.RawAssertion assertion : rawAssertions) {
+            if (assertion == null) {
+                continue;
             }
-            return null;
+            if (diagnostic.getAssertionId() != null
+                    && diagnostic.getAssertionId().equals(assertion.getAssertionId())) {
+                return assertion;
+            }
+            if (diagnostic.getAssertionIndex() >= 0
+                    && diagnostic.getAssertionIndex() == assertion.getIndex()) {
+                return assertion;
+            }
         }
+        return null;
     }
 
     private static Map<String, Object> assertionJson(LlmPostProcessingResponse.AssertionProposal proposal) {
