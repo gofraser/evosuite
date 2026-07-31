@@ -14,7 +14,7 @@ import java.util.List;
 
 /**
  * Immutable capability description for a post-processing prompt variant.
- * Isolated variants enable one treatment over P2; P12 composes all treatments.
+ * Historical variants are retained for replay and provenance.
  */
 public final class PromptVariantCapabilities {
 
@@ -60,7 +60,8 @@ public final class PromptVariantCapabilities {
 
     /** Capabilities used by every fresh post-processing request. */
     public static PromptVariantCapabilities production() {
-        return forVariant(Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION);
+        return new PromptVariantCapabilities(false, false, false, false,
+                false, false, false, false);
     }
 
     public boolean hasCanonicalCandidates() {

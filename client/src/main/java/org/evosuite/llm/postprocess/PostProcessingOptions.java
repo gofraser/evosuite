@@ -18,7 +18,7 @@ import java.util.Set;
  * are read.  Compatibility overloads in the post-processing package may create
  * a snapshot for old callers, but a running phase keeps and passes this object.
  * The prompt variant is intentionally not copied: fresh requests always use the
- * evaluated P2 protocol.</p>
+ * evaluated production protocol.</p>
  */
 public final class PostProcessingOptions {
 

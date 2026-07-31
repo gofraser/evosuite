@@ -46,7 +46,7 @@ final class LlmPostProcessingPromptBuilder {
         return buildInternal(context, testIndex, assertionsEnabled, null);
     }
 
-    /** Production entry point; new requests always use the frozen P2 protocol. */
+    /** Production entry point; new requests always use the frozen production protocol. */
     static PromptResult build(LlmPostProcessingPromptContext context, int testIndex,
                               boolean assertionsEnabled, PostProcessingOptions options) {
         return PostProcessingPromptRenderer.build(context, assertionsEnabled, options);

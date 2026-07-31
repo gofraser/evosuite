@@ -27,6 +27,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -286,14 +289,12 @@ class LlmPostProcessingPromptBuilderTest {
     }
 
     @Test
-    void productionRendererPreservesTheP2CompatibilityPromptBytes() {
+    void productionRendererPreservesTheCompatibilityPromptBytes() {
         Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
         Properties.LLM_POSTPROCESSING_TEST_NAMES = true;
         Properties.LLM_POSTPROCESSING_VARIABLE_NAMES = true;
         Properties.LLM_POSTPROCESSING_COMMENTS = true;
         Properties.LLM_POSTPROCESSING_SECTION_BREAKS = true;
-        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
-                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
 
@@ -307,6 +308,39 @@ class LlmPostProcessingPromptBuilderTest {
                 0, true, options).getMessages().get(1).getContent();
 
         assertEquals(compatibilityPrompt, productionPrompt);
+    }
+
+    @Test
+    void productionRendererMatchesTheGoldenPromptHash() {
+        Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
+        Properties.LLM_POSTPROCESSING_TEST_NAMES = true;
+        Properties.LLM_POSTPROCESSING_VARIABLE_NAMES = true;
+        Properties.LLM_POSTPROCESSING_COMMENTS = true;
+        Properties.LLM_POSTPROCESSING_SECTION_BREAKS = true;
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+        PostProcessingOptions options = PostProcessingOptions.fromProperties();
+        String prompt = LlmPostProcessingPromptBuilder.build(
+                LlmPostProcessingPromptContext.from(test, null, null,
+                        Collections.emptyList(), options),
+                0, true, options).getMessages().get(1).getContent();
+
+        assertEquals("3673e6979ce46859ca511abe85ac01db2a9ab4256879562b73365a7c8b6d5827",
+                sha256(prompt));
+    }
+
+    private static String sha256(String value) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256")
+                    .digest(value.getBytes(StandardCharsets.UTF_8));
+            StringBuilder result = new StringBuilder();
+            for (byte valueByte : digest) {
+                result.append(String.format("%02x", valueByte & 0xff));
+            }
+            return result.toString();
+        } catch (NoSuchAlgorithmException e) {
+            throw new AssertionError(e);
+        }
     }
 
     private static String cacheablePrefix(String prompt) {
