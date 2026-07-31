@@ -138,7 +138,7 @@ final class LlmTestPostProcessor {
                     result.assertionsAcceptedInitial = response.getAssertions().size();
                     LlmPostProcessor.AssertionRepairResult repairResult =
                             processor.repairRejectedAssertionsIfPossible(parseResult,
-                                    parsedResponse, response, initialValidationDiagnostics, context, validationTest,
+                                    parsedResponse, response, initialValidationDiagnostics, oracleContext, validationTest,
                                     contextExecutionResult, limits,
                                     requestedCallsBeforeTest + result.calls, testIndex, minimizationResult,
                                     phaseStartMillis, options);

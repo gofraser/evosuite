@@ -836,7 +836,7 @@ public class LlmPostProcessor {
             LlmPostProcessingResponse parsedResponse,
             LlmPostProcessingResponse acceptedResponse,
             List<LlmPostProcessingParseResult.Diagnostic> validationDiagnostics,
-            LlmPostProcessingPromptContext context,
+            OracleContext context,
             TestCase validationTest,
             ExecutionResult executionResult,
             ProcessingLimits limits,

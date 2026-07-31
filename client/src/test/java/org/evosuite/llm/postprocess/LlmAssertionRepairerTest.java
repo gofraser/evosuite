@@ -140,6 +140,34 @@ class LlmAssertionRepairerTest {
     }
 
     @Test
+    void productionRepairSnapshotPreservesCompatibilityPromptBytes() {
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+        LlmPostProcessingPromptContext promptContext = LlmPostProcessingPromptContext.from(test);
+        OracleContext oracleContext = OracleContextFactory.capture(promptContext);
+        LlmPostProcessingResponse response = new LlmPostProcessingResponse(2);
+        response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
+                "a0", LlmPostProcessingResponse.AssertionKind.TRUE,
+                null, "v0", null, null));
+        LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\","
+                        + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}",
+                promptContext.toParseContext());
+        List<LlmAssertionRepairer.RejectedAssertion> rejected =
+                LlmAssertionRepairer.collectRepairableRejectedAssertions(
+                        parsed, parsed.getResponse(), new LlmPostProcessingResponse(2),
+                        Collections.emptyList());
+        PostProcessingOptions options = PostProcessingOptions.fromProperties();
+
+        assertEquals(
+                LlmAssertionRepairer.buildRepairMessages(promptContext, rejected, options)
+                        .get(1).getContent(),
+                LlmAssertionRepairer.buildRepairMessages(oracleContext, rejected, options)
+                        .get(1).getContent());
+        assertEquals(1, response.getAssertions().size());
+    }
+
+    @Test
     void callablePolicyFailuresAreNotRepairable() {
         String raw = "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
                 + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";
