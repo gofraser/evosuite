@@ -31,12 +31,13 @@ public final class PostProcessingOptions {
     private final boolean enabled;
     private final Properties.LlmProvider provider;
     private final int callTimeoutSeconds;
+    private final long minimumFreeMemoryBytes;
 
     private PostProcessingOptions(Features features, ContextLimits contextLimits,
                                   AssertionPolicy assertionPolicy, PhaseBudget phaseBudget,
                                   RepairFallbackPolicy repairFallbackPolicy, String targetClass,
                                   boolean enabled, Properties.LlmProvider provider,
-                                  int callTimeoutSeconds) {
+                                  int callTimeoutSeconds, long minimumFreeMemoryBytes) {
         this.features = features;
         this.contextLimits = contextLimits;
         this.assertionPolicy = assertionPolicy;
@@ -46,6 +47,7 @@ public final class PostProcessingOptions {
         this.enabled = enabled;
         this.provider = provider == null ? Properties.LlmProvider.NONE : provider;
         this.callTimeoutSeconds = nonNegative(callTimeoutSeconds);
+        this.minimumFreeMemoryBytes = Math.max(0L, minimumFreeMemoryBytes);
     }
 
     public static PostProcessingOptions fromProperties() {
@@ -97,7 +99,8 @@ public final class PostProcessingOptions {
                 Properties.TARGET_CLASS,
                 Properties.LLM_POSTPROCESSING_ENABLED,
                 Properties.LLM_PROVIDER,
-                Properties.LLM_TIMEOUT_SECONDS);
+                Properties.LLM_TIMEOUT_SECONDS,
+                Properties.MIN_FREE_MEM);
     }
 
     public static Builder builder() {
@@ -122,6 +125,7 @@ public final class PostProcessingOptions {
     public boolean enabled() { return enabled; }
     public Properties.LlmProvider provider() { return provider; }
     public int callTimeoutSeconds() { return callTimeoutSeconds; }
+    public long minimumFreeMemoryBytes() { return minimumFreeMemoryBytes; }
 
     public static final class Features {
         private final boolean assertions;
@@ -322,14 +326,16 @@ public final class PostProcessingOptions {
         public Builder features(Features features) {
             value = new PostProcessingOptions(features, value.contextLimits, value.assertionPolicy,
                     value.phaseBudget, value.repairFallbackPolicy, value.targetClass,
-                    value.enabled, value.provider, value.callTimeoutSeconds);
+                    value.enabled, value.provider, value.callTimeoutSeconds,
+                    value.minimumFreeMemoryBytes);
             return this;
         }
 
         public Builder targetClass(String targetClass) {
             value = new PostProcessingOptions(value.features, value.contextLimits, value.assertionPolicy,
                     value.phaseBudget, value.repairFallbackPolicy, targetClass,
-                    value.enabled, value.provider, value.callTimeoutSeconds);
+                    value.enabled, value.provider, value.callTimeoutSeconds,
+                    value.minimumFreeMemoryBytes);
             return this;
         }
 

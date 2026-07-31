@@ -19,6 +19,7 @@ class PostProcessingOptionsTest {
     private Properties.LlmProvider originalProvider;
     private int originalCallTimeout;
     private int originalObservationChars;
+    private int originalMinimumFreeMemory;
     private String originalStaticAllowlist;
 
     @BeforeEach
@@ -27,6 +28,7 @@ class PostProcessingOptionsTest {
         originalProvider = Properties.LLM_PROVIDER;
         originalCallTimeout = Properties.LLM_TIMEOUT_SECONDS;
         originalObservationChars = Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS;
+        originalMinimumFreeMemory = Properties.MIN_FREE_MEM;
         originalStaticAllowlist = Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST;
     }
 
@@ -36,6 +38,7 @@ class PostProcessingOptionsTest {
         Properties.LLM_PROVIDER = originalProvider;
         Properties.LLM_TIMEOUT_SECONDS = originalCallTimeout;
         Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS = originalObservationChars;
+        Properties.MIN_FREE_MEM = originalMinimumFreeMemory;
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = originalStaticAllowlist;
     }
 
@@ -45,6 +48,7 @@ class PostProcessingOptionsTest {
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
         Properties.LLM_TIMEOUT_SECONDS = 17;
         Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS = 321;
+        Properties.MIN_FREE_MEM = 1234;
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = " max, ,min,max ";
 
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
@@ -53,11 +57,13 @@ class PostProcessingOptionsTest {
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
         Properties.LLM_TIMEOUT_SECONDS = 0;
         Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS = 1;
+        Properties.MIN_FREE_MEM = 1;
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = "changed";
 
         assertTrue(options.enabled());
         assertEquals(Properties.LlmProvider.OPENAI, options.provider());
         assertEquals(17, options.callTimeoutSeconds());
+        assertEquals(1234L, options.minimumFreeMemoryBytes());
         assertEquals(321, options.contextLimits().observationChars());
         assertEquals(2, options.assertionPolicy().pureStaticAllowlist().size());
         assertTrue(options.assertionPolicy().pureStaticAllowlist().contains("max"));

@@ -285,7 +285,7 @@ public class LlmPostProcessor {
     }
 
     boolean isLowMemory() {
-        return resourceGuard.isLowMemory();
+        return resourceGuard.isLowMemory(options.minimumFreeMemoryBytes());
     }
 
     boolean hasLlmBudget() {
@@ -1223,6 +1223,10 @@ public class LlmPostProcessor {
 
     interface ResourceGuard {
         boolean isLowMemory();
+
+        default boolean isLowMemory(long minimumFreeMemoryBytes) {
+            return isLowMemory();
+        }
     }
 
     interface PhaseClock {
@@ -1239,8 +1243,13 @@ public class LlmPostProcessor {
     private static final class DefaultResourceGuard implements ResourceGuard {
         @Override
         public boolean isLowMemory() {
+            return isLowMemory(0L);
+        }
+
+        @Override
+        public boolean isLowMemory(long minimumFreeMemoryBytes) {
             Runtime runtime = Runtime.getRuntime();
-            long threshold = Properties.MIN_FREE_MEM * 2L;
+            long threshold = Math.max(0L, minimumFreeMemoryBytes) * 2L;
             long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
             if (freeMem >= threshold) {
                 return false;

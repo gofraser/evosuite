@@ -112,7 +112,7 @@ final class LlmTestPostProcessor {
                 List<LlmPostProcessingParseResult.Diagnostic> initialValidationDiagnostics =
                         Collections.emptyList();
                 LlmPostProcessingPhase.StopReason stopReason = LlmPostProcessingPhase.StopReason.NONE;
-                if (processor.resourceGuard.isLowMemory()) {
+                if (processor.isLowMemory()) {
                     response = LlmPostProcessor.withoutAssertions(response);
                     stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
                 } else if (!response.getAssertions().isEmpty()) {
@@ -127,7 +127,7 @@ final class LlmTestPostProcessor {
                     result.diagnosticCounters.add(validationResult.plan.getDiagnostics());
                 }
                 if (stopReason == LlmPostProcessingPhase.StopReason.NONE
-                        && processor.resourceGuard.isLowMemory()) {
+                        && processor.isLowMemory()) {
                     stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
                 }
                 if (stopReason == LlmPostProcessingPhase.StopReason.NONE
@@ -174,7 +174,7 @@ final class LlmTestPostProcessor {
             processor.recordAppliedAssertionLifecycle(response, applied.getAppliedAssertions(), testIndex,
                     minimizationResult);
             if (result.stopReason == LlmPostProcessingPhase.StopReason.LOW_MEMORY
-                    || processor.resourceGuard.isLowMemory()) {
+                    || processor.isLowMemory()) {
                 result.stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
                 result.acceptedTests = 1;
                 result.partiallyProcessedTests = 1;
