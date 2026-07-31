@@ -55,7 +55,7 @@ final class LlmTestPostProcessor {
             ExecutionResult contextExecutionResult = candidateCollection == null
                     ? chromosome.getLastExecutionResult()
                     : candidateCollection.getExecutionResult();
-            OracleContext oracleContext = OracleContextCollector.capture(
+            OracleContext oracleContext = OracleContext.from(
                     validationTest, contextExecutionResult, null,
                     candidateCollection == null ? Collections.emptyList()
                             : candidateCollection.getAssertions(), options);
@@ -67,7 +67,7 @@ final class LlmTestPostProcessor {
                 return result;
             }
             boolean assertionsEnabledForTest = options.features().assertions() && assertionEligible;
-            PromptResult prompt = LlmPostProcessingPromptBuilder.build(oracleContext, testIndex,
+            PromptResult prompt = PostProcessingPromptRenderer.build(oracleContext,
                     assertionsEnabledForTest, options);
             result.requestedTests = 1;
             result.requestedCalls = 1;
@@ -86,11 +86,10 @@ final class LlmTestPostProcessor {
                 return result;
             }
             result.diagnosticCounters.add(parseResult);
-            DecodedPostProcessingResponse decodedResponse = parseResult.getDecodedResponse();
-            LlmPostProcessingResponse response = decodedResponse.getResponse();
+            LlmPostProcessingResponse response = parseResult.getResponse();
             processor.recordAssertionDiagnostics(parseResult.getDiagnostics(), response,
-                    decodedResponse.getRawAssertions(), testIndex, minimizationResult, "initial", "parse");
-            PostProcessingCounts proposedCounts = decodedResponse.getProposedCounts();
+                    parseResult.getRawAssertions(), testIndex, minimizationResult, "initial", "parse");
+            PostProcessingCounts proposedCounts = parseResult.getProposedCounts();
             result.testNamesProposed = proposedCounts.getTestNames();
             result.variableNamesProposed = proposedCounts.getVariableNames();
             result.commentsProposed = proposedCounts.getComments();
@@ -102,14 +101,14 @@ final class LlmTestPostProcessor {
                         Collections.emptyList();
                 LlmPostProcessingPhase.StopReason stopReason = LlmPostProcessingPhase.StopReason.NONE;
                 if (processor.isLowMemory(phaseContext)) {
-                    response = LlmPostProcessor.withoutAssertions(response);
+                    response = response.withoutAssertions();
                     stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
                 } else if (!response.getAssertions().isEmpty()) {
                     ValidatedEditPlan validationResult =
                             processor.validateAssertionsAgainstScopes(phaseContext, response, validationTest,
                                     contextExecutionResult, null, null);
                     processor.recordAssertionDiagnostics(validationResult.getDiagnostics(), response,
-                            decodedResponse.getRawAssertions(), testIndex, minimizationResult,
+                            parseResult.getRawAssertions(), testIndex, minimizationResult,
                             "initial", "validation");
                     response = validationResult.getResponse();
                     initialValidationDiagnostics = validationResult.getDiagnostics();
@@ -148,9 +147,9 @@ final class LlmTestPostProcessor {
                 }
                 result.stopReason = stopReason;
             } else if (!response.getAssertions().isEmpty()) {
-                response = LlmPostProcessor.withoutAssertions(response);
+                response = response.withoutAssertions();
             }
-            processor.recordAssertionLifecycle(phaseContext, response.getAssertions(), testIndex,
+            processor.recordAssertionLifecycle(response.getAssertions(), testIndex,
                     minimizationResult, "accepted_final", "final");
             LlmPostProcessingEditApplier.ApplyResult applied = LlmPostProcessingEditApplier.apply(
                     test, oracleContext.getReferences(), response, assertionEligible, contextExecutionResult,

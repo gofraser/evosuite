@@ -180,27 +180,6 @@ public class LlmPostProcessor {
     }
 
     /**
-     * Run unified LLM post-processing.
-     *
-     * @param suite the final structurally post-processed suite
-     * @return number of unified assertions successfully applied during the phase
-     */
-    public int runUnifiedPostProcessing(TestSuiteChromosome suite) {
-        return runUnifiedPostProcessing(suite, MinimizationResult.disabled(suite));
-    }
-
-    /**
-     * Run unified LLM post-processing.
-     *
-     * @param suite the final structurally post-processed suite
-     * @param minimizationResult explicit result of the preceding minimization phase
-     * @return number of unified assertions successfully applied during the phase
-     */
-    public int runUnifiedPostProcessing(TestSuiteChromosome suite, MinimizationResult minimizationResult) {
-        return runUnifiedPostProcessing(suite, minimizationResult, createPhaseContext());
-    }
-
-    /**
      * Run unified post-processing with an explicit phase context. The context
      * is also used by the suite generator for final assertion reconciliation.
      */
@@ -214,9 +193,7 @@ public class LlmPostProcessor {
         // Take exactly one configuration snapshot for this phase.  Subsequent
         // collaborators receive this snapshot instead of observing mutable
         // Properties at different points in the request lifecycle.
-        PostProcessingAssertionValidator.setOptions(assertionEvaluationRunner, options);
         phaseContext.session().clear();
-        LlmPostProcessingLegacyBridge.clear();
         MinimizationResult effectiveMinimizationResult = minimizationResult == null
                 ? MinimizationResult.disabled(suite)
                 : minimizationResult;
@@ -254,11 +231,10 @@ public class LlmPostProcessor {
             return 0;
         }
 
-        LlmPostProcessingPhase.Result phaseResult = new LlmPostProcessingPhase(this, phaseContext).run(
+        PostProcessingMetrics phaseMetrics = new LlmPostProcessingPhase(this, phaseContext).run(
                 suite, effectiveMinimizationResult, phaseContext);
-        phaseContext.telemetry().publish(phaseResult.metrics);
-        LlmPostProcessingLegacyBridge.capture(phaseContext.session());
-        return phaseResult.metrics.assertionsApplied;
+        phaseContext.telemetry().publish(phaseMetrics);
+        return phaseMetrics.assertionsApplied;
     }
 
     boolean isPhaseTimedOut(LlmPostProcessingPhaseContext phaseContext) {
@@ -375,7 +351,6 @@ public class LlmPostProcessor {
     }
 
     void recordAssertionLifecycle(
-            LlmPostProcessingPhaseContext phaseContext,
             List<LlmPostProcessingResponse.AssertionProposal> proposals,
             int testIndex,
             MinimizationResult minimizationResult,
@@ -521,32 +496,24 @@ public class LlmPostProcessor {
         return result.noThrownExceptions();
     }
 
-    static boolean hasAssertionOpportunity(PostProcessingPromptFacts context) {
+    static boolean hasAssertionOpportunity(OracleContext context) {
         if (context == null) {
             return false;
         }
         boolean hasObservedResult = hasRepresentableCandidateFact(context);
-        for (LlmPostProcessingPromptContext.Observation observation : context.getObservations()) {
+        for (OracleContext.Observation observation : context.getObservations()) {
             if (observation != null && observation.isComplete()
                     && !"INPUT".equals(observation.getProvenance())) {
                 hasObservedResult = true;
                 break;
             }
         }
-        if (!hasObservedResult) {
-            for (LlmPostProcessingPromptContext.CallableMember callable : context.getCallableMembers()) {
-                if (callable != null && callable.getObservedResult() != null) {
-                    hasObservedResult = true;
-                    break;
-                }
-            }
-        }
         boolean hasRepresentableOperand = !context.getReferences().getVariableIds().isEmpty();
         return hasObservedResult && hasRepresentableOperand;
     }
 
-    private static boolean hasRepresentableCandidateFact(PostProcessingPromptFacts context) {
-        for (LlmPostProcessingPromptContext.CandidateFact fact : context.getCandidateFacts()) {
+    private static boolean hasRepresentableCandidateFact(OracleContext context) {
+        for (OracleContext.CandidateFact fact : context.getCandidateFacts()) {
             if (fact == null) {
                 continue;
             }
@@ -781,10 +748,6 @@ public class LlmPostProcessor {
         return proposal == null ? "" : proposal.getPurpose();
     }
 
-    static LlmPostProcessingResponse withoutAssertions(LlmPostProcessingResponse response) {
-        return response.withoutAssertions();
-    }
-
     AssertionRepairResult repairRejectedAssertionsIfPossible(
             LlmPostProcessingPhaseContext phaseContext,
             LlmPostProcessingParseResult parseResult,
@@ -966,7 +929,8 @@ public class LlmPostProcessor {
         EvaluationOutcome evaluate(LlmPostProcessingResponse.AssertionProposal proposal,
                                    TestCase validationTest,
                                    LlmPostProcessingReferences references,
-                                   Scope finalScope);
+                                   Scope finalScope,
+                                   PostProcessingOptions options);
     }
 
     interface ResourceGuard {

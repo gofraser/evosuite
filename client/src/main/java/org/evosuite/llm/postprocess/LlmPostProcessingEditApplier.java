@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.function.IntSupplier;
 
 /**
  * Applies parsed non-assertion unified post-processing edits as test metadata.
@@ -44,32 +43,18 @@ public final class LlmPostProcessingEditApplier {
     }
 
     public static ApplyResult apply(TestCase test, LlmPostProcessingReferences references,
-                                    LlmPostProcessingResponse response) {
-        return apply(test, references, response, true);
-    }
-
-    public static ApplyResult apply(TestCase test, LlmPostProcessingReferences references,
-                                    LlmPostProcessingResponse response, boolean assertionsAllowed) {
-        return apply(test, references, response, assertionsAllowed, null);
-    }
-
-    public static ApplyResult apply(TestCase test, LlmPostProcessingReferences references,
-                                    LlmPostProcessingResponse response, boolean assertionsAllowed,
-                                    ExecutionResult executionResult) {
-        return apply(test, references, response, assertionsAllowed, executionResult, null);
-    }
-
-    /** Apply using one phase snapshot; null is retained only for old callers. */
-    public static ApplyResult apply(TestCase test, LlmPostProcessingReferences references,
                                     LlmPostProcessingResponse response, boolean assertionsAllowed,
                                     ExecutionResult executionResult, PostProcessingOptions options) {
         if (test == null || references == null || response == null) {
             return new ApplyResult(0, 0, 0, 0, java.util.Collections.<TemplateCodeAssertion>emptyList());
         }
-        PostProcessingOptions effectiveOptions = options == null
-                ? PostProcessingOptions.fromProperties() : options;
-        PostProcessingOptions.Features features = effectiveOptions.features();
+        if (options == null) {
+            throw new IllegalArgumentException("Post-processing options are required");
+        }
+        PostProcessingOptions.Features features = options.features();
         TestPresentationMetadata metadata = TestPresentationMetadata.getOrCreate(test);
+        TestPresentationMetadata originalMetadata = metadata.copy();
+        TestPresentationMetadata stagedMetadata = metadata.copy();
         Integer firstExceptionPosition = executionResult == null
                 ? null
                 : executionResult.getFirstPositionOfThrownException();
@@ -80,73 +65,72 @@ public final class LlmPostProcessingEditApplier {
         List<TemplateCodeAssertion> appliedAssertions = new ArrayList<>();
 
         if (features.testNames() && response.getTestName() != null) {
-            testNames = applyPresentationCategory(metadata, test, executionResult, () -> {
-                metadata.setTestName(response.getTestName());
-                return 1;
-            });
+            stagedMetadata.setTestName(response.getTestName());
+            testNames = 1;
         }
 
         if (features.variableNames()) {
-            variableNames = applyPresentationCategory(metadata, test, executionResult, () -> {
-                Map<Integer, String> proposalsByPosition = new TreeMap<>();
-                for (Map.Entry<String, String> entry : response.getVariableNames().entrySet()) {
-                    if (!references.hasVariableId(entry.getKey())) {
-                        continue;
-                    }
-                    proposalsByPosition.put(references.getVariablePosition(entry.getKey()), entry.getValue());
+            Map<Integer, String> proposalsByPosition = new TreeMap<>();
+            for (Map.Entry<String, String> entry : response.getVariableNames().entrySet()) {
+                if (!references.hasVariableId(entry.getKey())) {
+                    continue;
                 }
-                Set<String> usedNames = renderedLocalVariableNames(test, executionResult);
-                Map<Integer, String> currentNames = renderedVariableNames(test, executionResult);
-                for (Integer renamedPosition : proposalsByPosition.keySet()) {
-                    usedNames.remove(currentNames.get(renamedPosition));
-                }
-                for (Map.Entry<Integer, String> entry : proposalsByPosition.entrySet()) {
-                    metadata.putVariableName(entry.getKey(), uniqueName(entry.getValue(), usedNames));
-                }
-                return proposalsByPosition.size();
-            });
+                proposalsByPosition.put(references.getVariablePosition(entry.getKey()), entry.getValue());
+            }
+            Set<String> usedNames = new LinkedHashSet<>(renderedVariableNames(test, executionResult).values());
+            Map<Integer, String> currentNames = renderedVariableNames(test, executionResult);
+            for (Integer renamedPosition : proposalsByPosition.keySet()) {
+                usedNames.remove(currentNames.get(renamedPosition));
+            }
+            for (Map.Entry<Integer, String> entry : proposalsByPosition.entrySet()) {
+                stagedMetadata.putVariableName(entry.getKey(), uniqueName(entry.getValue(), usedNames));
+            }
+            variableNames = proposalsByPosition.size();
         }
 
         if (features.comments()) {
-            comments = applyPresentationCategory(metadata, test, executionResult, () -> {
-                int applied = 0;
-                for (LlmPostProcessingResponse.CommentProposal comment : response.getComments()) {
-                    if (!references.hasStatementId(comment.getAfterStatementId())) {
-                        continue;
-                    }
-                    int position = references.getStatementPosition(comment.getAfterStatementId());
-                    if (isAfterTerminatingException(position, firstExceptionPosition)) {
-                        continue;
-                    }
-                    metadata.addCommentAfter(position, comment.getText());
-                    applied++;
+            for (LlmPostProcessingResponse.CommentProposal comment : response.getComments()) {
+                if (!references.hasStatementId(comment.getAfterStatementId())) {
+                    continue;
                 }
-                return applied;
-            });
+                int position = references.getStatementPosition(comment.getAfterStatementId());
+                if (isAfterTerminatingException(position, firstExceptionPosition)) {
+                    continue;
+                }
+                stagedMetadata.addCommentAfter(position, comment.getText());
+                comments++;
+            }
         }
 
         if (features.sectionBreaks()) {
-            sectionBreaks = applyPresentationCategory(metadata, test, executionResult, () -> {
-                int applied = 0;
-                for (String statementId : response.getSectionBreaksAfter()) {
-                    if (!references.hasStatementId(statementId)) {
-                        continue;
-                    }
-                    int position = references.getStatementPosition(statementId);
-                    if (isAfterTerminatingException(position, firstExceptionPosition)) {
-                        continue;
-                    }
-                    metadata.addSectionBreakAfter(position);
-                    applied++;
+            for (String statementId : response.getSectionBreaksAfter()) {
+                if (!references.hasStatementId(statementId)) {
+                    continue;
                 }
-                return applied;
-            });
+                int position = references.getStatementPosition(statementId);
+                if (isAfterTerminatingException(position, firstExceptionPosition)) {
+                    continue;
+                }
+                stagedMetadata.addSectionBreakAfter(position);
+                sectionBreaks++;
+            }
+        }
+
+        if (testNames > 0 || variableNames > 0 || comments > 0 || sectionBreaks > 0) {
+            metadata.replaceWith(stagedMetadata);
+            if (!canRender(test, executionResult)) {
+                metadata.replaceWith(originalMetadata);
+                testNames = 0;
+                variableNames = 0;
+                comments = 0;
+                sectionBreaks = 0;
+            }
         }
 
         if (assertionsAllowed && features.assertions() && test.size() > 0) {
             List<AttachedAssertion> attached = new ArrayList<>();
             for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
-                TemplateCodeAssertion assertion = toTemplateAssertion(proposal, references);
+                TemplateCodeAssertion assertion = toTemplateAssertionForValidation(proposal, references);
                 if (assertion == null) {
                     continue;
                 }
@@ -173,11 +157,6 @@ public final class LlmPostProcessingEditApplier {
         }
 
         return new ApplyResult(testNames, variableNames, comments, sectionBreaks, appliedAssertions);
-    }
-
-    private static TemplateCodeAssertion toTemplateAssertion(LlmPostProcessingResponse.AssertionProposal proposal,
-                                                             LlmPostProcessingReferences references) {
-        return toTemplateAssertionForValidation(proposal, references);
     }
 
     static TemplateCodeAssertion toTemplateAssertionForValidation(
@@ -262,33 +241,6 @@ public final class LlmPostProcessingEditApplier {
         } catch (RuntimeException | AssertionError e) {
             return false;
         }
-    }
-
-    /**
-     * Apply one presentation category as an independent transaction.  A
-     * failed category restores only its own snapshot, so other accepted
-     * presentation categories remain committed.
-     */
-    private static int applyPresentationCategory(TestPresentationMetadata metadata,
-                                                 TestCase test,
-                                                 ExecutionResult executionResult,
-                                                 IntSupplier mutation) {
-        TestPresentationMetadata snapshot = metadata.copy();
-        try {
-            int applied = mutation.getAsInt();
-            if (!canRender(test, executionResult)) {
-                metadata.replaceWith(snapshot);
-                return 0;
-            }
-            return applied;
-        } catch (RuntimeException | AssertionError e) {
-            metadata.replaceWith(snapshot);
-            return 0;
-        }
-    }
-
-    private static Set<String> renderedLocalVariableNames(TestCase test, ExecutionResult executionResult) {
-        return new LinkedHashSet<>(renderedVariableNames(test, executionResult).values());
     }
 
     private static Map<Integer, String> renderedVariableNames(TestCase test, ExecutionResult executionResult) {

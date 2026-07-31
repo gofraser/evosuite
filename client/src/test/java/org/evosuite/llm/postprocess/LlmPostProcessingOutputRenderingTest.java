@@ -25,6 +25,7 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTraceImpl;
 import org.evosuite.testcase.statements.ArrayStatement;
@@ -59,6 +60,24 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LlmPostProcessingOutputRenderingTest {
+
+    private static LlmPostProcessingEditApplier.ApplyResult apply(
+            TestCase test, LlmPostProcessingReferences references, LlmPostProcessingResponse response) {
+        return apply(test, references, response, true, null);
+    }
+
+    private static LlmPostProcessingEditApplier.ApplyResult apply(
+            TestCase test, LlmPostProcessingReferences references, LlmPostProcessingResponse response,
+            boolean assertionsAllowed) {
+        return apply(test, references, response, assertionsAllowed, null);
+    }
+
+    private static LlmPostProcessingEditApplier.ApplyResult apply(
+            TestCase test, LlmPostProcessingReferences references, LlmPostProcessingResponse response,
+            boolean assertionsAllowed, ExecutionResult executionResult) {
+        return LlmPostProcessingEditApplier.apply(test, references, response, assertionsAllowed,
+                executionResult, PostProcessingOptions.fromProperties());
+    }
 
     private final Properties.OutputFormat originalOutputFormat = Properties.TEST_FORMAT;
     private final boolean originalTestScaffolding = Properties.TEST_SCAFFOLDING;
@@ -133,8 +152,8 @@ class LlmPostProcessingOutputRenderingTest {
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\","
                         + "\"purpose\":\"The count remains stable.\"}]}",
-                references.toParseContext()).getResponse();
-        LlmPostProcessingEditApplier.apply(test, references, response);
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
+        apply(test, references, response);
 
         String code = writeCompileAndRunSuite(test, "UnifiedReadableOutputTest",
                 "usesReadablePostProcessedOutput");
@@ -163,8 +182,8 @@ class LlmPostProcessingOutputRenderingTest {
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\","
                         + "\"purpose\":\"The count remains stable.\"}]}",
-                references.toParseContext()).getResponse();
-        LlmPostProcessingEditApplier.apply(test, references, response);
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
+        apply(test, references, response);
 
         String code = writeCompileAndRunSuite(test, "GoldenReadableOutputTest",
                 "usesReadablePostProcessedOutput");
@@ -231,8 +250,8 @@ class LlmPostProcessingOutputRenderingTest {
                         + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Readable edits still apply.\"}],"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\"}]}",
-                references.toParseContext()).getResponse();
-        LlmPostProcessingEditApplier.apply(test, references, response, false);
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
+        apply(test, references, response, false);
 
         String code = writeCompileAndRunSuite(test, "UnifiedThrowingReadableOnlyTest",
                 "throwingReadableOnly");
@@ -257,9 +276,9 @@ class LlmPostProcessingOutputRenderingTest {
                         + "\"variableNames\":{\"v0\":\"count\",\"v1\":\"label\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s1\",\"text\":\"Inputs are unchanged.\"}],"
                         + "\"sectionBreaksAfter\":[\"s1\"]}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
-        LlmPostProcessingEditApplier.apply(test, references, response);
+        apply(test, references, response);
 
         assertEquals(Integer.valueOf(7), intStatement.getValue());
         assertEquals("value", stringStatement.getValue());
@@ -269,7 +288,7 @@ class LlmPostProcessingOutputRenderingTest {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, -7));
         test.addStatement(new ArrayStatement(test, String[].class, 1));
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.getOrCreate(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.getOrCreate(test);
         metadata.putVariableName(0, "value");
         metadata.putVariableName(1, "values");
         addTemplateAssertion(test, "pureStatic", LlmPostProcessingResponse.AssertionKind.EQUALS,

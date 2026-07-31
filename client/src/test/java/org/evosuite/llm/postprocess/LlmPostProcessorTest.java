@@ -40,6 +40,7 @@ import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.UninterpretedStatement;
@@ -69,6 +70,16 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class LlmPostProcessorTest {
 
+    private static int run(LlmPostProcessor processor, TestSuiteChromosome suite) {
+        return run(processor, suite, MinimizationResult.disabled(suite));
+    }
+
+    private static int run(LlmPostProcessor processor, TestSuiteChromosome suite,
+                           MinimizationResult minimizationResult) {
+        return processor.runUnifiedPostProcessing(suite, minimizationResult,
+                processor.createPhaseContext());
+    }
+
     private ClientNodeImpl<?> previousClientNode;
 
     @BeforeEach
@@ -90,8 +101,6 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_ASSERTION_EVAL_TIMEOUT_MS = 2000;
         Properties.LLM_POSTPROCESSING_ASSERTION_COMPILE_TIMEOUT_MS = 10000;
         Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 1;
-        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
-                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
         Properties.LLM_POSTPROCESSING_REPAIR_POLICY =
                 Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE;
         Properties.LLM_POSTPROCESSING_ON_INCOMPLETE_MINIMIZATION =
@@ -125,8 +134,6 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_ASSERTION_EVAL_TIMEOUT_MS = 2000;
         Properties.LLM_POSTPROCESSING_ASSERTION_COMPILE_TIMEOUT_MS = 10000;
         Properties.LLM_POSTPROCESSING_ASSERTION_REPAIR_ATTEMPTS = 1;
-        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
-                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
         Properties.LLM_POSTPROCESSING_REPAIR_POLICY =
                 Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE;
         Properties.LLM_POSTPROCESSING_ON_INCOMPLETE_MINIMIZATION =
@@ -197,7 +204,7 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_ENABLED = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
         LlmPostProcessor processor = new LlmPostProcessor();
-        assertDoesNotThrow(() -> processor.runUnifiedPostProcessing(null));
+        assertDoesNotThrow(() -> run(processor, null));
     }
 
     @Test
@@ -210,7 +217,7 @@ class LlmPostProcessorTest {
         QueueCapturingModel model = new QueueCapturingModel();
         model.enqueue("{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
 
-        processor(new UnavailableTestLlmService(model)).runUnifiedPostProcessing(suite);
+        run(processor(new UnavailableTestLlmService(model)), suite);
 
         assertNoAppliedPostProcessing(test);
         assertEquals(0, model.messages.size());
@@ -227,7 +234,7 @@ class LlmPostProcessorTest {
         model.enqueue("{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
         LlmService service = new NoBudgetTestLlmService(model);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
         assertNoAppliedPostProcessing(test);
         assertEquals(0, model.messages.size());
@@ -249,7 +256,7 @@ class LlmPostProcessorTest {
         model.enqueue("{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
         assertNoAppliedPostProcessing(test);
         assertEquals(0, model.messages.size());
@@ -260,14 +267,14 @@ class LlmPostProcessorTest {
         CapturingClientNode node = installCapturingClientNode();
 
         Properties.LLM_POSTPROCESSING_ENABLED = false;
-        processor(createService(new QueueCapturingModel(), 1)).runUnifiedPostProcessing(singleTestSuite(7));
+        run(processor(createService(new QueueCapturingModel(), 1)), singleTestSuite(7));
         assertEquals("disabled", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
         assertZeroPostProcessingOutcomeMetrics(node);
 
         node.clear();
         Properties.LLM_POSTPROCESSING_ENABLED = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
-        new LlmPostProcessor().runUnifiedPostProcessing(singleTestSuite(7));
+        run(new LlmPostProcessor(), singleTestSuite(7));
         assertEquals("no_provider", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
         assertZeroPostProcessingOutcomeMetrics(node);
 
@@ -278,7 +285,7 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_VARIABLE_NAMES = false;
         Properties.LLM_POSTPROCESSING_COMMENTS = false;
         Properties.LLM_POSTPROCESSING_SECTION_BREAKS = false;
-        processor(createService(new QueueCapturingModel(), 1)).runUnifiedPostProcessing(singleTestSuite(7));
+        run(processor(createService(new QueueCapturingModel(), 1)), singleTestSuite(7));
         assertEquals("no_features_enabled", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
         assertZeroPostProcessingOutcomeMetrics(node);
 
@@ -289,7 +296,7 @@ class LlmPostProcessorTest {
         Properties.LLM_POSTPROCESSING_COMMENTS = true;
         Properties.LLM_POSTPROCESSING_SECTION_BREAKS = true;
         TestSuiteChromosome suite = singleTestSuite(7);
-        processor(createService(new QueueCapturingModel(), 1)).runUnifiedPostProcessing(suite,
+        run(processor(createService(new QueueCapturingModel(), 1)), suite,
                 incompleteMinimizationResult(suite, MinimizationStatus.TIMED_OUT,
                         MinimizationStopCause.TIMEOUT));
         assertEquals("incomplete_minimization_TIMED_OUT",
@@ -301,7 +308,9 @@ class LlmPostProcessorTest {
         assertZeroPostProcessingOutcomeMetrics(node);
 
         node.clear();
-        LlmPostProcessingLegacyBridge.publishSkipped("low_memory",
+        LlmPostProcessor skippedProcessor = new LlmPostProcessor();
+        LlmPostProcessingPhaseContext skippedContext = skippedProcessor.createPhaseContext();
+        skippedProcessor.publishSkippedPostProcessingMetrics(skippedContext, "low_memory",
                 incompleteMinimizationResult(suite, MinimizationStatus.COMPLETED,
                         MinimizationStopCause.NONE));
         assertEquals("low_memory", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
@@ -342,9 +351,11 @@ class LlmPostProcessorTest {
         LlmService service = createService(model, 3);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
 
-        int assertionsAppliedByPhase =
-                processor(service, fallbackRunner, new FinalScopeCandidateRunner(7))
-                        .runUnifiedPostProcessing(suite);
+        LlmPostProcessor phaseProcessor =
+                processor(service, fallbackRunner, new FinalScopeCandidateRunner(7));
+        LlmPostProcessingPhaseContext phaseContext = phaseProcessor.createPhaseContext();
+        int assertionsAppliedByPhase = phaseProcessor.runUnifiedPostProcessing(suite,
+                MinimizationResult.disabled(suite), phaseContext);
 
         assertEquals("", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
         assertEquals(2, node.value(RuntimeVariable.LLM_PostProcessing_Requested_Tests));
@@ -380,7 +391,7 @@ class LlmPostProcessorTest {
         noLongerPresent.getStatement().removeAssertion(noLongerPresent);
         assertEquals(1, LlmPostProcessor.countUnifiedTemplateAssertions(suite));
 
-        LlmPostProcessingLegacyBridge.publishFinal(suite, assertionsAppliedByPhase);
+        phaseProcessor.publishFinalAssertionReconciliation(phaseContext, suite, assertionsAppliedByPhase);
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped));
@@ -397,7 +408,7 @@ class LlmPostProcessorTest {
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1}");
 
-        processor(createService(model, 1)).runUnifiedPostProcessing(suite);
+        run(processor(createService(model, 1)), suite);
 
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Processed_Tests));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Partially_Processed_Tests));
@@ -416,8 +427,7 @@ class LlmPostProcessorTest {
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1}");
 
-        processor(createService(model, 1), new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(createService(model, 1), new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks));
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Fallback_Assertions_Applied));
@@ -440,9 +450,9 @@ class LlmPostProcessorTest {
                         + "\"sectionBreaksAfter\":[\"s0\"]}");
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.get(test);
         assertNotNull(metadata);
         assertEquals("usesPostProcessing", metadata.getTestName());
         assertEquals("count", metadata.getVariableName(0));
@@ -465,10 +475,10 @@ class LlmPostProcessorTest {
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
         LlmService service = createService(model, 2);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
-        assertEquals("first", LlmPostProcessingMetadata.get(first).getVariableName(0));
-        assertNull(LlmPostProcessingMetadata.get(second));
+        assertEquals("first", TestPresentationMetadata.get(first).getVariableName(0));
+        assertNull(TestPresentationMetadata.get(second));
     }
 
     @Test
@@ -486,10 +496,10 @@ class LlmPostProcessorTest {
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
         LlmService service = createService(model, 2);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
-        assertEquals("first", LlmPostProcessingMetadata.get(first).getVariableName(0));
-        assertNull(LlmPostProcessingMetadata.get(second));
+        assertEquals("first", TestPresentationMetadata.get(first).getVariableName(0));
+        assertNull(TestPresentationMetadata.get(second));
     }
 
     @Test
@@ -506,10 +516,10 @@ class LlmPostProcessorTest {
         model.enqueue("{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
-        assertEquals("first", LlmPostProcessingMetadata.get(first).getVariableName(0));
-        assertNull(LlmPostProcessingMetadata.get(second));
+        assertEquals("first", TestPresentationMetadata.get(first).getVariableName(0));
+        assertNull(TestPresentationMetadata.get(second));
         assertEquals(1, model.messages.size());
     }
 
@@ -527,11 +537,11 @@ class LlmPostProcessorTest {
         model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite,
+        run(processor(service), suite,
                 incompleteMinimizationResult(suite, MinimizationStatus.TIMED_OUT,
                         MinimizationStopCause.TIMEOUT));
 
-        assertNull(LlmPostProcessingMetadata.get(test));
+        assertNull(TestPresentationMetadata.get(test));
     }
 
     @Test
@@ -549,10 +559,10 @@ class LlmPostProcessorTest {
         model.enqueue("{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 10);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
-        assertEquals("first", LlmPostProcessingMetadata.get(first).getVariableName(0));
-        assertNull(LlmPostProcessingMetadata.get(second));
+        assertEquals("first", TestPresentationMetadata.get(first).getVariableName(0));
+        assertNull(TestPresentationMetadata.get(second));
         assertEquals(1, model.messages.size());
     }
 
@@ -577,12 +587,12 @@ class LlmPostProcessorTest {
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 10);
 
-        processor(service).runUnifiedPostProcessing(suite,
+        run(processor(service), suite,
                 incompleteMinimizationResult(suite, MinimizationStatus.LOW_MEMORY,
                         MinimizationStopCause.LOW_MEMORY));
 
-        assertEquals("first", LlmPostProcessingMetadata.get(first).getVariableName(0));
-        assertNull(LlmPostProcessingMetadata.get(second));
+        assertEquals("first", TestPresentationMetadata.get(first).getVariableName(0));
+        assertNull(TestPresentationMetadata.get(second));
     }
 
     @Test
@@ -609,12 +619,12 @@ class LlmPostProcessorTest {
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"selected\"}}");
         LlmService service = createService(model, 10);
 
-        processor(service).runUnifiedPostProcessing(suite,
+        run(processor(service), suite,
                 incompleteMinimizationResult(suite, MinimizationStatus.LOW_MEMORY,
                         MinimizationStopCause.LOW_MEMORY));
 
-        assertNull(LlmPostProcessingMetadata.get(commonOnly));
-        assertEquals("selected", LlmPostProcessingMetadata.get(uniqueCoverage).getVariableName(0));
+        assertNull(TestPresentationMetadata.get(commonOnly));
+        assertEquals("selected", TestPresentationMetadata.get(uniqueCoverage).getVariableName(0));
     }
 
     @Test
@@ -638,12 +648,12 @@ class LlmPostProcessorTest {
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 10);
 
-        processor(service).runUnifiedPostProcessing(suite,
+        run(processor(service), suite,
                 incompleteMinimizationResult(suite, MinimizationStatus.TIMED_OUT,
                         MinimizationStopCause.TIMEOUT));
 
-        assertEquals("first", LlmPostProcessingMetadata.get(first).getVariableName(0));
-        assertEquals("second", LlmPostProcessingMetadata.get(second).getVariableName(0));
+        assertEquals("first", TestPresentationMetadata.get(first).getVariableName(0));
+        assertEquals("second", TestPresentationMetadata.get(second).getVariableName(0));
     }
 
     @Test
@@ -665,12 +675,12 @@ class LlmPostProcessorTest {
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 10);
 
-        processor(service).runUnifiedPostProcessing(suite,
+        run(processor(service), suite,
                 incompleteMinimizationResult(suite, MinimizationStatus.FAILED,
                         MinimizationStopCause.NONE));
 
-        assertEquals("first", LlmPostProcessingMetadata.get(first).getVariableName(0));
-        assertEquals("second", LlmPostProcessingMetadata.get(second).getVariableName(0));
+        assertEquals("first", TestPresentationMetadata.get(first).getVariableName(0));
+        assertEquals("second", TestPresentationMetadata.get(second).getVariableName(0));
     }
 
     @Test
@@ -685,8 +695,8 @@ class LlmPostProcessorTest {
         model.enqueue(LlmFeature.POST_PROCESSING, "not json");
         LlmService service = createService(model, 1);
 
-        assertDoesNotThrow(() -> processor(service).runUnifiedPostProcessing(suite));
-        assertNull(LlmPostProcessingMetadata.get(test));
+        assertDoesNotThrow(() -> run(processor(service), suite));
+        assertNull(TestPresentationMetadata.get(test));
     }
 
     @Test
@@ -707,9 +717,9 @@ class LlmPostProcessorTest {
                         + "\"sectionBreaksAfter\":[\"s0\",\"s9\"]}");
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.get(test);
         assertNotNull(metadata);
         assertEquals("partialAccepted", metadata.getTestName());
         assertEquals("count", metadata.getVariableName(0));
@@ -736,9 +746,9 @@ class LlmPostProcessorTest {
         LlmService service = createService(model, 1);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
 
-        processor(service, fallbackRunner, new FinalScopeCandidateRunner(7)).runUnifiedPostProcessing(suite);
+        run(processor(service, fallbackRunner, new FinalScopeCandidateRunner(7)), suite);
 
-        assertEquals("readableOnly", LlmPostProcessingMetadata.get(test).getTestName());
+        assertEquals("readableOnly", TestPresentationMetadata.get(test).getTestName());
         assertTrue(test.hasAssertions());
         assertEquals(1, fallbackRunner.calls);
         assertEquals(Properties.LlmPostProcessingAssertionFallbackStrategy.ALL, fallbackRunner.strategy);
@@ -759,11 +769,10 @@ class LlmPostProcessorTest {
                 "{\"schemaVersion\":1,\"testName\":\"secondProcessed\"}");
         LlmService service = createService(model, 1);
 
-        processor(service, new RecordingFallbackRunner(0), new FailOnceCandidateRunner())
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new FailOnceCandidateRunner()), suite);
 
-        assertNull(LlmPostProcessingMetadata.get(first));
-        assertEquals("secondProcessed", LlmPostProcessingMetadata.get(second).getTestName());
+        assertNull(TestPresentationMetadata.get(first));
+        assertEquals("secondProcessed", TestPresentationMetadata.get(second).getTestName());
     }
 
     @Test
@@ -781,8 +790,7 @@ class LlmPostProcessorTest {
                         + "\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
 
-        processor(service, new RecordingFallbackRunner(0), new AbnormalFinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new AbnormalFinalScopeCandidateRunner(7)), suite);
 
         assertFalse(test.hasAssertions());
     }
@@ -802,7 +810,7 @@ class LlmPostProcessorTest {
         LlmService service = createService(model, 1);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
 
-        processor(service, fallbackRunner).runUnifiedPostProcessing(suite);
+        run(processor(service, fallbackRunner), suite);
 
         assertFalse(test.hasAssertions());
         assertEquals(0, fallbackRunner.calls);
@@ -818,7 +826,7 @@ class LlmPostProcessorTest {
         CapturingModel model = new CapturingModel();
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
         assertEquals(LlmFeature.POST_PROCESSING, model.feature);
         assertNotNull(model.messages);
@@ -840,9 +848,9 @@ class LlmPostProcessorTest {
         model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
-        assertNull(LlmPostProcessingMetadata.get(test));
+        assertNull(TestPresentationMetadata.get(test));
     }
 
     @Test
@@ -862,9 +870,9 @@ class LlmPostProcessorTest {
                         + "\"expected\":\"7\",\"actual\":\"v0\"}]}");
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
-        assertEquals("readableThrowingTest", LlmPostProcessingMetadata.get(test).getTestName());
+        assertEquals("readableThrowingTest", TestPresentationMetadata.get(test).getTestName());
         assertFalse(test.getStatement(0).hasAssertions());
     }
 
@@ -880,7 +888,7 @@ class LlmPostProcessorTest {
         CapturingModel model = new CapturingModel();
         LlmService service = createService(model, 1);
 
-        processor(service).runUnifiedPostProcessing(suite);
+        run(processor(service), suite);
 
         assertNotNull(model.messages);
         String userPrompt = model.messages.get(1).getContent();
@@ -904,8 +912,9 @@ class LlmPostProcessorTest {
                 + "]}";
         CompleteAssertionGenerator.CandidateCollection candidates =
                 new FinalScopeCandidateRunner(7).collectCandidates(test);
-        LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
-                test, candidates.getExecutionResult(), candidates.getAssertions());
+        OracleContext context = OracleContext.from(
+                test, candidates.getExecutionResult(), null, candidates.getAssertions(),
+                PostProcessingOptions.fromProperties());
         LlmPostProcessingParseResult parseResult = LlmPostProcessingResponseParser.parse(
                 rawResponse, context.toParseContext());
         assertEquals(2, parseResult.getResponse().getAssertions().size());
@@ -913,8 +922,7 @@ class LlmPostProcessorTest {
         model.enqueue(LlmFeature.POST_PROCESSING, rawResponse);
         LlmService service = createService(model, 1);
 
-        processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
         assertEquals(1, test.getAssertions().size());
     }
@@ -942,9 +950,12 @@ class LlmPostProcessorTest {
                 model, new LlmBudgetCoordinator.Local(1), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
-        int applied = processor(service, new RecordingFallbackRunner(0),
-                new FinalScopeCandidateRunner(7)).runUnifiedPostProcessing(suite);
-        LlmPostProcessingLegacyBridge.publishFinal(suite, applied);
+        LlmPostProcessor phaseProcessor = processor(service, new RecordingFallbackRunner(0),
+                new FinalScopeCandidateRunner(7));
+        LlmPostProcessingPhaseContext phaseContext = phaseProcessor.createPhaseContext();
+        int applied = phaseProcessor.runUnifiedPostProcessing(suite,
+                MinimizationResult.disabled(suite), phaseContext);
+        phaseProcessor.publishFinalAssertionReconciliation(phaseContext, suite, applied);
 
         String trace = new String(Files.readAllBytes(traceDir.resolve("llm-trace.jsonl")),
                 StandardCharsets.UTF_8);
@@ -978,11 +989,15 @@ class LlmPostProcessorTest {
                 model, new LlmBudgetCoordinator.Local(1), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
 
-        int applied = processor(service, new RecordingFallbackRunner(0),
-                new FinalScopeCandidateRunner(7)).runUnifiedPostProcessing(suite);
-        LlmPostProcessingLegacyBridge.recordCompileRemoved(Collections.singletonList(test));
+        LlmPostProcessor phaseProcessor = processor(service, new RecordingFallbackRunner(0),
+                new FinalScopeCandidateRunner(7));
+        LlmPostProcessingPhaseContext phaseContext = phaseProcessor.createPhaseContext();
+        int applied = phaseProcessor.runUnifiedPostProcessing(suite,
+                MinimizationResult.disabled(suite), phaseContext);
+        phaseProcessor.recordAssertionsRemovedByCompileFilter(phaseContext,
+                Collections.singletonList(test));
         suite.clearTests();
-        LlmPostProcessingLegacyBridge.publishFinal(suite, applied);
+        phaseProcessor.publishFinalAssertionReconciliation(phaseContext, suite, applied);
 
         assertEquals(0, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable));
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile));
@@ -1005,12 +1020,11 @@ class LlmPostProcessorTest {
         CapturingModel model = new CapturingModel();
         LlmService service = createService(model, 1);
 
-        processor(service, new RecordingFallbackRunner(0), new ClonedFinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new ClonedFinalScopeCandidateRunner(7)), suite);
 
         assertNotNull(model.messages);
         String userPrompt = model.messages.get(1).getContent();
-        assertTrue(userPrompt.contains("provenance=SUT_RETURN complete=true relationalOnly=false value=7"));
+        assertTrue(userPrompt.contains("provenance=SUT_RETURN complete=true value=7"));
     }
 
     @Test
@@ -1025,8 +1039,7 @@ class LlmPostProcessorTest {
         CapturingModel model = new CapturingModel();
         LlmService service = createService(model, 1);
 
-        processor(service, new RecordingFallbackRunner(0), new CandidateAssertionCloneRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new CandidateAssertionCloneRunner(7)), suite);
 
         assertNotNull(model.messages);
         String userPrompt = model.messages.get(1).getContent();
@@ -1055,8 +1068,8 @@ class LlmPostProcessorTest {
         model.enqueue("{\"schemaVersion\":1,\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}");
 
-        int applied = processor(createService(model, 1), new RecordingFallbackRunner(0),
-                new CandidateAssertionCloneRunner(7)).runUnifiedPostProcessing(suite);
+        int applied = run(processor(createService(model, 1), new RecordingFallbackRunner(0),
+                new CandidateAssertionCloneRunner(7)), suite);
 
         assertEquals(1, applied);
         assertEquals(1, test.getAssertions().size());
@@ -1077,8 +1090,7 @@ class LlmPostProcessorTest {
                 + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
 
-        processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
         assertNotNull(chromosome.getLastExecutionResult());
         assertEquals(1, model.messages.size());
@@ -1101,9 +1113,8 @@ class LlmPostProcessorTest {
                 + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
 
-        new LlmPostProcessor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7),
-                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner())
-                .runUnifiedPostProcessing(suite);
+        run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7),
+                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner()), suite);
 
         assertTrue(test.getAssertions().isEmpty());
     }
@@ -1139,9 +1150,8 @@ class LlmPostProcessorTest {
         // The production candidate runner (TraceAssertionCandidateRunner) collects
         // candidates on a clone; use the cloning double so the real test's
         // baseline assertions are not detached by candidate collection.
-        new LlmPostProcessor(service, new RecordingFallbackRunner(0), new ClonedFinalScopeCandidateRunner(7),
-                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner())
-                .runUnifiedPostProcessing(suite);
+        run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new ClonedFinalScopeCandidateRunner(7),
+                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner()), suite);
 
         // No LLM template assertion shipped, and the mutation baseline is intact:
         // same instance, same rendered code, and it is still the test's only assertion.
@@ -1166,11 +1176,10 @@ class LlmPostProcessorTest {
                 + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
 
-        new LlmPostProcessor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7),
+        run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7),
                 new FinalScopeStabilityRunner(7),
-                (proposal, validationTest, references, finalScope) ->
-                        LlmPostProcessor.EvaluationOutcome.compileFailure("compile rejected"))
-                .runUnifiedPostProcessing(suite);
+                (proposal, validationTest, references, finalScope, options) ->
+                        LlmPostProcessor.EvaluationOutcome.compileFailure("compile rejected")), suite);
 
         assertTrue(test.getAssertions().isEmpty());
     }
@@ -1194,10 +1203,9 @@ class LlmPostProcessorTest {
         model.enqueue("[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}]");
         LlmService service = createService(model, 2);
 
-        processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
-        assertEquals("keepsReadability", LlmPostProcessingMetadata.get(test).getTestName());
+        assertEquals("keepsReadability", TestPresentationMetadata.get(test).getTestName());
         assertEquals(1, test.getAssertions().size());
         assertEquals(2, model.messages.size());
         assertTrue(model.messages.get(1).get(1).getContent().contains("Repair only the rejected assertion"));
@@ -1224,10 +1232,9 @@ class LlmPostProcessorTest {
         model.enqueue("[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}]");
         LlmService service = createService(model, 1);
 
-        processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
-        assertEquals("noBudgetForRepair", LlmPostProcessingMetadata.get(test).getTestName());
+        assertEquals("noBudgetForRepair", TestPresentationMetadata.get(test).getTestName());
         assertTrue(test.getAssertions().isEmpty());
         assertEquals(1, model.messages.size());
         assertEquals(1, node.value(RuntimeVariable.LLM_PostProcessing_Initial_Calls));
@@ -1260,10 +1267,9 @@ class LlmPostProcessorTest {
         model.enqueue("not json");
         LlmService service = createService(model, 2);
 
-        processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
-        assertEquals("repairFailureKeepsReadability", LlmPostProcessingMetadata.get(test).getTestName());
+        assertEquals("repairFailureKeepsReadability", TestPresentationMetadata.get(test).getTestName());
         assertTrue(test.getAssertions().isEmpty());
         assertEquals(2, model.messages.size());
     }
@@ -1285,8 +1291,7 @@ class LlmPostProcessorTest {
         model.enqueue("[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}]");
         LlmService service = createService(model, 2);
 
-        processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
         assertEquals(1, test.getAssertions().size());
         assertEquals(2, model.messages.size());
@@ -1311,8 +1316,7 @@ class LlmPostProcessorTest {
         model.enqueue("[{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}]");
         LlmService service = createService(model, 2);
 
-        processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7))
-                .runUnifiedPostProcessing(suite);
+        run(processor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
         assertEquals(1, test.getAssertions().size());
         assertEquals(1, model.messages.size());
@@ -1328,12 +1332,11 @@ class LlmPostProcessorTest {
         QueueCapturingModel model = new QueueCapturingModel();
         LlmService service = createService(model, 1);
 
-        new LlmPostProcessor(service, new RecordingFallbackRunner(0), new NoOpCandidateRunner(),
+        run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new NoOpCandidateRunner(),
                 new FinalScopeStabilityRunner(7), new IntegerScopeAssertionEvaluationRunner(),
-                new SequenceResourceGuard(true))
-                .runUnifiedPostProcessing(suite);
+                new SequenceResourceGuard(true)), suite);
 
-        assertNull(LlmPostProcessingMetadata.get(test));
+        assertNull(TestPresentationMetadata.get(test));
         assertEquals(0, model.messages.size());
     }
 
@@ -1348,12 +1351,11 @@ class LlmPostProcessorTest {
         QueueCapturingModel model = new QueueCapturingModel();
         LlmService service = createService(model, 1);
 
-        new LlmPostProcessor(service, new RecordingFallbackRunner(0), new NoOpCandidateRunner(),
+        run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new NoOpCandidateRunner(),
                 new FinalScopeStabilityRunner(7), new IntegerScopeAssertionEvaluationRunner(),
-                new SequenceResourceGuard(false), new SequencePhaseClock(0L, 1000L))
-                .runUnifiedPostProcessing(suite);
+                new SequenceResourceGuard(false), new SequencePhaseClock(0L, 1000L)), suite);
 
-        assertNull(LlmPostProcessingMetadata.get(test));
+        assertNull(TestPresentationMetadata.get(test));
         assertEquals(0, model.messages.size());
     }
 
@@ -1376,14 +1378,13 @@ class LlmPostProcessorTest {
         LlmService service = createService(model, 2);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
 
-        new LlmPostProcessor(service, fallbackRunner, new FinalScopeCandidateRunner(7),
+        run(new LlmPostProcessor(service, fallbackRunner, new FinalScopeCandidateRunner(7),
                 testCase -> fail("stability execution must not start after low memory"),
-                (proposal, validationTest, references, finalScope) ->
+                (proposal, validationTest, references, finalScope, options) ->
                         fail("assertion evaluation must not start after low memory"),
-                new SequenceResourceGuard(false, true))
-                .runUnifiedPostProcessing(suite);
+                new SequenceResourceGuard(false, true)), suite);
 
-        assertEquals("readabilitySurvivesLowMemory", LlmPostProcessingMetadata.get(test).getTestName());
+        assertEquals("readabilitySurvivesLowMemory", TestPresentationMetadata.get(test).getTestName());
         assertTrue(test.getAssertions().isEmpty());
         assertEquals(0, fallbackRunner.calls);
         assertEquals(1, model.messages.size());
@@ -1426,7 +1427,7 @@ class LlmPostProcessorTest {
     }
 
     private static void assertNoAppliedPostProcessing(DefaultTestCase test) {
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.get(test);
         if (metadata != null) {
             assertNull(metadata.getTestName());
             assertNull(metadata.getVariableName(0));
@@ -1726,7 +1727,8 @@ class LlmPostProcessorTest {
         public LlmPostProcessor.EvaluationOutcome evaluate(LlmPostProcessingResponse.AssertionProposal proposal,
                                                            TestCase validationTest,
                                                            LlmPostProcessingReferences references,
-                                                           Scope finalScope) {
+                                                           Scope finalScope,
+                                                           PostProcessingOptions options) {
             if (proposal == null || finalScope == null || proposal.getActual() == null) {
                 return LlmPostProcessor.EvaluationOutcome.observedFailure("missing proposal or scope");
             }

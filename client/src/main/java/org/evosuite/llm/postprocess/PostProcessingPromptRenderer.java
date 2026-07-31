@@ -23,9 +23,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Renders the sole fresh-request protocol. Historical prompt variants remain
- * available through {@link LlmPostProcessingPromptBuilder}'s compatibility
- * overloads, but cannot leak into a normal phase request.
+ * Renders the sole fresh-request protocol.
  */
 final class PostProcessingPromptRenderer {
 
@@ -33,7 +31,7 @@ final class PostProcessingPromptRenderer {
         // Utility class.
     }
 
-    static PromptResult build(PostProcessingPromptFacts context,
+    static PromptResult build(OracleContext context,
                               boolean assertionsEnabled,
                               PostProcessingOptions options) {
         if (options == null) {
@@ -45,7 +43,7 @@ final class PostProcessingPromptRenderer {
         return new PromptResult.Builder().messages(messages).build();
     }
 
-    private static String userPrompt(PostProcessingPromptFacts context,
+    private static String userPrompt(OracleContext context,
                                      boolean assertionsEnabled,
                                      PostProcessingOptions options) {
         boolean testNames = options.features().testNames();
@@ -105,11 +103,11 @@ final class PostProcessingPromptRenderer {
         }
         builder.append("- Omit fields you do not want to change; empty arrays/objects are allowed.\n\n");
         builder.append("Generated test statements:\n");
-        builder.append(annotatedText(context, false));
+        builder.append(annotatedText(context));
         builder.append("\nExceptions:\n");
         builder.append(exceptionText(context));
         builder.append("\nEvoSuite-observed candidate facts:\n");
-        builder.append(candidateFactText(context, true, false, false, false, false, options));
+        builder.append(candidateFactText(context, true, options));
         builder.append("\nObservations:\n");
         builder.append(observationText(context, null, options));
         builder.append("\nCallable members:\n");
@@ -117,10 +115,9 @@ final class PostProcessingPromptRenderer {
         return builder.toString();
     }
 
-    static String annotatedText(PostProcessingPromptFacts context,
-                                boolean includeActionRoles) {
+    static String annotatedText(OracleContext context) {
         StringBuilder builder = new StringBuilder();
-        for (LlmPostProcessingPromptContext.StatementContext statement : context.getStatements()) {
+        for (OracleContext.StatementContext statement : context.getStatements()) {
             builder.append(statement.getStatementId());
             if (statement.getVariableId() != null) {
                 builder.append(" ").append(statement.getVariableId());
@@ -132,18 +129,6 @@ final class PostProcessingPromptRenderer {
                     && !statement.getRuntimeType().equals(statement.getDeclaredType())) {
                 builder.append(" runtime=").append(statement.getRuntimeType());
             }
-            if (includeActionRoles) {
-                builder.append(" phase=").append(statement.getPhase());
-                if (statement.getReceiverId() != null) {
-                    builder.append(" receiver=").append(statement.getReceiverId());
-                }
-                if (!statement.getArgumentIds().isEmpty()) {
-                    builder.append(" args=").append(String.join(",", statement.getArgumentIds()));
-                }
-                if (statement.getVariableId() != null && "ACTION".equals(statement.getPhase())) {
-                    builder.append(" role=RESULT_OF_").append(statement.getStatementId());
-                }
-            }
             builder.append(" | ").append(statement.getCode());
             if (!statement.getCode().endsWith("\n")) {
                 builder.append('\n');
@@ -152,7 +137,7 @@ final class PostProcessingPromptRenderer {
         return builder.toString();
     }
 
-    static String observationText(PostProcessingPromptFacts context,
+    static String observationText(OracleContext context,
                                   Set<String> relevantVariableIds,
                                   PostProcessingOptions options) {
         if (context.getObservations().isEmpty()) {
@@ -160,7 +145,7 @@ final class PostProcessingPromptRenderer {
         }
         StringBuilder builder = new StringBuilder();
         int maxChars = options.contextLimits().observationChars();
-        for (LlmPostProcessingPromptContext.Observation observation : context.getObservations()) {
+        for (OracleContext.Observation observation : context.getObservations()) {
             if (relevantVariableIds != null
                     && (observation.getVariableId() == null
                     || !relevantVariableIds.contains(observation.getVariableId()))) {
@@ -173,7 +158,6 @@ final class PostProcessingPromptRenderer {
             }
             line.append(" provenance=").append(observation.getProvenance());
             line.append(" complete=").append(observation.isComplete());
-            line.append(" relationalOnly=").append(observation.isRelationalOnly());
             line.append(" value=").append(observation.getValue());
             if (!observation.isComplete()) {
                 line.append(" note=truncated");
@@ -191,12 +175,12 @@ final class PostProcessingPromptRenderer {
         return builder.length() == 0 ? "none\n" : builder.toString();
     }
 
-    static String exceptionText(PostProcessingPromptFacts context) {
+    static String exceptionText(OracleContext context) {
         if (context.getExceptions().isEmpty()) {
             return "none\n";
         }
         StringBuilder builder = new StringBuilder();
-        for (LlmPostProcessingPromptContext.ExceptionContext exception : context.getExceptions()) {
+        for (OracleContext.ExceptionContext exception : context.getExceptions()) {
             builder.append(exception.getStatementId());
             builder.append(" type=").append(exception.getType());
             builder.append(" explicit=").append(exception.isExplicit());
@@ -208,12 +192,8 @@ final class PostProcessingPromptRenderer {
         return builder.toString();
     }
 
-    static String candidateFactText(PostProcessingPromptFacts context,
+    static String candidateFactText(OracleContext context,
                                     boolean includeCandidateIds,
-                                    boolean canonicalSemantics,
-                                    boolean includeActionRoles,
-                                    boolean includeStability,
-                                    boolean assertableTypesOnly,
                                     PostProcessingOptions options) {
         if (context.getCandidateFacts().isEmpty()) {
             return "none\n";
@@ -221,42 +201,26 @@ final class PostProcessingPromptRenderer {
         StringBuilder builder = new StringBuilder();
         int maxChars = options.contextLimits().candidateChars();
         int emitted = 0;
-        int unstableOmitted = 0;
-        if (includeStability) {
-            for (LlmPostProcessingPromptContext.CandidateFact fact : context.getCandidateFacts()) {
-                if ("UNSTABLE".equals(fact.getStability())) {
-                    unstableOmitted++;
-                }
-            }
-        }
-        int displayableFacts = context.getCandidateFacts().size() - unstableOmitted;
-        for (LlmPostProcessingPromptContext.CandidateFact fact : context.getCandidateFacts()) {
-            if (includeStability && "UNSTABLE".equals(fact.getStability())) {
-                continue;
-            }
-            String line = candidateFactLine(fact, includeCandidateIds, canonicalSemantics,
-                    includeActionRoles, includeStability, assertableTypesOnly);
+        for (OracleContext.CandidateFact fact : context.getCandidateFacts()) {
+            String line = candidateFactLine(fact, includeCandidateIds);
             if (maxChars > 0 && builder.length() + line.length() > maxChars) {
-                appendCandidateTruncation(builder, displayableFacts - emitted, maxChars);
+                appendCandidateTruncation(builder, context.getCandidateFacts().size() - emitted, maxChars);
                 break;
             }
             builder.append(line);
             emitted++;
         }
-        if (unstableOmitted > 0) {
-            appendCapped(builder, "unstableCandidatesOmitted=" + unstableOmitted + "\n", maxChars);
-        }
         return builder.toString();
     }
 
-    static String callableMemberText(PostProcessingPromptFacts context,
+    static String callableMemberText(OracleContext context,
                                      Set<String> relevantVariableIds,
                                      PostProcessingOptions options) {
         return renderCallableMembers(context, relevantVariableIds, options).text;
     }
 
     private static CallableMemberRendering renderCallableMembers(
-            PostProcessingPromptFacts context,
+            OracleContext context,
             Set<String> relevantVariableIds,
             PostProcessingOptions options) {
         if (context.getCallableMembers().isEmpty()) {
@@ -264,8 +228,7 @@ final class PostProcessingPromptRenderer {
         }
         Map<String, LinkedHashSet<String>> membersByType = new LinkedHashMap<>();
         LinkedHashSet<String> receiverBindings = new LinkedHashSet<>();
-        LinkedHashSet<String> observedResults = new LinkedHashSet<>();
-        for (LlmPostProcessingPromptContext.CallableMember member : context.getCallableMembers()) {
+        for (OracleContext.CallableMember member : context.getCallableMembers()) {
             if (relevantVariableIds != null
                     && (member.getReceiverId() == null
                     || !relevantVariableIds.contains(member.getReceiverId()))) {
@@ -279,19 +242,12 @@ final class PostProcessingPromptRenderer {
             typeMembers.add(member.getSignature() + "->" + member.getReturnType());
             if (member.getReceiverId() != null) {
                 receiverBindings.add(member.getReceiverId() + "->" + member.getOwnerType());
-                if (member.getObservedResult() != null) {
-                    observedResults.add(member.getReceiverId() + "." + member.getSignature()
-                            + "=" + member.getObservedResult());
-                }
             }
         }
         int maxChars = options.contextLimits().callableChars();
         StringBuilder builder = new StringBuilder();
         if (!receiverBindings.isEmpty()) {
             appendCapped(builder, "receivers: " + String.join(", ", receiverBindings) + "\n", maxChars);
-        }
-        if (!observedResults.isEmpty()) {
-            appendCapped(builder, "observed: " + String.join(", ", observedResults) + "\n", maxChars);
         }
         int truncatedTypes = 0;
         int emittedMembers = 0;
@@ -313,31 +269,7 @@ final class PostProcessingPromptRenderer {
                 emittedMembers, dropped);
     }
 
-    static String observedSafeExpressionText(PostProcessingPromptFacts context,
-                                             PostProcessingOptions options) {
-        LinkedHashSet<String> lines = new LinkedHashSet<>();
-        int maxChars = options.contextLimits().observedExpressionChars();
-        StringBuilder builder = new StringBuilder();
-        for (LlmPostProcessingPromptContext.CallableMember member : context.getCallableMembers()) {
-            if (member.getReceiverId() == null || member.getObservedResult() == null) {
-                continue;
-            }
-            String expression = member.getReceiverId() + "." + readableSignature(member.getSignature());
-            appendObservedExpression(builder, lines,
-                    expression + " -> " + jsonString(member.getObservedResult()) + "\n", maxChars);
-        }
-        for (LlmPostProcessingPromptContext.CandidateFact fact : context.getCandidateFacts()) {
-            LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
-            if (candidate == null || candidate.getActual() == null || fact.getObservedValue() == null) {
-                continue;
-            }
-            appendObservedExpression(builder, lines,
-                    candidate.getActual() + " -> " + jsonString(fact.getObservedValue()) + "\n", maxChars);
-        }
-        return builder.length() == 0 ? "none\n" : builder.toString();
-    }
-
-    static String additionalLegalCallText(PostProcessingPromptFacts context,
+    static String additionalLegalCallText(OracleContext context,
                                            PostProcessingOptions options) {
         CallableMemberRendering rendering = renderCallableMembers(context, null, options);
         if (rendering.droppedCount == 0) {
@@ -361,13 +293,13 @@ final class PostProcessingPromptRenderer {
         }
     }
 
-    static String safeAssertionSiteText(PostProcessingPromptFacts context) {
+    static String safeAssertionSiteText(OracleContext context) {
         if (context.getExceptions().isEmpty()) {
             return "- END_OF_TEST available="
                     + String.join(",", context.getReferences().getVariableIds()) + "\n";
         }
-        LlmPostProcessingPromptContext.ExceptionContext exception = context.getExceptions().get(0);
-        int throwingPosition = LlmPostProcessingPromptContext.stableIdIndex(exception.getStatementId());
+        OracleContext.ExceptionContext exception = context.getExceptions().get(0);
+        int throwingPosition = OracleContext.stableIdIndex(exception.getStatementId());
         List<String> completedStatements = new ArrayList<>();
         List<String> availableVariables = new ArrayList<>();
         for (int position = 0; position < throwingPosition; position++) {
@@ -396,61 +328,10 @@ final class PostProcessingPromptRenderer {
         return builder.toString();
     }
 
-    static String relationalOpportunityText(PostProcessingPromptFacts context,
-                                             PostProcessingOptions options) {
-        if (context.getRelationalOpportunities().isEmpty()) {
-            return "none\n";
-        }
+    private static String candidateFactLine(OracleContext.CandidateFact fact,
+                                            boolean includeCandidateIds) {
         StringBuilder builder = new StringBuilder();
-        int maxCount = options.contextLimits().relationalOpportunities();
-        int maxChars = options.contextLimits().relationalChars();
-        int emitted = 0;
-        for (LlmPostProcessingPromptContext.RelationalOpportunity opportunity
-                : context.getRelationalOpportunities()) {
-            if (maxCount > 0 && emitted >= maxCount) {
-                break;
-            }
-            String line = opportunity.getId()
-                    + " left=" + jsonString(opportunity.getLeft())
-                    + " right=" + jsonString(opportunity.getRight())
-                    + " type=" + opportunity.getType()
-                    + " relation=" + opportunity.getRelation() + "\n";
-            if (maxChars > 0 && builder.length() + line.length() > maxChars) {
-                break;
-            }
-            builder.append(line);
-            emitted++;
-        }
-        int dropped = context.getRelationalOpportunities().size() - emitted;
-        if (dropped > 0) {
-            appendCapped(builder, "droppedRelationalOpportunities=" + dropped + "\n", maxChars);
-        }
-        return builder.length() == 0 ? "none\n" : builder.toString();
-    }
-
-    private static void appendObservedExpression(StringBuilder builder, Set<String> lines,
-                                                 String line, int maxChars) {
-        if (lines.add(line) && (maxChars <= 0 || builder.length() + line.length() <= maxChars)) {
-            builder.append(line);
-        }
-    }
-
-    private static String readableSignature(String signature) {
-        return LlmPostProcessingPromptContext.methodName(signature) + "()";
-    }
-
-    private static String candidateFactLine(LlmPostProcessingPromptContext.CandidateFact fact,
-                                            boolean includeCandidateIds,
-                                            boolean canonicalSemantics,
-                                            boolean includeActionRoles,
-                                            boolean includeStability,
-                                            boolean assertableTypesOnly) {
-        StringBuilder builder = new StringBuilder();
-        boolean selectable = fact != null
-                && fact.getCandidateId() != null
-                && fact.getSelectableCandidate() != null
-                && (!assertableTypesOnly || fact.isAssertable())
-                && (!includeStability || !"UNSTABLE".equals(fact.getStability()));
+        boolean selectable = OracleContext.isCandidateSelectable(fact);
         if (includeCandidateIds && selectable) {
             builder.append("candidateId=").append(fact.getCandidateId()).append(' ');
         }
@@ -462,48 +343,11 @@ final class PostProcessingPromptRenderer {
             builder.append(" refs=").append(String.join(",", fact.getReferencedIds()));
         }
         builder.append(" kind=").append(fact.getKind());
-        if (canonicalSemantics && fact.getSelectableCandidate() != null) {
-            LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
-            builder.append(" canonicalKind=").append(candidate.getKind());
-            appendJsonExpression(builder, "expected", candidate.getExpected());
-            appendJsonExpression(builder, "actual", candidate.getActual());
-            appendJsonExpression(builder, "delta", candidate.getDelta());
-        }
         if (fact.getObservedValue() != null) {
-            builder.append(" observed=").append(canonicalSemantics
-                    ? jsonString(fact.getObservedValue()) : fact.getObservedValue());
-        }
-        if (includeActionRoles) {
-            builder.append(" phase=").append(fact.getPhase());
-            builder.append(" rank=").append(fact.getRank());
-        }
-        if (includeStability) {
-            builder.append(" stability=").append(fact.getStability());
-            if (fact.getStabilityReason() != null) {
-                builder.append(" stabilityReason=").append(fact.getStabilityReason());
-            }
-        }
-        if (canonicalSemantics || assertableTypesOnly) {
-            builder.append(" selectable=").append(selectable);
-        }
-        if (includeCandidateIds && canonicalSemantics && selectable) {
-            builder.append(" select={\"assertionId\":\"aN\",\"candidateId\":\"")
-                    .append(fact.getCandidateId()).append("\"}");
-        }
-        if (assertableTypesOnly) {
-            builder.append(" assertable=").append(fact.isAssertable());
-            if (!fact.isAssertable()) {
-                builder.append(" reason=INACCESSIBLE_TYPE");
-            }
+            builder.append(" observed=").append(fact.getObservedValue());
         }
         builder.append('\n');
         return builder.toString();
-    }
-
-    private static void appendJsonExpression(StringBuilder builder, String name, String expression) {
-        if (expression != null) {
-            builder.append(' ').append(name).append('=').append(jsonString(expression));
-        }
     }
 
     private static void appendCapped(StringBuilder builder, String line, int maxChars) {
@@ -519,48 +363,13 @@ final class PostProcessingPromptRenderer {
         }
     }
 
-    private static String jsonString(String value) {
-        if (value == null) {
-            return "null";
-        }
-        return "\"" + escapeJava(value) + "\"";
-    }
-
-    private static String escapeJava(String value) {
-        StringBuilder builder = new StringBuilder();
-        for (int index = 0; index < value.length(); index++) {
-            char character = value.charAt(index);
-            switch (character) {
-                case '\\':
-                    builder.append("\\\\");
-                    break;
-                case '"':
-                    builder.append("\\\"");
-                    break;
-                case '\n':
-                    builder.append("\\n");
-                    break;
-                case '\r':
-                    builder.append("\\r");
-                    break;
-                case '\t':
-                    builder.append("\\t");
-                    break;
-                default:
-                    builder.append(character);
-                    break;
-            }
-        }
-        return builder.toString();
-    }
-
     private static void appendAssertionExamples(StringBuilder builder,
-                                                PostProcessingPromptFacts context) {
+                                                OracleContext context) {
         builder.append("Assertion object forms:\n");
         builder.append("- TRUE/FALSE/NULL/NOT_NULL: assertionId, kind, actual; never expected.\n");
         builder.append("- EQUALS/NOT_EQUALS/SAME/NOT_SAME and comparisons: assertionId, kind, expected, actual.\n");
         builder.append("- Floating EQUALS/NOT_EQUALS additionally accepts delta; scalar JSON values are normalized to expression strings.\n");
-        for (LlmPostProcessingPromptContext.CandidateFact fact : context.getCandidateFacts()) {
+        for (OracleContext.CandidateFact fact : context.getCandidateFacts()) {
             if (fact.getCandidateId() != null) {
                 builder.append("- Context-valid candidate selection: {\"assertionId\":\"a0\",\"candidateId\":\"")
                         .append(fact.getCandidateId()).append("\"}\n");
@@ -582,8 +391,7 @@ final class PostProcessingPromptRenderer {
         builder.append("- When a stable non-input observation or selectable candidate supports a useful oracle, normally return at least one.\n");
         builder.append("- Observations with provenance INPUT are setup values; do not assert them directly.\n");
         builder.append("- Candidate facts with candidateId are validated EvoSuite assertions. Select one with {\"assertionId\":\"aN\",\"candidateId\":\"cN\"}; do not copy or reconstruct it.\n");
-        builder.append("- You may select useful candidates and also propose novel relational assertions that add semantic value.\n");
-        builder.append("- Observations with relationalOnly=true may only be used in relational assertions.\n");
+        builder.append("- You may select useful candidates and propose assertions that add semantic value.\n");
         builder.append("- Observations with complete=false are truncated; do not use them for exact equality, exact size, or exact content assertions.\n");
         builder.append("- Call only callable members listed in the Callable members section. Those entries are the purity allowlist; if it says none, do not call instance methods.\n");
         builder.append("- Assertion kind must be one of EQUALS, NOT_EQUALS, TRUE, FALSE, NULL, NOT_NULL, SAME, NOT_SAME, CONTAINS, NOT_CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, IS_EMPTY, GREATER, LESS, GREATER_EQUALS, LESS_EQUALS.\n");

@@ -47,7 +47,6 @@ class LlmPostProcessingResponseParserTest {
     private boolean originalAllowImmutableConstructors;
     private String originalImmutableTypes;
     private String originalPureStaticAllowlist;
-    private Properties.LlmPostProcessingPromptVariant originalPromptVariant;
 
     @BeforeEach
     void saveProperties() {
@@ -63,7 +62,6 @@ class LlmPostProcessingResponseParserTest {
         originalAllowImmutableConstructors = Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS;
         originalImmutableTypes = Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES;
         originalPureStaticAllowlist = Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST;
-        originalPromptVariant = Properties.LLM_POSTPROCESSING_PROMPT_VARIANT;
         Properties.LLM_POSTPROCESSING_MAX_ASSERTIONS_PER_TEST = 5;
         Properties.LLM_POSTPROCESSING_MAX_COMMENTS_PER_TEST = 3;
         Properties.LLM_POSTPROCESSING_MAX_COMMENT_CHARS = 160;
@@ -76,8 +74,6 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS = true;
         Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES = "";
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = "";
-        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
-                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
     }
 
     @AfterEach
@@ -94,13 +90,10 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS = originalAllowImmutableConstructors;
         Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES = originalImmutableTypes;
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = originalPureStaticAllowlist;
-        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT = originalPromptVariant;
     }
 
     @Test
     void parse_schemaThreeAcceptsAdvertisedInCatchSite() {
-        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
-                Properties.LlmPostProcessingPromptVariant.P11_EXCEPTION_ADJACENT_ASSERTIONS;
         HashSet<String> statements = new HashSet<>(Arrays.asList("s0", "s1"));
         HashSet<String> variables = new HashSet<>(Arrays.asList("v0", "e0"));
         HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
@@ -111,7 +104,7 @@ class LlmPostProcessingResponseParserTest {
         types.put("v0", "int");
         types.put("e0", "java.lang.Throwable");
         LlmPostProcessingResponseParser.ParseContext throwingContext =
-                LlmPostProcessingResponseParser.context(
+                PostProcessingTestContexts.context(
                         statements, variables, callables, Collections.<String>emptySet(),
                         Collections.<String>emptySet(), types,
                         Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(),
@@ -132,8 +125,6 @@ class LlmPostProcessingResponseParserTest {
 
     @Test
     void parse_schemaThreeRejectsUnavailableExceptionSite() {
-        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
-                Properties.LlmPostProcessingPromptVariant.P11_EXCEPTION_ADJACENT_ASSERTIONS;
         String json = "{\"schemaVersion\":3,\"assertions\":[{"
                 + "\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0 > 0\","
                 + "\"placement\":{\"site\":\"IN_CATCH\",\"exceptionId\":\"e0\"}}]}";
@@ -177,18 +168,16 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_exposesImmutableDecodedResponseBoundary() {
+    void parse_exposesDecodedValuesDirectly() {
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
                 "{\"schemaVersion\":2,\"testName\":\"readable\","
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
                         + "\"actual\":\"v0 > 0\"}]}", context());
 
-        DecodedPostProcessingResponse decoded = result.getDecodedResponse();
-        assertNotNull(decoded);
-        assertSame(result.getResponse(), decoded.getResponse());
-        assertEquals(1, decoded.getProposedCounts().getAssertions());
-        assertEquals(1, decoded.getRawAssertions().size());
-        assertEquals("a0", decoded.getRawAssertions().get(0).getAssertionId());
+        assertNotNull(result.getResponse());
+        assertEquals(1, result.getProposedCounts().getAssertions());
+        assertEquals(1, result.getRawAssertions().size());
+        assertEquals("a0", result.getRawAssertions().get(0).getAssertionId());
     }
 
     @Test
@@ -440,7 +429,7 @@ class LlmPostProcessingResponseParserTest {
                 Arrays.asList("EQUALS|7|v0|"));
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json,
-                LlmPostProcessingResponseParser.context(
+                PostProcessingTestContexts.context(
                         new HashSet<>(Arrays.asList("s0")),
                         new HashSet<>(Arrays.asList("v0")),
                         new HashSet<LlmPostProcessingResponseParser.CallableMethod>(),
@@ -462,7 +451,7 @@ class LlmPostProcessingResponseParserTest {
                 + "]}";
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json,
-                LlmPostProcessingResponseParser.context(
+                PostProcessingTestContexts.context(
                         new HashSet<>(Arrays.asList("s0")),
                         new HashSet<>(Arrays.asList("v0")),
                         new HashSet<LlmPostProcessingResponseParser.CallableMethod>(),
@@ -490,7 +479,7 @@ class LlmPostProcessingResponseParserTest {
         variableTypes.put("v2", "java.lang.String");
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json,
-                LlmPostProcessingResponseParser.context(
+                PostProcessingTestContexts.context(
                         new HashSet<>(Arrays.asList("s0", "s1", "s2")),
                         new HashSet<>(Arrays.asList("v0", "v1", "v2")),
                         new HashSet<LlmPostProcessingResponseParser.CallableMethod>(),
@@ -945,7 +934,7 @@ class LlmPostProcessingResponseParserTest {
         HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
         callables.add(new LlmPostProcessingResponseParser.CallableMethod(
                 "v0", "com.example.Converter", "convert", "(I)I", "int"));
-        LlmPostProcessingResponseParser.ParseContext parseContext = LlmPostProcessingResponseParser.context(
+        LlmPostProcessingResponseParser.ParseContext parseContext = PostProcessingTestContexts.context(
                 new HashSet<>(Arrays.asList("s0", "s1")),
                 new HashSet<>(Arrays.asList("v0", "v1")), callables,
                 new HashSet<String>(), new HashSet<String>(), variableTypes);
@@ -967,7 +956,7 @@ class LlmPostProcessingResponseParserTest {
         HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
         callables.add(new LlmPostProcessingResponseParser.CallableMethod(
                 "v0", "com.example.Consumer", "accept", "(Ljava/lang/Long;)Z", "boolean"));
-        LlmPostProcessingResponseParser.ParseContext parseContext = LlmPostProcessingResponseParser.context(
+        LlmPostProcessingResponseParser.ParseContext parseContext = PostProcessingTestContexts.context(
                 new HashSet<>(Arrays.asList("s0", "s1")),
                 new HashSet<>(Arrays.asList("v0", "v1")), callables,
                 new HashSet<String>(), new HashSet<String>(), variableTypes);
@@ -989,7 +978,7 @@ class LlmPostProcessingResponseParserTest {
         HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
         callables.add(new LlmPostProcessingResponseParser.CallableMethod(
                 "v0", "com.example.Consumer", "accept", "(J)Z", "boolean"));
-        LlmPostProcessingResponseParser.ParseContext parseContext = LlmPostProcessingResponseParser.context(
+        LlmPostProcessingResponseParser.ParseContext parseContext = PostProcessingTestContexts.context(
                 new HashSet<>(Arrays.asList("s0", "s1")),
                 new HashSet<>(Arrays.asList("v0", "v1")), callables,
                 new HashSet<String>(), new HashSet<String>(), variableTypes);
@@ -1077,7 +1066,7 @@ class LlmPostProcessingResponseParserTest {
                 + "]}";
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json,
-                LlmPostProcessingResponseParser.context(
+                PostProcessingTestContexts.context(
                         new HashSet<>(Arrays.asList("s0")),
                         new HashSet<>(Arrays.asList("v0")),
                         new HashSet<>(Arrays.asList(
@@ -1117,7 +1106,7 @@ class LlmPostProcessingResponseParserTest {
                 + "]}";
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json,
-                LlmPostProcessingResponseParser.context(
+                PostProcessingTestContexts.context(
                         new HashSet<>(Arrays.asList("s0")),
                         new HashSet<>(Arrays.asList("v0"))));
 
@@ -1231,7 +1220,7 @@ class LlmPostProcessingResponseParserTest {
         Map<String, LlmPostProcessingResponseParser.SelectableCandidate> candidates = new LinkedHashMap<>();
         candidates.put("c0", new LlmPostProcessingResponseParser.SelectableCandidate(
                 LlmPostProcessingResponse.AssertionKind.EQUALS, "7", "v0", null));
-        LlmPostProcessingResponseParser.ParseContext context = LlmPostProcessingResponseParser.context(
+        LlmPostProcessingResponseParser.ParseContext context = PostProcessingTestContexts.context(
                 new HashSet<>(Arrays.asList("s0")), new HashSet<>(Arrays.asList("v0")),
                 new HashSet<LlmPostProcessingResponseParser.CallableMethod>(),
                 new HashSet<>(Arrays.asList("EQUALS|7|v0|")), new HashSet<String>(),
@@ -1256,7 +1245,7 @@ class LlmPostProcessingResponseParserTest {
         Map<String, String> variableTypes = new LinkedHashMap<>();
         variableTypes.put("v0", "java.lang.Number");
         LlmPostProcessingResponseParser.ParseContext parseContext =
-                LlmPostProcessingResponseParser.context(
+                PostProcessingTestContexts.context(
                         new HashSet<>(Collections.singletonList("s0")),
                         new HashSet<>(Collections.singletonList("v0")),
                         Collections.<LlmPostProcessingResponseParser.CallableMethod>emptySet(),
@@ -1274,8 +1263,6 @@ class LlmPostProcessingResponseParserTest {
 
     @Test
     void parse_usesValidatedImplicitPlacementForThrowingCandidateSelection() {
-        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
-                Properties.LlmPostProcessingPromptVariant.P11_EXCEPTION_ADJACENT_ASSERTIONS;
         Map<String, LlmPostProcessingResponseParser.SelectableCandidate> candidates = new LinkedHashMap<>();
         candidates.put("c0", new LlmPostProcessingResponseParser.SelectableCandidate(
                 LlmPostProcessingResponse.AssertionKind.EQUALS, "7", "v0", null)
@@ -1284,7 +1271,7 @@ class LlmPostProcessingResponseParserTest {
         Map<String, String> variableTypes = new LinkedHashMap<>();
         variableTypes.put("v0", "int");
         LlmPostProcessingResponseParser.ParseContext throwingContext =
-                LlmPostProcessingResponseParser.context(
+                PostProcessingTestContexts.context(
                         new HashSet<>(Arrays.asList("s0", "s1")),
                         new HashSet<>(Collections.singletonList("v0")),
                         Collections.<LlmPostProcessingResponseParser.CallableMethod>emptySet(),
@@ -1379,7 +1366,7 @@ class LlmPostProcessingResponseParserTest {
                         new LlmPostProcessingResponseParser.CallableMethod("v0", "isReady", 0),
                         new LlmPostProcessingResponseParser.CallableMethod("v0", "stream", 0),
                         new LlmPostProcessingResponseParser.CallableMethod("v0", "getA", 0)));
-        return LlmPostProcessingResponseParser.context(
+        return PostProcessingTestContexts.context(
                 new HashSet<>(Arrays.asList("s0", "s1", "s2")),
                 new HashSet<>(Arrays.asList("v0", "v1")),
                 callableMethods);
@@ -1395,7 +1382,7 @@ class LlmPostProcessingResponseParserTest {
         variableTypes.put("v5", "int[]");
         variableTypes.put("v6", "long[]");
         variableTypes.put("v7", "float");
-        return LlmPostProcessingResponseParser.context(
+        return PostProcessingTestContexts.context(
                 new HashSet<>(Arrays.asList("s0", "s1", "s2", "s3", "s4", "s5", "s6", "s7")),
                 new HashSet<>(Arrays.asList("v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7")),
                 new HashSet<LlmPostProcessingResponseParser.CallableMethod>(),
@@ -1413,7 +1400,7 @@ class LlmPostProcessingResponseParserTest {
                                 "v1", "java.util.List", "contains", "(Ljava/lang/Object;)Z", "boolean"),
                         new LlmPostProcessingResponseParser.CallableMethod("v1", "size", 0),
                         new LlmPostProcessingResponseParser.CallableMethod("v1", "isEmpty", 0)));
-        return LlmPostProcessingResponseParser.context(
+        return PostProcessingTestContexts.context(
                 new HashSet<>(Arrays.asList("s0", "s1")),
                 new HashSet<>(Arrays.asList("v1")),
                 callableMethods,
@@ -1434,7 +1421,7 @@ class LlmPostProcessingResponseParserTest {
             callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
                     null, "com.example.Cart", "contains", "(Lcom/example/Item;)Z", "boolean"));
         }
-        return LlmPostProcessingResponseParser.context(
+        return PostProcessingTestContexts.context(
                 new HashSet<>(Arrays.asList("s0", "s1")),
                 new HashSet<>(Arrays.asList("v0", "v1")),
                 callableMethods,

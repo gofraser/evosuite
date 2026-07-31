@@ -15,10 +15,7 @@ import java.util.Set;
  * Immutable snapshot of the configuration used by one post-processing phase.
  *
  * <p>The application boundary is the only place where mutable {@link Properties}
- * are read.  Compatibility overloads in the post-processing package may create
- * a snapshot for old callers, but a running phase keeps and passes this object.
- * The prompt variant is intentionally not copied: fresh requests always use the
- * evaluated production protocol.</p>
+ * are read. A running phase keeps and passes this immutable snapshot.</p>
  */
 public final class PostProcessingOptions {
 
@@ -61,9 +58,6 @@ public final class PostProcessingOptions {
                         Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_FACTS,
                         Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_CHARS,
                         Properties.LLM_POSTPROCESSING_MAX_CALLABLE_CHARS,
-                        Properties.LLM_POSTPROCESSING_MAX_OBSERVED_EXPRESSION_CHARS,
-                        Properties.LLM_POSTPROCESSING_MAX_RELATIONAL_OPPORTUNITIES,
-                        Properties.LLM_POSTPROCESSING_MAX_RELATIONAL_CHARS,
                         Properties.LLM_POSTPROCESSING_MAX_COLLECTION_ELEMENTS,
                         Properties.LLM_POSTPROCESSING_MAX_COMMENT_CHARS,
                         Properties.LLM_POSTPROCESSING_MAX_COMMENTS_PER_TEST),
@@ -156,24 +150,17 @@ public final class PostProcessingOptions {
         private final int candidateFacts;
         private final int candidateChars;
         private final int callableChars;
-        private final int observedExpressionChars;
-        private final int relationalOpportunities;
-        private final int relationalChars;
         private final int collectionElements;
         private final int commentChars;
         private final int commentsPerTest;
 
         public ContextLimits(int observationChars, int candidateFacts, int candidateChars,
-                             int callableChars, int observedExpressionChars,
-                             int relationalOpportunities, int relationalChars,
-                             int collectionElements, int commentChars, int commentsPerTest) {
+                             int callableChars, int collectionElements,
+                             int commentChars, int commentsPerTest) {
             this.observationChars = nonNegative(observationChars);
             this.candidateFacts = nonNegative(candidateFacts);
             this.candidateChars = nonNegative(candidateChars);
             this.callableChars = nonNegative(callableChars);
-            this.observedExpressionChars = nonNegative(observedExpressionChars);
-            this.relationalOpportunities = nonNegative(relationalOpportunities);
-            this.relationalChars = nonNegative(relationalChars);
             this.collectionElements = nonNegative(collectionElements);
             this.commentChars = nonNegative(commentChars);
             this.commentsPerTest = nonNegative(commentsPerTest);
@@ -183,9 +170,6 @@ public final class PostProcessingOptions {
         public int candidateFacts() { return candidateFacts; }
         public int candidateChars() { return candidateChars; }
         public int callableChars() { return callableChars; }
-        public int observedExpressionChars() { return observedExpressionChars; }
-        public int relationalOpportunities() { return relationalOpportunities; }
-        public int relationalChars() { return relationalChars; }
         public int collectionElements() { return collectionElements; }
         public int commentChars() { return commentChars; }
         public int commentsPerTest() { return commentsPerTest; }
@@ -311,23 +295,8 @@ public final class PostProcessingOptions {
                     ? Properties.LlmPostProcessingAssertionFallbackStrategy.ALL : fallbackStrategy;
         }
 
-        /** Compatibility constructor for the former integer configuration. */
-        @Deprecated
-        public RepairFallbackPolicy(int assertionRepairAttempts,
-                                    Properties.LlmPostProcessingRepairPolicy repairPolicy,
-                                    Properties.LlmPostProcessingAssertionFallback fallback,
-                                    Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy) {
-            this(assertionRepairAttempts > 0, repairPolicy, fallback, fallbackStrategy);
-        }
-
         public boolean assertionRepairEnabled() { return assertionRepairEnabled; }
 
-        /**
-         * Compatibility view for callers that still expose the old count.
-         * The protocol supports one bounded repair request.
-         */
-        @Deprecated
-        public int assertionRepairAttempts() { return assertionRepairEnabled ? 1 : 0; }
         public Properties.LlmPostProcessingRepairPolicy repairPolicy() { return repairPolicy; }
         public Properties.LlmPostProcessingAssertionFallback fallback() { return fallback; }
         public Properties.LlmPostProcessingAssertionFallbackStrategy fallbackStrategy() { return fallbackStrategy; }

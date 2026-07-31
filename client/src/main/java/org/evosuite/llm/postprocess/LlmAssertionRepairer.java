@@ -44,16 +44,6 @@ final class LlmAssertionRepairer {
         // Utility class.
     }
 
-    static List<RejectedAssertion> collectRepairableRejectedAssertions(
-            String rawResponse,
-            LlmPostProcessingParseResult parseResult,
-            LlmPostProcessingResponse parsedResponse,
-            LlmPostProcessingResponse acceptedResponse,
-            List<LlmPostProcessingParseResult.Diagnostic> validationDiagnostics) {
-        return collectRepairableRejectedAssertions(parseResult, parsedResponse, acceptedResponse,
-                validationDiagnostics);
-    }
-
     /** Structured-input entry point used by the production repair workflow. */
     static List<RejectedAssertion> collectRepairableRejectedAssertions(
             LlmPostProcessingParseResult parseResult,
@@ -140,21 +130,6 @@ final class LlmAssertionRepairer {
         return result;
     }
 
-    static List<LlmMessage> buildRepairMessages(LlmPostProcessingPromptContext context,
-                                                List<RejectedAssertion> candidates) {
-        return buildRepairMessages(context, candidates, null);
-    }
-
-    static List<LlmMessage> buildRepairMessages(LlmPostProcessingPromptContext context,
-                                                List<RejectedAssertion> candidates,
-                                                PostProcessingOptions options) {
-        List<LlmMessage> messages = new ArrayList<>();
-        messages.add(LlmMessage.system(new SystemPromptProvider().getPostProcessingSystemPrompt()));
-        messages.add(LlmMessage.user(repairPrompt(context, candidates, options)));
-        return messages;
-    }
-
-    /** Production repair entry point consuming the immutable oracle snapshot. */
     static List<LlmMessage> buildRepairMessages(OracleContext context,
                                                 List<RejectedAssertion> candidates,
                                                 PostProcessingOptions options) {
@@ -185,64 +160,7 @@ final class LlmAssertionRepairer {
                 parseResult.getProposedCounts(), parseResult.getRawAssertions());
     }
 
-    private static String repairPrompt(LlmPostProcessingPromptContext context,
-                                       List<RejectedAssertion> candidates,
-                                       PostProcessingOptions options) {
-        org.evosuite.Properties.LlmPostProcessingPromptVariant variant = options == null
-                ? org.evosuite.Properties.LLM_POSTPROCESSING_PROMPT_VARIANT
-                : org.evosuite.Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
-        PromptVariantCapabilities capabilities = PromptVariantCapabilities.forVariant(variant);
-        StringBuilder builder = new StringBuilder();
-        builder.append("Repair only the rejected assertion proposals below.\n");
-        builder.append("Return JSON only, either an assertions array or ");
-        builder.append("{\"schemaVersion\":")
-                .append(LlmPostProcessingProtocol.responseSchemaVersion())
-                .append(",\"assertions\":[...]}.\n");
-        builder.append("Rules:\n");
-        builder.append("- Return at most one corrected assertion for each input assertionId.\n");
-        builder.append("- Preserve assertionId values exactly and do not introduce new IDs.\n");
-        builder.append("- Preserve the semantic placement site. If a placement diagnostic identifies its JSON shape or a missing required afterStatementId/exceptionId, correct that representation or required field; otherwise do not change site, afterStatementId, or exceptionId.\n");
-        if (capabilities.hasExceptionAdjacentPlacements()) {
-            builder.append("- placement must be a JSON object with a site field, never a string or a type field. Valid forms are {\"site\":\"END_OF_TEST\"}, {\"site\":\"BEFORE_TRY\",\"afterStatementId\":\"sN\"}, {\"site\":\"IN_CATCH\",\"exceptionId\":\"e0\"}, and {\"site\":\"AFTER_CATCH\"}; use only a site advertised for this test.\n");
-        }
-        builder.append("- Do not change test names, variable names, comments, or section breaks.\n");
-        builder.append("- Use only stable variable IDs and callable members listed below.\n");
-        builder.append("- Return [] if no correction is justified.\n\n");
-        if (capabilities.hasLiteralDiscipline()) {
-            builder.append("Literal reminders:\n");
-            builder.append("- JSON encodes a Java String expression such as \"text\" as \"\\\"text\\\"\".\n");
-            builder.append("- Preserve char escapes, numeric suffixes (L/F/D), NaN/infinity constants, and one-dimensional array syntax.\n\n");
-        }
-        builder.append("Rejected assertions:\n");
-        for (RejectedAssertion candidate : candidates) {
-            builder.append("- ").append(candidate.getAssertionId()).append(": ");
-            builder.append(candidate.getRawJson()).append('\n');
-            for (String diagnostic : candidate.getDiagnostics()) {
-                builder.append("  diagnostic: ").append(diagnostic).append('\n');
-            }
-            for (String correction : candidate.getCorrections()) {
-                builder.append("  correction: ").append(correction).append('\n');
-            }
-        }
-        Set<String> relevantVariableIds = new LinkedHashSet<>();
-        for (RejectedAssertion candidate : candidates) {
-            relevantVariableIds.addAll(candidate.getRelevantVariableIds());
-        }
-        builder.append("\nObservations:\n");
-        builder.append(context.toObservationText(relevantVariableIds));
-        builder.append("\nCallable members:\n");
-        builder.append(context.toCallableMemberText(relevantVariableIds));
-        if (capabilities.hasExceptionAdjacentPlacements()) {
-            builder.append("\nSafe assertion sites:\n");
-            builder.append(context.toSafeAssertionSiteText());
-        }
-        builder.append("\nSupported kinds: EQUALS, NOT_EQUALS, TRUE, FALSE, NULL, NOT_NULL, SAME, NOT_SAME, ");
-        builder.append("CONTAINS, NOT_CONTAINS, SIZE_EQUALS, MAP_CONTAINS_KEY, IS_EMPTY, ");
-        builder.append("GREATER, LESS, GREATER_EQUALS, LESS_EQUALS\n");
-        return builder.toString();
-    }
-
-    private static String repairPrompt(PostProcessingPromptFacts context,
+    private static String repairPrompt(OracleContext context,
                                        List<RejectedAssertion> candidates,
                                        PostProcessingOptions options) {
         if (options == null) {

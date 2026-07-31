@@ -21,6 +21,7 @@ package org.evosuite.llm.postprocess;
 
 import org.evosuite.junit.naming.methods.TestNameGenerationStrategy;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestPresentationMetadata;
 
 /**
  * Gives accepted unified LLM test names precedence over the configured fallback.
@@ -35,7 +36,7 @@ public final class LlmPostProcessingTestNameStrategy implements TestNameGenerati
 
     @Override
     public String getName(TestCase test) {
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.get(test);
         if (metadata != null && metadata.getTestName() != null) {
             return metadata.getTestName();
         }

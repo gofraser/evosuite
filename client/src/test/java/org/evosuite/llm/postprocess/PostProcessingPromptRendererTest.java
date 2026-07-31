@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class LlmPostProcessingPromptBuilderTest {
+class PostProcessingPromptRendererTest {
 
     private boolean originalAssertions;
     private boolean originalTestNames;
@@ -76,7 +76,7 @@ class LlmPostProcessingPromptBuilderTest {
         String userPrompt = prompt.getMessages().get(1).getContent();
 
         assertTrue(userPrompt.contains("\"schemaVersion\":2"));
-        assertTrue(userPrompt.contains("Prompt version: postprocessing-p2-v2"));
+        assertTrue(userPrompt.contains("Prompt version: postprocessing-production-v2"));
         assertTrue(userPrompt.contains("\"assertionDecision\""));
         assertTrue(userPrompt.contains("NO_SAFE_ORACLE"));
         assertTrue(userPrompt.contains("\"testName\""));
@@ -168,11 +168,11 @@ class LlmPostProcessingPromptBuilderTest {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
-        String prompt = LlmPostProcessingPromptBuilder.build(
-                LlmPostProcessingPromptContext.from(test, null, null, Collections.emptyList(), options),
-                0, true, options).getMessages().get(1).getContent();
+        String prompt = PostProcessingPromptRenderer.build(
+                OracleContext.from(test, null, null, Collections.emptyList(), options),
+                true, options).getMessages().get(1).getContent();
 
-        assertTrue(prompt.contains("Prompt version: postprocessing-p2-v2"));
+        assertTrue(prompt.contains("Prompt version: postprocessing-production-v2"));
         assertTrue(prompt.contains("\"schemaVersion\":2"));
     }
 
@@ -186,12 +186,12 @@ class LlmPostProcessingPromptBuilderTest {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
-        String prompt = LlmPostProcessingPromptBuilder.build(
-                LlmPostProcessingPromptContext.from(test, null, null,
+        String prompt = PostProcessingPromptRenderer.build(
+                OracleContext.from(test, null, null,
                         Collections.emptyList(), options),
-                0, true, options).getMessages().get(1).getContent();
+                true, options).getMessages().get(1).getContent();
 
-        assertEquals("3673e6979ce46859ca511abe85ac01db2a9ab4256879562b73365a7c8b6d5827",
+        assertEquals("a35a8be80cbe909d037b619e4c0569728d2a18629aa4d64098062766db4e46a7",
                 sha256(prompt));
     }
 
@@ -211,8 +211,8 @@ class LlmPostProcessingPromptBuilderTest {
 
     private static PromptResult productionPrompt(DefaultTestCase test, boolean assertionsEnabled) {
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
-        OracleContext context = OracleContextCollector.capture(test, null, null,
+        OracleContext context = OracleContext.from(test, null, null,
                 Collections.emptyList(), options);
-        return LlmPostProcessingPromptBuilder.build(context, 0, assertionsEnabled, options);
+        return PostProcessingPromptRenderer.build(context, assertionsEnabled, options);
     }
 }

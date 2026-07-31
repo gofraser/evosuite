@@ -27,6 +27,8 @@ final class JvmMethodDescriptor {
     private final String descriptor;
     private final List<String> parameterDescriptors;
     private final String returnDescriptor;
+    private final List<ExprType> parameterTypes;
+    private final ExprType returnType;
     private final boolean valid;
 
     private JvmMethodDescriptor(String descriptor, List<String> parameterDescriptors,
@@ -34,6 +36,12 @@ final class JvmMethodDescriptor {
         this.descriptor = descriptor;
         this.parameterDescriptors = Collections.unmodifiableList(parameterDescriptors);
         this.returnDescriptor = returnDescriptor;
+        List<ExprType> types = new ArrayList<>();
+        for (String parameterDescriptor : parameterDescriptors) {
+            types.add(typeOf(parameterDescriptor));
+        }
+        this.parameterTypes = Collections.unmodifiableList(types);
+        this.returnType = typeOf(returnDescriptor);
         this.valid = valid;
     }
 
@@ -108,8 +116,49 @@ final class JvmMethodDescriptor {
         return parameterDescriptors;
     }
 
+    List<ExprType> parameterTypes() {
+        return parameterTypes;
+    }
+
     String returnDescriptor() {
         return returnDescriptor;
+    }
+
+    ExprType returnType() {
+        return returnType;
+    }
+
+    static String typeName(String descriptor) {
+        return typeOf(descriptor).typeName;
+    }
+
+    private static ExprType typeOf(String descriptor) {
+        if (descriptor == null || descriptor.isEmpty()) {
+            return ExprType.unknown();
+        }
+        int arrays = 0;
+        while (arrays < descriptor.length() && descriptor.charAt(arrays) == '[') {
+            arrays++;
+        }
+        if (arrays > 0) {
+            ExprType component = typeOf(descriptor.substring(arrays));
+            return component.isKnown() ? ExprType.array(component.typeName, arrays) : ExprType.unknown();
+        }
+        switch (descriptor.charAt(0)) {
+            case 'Z': return ExprType.primitive("boolean");
+            case 'B': return ExprType.primitive("byte");
+            case 'C': return ExprType.primitive("char");
+            case 'S': return ExprType.primitive("short");
+            case 'I': return ExprType.primitive("int");
+            case 'J': return ExprType.primitive("long");
+            case 'F': return ExprType.primitive("float");
+            case 'D': return ExprType.primitive("double");
+            case 'L':
+                return descriptor.endsWith(";")
+                        ? ExprType.reference(descriptor.substring(1, descriptor.length() - 1).replace('/', '.'))
+                        : ExprType.unknown();
+            default: return ExprType.unknown();
+        }
     }
 
     int argumentCount() {

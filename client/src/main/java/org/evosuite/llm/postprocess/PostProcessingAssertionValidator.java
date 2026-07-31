@@ -55,13 +55,6 @@ final class PostProcessingAssertionValidator {
         return new TemplateAssertionEvaluationRunner();
     }
 
-    static void setOptions(LlmPostProcessor.AssertionEvaluationRunner assertionEvaluationRunner,
-                           PostProcessingOptions options) {
-        if (assertionEvaluationRunner instanceof TemplateAssertionEvaluationRunner) {
-            ((TemplateAssertionEvaluationRunner) assertionEvaluationRunner).setOptions(options);
-        }
-    }
-
     ValidatedEditPlan validate(
             LlmPostProcessingResponse response,
             TestCase validationTest,
@@ -130,7 +123,7 @@ final class PostProcessingAssertionValidator {
                             ? evaluateAgainstCaughtException(proposal, validationTest,
                             validationReferences, originalFinalScope, executionResult, options)
                             : assertionEvaluationRunner.evaluate(proposal, validationTest,
-                            validationReferences, originalFinalScope);
+                            validationReferences, originalFinalScope, options);
             if (!originalOutcome.isAccepted()) {
                 diagnostics.add(validationDiagnostic(proposal, originalOutcome,
                         "Assertion rejected against original observed final scope"));
@@ -142,7 +135,7 @@ final class PostProcessingAssertionValidator {
                             ? evaluateAgainstCaughtException(proposal, stabilityTest,
                             stabilityReferences, stabilityFinalScope, stabilityExecutionResult, options)
                             : assertionEvaluationRunner.evaluate(proposal, stabilityTest,
-                            stabilityReferences, stabilityFinalScope);
+                            stabilityReferences, stabilityFinalScope, options);
             if (!stabilityOutcome.isAccepted()) {
                 diagnostics.add(validationDiagnostic(proposal, stabilityOutcome.asStabilityFailure(),
                         "Assertion rejected against stability final scope"));
@@ -240,18 +233,13 @@ final class PostProcessingAssertionValidator {
 
     private static final class TemplateAssertionEvaluationRunner
             implements LlmPostProcessor.AssertionEvaluationRunner {
-        private PostProcessingOptions options = PostProcessingOptions.fromProperties();
-
-        private void setOptions(PostProcessingOptions options) {
-            this.options = options == null ? PostProcessingOptions.fromProperties() : options;
-        }
-
         @Override
         public LlmPostProcessor.EvaluationOutcome evaluate(
                 LlmPostProcessingResponse.AssertionProposal proposal,
                 TestCase validationTest,
                 LlmPostProcessingReferences references,
-                Scope finalScope) {
+                Scope finalScope,
+                PostProcessingOptions options) {
             try {
                 TemplateCodeAssertion assertion = LlmPostProcessingEditApplier
                         .toTemplateAssertionForValidation(proposal, references);

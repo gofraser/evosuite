@@ -31,14 +31,13 @@ class OracleContextTest {
     void captureCreatesAnImmutableFactSnapshot() {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
-        LlmPostProcessingPromptContext source = LlmPostProcessingPromptContext.from(test);
+        OracleContext snapshot = OracleContext.from(test, null, null,
+                java.util.Collections.emptyList(), PostProcessingOptions.fromProperties());
 
-        OracleContext snapshot = OracleContext.from(source);
-
-        assertEquals(source.getStatements().size(), snapshot.getStatements().size());
-        assertEquals(source.getObservations().size(), snapshot.getObservations().size());
-        assertEquals(source.getCandidateFacts().size(), snapshot.getCandidateFacts().size());
-        assertEquals(source.getReferences().getStatementIds(),
+        assertEquals(test.size(), snapshot.getStatements().size());
+        assertEquals(test.size(), snapshot.getObservations().size());
+        assertEquals(0, snapshot.getCandidateFacts().size());
+        assertEquals(java.util.Collections.singleton("s0"),
                 snapshot.getReferences().getStatementIds());
         assertThrows(UnsupportedOperationException.class, () -> snapshot.getStatements().clear());
     }
@@ -47,12 +46,12 @@ class OracleContextTest {
     void productionRendererConsumesTheSnapshotBoundary() {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
-        LlmPostProcessingPromptContext source = LlmPostProcessingPromptContext.from(test);
-        OracleContext snapshot = OracleContext.from(source);
+        OracleContext snapshot = OracleContext.from(test, null, null,
+                java.util.Collections.emptyList(), PostProcessingOptions.fromProperties());
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
 
-        PromptResult throughBuilder = LlmPostProcessingPromptBuilder.build(
-                source, 0, false, options);
+        PromptResult throughBuilder = PostProcessingPromptRenderer.build(
+                snapshot, false, options);
         PromptResult throughSnapshot = PostProcessingPromptRenderer.build(
                 snapshot, false, options);
 
@@ -73,7 +72,7 @@ class OracleContextTest {
         primitiveAssertion.setSource(statement.getReturnValue());
         primitiveAssertion.setValue(7);
 
-        OracleContext snapshot = OracleContextCollector.capture(
+        OracleContext snapshot = OracleContext.from(
                 test, null, null, Arrays.asList(nullAssertion, primitiveAssertion),
                 PostProcessingOptions.fromProperties());
 
@@ -83,7 +82,7 @@ class OracleContextTest {
 
     private static List<String> candidateIds(OracleContext context) {
         List<String> ids = new ArrayList<>();
-        for (LlmPostProcessingPromptContext.CandidateFact fact : context.getCandidateFacts()) {
+        for (OracleContext.CandidateFact fact : context.getCandidateFacts()) {
             ids.add(fact.getCandidateId());
         }
         return ids;
@@ -91,7 +90,7 @@ class OracleContextTest {
 
     private static List<String> candidateKinds(OracleContext context) {
         List<String> kinds = new ArrayList<>();
-        for (LlmPostProcessingPromptContext.CandidateFact fact : context.getCandidateFacts()) {
+        for (OracleContext.CandidateFact fact : context.getCandidateFacts()) {
             kinds.add(fact.getKind());
         }
         return kinds;

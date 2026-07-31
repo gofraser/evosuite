@@ -8,11 +8,51 @@
  * under the terms of the GNU Lesser General Public License as published
  * by the Free Software Foundation, either version 3.0 of the License, or
  * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
  */
 package org.evosuite.llm.postprocess;
 
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
+import org.evosuite.Properties;
+import org.evosuite.assertion.Assertion;
+import org.evosuite.assertion.ArrayLengthAssertion;
+import org.evosuite.assertion.CheapPurityAnalyzer;
+import org.evosuite.assertion.ContainsAssertion;
+import org.evosuite.assertion.EqualsAssertion;
+import org.evosuite.assertion.Inspector;
+import org.evosuite.assertion.InspectorManager;
+import org.evosuite.assertion.NullAssertion;
+import org.evosuite.setup.TestUsageChecker;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.Scope;
+import org.evosuite.testcase.statements.ArrayStatement;
+import org.evosuite.testcase.statements.FieldStatement;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
+import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.variable.VariableReference;
+
+import java.lang.reflect.Array;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -20,83 +60,152 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Immutable oracle facts captured for one finalized test.
- *
- * <p>This type deliberately contains no prompt serialization methods. It is a
- * stable hand-off between context capture, prompt rendering, and response
- * validation.</p>
+ * Test-local prompt context with stable statement and variable IDs.
  */
-final class OracleContext implements PostProcessingPromptFacts {
+final class OracleContext {
+
+    private static final Set<String> DENIED_INSPECTOR_METHODS = new LinkedHashSet<>(Arrays.asList(
+            "wait",
+            "notify",
+            "notifyAll",
+            "getClass",
+            "hashCode",
+            "finalize",
+            "toString"));
 
     private final LlmPostProcessingReferences references;
-    private final LlmPostProcessingResponseParser.ParseContext parseContext;
-    private final PromptVariantCapabilities capabilities;
+    private final List<StatementContext> statements;
+    private final List<Observation> observations;
+    private final List<CallableMember> callableMembers;
+    private final List<ExceptionContext> exceptions;
+    private final List<CandidateFact> candidateFacts;
     private final PostProcessingOptions options;
-    private final List<LlmPostProcessingPromptContext.StatementContext> statements;
-    private final List<LlmPostProcessingPromptContext.Observation> observations;
-    private final List<LlmPostProcessingPromptContext.CallableMember> callableMembers;
-    private final List<LlmPostProcessingPromptContext.ExceptionContext> exceptions;
-    private final List<LlmPostProcessingPromptContext.CandidateFact> candidateFacts;
-    private final List<LlmPostProcessingPromptContext.RelationalOpportunity> relationalOpportunities;
+    private final LlmPostProcessingResponseParser.ParseContext parseContext;
 
     private OracleContext(LlmPostProcessingReferences references,
-                          PromptVariantCapabilities capabilities,
-                          PostProcessingOptions options,
-                          List<LlmPostProcessingPromptContext.StatementContext> statements,
-                          List<LlmPostProcessingPromptContext.Observation> observations,
-                          List<LlmPostProcessingPromptContext.CallableMember> callableMembers,
-                          List<LlmPostProcessingPromptContext.ExceptionContext> exceptions,
-                          List<LlmPostProcessingPromptContext.CandidateFact> candidateFacts,
-                          List<LlmPostProcessingPromptContext.RelationalOpportunity> relationalOpportunities) {
+                                           List<StatementContext> statements,
+                                           List<Observation> observations,
+                                           List<CallableMember> callableMembers,
+                                           List<ExceptionContext> exceptions,
+                                           List<CandidateFact> candidateFacts,
+                                           PostProcessingOptions options) {
         this.references = references;
-        this.capabilities = capabilities;
+        this.statements = Collections.unmodifiableList(new ArrayList<>(statements));
+        this.observations = Collections.unmodifiableList(new ArrayList<>(observations));
+        this.callableMembers = Collections.unmodifiableList(new ArrayList<>(callableMembers));
+        this.exceptions = Collections.unmodifiableList(new ArrayList<>(exceptions));
+        this.candidateFacts = Collections.unmodifiableList(new ArrayList<>(candidateFacts));
         this.options = options;
-        this.statements = immutableCopy(statements);
-        this.observations = immutableCopy(observations);
-        this.callableMembers = immutableCopy(callableMembers);
-        this.exceptions = immutableCopy(exceptions);
-        this.candidateFacts = immutableCopy(candidateFacts);
-        this.relationalOpportunities = immutableCopy(relationalOpportunities);
         this.parseContext = buildParseContext();
     }
 
-    static OracleContext from(LlmPostProcessingPromptContext context) {
-        if (context == null) {
-            throw new IllegalArgumentException("Oracle context source must not be null");
+    /** Production context capture using the phase's immutable options snapshot. */
+    static OracleContext from(TestCase test, ExecutionResult executionResult,
+                                                      ExecutionResult stabilityExecutionResult,
+                                                      List<Assertion> candidateAssertions,
+                                                      PostProcessingOptions options) {
+        if (options == null) {
+            throw new IllegalArgumentException("Oracle context requires options");
         }
-        return new OracleContext(
-                context.getReferences(),
-                context.getCapabilities(),
-                context.getOptions(),
-                context.getStatements(),
-                context.getObservations(),
-                context.getCallableMembers(),
-                context.getExceptions(),
-                context.getCandidateFacts(),
-                context.getRelationalOpportunities());
+        PostProcessingOptions effectiveOptions = options;
+        LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
+        List<StatementContext> statements = new ArrayList<>();
+        List<Observation> observations = new ArrayList<>();
+        List<CallableMember> callableMembers = new ArrayList<>();
+        Set<String> advertisedTypes = new LinkedHashSet<>();
+        List<ExceptionContext> exceptions = exceptionContexts(executionResult, effectiveOptions);
+        List<CandidateFact> candidateFacts = candidateFacts(
+                references, candidateAssertions, effectiveOptions);
+        // A candidate fact already tells the model this variable's observed value,
+        // so emitting the same value again as an observation is redundant.
+        Set<String> candidateCoveredVariableIds = new LinkedHashSet<>();
+        for (CandidateFact fact : candidateFacts) {
+            if (fact.getSourceId() != null && fact.getObservedValue() != null
+                    ) {
+                candidateCoveredVariableIds.add(fact.getSourceId());
+            }
+        }
+        Scope finalScope = executionResult == null ? null : executionResult.getFinalScope();
+        if (test != null) {
+            for (int position = 0; position < test.size(); position++) {
+                Statement statement = test.getStatement(position);
+                String statementId = LlmPostProcessingReferences.statementId(position);
+                String variableId = references.hasVariableId(LlmPostProcessingReferences.variableId(position))
+                        ? LlmPostProcessingReferences.variableId(position)
+                        : null;
+                VariableReference returnValue = statement.getReturnValue();
+                String declaredType = declaredType(statement, returnValue);
+                statements.add(new StatementContext(
+                        statementId,
+                        variableId,
+                        declaredType,
+                        runtimeType(returnValue, finalScope),
+                        normalizeCode(statement.getCode())));
+                Observation observation = primitiveInputObservation(
+                        statementId, variableId, statement, effectiveOptions);
+                if (observation != null) {
+                    observations.add(observation);
+                }
+                Observation finalScopeObservation = finalScopeObservation(
+                        statementId, variableId, statement, returnValue, finalScope, effectiveOptions);
+                if (finalScopeObservation != null
+                        && (variableId == null || !candidateCoveredVariableIds.contains(variableId))) {
+                    observations.add(finalScopeObservation);
+                }
+                Object runtimeValue = finalScopeValue(returnValue, finalScope);
+                callableMembers.addAll(callableMembers(
+                        variableId, returnValue, declaredType, runtimeValue, advertisedTypes, effectiveOptions));
+            }
+        }
+        return new OracleContext(references, statements, observations, callableMembers, exceptions,
+                candidateFacts, effectiveOptions);
     }
 
-    @Override
     public LlmPostProcessingReferences getReferences() {
         return references;
     }
 
-    LlmPostProcessingResponseParser.ParseContext toParseContext() {
+    public List<StatementContext> getStatements() {
+        return statements;
+    }
+
+    public List<Observation> getObservations() {
+        return observations;
+    }
+
+    public List<CallableMember> getCallableMembers() {
+        return callableMembers;
+    }
+
+    public List<ExceptionContext> getExceptions() {
+        return exceptions;
+    }
+
+    public List<CandidateFact> getCandidateFacts() {
+        return candidateFacts;
+    }
+
+    static boolean isCandidateSelectable(CandidateFact fact) {
+        return fact != null
+                && fact.getCandidateId() != null
+                && fact.getSelectableCandidate() != null;
+    }
+
+    public LlmPostProcessingResponseParser.ParseContext toParseContext() {
         return parseContext;
     }
 
     private LlmPostProcessingResponseParser.ParseContext buildParseContext() {
         Set<LlmPostProcessingResponseParser.CallableMethod> callableMethods = new LinkedHashSet<>();
-        for (LlmPostProcessingPromptContext.CallableMember member : callableMembers) {
+        for (CallableMember member : callableMembers) {
             callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
                     member.getReceiverId(), member.getOwnerType(),
-                    LlmPostProcessingPromptContext.methodName(member.getSignature()),
-                    LlmPostProcessingPromptContext.methodDescriptor(member.getSignature()),
+                    methodName(member.getSignature()), methodDescriptor(member.getSignature()),
                     member.getReturnType()));
         }
 
         Map<String, String> variableTypes = new LinkedHashMap<>();
-        for (LlmPostProcessingPromptContext.StatementContext statement : statements) {
+        for (StatementContext statement : statements) {
             if (statement.getVariableId() != null && statement.getDeclaredType() != null) {
                 variableTypes.put(statement.getVariableId(), statement.getDeclaredType());
             }
@@ -118,61 +227,1279 @@ final class OracleContext implements PostProcessingPromptFacts {
         Set<String> observedCandidateKeys = new LinkedHashSet<>();
         Map<String, LlmPostProcessingResponseParser.SelectableCandidate> selectableCandidates =
                 new LinkedHashMap<>();
-        for (LlmPostProcessingPromptContext.CandidateFact fact : candidateFacts) {
+        for (CandidateFact fact : candidateFacts) {
             if (fact.getAssertionKey() != null) {
                 observedCandidateKeys.add(fact.getAssertionKey());
             }
-            if (LlmPostProcessingPromptContext.isCandidateSelectable(
-                    fact, capabilities.hasAssertableTypesOnly(), capabilities.hasStabilityLabels())) {
+            if (isCandidateSelectable(fact)) {
                 selectableCandidates.put(fact.getCandidateId(),
-                        LlmPostProcessingPromptContext.candidateWithDefaultPlacement(
-                                fact, throwingStatementId));
+                        candidateWithDefaultPlacement(fact, throwingStatementId));
             }
         }
 
         Set<String> setupInputVariableIds = new LinkedHashSet<>();
-        for (LlmPostProcessingPromptContext.Observation observation : observations) {
+        for (Observation observation : observations) {
             if ("INPUT".equals(observation.getProvenance()) && observation.getVariableId() != null) {
                 setupInputVariableIds.add(observation.getVariableId());
             }
         }
-        return LlmPostProcessingResponseParser.production(
+        return LlmPostProcessingResponseParser.context(
                 references.getStatementIds(), expressionVariableIds, callableMethods,
                 observedCandidateKeys, setupInputVariableIds, variableTypes,
                 selectableCandidates, throwingStatementId, options);
     }
 
-    @Override
-    public List<LlmPostProcessingPromptContext.StatementContext> getStatements() {
-        return statements;
+    static LlmPostProcessingResponseParser.SelectableCandidate candidateWithDefaultPlacement(
+            CandidateFact fact, String throwingStatementId) {
+        LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
+        if (candidate == null || throwingStatementId == null) {
+            return candidate;
+        }
+        if (fact.getReferencedIds().contains("e0")) {
+            return candidate.withDefaultPlacement(
+                    LlmPostProcessingResponse.AssertionSite.IN_CATCH, null, "e0");
+        }
+        int throwingPosition = stableIdIndex(throwingStatementId);
+        int latestReferencedPosition = -1;
+        for (String referencedId : fact.getReferencedIds()) {
+            if (referencedId != null && referencedId.startsWith("v")) {
+                latestReferencedPosition = Math.max(latestReferencedPosition,
+                        stableIdIndex(referencedId));
+            }
+        }
+        if (latestReferencedPosition < 0 && fact.getStatementId() != null) {
+            latestReferencedPosition = stableIdIndex(fact.getStatementId());
+        }
+        if (latestReferencedPosition >= 0 && latestReferencedPosition < throwingPosition) {
+            return candidate.withDefaultPlacement(
+                    LlmPostProcessingResponse.AssertionSite.BEFORE_TRY,
+                    LlmPostProcessingReferences.statementId(latestReferencedPosition), null);
+        }
+        return candidate;
     }
 
-    @Override
-    public List<LlmPostProcessingPromptContext.Observation> getObservations() {
-        return observations;
+    private static String declaredType(Statement statement, VariableReference returnValue) {
+        if (returnValue == null || returnValue.isVoid()) {
+            return null;
+        }
+        Type type = null;
+        if (statement instanceof MethodStatement && ((MethodStatement) statement).getMethod() != null) {
+            type = ((MethodStatement) statement).getMethod().getReturnType();
+        } else if (statement instanceof ConstructorStatement
+                && ((ConstructorStatement) statement).getConstructor() != null) {
+            type = ((ConstructorStatement) statement).getConstructor().getReturnType();
+        } else if (statement instanceof FieldStatement && ((FieldStatement) statement).getField() != null) {
+            type = ((FieldStatement) statement).getField().getFieldType();
+        }
+        if (type == null) {
+            type = returnValue.getType();
+        }
+        return type == null ? null : type.getTypeName();
     }
 
-    @Override
-    public List<LlmPostProcessingPromptContext.CallableMember> getCallableMembers() {
-        return callableMembers;
+    private static String runtimeType(VariableReference returnValue, Scope finalScope) {
+        Object value = finalScopeValue(returnValue, finalScope);
+        return value == null ? null : value.getClass().getTypeName();
     }
 
-    @Override
-    public List<LlmPostProcessingPromptContext.ExceptionContext> getExceptions() {
-        return exceptions;
+    private static Object finalScopeValue(VariableReference returnValue, Scope finalScope) {
+        if (returnValue == null || returnValue.isVoid() || finalScope == null) {
+            return null;
+        }
+        return finalScope.getObject(returnValue);
     }
 
-    @Override
-    public List<LlmPostProcessingPromptContext.CandidateFact> getCandidateFacts() {
-        return candidateFacts;
+    private static String normalizeCode(String code) {
+        if (code == null) {
+            return "";
+        }
+        return code.trim().replace("\r\n", "\n").replace('\r', '\n');
     }
 
-    @Override
-    public List<LlmPostProcessingPromptContext.RelationalOpportunity> getRelationalOpportunities() {
-        return relationalOpportunities;
+    private static List<ExceptionContext> exceptionContexts(ExecutionResult executionResult,
+                                                            PostProcessingOptions options) {
+        if (executionResult == null || executionResult.noThrownExceptions()) {
+            return Collections.emptyList();
+        }
+        List<ExceptionContext> contexts = new ArrayList<>();
+        for (Map.Entry<Integer, Throwable> entry : executionResult.getCopyOfExceptionMapping().entrySet()) {
+            Integer position = entry.getKey();
+            Throwable throwable = entry.getValue();
+            if (position == null || throwable == null) {
+                continue;
+            }
+            contexts.add(new ExceptionContext(
+                    LlmPostProcessingReferences.statementId(position),
+                    throwable.getClass().getName(),
+                    Boolean.TRUE.equals(executionResult.getExplicitExceptions().get(position)),
+                    sanitizedMessage(throwable.getMessage(), options),
+                    isCompleteExceptionMessage(throwable.getMessage(), options),
+                    throwable.getCause() == null));
+        }
+        contexts.sort((left, right) -> left.getStatementId().compareTo(right.getStatementId()));
+        return contexts;
     }
 
-    private static <T> List<T> immutableCopy(List<T> source) {
-        return Collections.unmodifiableList(new ArrayList<>(source));
+    private static String sanitizedMessage(String message, PostProcessingOptions options) {
+        if (message == null || message.isEmpty()) {
+            return null;
+        }
+        String sanitized = message.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ').trim();
+        int maxChars = Math.max(1, options.assertionPolicy().maxLiteralChars());
+        if (sanitized.length() > maxChars) {
+            sanitized = sanitized.substring(0, maxChars);
+        }
+        return "\"" + escapeJava(sanitized) + "\"";
+    }
+
+    private static boolean isCompleteExceptionMessage(String message, PostProcessingOptions options) {
+        if (message == null || message.isEmpty()) {
+            return true;
+        }
+        String sanitized = message.replace('\r', ' ').replace('\n', ' ')
+                .replace('\t', ' ').trim();
+        return sanitized.length() <= Math.max(1, options.assertionPolicy().maxLiteralChars());
+    }
+
+    private static List<CandidateFact> candidateFacts(LlmPostProcessingReferences references,
+                                                      List<Assertion> assertions,
+                                                      PostProcessingOptions options) {
+        if (assertions == null || assertions.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<CandidateFact> facts = new ArrayList<>();
+        for (Assertion assertion : assertions) {
+            if (assertion == null) {
+                continue;
+            }
+            String sourceId = variableId(references, assertion.getSource());
+            List<String> referencedIds = referencedIds(references, assertion);
+            String statementId = assertionStatementId(assertion);
+            if (statementId == null && sourceId == null && referencedIds.isEmpty()) {
+                continue;
+            }
+            LlmPostProcessingResponseParser.SelectableCandidate selectable =
+                    selectableCandidate(references, assertion);
+            facts.add(new CandidateFact(
+                    null,
+                    statementId == null ? "s?" : statementId,
+                    sourceId,
+                    assertion.getClass().getSimpleName(),
+                    valueSummaryText(assertion.getValue(), options),
+                    referencedIds,
+                    assertionKey(references, assertion, options),
+                    selectable));
+        }
+        facts.sort((left, right) -> {
+            int leftRank = candidatePriority(left.getKind());
+            int rightRank = candidatePriority(right.getKind());
+            int priority = Integer.compare(leftRank, rightRank);
+            if (priority != 0) {
+                return priority;
+            }
+            int statement = left.getStatementId().compareTo(right.getStatementId());
+            if (statement != 0) {
+                return statement;
+            }
+            String leftSource = left.getSourceId() == null ? "" : left.getSourceId();
+            String rightSource = right.getSourceId() == null ? "" : right.getSourceId();
+            int source = leftSource.compareTo(rightSource);
+            if (source != 0) {
+                return source;
+            }
+            return left.getKind().compareTo(right.getKind());
+        });
+        int limit = options.contextLimits().candidateFacts();
+        if (limit > 0 && facts.size() > limit) {
+            List<CandidateFact> ranked = new ArrayList<>();
+            Set<String> diversityKeys = new LinkedHashSet<>();
+            for (CandidateFact fact : facts) {
+                String key = String.valueOf(fact.getSourceId()) + "|" + fact.getKind();
+                if (diversityKeys.add(key)) {
+                    ranked.add(fact);
+                    if (ranked.size() >= limit) {
+                        break;
+                    }
+                }
+            }
+            if (ranked.size() < limit) {
+                for (CandidateFact fact : facts) {
+                    if (!ranked.contains(fact)) {
+                        ranked.add(fact);
+                        if (ranked.size() >= limit) {
+                            break;
+                        }
+                    }
+                }
+            }
+            facts = ranked;
+        }
+        List<CandidateFact> identified = new ArrayList<>();
+        int candidateIndex = 0;
+        for (CandidateFact fact : facts) {
+            String candidateId = fact.getSelectableCandidate() == null ? null : "c" + candidateIndex++;
+            identified.add(fact.withCandidateId(candidateId));
+        }
+        return identified;
+    }
+
+
+    static int stableIdIndex(String id) {
+        if (id == null || id.length() < 2) {
+            return -1;
+        }
+        try {
+            return Integer.parseInt(id.substring(1));
+        } catch (NumberFormatException ignored) {
+            return -1;
+        }
+    }
+
+    private static LlmPostProcessingResponseParser.SelectableCandidate selectableCandidate(
+            LlmPostProcessingReferences references, Assertion assertion) {
+        String code;
+        try {
+            code = assertion.getCode();
+        } catch (RuntimeException | AssertionError error) {
+            return null;
+        }
+        if (code == null) {
+            return null;
+        }
+        Map<String, String> stableVariableIds = new LinkedHashMap<>();
+        for (VariableReference variable : assertion.getReferencedVariables()) {
+            String id = variableId(references, variable);
+            if (id != null && variable.getName() != null) {
+                stableVariableIds.put(variable.getName(), id);
+            }
+        }
+        code = code.trim();
+        if (code.endsWith(";")) {
+            code = code.substring(0, code.length() - 1);
+        }
+        try {
+            Expression expression = StaticJavaParser.parseExpression(code);
+            for (NameExpr name : expression.findAll(NameExpr.class)) {
+                String id = stableVariableIds.get(name.getNameAsString());
+                if (id != null) {
+                    name.setName(id);
+                }
+            }
+            if (!(expression instanceof MethodCallExpr)) {
+                return null;
+            }
+            MethodCallExpr call = (MethodCallExpr) expression;
+            String method = call.getNameAsString();
+            List<Expression> arguments = call.getArguments();
+            LlmPostProcessingResponse.AssertionKind kind;
+            String expected = null;
+            String actual;
+            String delta = null;
+            if (("assertEquals".equals(method) || "assertArrayEquals".equals(method))
+                    && arguments.size() >= 2) {
+                kind = LlmPostProcessingResponse.AssertionKind.EQUALS;
+                expected = arguments.get(0).toString();
+                actual = arguments.get(1).toString();
+                delta = arguments.size() >= 3 ? arguments.get(2).toString() : null;
+            } else if ("assertNotEquals".equals(method) && arguments.size() >= 2) {
+                kind = LlmPostProcessingResponse.AssertionKind.NOT_EQUALS;
+                expected = arguments.get(0).toString();
+                actual = arguments.get(1).toString();
+            } else if ("assertTrue".equals(method) && arguments.size() == 1) {
+                kind = LlmPostProcessingResponse.AssertionKind.TRUE;
+                actual = arguments.get(0).toString();
+            } else if ("assertFalse".equals(method) && arguments.size() == 1) {
+                kind = LlmPostProcessingResponse.AssertionKind.FALSE;
+                actual = arguments.get(0).toString();
+            } else if ("assertNull".equals(method) && arguments.size() == 1) {
+                kind = LlmPostProcessingResponse.AssertionKind.NULL;
+                actual = arguments.get(0).toString();
+            } else if ("assertNotNull".equals(method) && arguments.size() == 1) {
+                kind = LlmPostProcessingResponse.AssertionKind.NOT_NULL;
+                actual = arguments.get(0).toString();
+            } else if ("assertSame".equals(method) && arguments.size() == 2) {
+                kind = LlmPostProcessingResponse.AssertionKind.SAME;
+                expected = arguments.get(0).toString();
+                actual = arguments.get(1).toString();
+            } else if ("assertNotSame".equals(method) && arguments.size() == 2) {
+                kind = LlmPostProcessingResponse.AssertionKind.NOT_SAME;
+                expected = arguments.get(0).toString();
+                actual = arguments.get(1).toString();
+            } else {
+                return null;
+            }
+            return new LlmPostProcessingResponseParser.SelectableCandidate(
+                    kind, expected, actual, delta);
+        } catch (RuntimeException error) {
+            return null;
+        }
+    }
+
+    private static String assertionKey(LlmPostProcessingReferences references, Assertion assertion,
+                                       PostProcessingOptions options) {
+        String sourceId = variableId(references, assertion.getSource());
+        if (sourceId == null) {
+            return null;
+        }
+        if (assertion instanceof NullAssertion && assertion.getValue() instanceof Boolean) {
+            boolean isNull = (Boolean) assertion.getValue();
+            return assertionKey(isNull ? "NULL" : "NOT_NULL", null, sourceId, null);
+        }
+        if (assertion instanceof EqualsAssertion) {
+            EqualsAssertion equals = (EqualsAssertion) assertion;
+            String destId = variableId(references, equals.getDest());
+            if (destId == null || !(assertion.getValue() instanceof Boolean)) {
+                return null;
+            }
+            boolean equal = (Boolean) assertion.getValue();
+            return assertionKey(equal ? "EQUALS" : "NOT_EQUALS", sourceId, destId, null);
+        }
+        if (assertion instanceof ContainsAssertion) {
+            String code = codeHint(references, assertion);
+            return code == null ? null : "TRUE||" + normalizeKeyExpression(unquote(code)) + "|";
+        }
+        if (assertion instanceof ArrayLengthAssertion) {
+            Object value = assertion.getValue();
+            if (value == null) {
+                return null;
+            }
+            return assertionKey("EQUALS", String.valueOf(value), sourceId + ".length", null);
+        }
+        Object value = assertion.getValue();
+        String expected = valueSummaryText(value, options);
+        if (expected == null) {
+            return null;
+        }
+        return assertionKey("EQUALS", expected, sourceId, null);
+    }
+
+    private static String assertionKey(String kind, String expected, String actual, String delta) {
+        return kind
+                + "|" + normalizeKeyExpression(expected)
+                + "|" + normalizeKeyExpression(actual)
+                + "|" + normalizeKeyExpression(delta);
+    }
+
+    private static String normalizeKeyExpression(String expression) {
+        return expression == null ? "" : expression.replaceAll("\\s+", "");
+    }
+
+    private static String unquote(String value) {
+        if (value == null || value.length() < 2 || value.charAt(0) != '"'
+                || value.charAt(value.length() - 1) != '"') {
+            return value;
+        }
+        return value.substring(1, value.length() - 1);
+    }
+
+    private static int candidatePriority(String kind) {
+        if ("InspectorAssertion".equals(kind) || "PrimitiveFieldAssertion".equals(kind)) {
+            return 10;
+        }
+        if ("ContainsAssertion".equals(kind) || "ArrayEqualsAssertion".equals(kind)
+                || "ArrayLengthAssertion".equals(kind)) {
+            return 20;
+        }
+        if ("CompareAssertion".equals(kind) || "EqualsAssertion".equals(kind)) {
+            return 30;
+        }
+        if ("PrimitiveAssertion".equals(kind)) {
+            return 80;
+        }
+        if ("NullAssertion".equals(kind) || "SameAssertion".equals(kind)) {
+            return 90;
+        }
+        return 50;
+    }
+
+    private static String assertionStatementId(Assertion assertion) {
+        if (assertion.getStatement() != null) {
+            return LlmPostProcessingReferences.statementId(assertion.getStatement().getPosition());
+        }
+        VariableReference source = assertion.getSource();
+        if (source == null) {
+            return null;
+        }
+        try {
+            return LlmPostProcessingReferences.statementId(source.getStPosition());
+        } catch (AssertionError e) {
+            return null;
+        }
+    }
+
+    private static List<String> referencedIds(LlmPostProcessingReferences references, Assertion assertion) {
+        List<String> ids = new ArrayList<>();
+        for (VariableReference variable : assertion.getReferencedVariables()) {
+            String id = variableId(references, variable);
+            if (id != null && !ids.contains(id)) {
+                ids.add(id);
+            }
+        }
+        return ids;
+    }
+
+    private static String variableId(LlmPostProcessingReferences references, VariableReference variable) {
+        if (variable == null) {
+            return null;
+        }
+        int position;
+        try {
+            position = variable.getStPosition();
+        } catch (AssertionError e) {
+            return null;
+        }
+        String variableId = LlmPostProcessingReferences.variableId(position);
+        return references.hasVariableId(variableId) ? variableId : null;
+    }
+
+    private static String valueSummaryText(Object value, PostProcessingOptions options) {
+        ValueSummary summary = valueSummary(value, options);
+        return summary == null ? null : summary.value;
+    }
+
+    private static String codeHint(LlmPostProcessingReferences references, Assertion assertion) {
+        String code;
+        try {
+            code = assertion.getCode();
+        } catch (RuntimeException | AssertionError e) {
+            return null;
+        }
+        if (code == null || code.trim().isEmpty()) {
+            return null;
+        }
+        String normalized = normalizeCode(code);
+        for (VariableReference variable : assertion.getReferencedVariables()) {
+            String id = variableId(references, variable);
+            if (id != null && variable != null && variable.getName() != null) {
+                normalized = normalized.replace(variable.getName(), id);
+            }
+        }
+        return "\"" + escapeJava(normalized) + "\"";
+    }
+
+    private static Observation primitiveInputObservation(String statementId, String variableId,
+                                                         Statement statement,
+                                                         PostProcessingOptions options) {
+        if (variableId == null || !(statement instanceof PrimitiveStatement<?>)) {
+            return null;
+        }
+        Object value = ((PrimitiveStatement<?>) statement).getValue();
+        String literal = literalValue(value);
+        if (literal == null) {
+            return null;
+        }
+        int maxChars = Math.max(1, options.assertionPolicy().maxLiteralChars());
+        boolean complete = literal.length() <= maxChars;
+        if (!complete) {
+            literal = literal.substring(0, maxChars);
+        }
+        return new Observation(statementId, variableId, "INPUT", literal, complete);
+    }
+
+    private static Observation finalScopeObservation(String statementId, String variableId, Statement statement,
+                                                     VariableReference returnValue, Scope finalScope,
+                                                     PostProcessingOptions options) {
+        if (variableId == null || finalScope == null || statement instanceof PrimitiveStatement<?>) {
+            return null;
+        }
+        Object value = finalScopeValue(returnValue, finalScope);
+        ValueSummary summary = valueSummary(value, options);
+        if (summary == null) {
+            return null;
+        }
+        String provenance = provenance(statement);
+        return new Observation(statementId, variableId, provenance, summary.value, summary.complete);
+    }
+
+    private static String provenance(Statement statement) {
+        if (statement instanceof ConstructorStatement || statement instanceof PrimitiveStatement<?>
+                || statement instanceof ArrayStatement) {
+            return "INPUT";
+        }
+        if (statement instanceof FieldStatement) {
+            return "FIELD_OBSERVATION";
+        }
+        return "SUT_RETURN";
+    }
+
+    private static ValueSummary valueSummary(Object value, PostProcessingOptions options) {
+        String literal = literalValue(value);
+        if (literal != null) {
+            int maxChars = Math.max(1, options.assertionPolicy().maxLiteralChars());
+            boolean complete = literal.length() <= maxChars;
+            return new ValueSummary(complete ? literal : literal.substring(0, maxChars), complete);
+        }
+        if (value != null && value.getClass().isArray()) {
+            return arraySummary(value, options);
+        }
+        if (value instanceof Collection<?>) {
+            return collectionSummary((Collection<?>) value, options);
+        }
+        if (value instanceof Map<?, ?>) {
+            return mapSummary((Map<?, ?>) value, options);
+        }
+        return null;
+    }
+
+    private static ValueSummary arraySummary(Object array, PostProcessingOptions options) {
+        int length = Array.getLength(array);
+        int maxElements = options.contextLimits().collectionElements();
+        List<String> elements = new ArrayList<>();
+        boolean complete = length <= maxElements;
+        for (int i = 0; i < length && i < maxElements; i++) {
+            String literal = literalValue(Array.get(array, i));
+            if (literal == null) {
+                complete = false;
+                break;
+            }
+            elements.add(literal);
+        }
+        return new ValueSummary("array length=" + length + " elements=[" + String.join(", ", elements) + "]",
+                complete);
+    }
+
+    private static ValueSummary collectionSummary(Collection<?> collection, PostProcessingOptions options) {
+        int maxElements = options.contextLimits().collectionElements();
+        List<String> elements = new ArrayList<>();
+        int size;
+        java.util.Iterator<?> iterator;
+        try {
+            size = collection.size();
+            iterator = collection.iterator();
+        } catch (RuntimeException e) {
+            return new ValueSummary("collection elements unavailable", false);
+        }
+        if (iterator == null) {
+            return new ValueSummary("collection size=" + size + " elements unavailable", false);
+        }
+
+        boolean complete = size <= maxElements;
+        int index = 0;
+        while (iterator.hasNext()) {
+            Object element = iterator.next();
+            if (index++ >= maxElements) {
+                break;
+            }
+            String literal = literalValue(element);
+            if (literal == null) {
+                complete = false;
+                break;
+            }
+            elements.add(literal);
+        }
+        return new ValueSummary("collection size=" + size + " elements=["
+                + String.join(", ", elements) + "]", complete);
+    }
+
+    private static ValueSummary mapSummary(Map<?, ?> map, PostProcessingOptions options) {
+        int maxElements = options.contextLimits().collectionElements();
+        List<String> entries = new ArrayList<>();
+        int size;
+        Set<? extends Map.Entry<?, ?>> entrySet;
+        try {
+            size = map.size();
+            entrySet = map.entrySet();
+        } catch (RuntimeException e) {
+            return new ValueSummary("map entries unavailable", false);
+        }
+        if (entrySet == null) {
+            return new ValueSummary("map size=" + size + " entries unavailable", false);
+        }
+
+        boolean complete = size <= maxElements;
+        int index = 0;
+        for (Map.Entry<?, ?> entry : entrySet) {
+            if (index++ >= maxElements) {
+                break;
+            }
+            if (entry == null) {
+                complete = false;
+                break;
+            }
+            String key = literalValue(entry.getKey());
+            String value = literalValue(entry.getValue());
+            if (key == null || value == null) {
+                complete = false;
+                break;
+            }
+            entries.add(key + "->" + value);
+        }
+        return new ValueSummary("map size=" + size + " entries=[" + String.join(", ", entries) + "]",
+                complete);
+    }
+
+    private static List<CallableMember> callableMembers(String variableId, VariableReference returnValue,
+                                                        String typeName, Object runtimeValue,
+                                                        Set<String> advertisedTypes,
+                                                        PostProcessingOptions options) {
+        if (variableId == null || returnValue == null || returnValue.isVoid() || returnValue.isPrimitive()) {
+            return Collections.emptyList();
+        }
+        if (typeName == null) {
+            return Collections.emptyList();
+        }
+        List<CallableMember> members = new ArrayList<>();
+        Class<?> declaredClass = classForTypeName(typeName, runtimeValue);
+        addCuratedCallableMembers(members, variableId, typeName, runtimeValue, options);
+        if ("java.lang.Boolean".equals(typeName) || "Boolean".equals(typeName)) {
+            add(members, variableId, "java.lang.Boolean", "booleanValue()Z", "boolean");
+        } else if ("java.lang.Byte".equals(typeName) || "Byte".equals(typeName)) {
+            add(members, variableId, "java.lang.Byte", "byteValue()B", "byte");
+            add(members, variableId, "java.lang.Byte", "intValue()I", "int");
+        } else if ("java.lang.Short".equals(typeName) || "Short".equals(typeName)) {
+            add(members, variableId, "java.lang.Short", "shortValue()S", "short");
+            add(members, variableId, "java.lang.Short", "intValue()I", "int");
+        } else if ("java.lang.Integer".equals(typeName) || "Integer".equals(typeName)) {
+            add(members, variableId, "java.lang.Integer", "intValue()I", "int");
+            add(members, variableId, "java.lang.Integer", "longValue()J", "long");
+        } else if ("java.lang.Long".equals(typeName) || "Long".equals(typeName)) {
+            add(members, variableId, "java.lang.Long", "longValue()J", "long");
+            add(members, variableId, "java.lang.Long", "intValue()I", "int");
+        } else if ("java.lang.Float".equals(typeName) || "Float".equals(typeName)) {
+            add(members, variableId, "java.lang.Float", "floatValue()F", "float");
+            add(members, variableId, "java.lang.Float", "doubleValue()D", "double");
+        } else if ("java.lang.Double".equals(typeName) || "Double".equals(typeName)) {
+            add(members, variableId, "java.lang.Double", "doubleValue()D", "double");
+            add(members, variableId, "java.lang.Double", "floatValue()F", "float");
+        } else if ("java.lang.Character".equals(typeName) || "Character".equals(typeName)) {
+            add(members, variableId, "java.lang.Character", "charValue()C", "char");
+        } else if ("java.math.BigInteger".equals(typeName) || "BigInteger".equals(typeName)) {
+            add(members, variableId, "java.math.BigInteger", "abs()Ljava/math/BigInteger;",
+                    "java.math.BigInteger");
+            add(members, variableId, "java.math.BigInteger", "signum()I", "int");
+            add(members, variableId, "java.math.BigInteger", "compareTo(Ljava/math/BigInteger;)I", "int");
+        } else if ("java.math.BigDecimal".equals(typeName) || "BigDecimal".equals(typeName)) {
+            add(members, variableId, "java.math.BigDecimal", "abs()Ljava/math/BigDecimal;",
+                    "java.math.BigDecimal");
+            add(members, variableId, "java.math.BigDecimal", "signum()I", "int");
+            add(members, variableId, "java.math.BigDecimal", "compareTo(Ljava/math/BigDecimal;)I", "int");
+        }
+        if (options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.INSPECTORS_ONLY
+                || options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
+            addInspectorMembers(members, variableId, declaredClass, runtimeValue);
+        }
+        if (options.assertionPolicy().callablePolicy() == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED
+                && declaredClass != null) {
+            addPureBoundedMembers(members, variableId, declaredClass, advertisedTypes, 0, options);
+        }
+        return deduplicateCallableMembers(members);
+    }
+
+    private static void addCuratedCallableMembers(List<CallableMember> members, String receiverId,
+                                                  String typeName, Object runtimeValue,
+                                                  PostProcessingOptions options) {
+        Class<?> type = classForTypeName(typeName, runtimeValue);
+        String owner = type == null ? typeName : type.getTypeName();
+        if (isStringType(typeName, type)) {
+            add(members, receiverId, owner, "length()I", "int");
+            add(members, receiverId, owner, "isEmpty()Z", "boolean");
+            add(members, receiverId, owner, "startsWith(Ljava/lang/String;)Z", "boolean");
+            add(members, receiverId, owner, "endsWith(Ljava/lang/String;)Z", "boolean");
+            add(members, receiverId, owner, "contains(Ljava/lang/CharSequence;)Z", "boolean");
+        }
+        if (type != null && Collection.class.isAssignableFrom(type)) {
+            Collection<?> collection = runtimeValue instanceof Collection<?> ? (Collection<?>) runtimeValue : null;
+            add(members, receiverId, owner, "size()I", "int");
+            add(members, receiverId, owner, "isEmpty()Z", "boolean");
+            add(members, receiverId, owner, "contains(Ljava/lang/Object;)Z", "boolean");
+            if (List.class.isAssignableFrom(type)) {
+                // Element access with an observed constant index. The
+                // return type is the observed homogeneous element type so numeric or
+                // string element equality passes the operand type check; otherwise
+                // it degrades to Object (still usable for null/identity assertions).
+                String elementType = commonElementTypeName(collection, options);
+                add(members, receiverId, owner, "get(I)Ljava/lang/Object;",
+                        elementType == null ? "java.lang.Object" : elementType);
+            }
+        } else if (type != null && Map.class.isAssignableFrom(type)) {
+            add(members, receiverId, owner, "size()I", "int");
+            add(members, receiverId, owner, "isEmpty()Z", "boolean");
+            add(members, receiverId, owner, "containsKey(Ljava/lang/Object;)Z", "boolean");
+        }
+    }
+
+    private static Class<?> classForTypeName(String typeName, Object runtimeValue) {
+        if (typeName == null || typeName.trim().isEmpty()) {
+            return null;
+        }
+        if (runtimeValue != null) {
+            Class<?> matchingRuntimeType = namedSupertype(runtimeValue.getClass(), typeName,
+                    new LinkedHashSet<Class<?>>());
+            if (matchingRuntimeType != null) {
+                return matchingRuntimeType;
+            }
+        }
+        try {
+            ClassLoader loader = org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT();
+            return Class.forName(typeName, false, loader);
+        } catch (Throwable ignored) {
+            // Fall back to EvoSuite's own loader for JDK and harness types.
+        }
+        try {
+            return Class.forName(typeName);
+        } catch (Throwable ignored) {
+            // Some legacy/uninterpreted statements retain only a runtime-resolved
+            // local type name (notably package-private JDK collection classes).
+            // Method/constructor/field statements are handled above with their
+            // recoverable compile-time declaration, so this fallback is limited
+            // to cases where no declared class can be resolved at all.
+            return runtimeValue == null ? null : runtimeValue.getClass();
+        }
+    }
+
+    private static Class<?> namedSupertype(Class<?> type, String typeName, Set<Class<?>> visited) {
+        if (type == null || !visited.add(type)) {
+            return null;
+        }
+        if (typeName.equals(type.getTypeName()) || typeName.equals(type.getName())) {
+            return type;
+        }
+        for (Class<?> interfaceType : type.getInterfaces()) {
+            Class<?> match = namedSupertype(interfaceType, typeName, visited);
+            if (match != null) {
+                return match;
+            }
+        }
+        return namedSupertype(type.getSuperclass(), typeName, visited);
+    }
+
+    private static boolean isStringType(String typeName, Class<?> type) {
+        return String.class.equals(type) || "java.lang.String".equals(typeName) || "String".equals(typeName);
+    }
+
+    /**
+     * Return the shared runtime element type of a collection when its sampled
+     * elements are homogeneous, otherwise {@code null}. Used to give {@code get}
+     * a concrete return type instead of the erased {@code Object}.
+     */
+    private static String commonElementTypeName(Collection<?> collection, PostProcessingOptions options) {
+        if (collection == null) {
+            return null;
+        }
+        java.util.Iterator<?> iterator;
+        try {
+            if (collection.isEmpty()) {
+                return null;
+            }
+            iterator = collection.iterator();
+        } catch (RuntimeException e) {
+            return null;
+        }
+        if (iterator == null) {
+            return null;
+        }
+        int maxElements = Math.max(1, options.contextLimits().collectionElements());
+        Class<?> common = null;
+        int seen = 0;
+        while (iterator.hasNext()) {
+            Object element = iterator.next();
+            if (element == null) {
+                continue;
+            }
+            Class<?> elementClass = element.getClass();
+            if (common == null) {
+                common = elementClass;
+            } else if (!common.equals(elementClass)) {
+                return null;
+            }
+            if (++seen >= maxElements) {
+                break;
+            }
+        }
+        return common == null ? null : common.getTypeName();
+    }
+
+    private static void addPureBoundedMembers(List<CallableMember> members, String receiverId, Class<?> receiverType,
+                                              Set<String> advertisedTypes, int depth,
+                                              PostProcessingOptions options) {
+        if (receiverType == null || !TestUsageChecker.canUse(receiverType)) {
+            return;
+        }
+        int limit = options.assertionPolicy().maxCallableMembersPerType();
+        int accepted = 0;
+        List<Method> methods = new ArrayList<>(Arrays.asList(receiverType.getMethods()));
+        // Rank the most assertable members first so the per-type cap keeps them:
+        // zero-arg inspectors returning primitive/String/enum values with
+        // getter-style names, rather than an alphabetical prefix.
+        methods.sort(Comparator.comparingInt(OracleContext::pureBoundedRank)
+                .thenComparing(Method::getName)
+                .thenComparing(Method::toGenericString));
+        for (Method method : methods) {
+            if (accepted >= limit) {
+                break;
+            }
+            if (!isPureBoundedCallable(method, options)) {
+                continue;
+            }
+            add(members, receiverId, receiverType.getTypeName(),
+                    method.getName() + org.objectweb.asm.Type.getMethodDescriptor(method),
+                    method.getReturnType().getTypeName());
+            accepted++;
+            addCallableTypeMembersForReturnType(
+                    members, method.getReturnType(), advertisedTypes, depth + 1, options);
+        }
+    }
+
+    private static void addCallableTypeMembersForReturnType(List<CallableMember> members, Class<?> returnType,
+                                                            Set<String> advertisedTypes, int depth,
+                                                            PostProcessingOptions options) {
+        if (!options.assertionPolicy().allowChainedCalls()
+                || returnType == null || returnType.equals(Void.TYPE)) {
+            return;
+        }
+        if (depth > options.assertionPolicy().maxChainDepth()) {
+            return;
+        }
+        int maxTypes = options.assertionPolicy().maxCallableTypesPerTest();
+        if (maxTypes > 0 && advertisedTypes.size() >= maxTypes) {
+            return;
+        }
+        String typeName = returnType.getTypeName();
+        if (!advertisedTypes.add(typeName)) {
+            return;
+        }
+        addCuratedCallableMembers(members, null, typeName, null, options);
+        if (options.assertionPolicy().callablePolicy()
+                == Properties.LlmPostProcessingCallablePolicy.PURE_BOUNDED) {
+            addPureBoundedMembers(members, null, returnType, advertisedTypes, depth, options);
+        }
+    }
+
+    /**
+     * Lower rank = more assertable, used to order pure-bounded members before the
+     * per-type cap trims the list. Prefers zero-argument inspectors returning
+     * directly-assertable values with conventional accessor names.
+     */
+    private static int pureBoundedRank(Method method) {
+        int rank = 0;
+        if (method.getParameterTypes().length > 0) {
+            rank += 4;
+        }
+        Class<?> returnType = method.getReturnType();
+        if (!returnType.isPrimitive() && !returnType.equals(String.class) && !returnType.isEnum()
+                && !isPrimitiveWrapper(returnType)) {
+            rank += 3;
+        }
+        String name = method.getName();
+        boolean accessorName = name.startsWith("get") || name.startsWith("is") || name.startsWith("has")
+                || "size".equals(name) || "length".equals(name);
+        if (!accessorName) {
+            rank += 2;
+        }
+        return rank;
+    }
+
+    private static boolean isPureBoundedCallable(Method method, PostProcessingOptions options) {
+        if (method == null || !Modifier.isPublic(method.getModifiers()) || Modifier.isStatic(method.getModifiers())
+                || method.isBridge() || method.isSynthetic() || method.getReturnType().equals(Void.TYPE)) {
+            return false;
+        }
+        if (method.getDeclaringClass().equals(Object.class) || method.getDeclaringClass().equals(Enum.class)
+                || DENIED_INSPECTOR_METHODS.contains(method.getName())) {
+            return false;
+        }
+        if (method.getParameterTypes().length > options.assertionPolicy().maxCallableArgs()) {
+            return false;
+        }
+        if (!TestUsageChecker.canUse(method)) {
+            return false;
+        }
+        return CheapPurityAnalyzer.getInstance().isPure(method);
+    }
+
+    private static void addInspectorMembers(List<CallableMember> members, String variableId,
+                                            Class<?> declaredClass, Object runtimeValue) {
+        if (declaredClass == null || runtimeValue == null) {
+            return;
+        }
+        if (declaredClass.isArray()) {
+            return;
+        }
+        for (Inspector inspector : InspectorManager.getInstance().getInspectors(declaredClass)) {
+            Method method = inspector.getMethod();
+            if (!isAllowedInspectorMethod(method)
+                    || !method.getDeclaringClass().isAssignableFrom(declaredClass)) {
+                continue;
+            }
+            add(members, variableId, method.getDeclaringClass().getName(),
+                    method.getName() + org.objectweb.asm.Type.getMethodDescriptor(method),
+                    method.getReturnType().getTypeName());
+        }
+    }
+
+    private static boolean isAllowedInspectorMethod(Method method) {
+        if (method == null
+                || !Modifier.isPublic(method.getModifiers())
+                || Modifier.isStatic(method.getModifiers())
+                || method.getParameterTypes().length != 0
+                || method.getReturnType().equals(Void.TYPE)
+                || DENIED_INSPECTOR_METHODS.contains(method.getName())) {
+            return false;
+        }
+        Class<?> returnType = method.getReturnType();
+        if (!returnType.isPrimitive()
+                && !returnType.equals(String.class)
+                && !returnType.isEnum()
+                && !isPrimitiveWrapper(returnType)) {
+            return false;
+        }
+        String ownerName = method.getDeclaringClass().getName();
+        if (ownerName.startsWith("java.") || ownerName.startsWith("javax.")) {
+            return true;
+        }
+        return CheapPurityAnalyzer.getInstance().isPure(method);
+    }
+
+    private static boolean isPrimitiveWrapper(Class<?> type) {
+        return type.equals(Boolean.class)
+                || type.equals(Byte.class)
+                || type.equals(Short.class)
+                || type.equals(Character.class)
+                || type.equals(Integer.class)
+                || type.equals(Long.class)
+                || type.equals(Float.class)
+                || type.equals(Double.class);
+    }
+
+    private static List<CallableMember> deduplicateCallableMembers(List<CallableMember> members) {
+        List<CallableMember> deduplicated = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (CallableMember member : members) {
+            String key = member.getReceiverId() + "\n" + member.getOwnerType() + "\n" + member.getSignature();
+            if (seen.add(key)) {
+                deduplicated.add(member);
+            }
+        }
+        return deduplicated;
+    }
+
+    private static void add(List<CallableMember> members, String receiverId, String ownerType,
+                            String signature, String returnType) {
+        members.add(new CallableMember(receiverId, ownerType, signature, returnType));
+    }
+
+    static String methodName(String signature) {
+        int parameterStart = signature.indexOf('(');
+        return parameterStart < 0 ? signature : signature.substring(0, parameterStart);
+    }
+
+    static String methodDescriptor(String signature) {
+        int parameterStart = signature.indexOf('(');
+        return parameterStart < 0 ? null : signature.substring(parameterStart);
+    }
+
+    private static String literalValue(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof String) {
+            return "\"" + escapeJava((String) value) + "\"";
+        }
+        if (value instanceof Character) {
+            return "'" + escapeJava(String.valueOf(value)) + "'";
+        }
+        if (value instanceof Double) {
+            double doubleValue = (Double) value;
+            if (Double.isNaN(doubleValue)) {
+                return "Double.NaN";
+            }
+            if (doubleValue == Double.POSITIVE_INFINITY) {
+                return "Double.POSITIVE_INFINITY";
+            }
+            if (doubleValue == Double.NEGATIVE_INFINITY) {
+                return "Double.NEGATIVE_INFINITY";
+            }
+        }
+        if (value instanceof Float) {
+            float floatValue = (Float) value;
+            if (Float.isNaN(floatValue)) {
+                return "Float.NaN";
+            }
+            if (floatValue == Float.POSITIVE_INFINITY) {
+                return "Float.POSITIVE_INFINITY";
+            }
+            if (floatValue == Float.NEGATIVE_INFINITY) {
+                return "Float.NEGATIVE_INFINITY";
+            }
+        }
+        if (value instanceof Number || value instanceof Boolean) {
+            return String.valueOf(value);
+        }
+        if (value instanceof Enum<?>) {
+            return enumConstantExpression((Enum<?>) value);
+        }
+        return null;
+    }
+
+    /**
+     * Render an enum constant as a fully-qualified, import-free Java expression
+     * (for example {@code com.example.Status.ACTIVE}) so it can appear both as an
+     * observed value and as an assertion operand. Uses the declaring class so
+     * enums with constant-specific bodies still resolve to the base enum type.
+     */
+    private static String enumConstantExpression(Enum<?> value) {
+        Class<?> declaringClass = value.getDeclaringClass();
+        String typeName = declaringClass.getCanonicalName();
+        if (typeName == null) {
+            typeName = declaringClass.getName().replace('$', '.');
+        }
+        return typeName + "." + value.name();
+    }
+
+    private static String escapeJava(String value) {
+        StringBuilder builder = new StringBuilder();
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            switch (c) {
+                case '\\':
+                    builder.append("\\\\");
+                    break;
+                case '"':
+                    builder.append("\\\"");
+                    break;
+                case '\'':
+                    builder.append("\\'");
+                    break;
+                case '\n':
+                    builder.append("\\n");
+                    break;
+                case '\r':
+                    builder.append("\\r");
+                    break;
+                case '\t':
+                    builder.append("\\t");
+                    break;
+                default:
+                    if (c < 32 || c == 127) {
+                        builder.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        builder.append(c);
+                    }
+                    break;
+            }
+        }
+        return builder.toString();
+    }
+
+    public static final class StatementContext {
+        private final String statementId;
+        private final String variableId;
+        private final String declaredType;
+        private final String runtimeType;
+        private final String code;
+
+        private StatementContext(String statementId, String variableId, String declaredType, String runtimeType,
+                                 String code) {
+            this.statementId = statementId;
+            this.variableId = variableId;
+            this.declaredType = declaredType;
+            this.runtimeType = runtimeType;
+            this.code = code;
+        }
+
+        public String getStatementId() {
+            return statementId;
+        }
+
+        public String getVariableId() {
+            return variableId;
+        }
+
+        public String getDeclaredType() {
+            return declaredType;
+        }
+
+        public String getRuntimeType() {
+            return runtimeType;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+    }
+
+    private static final class ValueSummary {
+        private final String value;
+        private final boolean complete;
+
+        private ValueSummary(String value, boolean complete) {
+            this.value = value;
+            this.complete = complete;
+        }
+    }
+
+    public static final class Observation {
+        private final String statementId;
+        private final String variableId;
+        private final String provenance;
+        private final String value;
+        private final boolean complete;
+
+        private Observation(String statementId, String variableId, String provenance,
+                            String value, boolean complete) {
+            this.statementId = statementId;
+            this.variableId = variableId;
+            this.provenance = provenance;
+            this.value = value;
+            this.complete = complete;
+        }
+
+        public String getStatementId() {
+            return statementId;
+        }
+
+        public String getVariableId() {
+            return variableId;
+        }
+
+        public String getProvenance() {
+            return provenance;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public boolean isComplete() {
+            return complete;
+        }
+
+    }
+
+    public static final class CallableMember {
+        private final String receiverId;
+        private final String ownerType;
+        private final String signature;
+        private final String returnType;
+
+        private CallableMember(String receiverId, String ownerType, String signature,
+                               String returnType) {
+            this.receiverId = receiverId;
+            this.ownerType = ownerType;
+            this.signature = signature;
+            this.returnType = returnType;
+        }
+
+        public String getReceiverId() {
+            return receiverId;
+        }
+
+        public String getOwnerType() {
+            return ownerType;
+        }
+
+        public String getSignature() {
+            return signature;
+        }
+
+        public String getReturnType() {
+            return returnType;
+        }
+
+    }
+
+    public static final class ExceptionContext {
+        private final String statementId;
+        private final String type;
+        private final boolean explicit;
+        private final String message;
+        private final boolean messageComplete;
+        private final boolean causeNull;
+
+        private ExceptionContext(String statementId, String type, boolean explicit, String message,
+                                 boolean messageComplete, boolean causeNull) {
+            this.statementId = statementId;
+            this.type = type;
+            this.explicit = explicit;
+            this.message = message;
+            this.messageComplete = messageComplete;
+            this.causeNull = causeNull;
+        }
+
+        public String getStatementId() {
+            return statementId;
+        }
+
+        public String getType() {
+            return type;
+        }
+
+        public boolean isExplicit() {
+            return explicit;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public boolean isMessageComplete() {
+            return messageComplete;
+        }
+
+        public boolean isCauseNull() {
+            return causeNull;
+        }
+    }
+
+    public static final class CandidateFact {
+        private final String candidateId;
+        private final String statementId;
+        private final String sourceId;
+        private final String kind;
+        private final String observedValue;
+        private final List<String> referencedIds;
+        private final String assertionKey;
+        private final LlmPostProcessingResponseParser.SelectableCandidate selectableCandidate;
+
+        private CandidateFact(String candidateId, String statementId, String sourceId, String kind,
+                              String observedValue, List<String> referencedIds, String assertionKey,
+                              LlmPostProcessingResponseParser.SelectableCandidate selectableCandidate) {
+            this.candidateId = candidateId;
+            this.statementId = statementId;
+            this.sourceId = sourceId;
+            this.kind = kind;
+            this.observedValue = observedValue;
+            this.referencedIds = Collections.unmodifiableList(new ArrayList<>(referencedIds));
+            this.assertionKey = assertionKey;
+            this.selectableCandidate = selectableCandidate;
+        }
+
+        private CandidateFact withCandidateId(String id) {
+            return new CandidateFact(id, statementId, sourceId, kind, observedValue,
+                    referencedIds, assertionKey, selectableCandidate);
+        }
+
+        public String getCandidateId() {
+            return candidateId;
+        }
+
+        public String getStatementId() {
+            return statementId;
+        }
+
+        public String getSourceId() {
+            return sourceId;
+        }
+
+        public String getKind() {
+            return kind;
+        }
+
+        public String getObservedValue() {
+            return observedValue;
+        }
+
+        public List<String> getReferencedIds() {
+            return referencedIds;
+        }
+
+        public String getAssertionKey() {
+            return assertionKey;
+        }
+
+        LlmPostProcessingResponseParser.SelectableCandidate getSelectableCandidate() {
+            return selectableCandidate;
+        }
     }
 }

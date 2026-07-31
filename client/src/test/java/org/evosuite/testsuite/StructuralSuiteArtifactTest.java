@@ -21,9 +21,9 @@ package org.evosuite.testsuite;
 
 import org.evosuite.Properties;
 import org.evosuite.assertion.PrimitiveAssertion;
-import org.evosuite.llm.postprocess.LlmPostProcessingMetadata;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -73,7 +73,7 @@ class StructuralSuiteArtifactTest {
         assertion.setSource(statement.getReturnValue());
         assertion.setValue(7);
         statement.addAssertion(assertion);
-        LlmPostProcessingMetadata.getOrCreate(source).setTestName("descriptiveName");
+        TestPresentationMetadata.getOrCreate(source).setTestName("descriptiveName");
 
         String beforeOracleMetadata = StructuralSuiteFingerprint.compute(suite);
         File artifact = tempDirectory.resolve("clean.structural").toFile();
@@ -85,9 +85,9 @@ class StructuralSuiteArtifactTest {
 
         assertEquals(beforeOracleMetadata, StructuralSuiteFingerprint.compute(loaded.getSuite()));
         assertEquals(1, source.getAssertions().size(), "export must not modify the live suite");
-        assertNotNull(LlmPostProcessingMetadata.get(source));
+        assertNotNull(TestPresentationMetadata.get(source));
         assertTrue(replayInput.getAssertions().isEmpty());
-        assertNull(LlmPostProcessingMetadata.get(replayInput));
+        assertNull(TestPresentationMetadata.get(replayInput));
     }
 
     @Test

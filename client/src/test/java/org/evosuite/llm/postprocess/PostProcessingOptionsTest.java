@@ -76,7 +76,7 @@ class PostProcessingOptionsTest {
                 -1, -2, null, false, -3, -4, -5, null, false, null,
                 -6, -7, -8, -9, -10, -11);
         PostProcessingOptions.ContextLimits limits = new PostProcessingOptions.ContextLimits(
-                -1, -2, -3, -4, -5, -6, -7, -8, -9, -10);
+                -1, -2, -3, -4, -5, -6, -7);
 
         assertEquals(0, policy.maxAssertions());
         assertEquals(0, policy.maxExpressionNodes());
@@ -88,13 +88,11 @@ class PostProcessingOptionsTest {
     @Test
     void repairPolicyExposesItsSingleRequestContract() {
         PostProcessingOptions.RepairFallbackPolicy enabled = new PostProcessingOptions.RepairFallbackPolicy(
-                4, null, null, null);
+                true, null, null, null);
         PostProcessingOptions.RepairFallbackPolicy disabled = new PostProcessingOptions.RepairFallbackPolicy(
-                0, null, null, null);
+                false, null, null, null);
 
         assertTrue(enabled.assertionRepairEnabled());
-        assertEquals(1, enabled.assertionRepairAttempts());
         assertFalse(disabled.assertionRepairEnabled());
-        assertEquals(0, disabled.assertionRepairAttempts());
     }
 }

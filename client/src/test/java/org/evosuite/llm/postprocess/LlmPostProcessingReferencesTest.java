@@ -87,7 +87,7 @@ class LlmPostProcessingReferencesTest {
                 + "\"comments\":[{\"afterStatementId\":\"s1\",\"text\":\"missing\"}]}";
 
         LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(
-                response, references.toParseContext());
+                response, references.toParseContext(PostProcessingOptions.fromProperties()));
 
         assertFalse(parsed.isInfrastructureFailure());
         assertEquals("number", parsed.getResponse().getVariableNames().get("v0"));

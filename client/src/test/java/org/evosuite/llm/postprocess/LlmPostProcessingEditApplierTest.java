@@ -26,6 +26,7 @@ import org.evosuite.junit.naming.methods.NumberedTestNameGenerationStrategy;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
+import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
@@ -43,6 +44,24 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LlmPostProcessingEditApplierTest {
+
+    private static LlmPostProcessingEditApplier.ApplyResult apply(
+            TestCase test, LlmPostProcessingReferences references, LlmPostProcessingResponse response) {
+        return apply(test, references, response, true, null);
+    }
+
+    private static LlmPostProcessingEditApplier.ApplyResult apply(
+            TestCase test, LlmPostProcessingReferences references, LlmPostProcessingResponse response,
+            boolean assertionsAllowed) {
+        return apply(test, references, response, assertionsAllowed, null);
+    }
+
+    private static LlmPostProcessingEditApplier.ApplyResult apply(
+            TestCase test, LlmPostProcessingReferences references, LlmPostProcessingResponse response,
+            boolean assertionsAllowed, ExecutionResult executionResult) {
+        return LlmPostProcessingEditApplier.apply(test, references, response, assertionsAllowed,
+                executionResult, PostProcessingOptions.fromProperties());
+    }
 
     private Properties.OutputFormat originalOutputFormat;
 
@@ -80,16 +99,16 @@ class LlmPostProcessingEditApplierTest {
                 + "\"sectionBreaksAfter\":[\"s0\"]"
                 + "}";
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                json, references.toParseContext()).getResponse();
+                json, references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
-                LlmPostProcessingEditApplier.apply(test, references, response);
+                apply(test, references, response);
 
         assertEquals(1, result.getTestNamesApplied());
         assertEquals(2, result.getVariableNamesApplied());
         assertEquals(1, result.getCommentsApplied());
         assertEquals(1, result.getSectionBreaksApplied());
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.get(test);
         assertNotNull(metadata);
         assertEquals("usesReadableNames", metadata.getTestName());
         assertEquals("count", metadata.getVariableName(0));
@@ -102,7 +121,7 @@ class LlmPostProcessingEditApplierTest {
     void testNameStrategy_prefersAcceptedNameAndFallsBackOtherwise() {
         DefaultTestCase named = new DefaultTestCase();
         named.addStatement(new IntPrimitiveStatement(named, 1));
-        LlmPostProcessingMetadata.getOrCreate(named).setTestName("customName");
+        TestPresentationMetadata.getOrCreate(named).setTestName("customName");
         DefaultTestCase fallback = new DefaultTestCase();
         fallback.addStatement(new IntPrimitiveStatement(fallback, 2));
         NumberedTestNameGenerationStrategy numbered =
@@ -125,8 +144,8 @@ class LlmPostProcessingEditApplierTest {
                         + "\"variableNames\":{\"v0\":\"count\",\"v1\":\"label\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Initialize the count.\"}],"
                         + "\"sectionBreaksAfter\":[\"s0\"]}",
-                references.toParseContext()).getResponse();
-        LlmPostProcessingEditApplier.apply(test, references, response);
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
+        apply(test, references, response);
 
         TestCodeVisitor visitor = new TestCodeVisitor();
         test.accept(visitor);
@@ -147,13 +166,13 @@ class LlmPostProcessingEditApplierTest {
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"count\"}}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
-                LlmPostProcessingEditApplier.apply(test, references, response);
+                apply(test, references, response);
 
         assertEquals(0, result.getVariableNamesApplied());
-        assertNull(LlmPostProcessingMetadata.get(test).getVariableName(0));
+        assertNull(TestPresentationMetadata.get(test).getVariableName(0));
     }
 
     @Test
@@ -164,13 +183,13 @@ class LlmPostProcessingEditApplierTest {
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"value\",\"v1\":\"value\"}}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
-                LlmPostProcessingEditApplier.apply(test, references, response);
+                apply(test, references, response);
 
         assertEquals(2, result.getVariableNamesApplied());
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.get(test);
         assertEquals("value", metadata.getVariableName(0));
         assertEquals("value2", metadata.getVariableName(1));
 
@@ -191,13 +210,13 @@ class LlmPostProcessingEditApplierTest {
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
                 "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"int0\"}}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
-                LlmPostProcessingEditApplier.apply(test, references, response);
+                apply(test, references, response);
 
         assertEquals(1, result.getVariableNamesApplied());
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.get(test);
         assertEquals("int0", metadata.getVariableName(0),
                 "A variable may retain its own collision-free rendered name");
 
@@ -220,14 +239,14 @@ class LlmPostProcessingEditApplierTest {
                         + "{\"afterStatementId\":\"s0\",\"text\":\"Before throw.\"},"
                         + "{\"afterStatementId\":\"s1\",\"text\":\"After throw.\"}],"
                         + "\"sectionBreaksAfter\":[\"s0\",\"s1\"]}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
-                LlmPostProcessingEditApplier.apply(test, references, response, false, executionResult);
+                apply(test, references, response, false, executionResult);
 
         assertEquals(1, result.getCommentsApplied());
         assertEquals(1, result.getSectionBreaksApplied());
-        LlmPostProcessingMetadata metadata = LlmPostProcessingMetadata.get(test);
+        TestPresentationMetadata metadata = TestPresentationMetadata.get(test);
         assertEquals("Before throw.", metadata.getCommentsAfter(0).get(0));
         assertTrue(metadata.getCommentsAfter(1).isEmpty());
         assertTrue(metadata.hasSectionBreakAfter(0));
@@ -245,10 +264,10 @@ class LlmPostProcessingEditApplierTest {
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\","
                         + "\"purpose\":\"The generated value is retained.\"}]}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
-                LlmPostProcessingEditApplier.apply(test, references, response);
+                apply(test, references, response);
 
         assertEquals(1, result.getAssertionsApplied());
         assertEquals(1, test.getStatement(0).getAssertions().size());
@@ -278,9 +297,9 @@ class LlmPostProcessingEditApplierTest {
                         + "\"sectionBreaksAfter\":[\"s0\"],"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"NOT_EQUALS\","
                         + "\"expected\":\"99\",\"actual\":\"v0\"}]}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
-        LlmPostProcessingEditApplier.apply(test, references, response);
+        apply(test, references, response);
 
         assertEquals(Integer.valueOf(7), intStatement.getValue());
         assertEquals("original", stringStatement.getValue());
@@ -295,10 +314,10 @@ class LlmPostProcessingEditApplierTest {
                 "{\"schemaVersion\":1,"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v9\"}]}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
-                LlmPostProcessingEditApplier.apply(test, references, response);
+                apply(test, references, response);
 
         assertEquals(0, result.getAssertionsApplied());
         assertTrue(test.getStatement(0).getAssertions().isEmpty());
@@ -315,9 +334,9 @@ class LlmPostProcessingEditApplierTest {
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"NOT_EQUALS\","
                         + "\"expected\":\"8\",\"actual\":\"v0\"}]}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
-        LlmPostProcessingEditApplier.apply(test, references, response);
+        apply(test, references, response);
 
         TestCodeVisitor visitor = new TestCodeVisitor();
         test.accept(visitor);
@@ -338,9 +357,9 @@ class LlmPostProcessingEditApplierTest {
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"NOT_EQUALS\","
                         + "\"expected\":\"8\",\"actual\":\"v0\"}]}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
-        LlmPostProcessingEditApplier.apply(test, references, response);
+        apply(test, references, response);
 
         TestCodeVisitor visitor = new TestCodeVisitor();
         test.accept(visitor);
@@ -354,7 +373,7 @@ class LlmPostProcessingEditApplierTest {
         DefaultTestCase source = new DefaultTestCase();
         source.addStatement(new IntPrimitiveStatement(source, 7));
         source.addStatement(new StringPrimitiveStatement(source, "value"));
-        LlmPostProcessingMetadata sourceMetadata = LlmPostProcessingMetadata.getOrCreate(source);
+        TestPresentationMetadata sourceMetadata = TestPresentationMetadata.getOrCreate(source);
         sourceMetadata.setTestName("copiedName");
         sourceMetadata.putVariableName(0, "count");
         sourceMetadata.putVariableName(1, "label");
@@ -365,9 +384,9 @@ class LlmPostProcessingEditApplierTest {
         target.addStatement(new UninterpretedStatement(target, void.class, "System.gc();"));
         target.addStatement(new IntPrimitiveStatement(target, 7));
 
-        LlmPostProcessingMetadata.copyTo(source, target, 1);
+        TestPresentationMetadata.copyTo(source, target, 1);
 
-        LlmPostProcessingMetadata targetMetadata = LlmPostProcessingMetadata.get(target);
+        TestPresentationMetadata targetMetadata = TestPresentationMetadata.get(target);
         assertNotNull(targetMetadata);
         assertEquals("copiedName", targetMetadata.getTestName());
         assertEquals("count", targetMetadata.getVariableName(1));
@@ -381,7 +400,7 @@ class LlmPostProcessingEditApplierTest {
         DefaultTestCase source = new DefaultTestCase();
         source.addStatement(new IntPrimitiveStatement(source, 7));
         source.addStatement(new StringPrimitiveStatement(source, "value"));
-        LlmPostProcessingMetadata sourceMetadata = LlmPostProcessingMetadata.getOrCreate(source);
+        TestPresentationMetadata sourceMetadata = TestPresentationMetadata.getOrCreate(source);
         sourceMetadata.setTestName("cloneKeepsReadableEdits");
         sourceMetadata.putVariableName(0, "count");
         sourceMetadata.putVariableName(1, "label");
@@ -390,7 +409,7 @@ class LlmPostProcessingEditApplierTest {
 
         DefaultTestCase clone = source.clone();
 
-        LlmPostProcessingMetadata cloneMetadata = LlmPostProcessingMetadata.get(clone);
+        TestPresentationMetadata cloneMetadata = TestPresentationMetadata.get(clone);
         assertNotNull(cloneMetadata);
         assertEquals("cloneKeepsReadableEdits", cloneMetadata.getTestName());
         assertEquals("count", cloneMetadata.getVariableName(0));
@@ -408,12 +427,12 @@ class LlmPostProcessingEditApplierTest {
 
     @Test
     void metadataSnapshotRestoreReplacesMutableCollections() {
-        LlmPostProcessingMetadata metadata = new LlmPostProcessingMetadata();
+        TestPresentationMetadata metadata = new TestPresentationMetadata();
         metadata.setTestName("before");
         metadata.putVariableName(0, "count");
         metadata.addCommentAfter(0, "before comment");
         metadata.addSectionBreakAfter(0);
-        LlmPostProcessingMetadata snapshot = metadata.copy();
+        TestPresentationMetadata snapshot = metadata.copy();
 
         metadata.setTestName("after");
         metadata.putVariableName(1, "other");
@@ -435,7 +454,7 @@ class LlmPostProcessingEditApplierTest {
         DefaultTestCase source = new DefaultTestCase();
         source.addStatement(new IntPrimitiveStatement(source, 7));
         source.addStatement(new StringPrimitiveStatement(source, "value"));
-        LlmPostProcessingMetadata sourceMetadata = LlmPostProcessingMetadata.getOrCreate(source);
+        TestPresentationMetadata sourceMetadata = TestPresentationMetadata.getOrCreate(source);
         sourceMetadata.setTestName("serializedReadableEdits");
         sourceMetadata.putVariableName(0, "count");
         sourceMetadata.putVariableName(1, "label");
@@ -444,7 +463,7 @@ class LlmPostProcessingEditApplierTest {
 
         DefaultTestCase restored = roundTrip(source);
 
-        LlmPostProcessingMetadata restoredMetadata = LlmPostProcessingMetadata.get(restored);
+        TestPresentationMetadata restoredMetadata = TestPresentationMetadata.get(restored);
         assertNotNull(restoredMetadata);
         assertEquals("serializedReadableEdits", restoredMetadata.getTestName());
         assertEquals("count", restoredMetadata.getVariableName(0));
@@ -471,8 +490,8 @@ class LlmPostProcessingEditApplierTest {
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\","
                         + "\"purpose\":\"The value is stable.\"}]}",
-                references.toParseContext()).getResponse();
-        LlmPostProcessingEditApplier.apply(source, references, response);
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
+        apply(source, references, response);
 
         DefaultTestCase restored = roundTrip(source);
 
@@ -499,8 +518,8 @@ class LlmPostProcessingEditApplierTest {
                 "{\"schemaVersion\":1,"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\"}]}",
-                references.toParseContext()).getResponse();
-        LlmPostProcessingEditApplier.apply(test, references, response);
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
+        apply(test, references, response);
 
         assertTrue(test.hasAssertions());
         assertEquals(1, test.getAssertions().size());
@@ -516,7 +535,7 @@ class LlmPostProcessingEditApplierTest {
         test.removeAssertion(assertion);
         assertFalse(test.hasAssertions());
 
-        LlmPostProcessingEditApplier.apply(test, references, response);
+        apply(test, references, response);
         assertTrue(test.hasAssertions());
         test.removeAssertions();
         assertFalse(test.hasAssertions());
@@ -533,10 +552,10 @@ class LlmPostProcessingEditApplierTest {
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\","
                         + "\"placement\":{\"afterStatementId\":\"s0\"}}]}",
-                references.toParseContext()).getResponse();
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
-                LlmPostProcessingEditApplier.apply(test, references, response);
+                apply(test, references, response);
 
         assertEquals(1, result.getAssertionsApplied());
         Assertion assertion = test.getAssertions().get(0);
@@ -552,8 +571,8 @@ class LlmPostProcessingEditApplierTest {
                 "{\"schemaVersion\":1,"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\"}]}",
-                references.toParseContext()).getResponse();
-        LlmPostProcessingEditApplier.apply(source, references, response);
+                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
+        apply(source, references, response);
 
         DefaultTestCase target = new DefaultTestCase();
         target.addStatement(new IntPrimitiveStatement(target, 7));

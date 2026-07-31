@@ -121,7 +121,7 @@ class LlmTraceRecorderTest {
         assertTrue(content.contains("\"postprocessing_test_index\":4"));
         assertTrue(content.contains("\"postprocessing_minimization_status\":\"COMPLETE\""));
         assertTrue(content.contains("\"postprocessing_minimization_stop_cause\":\"SEARCH_FINISHED\""));
-        assertTrue(content.contains("\"postprocessing_prompt_version\":\"postprocessing-p2-v2\""));
+        assertTrue(content.contains("\"postprocessing_prompt_version\":\"postprocessing-production-v2\""));
         assertTrue(content.contains("\"postprocessing_response_schema_version\":2"));
         assertTrue(content.contains("\"postprocessing_parser_version\":\"postprocessing-parser-v4\""));
         assertTrue(content.contains("\"effective_temperature\":0.0"));

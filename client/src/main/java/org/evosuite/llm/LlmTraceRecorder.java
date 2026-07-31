@@ -23,7 +23,6 @@ import com.google.gson.Gson;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.postprocess.LlmPostProcessingProtocol;
-import org.evosuite.llm.postprocess.PromptVariantCapabilities;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -485,11 +484,10 @@ public class LlmTraceRecorder {
                         ? LlmPostProcessingProtocol.PARSER_VERSION : "");
         traceRecord.put("postprocessing_prompt_variant",
                 record.feature == LlmFeature.POST_PROCESSING
-                        ? Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION.name() : "");
+                        ? LlmPostProcessingProtocol.promptVersion() : "");
         traceRecord.put("postprocessing_capabilities",
                 record.feature == LlmFeature.POST_PROCESSING
-                        ? PromptVariantCapabilities.forVariant(
-                                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION).enabledNames()
+                        ? Collections.emptyList()
                         : Collections.emptyList());
         traceRecord.put("postprocessing_internal_context_truncated",
                 record.feature == LlmFeature.POST_PROCESSING
@@ -701,10 +699,9 @@ public class LlmTraceRecorder {
                 LlmPostProcessingProtocol.responseSchemaVersion());
         traceRecord.put("postprocessing_parser_version", LlmPostProcessingProtocol.PARSER_VERSION);
         traceRecord.put("postprocessing_prompt_variant",
-                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION.name());
+                LlmPostProcessingProtocol.promptVersion());
         traceRecord.put("postprocessing_capabilities",
-                PromptVariantCapabilities.forVariant(
-                        Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION).enabledNames());
+                Collections.emptyList());
         traceRecord.put("postprocessing_repair_policy",
                 Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE.name());
         traceRecord.put("system_prompt_hash", contentHash(

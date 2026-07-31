@@ -51,7 +51,8 @@ final class ExprType {
     }
 
     static ExprType array(String componentType, int arrayDepth) {
-        return new ExprType(Kind.ARRAY, componentType + "[]", componentType, arrayDepth);
+        String canonicalComponent = canonicalName(componentType);
+        return new ExprType(Kind.ARRAY, canonicalComponent + "[]", canonicalComponent, arrayDepth);
     }
 
     static ExprType fromTypeName(String typeName) {
@@ -70,7 +71,28 @@ final class ExprType {
         if (isPrimitiveName(trimmed)) {
             return primitive(trimmed);
         }
-        return reference(trimmed);
+        return reference(canonicalName(trimmed));
+    }
+
+    static String canonicalName(String typeName) {
+        if (typeName == null) {
+            return "";
+        }
+        String trimmed = typeName.trim();
+        if ("String".equals(trimmed)) return "java.lang.String";
+        if ("Boolean".equals(trimmed)) return "java.lang.Boolean";
+        if ("Byte".equals(trimmed)) return "java.lang.Byte";
+        if ("Short".equals(trimmed)) return "java.lang.Short";
+        if ("Character".equals(trimmed)) return "java.lang.Character";
+        if ("Integer".equals(trimmed)) return "java.lang.Integer";
+        if ("Long".equals(trimmed)) return "java.lang.Long";
+        if ("Float".equals(trimmed)) return "java.lang.Float";
+        if ("Double".equals(trimmed)) return "java.lang.Double";
+        if ("Object".equals(trimmed)) return "java.lang.Object";
+        if ("BigInteger".equals(trimmed)) return "java.math.BigInteger";
+        if ("BigDecimal".equals(trimmed)) return "java.math.BigDecimal";
+        if ("Optional".equals(trimmed)) return "java.util.Optional";
+        return trimmed;
     }
 
     private static boolean isPrimitiveName(String typeName) {

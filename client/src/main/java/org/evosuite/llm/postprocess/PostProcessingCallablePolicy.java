@@ -35,77 +35,56 @@ final class PostProcessingCallablePolicy {
 
     private static final Set<String> BUILT_IN_PURE_STATIC_METHODS = allowedFields(
             "java.lang.Math#*",
-            "Math#*",
             "java.util.Arrays#asList",
-            "Arrays#asList",
             "java.lang.Boolean#valueOf",
-            "Boolean#valueOf",
             "java.lang.Byte#valueOf",
-            "Byte#valueOf",
             "java.lang.Byte#parseByte",
-            "Byte#parseByte",
             "java.lang.Short#valueOf",
-            "Short#valueOf",
             "java.lang.Short#parseShort",
-            "Short#parseShort",
             "java.lang.Integer#valueOf",
-            "Integer#valueOf",
             "java.lang.Integer#parseInt",
-            "Integer#parseInt",
             "java.lang.Long#valueOf",
-            "Long#valueOf",
             "java.lang.Long#parseLong",
-            "Long#parseLong",
             "java.lang.Float#valueOf",
-            "Float#valueOf",
             "java.lang.Float#parseFloat",
-            "Float#parseFloat",
             "java.lang.Double#valueOf",
-            "Double#valueOf",
             "java.lang.Double#parseDouble",
-            "Double#parseDouble",
             "java.math.BigInteger#valueOf",
-            "BigInteger#valueOf",
             "java.math.BigDecimal#valueOf",
-            "BigDecimal#valueOf",
             "java.util.Optional#empty",
-            "Optional#empty",
             "java.util.Optional#of",
-            "Optional#of",
-            "java.util.Optional#ofNullable",
-            "Optional#ofNullable");
+            "java.util.Optional#ofNullable");
     private static final Set<String> BUILT_IN_IMMUTABLE_TYPES = allowedFields(
-            "java.lang.String", "String",
-            "java.lang.Boolean", "Boolean",
-            "java.lang.Byte", "Byte",
-            "java.lang.Short", "Short",
-            "java.lang.Character", "Character",
-            "java.lang.Integer", "Integer",
-            "java.lang.Long", "Long",
-            "java.lang.Float", "Float",
-            "java.lang.Double", "Double",
-            "java.math.BigInteger", "BigInteger",
-            "java.math.BigDecimal", "BigDecimal",
-            "java.util.UUID", "UUID",
-            "java.time.LocalDate", "LocalDate",
-            "java.time.LocalTime", "LocalTime",
-            "java.time.LocalDateTime", "LocalDateTime",
-            "java.time.Instant", "Instant",
-            "java.time.Duration", "Duration",
-            "java.time.Period", "Period");
+            "java.lang.String",
+            "java.lang.Boolean",
+            "java.lang.Byte",
+            "java.lang.Short",
+            "java.lang.Character",
+            "java.lang.Integer",
+            "java.lang.Long",
+            "java.lang.Float",
+            "java.lang.Double",
+            "java.math.BigInteger",
+            "java.math.BigDecimal",
+            "java.util.UUID",
+            "java.time.LocalDate",
+            "java.time.LocalTime",
+            "java.time.LocalDateTime",
+            "java.time.Instant",
+            "java.time.Duration",
+            "java.time.Period");
     private static final Set<String> DENIED_STATIC_OWNERS = allowedFields(
-            "java.lang.System", "System",
-            "java.lang.Runtime", "Runtime",
-            "java.lang.Thread", "Thread",
-            "java.lang.ProcessBuilder", "ProcessBuilder",
-            "java.io.File", "File",
-            "java.nio.file.Files", "Files",
-            "java.nio.file.Paths", "Paths",
-            "java.nio.file.FileSystems", "FileSystems",
-            "java.lang.Class", "Class");
+            "java.lang.System",
+            "java.lang.Runtime",
+            "java.lang.Thread",
+            "java.lang.ProcessBuilder",
+            "java.io.File",
+            "java.nio.file.Files",
+            "java.nio.file.Paths",
+            "java.nio.file.FileSystems",
+            "java.lang.Class");
     private static final Set<String> DENIED_STATIC_METHODS = allowedFields(
-            "java.lang.Math#random",
-            "Math#random");
+            "java.lang.Math#random");
     private static final Set<String> DENIED_INSTANCE_METHODS = allowedFields(
             "wait",
             "notify",
@@ -230,15 +209,13 @@ final class PostProcessingCallablePolicy {
             return ExprType.reference("java.util.Optional");
         }
         for (StaticAllowlistEntry entry : staticAllowlistEntries) {
-            if (entry.builtIn || entry.descriptor == null
+            if (entry.builtIn || entry.signature == null
                     || !matchesStaticAllowlistEntry(owner, call, entry)) {
                 continue;
             }
-            JvmMethodDescriptor signature = JvmMethodDescriptor.parse(entry.descriptor);
-            String returnType = signature == null || !signature.isValid()
-                    ? null : descriptorTypeName(signature.returnDescriptor());
-            if (returnType != null) {
-                return ExprType.fromTypeName(returnType);
+            JvmMethodDescriptor signature = entry.signature;
+            if (signature != null && signature.isValid()) {
+                return signature.returnType();
             }
         }
         return ExprType.unknown();
@@ -301,7 +278,14 @@ final class PostProcessingCallablePolicy {
     }
 
     private boolean isDeniedStaticCall(String owner, String methodName) {
-        return DENIED_STATIC_OWNERS.contains(owner)
+        boolean deniedOwner = false;
+        for (String denied : DENIED_STATIC_OWNERS) {
+            if (denied.equals(owner) || simpleName(denied).equals(owner)) {
+                deniedOwner = true;
+                break;
+            }
+        }
+        return deniedOwner
                 || DENIED_STATIC_METHODS.contains(owner + "#" + methodName)
                 || DENIED_STATIC_METHODS.contains(simpleName(owner) + "#" + methodName);
     }
@@ -330,10 +314,10 @@ final class PostProcessingCallablePolicy {
         if (!call.getNameAsString().equals(entry.method)) {
             return false;
         }
-        if (entry.descriptor == null) {
+        if (entry.signature == null) {
             return entry.builtIn;
         }
-        return argumentsMatchDescriptor(call, entry.descriptor);
+        return argumentsMatchDescriptor(call, entry.signature);
     }
 
     private static boolean isValidConfiguredStaticAllowlistEntry(String entry) {
@@ -363,10 +347,6 @@ final class PostProcessingCallablePolicy {
         return descriptorMatchScore(call, signature) >= 0;
     }
 
-    private boolean argumentsMatchDescriptor(MethodCallExpr call, String descriptor) {
-        return argumentsMatchDescriptor(call, JvmMethodDescriptor.parse(descriptor));
-    }
-
     private int descriptorMatchScore(MethodCallExpr call, JvmMethodDescriptor signature) {
         if (signature == null) {
             return call.getArguments().isEmpty() ? 0 : -1;
@@ -377,7 +357,7 @@ final class PostProcessingCallablePolicy {
         int score = 0;
         for (int i = 0; i < signature.parameterDescriptors().size(); i++) {
             int argumentScore = argumentCompatibilityScore(
-                    typeResolver.resolve(call.getArgument(i)), signature.parameterDescriptors().get(i));
+                    typeResolver.resolve(call.getArgument(i)), signature.parameterTypes().get(i));
             if (argumentScore < 0) {
                 return -1;
             }
@@ -386,35 +366,31 @@ final class PostProcessingCallablePolicy {
         return score;
     }
 
-    private int argumentCompatibilityScore(ExprType actual, String expectedDescriptor) {
+    private int argumentCompatibilityScore(ExprType actual, ExprType expectedType) {
         if (actual == null || !actual.isKnown()) {
             return -1;
         }
         if (actual.isNull()) {
-            return expectedDescriptor.startsWith("L") || expectedDescriptor.startsWith("[") ? 5 : -1;
+            return expectedType.isReferenceLike() ? 5 : -1;
         }
-        String expectedType = descriptorTypeName(expectedDescriptor);
-        if (expectedType == null) {
-            return -1;
-        }
-        String expectedCanonical = canonicalType(expectedType);
+        String expectedCanonical = ExprType.canonicalName(expectedType.typeName);
         if ("java.lang.Object".equals(expectedCanonical)) {
             return 10;
         }
         if (actual.isNumericLike()) {
-            return numericInvocationConversionScore(actual.typeName, expectedType);
+            return numericInvocationConversionScore(actual.typeName, expectedType.typeName);
         }
         if (actual.isBooleanLike()) {
-            return ExprType.fromTypeName(expectedType).isBooleanLike() ? 0 : -1;
+            return expectedType.isBooleanLike() ? 0 : -1;
         }
         if (actual.isCharLike()) {
-            return ExprType.fromTypeName(expectedType).isCharLike() ? 0 : -1;
+            return expectedType.isCharLike() ? 0 : -1;
         }
         if (actual.isArray()) {
-            return expectedDescriptor.startsWith("[")
-                    && expectedType.equals(canonicalType(actual.typeName)) ? 0 : -1;
+            return expectedType.isArray()
+                    && expectedType.typeName.equals(ExprType.canonicalName(actual.typeName)) ? 0 : -1;
         }
-        String actualType = canonicalType(actual.typeName);
+        String actualType = ExprType.canonicalName(actual.typeName);
         if (actualType.equals(expectedCanonical)) {
             return 0;
         }
@@ -483,41 +459,6 @@ final class PostProcessingCallablePolicy {
         return -1;
     }
 
-    private String descriptorTypeName(String descriptor) {
-        if (descriptor == null || descriptor.isEmpty()) {
-            return null;
-        }
-        int arrays = 0;
-        while (arrays < descriptor.length() && descriptor.charAt(arrays) == '[') {
-            arrays++;
-        }
-        if (arrays > 0) {
-            String component = descriptorTypeName(descriptor.substring(arrays));
-            if (component == null) {
-                return null;
-            }
-            StringBuilder result = new StringBuilder(component);
-            for (int i = 0; i < arrays; i++) {
-                result.append("[]");
-            }
-            return result.toString();
-        }
-        switch (descriptor.charAt(0)) {
-            case 'Z': return "boolean";
-            case 'B': return "byte";
-            case 'C': return "char";
-            case 'S': return "short";
-            case 'I': return "int";
-            case 'J': return "long";
-            case 'F': return "float";
-            case 'D': return "double";
-            case 'L':
-                return descriptor.endsWith(";")
-                        ? descriptor.substring(1, descriptor.length() - 1).replace('/', '.') : null;
-            default: return null;
-        }
-    }
-
     private static boolean isDottedTypeName(String owner) {
         String[] parts = owner.split("\\.");
         if (parts.length == 0) {
@@ -535,7 +476,7 @@ final class PostProcessingCallablePolicy {
         if (!options.assertionPolicy().allowImmutableConstructors()) {
             return false;
         }
-        if (immutableTypes.contains(typeName) || immutableTypes.contains(simpleName(typeName))) {
+        if (immutableTypes.contains(ExprType.canonicalName(typeName))) {
             return true;
         }
         return false;
@@ -557,8 +498,9 @@ final class PostProcessingCallablePolicy {
     private static Set<String> buildImmutableTypes(PostProcessingOptions options) {
         Set<String> types = new LinkedHashSet<>(BUILT_IN_IMMUTABLE_TYPES);
         for (String type : options.assertionPolicy().immutableTypes()) {
-            types.add(type);
-            types.add(simpleName(type));
+            String canonical = ExprType.canonicalName(type);
+            types.add(canonical);
+            types.add(simpleName(canonical));
         }
         return Collections.unmodifiableSet(types);
     }
@@ -566,15 +508,15 @@ final class PostProcessingCallablePolicy {
     private static final class StaticAllowlistEntry {
         private final String owner;
         private final String method;
-        private final String descriptor;
+        private final JvmMethodDescriptor signature;
         private final boolean wildcard;
         private final boolean builtIn;
 
-        private StaticAllowlistEntry(String owner, String method, String descriptor,
+        private StaticAllowlistEntry(String owner, String method, JvmMethodDescriptor signature,
                                      boolean wildcard, boolean builtIn) {
             this.owner = owner;
             this.method = method;
-            this.descriptor = descriptor;
+            this.signature = signature;
             this.wildcard = wildcard;
             this.builtIn = builtIn;
         }
@@ -588,8 +530,9 @@ final class PostProcessingCallablePolicy {
             }
             int descriptorStart = member.indexOf('(');
             String method = descriptorStart < 0 ? member : member.substring(0, descriptorStart);
-            String descriptor = descriptorStart < 0 ? null : member.substring(descriptorStart);
-            return new StaticAllowlistEntry(owner, method, descriptor, false, builtIn);
+            JvmMethodDescriptor signature = descriptorStart < 0
+                    ? null : JvmMethodDescriptor.parse(member.substring(descriptorStart));
+            return new StaticAllowlistEntry(owner, method, signature, false, builtIn);
         }
 
         @Override
@@ -600,12 +543,14 @@ final class PostProcessingCallablePolicy {
             StaticAllowlistEntry entry = (StaticAllowlistEntry) other;
             return owner.equals(entry.owner)
                     && java.util.Objects.equals(method, entry.method)
-                    && java.util.Objects.equals(descriptor, entry.descriptor);
+                    && java.util.Objects.equals(signature == null ? null : signature.descriptor(),
+                    entry.signature == null ? null : entry.signature.descriptor());
         }
 
         @Override
         public int hashCode() {
-            return java.util.Objects.hash(owner, method, descriptor);
+            return java.util.Objects.hash(owner, method,
+                    signature == null ? null : signature.descriptor());
         }
     }
 
@@ -625,24 +570,7 @@ final class PostProcessingCallablePolicy {
     }
 
     private static String canonicalType(String typeName) {
-        if (typeName == null) {
-            return "";
-        }
-        String trimmed = typeName.trim();
-        if ("String".equals(trimmed)) return "java.lang.String";
-        if ("Boolean".equals(trimmed)) return "java.lang.Boolean";
-        if ("Byte".equals(trimmed)) return "java.lang.Byte";
-        if ("Short".equals(trimmed)) return "java.lang.Short";
-        if ("Character".equals(trimmed)) return "java.lang.Character";
-        if ("Integer".equals(trimmed)) return "java.lang.Integer";
-        if ("Long".equals(trimmed)) return "java.lang.Long";
-        if ("Float".equals(trimmed)) return "java.lang.Float";
-        if ("Double".equals(trimmed)) return "java.lang.Double";
-        if ("Object".equals(trimmed)) return "java.lang.Object";
-        if ("BigInteger".equals(trimmed)) return "java.math.BigInteger";
-        if ("BigDecimal".equals(trimmed)) return "java.math.BigDecimal";
-        if ("Optional".equals(trimmed)) return "java.util.Optional";
-        return trimmed;
+        return ExprType.canonicalName(typeName);
     }
 
     private static String simpleName(String typeName) {

@@ -32,15 +32,17 @@ final class LlmPostProcessingPhase {
         this.testProcessor = new LlmTestPostProcessor(processor, phaseContext);
     }
 
-    Result run(TestSuiteChromosome suite, MinimizationResult minimizationResult,
-               LlmPostProcessingPhaseContext phaseContext) {
+    LlmPostProcessor.PostProcessingMetrics run(TestSuiteChromosome suite,
+                                               MinimizationResult minimizationResult,
+                                               LlmPostProcessingPhaseContext phaseContext) {
         PostProcessingOptions options = phaseContext.options();
         boolean limitedIncompleteMinimization = minimizationResult.isIncomplete()
                 && options.phaseBudget().incompletePolicy()
                 == Properties.LlmPostProcessingOnIncompleteMinimization.LIMITED;
         LlmPostProcessor.ProcessingLimits limits = LlmPostProcessor.ProcessingLimits.from(
                 options.phaseBudget(), minimizationResult.isIncomplete());
-        PostProcessingMetricsAccumulator metricsAccumulator = new PostProcessingMetricsAccumulator();
+        LlmPostProcessor.PostProcessingMetrics metrics =
+                new LlmPostProcessor.PostProcessingMetrics(null);
         StopReason stopReason = StopReason.NONE;
         List<TestChromosome> tests = suite.getTestChromosomes();
         List<LlmPostProcessor.WorkItem> workItems = LlmPostProcessor.WorkItem.from(
@@ -48,19 +50,19 @@ final class LlmPostProcessingPhase {
         for (int workIndex = 0; workIndex < workItems.size(); workIndex++) {
             if (processor.isPhaseTimedOut(phaseContext)) {
                 stopReason = StopReason.TIMEOUT;
-                metricsAccumulator.addCapSkippedTests(
+                metrics.capSkippedTests += Math.max(0,
                         LlmPostProcessor.remainingItems(workItems, workIndex));
                 break;
             }
-            if (limits.maxTests > 0 && metricsAccumulator.requestedTests() >= limits.maxTests) {
+            if (limits.maxTests > 0 && metrics.requestedTests >= limits.maxTests) {
                 stopReason = StopReason.MAX_TESTS;
-                metricsAccumulator.addCapSkippedTests(
+                metrics.capSkippedTests += Math.max(0,
                         LlmPostProcessor.remainingItems(workItems, workIndex));
                 break;
             }
-            if (limits.maxCalls > 0 && metricsAccumulator.requestedCalls() >= limits.maxCalls) {
+            if (limits.maxCalls > 0 && metrics.requestedCalls >= limits.maxCalls) {
                 stopReason = StopReason.MAX_CALLS;
-                metricsAccumulator.addCapSkippedTests(
+                metrics.capSkippedTests += Math.max(0,
                         LlmPostProcessor.remainingItems(workItems, workIndex));
                 break;
             }
@@ -68,50 +70,50 @@ final class LlmPostProcessingPhase {
             int testIndex = workItem.originalIndex;
             TestChromosome chromosome = workItem.chromosome;
             if (chromosome == null || chromosome.getTestCase() == null) {
-                metricsAccumulator.addSkippedTest();
+                metrics.skippedTests++;
                 continue;
             }
             TestCase test = chromosome.getTestCase();
             if (processor.isLowMemory(phaseContext)) {
                 logger.info("Unified LLM post-processing stopped before test {}: low memory", testIndex);
                 stopReason = StopReason.LOW_MEMORY;
-                metricsAccumulator.addCapSkippedTests(
+                metrics.capSkippedTests += Math.max(0,
                         LlmPostProcessor.remainingItems(workItems, workIndex));
                 break;
             }
-            if (limits.maxTotalStatements > 0 && metricsAccumulator.requestedStatements() + test.size()
+            if (limits.maxTotalStatements > 0 && metrics.requestedStatements + test.size()
                     > limits.maxTotalStatements) {
                 stopReason = StopReason.MAX_TOTAL_STATEMENTS;
-                metricsAccumulator.addCapSkippedTests(
+                metrics.capSkippedTests += Math.max(0,
                         LlmPostProcessor.remainingItems(workItems, workIndex));
                 break;
             }
             boolean assertionEligible = processor.isAssertionEligibleForVersion1(chromosome);
             if (test.size() == 0 && !options.features().testNames()) {
-                metricsAccumulator.addSkippedTest();
+                metrics.skippedTests++;
                 continue;
             }
             if (!processor.hasLlmBudget()) {
                 logger.info("Unified LLM post-processing stopped: LLM call budget exhausted");
                 stopReason = StopReason.BUDGET_EXHAUSTED;
-                metricsAccumulator.addCapSkippedTests(
+                metrics.capSkippedTests += Math.max(0,
                         LlmPostProcessor.remainingItems(workItems, workIndex));
                 break;
             }
             if (!processor.canStartAnotherLlmCall(phaseContext)) {
                 stopReason = StopReason.TIMEOUT;
-                metricsAccumulator.addCapSkippedTests(
+                metrics.capSkippedTests += Math.max(0,
                         LlmPostProcessor.remainingItems(workItems, workIndex));
                 break;
             }
 
             LlmPostProcessor.TestProcessingResult result = testProcessor.process(
-                    workItem, minimizationResult, limits, metricsAccumulator.requestedCalls(),
+                    workItem, minimizationResult, limits, metrics.requestedCalls,
                     assertionEligible);
-            metricsAccumulator.add(result);
+            metrics.add(result);
             if (result.stopReason != StopReason.NONE) {
                 stopReason = result.stopReason;
-                metricsAccumulator.addCapSkippedTests(
+                metrics.capSkippedTests += Math.max(0,
                         LlmPostProcessor.remainingItems(workItems, workIndex + 1));
                 break;
             }
@@ -119,19 +121,11 @@ final class LlmPostProcessingPhase {
 
         logger.info("Unified LLM post-processing requested {} test(s), accepted {} response(s): testNames={}, "
                         + "variableNames={}, comments={}, sectionBreaks={}, assertions={}",
-                metricsAccumulator.requestedTests(), metricsAccumulator.acceptedTests(),
-                metricsAccumulator.testNamesApplied(), metricsAccumulator.variableNamesApplied(),
-                metricsAccumulator.commentsApplied(), metricsAccumulator.sectionBreaksApplied(),
-                metricsAccumulator.assertionsApplied());
-        return new Result(metricsAccumulator.finish(stopReason.value));
-    }
-
-    static final class Result {
-        final LlmPostProcessor.PostProcessingMetrics metrics;
-
-        private Result(LlmPostProcessor.PostProcessingMetrics metrics) {
-            this.metrics = metrics;
-        }
+                metrics.requestedTests, metrics.acceptedResponses,
+                metrics.testNamesApplied, metrics.variableNamesApplied,
+                metrics.commentsApplied, metrics.sectionBreaksApplied,
+                metrics.assertionsApplied);
+        return metrics.snapshot(stopReason.value);
     }
 
     enum StopReason {

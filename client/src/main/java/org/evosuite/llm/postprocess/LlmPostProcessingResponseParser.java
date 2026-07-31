@@ -62,67 +62,7 @@ public final class LlmPostProcessingResponseParser {
         // Utility class.
     }
 
-    public static ParseContext context(Set<String> statementIds, Set<String> variableIds) {
-        return new ParseContext(statementIds, variableIds, Collections.<CallableMethod>emptySet(),
-                Collections.<String>emptySet(), Collections.<String>emptySet(),
-                Collections.<String, String>emptyMap(), Collections.<String, SelectableCandidate>emptyMap());
-    }
-
-    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
-                                       Set<CallableMethod> callableMethods) {
-        return new ParseContext(statementIds, variableIds, callableMethods, Collections.<String>emptySet(),
-                Collections.<String>emptySet(), Collections.<String, String>emptyMap(),
-                Collections.<String, SelectableCandidate>emptyMap());
-    }
-
-    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
-                                       Set<CallableMethod> callableMethods,
-                                       Set<String> observedCandidateKeys) {
-        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                Collections.<String>emptySet(), Collections.<String, String>emptyMap(),
-                Collections.<String, SelectableCandidate>emptyMap());
-    }
-
-    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
-                                       Set<CallableMethod> callableMethods,
-                                       Set<String> observedCandidateKeys,
-                                       Set<String> setupInputVariableIds) {
-        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, Collections.<String, String>emptyMap(),
-                Collections.<String, SelectableCandidate>emptyMap());
-    }
-
-    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
-                                       Set<CallableMethod> callableMethods,
-                                       Set<String> observedCandidateKeys,
-                                       Set<String> setupInputVariableIds,
-                                       Map<String, String> variableTypes) {
-        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, variableTypes, Collections.<String, SelectableCandidate>emptyMap());
-    }
-
-    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
-                                       Set<CallableMethod> callableMethods,
-                                       Set<String> observedCandidateKeys,
-                                       Set<String> setupInputVariableIds,
-                                       Map<String, String> variableTypes,
-                                       Map<String, SelectableCandidate> selectableCandidates) {
-        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, variableTypes, selectableCandidates);
-    }
-
-    public static ParseContext context(Set<String> statementIds, Set<String> variableIds,
-                                       Set<CallableMethod> callableMethods,
-                                       Set<String> observedCandidateKeys,
-                                       Set<String> setupInputVariableIds,
-                                       Map<String, String> variableTypes,
-                                       Map<String, SelectableCandidate> selectableCandidates,
-                                       String throwingStatementId) {
-        return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, variableTypes, selectableCandidates, throwingStatementId);
-    }
-
-    static ParseContext production(Set<String> statementIds, Set<String> variableIds,
+    static ParseContext context(Set<String> statementIds, Set<String> variableIds,
                                    Set<CallableMethod> callableMethods,
                                    Set<String> observedCandidateKeys,
                                    Set<String> setupInputVariableIds,
@@ -222,28 +162,6 @@ public final class LlmPostProcessingResponseParser {
                              Set<String> observedCandidateKeys,
                              Set<String> setupInputVariableIds,
                              Map<String, String> variableTypes,
-                             Map<String, SelectableCandidate> selectableCandidates) {
-            this(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                    setupInputVariableIds, variableTypes, selectableCandidates, null);
-        }
-
-        private ParseContext(Set<String> statementIds, Set<String> variableIds,
-                             Set<CallableMethod> callableMethods,
-                             Set<String> observedCandidateKeys,
-                             Set<String> setupInputVariableIds,
-                             Map<String, String> variableTypes,
-                             Map<String, SelectableCandidate> selectableCandidates,
-                             String throwingStatementId) {
-            this(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                    setupInputVariableIds, variableTypes, selectableCandidates,
-                    throwingStatementId, PostProcessingOptions.fromProperties());
-        }
-
-        private ParseContext(Set<String> statementIds, Set<String> variableIds,
-                             Set<CallableMethod> callableMethods,
-                             Set<String> observedCandidateKeys,
-                             Set<String> setupInputVariableIds,
-                             Map<String, String> variableTypes,
                              Map<String, SelectableCandidate> selectableCandidates,
                              String throwingStatementId,
                              PostProcessingOptions options) {
@@ -259,13 +177,6 @@ public final class LlmPostProcessingResponseParser {
                 throw new IllegalArgumentException("Production parse context requires options");
             }
             this.options = options;
-        }
-
-        public static ParseContext empty() {
-            return new ParseContext(Collections.<String>emptySet(), Collections.<String>emptySet(),
-                    Collections.<CallableMethod>emptySet(), Collections.<String>emptySet(),
-                    Collections.<String>emptySet(), Collections.<String, String>emptyMap(),
-                    Collections.<String, SelectableCandidate>emptyMap());
         }
 
         private static <T> Set<T> copy(Set<T> values) {
@@ -579,112 +490,125 @@ public final class LlmPostProcessingResponseParser {
                     continue;
                 }
                 if (selectedCandidate) {
-                    if (!PostProcessingPlacementValidator.referencesAreAvailable(
-                            candidate.expected, candidate.actual, candidate.delta,
-                            placement, context, path, currentAssertionIndex, currentAssertionId,
-                            diagnostics)) {
-                        continue;
+                    if (parseSelectedCandidate(entry, path, assertionId, candidate,
+                            candidateId.trim(), placement)) {
+                        accepted++;
                     }
-                    if (!hasCompatibleOperands(candidate.kind, candidate.expected, candidate.actual,
-                            candidate.delta, path)
-                            || !canRenderCanonicalAssertion(candidate.kind, candidate.expected,
-                            candidate.actual, candidate.delta, path)) {
-                        continue;
-                    }
-                    String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
-                    if (intent == null) {
-                        continue;
-                    }
-                    String purpose = sanitizeComment(text(entry.get("purpose")));
-                    if (purpose != null && purpose.length() > options().contextLimits().commentChars()) {
-                        diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".purpose",
-                                "Assertion purpose is too long");
-                        purpose = null;
-                    }
-                    response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
-                            assertionId, candidate.kind, candidate.expected, candidate.actual,
-                            candidate.delta, purpose, intent, placement.site,
-                            placement.afterStatementId, placement.exceptionId, candidateId.trim()));
+                    continue;
+                }
+                if (parseSynthesizedAssertion(entry, path, assertionId, placement, assertionKeys)) {
                     accepted++;
-                    continue;
                 }
-                LlmPostProcessingResponse.AssertionKind kind = parseKind(entry.get("kind"), path + ".kind");
-                if (kind == null) {
-                    continue;
-                }
-                if (!hasValidOperandShape(kind, entry, path)) {
-                    continue;
-                }
-                ExpressionParseResult expectedResult = expression(
-                        PostProcessingAssertionKindRules.expectedNode(kind, entry),
-                        path + PostProcessingAssertionKindRules.expectedPathSuffix(kind),
-                        PostProcessingAssertionKindRules.requiresExpected(kind));
-                ExpressionParseResult actualResult = expression(
-                        PostProcessingAssertionKindRules.actualNode(kind, entry),
-                        path + PostProcessingAssertionKindRules.actualPathSuffix(kind), true);
-                ExpressionParseResult deltaResult = expression(entry.get("delta"), path + ".delta", false);
-                String expected = expectedResult.value;
-                String actual = actualResult.value;
-                String delta = deltaResult.value;
-                if (!expectedResult.valid || !actualResult.valid || !deltaResult.valid
-                        || (PostProcessingAssertionKindRules.requiresExpected(kind) && expected == null)
-                        || actual == null) {
-                    continue;
-                }
-                ExprType originalExpectedType = resolveExpressionType(expected);
-                ExprType originalActualType = resolveExpressionType(actual);
-                expected = canonicalSpecialFloatingLiteral(expected, originalActualType);
-                actual = canonicalSpecialFloatingLiteral(actual, originalExpectedType);
-                String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
-                if (intent == null) {
-                    continue;
-                }
-                if (!PostProcessingPlacementValidator.referencesAreAvailable(
-                        expected, actual, delta, placement, context, path,
-                        currentAssertionIndex, currentAssertionId, diagnostics)) {
-                    continue;
-                }
-                if (delta == null && (kind == LlmPostProcessingResponse.AssertionKind.EQUALS
-                        || kind == LlmPostProcessingResponse.AssertionKind.NOT_EQUALS)) {
-                    delta = defaultFloatingDelta(expected, actual);
-                }
-                if (!hasCompatibleOperands(kind, expected, actual, delta, path)) {
-                    continue;
-                }
-                if (!canRenderCanonicalAssertion(kind, expected, actual, delta, path)) {
-                    continue;
-                }
-                String assertionKey = assertionKey(kind, expected, actual, delta);
-                if (!assertionKeys.add(assertionKey)) {
-                    diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate assertion expression");
-                    continue;
-                }
-                if (!selectedCandidate && context.hasObservedCandidateKey(assertionKey)) {
-                    diagnostic(DiagnosticCode.DUPLICATE, path,
-                            "Assertion duplicates an EvoSuite-observed candidate fact");
-                    continue;
-                }
-                if (isDirectSetupInputAssertion(kind, expected, actual)) {
-                    diagnostic(DiagnosticCode.DUPLICATE, path,
-                            "Assertion directly restates an immutable setup input");
-                    continue;
-                }
-                if (isObviousTautology(kind, expected, actual)) {
-                    diagnostic(DiagnosticCode.DUPLICATE, path, "Assertion is an obvious tautology");
-                    continue;
-                }
-                String purpose = sanitizeComment(text(entry.get("purpose")));
-                if (purpose != null && purpose.length() > options().contextLimits().commentChars()) {
-                    diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".purpose", "Assertion purpose is too long");
-                    purpose = null;
-                }
-                response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
-                        assertionId, kind, expected, actual, delta, purpose, intent,
-                        placement.site, placement.afterStatementId, placement.exceptionId, null));
-                accepted++;
             }
             currentAssertionIndex = -1;
             currentAssertionId = null;
+        }
+
+        private boolean parseSelectedCandidate(JsonNode entry, String path, String assertionId,
+                                               SelectableCandidate candidate, String candidateId,
+                                               PostProcessingPlacementValidator.PlacementValue placement) {
+            if (!PostProcessingPlacementValidator.referencesAreAvailable(
+                    candidate.expected, candidate.actual, candidate.delta,
+                    placement, context, path, currentAssertionIndex, currentAssertionId,
+                    diagnostics)) {
+                return false;
+            }
+            if (!hasCompatibleOperands(candidate.kind, candidate.expected, candidate.actual,
+                    candidate.delta, path)
+                    || !canRenderCanonicalAssertion(candidate.kind, candidate.expected,
+                    candidate.actual, candidate.delta, path)) {
+                return false;
+            }
+            String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
+            if (intent == null) {
+                return false;
+            }
+            String purpose = parseAssertionPurpose(entry, path);
+            response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
+                    assertionId, candidate.kind, candidate.expected, candidate.actual,
+                    candidate.delta, purpose, intent, placement.site,
+                    placement.afterStatementId, placement.exceptionId, candidateId));
+            return true;
+        }
+
+        private boolean parseSynthesizedAssertion(JsonNode entry, String path, String assertionId,
+                                                  PostProcessingPlacementValidator.PlacementValue placement,
+                                                  Set<String> assertionKeys) {
+            LlmPostProcessingResponse.AssertionKind kind = parseKind(entry.get("kind"), path + ".kind");
+            if (kind == null || !hasValidOperandShape(kind, entry, path)) {
+                return false;
+            }
+            ExpressionParseResult expectedResult = expression(
+                    PostProcessingAssertionKindRules.expectedNode(kind, entry),
+                    path + PostProcessingAssertionKindRules.expectedPathSuffix(kind),
+                    PostProcessingAssertionKindRules.requiresExpected(kind));
+            ExpressionParseResult actualResult = expression(
+                    PostProcessingAssertionKindRules.actualNode(kind, entry),
+                    path + PostProcessingAssertionKindRules.actualPathSuffix(kind), true);
+            ExpressionParseResult deltaResult = expression(entry.get("delta"), path + ".delta", false);
+            String expected = expectedResult.value;
+            String actual = actualResult.value;
+            String delta = deltaResult.value;
+            if (!expectedResult.valid || !actualResult.valid || !deltaResult.valid
+                    || (PostProcessingAssertionKindRules.requiresExpected(kind) && expected == null)
+                    || actual == null) {
+                return false;
+            }
+            ExprType originalExpectedType = resolveExpressionType(expected);
+            ExprType originalActualType = resolveExpressionType(actual);
+            expected = canonicalSpecialFloatingLiteral(expected, originalActualType);
+            actual = canonicalSpecialFloatingLiteral(actual, originalExpectedType);
+            String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
+            if (intent == null) {
+                return false;
+            }
+            if (!PostProcessingPlacementValidator.referencesAreAvailable(
+                    expected, actual, delta, placement, context, path,
+                    currentAssertionIndex, currentAssertionId, diagnostics)) {
+                return false;
+            }
+            if (delta == null && (kind == LlmPostProcessingResponse.AssertionKind.EQUALS
+                    || kind == LlmPostProcessingResponse.AssertionKind.NOT_EQUALS)) {
+                delta = defaultFloatingDelta(expected, actual);
+            }
+            if (!hasCompatibleOperands(kind, expected, actual, delta, path)
+                    || !canRenderCanonicalAssertion(kind, expected, actual, delta, path)) {
+                return false;
+            }
+            String assertionKey = assertionKey(kind, expected, actual, delta);
+            if (!assertionKeys.add(assertionKey)) {
+                diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate assertion expression");
+                return false;
+            }
+            if (context.hasObservedCandidateKey(assertionKey)) {
+                diagnostic(DiagnosticCode.DUPLICATE, path,
+                        "Assertion duplicates an EvoSuite-observed candidate fact");
+                return false;
+            }
+            if (isDirectSetupInputAssertion(kind, expected, actual)) {
+                diagnostic(DiagnosticCode.DUPLICATE, path,
+                        "Assertion directly restates an immutable setup input");
+                return false;
+            }
+            if (isObviousTautology(kind, expected, actual)) {
+                diagnostic(DiagnosticCode.DUPLICATE, path, "Assertion is an obvious tautology");
+                return false;
+            }
+            String purpose = parseAssertionPurpose(entry, path);
+            response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
+                    assertionId, kind, expected, actual, delta, purpose, intent,
+                    placement.site, placement.afterStatementId, placement.exceptionId, null));
+            return true;
+        }
+
+        private String parseAssertionPurpose(JsonNode entry, String path) {
+            String purpose = sanitizeComment(text(entry.get("purpose")));
+            if (purpose != null && purpose.length() > options().contextLimits().commentChars()) {
+                diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".purpose",
+                        "Assertion purpose is too long");
+                return null;
+            }
+            return purpose;
         }
 
         private void parseAssertionDecision(JsonNode decisionNode, JsonNode reasonNode) {

@@ -120,8 +120,13 @@ public final class LlmPostProcessingReferences {
         return statement.getReturnValue();
     }
 
-    public LlmPostProcessingResponseParser.ParseContext toParseContext() {
-        return LlmPostProcessingResponseParser.context(getStatementIds(), getVariableIds());
+    LlmPostProcessingResponseParser.ParseContext toParseContext(PostProcessingOptions options) {
+        return LlmPostProcessingResponseParser.context(
+                getStatementIds(), getVariableIds(), Collections.<LlmPostProcessingResponseParser.CallableMethod>emptySet(),
+                Collections.<String>emptySet(), Collections.<String>emptySet(),
+                Collections.<String, String>emptyMap(),
+                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(),
+                null, options);
     }
 
     public static String statementId(int position) {
