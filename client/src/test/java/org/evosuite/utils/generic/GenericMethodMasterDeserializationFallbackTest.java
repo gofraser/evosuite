@@ -35,6 +35,7 @@ import java.io.ObjectOutputStream;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -91,7 +92,7 @@ public class GenericMethodMasterDeserializationFallbackTest {
                 .filter(event -> event.getLevel() == Level.WARN)
                 .filter(event -> event.getFormattedMessage()
                         .contains("Falling back to placeholder method for unresolved java.lang.Object.missingY()Ljava/lang/String; on master side"))
-                .toList();
+                .collect(Collectors.toList());
 
         assertEquals(1, warnings.size(), "Repeated deserialization of the same unresolved method should warn only once");
     }
