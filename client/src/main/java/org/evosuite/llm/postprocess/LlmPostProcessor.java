@@ -350,39 +350,31 @@ public class LlmPostProcessor {
     }
 
     public static int countUnifiedTemplateAssertions(TestSuiteChromosome suite) {
-        if (suite == null) {
-            return 0;
-        }
-        int count = 0;
-        for (TestChromosome chromosome : suite.getTestChromosomes()) {
-            if (chromosome == null || chromosome.getTestCase() == null) {
-                continue;
-            }
-            count += countUnifiedTemplateAssertions(chromosome.getTestCase(), true);
-        }
-        return count;
+        return PostProcessingAssertionReconciler.countTemplateAssertions(suite);
     }
 
     public static void publishFinalAssertionReconciliation(TestSuiteChromosome suite,
                                                            int initiallyAppliedAssertions) {
-        FinalAssertionReconciliation reconciliation = finalAssertionReconciliation(suite,
+        PostProcessingAssertionReconciler.Reconciliation reconciliation =
+                PostProcessingAssertionReconciler.reconcile(suite,
                 initiallyAppliedAssertions);
         int removedCompile = compileRemovedAssertionCount();
         PostProcessingTelemetryPublisher.publishAssertionReconciliation(
-                Math.max(0, reconciliation.getRemovedUnstable() - removedCompile),
-                removedCompile, reconciliation.getShipped());
+                Math.max(0, reconciliation.removedUnstable() - removedCompile),
+                removedCompile, reconciliation.shipped());
         publishFinalAssertionLifecycle(LEGACY_SESSION, suite);
     }
 
     /** Publish final reconciliation for this phase's explicit session. */
     public void publishFinalAssertionReconciliationForPhase(TestSuiteChromosome suite,
                                                             int initiallyAppliedAssertions) {
-        FinalAssertionReconciliation reconciliation = finalAssertionReconciliation(suite,
+        PostProcessingAssertionReconciler.Reconciliation reconciliation =
+                PostProcessingAssertionReconciler.reconcile(suite,
                 initiallyAppliedAssertions);
         int removedCompile = compileRemovedAssertionCount(session);
         PostProcessingTelemetryPublisher.publishAssertionReconciliation(
-                Math.max(0, reconciliation.getRemovedUnstable() - removedCompile),
-                removedCompile, reconciliation.getShipped());
+                Math.max(0, reconciliation.removedUnstable() - removedCompile),
+                removedCompile, reconciliation.shipped());
         publishFinalAssertionLifecycle(session, suite);
     }
 
@@ -548,39 +540,12 @@ public class LlmPostProcessor {
                 + String.valueOf(assertion.getPurpose());
     }
 
-    static FinalAssertionReconciliation finalAssertionReconciliation(TestSuiteChromosome suite,
-                                                                     int initiallyAppliedAssertions) {
-        int shipped = 0;
-        int stillPresentButCommented = 0;
-        if (suite != null) {
-            for (TestChromosome chromosome : suite.getTestChromosomes()) {
-                if (chromosome == null || chromosome.getTestCase() == null) {
-                    continue;
-                }
-                TestCase test = chromosome.getTestCase();
-                if (test.isUnstable()) {
-                    stillPresentButCommented += countUnifiedTemplateAssertions(test, true);
-                } else {
-                    shipped += countUnifiedTemplateAssertions(test, true);
-                }
-            }
-        }
-        int removedUnstable = Math.max(0, initiallyAppliedAssertions - shipped);
-        removedUnstable = Math.max(removedUnstable, stillPresentButCommented);
-        return new FinalAssertionReconciliation(shipped, removedUnstable);
-    }
-
-    private static int countUnifiedTemplateAssertions(TestCase test, boolean includeUnstable) {
-        if (test == null || (!includeUnstable && test.isUnstable())) {
-            return 0;
-        }
-        int count = 0;
-        for (Assertion assertion : test.getAssertions()) {
-            if (assertion instanceof TemplateCodeAssertion) {
-                count++;
-            }
-        }
-        return count;
+    /** Compatibility view retained for package-level reconciliation tests. */
+    static FinalAssertionReconciliation finalAssertionReconciliation(
+            TestSuiteChromosome suite, int initiallyAppliedAssertions) {
+        PostProcessingAssertionReconciler.Reconciliation result =
+                PostProcessingAssertionReconciler.reconcile(suite, initiallyAppliedAssertions);
+        return new FinalAssertionReconciliation(result.shipped(), result.removedUnstable());
     }
 
     static int remainingItems(List<WorkItem> workItems, int startIndex) {
