@@ -231,6 +231,14 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
         return relationalOpportunities;
     }
 
+    PromptVariantCapabilities getCapabilities() {
+        return capabilities;
+    }
+
+    PostProcessingOptions getOptions() {
+        return options;
+    }
+
     public String toAnnotatedText() {
         return toAnnotatedText(false);
     }
@@ -585,7 +593,7 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
         return builder.toString();
     }
 
-    private static boolean isCandidateSelectable(CandidateFact fact,
+    static boolean isCandidateSelectable(CandidateFact fact,
                                                  boolean assertableTypesOnly,
                                                  boolean stabilityLabels) {
         return fact != null
@@ -646,57 +654,10 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
     }
 
     public LlmPostProcessingResponseParser.ParseContext toParseContext() {
-        Set<LlmPostProcessingResponseParser.CallableMethod> callableMethods = new LinkedHashSet<>();
-        for (CallableMember member : callableMembers) {
-            callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
-                    member.getReceiverId(), member.getOwnerType(), methodName(member.getSignature()),
-                    methodDescriptor(member.getSignature()), member.getReturnType()));
-        }
-        Map<String, String> variableTypes = new LinkedHashMap<>();
-        for (StatementContext statement : statements) {
-            if (statement.getVariableId() != null && statement.getDeclaredType() != null) {
-                variableTypes.put(statement.getVariableId(), statement.getDeclaredType());
-            }
-        }
-        Set<String> expressionVariableIds = new LinkedHashSet<>(references.getVariableIds());
-        String throwingStatementId = exceptions.isEmpty() ? null : exceptions.get(0).getStatementId();
-        if (throwingStatementId != null) {
-            expressionVariableIds.add("e0");
-            variableTypes.put("e0", "java.lang.Throwable");
-            callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
-                    "e0", "java.lang.Throwable", "getMessage", "()Ljava/lang/String;",
-                    "java.lang.String"));
-            callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
-                    "e0", "java.lang.Throwable", "getCause", "()Ljava/lang/Throwable;",
-                    "java.lang.Throwable"));
-        }
-        Set<String> observedCandidateKeys = new LinkedHashSet<>();
-        Map<String, LlmPostProcessingResponseParser.SelectableCandidate> selectableCandidates =
-                new LinkedHashMap<>();
-        PromptVariantCapabilities capabilities = this.capabilities;
-        for (CandidateFact fact : candidateFacts) {
-            if (fact.getAssertionKey() != null) {
-                observedCandidateKeys.add(fact.getAssertionKey());
-            }
-            if (isCandidateSelectable(fact, capabilities.hasAssertableTypesOnly(),
-                    capabilities.hasStabilityLabels())) {
-                selectableCandidates.put(fact.getCandidateId(),
-                        candidateWithDefaultPlacement(fact, throwingStatementId));
-            }
-        }
-        Set<String> setupInputVariableIds = new LinkedHashSet<>();
-        for (Observation observation : observations) {
-            if ("INPUT".equals(observation.getProvenance()) && observation.getVariableId() != null) {
-                setupInputVariableIds.add(observation.getVariableId());
-            }
-        }
-        return LlmPostProcessingResponseParser.context(
-                references.getStatementIds(), expressionVariableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, variableTypes, selectableCandidates, throwingStatementId)
-                .withOptions(options);
+        return OracleContextFactory.capture(this).toParseContext();
     }
 
-    private static LlmPostProcessingResponseParser.SelectableCandidate candidateWithDefaultPlacement(
+    static LlmPostProcessingResponseParser.SelectableCandidate candidateWithDefaultPlacement(
             CandidateFact fact, String throwingStatementId) {
         LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
         if (candidate == null || throwingStatementId == null) {
@@ -1037,7 +998,7 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
         return identified;
     }
 
-    private static int stableIdIndex(String id) {
+    static int stableIdIndex(String id) {
         if (id == null || id.length() < 2) {
             return -1;
         }
@@ -1993,12 +1954,12 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
         members.add(new CallableMember(receiverId, ownerType, signature, returnType, observedResult));
     }
 
-    private static String methodName(String signature) {
+    static String methodName(String signature) {
         int parameterStart = signature.indexOf('(');
         return parameterStart < 0 ? signature : signature.substring(0, parameterStart);
     }
 
-    private static String methodDescriptor(String signature) {
+    static String methodDescriptor(String signature) {
         int parameterStart = signature.indexOf('(');
         return parameterStart < 0 ? null : signature.substring(parameterStart);
     }
