@@ -175,7 +175,7 @@ public final class LlmPostProcessingPromptContext {
                         declaredType,
                         runtimeType(returnValue, finalScope),
                         normalizeCode(statement.getCode()),
-                        statementPhase(statement),
+                        statementPhase(statement, effectiveOptions.targetClass()),
                         statementReceiverId(references, statement),
                         statementArgumentIds(references, statement)));
                 Observation observation = primitiveInputObservation(
@@ -829,7 +829,7 @@ public final class LlmPostProcessingPromptContext {
             }
             LlmPostProcessingResponseParser.SelectableCandidate selectable =
                     selectableCandidate(references, assertion);
-            boolean assertable = candidateIsAssertable(references, assertion);
+            boolean assertable = candidateIsAssertable(references, assertion, options);
             StabilityEvidence stability = stabilityEvidence(assertion, stabilityExecutionResult);
             facts.add(new CandidateFact(
                     null,
@@ -1065,21 +1065,24 @@ public final class LlmPostProcessingPromptContext {
         }
     }
 
-    private static boolean candidateIsAssertable(LlmPostProcessingReferences references, Assertion assertion) {
+    private static boolean candidateIsAssertable(LlmPostProcessingReferences references,
+                                                 Assertion assertion,
+                                                 PostProcessingOptions options) {
         for (VariableReference variable : assertion.getReferencedVariables()) {
-            if (variableId(references, variable) == null || !isAccessibleType(variable.getVariableClass())) {
+            if (variableId(references, variable) == null
+                    || !isAccessibleType(variable.getVariableClass(), options.targetClass())) {
                 return false;
             }
         }
         return true;
     }
 
-    private static boolean isAccessibleType(Class<?> type) {
+    private static boolean isAccessibleType(Class<?> type, String targetClass) {
         if (type == null || type.isPrimitive()) {
             return true;
         }
         if (type.isArray()) {
-            return isAccessibleType(type.getComponentType());
+            return isAccessibleType(type.getComponentType(), targetClass);
         }
         for (Class<?> current = type; current != null; current = current.getEnclosingClass()) {
             if (!Modifier.isPublic(current.getModifiers())) {
@@ -1089,7 +1092,7 @@ public final class LlmPostProcessingPromptContext {
                 return false;
             }
         }
-        return OracleTypeAccessibility.isAccessible(type);
+        return OracleTypeAccessibility.isAccessible(type, targetClass);
     }
 
     private static List<RelationalOpportunity> relationalOpportunities(
@@ -1169,7 +1172,7 @@ public final class LlmPostProcessingPromptContext {
                 .matches("byte|short|int|long|float|double|Byte|Short|Integer|Long|Float|Double");
     }
 
-    private static String statementPhase(Statement statement) {
+    private static String statementPhase(Statement statement, String targetClass) {
         if (statement instanceof ConstructorStatement || statement instanceof PrimitiveStatement<?>
                 || statement instanceof ArrayStatement) {
             return "SETUP";
@@ -1178,8 +1181,8 @@ public final class LlmPostProcessingPromptContext {
             MethodStatement method = (MethodStatement) statement;
             Class<?> declaringClass = method.getMethod() == null ? null
                     : method.getMethod().getDeclaringClass();
-            if (declaringClass != null && Properties.TARGET_CLASS != null
-                    && Properties.TARGET_CLASS.equals(declaringClass.getName())) {
+            if (declaringClass != null && targetClass != null
+                    && targetClass.equals(declaringClass.getName())) {
                 return "ACTION";
             }
         }
@@ -1461,13 +1464,13 @@ public final class LlmPostProcessingPromptContext {
         if (summary == null) {
             return null;
         }
-        String provenance = provenance(statement);
+        String provenance = provenance(statement, options.targetClass());
         return new Observation(statementId, variableId, provenance, summary.value, summary.complete,
                 "INPUT".equals(provenance) || summary.relationalOnly);
     }
 
-    private static String provenance(Statement statement) {
-        if ("SETUP".equals(statementPhase(statement))) {
+    private static String provenance(Statement statement, String targetClass) {
+        if ("SETUP".equals(statementPhase(statement, targetClass))) {
             return "INPUT";
         }
         if (statement instanceof FieldStatement) {

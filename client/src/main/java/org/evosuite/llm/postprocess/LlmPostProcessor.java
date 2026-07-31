@@ -141,24 +141,28 @@ public class LlmPostProcessor {
      * response feature, and the LLM provider is configured.
      */
     public static boolean isAnyFeatureEnabled() {
-        if (!Properties.LLM_POSTPROCESSING_ENABLED) {
+        return isAnyFeatureEnabled(PostProcessingOptions.fromProperties());
+    }
+
+    static boolean isAnyFeatureEnabled(PostProcessingOptions options) {
+        if (options == null || !options.enabled()) {
             return false;
         }
-        if (Properties.LLM_PROVIDER == Properties.LlmProvider.NONE) {
+        if (options.provider() == Properties.LlmProvider.NONE) {
             return false;
         }
-        return isAnyResponseFeatureEnabled();
+        return isAnyResponseFeatureEnabled(options);
     }
 
     /**
      * Whether the unified response schema has any enabled edit category.
      */
     public static boolean isAnyResponseFeatureEnabled() {
-        return Properties.LLM_POSTPROCESSING_ASSERTIONS
-                || Properties.LLM_POSTPROCESSING_TEST_NAMES
-                || Properties.LLM_POSTPROCESSING_VARIABLE_NAMES
-                || Properties.LLM_POSTPROCESSING_COMMENTS
-                || Properties.LLM_POSTPROCESSING_SECTION_BREAKS;
+        return isAnyResponseFeatureEnabled(PostProcessingOptions.fromProperties());
+    }
+
+    static boolean isAnyResponseFeatureEnabled(PostProcessingOptions options) {
+        return options != null && options.features().any();
     }
 
     /**
@@ -809,7 +813,7 @@ public class LlmPostProcessor {
                 }
                 VariableReference variable = validationTest.getStatement(position).getReturnValue();
                 Class<?> accessibleType = OracleTypeAccessibility.accessibleView(
-                        variable.getVariableClass());
+                        variable.getVariableClass(), options.targetClass());
                 variableTypes.put(entry.getKey(),
                         accessibleType == null ? variable.getType() : accessibleType);
                 variableValues.put(entry.getKey(), variable.getObject(finalScope));
@@ -1300,7 +1304,7 @@ public class LlmPostProcessor {
                         return EvaluationOutcome.observedFailure("Assertion binding has no variable");
                     }
                     Class<?> accessibleType = OracleTypeAccessibility.accessibleView(
-                            variable.getVariableClass());
+                            variable.getVariableClass(), options.targetClass());
                     variableTypes.put(entry.getKey(),
                             accessibleType == null ? variable.getType() : accessibleType);
                     variableValues.put(entry.getKey(), variable.getObject(finalScope));

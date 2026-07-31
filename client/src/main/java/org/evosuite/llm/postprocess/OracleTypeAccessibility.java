@@ -19,13 +19,17 @@ public final class OracleTypeAccessibility {
     }
 
     public static boolean isAccessible(Class<?> type) {
+        return isAccessible(type, Properties.TARGET_CLASS);
+    }
+
+    public static boolean isAccessible(Class<?> type, String targetClass) {
         if (type == null || type.isPrimitive()) {
             return true;
         }
         if (type.isArray()) {
-            return isAccessible(type.getComponentType());
+            return isAccessible(type.getComponentType(), targetClass);
         }
-        String targetPackage = packageName(Properties.TARGET_CLASS);
+        String targetPackage = packageName(targetClass);
         for (Class<?> current = type; current != null; current = current.getEnclosingClass()) {
             if (!Modifier.isPublic(current.getModifiers())
                     && !packageName(current.getName()).equals(targetPackage)) {
@@ -36,18 +40,22 @@ public final class OracleTypeAccessibility {
     }
 
     public static Class<?> accessibleView(Class<?> type) {
-        if (isAccessible(type)) {
+        return accessibleView(type, Properties.TARGET_CLASS);
+    }
+
+    public static Class<?> accessibleView(Class<?> type, String targetClass) {
+        if (isAccessible(type, targetClass)) {
             return type;
         }
         for (Class<?> current = type == null ? null : type.getSuperclass();
              current != null; current = current.getSuperclass()) {
-            if (isAccessible(current)) {
+            if (isAccessible(current, targetClass)) {
                 return current;
             }
         }
         if (type != null) {
             for (Class<?> candidate : type.getInterfaces()) {
-                if (isAccessible(candidate)) {
+                if (isAccessible(candidate, targetClass)) {
                     return candidate;
                 }
             }
