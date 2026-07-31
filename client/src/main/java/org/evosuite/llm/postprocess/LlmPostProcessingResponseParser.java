@@ -38,7 +38,6 @@ import com.github.javaparser.ast.expr.UnaryExpr;
 import org.evosuite.assertion.CanonicalAssertionRenderer;
 import org.evosuite.assertion.TemplateAssertionKind;
 
-import javax.lang.model.SourceVersion;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -67,87 +66,6 @@ public final class LlmPostProcessingResponseParser {
     private static final Set<String> ASSERTION_FIELDS = allowedFields("assertionId", "kind", "expected", "actual",
             "delta", "purpose", "intent", "placement", "container", "element", "target", "size", "map", "key",
             "candidateId", "value", "expression");
-    private static final Set<String> BUILT_IN_PURE_STATIC_METHODS = allowedFields(
-            "java.lang.Math#*",
-            "Math#*",
-            "java.util.Arrays#asList",
-            "Arrays#asList",
-            "java.lang.Boolean#valueOf",
-            "Boolean#valueOf",
-            "java.lang.Byte#valueOf",
-            "Byte#valueOf",
-            "java.lang.Byte#parseByte",
-            "Byte#parseByte",
-            "java.lang.Short#valueOf",
-            "Short#valueOf",
-            "java.lang.Short#parseShort",
-            "Short#parseShort",
-            "java.lang.Integer#valueOf",
-            "Integer#valueOf",
-            "java.lang.Integer#parseInt",
-            "Integer#parseInt",
-            "java.lang.Long#valueOf",
-            "Long#valueOf",
-            "java.lang.Long#parseLong",
-            "Long#parseLong",
-            "java.lang.Float#valueOf",
-            "Float#valueOf",
-            "java.lang.Float#parseFloat",
-            "Float#parseFloat",
-            "java.lang.Double#valueOf",
-            "Double#valueOf",
-            "java.lang.Double#parseDouble",
-            "Double#parseDouble",
-            "java.math.BigInteger#valueOf",
-            "BigInteger#valueOf",
-            "java.math.BigDecimal#valueOf",
-            "BigDecimal#valueOf",
-            "java.util.Optional#empty",
-            "Optional#empty",
-            "java.util.Optional#of",
-            "Optional#of",
-            "java.util.Optional#ofNullable",
-            "Optional#ofNullable");
-    private static final Set<String> BUILT_IN_IMMUTABLE_TYPES = allowedFields(
-            "java.lang.String", "String",
-            "java.lang.Boolean", "Boolean",
-            "java.lang.Byte", "Byte",
-            "java.lang.Short", "Short",
-            "java.lang.Character", "Character",
-            "java.lang.Integer", "Integer",
-            "java.lang.Long", "Long",
-            "java.lang.Float", "Float",
-            "java.lang.Double", "Double",
-            "java.math.BigInteger", "BigInteger",
-            "java.math.BigDecimal", "BigDecimal",
-            "java.util.UUID", "UUID",
-            "java.time.LocalDate", "LocalDate",
-            "java.time.LocalTime", "LocalTime",
-            "java.time.LocalDateTime", "LocalDateTime",
-            "java.time.Instant", "Instant",
-            "java.time.Duration", "Duration",
-            "java.time.Period", "Period");
-    private static final Set<String> DENIED_STATIC_OWNERS = allowedFields(
-            "java.lang.System", "System",
-            "java.lang.Runtime", "Runtime",
-            "java.lang.Thread", "Thread",
-            "java.lang.ProcessBuilder", "ProcessBuilder",
-            "java.io.File", "File",
-            "java.nio.file.Files", "Files",
-            "java.nio.file.Paths", "Paths",
-            "java.nio.file.FileSystems", "FileSystems",
-            "java.lang.Class", "Class");
-    private static final Set<String> DENIED_STATIC_METHODS = allowedFields(
-            "java.lang.Math#random",
-            "Math#random");
-    private static final Set<String> DENIED_INSTANCE_METHODS = allowedFields(
-            "wait",
-            "notify",
-            "notifyAll",
-            "getClass",
-            "hashCode",
-            "finalize");
-
     private LlmPostProcessingResponseParser() {
         // Utility class.
     }
@@ -389,6 +307,10 @@ public final class LlmPostProcessingResponseParser {
         PostProcessingOptions options() {
             return options;
         }
+
+        Set<CallableMethod> callableMethods() {
+            return callableMethods;
+        }
     }
 
     public static final class SelectableCandidate {
@@ -520,6 +442,30 @@ public final class LlmPostProcessingResponseParser {
             return signature;
         }
 
+        String receiverId() {
+            return receiverId;
+        }
+
+        String ownerType() {
+            return ownerType;
+        }
+
+        String methodName() {
+            return methodName;
+        }
+
+        int argumentCount() {
+            return argumentCount;
+        }
+
+        JvmMethodDescriptor signatureDescriptor() {
+            return signature;
+        }
+
+        String returnType() {
+            return returnType;
+        }
+
         private static String canonicalOwnerType(String typeName) {
             if (typeName == null) {
                 return null;
@@ -533,6 +479,8 @@ public final class LlmPostProcessingResponseParser {
     private static final class ParserState {
         private final ParseContext context;
         private final LlmPostProcessingResponse response;
+        private final PostProcessingOptions options;
+        private final PostProcessingCallablePolicy callablePolicy;
         private final java.util.List<Diagnostic> diagnostics = new java.util.ArrayList<>();
         private int currentAssertionIndex = -1;
         private String currentAssertionId;
@@ -540,10 +488,12 @@ public final class LlmPostProcessingResponseParser {
         private ParserState(ParseContext context, LlmPostProcessingResponse response) {
             this.context = context;
             this.response = response;
+            this.options = context.options() == null ? PostProcessingOptions.fromProperties() : context.options();
+            this.callablePolicy = new PostProcessingCallablePolicy(context, options, this::resolveExpressionType);
         }
 
         private PostProcessingOptions options() {
-            return context.options() == null ? PostProcessingOptions.fromProperties() : context.options();
+            return options;
         }
 
         private void parseBasicEdits(JsonNode root) {
@@ -969,12 +919,13 @@ public final class LlmPostProcessingResponseParser {
                 }
                 if (parsed instanceof NameExpr) {
                     String receiverId = ((NameExpr) parsed).getNameAsString();
-                    if (isCallableMethod(receiverId, null, renderedCall)) {
+                    if (callablePolicy.isCallableMethod(receiverId, null, renderedCall)) {
                         return true;
                     }
                 }
                 ExprType receiverType = resolveExpressionType(parsed);
-                if (receiverType.isKnown() && isCallableMethod(null, receiverType.typeName, renderedCall)) {
+                if (receiverType.isKnown()
+                        && callablePolicy.isCallableMethod(null, receiverType.typeName, renderedCall)) {
                     return true;
                 }
             } catch (RuntimeException ignored) {
@@ -1162,94 +1113,23 @@ public final class LlmPostProcessingResponseParser {
         private ExprType resolveMethodCallType(MethodCallExpr methodCall) {
             if (methodCall.getScope().isPresent() && methodCall.getScope().get() instanceof NameExpr) {
                 String receiverId = ((NameExpr) methodCall.getScope().get()).getNameAsString();
-                String returnType = callableReturnType(receiverId, null, methodCall);
+                String returnType = callablePolicy.callableReturnType(receiverId, null, methodCall);
                 if (returnType != null) {
                     return ExprType.fromTypeName(returnType);
                 }
             }
             if (methodCall.getScope().isPresent()
                     && options().assertionPolicy().allowChainedCalls()
-                    && isInstanceCallScope(methodCall.getScope().get())) {
+                    && callablePolicy.isInstanceCallScope(methodCall.getScope().get())) {
                 ExprType receiverType = resolveExpressionType(methodCall.getScope().get());
-                String returnType = callableReturnType(null, receiverType.typeName, methodCall);
+                String returnType = callablePolicy.callableReturnType(null, receiverType.typeName, methodCall);
                 if (returnType != null) {
                     return ExprType.fromTypeName(returnType);
                 }
             }
-            if (methodCall.getScope().isPresent() && !isInstanceCallScope(methodCall.getScope().get())) {
-                return staticMethodReturnType(methodCall.getScope().get().toString(), methodCall);
-            }
-            return ExprType.unknown();
-        }
-
-        private String callableReturnType(String receiverId, String ownerType, MethodCallExpr call) {
-            String selectedReturnType = null;
-            int selectedScore = Integer.MAX_VALUE;
-            for (CallableMethod method : context.callableMethods) {
-                if (!java.util.Objects.equals(receiverId, method.receiverId)
-                        || (ownerType != null && !java.util.Objects.equals(
-                        CallableMethod.canonicalOwnerType(ownerType),
-                        CallableMethod.canonicalOwnerType(method.ownerType)))
-                        || !java.util.Objects.equals(call.getNameAsString(), method.methodName)
-                        || call.getArguments().size() != method.argumentCount) {
-                    continue;
-                }
-                int score = descriptorMatchScore(call, method.signature());
-                if (score >= 0 && score < selectedScore) {
-                    selectedScore = score;
-                    selectedReturnType = method.returnType;
-                }
-            }
-            return selectedReturnType;
-        }
-
-        private ExprType staticMethodReturnType(String owner, MethodCallExpr call) {
-            String methodName = call.getNameAsString();
-            String canonicalOwner = canonicalType(owner);
-            if ("java.lang.Boolean".equals(canonicalOwner) && "valueOf".equals(methodName)) {
-                return ExprType.reference("java.lang.Boolean");
-            }
-            if ("java.lang.Byte".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseByte".equals(methodName))) {
-                return "parseByte".equals(methodName) ? ExprType.primitive("byte") : ExprType.reference("java.lang.Byte");
-            }
-            if ("java.lang.Short".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseShort".equals(methodName))) {
-                return "parseShort".equals(methodName) ? ExprType.primitive("short") : ExprType.reference("java.lang.Short");
-            }
-            if ("java.lang.Integer".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseInt".equals(methodName))) {
-                return "parseInt".equals(methodName) ? ExprType.primitive("int") : ExprType.reference("java.lang.Integer");
-            }
-            if ("java.lang.Long".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseLong".equals(methodName))) {
-                return "parseLong".equals(methodName) ? ExprType.primitive("long") : ExprType.reference("java.lang.Long");
-            }
-            if ("java.lang.Float".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseFloat".equals(methodName))) {
-                return "parseFloat".equals(methodName) ? ExprType.primitive("float") : ExprType.reference("java.lang.Float");
-            }
-            if ("java.lang.Double".equals(canonicalOwner) && ("valueOf".equals(methodName) || "parseDouble".equals(methodName))) {
-                return "parseDouble".equals(methodName) ? ExprType.primitive("double") : ExprType.reference("java.lang.Double");
-            }
-            if ("java.math.BigInteger".equals(canonicalOwner) && "valueOf".equals(methodName)) {
-                return ExprType.reference("java.math.BigInteger");
-            }
-            if ("java.math.BigDecimal".equals(canonicalOwner) && "valueOf".equals(methodName)) {
-                return ExprType.reference("java.math.BigDecimal");
-            }
-            if ("java.util.Optional".equals(canonicalOwner)) {
-                return ExprType.reference("java.util.Optional");
-            }
-            for (String entry : allStaticAllowlistEntries()) {
-                if (!isBuiltInStaticEntry(entry) && matchesStaticAllowlistEntry(owner, call, entry)) {
-                    int descriptorStart = entry.indexOf('(');
-                    int close = entry.indexOf(')', descriptorStart + 1);
-                    if (descriptorStart > 0 && close > descriptorStart) {
-                        JvmMethodDescriptor signature = JvmMethodDescriptor.parse(
-                                entry.substring(descriptorStart));
-                        String returnType = signature == null || !signature.isValid()
-                                ? null : descriptorTypeName(signature.returnDescriptor());
-                        if (returnType != null) {
-                            return ExprType.fromTypeName(returnType);
-                        }
-                    }
-                }
+            if (methodCall.getScope().isPresent()
+                    && !callablePolicy.isInstanceCallScope(methodCall.getScope().get())) {
+                return callablePolicy.staticMethodReturnType(methodCall.getScope().get().toString(), methodCall);
             }
             return ExprType.unknown();
         }
@@ -1549,7 +1429,7 @@ public final class LlmPostProcessingResponseParser {
                         "Expression must not use arbitrary toString() calls");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (containsDisallowedObjectConstruction(parsed)) {
+            if (callablePolicy.containsDisallowedObjectConstruction(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression contains non-allowlisted object construction");
                 return required ? null : INVALID_EXPRESSION;
@@ -1558,7 +1438,7 @@ public final class LlmPostProcessingResponseParser {
                 diagnostic(DiagnosticCode.UNKNOWN_ID, path, "Expression references an unknown variable ID");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (containsDisallowedStaticMethodCall(parsed)) {
+            if (callablePolicy.containsDisallowedStaticMethodCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression contains a non-allowlisted static method call");
                 return required ? null : INVALID_EXPRESSION;
@@ -1567,7 +1447,7 @@ public final class LlmPostProcessingResponseParser {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression member-chain depth exceeded");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (containsDisallowedInstanceMethodCall(parsed)) {
+            if (callablePolicy.containsDisallowedInstanceMethodCall(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Expression contains a non-allowlisted instance method call");
                 return required ? null : INVALID_EXPRESSION;
@@ -1628,401 +1508,23 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean containsDisallowedObjectConstruction(Expression expression) {
-            for (ObjectCreationExpr objectCreation : expression.findAll(ObjectCreationExpr.class)) {
-                if (!isAllowedImmutableConstructorType(objectCreation.getTypeAsString())) {
-                    return true;
-                }
-            }
-            return false;
+            return callablePolicy.containsDisallowedObjectConstruction(expression);
         }
 
         private boolean containsDisallowedStaticMethodCall(Expression expression) {
-            for (MethodCallExpr methodCall : expression.findAll(MethodCallExpr.class)) {
-                if (!methodCall.getScope().isPresent()) {
-                    return true;
-                }
-                Expression scope = methodCall.getScope().get();
-                if (isInstanceCallScope(scope)) {
-                    continue;
-                }
-                if (isDeniedStaticCall(scope.toString(), methodCall.getNameAsString())) {
-                    return true;
-                }
-                if (!isAllowedStaticCall(scope.toString(), methodCall)) {
-                    return true;
-                }
-            }
-            return false;
+            return callablePolicy.containsDisallowedStaticMethodCall(expression);
         }
 
         private boolean isInstanceCallScope(Expression scope) {
-            if (scope instanceof NameExpr) {
-                return context.hasVariableId(((NameExpr) scope).getNameAsString());
-            }
-            if (scope instanceof MethodCallExpr) {
-                MethodCallExpr methodCall = (MethodCallExpr) scope;
-                return methodCall.getScope().isPresent() && isInstanceCallScope(methodCall.getScope().get());
-            }
-            if (scope instanceof FieldAccessExpr) {
-                return isInstanceCallScope(((FieldAccessExpr) scope).getScope());
-            }
-            return false;
+            return callablePolicy.isInstanceCallScope(scope);
         }
 
         private boolean containsDisallowedInstanceMethodCall(Expression expression) {
-            for (MethodCallExpr methodCall : expression.findAll(MethodCallExpr.class)) {
-                if (!methodCall.getScope().isPresent()) {
-                    continue;
-                }
-                Expression scope = methodCall.getScope().get();
-                if (!isInstanceCallScope(scope)) {
-                    continue;
-                }
-                if (isDeniedInstanceCall(methodCall.getNameAsString())) {
-                    return true;
-                }
-                if (scope instanceof NameExpr) {
-                    String receiverId = ((NameExpr) scope).getNameAsString();
-                    if (!isCallableMethod(receiverId, null, methodCall)) {
-                        return true;
-                    }
-                    continue;
-                }
-                if (!options().assertionPolicy().allowChainedCalls()) {
-                    return true;
-                }
-                ExprType receiverType = resolveExpressionType(scope);
-                if (!receiverType.isKnown()
-                        || !isCallableMethod(null, receiverType.typeName, methodCall)) {
-                    return true;
-                }
-            }
-            return false;
+            return callablePolicy.containsDisallowedInstanceMethodCall(expression);
         }
 
         private boolean isCallableMethod(String receiverId, String ownerType, MethodCallExpr call) {
-            for (CallableMethod method : context.callableMethods) {
-                if (!java.util.Objects.equals(receiverId, method.receiverId)
-                        || (ownerType != null && !java.util.Objects.equals(
-                        CallableMethod.canonicalOwnerType(ownerType),
-                        CallableMethod.canonicalOwnerType(method.ownerType)))
-                        || !java.util.Objects.equals(call.getNameAsString(), method.methodName)
-                        || call.getArguments().size() != method.argumentCount) {
-                    continue;
-                }
-                if (argumentsMatchDescriptor(call, method.signature())) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean isDeniedStaticCall(String owner, String methodName) {
-            return DENIED_STATIC_OWNERS.contains(owner)
-                    || DENIED_STATIC_METHODS.contains(owner + "#" + methodName)
-                    || DENIED_STATIC_METHODS.contains(simpleName(owner) + "#" + methodName);
-        }
-
-        private boolean isDeniedInstanceCall(String methodName) {
-            return DENIED_INSTANCE_METHODS.contains(methodName);
-        }
-
-        private boolean isAllowedStaticCall(String owner, MethodCallExpr call) {
-            for (String allowlistEntry : allStaticAllowlistEntries()) {
-                if (matchesStaticAllowlistEntry(owner, call, allowlistEntry)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private Set<String> allStaticAllowlistEntries() {
-            Set<String> entries = new LinkedHashSet<>(BUILT_IN_PURE_STATIC_METHODS);
-            if (!options().assertionPolicy().pureStaticAllowlist().isEmpty()) {
-                for (String entry : options().assertionPolicy().pureStaticAllowlist()) {
-                    if (isValidConfiguredStaticAllowlistEntry(entry)) {
-                        entries.add(entry);
-                    }
-                }
-            }
-            return entries;
-        }
-
-        private boolean matchesStaticAllowlistEntry(String owner, MethodCallExpr call, String entry) {
-            int separator = entry.indexOf('#');
-            if (separator <= 0 || separator == entry.length() - 1) {
-                return false;
-            }
-            String allowedOwner = entry.substring(0, separator);
-            String allowedMember = entry.substring(separator + 1);
-            if (!owner.equals(allowedOwner) && !owner.equals(simpleName(allowedOwner))) {
-                return false;
-            }
-            if ("*".equals(allowedMember)) {
-                return isBuiltInStaticEntry(entry) && !"random".equals(call.getNameAsString());
-            }
-            int descriptorStart = allowedMember.indexOf('(');
-            String allowedMethod = descriptorStart < 0 ? allowedMember : allowedMember.substring(0, descriptorStart);
-            if (!call.getNameAsString().equals(allowedMethod)) {
-                return false;
-            }
-            if (descriptorStart < 0) {
-                return isBuiltInStaticEntry(entry);
-            }
-            return argumentsMatchDescriptor(call, allowedMember.substring(descriptorStart));
-        }
-
-        private boolean isBuiltInStaticEntry(String entry) {
-            return BUILT_IN_PURE_STATIC_METHODS.contains(entry);
-        }
-
-        private boolean isValidConfiguredStaticAllowlistEntry(String entry) {
-            if (entry == null || entry.isEmpty()) {
-                return false;
-            }
-            int separator = entry.indexOf('#');
-            if (separator <= 0 || separator == entry.length() - 1) {
-                return false;
-            }
-            String owner = entry.substring(0, separator);
-            String member = entry.substring(separator + 1);
-            if (!isDottedTypeName(owner)) {
-                return false;
-            }
-            if ("*".equals(member)) {
-                return false;
-            }
-            int descriptorStart = member.indexOf('(');
-            int descriptorEnd = member.lastIndexOf(')');
-            if (descriptorStart <= 0 || descriptorEnd <= descriptorStart || descriptorEnd == member.length() - 1) {
-                return false;
-            }
-            String methodName = member.substring(0, descriptorStart);
-            String descriptor = member.substring(descriptorStart);
-            JvmMethodDescriptor signature = JvmMethodDescriptor.parse(descriptor);
-            return SourceVersion.isIdentifier(methodName)
-                    && signature != null && signature.isValid();
-        }
-
-        private boolean argumentsMatchDescriptor(MethodCallExpr call, JvmMethodDescriptor signature) {
-            return descriptorMatchScore(call, signature) >= 0;
-        }
-
-        private boolean argumentsMatchDescriptor(MethodCallExpr call, String descriptor) {
-            return argumentsMatchDescriptor(call, JvmMethodDescriptor.parse(descriptor));
-        }
-
-        private int descriptorMatchScore(MethodCallExpr call, String descriptor) {
-            return descriptorMatchScore(call, JvmMethodDescriptor.parse(descriptor));
-        }
-
-        private int descriptorMatchScore(MethodCallExpr call, JvmMethodDescriptor signature) {
-            if (signature == null) {
-                // A zero-argument method cannot have a same-name overload selected by
-                // argument types. Parameterized callables must carry a full descriptor.
-                return call.getArguments().isEmpty() ? 0 : -1;
-            }
-            if (!signature.isValid()) {
-                return -1;
-            }
-            List<String> parameterDescriptors = signature.parameterDescriptors();
-            if (parameterDescriptors.size() != call.getArguments().size()) {
-                return -1;
-            }
-            int score = 0;
-            for (int i = 0; i < parameterDescriptors.size(); i++) {
-                int argumentScore = argumentCompatibilityScore(
-                        resolveExpressionType(call.getArgument(i)), parameterDescriptors.get(i));
-                if (argumentScore < 0) {
-                    return -1;
-                }
-                score += argumentScore;
-            }
-            return score;
-        }
-
-        private int argumentCompatibilityScore(ExprType actual, String expectedDescriptor) {
-            if (actual == null || !actual.isKnown()) {
-                return -1;
-            }
-            if (actual.isNull()) {
-                return expectedDescriptor.startsWith("L") || expectedDescriptor.startsWith("[") ? 5 : -1;
-            }
-            String expectedType = descriptorTypeName(expectedDescriptor);
-            if (expectedType == null) {
-                return -1;
-            }
-            String expectedCanonical = canonicalType(expectedType);
-            if ("java.lang.Object".equals(expectedCanonical) && !actual.isNull()) {
-                return 10;
-            }
-            if (actual.isNumericLike()) {
-                return numericInvocationConversionScore(actual.typeName, expectedType);
-            }
-            if (actual.isBooleanLike()) {
-                return ExprType.fromTypeName(expectedType).isBooleanLike() ? 0 : -1;
-            }
-            if (actual.isCharLike()) {
-                return ExprType.fromTypeName(expectedType).isCharLike() ? 0 : -1;
-            }
-            if (actual.isArray()) {
-                return expectedDescriptor.startsWith("[")
-                        && expectedType.equals(canonicalType(actual.typeName)) ? 0 : -1;
-            }
-            String actualType = canonicalType(actual.typeName);
-            if (actualType.equals(expectedCanonical) || "java.lang.Object".equals(expectedCanonical)) {
-                return 0;
-            }
-            try {
-                ClassLoader loader = org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT();
-                Class<?> expectedClass = Class.forName(expectedCanonical, false, loader);
-                Class<?> actualClass = Class.forName(actualType, false, loader);
-                return expectedClass.isAssignableFrom(actualClass) ? 5 : -1;
-            } catch (Throwable ignored) {
-                return -1;
-            }
-        }
-
-        private int numericInvocationConversionScore(String actualType, String expectedType) {
-            String actualPrimitive = unboxedNumericType(actualType);
-            String expectedPrimitive = unboxedNumericType(expectedType);
-            if (actualPrimitive == null || expectedPrimitive == null) {
-                return -1;
-            }
-            if (actualPrimitive.equals(expectedPrimitive)) {
-                return 0;
-            }
-            boolean actualIsPrimitive = isNumericPrimitiveOrChar(actualType);
-            boolean expectedIsPrimitive = isNumericPrimitiveOrChar(expectedType);
-            if (actualIsPrimitive && !expectedIsPrimitive) {
-                // Method invocation does not permit widening followed by boxing
-                // (for example, int cannot be passed to Long).
-                return -1;
-            }
-            if (!actualIsPrimitive && !expectedIsPrimitive) {
-                // Distinct wrapper types are not assignment-compatible.
-                return -1;
-            }
-            if ("char".equals(actualPrimitive)) {
-                int expectedRank = numericRank(expectedPrimitive);
-                return expectedRank >= numericRank("int") ? expectedRank - numericRank("int") + 1 : -1;
-            }
-            int actualRank = numericRank(actualPrimitive);
-            int expectedRank = numericRank(expectedPrimitive);
-            return actualRank >= 0 && expectedRank >= actualRank ? expectedRank - actualRank + 1 : -1;
-        }
-
-        private String unboxedNumericType(String typeName) {
-            String canonical = canonicalType(typeName);
-            if ("java.lang.Byte".equals(canonical)) return "byte";
-            if ("java.lang.Short".equals(canonical)) return "short";
-            if ("java.lang.Character".equals(canonical)) return "char";
-            if ("java.lang.Integer".equals(canonical)) return "int";
-            if ("java.lang.Long".equals(canonical)) return "long";
-            if ("java.lang.Float".equals(canonical)) return "float";
-            if ("java.lang.Double".equals(canonical)) return "double";
-            return "byte".equals(canonical) || "short".equals(canonical) || "char".equals(canonical)
-                    || "int".equals(canonical) || "long".equals(canonical) || "float".equals(canonical)
-                    || "double".equals(canonical) ? canonical : null;
-        }
-
-        private boolean isNumericPrimitiveOrChar(String typeName) {
-            String canonical = canonicalType(typeName);
-            return "byte".equals(canonical) || "short".equals(canonical) || "char".equals(canonical)
-                    || "int".equals(canonical) || "long".equals(canonical) || "float".equals(canonical)
-                    || "double".equals(canonical);
-        }
-
-        private int numericRank(String primitive) {
-            if ("byte".equals(primitive)) return 0;
-            if ("short".equals(primitive)) return 1;
-            if ("int".equals(primitive)) return 2;
-            if ("long".equals(primitive)) return 3;
-            if ("float".equals(primitive)) return 4;
-            if ("double".equals(primitive)) return 5;
-            return -1;
-        }
-
-        private String descriptorTypeName(String descriptor) {
-            if (descriptor == null || descriptor.isEmpty()) {
-                return null;
-            }
-            int arrays = 0;
-            while (arrays < descriptor.length() && descriptor.charAt(arrays) == '[') {
-                arrays++;
-            }
-            if (arrays > 0) {
-                String component = descriptorTypeName(descriptor.substring(arrays));
-                if (component == null) {
-                    return null;
-                }
-                StringBuilder result = new StringBuilder(component);
-                for (int i = 0; i < arrays; i++) {
-                    result.append("[]");
-                }
-                return result.toString();
-            }
-            switch (descriptor.charAt(0)) {
-                case 'Z': return "boolean";
-                case 'B': return "byte";
-                case 'C': return "char";
-                case 'S': return "short";
-                case 'I': return "int";
-                case 'J': return "long";
-                case 'F': return "float";
-                case 'D': return "double";
-                case 'L':
-                    return descriptor.endsWith(";")
-                            ? descriptor.substring(1, descriptor.length() - 1).replace('/', '.') : null;
-                default: return null;
-            }
-        }
-
-        private boolean isDottedTypeName(String owner) {
-            String[] parts = owner.split("\\.");
-            if (parts.length == 0) {
-                return false;
-            }
-            for (String part : parts) {
-                if (!SourceVersion.isIdentifier(part)) {
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private boolean isAllowedImmutableConstructorType(String typeName) {
-            if (!options().assertionPolicy().allowImmutableConstructors()) {
-                return false;
-            }
-            if (BUILT_IN_IMMUTABLE_TYPES.contains(typeName)) {
-                return true;
-            }
-            for (String configuredType : options().assertionPolicy().immutableTypes()) {
-                if (configuredType.equals(typeName) || simpleName(configuredType).equals(typeName)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private Set<String> splitConfiguredTypes(String configuredTypes) {
-            if (configuredTypes == null || configuredTypes.trim().isEmpty()) {
-                return Collections.emptySet();
-            }
-            Set<String> result = new LinkedHashSet<>();
-            for (String rawType : configuredTypes.split(",")) {
-                String type = rawType.trim();
-                if (!type.isEmpty()) {
-                    result.add(type);
-                }
-            }
-            return result;
-        }
-
-        private String simpleName(String typeName) {
-            int lastDot = typeName.lastIndexOf('.');
-            return lastDot < 0 ? typeName : typeName.substring(lastDot + 1);
+            return callablePolicy.isCallableMethod(receiverId, ownerType, call);
         }
 
         private boolean exceedsChainDepthLimit(Expression expression) {
