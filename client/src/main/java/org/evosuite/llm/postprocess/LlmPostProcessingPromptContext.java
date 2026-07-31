@@ -239,42 +239,22 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
         return options;
     }
 
+    static boolean isCandidateSelectable(CandidateFact fact,
+                                         boolean assertableTypesOnly,
+                                         boolean stabilityLabels) {
+        return fact != null
+                && fact.getCandidateId() != null
+                && fact.getSelectableCandidate() != null
+                && (!assertableTypesOnly || fact.isAssertable())
+                && (!stabilityLabels || !"UNSTABLE".equals(fact.getStability()));
+    }
+
     public String toAnnotatedText() {
         return toAnnotatedText(false);
     }
 
     String toAnnotatedText(boolean includeActionRoles) {
-        StringBuilder builder = new StringBuilder();
-        for (StatementContext statement : statements) {
-            builder.append(statement.getStatementId());
-            if (statement.getVariableId() != null) {
-                builder.append(" ").append(statement.getVariableId());
-            }
-            if (statement.getDeclaredType() != null) {
-                builder.append(" : ").append(statement.getDeclaredType());
-            }
-            if (statement.getRuntimeType() != null
-                    && !statement.getRuntimeType().equals(statement.getDeclaredType())) {
-                builder.append(" runtime=").append(statement.getRuntimeType());
-            }
-            if (includeActionRoles) {
-                builder.append(" phase=").append(statement.getPhase());
-                if (statement.getReceiverId() != null) {
-                    builder.append(" receiver=").append(statement.getReceiverId());
-                }
-                if (!statement.getArgumentIds().isEmpty()) {
-                    builder.append(" args=").append(String.join(",", statement.getArgumentIds()));
-                }
-                if (statement.getVariableId() != null && "ACTION".equals(statement.getPhase())) {
-                    builder.append(" role=RESULT_OF_").append(statement.getStatementId());
-                }
-            }
-            builder.append(" | ").append(statement.getCode());
-            if (!statement.getCode().endsWith("\n")) {
-                builder.append('\n');
-            }
-        }
-        return builder.toString();
+        return PostProcessingPromptRenderer.annotatedText(this, includeActionRoles);
     }
 
     public String toObservationText() {
@@ -282,45 +262,7 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
     }
 
     String toObservationText(Set<String> relevantVariableIds) {
-        if (observations.isEmpty()) {
-            return "none\n";
-        }
-        StringBuilder builder = new StringBuilder();
-        int maxChars = options.contextLimits().observationChars();
-        for (Observation observation : observations) {
-            if (relevantVariableIds != null
-                    && (observation.getVariableId() == null
-                    || !relevantVariableIds.contains(observation.getVariableId()))) {
-                continue;
-            }
-            String line = observationLine(observation);
-            if (maxChars > 0 && builder.length() + line.length() > maxChars) {
-                String truncationLine = "truncated=true\n";
-                if (builder.length() + truncationLine.length() <= maxChars) {
-                    builder.append(truncationLine);
-                }
-                break;
-            }
-            builder.append(line);
-        }
-        return builder.length() == 0 ? "none\n" : builder.toString();
-    }
-
-    private String observationLine(Observation observation) {
-        StringBuilder builder = new StringBuilder();
-        builder.append(observation.getStatementId());
-        if (observation.getVariableId() != null) {
-            builder.append(" ").append(observation.getVariableId());
-        }
-        builder.append(" provenance=").append(observation.getProvenance());
-        builder.append(" complete=").append(observation.isComplete());
-        builder.append(" relationalOnly=").append(observation.isRelationalOnly());
-        builder.append(" value=").append(observation.getValue());
-        if (!observation.isComplete()) {
-            builder.append(" note=truncated");
-        }
-        builder.append('\n');
-        return builder.toString();
+        return PostProcessingPromptRenderer.observationText(this, relevantVariableIds, options);
     }
 
     public String toCallableMemberText() {
@@ -328,169 +270,23 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
     }
 
     public String toObservedSafeExpressionText() {
-        LinkedHashSet<String> lines = new LinkedHashSet<>();
-        int maxChars = options.contextLimits().observedExpressionChars();
-        StringBuilder builder = new StringBuilder();
-        for (CallableMember member : callableMembers) {
-            if (member.getReceiverId() == null || member.getObservedResult() == null) {
-                continue;
-            }
-            String expression = member.getReceiverId() + "." + readableSignature(member.getSignature());
-            String line = expression + " -> " + jsonString(member.getObservedResult()) + "\n";
-            if (lines.add(line) && (maxChars <= 0 || builder.length() + line.length() <= maxChars)) {
-                builder.append(line);
-            }
-        }
-        for (CandidateFact fact : candidateFacts) {
-            LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
-            if (candidate == null || candidate.getActual() == null || fact.getObservedValue() == null) {
-                continue;
-            }
-            String line = candidate.getActual() + " -> " + jsonString(fact.getObservedValue()) + "\n";
-            if (lines.add(line) && (maxChars <= 0 || builder.length() + line.length() <= maxChars)) {
-                builder.append(line);
-            }
-        }
-        return builder.length() == 0 ? "none\n" : builder.toString();
+        return PostProcessingPromptRenderer.observedSafeExpressionText(this, options);
     }
 
     public String toAdditionalLegalCallText() {
-        String text = toCallableMemberText();
-        int total = callableMembers.size();
-        int rendered = 0;
-        for (String line : text.split("\\n")) {
-            if (line.startsWith("owner=")) {
-                int members = line.indexOf(" members=");
-                if (members >= 0) {
-                    String values = line.substring(members + " members=".length());
-                    rendered += values.isEmpty() ? 0 : values.split(", ").length;
-                }
-            }
-        }
-        int dropped = Math.max(0, total - rendered);
-        if (dropped == 0) {
-            return text;
-        }
-        int maxChars = options.contextLimits().callableChars();
-        StringBuilder builder = new StringBuilder(text);
-        appendCapped(builder, "droppedMethods=" + dropped + "\n", maxChars);
-        return builder.toString();
-    }
-
-    private static String readableSignature(String signature) {
-        String name = methodName(signature);
-        return name + "()";
+        return PostProcessingPromptRenderer.additionalLegalCallText(this, options);
     }
 
     String toCallableMemberText(Set<String> relevantVariableIds) {
-        if (callableMembers.isEmpty()) {
-            return "none\n";
-        }
-        // Advertise each owner type's callable catalogue once, plus compact
-        // receiver->type bindings and observed results, so two receivers sharing a
-        // type do not repeat the whole member list. The section is bounded by the
-        // same observation char budget.
-        Map<String, LinkedHashSet<String>> membersByType = new LinkedHashMap<>();
-        LinkedHashSet<String> receiverBindings = new LinkedHashSet<>();
-        LinkedHashSet<String> observedResults = new LinkedHashSet<>();
-        for (CallableMember member : callableMembers) {
-            if (relevantVariableIds != null
-                    && (member.getReceiverId() == null
-                    || !relevantVariableIds.contains(member.getReceiverId()))) {
-                continue;
-            }
-            LinkedHashSet<String> typeMembers = membersByType.get(member.getOwnerType());
-            if (typeMembers == null) {
-                typeMembers = new LinkedHashSet<>();
-                membersByType.put(member.getOwnerType(), typeMembers);
-            }
-            typeMembers.add(member.getSignature() + "->" + member.getReturnType());
-            if (member.getReceiverId() != null) {
-                receiverBindings.add(member.getReceiverId() + "->" + member.getOwnerType());
-                if (member.getObservedResult() != null) {
-                    observedResults.add(member.getReceiverId() + "." + member.getSignature()
-                            + "=" + member.getObservedResult());
-                }
-            }
-        }
-        int maxChars = options.contextLimits().callableChars();
-        StringBuilder builder = new StringBuilder();
-        if (!receiverBindings.isEmpty()) {
-            appendCapped(builder, "receivers: " + String.join(", ", receiverBindings) + "\n", maxChars);
-        }
-        if (!observedResults.isEmpty()) {
-            appendCapped(builder, "observed: " + String.join(", ", observedResults) + "\n", maxChars);
-        }
-        int truncatedTypes = 0;
-        for (Map.Entry<String, LinkedHashSet<String>> entry : membersByType.entrySet()) {
-            String line = "owner=" + entry.getKey() + " members=" + String.join(", ", entry.getValue()) + "\n";
-            if (maxChars > 0 && builder.length() + line.length() > maxChars) {
-                truncatedTypes++;
-                continue;
-            }
-            builder.append(line);
-        }
-        if (truncatedTypes > 0) {
-            appendCapped(builder, "truncatedCallableTypes=" + truncatedTypes + "\n", maxChars);
-        }
-        return builder.length() == 0 ? "none\n" : builder.toString();
-    }
-
-    private static void appendCapped(StringBuilder builder, String line, int maxChars) {
-        if (maxChars <= 0 || builder.length() + line.length() <= maxChars) {
-            builder.append(line);
-        }
+        return PostProcessingPromptRenderer.callableMemberText(this, relevantVariableIds, options);
     }
 
     public String toExceptionText() {
-        if (exceptions.isEmpty()) {
-            return "none\n";
-        }
-        StringBuilder builder = new StringBuilder();
-        for (ExceptionContext exception : exceptions) {
-            builder.append(exception.getStatementId());
-            builder.append(" type=").append(exception.getType());
-            builder.append(" explicit=").append(exception.isExplicit());
-            if (exception.getMessage() != null) {
-                builder.append(" message=").append(exception.getMessage());
-            }
-            builder.append('\n');
-        }
-        return builder.toString();
+        return PostProcessingPromptRenderer.exceptionText(this);
     }
 
     public String toSafeAssertionSiteText() {
-        if (exceptions.isEmpty()) {
-            return "- END_OF_TEST available=" + String.join(",", references.getVariableIds()) + "\n";
-        }
-        ExceptionContext exception = exceptions.get(0);
-        int throwingPosition = stableIdIndex(exception.getStatementId());
-        List<String> completedStatements = new ArrayList<>();
-        List<String> availableVariables = new ArrayList<>();
-        for (int position = 0; position < throwingPosition; position++) {
-            String statementId = LlmPostProcessingReferences.statementId(position);
-            if (references.hasStatementId(statementId)) {
-                completedStatements.add(statementId);
-            }
-            String variableId = LlmPostProcessingReferences.variableId(position);
-            if (references.hasVariableId(variableId)) {
-                availableVariables.add(variableId);
-            }
-        }
-        String available = String.join(",", availableVariables);
-        StringBuilder builder = new StringBuilder();
-        if (!completedStatements.isEmpty()) {
-            builder.append("- BEFORE_TRY after=")
-                    .append(String.join(",", completedStatements))
-                    .append(" available=").append(available).append('\n');
-        }
-        builder.append("- IN_CATCH exception=e0 available=e0");
-        if (!available.isEmpty()) {
-            builder.append(',').append(available);
-        }
-        builder.append('\n');
-        builder.append("- AFTER_CATCH available=").append(available).append('\n');
-        return builder.toString();
+        return PostProcessingPromptRenderer.safeAssertionSiteText(this);
     }
 
     public String toCandidateFactText() {
@@ -504,153 +300,12 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
     String toCandidateFactText(boolean includeCandidateIds, boolean canonicalSemantics,
                                boolean includeActionRoles, boolean includeStability,
                                boolean assertableTypesOnly) {
-        if (candidateFacts.isEmpty()) {
-            return "none\n";
-        }
-        StringBuilder builder = new StringBuilder();
-        int maxChars = options.contextLimits().candidateChars();
-        int emitted = 0;
-        int unstableOmitted = 0;
-        if (includeStability) {
-            for (CandidateFact fact : candidateFacts) {
-                if ("UNSTABLE".equals(fact.getStability())) {
-                    unstableOmitted++;
-                }
-            }
-        }
-        int displayableFacts = candidateFacts.size() - unstableOmitted;
-        for (CandidateFact fact : candidateFacts) {
-            if (includeStability && "UNSTABLE".equals(fact.getStability())) {
-                continue;
-            }
-            String line = candidateFactLine(fact, includeCandidateIds, canonicalSemantics,
-                    includeActionRoles, includeStability, assertableTypesOnly);
-            if (maxChars > 0 && builder.length() + line.length() > maxChars) {
-                appendCandidateTruncation(builder, displayableFacts - emitted, maxChars);
-                break;
-            }
-            builder.append(line);
-            emitted++;
-        }
-        if (unstableOmitted > 0) {
-            appendCapped(builder, "unstableCandidatesOmitted=" + unstableOmitted + "\n", maxChars);
-        }
-        return builder.toString();
-    }
-
-    private static String candidateFactLine(CandidateFact fact, boolean includeCandidateIds,
-                                            boolean canonicalSemantics, boolean includeActionRoles,
-                                            boolean includeStability, boolean assertableTypesOnly) {
-        StringBuilder builder = new StringBuilder();
-        boolean selectable = isCandidateSelectable(
-                fact, assertableTypesOnly, includeStability);
-        if (includeCandidateIds && selectable) {
-            builder.append("candidateId=").append(fact.getCandidateId()).append(' ');
-        }
-        builder.append(fact.getStatementId());
-        if (fact.getSourceId() != null) {
-            builder.append(" source=").append(fact.getSourceId());
-        }
-        if (!fact.getReferencedIds().isEmpty()) {
-            builder.append(" refs=").append(String.join(",", fact.getReferencedIds()));
-        }
-        builder.append(" kind=").append(fact.getKind());
-        if (canonicalSemantics && fact.getSelectableCandidate() != null) {
-            LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
-            builder.append(" canonicalKind=").append(candidate.getKind());
-            appendJsonExpression(builder, "expected", candidate.getExpected());
-            appendJsonExpression(builder, "actual", candidate.getActual());
-            appendJsonExpression(builder, "delta", candidate.getDelta());
-        }
-        if (fact.getObservedValue() != null) {
-            builder.append(" observed=").append(canonicalSemantics
-                    ? jsonString(fact.getObservedValue()) : fact.getObservedValue());
-        }
-        if (includeActionRoles) {
-            builder.append(" phase=").append(fact.getPhase());
-            builder.append(" rank=").append(fact.getRank());
-        }
-        if (includeStability) {
-            builder.append(" stability=").append(fact.getStability());
-            if (fact.getStabilityReason() != null) {
-                builder.append(" stabilityReason=").append(fact.getStabilityReason());
-            }
-        }
-        if (canonicalSemantics || assertableTypesOnly) {
-            builder.append(" selectable=").append(selectable);
-        }
-        if (includeCandidateIds && canonicalSemantics && selectable) {
-            builder.append(" select={\"assertionId\":\"aN\",\"candidateId\":\"")
-                    .append(fact.getCandidateId()).append("\"}");
-        }
-        if (assertableTypesOnly) {
-            builder.append(" assertable=").append(fact.isAssertable());
-            if (!fact.isAssertable()) {
-                builder.append(" reason=INACCESSIBLE_TYPE");
-            }
-        }
-        builder.append('\n');
-        return builder.toString();
-    }
-
-    static boolean isCandidateSelectable(CandidateFact fact,
-                                                 boolean assertableTypesOnly,
-                                                 boolean stabilityLabels) {
-        return fact != null
-                && fact.getCandidateId() != null
-                && fact.getSelectableCandidate() != null
-                && (!assertableTypesOnly || fact.isAssertable())
-                && (!stabilityLabels || !"UNSTABLE".equals(fact.getStability()));
-    }
-
-    private static void appendJsonExpression(StringBuilder builder, String name, String expression) {
-        if (expression != null) {
-            builder.append(' ').append(name).append('=').append(jsonString(expression));
-        }
-    }
-
-    private static String jsonString(String value) {
-        if (value == null) {
-            return "null";
-        }
-        return "\"" + escapeJava(value) + "\"";
+        return PostProcessingPromptRenderer.candidateFactText(this, includeCandidateIds,
+                canonicalSemantics, includeActionRoles, includeStability, assertableTypesOnly, options);
     }
 
     public String toRelationalOpportunityText() {
-        if (relationalOpportunities.isEmpty()) {
-            return "none\n";
-        }
-        StringBuilder builder = new StringBuilder();
-        int maxCount = options.contextLimits().relationalOpportunities();
-        int maxChars = options.contextLimits().relationalChars();
-        int emitted = 0;
-        for (RelationalOpportunity opportunity : relationalOpportunities) {
-            if (maxCount > 0 && emitted >= maxCount) {
-                break;
-            }
-            String line = opportunity.getId()
-                    + " left=" + jsonString(opportunity.getLeft())
-                    + " right=" + jsonString(opportunity.getRight())
-                    + " type=" + opportunity.getType()
-                    + " relation=" + opportunity.getRelation() + "\n";
-            if (maxChars > 0 && builder.length() + line.length() > maxChars) {
-                break;
-            }
-            builder.append(line);
-            emitted++;
-        }
-        int dropped = relationalOpportunities.size() - emitted;
-        if (dropped > 0) {
-            appendCapped(builder, "droppedRelationalOpportunities=" + dropped + "\n", maxChars);
-        }
-        return builder.length() == 0 ? "none\n" : builder.toString();
-    }
-
-    private static void appendCandidateTruncation(StringBuilder builder, int truncatedCount, int maxChars) {
-        String truncationLine = "truncatedCandidates=" + Math.max(0, truncatedCount) + "\n";
-        if (maxChars <= 0 || builder.length() + truncationLine.length() <= maxChars) {
-            builder.append(truncationLine);
-        }
+        return PostProcessingPromptRenderer.relationalOpportunityText(this, options);
     }
 
     public LlmPostProcessingResponseParser.ParseContext toParseContext() {
@@ -1007,6 +662,10 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
         } catch (NumberFormatException ignored) {
             return -1;
         }
+    }
+
+    private static String readableSignature(String signature) {
+        return methodName(signature) + "()";
     }
 
     private static StabilityEvidence stabilityEvidence(Assertion assertion,

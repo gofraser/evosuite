@@ -76,7 +76,8 @@ final class OracleContext implements PostProcessingPromptFacts {
                 context.getRelationalOpportunities());
     }
 
-    LlmPostProcessingReferences getReferences() {
+    @Override
+    public LlmPostProcessingReferences getReferences() {
         return references;
     }
 

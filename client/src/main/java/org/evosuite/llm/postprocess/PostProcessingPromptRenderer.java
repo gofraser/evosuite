@@ -301,6 +301,131 @@ final class PostProcessingPromptRenderer {
         return builder.length() == 0 ? "none\n" : builder.toString();
     }
 
+    static String observedSafeExpressionText(PostProcessingPromptFacts context,
+                                             PostProcessingOptions options) {
+        LinkedHashSet<String> lines = new LinkedHashSet<>();
+        int maxChars = options.contextLimits().observedExpressionChars();
+        StringBuilder builder = new StringBuilder();
+        for (LlmPostProcessingPromptContext.CallableMember member : context.getCallableMembers()) {
+            if (member.getReceiverId() == null || member.getObservedResult() == null) {
+                continue;
+            }
+            String expression = member.getReceiverId() + "." + readableSignature(member.getSignature());
+            appendObservedExpression(builder, lines,
+                    expression + " -> " + jsonString(member.getObservedResult()) + "\n", maxChars);
+        }
+        for (LlmPostProcessingPromptContext.CandidateFact fact : context.getCandidateFacts()) {
+            LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
+            if (candidate == null || candidate.getActual() == null || fact.getObservedValue() == null) {
+                continue;
+            }
+            appendObservedExpression(builder, lines,
+                    candidate.getActual() + " -> " + jsonString(fact.getObservedValue()) + "\n", maxChars);
+        }
+        return builder.length() == 0 ? "none\n" : builder.toString();
+    }
+
+    static String additionalLegalCallText(PostProcessingPromptFacts context,
+                                           PostProcessingOptions options) {
+        String text = callableMemberText(context, null, options);
+        int rendered = 0;
+        for (String line : text.split("\\n")) {
+            if (line.startsWith("owner=")) {
+                int members = line.indexOf(" members=");
+                if (members >= 0) {
+                    String values = line.substring(members + " members=".length());
+                    rendered += values.isEmpty() ? 0 : values.split(", ").length;
+                }
+            }
+        }
+        int dropped = Math.max(0, context.getCallableMembers().size() - rendered);
+        if (dropped == 0) {
+            return text;
+        }
+        StringBuilder builder = new StringBuilder(text);
+        appendCapped(builder, "droppedMethods=" + dropped + "\n",
+                options.contextLimits().callableChars());
+        return builder.toString();
+    }
+
+    static String safeAssertionSiteText(PostProcessingPromptFacts context) {
+        if (context.getExceptions().isEmpty()) {
+            return "- END_OF_TEST available="
+                    + String.join(",", context.getReferences().getVariableIds()) + "\n";
+        }
+        LlmPostProcessingPromptContext.ExceptionContext exception = context.getExceptions().get(0);
+        int throwingPosition = LlmPostProcessingPromptContext.stableIdIndex(exception.getStatementId());
+        List<String> completedStatements = new ArrayList<>();
+        List<String> availableVariables = new ArrayList<>();
+        for (int position = 0; position < throwingPosition; position++) {
+            String statementId = LlmPostProcessingReferences.statementId(position);
+            if (context.getReferences().hasStatementId(statementId)) {
+                completedStatements.add(statementId);
+            }
+            String variableId = LlmPostProcessingReferences.variableId(position);
+            if (context.getReferences().hasVariableId(variableId)) {
+                availableVariables.add(variableId);
+            }
+        }
+        String available = String.join(",", availableVariables);
+        StringBuilder builder = new StringBuilder();
+        if (!completedStatements.isEmpty()) {
+            builder.append("- BEFORE_TRY after=")
+                    .append(String.join(",", completedStatements))
+                    .append(" available=").append(available).append('\n');
+        }
+        builder.append("- IN_CATCH exception=e0 available=e0");
+        if (!available.isEmpty()) {
+            builder.append(',').append(available);
+        }
+        builder.append('\n');
+        builder.append("- AFTER_CATCH available=").append(available).append('\n');
+        return builder.toString();
+    }
+
+    static String relationalOpportunityText(PostProcessingPromptFacts context,
+                                             PostProcessingOptions options) {
+        if (context.getRelationalOpportunities().isEmpty()) {
+            return "none\n";
+        }
+        StringBuilder builder = new StringBuilder();
+        int maxCount = options.contextLimits().relationalOpportunities();
+        int maxChars = options.contextLimits().relationalChars();
+        int emitted = 0;
+        for (LlmPostProcessingPromptContext.RelationalOpportunity opportunity
+                : context.getRelationalOpportunities()) {
+            if (maxCount > 0 && emitted >= maxCount) {
+                break;
+            }
+            String line = opportunity.getId()
+                    + " left=" + jsonString(opportunity.getLeft())
+                    + " right=" + jsonString(opportunity.getRight())
+                    + " type=" + opportunity.getType()
+                    + " relation=" + opportunity.getRelation() + "\n";
+            if (maxChars > 0 && builder.length() + line.length() > maxChars) {
+                break;
+            }
+            builder.append(line);
+            emitted++;
+        }
+        int dropped = context.getRelationalOpportunities().size() - emitted;
+        if (dropped > 0) {
+            appendCapped(builder, "droppedRelationalOpportunities=" + dropped + "\n", maxChars);
+        }
+        return builder.length() == 0 ? "none\n" : builder.toString();
+    }
+
+    private static void appendObservedExpression(StringBuilder builder, Set<String> lines,
+                                                 String line, int maxChars) {
+        if (lines.add(line) && (maxChars <= 0 || builder.length() + line.length() <= maxChars)) {
+            builder.append(line);
+        }
+    }
+
+    private static String readableSignature(String signature) {
+        return LlmPostProcessingPromptContext.methodName(signature) + "()";
+    }
+
     private static String candidateFactLine(LlmPostProcessingPromptContext.CandidateFact fact,
                                             boolean includeCandidateIds,
                                             boolean canonicalSemantics,

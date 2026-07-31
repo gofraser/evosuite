@@ -18,6 +18,8 @@ import java.util.List;
  */
 interface PostProcessingPromptFacts {
 
+    LlmPostProcessingReferences getReferences();
+
     List<LlmPostProcessingPromptContext.StatementContext> getStatements();
 
     List<LlmPostProcessingPromptContext.Observation> getObservations();
