@@ -36,6 +36,7 @@ public final class LlmPostProcessingParseResult {
     private final List<Diagnostic> diagnostics;
     private final PostProcessingCounts proposedCounts;
     private final List<RawAssertion> rawAssertions;
+    private final DecodedPostProcessingResponse decodedResponse;
 
     private LlmPostProcessingParseResult(LlmPostProcessingResponse response,
                                          boolean infrastructureFailure,
@@ -50,6 +51,8 @@ public final class LlmPostProcessingParseResult {
         this.proposedCounts = proposedCounts == null ? PostProcessingCounts.none() : proposedCounts;
         this.rawAssertions = Collections.unmodifiableList(new ArrayList<>(
                 rawAssertions == null ? Collections.<RawAssertion>emptyList() : rawAssertions));
+        this.decodedResponse = response == null ? null : new DecodedPostProcessingResponse(
+                response, this.proposedCounts, this.rawAssertions);
     }
 
     public static LlmPostProcessingParseResult success(LlmPostProcessingResponse response,
@@ -73,6 +76,11 @@ public final class LlmPostProcessingParseResult {
 
     public LlmPostProcessingResponse getResponse() {
         return response;
+    }
+
+    /** Return the immutable decoded wire state retained by this parse result. */
+    public DecodedPostProcessingResponse getDecodedResponse() {
+        return decodedResponse;
     }
 
     public boolean isInfrastructureFailure() {
@@ -124,15 +132,29 @@ public final class LlmPostProcessingParseResult {
         STABILITY_EXECUTION
     }
 
+    /** Typed repair decision attached to a diagnostic at decode/validation time. */
+    public enum Repairability {
+        REPAIRABLE,
+        NON_REPAIRABLE
+    }
+
     public static final class Diagnostic {
         private final DiagnosticCode code;
         private final String path;
         private final String message;
+        private final Repairability repairability;
 
         public Diagnostic(DiagnosticCode code, String path, String message) {
+            this(code, path, message, classifyRepairability(code, message));
+        }
+
+        public Diagnostic(DiagnosticCode code, String path, String message,
+                          Repairability repairability) {
             this.code = code;
             this.path = path;
             this.message = message;
+            this.repairability = repairability == null
+                    ? classifyRepairability(code, message) : repairability;
         }
 
         public DiagnosticCode getCode() {
@@ -145,6 +167,34 @@ public final class LlmPostProcessingParseResult {
 
         public String getMessage() {
             return message;
+        }
+
+        public Repairability getRepairability() {
+            return repairability;
+        }
+
+        private static Repairability classifyRepairability(DiagnosticCode code, String message) {
+            if (code == DiagnosticCode.UNKNOWN_ID
+                    || code == DiagnosticCode.DUPLICATE
+                    || code == DiagnosticCode.LIMIT_EXCEEDED
+                    || code == DiagnosticCode.STABILITY_EXECUTION) {
+                return Repairability.NON_REPAIRABLE;
+            }
+            String normalized = message == null ? "" : message.toLowerCase();
+            if (normalized.contains("not listed") || normalized.contains("not allowlisted")
+                    || normalized.contains("not callable") || normalized.contains("purity")
+                    || normalized.contains("unknown variable") || normalized.contains("unknown candidate")
+                    || normalized.contains("could not be bound") || normalized.contains("outside the test")
+                    || normalized.contains("has no variable") || normalized.contains("final scope")) {
+                return Repairability.NON_REPAIRABLE;
+            }
+            if (code == DiagnosticCode.COMPILE
+                    && (normalized.contains("defined in an inaccessible class or interface")
+                    || normalized.contains("cannot be accessed from outside package")
+                    || (normalized.contains("type class") && normalized.contains("does not take parameters")))) {
+                return Repairability.NON_REPAIRABLE;
+            }
+            return Repairability.REPAIRABLE;
         }
     }
 }

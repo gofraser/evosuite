@@ -542,7 +542,9 @@ class LlmPostProcessingPromptContextTest {
 
         Properties.LLM_POSTPROCESSING_MAX_CANDIDATE_CHARS =
                 firstLine.length() + "truncatedCandidates=1\n".length();
-        String bounded = context.toCandidateFactText();
+        LlmPostProcessingPromptContext boundedContext = LlmPostProcessingPromptContext.from(
+                test, null, Arrays.asList(nullAssertion, primitiveAssertion));
+        String bounded = boundedContext.toCandidateFactText();
 
         assertEquals(firstLine + "truncatedCandidates=1\n", bounded);
         assertFalse(bounded.contains("kind=NullAssertion"));
@@ -658,7 +660,8 @@ class LlmPostProcessingPromptContextTest {
         assertTrue(firstOwner > 0);
 
         Properties.LLM_POSTPROCESSING_MAX_CALLABLE_CHARS = firstOwner;
-        String bounded = context.toCallableMemberText();
+        LlmPostProcessingPromptContext boundedContext = LlmPostProcessingPromptContext.from(test, result);
+        String bounded = boundedContext.toCallableMemberText();
 
         assertTrue(bounded.contains("receivers:"));
         assertTrue(bounded.contains("observed:"));
@@ -689,7 +692,8 @@ class LlmPostProcessingPromptContextTest {
         String firstLine = context.toObservationText().substring(0, context.toObservationText().indexOf('\n') + 1);
 
         Properties.LLM_POSTPROCESSING_MAX_OBSERVATION_CHARS = firstLine.length();
-        String bounded = context.toObservationText();
+        LlmPostProcessingPromptContext boundedContext = LlmPostProcessingPromptContext.from(test);
+        String bounded = boundedContext.toObservationText();
 
         assertEquals(firstLine, bounded);
         assertFalse(bounded.contains("s1"));

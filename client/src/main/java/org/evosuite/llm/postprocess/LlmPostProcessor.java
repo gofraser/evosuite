@@ -31,8 +31,6 @@ import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmTraceRecorder;
 import org.evosuite.llm.prompt.PromptResult;
-import org.evosuite.rmi.ClientServices;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutableSnippetEngine;
@@ -215,7 +213,7 @@ public class LlmPostProcessor {
                 ? MinimizationResult.disabled(suite)
                 : minimizationResult;
         publishMinimizationContext(effectiveMinimizationResult);
-        if (!Properties.LLM_POSTPROCESSING_ENABLED) {
+        if (!options.enabled()) {
             publishZeroMetrics("disabled");
             return 0;
         }
@@ -227,7 +225,7 @@ public class LlmPostProcessor {
             publishZeroMetrics("incomplete_minimization_" + effectiveMinimizationResult.getStatus().name());
             return 0;
         }
-        if (Properties.LLM_PROVIDER == Properties.LlmProvider.NONE) {
+        if (options.provider() == Properties.LlmProvider.NONE) {
             logger.info("Unified LLM post-processing skipped: no LLM provider configured");
             publishZeroMetrics("no_provider");
             return 0;
@@ -247,299 +245,18 @@ public class LlmPostProcessor {
             return 0;
         }
 
-        boolean limitedIncompleteMinimization = effectiveMinimizationResult.isIncomplete()
-                && options.phaseBudget().incompletePolicy()
-                == Properties.LlmPostProcessingOnIncompleteMinimization.LIMITED;
-        ProcessingLimits limits = ProcessingLimits.from(options.phaseBudget(),
-                effectiveMinimizationResult.isIncomplete());
-        int requestedTests = 0;
-        int requestedCalls = 0;
-        int requestedStatements = 0;
-        int initialCalls = 0;
-        int repairCalls = 0;
-        int repairCallsSkippedBudget = 0;
-        int acceptedTests = 0;
-        int infrastructureFailures = 0;
-        int processedTests = 0;
-        int partiallyProcessedTests = 0;
-        int skippedTests = 0;
-        int capSkippedTests = 0;
-        DiagnosticCounters diagnosticCounters = new DiagnosticCounters();
-        FallbackCounters fallbackCounters = new FallbackCounters();
-        int testNamesProposed = 0;
-        int testNamesApplied = 0;
-        int variableNamesProposed = 0;
-        int variableNamesApplied = 0;
-        int commentsProposed = 0;
-        int commentsApplied = 0;
-        int sectionBreaksProposed = 0;
-        int sectionBreaksApplied = 0;
-        int assertionsProposed = 0;
-        int assertionsAcceptedInitial = 0;
-        int assertionsRepairRequested = 0;
-        int assertionsProposedAfterRepair = 0;
-        int assertionsAcceptedAfterRepair = 0;
-        int assertionsApplied = 0;
-        String stopReason = "";
-        long phaseStartMillis = phaseClock.currentTimeMillis();
-
-        List<TestChromosome> tests = suite.getTestChromosomes();
-        List<WorkItem> workItems = WorkItem.from(tests, limitedIncompleteMinimization);
-        for (int workIndex = 0; workIndex < workItems.size(); workIndex++) {
-            if (isPhaseTimedOut(phaseStartMillis)) {
-                stopReason = "timeout";
-                capSkippedTests += remainingItems(workItems, workIndex);
-                break;
-            }
-            if (limits.maxTests > 0 && requestedTests >= limits.maxTests) {
-                stopReason = "max_tests";
-                capSkippedTests += remainingItems(workItems, workIndex);
-                break;
-            }
-            if (limits.maxCalls > 0 && requestedCalls >= limits.maxCalls) {
-                stopReason = "max_calls";
-                capSkippedTests += remainingItems(workItems, workIndex);
-                break;
-            }
-            WorkItem workItem = workItems.get(workIndex);
-            int testIndex = workItem.originalIndex;
-            TestChromosome chromosome = workItem.chromosome;
-            if (chromosome == null || chromosome.getTestCase() == null) {
-                skippedTests++;
-                continue;
-            }
-            TestCase test = chromosome.getTestCase();
-            if (resourceGuard.isLowMemory()) {
-                logger.info("Unified LLM post-processing stopped before test {}: low memory", testIndex);
-                stopReason = "low_memory";
-                capSkippedTests += remainingItems(workItems, workIndex);
-                break;
-            }
-            if (limits.maxTotalStatements > 0 && requestedStatements + test.size() > limits.maxTotalStatements) {
-                stopReason = "max_total_statements";
-                capSkippedTests += remainingItems(workItems, workIndex);
-                break;
-            }
-            boolean assertionEligible = isAssertionEligibleForVersion1(chromosome);
-            if (test.size() == 0 && !options.features().testNames()) {
-                skippedTests++;
-                continue;
-            }
-            if (!llmService.hasBudget()) {
-                logger.info("Unified LLM post-processing stopped: LLM call budget exhausted");
-                stopReason = "budget_exhausted";
-                capSkippedTests += remainingItems(workItems, workIndex);
-                break;
-            }
-            if (!canStartAnotherLlmCall(phaseStartMillis)) {
-                stopReason = "timeout";
-                capSkippedTests += remainingItems(workItems, workIndex);
-                break;
-            }
-
-            try {
-                boolean repairSkippedForBudget = false;
-                boolean collectAssertionContext = options.features().assertions() && assertionEligible;
-                CompleteAssertionGenerator.CandidateCollection candidateCollection =
-                        collectAssertionContext ? assertionCandidateRunner.collectCandidates(test) : null;
-                detachCandidateAssertions(candidateCollection);
-                TestCase validationTest = candidateCollection == null ? test : candidateCollection.getTest();
-                ExecutionResult contextExecutionResult = candidateCollection == null
-                        ? chromosome.getLastExecutionResult()
-                        : candidateCollection.getExecutionResult();
-                PromptVariantCapabilities capabilities = PromptVariantCapabilities.forVariant(
-                        Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION);
-                TestCase prePromptStabilityTest = null;
-                ExecutionResult prePromptStabilityResult = null;
-                if ((capabilities.hasStabilityLabels()
-                        || capabilities.hasExceptionAdjacentPlacements()) && validationTest != null) {
-                    prePromptStabilityTest = validationTest.clone();
-                    prePromptStabilityTest.removeAssertions();
-                    prePromptStabilityResult = stabilityExecutionRunner.execute(prePromptStabilityTest);
-                }
-                LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
-                        validationTest,
-                        contextExecutionResult,
-                        prePromptStabilityResult,
-                        candidateCollection == null ? java.util.Collections.emptyList()
-                                : candidateCollection.getAssertions(), options);
-                assertionEligible = assertionEligible && hasAssertionOpportunity(context);
-                if (Properties.LlmPostProcessingScope.ASSERTION_ELIGIBLE_TESTS
-                        == options.phaseBudget().scope()
-                        && !assertionEligible) {
-                    skippedTests++;
-                    continue;
-                }
-                boolean assertionsEnabledForTest = options.features().assertions() && assertionEligible;
-                PromptResult prompt = LlmPostProcessingPromptBuilder.build(context, testIndex,
-                        assertionsEnabledForTest, options);
-                requestedTests++;
-                requestedCalls++;
-                initialCalls++;
-                requestedStatements += test.size();
-                String rawResponse = queryWithPostProcessingTraceContext(prompt, testIndex,
-                        effectiveMinimizationResult, 1);
-                LlmPostProcessingParseResult parseResult = LlmPostProcessingResponseParser.parse(
-                        rawResponse, context.toParseContext());
-                if (parseResult.isInfrastructureFailure()) {
-                    logger.warn("Unified LLM post-processing ignored response for test {}: {}",
-                            testIndex, parseResult.getInfrastructureFailureReason());
-                    infrastructureFailures++;
-                    fallbackCounters.add(runAssertionFallback(test, assertionEligible,
-                            FallbackTrigger.INFRASTRUCTURE_FAILURE, options));
-                    continue;
-                }
-                diagnosticCounters.add(parseResult);
-                LlmPostProcessingResponse response = parseResult.getResponse();
-                recordAssertionDiagnostics(parseResult.getDiagnostics(), response, parseResult.getRawAssertions(),
-                        testIndex, effectiveMinimizationResult, "initial", "parse");
-                PostProcessingCounts proposedCounts = parseResult.getProposedCounts();
-                testNamesProposed += proposedCounts.getTestNames();
-                variableNamesProposed += proposedCounts.getVariableNames();
-                commentsProposed += proposedCounts.getComments();
-                sectionBreaksProposed += proposedCounts.getSectionBreaks();
-                assertionsProposed += proposedCounts.getAssertions();
-                if (assertionsEnabledForTest) {
-                    LlmPostProcessingResponse parsedResponse = response;
-                    List<LlmPostProcessingParseResult.Diagnostic> initialValidationDiagnostics =
-                            java.util.Collections.emptyList();
-                    if (resourceGuard.isLowMemory()) {
-                        response = withoutAssertions(response);
-                        stopReason = "low_memory";
-                    } else if (!response.getAssertions().isEmpty()) {
-                        AssertionValidationResult validationResult = validateAssertionsAgainstScopes(response,
-                                validationTest, contextExecutionResult,
-                                prePromptStabilityTest, prePromptStabilityResult);
-                        recordAssertionDiagnostics(validationResult.diagnostics, response, parseResult.getRawAssertions(),
-                                testIndex, effectiveMinimizationResult, "initial", "validation");
-                        response = validationResult.response;
-                        initialValidationDiagnostics = validationResult.diagnostics;
-                        diagnosticCounters.add(validationResult.diagnostics);
-                    }
-                    if (!"low_memory".equals(stopReason) && resourceGuard.isLowMemory()) {
-                        stopReason = "low_memory";
-                    }
-                    if (!"low_memory".equals(stopReason) && isPhaseTimedOut(phaseStartMillis)) {
-                        stopReason = "timeout";
-                    }
-                    if (!"low_memory".equals(stopReason) && !"timeout".equals(stopReason)) {
-                        assertionsAcceptedInitial += response.getAssertions().size();
-                        AssertionRepairResult repairResult = repairRejectedAssertionsIfPossible(rawResponse, parseResult,
-                                parsedResponse, response, initialValidationDiagnostics, context, validationTest,
-                                contextExecutionResult, limits,
-                                requestedCalls, testIndex, effectiveMinimizationResult, phaseStartMillis,
-                                options);
-                        recordAssertionDiagnostics(repairResult.diagnostics, repairResult.response,
-                                repairResult.rawAssertions,
-                                testIndex, effectiveMinimizationResult, "repair", "validation");
-                        response = repairResult.response;
-                        requestedCalls += repairResult.calls;
-                        repairCalls += repairResult.calls;
-                        repairCallsSkippedBudget += repairResult.callsSkippedBudget;
-                        repairSkippedForBudget = repairResult.callsSkippedBudget > 0;
-                        assertionsRepairRequested += repairResult.assertionsRequested;
-                        assertionsProposedAfterRepair += repairResult.assertionsProposed;
-                        assertionsAcceptedAfterRepair += repairResult.assertionsAccepted;
-                        diagnosticCounters.add(repairResult.diagnostics);
-                    } else {
-                        assertionsAcceptedInitial += response.getAssertions().size();
-                    }
-                } else if (!assertionsEnabledForTest && !response.getAssertions().isEmpty()) {
-                    response = withoutAssertions(response);
-                }
-                recordAssertionLifecycle(response.getAssertions(), testIndex,
-                        effectiveMinimizationResult, "accepted_final", "final");
-                LlmPostProcessingEditApplier.ApplyResult applied = LlmPostProcessingEditApplier.apply(
-                        test, context.getReferences(), response, assertionEligible, contextExecutionResult,
-                        options);
-                testNamesApplied += applied.getTestNamesApplied();
-                variableNamesApplied += applied.getVariableNamesApplied();
-                commentsApplied += applied.getCommentsApplied();
-                sectionBreaksApplied += applied.getSectionBreaksApplied();
-                assertionsApplied += applied.getAssertionsApplied();
-                recordAppliedAssertionLifecycle(response, applied.getAppliedAssertions(), testIndex,
-                        effectiveMinimizationResult);
-                if ("low_memory".equals(stopReason) || resourceGuard.isLowMemory()) {
-                    stopReason = "low_memory";
-                    acceptedTests++;
-                    partiallyProcessedTests++;
-                    capSkippedTests += remainingItems(workItems, workIndex + 1);
-                    break;
-                }
-                if (applied.getAssertionsApplied() == 0) {
-                    fallbackCounters.add(runAssertionFallback(test, assertionEligible,
-                            FallbackTrigger.NO_ACCEPTED_ASSERTIONS, options));
-                }
-                acceptedTests++;
-                if (repairSkippedForBudget) {
-                    partiallyProcessedTests++;
-                } else {
-                    processedTests++;
-                }
-                if ("timeout".equals(stopReason)) {
-                    capSkippedTests += remainingItems(workItems, workIndex + 1);
-                    break;
-                }
-                if (!parseResult.getDiagnostics().isEmpty()) {
-                    logger.debug("Unified LLM post-processing accepted test {} with {} diagnostic(s)",
-                            testIndex, parseResult.getDiagnostics().size());
-                }
-            } catch (LlmBudgetExceededException e) {
-                logger.info("Unified LLM post-processing stopped: {}", e.getMessage());
-                stopReason = "budget_exhausted";
-                capSkippedTests += remainingItems(workItems, workIndex + 1);
-                break;
-            } catch (RuntimeException | AssertionError e) {
-                logger.warn("Unified LLM post-processing skipped test {} after per-test failure: {}",
-                        testIndex, e.getMessage());
-                infrastructureFailures++;
-                fallbackCounters.add(runAssertionFallback(test, assertionEligible,
-                        FallbackTrigger.INFRASTRUCTURE_FAILURE, options));
-            }
-        }
-
-        logger.info("Unified LLM post-processing requested {} test(s), accepted {} response(s): testNames={}, "
-                        + "variableNames={}, comments={}, sectionBreaks={}, assertions={}",
-                requestedTests, acceptedTests, testNamesApplied, variableNamesApplied,
-                commentsApplied, sectionBreaksApplied, assertionsApplied);
-        PostProcessingMetrics metrics = new PostProcessingMetrics(stopReason);
-        metrics.requestedTests = requestedTests;
-        metrics.requestedStatements = requestedStatements;
-        metrics.initialCalls = initialCalls;
-        metrics.repairCalls = repairCalls;
-        metrics.repairCallsSkippedBudget = repairCallsSkippedBudget;
-        metrics.acceptedResponses = acceptedTests;
-        metrics.skippedTests = skippedTests;
-        metrics.capSkippedTests = capSkippedTests;
-        metrics.infrastructureFailures = infrastructureFailures;
-        metrics.diagnosticCounters = diagnosticCounters;
-        metrics.fallbackCounters = fallbackCounters;
-        metrics.processedTests = processedTests;
-        metrics.partiallyProcessedTests = partiallyProcessedTests;
-        metrics.testNamesProposed = testNamesProposed;
-        metrics.testNamesApplied = testNamesApplied;
-        metrics.variableNamesProposed = variableNamesProposed;
-        metrics.variableNamesApplied = variableNamesApplied;
-        metrics.commentsProposed = commentsProposed;
-        metrics.commentsApplied = commentsApplied;
-        metrics.sectionBreaksProposed = sectionBreaksProposed;
-        metrics.sectionBreaksApplied = sectionBreaksApplied;
-        metrics.assertionsProposed = assertionsProposed;
-        metrics.assertionsAcceptedInitial = assertionsAcceptedInitial;
-        metrics.assertionsRepairRequested = assertionsRepairRequested;
-        metrics.assertionsProposedAfterRepair = assertionsProposedAfterRepair;
-        metrics.assertionsAcceptedAfterRepair = assertionsAcceptedAfterRepair;
-        metrics.assertionsApplied = assertionsApplied;
-        publishMetrics(metrics);
+        LlmPostProcessingPhase.Result phaseResult = new LlmPostProcessingPhase(this).run(
+                suite, effectiveMinimizationResult, options);
+        publishMetrics(phaseResult.metrics);
         // Keep only the deprecated static bridge usable for legacy callers;
         // production reconciliation receives this.session explicitly.
         LEGACY_SESSION.clear();
         LEGACY_SESSION.appliedAssertions.addAll(session.appliedAssertions);
         LEGACY_SESSION.compileRemovedAssertions.putAll(session.compileRemovedAssertions);
-        return assertionsApplied;
+        return phaseResult.assertionsApplied;
     }
 
-    private boolean isPhaseTimedOut(long phaseStartMillis) {
+    boolean isPhaseTimedOut(long phaseStartMillis) {
         int timeoutSeconds = options.phaseBudget().timeoutSeconds();
         if (timeoutSeconds <= 0) {
             return false;
@@ -548,15 +265,209 @@ public class LlmPostProcessor {
         return elapsedMillis >= timeoutSeconds * 1000L;
     }
 
-    private boolean canStartAnotherLlmCall(long phaseStartMillis) {
+    boolean canStartAnotherLlmCall(long phaseStartMillis) {
         int timeoutSeconds = options.phaseBudget().timeoutSeconds();
         if (timeoutSeconds <= 0) {
             return true;
         }
         long elapsedMillis = phaseClock.currentTimeMillis() - phaseStartMillis;
         long remainingMillis = timeoutSeconds * 1000L - elapsedMillis;
-        long callWindowMillis = Math.max(1000L, Properties.LLM_TIMEOUT_SECONDS * 1000L);
+        long callWindowMillis = Math.max(1000L, options.callTimeoutSeconds() * 1000L);
         return remainingMillis > callWindowMillis;
+    }
+
+    long phaseStartMillis() {
+        return phaseClock.currentTimeMillis();
+    }
+
+    boolean isLowMemory() {
+        return resourceGuard.isLowMemory();
+    }
+
+    boolean hasLlmBudget() {
+        return llmService != null && llmService.hasBudget();
+    }
+
+    /**
+     * Process one already-scheduled work item and return all changes made by
+     * that item.  Keeping the per-test state together prevents the suite loop
+     * from inferring outcome from partially-updated aggregate counters.
+     */
+    TestProcessingResult processTest(WorkItem workItem,
+                                     MinimizationResult minimizationResult,
+                                     ProcessingLimits limits,
+                                     int requestedCallsBeforeTest,
+                                     long phaseStartMillis,
+                                     boolean assertionEligible) {
+        TestProcessingResult result = new TestProcessingResult();
+        int testIndex = workItem.originalIndex;
+        TestChromosome chromosome = workItem.chromosome;
+        TestCase test = chromosome.getTestCase();
+        try {
+            boolean repairSkippedForBudget = false;
+            boolean collectAssertionContext = options.features().assertions() && assertionEligible;
+            CompleteAssertionGenerator.CandidateCollection candidateCollection =
+                    collectAssertionContext ? assertionCandidateRunner.collectCandidates(test) : null;
+            detachCandidateAssertions(candidateCollection);
+            TestCase validationTest = candidateCollection == null ? test : candidateCollection.getTest();
+            ExecutionResult contextExecutionResult = candidateCollection == null
+                    ? chromosome.getLastExecutionResult()
+                    : candidateCollection.getExecutionResult();
+            PromptVariantCapabilities capabilities = PromptVariantCapabilities.forVariant(
+                    Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION);
+            TestCase prePromptStabilityTest = null;
+            ExecutionResult prePromptStabilityResult = null;
+            if ((capabilities.hasStabilityLabels()
+                    || capabilities.hasExceptionAdjacentPlacements()) && validationTest != null) {
+                prePromptStabilityTest = validationTest.clone();
+                prePromptStabilityTest.removeAssertions();
+                prePromptStabilityResult = stabilityExecutionRunner.execute(prePromptStabilityTest);
+            }
+            LlmPostProcessingPromptContext context = LlmPostProcessingPromptContext.from(
+                    validationTest,
+                    contextExecutionResult,
+                    prePromptStabilityResult,
+                    candidateCollection == null ? java.util.Collections.emptyList()
+                            : candidateCollection.getAssertions(), options);
+            assertionEligible = assertionEligible && hasAssertionOpportunity(context);
+            if (Properties.LlmPostProcessingScope.ASSERTION_ELIGIBLE_TESTS
+                    == options.phaseBudget().scope()
+                    && !assertionEligible) {
+                result.skippedTests = 1;
+                return result;
+            }
+            boolean assertionsEnabledForTest = options.features().assertions() && assertionEligible;
+            PromptResult prompt = LlmPostProcessingPromptBuilder.build(context, testIndex,
+                    assertionsEnabledForTest, options);
+            result.requestedTests = 1;
+            result.calls = 1;
+            result.initialCalls = 1;
+            result.requestedStatements = test.size();
+            String rawResponse = queryWithPostProcessingTraceContext(prompt, testIndex,
+                    minimizationResult, 1);
+            LlmPostProcessingParseResult parseResult = LlmPostProcessingResponseParser.parse(
+                    rawResponse, context.toParseContext());
+            if (parseResult.isInfrastructureFailure()) {
+                logger.warn("Unified LLM post-processing ignored response for test {}: {}",
+                        testIndex, parseResult.getInfrastructureFailureReason());
+                result.infrastructureFailures = 1;
+                result.fallbackCounters.add(runAssertionFallback(test, assertionEligible,
+                        FallbackTrigger.INFRASTRUCTURE_FAILURE, options));
+                return result;
+            }
+            result.diagnosticCounters.add(parseResult);
+            DecodedPostProcessingResponse decodedResponse = parseResult.getDecodedResponse();
+            LlmPostProcessingResponse response = decodedResponse == null
+                    ? parseResult.getResponse() : decodedResponse.getResponse();
+            recordAssertionDiagnostics(parseResult.getDiagnostics(), response, parseResult.getRawAssertions(),
+                    testIndex, minimizationResult, "initial", "parse");
+            PostProcessingCounts proposedCounts = parseResult.getProposedCounts();
+            result.testNamesProposed = proposedCounts.getTestNames();
+            result.variableNamesProposed = proposedCounts.getVariableNames();
+            result.commentsProposed = proposedCounts.getComments();
+            result.sectionBreaksProposed = proposedCounts.getSectionBreaks();
+            result.assertionsProposed = proposedCounts.getAssertions();
+            if (assertionsEnabledForTest) {
+                LlmPostProcessingResponse parsedResponse = response;
+                List<LlmPostProcessingParseResult.Diagnostic> initialValidationDiagnostics =
+                        java.util.Collections.emptyList();
+                LlmPostProcessingPhase.StopReason stopReason = LlmPostProcessingPhase.StopReason.NONE;
+                if (resourceGuard.isLowMemory()) {
+                    response = withoutAssertions(response);
+                    stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
+                } else if (!response.getAssertions().isEmpty()) {
+                    AssertionValidationResult validationResult = validateAssertionsAgainstScopes(response,
+                            validationTest, contextExecutionResult,
+                            prePromptStabilityTest, prePromptStabilityResult);
+                    recordAssertionDiagnostics(validationResult.plan.getDiagnostics(), response,
+                            parseResult.getRawAssertions(), testIndex, minimizationResult,
+                            "initial", "validation");
+                    response = validationResult.plan.getResponse();
+                    initialValidationDiagnostics = validationResult.plan.getDiagnostics();
+                    result.diagnosticCounters.add(validationResult.plan.getDiagnostics());
+                }
+                if (stopReason == LlmPostProcessingPhase.StopReason.NONE && resourceGuard.isLowMemory()) {
+                    stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
+                }
+                if (stopReason == LlmPostProcessingPhase.StopReason.NONE && isPhaseTimedOut(phaseStartMillis)) {
+                    stopReason = LlmPostProcessingPhase.StopReason.TIMEOUT;
+                }
+                if (stopReason == LlmPostProcessingPhase.StopReason.NONE) {
+                    result.assertionsAcceptedInitial = response.getAssertions().size();
+                    AssertionRepairResult repairResult = repairRejectedAssertionsIfPossible(parseResult,
+                            parsedResponse, response, initialValidationDiagnostics, context, validationTest,
+                            contextExecutionResult, limits,
+                            requestedCallsBeforeTest + result.calls, testIndex, minimizationResult,
+                            phaseStartMillis, options);
+                    recordAssertionDiagnostics(repairResult.diagnostics, repairResult.response,
+                            repairResult.rawAssertions,
+                            testIndex, minimizationResult, "repair", "validation");
+                    response = repairResult.response;
+                    result.calls += repairResult.calls;
+                    result.repairCalls = repairResult.calls;
+                    result.repairCallsSkippedBudget = repairResult.callsSkippedBudget;
+                    repairSkippedForBudget = repairResult.callsSkippedBudget > 0;
+                    result.assertionsRepairRequested = repairResult.assertionsRequested;
+                    result.assertionsProposedAfterRepair = repairResult.assertionsProposed;
+                    result.assertionsAcceptedAfterRepair = repairResult.assertionsAccepted;
+                    result.diagnosticCounters.add(repairResult.diagnostics);
+                } else {
+                    result.assertionsAcceptedInitial = response.getAssertions().size();
+                }
+                result.stopReason = stopReason;
+            } else if (!response.getAssertions().isEmpty()) {
+                response = withoutAssertions(response);
+            }
+            recordAssertionLifecycle(response.getAssertions(), testIndex,
+                    minimizationResult, "accepted_final", "final");
+            LlmPostProcessingEditApplier.ApplyResult applied = LlmPostProcessingEditApplier.apply(
+                    test, context.getReferences(), response, assertionEligible, contextExecutionResult,
+                    options);
+            result.testNamesApplied = applied.getTestNamesApplied();
+            result.variableNamesApplied = applied.getVariableNamesApplied();
+            result.commentsApplied = applied.getCommentsApplied();
+            result.sectionBreaksApplied = applied.getSectionBreaksApplied();
+            result.assertionsApplied = applied.getAssertionsApplied();
+            recordAppliedAssertionLifecycle(response, applied.getAppliedAssertions(), testIndex,
+                    minimizationResult);
+            if (result.stopReason == LlmPostProcessingPhase.StopReason.LOW_MEMORY
+                    || resourceGuard.isLowMemory()) {
+                result.stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
+                result.acceptedTests = 1;
+                result.partiallyProcessedTests = 1;
+                return result;
+            }
+            if (applied.getAssertionsApplied() == 0) {
+                result.fallbackCounters.add(runAssertionFallback(test, assertionEligible,
+                        FallbackTrigger.NO_ACCEPTED_ASSERTIONS, options));
+            }
+            result.acceptedTests = 1;
+            if (repairSkippedForBudget) {
+                result.partiallyProcessedTests = 1;
+            } else {
+                result.processedTests = 1;
+            }
+            if (result.stopReason == LlmPostProcessingPhase.StopReason.TIMEOUT) {
+                return result;
+            }
+            if (!parseResult.getDiagnostics().isEmpty()) {
+                logger.debug("Unified LLM post-processing accepted test {} with {} diagnostic(s)",
+                        testIndex, parseResult.getDiagnostics().size());
+            }
+            result.stopReason = LlmPostProcessingPhase.StopReason.NONE;
+            return result;
+        } catch (LlmBudgetExceededException e) {
+            logger.info("Unified LLM post-processing stopped: {}", e.getMessage());
+            result.stopReason = LlmPostProcessingPhase.StopReason.BUDGET_EXHAUSTED;
+            return result;
+        } catch (RuntimeException | AssertionError e) {
+            logger.warn("Unified LLM post-processing skipped test {} after per-test failure: {}",
+                    testIndex, e.getMessage());
+            result.infrastructureFailures = 1;
+            result.fallbackCounters.add(runAssertionFallback(test, assertionEligible,
+                    FallbackTrigger.INFRASTRUCTURE_FAILURE, options));
+            return result;
+        }
     }
 
     private String queryWithPostProcessingTraceContext(PromptResult prompt, int testIndex,
@@ -597,87 +508,25 @@ public class LlmPostProcessor {
         publishZeroMetrics(skipReason);
     }
 
+    /** Publish a skipped phase using this processor's explicit session. */
+    public void publishSkippedPostProcessingMetricsForPhase(String skipReason,
+                                                            MinimizationResult minimizationResult) {
+        publishMinimizationContext(minimizationResult == null
+                ? MinimizationResult.disabled(null)
+                : minimizationResult);
+        publishZeroMetrics(skipReason);
+    }
+
     private static void publishZeroMetrics(String skipReason) {
         publishMetrics(new PostProcessingMetrics(skipReason));
     }
 
     private static void publishMinimizationContext(MinimizationResult minimizationResult) {
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Status,
-                minimizationResult.getStatus().name());
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Minimization_Stop_Cause,
-                minimizationResult.getUnderlyingStopCause().name());
+        PostProcessingTelemetryPublisher.publishMinimizationContext(minimizationResult);
     }
 
     private static void publishMetrics(PostProcessingMetrics metrics) {
-        DiagnosticCounters diagnosticCounters = metrics.diagnosticCounters;
-        FallbackCounters fallbackCounters = metrics.fallbackCounters;
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Skip_Reason,
-                metrics.skipReason == null ? "" : metrics.skipReason);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Requested_Tests, metrics.requestedTests);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Requested_Statements, metrics.requestedStatements);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Initial_Calls, metrics.initialCalls);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Repair_Calls, metrics.repairCalls);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Repair_Calls_Skipped_Budget,
-                metrics.repairCallsSkippedBudget);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Accepted_Responses, metrics.acceptedResponses);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Skipped_Tests, metrics.skippedTests);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Cap_Skipped_Tests, metrics.capSkippedTests);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Infrastructure_Failures,
-                metrics.infrastructureFailures);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Edits, diagnosticCounters.total());
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Unknown_Ids,
-                diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.UNKNOWN_ID));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Duplicates,
-                diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.DUPLICATE));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Invalid_Fields,
-                diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.INVALID_FIELD));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Unsupported_Kinds,
-                diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.UNSUPPORTED_KIND));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Limit_Exceeded,
-                diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.LIMIT_EXCEEDED));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Compile,
-                diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.COMPILE));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Observed_Execution,
-                diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Rejected_Stability_Execution,
-                diagnosticCounters.get(LlmPostProcessingParseResult.DiagnosticCode.STABILITY_EXECUTION));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks, fallbackCounters.total);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Infrastructure,
-                fallbackCounters.infrastructure);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_No_Accepted,
-                fallbackCounters.noAccepted);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_All, fallbackCounters.all);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertion_Fallbacks_Mutation, fallbackCounters.mutation);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Fallback_Assertions_Applied,
-                fallbackCounters.assertionsApplied);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Processed_Tests, metrics.processedTests);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Partially_Processed_Tests,
-                metrics.partiallyProcessedTests);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Test_Names_Proposed, metrics.testNamesProposed);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Test_Names_Applied, metrics.testNamesApplied);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Variable_Names_Proposed,
-                metrics.variableNamesProposed);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Variable_Names_Applied,
-                metrics.variableNamesApplied);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Comments_Proposed, metrics.commentsProposed);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Comments_Applied, metrics.commentsApplied);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Proposed,
-                metrics.sectionBreaksProposed);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Section_Breaks_Applied,
-                metrics.sectionBreaksApplied);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed, metrics.assertionsProposed);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_Initial,
-                metrics.assertionsAcceptedInitial);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested,
-                metrics.assertionsRepairRequested);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair,
-                metrics.assertionsProposedAfterRepair);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair,
-                metrics.assertionsAcceptedAfterRepair);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Applied, metrics.assertionsApplied);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile, 0);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped, 0);
+        PostProcessingTelemetryPublisher.publish(metrics);
     }
 
     public static int countUnifiedTemplateAssertions(TestSuiteChromosome suite) {
@@ -699,12 +548,9 @@ public class LlmPostProcessor {
         FinalAssertionReconciliation reconciliation = finalAssertionReconciliation(suite,
                 initiallyAppliedAssertions);
         int removedCompile = compileRemovedAssertionCount();
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable,
-                Math.max(0, reconciliation.getRemovedUnstable() - removedCompile));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile,
-                removedCompile);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped,
-                reconciliation.getShipped());
+        PostProcessingTelemetryPublisher.publishAssertionReconciliation(
+                Math.max(0, reconciliation.getRemovedUnstable() - removedCompile),
+                removedCompile, reconciliation.getShipped());
         publishFinalAssertionLifecycle(LEGACY_SESSION, suite);
     }
 
@@ -714,11 +560,9 @@ public class LlmPostProcessor {
         FinalAssertionReconciliation reconciliation = finalAssertionReconciliation(suite,
                 initiallyAppliedAssertions);
         int removedCompile = compileRemovedAssertionCount(session);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable,
-                Math.max(0, reconciliation.getRemovedUnstable() - removedCompile));
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile, removedCompile);
-        ClientServices.track(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped,
-                reconciliation.getShipped());
+        PostProcessingTelemetryPublisher.publishAssertionReconciliation(
+                Math.max(0, reconciliation.getRemovedUnstable() - removedCompile),
+                removedCompile, reconciliation.getShipped());
         publishFinalAssertionLifecycle(session, suite);
     }
 
@@ -919,14 +763,14 @@ public class LlmPostProcessor {
         return count;
     }
 
-    private static int remainingItems(List<WorkItem> workItems, int startIndex) {
+    static int remainingItems(List<WorkItem> workItems, int startIndex) {
         if (workItems == null || startIndex >= workItems.size()) {
             return 0;
         }
         return Math.max(0, workItems.size() - Math.max(0, startIndex));
     }
 
-    private boolean isAssertionEligibleForVersion1(TestChromosome chromosome) {
+    boolean isAssertionEligibleForVersion1(TestChromosome chromosome) {
         if (chromosome == null || chromosome.getTestCase() == null || chromosome.getTestCase().size() == 0) {
             return false;
         }
@@ -1377,7 +1221,6 @@ public class LlmPostProcessor {
     }
 
     private AssertionRepairResult repairRejectedAssertionsIfPossible(
-            String rawResponse,
             LlmPostProcessingParseResult parseResult,
             LlmPostProcessingResponse parsedResponse,
             LlmPostProcessingResponse acceptedResponse,
@@ -1404,7 +1247,7 @@ public class LlmPostProcessor {
 
         List<LlmAssertionRepairer.RejectedAssertion> rejected =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                        rawResponse, parseResult, parsedResponse, acceptedResponse, validationDiagnostics);
+                        parseResult, parsedResponse, acceptedResponse, validationDiagnostics);
         if (rejected.isEmpty()) {
             return AssertionRepairResult.noCall(acceptedResponse);
         }
@@ -1448,9 +1291,9 @@ public class LlmPostProcessor {
                     executionResult);
             List<LlmPostProcessingParseResult.Diagnostic> repairDiagnostics = new ArrayList<>();
             repairDiagnostics.addAll(repairParseResult.getDiagnostics());
-            repairDiagnostics.addAll(validationResult.diagnostics);
+            repairDiagnostics.addAll(validationResult.plan.getDiagnostics());
             LlmPostProcessingResponse mergedResponse = mergeAcceptedAndRepairedAssertions(acceptedResponse,
-                    validationResult.response, options.assertionPolicy().maxAssertions());
+                    validationResult.plan.getResponse(), options.assertionPolicy().maxAssertions());
             int repairedAccepted = Math.max(0,
                     mergedResponse.getAssertions().size() - acceptedResponse.getAssertions().size());
             return AssertionRepairResult.called(mergedResponse, rejected.size(),
@@ -1709,39 +1552,71 @@ public class LlmPostProcessor {
         }
     }
 
-    private static final class PostProcessingMetrics {
-        private final String skipReason;
-        private int requestedTests;
-        private int requestedStatements;
-        private int initialCalls;
-        private int repairCalls;
-        private int repairCallsSkippedBudget;
-        private int acceptedResponses;
-        private int skippedTests;
-        private int capSkippedTests;
-        private int infrastructureFailures;
-        private DiagnosticCounters diagnosticCounters = new DiagnosticCounters();
-        private FallbackCounters fallbackCounters = new FallbackCounters();
-        private int processedTests;
-        private int partiallyProcessedTests;
-        private int testNamesProposed;
-        private int testNamesApplied;
-        private int variableNamesProposed;
-        private int variableNamesApplied;
-        private int commentsProposed;
-        private int commentsApplied;
-        private int sectionBreaksProposed;
-        private int sectionBreaksApplied;
-        private int assertionsProposed;
-        private int assertionsAcceptedInitial;
-        private int assertionsRepairRequested;
-        private int assertionsProposedAfterRepair;
-        private int assertionsAcceptedAfterRepair;
-        private int assertionsApplied;
+    static final class PostProcessingMetrics {
+        final String skipReason;
+        int requestedTests;
+        int requestedStatements;
+        int initialCalls;
+        int repairCalls;
+        int repairCallsSkippedBudget;
+        int acceptedResponses;
+        int skippedTests;
+        int capSkippedTests;
+        int infrastructureFailures;
+        DiagnosticCounters diagnosticCounters = new DiagnosticCounters();
+        FallbackCounters fallbackCounters = new FallbackCounters();
+        int processedTests;
+        int partiallyProcessedTests;
+        int testNamesProposed;
+        int testNamesApplied;
+        int variableNamesProposed;
+        int variableNamesApplied;
+        int commentsProposed;
+        int commentsApplied;
+        int sectionBreaksProposed;
+        int sectionBreaksApplied;
+        int assertionsProposed;
+        int assertionsAcceptedInitial;
+        int assertionsRepairRequested;
+        int assertionsProposedAfterRepair;
+        int assertionsAcceptedAfterRepair;
+        int assertionsApplied;
 
-        private PostProcessingMetrics(String skipReason) {
+        PostProcessingMetrics(String skipReason) {
             this.skipReason = skipReason;
         }
+    }
+
+    /** Per-test delta consumed by the suite-level aggregator. */
+    static final class TestProcessingResult {
+        int requestedTests;
+        int calls;
+        int requestedStatements;
+        int initialCalls;
+        int repairCalls;
+        int repairCallsSkippedBudget;
+        int acceptedTests;
+        int skippedTests;
+        int infrastructureFailures;
+        final DiagnosticCounters diagnosticCounters = new DiagnosticCounters();
+        final FallbackCounters fallbackCounters = new FallbackCounters();
+        int processedTests;
+        int partiallyProcessedTests;
+        int testNamesProposed;
+        int testNamesApplied;
+        int variableNamesProposed;
+        int variableNamesApplied;
+        int commentsProposed;
+        int commentsApplied;
+        int sectionBreaksProposed;
+        int sectionBreaksApplied;
+        int assertionsProposed;
+        int assertionsAcceptedInitial;
+        int assertionsRepairRequested;
+        int assertionsProposedAfterRepair;
+        int assertionsAcceptedAfterRepair;
+        int assertionsApplied;
+        LlmPostProcessingPhase.StopReason stopReason = LlmPostProcessingPhase.StopReason.NONE;
     }
 
     private enum FallbackTrigger {
@@ -1749,9 +1624,9 @@ public class LlmPostProcessor {
         NO_ACCEPTED_ASSERTIONS
     }
 
-    private static final class WorkItem {
-        private final int originalIndex;
-        private final TestChromosome chromosome;
+    static final class WorkItem {
+        final int originalIndex;
+        final TestChromosome chromosome;
         private final int uniquelyCoveredGoals;
         private final int totalCoveredGoals;
         private final int statementCount;
@@ -1774,7 +1649,7 @@ public class LlmPostProcessor {
                     : chromosome.getTestCase().size();
         }
 
-        private static List<WorkItem> from(List<TestChromosome> tests, boolean limitedOrdering) {
+        static List<WorkItem> from(List<TestChromosome> tests, boolean limitedOrdering) {
             List<WorkItem> items = new ArrayList<>();
             if (tests == null) {
                 return items;
@@ -1813,18 +1688,18 @@ public class LlmPostProcessor {
         }
     }
 
-    private static final class DiagnosticCounters {
+    static final class DiagnosticCounters {
         private final Map<LlmPostProcessingParseResult.DiagnosticCode, Integer> byCode =
                 new EnumMap<>(LlmPostProcessingParseResult.DiagnosticCode.class);
-        private int total;
+        int total;
 
-        private void add(LlmPostProcessingParseResult parseResult) {
+        void add(LlmPostProcessingParseResult parseResult) {
             for (LlmPostProcessingParseResult.Diagnostic diagnostic : parseResult.getDiagnostics()) {
                 add(diagnostic);
             }
         }
 
-        private void add(List<LlmPostProcessingParseResult.Diagnostic> diagnostics) {
+        void add(List<LlmPostProcessingParseResult.Diagnostic> diagnostics) {
             if (diagnostics == null) {
                 return;
             }
@@ -1833,7 +1708,7 @@ public class LlmPostProcessor {
             }
         }
 
-        private void add(LlmPostProcessingParseResult.Diagnostic diagnostic) {
+        void add(LlmPostProcessingParseResult.Diagnostic diagnostic) {
             if (diagnostic == null) {
                 return;
             }
@@ -1842,23 +1717,34 @@ public class LlmPostProcessor {
             byCode.put(code, get(code) + 1);
         }
 
-        private int total() {
+        void add(DiagnosticCounters other) {
+            if (other == null) {
+                return;
+            }
+            total += other.total;
+            for (Map.Entry<LlmPostProcessingParseResult.DiagnosticCode, Integer> entry
+                    : other.byCode.entrySet()) {
+                byCode.put(entry.getKey(), get(entry.getKey()) + entry.getValue());
+            }
+        }
+
+        int total() {
             return total;
         }
 
-        private int get(LlmPostProcessingParseResult.DiagnosticCode code) {
+        int get(LlmPostProcessingParseResult.DiagnosticCode code) {
             Integer count = byCode.get(code);
             return count == null ? 0 : count;
         }
     }
 
-    private static final class FallbackCounters {
-        private int total;
-        private int infrastructure;
-        private int noAccepted;
-        private int all;
-        private int mutation;
-        private int assertionsApplied;
+    static final class FallbackCounters {
+        int total;
+        int infrastructure;
+        int noAccepted;
+        int all;
+        int mutation;
+        int assertionsApplied;
 
         private static FallbackCounters none() {
             return new FallbackCounters();
@@ -1882,7 +1768,7 @@ public class LlmPostProcessor {
             return counters;
         }
 
-        private void add(FallbackCounters other) {
+        void add(FallbackCounters other) {
             total += other.total;
             infrastructure += other.infrastructure;
             noAccepted += other.noAccepted;
@@ -1892,14 +1778,14 @@ public class LlmPostProcessor {
         }
     }
 
-    private static final class ProcessingLimits {
+    static final class ProcessingLimits {
         private static final int DEFAULT_LIMITED_MAX_TESTS = 20;
         private static final int DEFAULT_LIMITED_MAX_TOTAL_STATEMENTS = 400;
         private static final int DEFAULT_LIMITED_MAX_CALLS = 40;
 
-        private final int maxTests;
-        private final int maxTotalStatements;
-        private final int maxCalls;
+        final int maxTests;
+        final int maxTotalStatements;
+        final int maxCalls;
 
         private ProcessingLimits(int maxTests, int maxTotalStatements, int maxCalls) {
             this.maxTests = maxTests;
@@ -1907,8 +1793,8 @@ public class LlmPostProcessor {
             this.maxCalls = maxCalls;
         }
 
-        private static ProcessingLimits from(PostProcessingOptions.PhaseBudget budget,
-                                             boolean minimizationIncomplete) {
+        static ProcessingLimits from(PostProcessingOptions.PhaseBudget budget,
+                                     boolean minimizationIncomplete) {
             int maxTests = budget.maxTests();
             int maxTotalStatements = budget.maxTotalStatements();
             int maxCalls = budget.maxCalls();
@@ -1989,6 +1875,7 @@ public class LlmPostProcessor {
     }
 
     private static final class AssertionValidationResult {
+        private final ValidatedEditPlan plan;
         private final LlmPostProcessingResponse response;
         private final List<LlmPostProcessingParseResult.Diagnostic> diagnostics;
 
@@ -1998,6 +1885,7 @@ public class LlmPostProcessor {
             this.diagnostics = diagnostics == null
                     ? java.util.Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList()
                     : diagnostics;
+            this.plan = ValidatedEditPlan.create(this.response, this.diagnostics);
         }
 
         private static AssertionValidationResult success(LlmPostProcessingResponse response) {

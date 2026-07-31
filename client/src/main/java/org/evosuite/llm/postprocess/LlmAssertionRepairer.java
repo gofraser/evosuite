@@ -50,6 +50,16 @@ final class LlmAssertionRepairer {
             LlmPostProcessingResponse parsedResponse,
             LlmPostProcessingResponse acceptedResponse,
             List<LlmPostProcessingParseResult.Diagnostic> validationDiagnostics) {
+        return collectRepairableRejectedAssertions(parseResult, parsedResponse, acceptedResponse,
+                validationDiagnostics);
+    }
+
+    /** Structured-input entry point used by the production repair workflow. */
+    static List<RejectedAssertion> collectRepairableRejectedAssertions(
+            LlmPostProcessingParseResult parseResult,
+            LlmPostProcessingResponse parsedResponse,
+            LlmPostProcessingResponse acceptedResponse,
+            List<LlmPostProcessingParseResult.Diagnostic> validationDiagnostics) {
         Map<String, RejectedAssertion> byId = rawAssertionEntries(parseResult);
         if (byId.isEmpty()) {
             return Collections.emptyList();
@@ -297,29 +307,10 @@ final class LlmAssertionRepairer {
     }
 
     private static boolean isRepairableDiagnostic(LlmPostProcessingParseResult.Diagnostic diagnostic) {
-        if (diagnostic == null) {
+        if (diagnostic == null
+                || diagnostic.getRepairability()
+                != LlmPostProcessingParseResult.Repairability.REPAIRABLE) {
             return false;
-        }
-        if (diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.UNKNOWN_ID
-                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.DUPLICATE
-                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.LIMIT_EXCEEDED
-                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.STABILITY_EXECUTION) {
-            return false;
-        }
-        String message = diagnostic.getMessage() == null ? "" : diagnostic.getMessage().toLowerCase();
-        if (message.contains("not listed") || message.contains("not allowlisted")
-                || message.contains("not callable") || message.contains("purity")
-                || message.contains("unknown variable") || message.contains("unknown candidate")
-                || message.contains("could not be bound") || message.contains("outside the test")
-                || message.contains("has no variable") || message.contains("final scope")) {
-            return false;
-        }
-        if (diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.COMPILE) {
-            if (message.contains("defined in an inaccessible class or interface")
-                    || message.contains("cannot be accessed from outside package")
-                    || (message.contains("type class") && message.contains("does not take parameters"))) {
-                return false;
-            }
         }
         return diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.INVALID_FIELD
                 || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.UNSUPPORTED_KIND

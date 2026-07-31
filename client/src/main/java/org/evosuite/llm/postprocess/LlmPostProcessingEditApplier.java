@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.function.IntSupplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -84,23 +85,14 @@ public final class LlmPostProcessingEditApplier {
         List<TemplateCodeAssertion> appliedAssertions = new ArrayList<>();
 
         if (features.testNames() && response.getTestName() != null) {
-            TestPresentationMetadata snapshot = metadata.copy();
-            try {
+            testNames = applyPresentationCategory(metadata, test, executionResult, () -> {
                 metadata.setTestName(response.getTestName());
-                testNames = 1;
-                if (!canRender(test, executionResult)) {
-                    metadata.replaceWith(snapshot);
-                    testNames = 0;
-                }
-            } catch (RuntimeException | AssertionError e) {
-                metadata.replaceWith(snapshot);
-                testNames = 0;
-            }
+                return 1;
+            });
         }
 
         if (features.variableNames()) {
-            TestPresentationMetadata snapshot = metadata.copy();
-            try {
+            variableNames = applyPresentationCategory(metadata, test, executionResult, () -> {
                 Map<Integer, String> proposalsByPosition = new TreeMap<>();
                 for (Map.Entry<String, String> entry : response.getVariableNames().entrySet()) {
                     if (!references.hasVariableId(entry.getKey())) {
@@ -115,21 +107,14 @@ public final class LlmPostProcessingEditApplier {
                 }
                 for (Map.Entry<Integer, String> entry : proposalsByPosition.entrySet()) {
                     metadata.putVariableName(entry.getKey(), uniqueName(entry.getValue(), usedNames));
-                    variableNames++;
                 }
-                if (!canRender(test, executionResult)) {
-                    metadata.replaceWith(snapshot);
-                    variableNames = 0;
-                }
-            } catch (RuntimeException | AssertionError e) {
-                metadata.replaceWith(snapshot);
-                variableNames = 0;
-            }
+                return proposalsByPosition.size();
+            });
         }
 
         if (features.comments()) {
-            TestPresentationMetadata snapshot = metadata.copy();
-            try {
+            comments = applyPresentationCategory(metadata, test, executionResult, () -> {
+                int applied = 0;
                 for (LlmPostProcessingResponse.CommentProposal comment : response.getComments()) {
                     if (!references.hasStatementId(comment.getAfterStatementId())) {
                         continue;
@@ -139,21 +124,15 @@ public final class LlmPostProcessingEditApplier {
                         continue;
                     }
                     metadata.addCommentAfter(position, comment.getText());
-                    comments++;
+                    applied++;
                 }
-                if (!canRender(test, executionResult)) {
-                    metadata.replaceWith(snapshot);
-                    comments = 0;
-                }
-            } catch (RuntimeException | AssertionError e) {
-                metadata.replaceWith(snapshot);
-                comments = 0;
-            }
+                return applied;
+            });
         }
 
         if (features.sectionBreaks()) {
-            TestPresentationMetadata snapshot = metadata.copy();
-            try {
+            sectionBreaks = applyPresentationCategory(metadata, test, executionResult, () -> {
+                int applied = 0;
                 for (String statementId : response.getSectionBreaksAfter()) {
                     if (!references.hasStatementId(statementId)) {
                         continue;
@@ -163,16 +142,10 @@ public final class LlmPostProcessingEditApplier {
                         continue;
                     }
                     metadata.addSectionBreakAfter(position);
-                    sectionBreaks++;
+                    applied++;
                 }
-                if (!canRender(test, executionResult)) {
-                    metadata.replaceWith(snapshot);
-                    sectionBreaks = 0;
-                }
-            } catch (RuntimeException | AssertionError e) {
-                metadata.replaceWith(snapshot);
-                sectionBreaks = 0;
-            }
+                return applied;
+            });
         }
 
         if (assertionsAllowed && features.assertions() && test.size() > 0) {
@@ -293,6 +266,29 @@ public final class LlmPostProcessingEditApplier {
             return true;
         } catch (RuntimeException | AssertionError e) {
             return false;
+        }
+    }
+
+    /**
+     * Apply one presentation category as an independent transaction.  A
+     * failed category restores only its own snapshot, so other accepted
+     * presentation categories remain committed.
+     */
+    private static int applyPresentationCategory(TestPresentationMetadata metadata,
+                                                 TestCase test,
+                                                 ExecutionResult executionResult,
+                                                 IntSupplier mutation) {
+        TestPresentationMetadata snapshot = metadata.copy();
+        try {
+            int applied = mutation.getAsInt();
+            if (!canRender(test, executionResult)) {
+                metadata.replaceWith(snapshot);
+                return 0;
+            }
+            return applied;
+        } catch (RuntimeException | AssertionError e) {
+            metadata.replaceWith(snapshot);
+            return 0;
         }
     }
 

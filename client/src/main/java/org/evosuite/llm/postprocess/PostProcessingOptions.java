@@ -28,16 +28,24 @@ public final class PostProcessingOptions {
     private final PhaseBudget phaseBudget;
     private final RepairFallbackPolicy repairFallbackPolicy;
     private final String targetClass;
+    private final boolean enabled;
+    private final Properties.LlmProvider provider;
+    private final int callTimeoutSeconds;
 
     private PostProcessingOptions(Features features, ContextLimits contextLimits,
                                   AssertionPolicy assertionPolicy, PhaseBudget phaseBudget,
-                                  RepairFallbackPolicy repairFallbackPolicy, String targetClass) {
+                                  RepairFallbackPolicy repairFallbackPolicy, String targetClass,
+                                  boolean enabled, Properties.LlmProvider provider,
+                                  int callTimeoutSeconds) {
         this.features = features;
         this.contextLimits = contextLimits;
         this.assertionPolicy = assertionPolicy;
         this.phaseBudget = phaseBudget;
         this.repairFallbackPolicy = repairFallbackPolicy;
         this.targetClass = targetClass == null ? "" : targetClass;
+        this.enabled = enabled;
+        this.provider = provider == null ? Properties.LlmProvider.NONE : provider;
+        this.callTimeoutSeconds = nonNegative(callTimeoutSeconds);
     }
 
     public static PostProcessingOptions fromProperties() {
@@ -86,7 +94,10 @@ public final class PostProcessingOptions {
                         Properties.LLM_POSTPROCESSING_REPAIR_POLICY,
                         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK,
                         Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK_STRATEGY),
-                Properties.TARGET_CLASS);
+                Properties.TARGET_CLASS,
+                Properties.LLM_POSTPROCESSING_ENABLED,
+                Properties.LLM_PROVIDER,
+                Properties.LLM_TIMEOUT_SECONDS);
     }
 
     public static Builder builder() {
@@ -108,6 +119,9 @@ public final class PostProcessingOptions {
     public PhaseBudget phaseBudget() { return phaseBudget; }
     public RepairFallbackPolicy repairFallbackPolicy() { return repairFallbackPolicy; }
     public String targetClass() { return targetClass; }
+    public boolean enabled() { return enabled; }
+    public Properties.LlmProvider provider() { return provider; }
+    public int callTimeoutSeconds() { return callTimeoutSeconds; }
 
     public static final class Features {
         private final boolean assertions;
@@ -307,13 +321,15 @@ public final class PostProcessingOptions {
 
         public Builder features(Features features) {
             value = new PostProcessingOptions(features, value.contextLimits, value.assertionPolicy,
-                    value.phaseBudget, value.repairFallbackPolicy, value.targetClass);
+                    value.phaseBudget, value.repairFallbackPolicy, value.targetClass,
+                    value.enabled, value.provider, value.callTimeoutSeconds);
             return this;
         }
 
         public Builder targetClass(String targetClass) {
             value = new PostProcessingOptions(value.features, value.contextLimits, value.assertionPolicy,
-                    value.phaseBudget, value.repairFallbackPolicy, targetClass);
+                    value.phaseBudget, value.repairFallbackPolicy, targetClass,
+                    value.enabled, value.provider, value.callTimeoutSeconds);
             return this;
         }
 

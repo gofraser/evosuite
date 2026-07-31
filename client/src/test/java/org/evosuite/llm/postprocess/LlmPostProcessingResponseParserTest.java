@@ -177,6 +177,36 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
+    void parse_exposesImmutableDecodedResponseBoundary() {
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":2,\"testName\":\"readable\","
+                        + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
+                        + "\"actual\":\"v0 > 0\"}]}", context());
+
+        DecodedPostProcessingResponse decoded = result.getDecodedResponse();
+        assertNotNull(decoded);
+        assertSame(result.getResponse(), decoded.getResponse());
+        assertEquals(1, decoded.getProposedCounts().getAssertions());
+        assertEquals(1, decoded.getRawAssertions().size());
+        assertEquals("a0", decoded.getRawAssertions().get(0).getAssertionId());
+    }
+
+    @Test
+    void diagnosticsCarryTypedRepairability() {
+        LlmPostProcessingParseResult.Diagnostic repairable =
+                new LlmPostProcessingParseResult.Diagnostic(
+                        DiagnosticCode.INVALID_FIELD, "assertions[a0].actual", "bad expression");
+        LlmPostProcessingParseResult.Diagnostic policyRejected =
+                new LlmPostProcessingParseResult.Diagnostic(
+                        DiagnosticCode.INVALID_FIELD, "assertions[a0].actual", "unknown variable v9");
+
+        assertEquals(LlmPostProcessingParseResult.Repairability.REPAIRABLE,
+                repairable.getRepairability());
+        assertEquals(LlmPostProcessingParseResult.Repairability.NON_REPAIRABLE,
+                policyRejected.getRepairability());
+    }
+
+    @Test
     void parse_normalizesProposedVariableNamesInAssertionExpressions() {
         String json = "{"
                 + "\"schemaVersion\":1,"
