@@ -32,7 +32,6 @@ import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
-import com.github.javaparser.ast.expr.UnaryExpr;
 import org.evosuite.assertion.CanonicalAssertionRenderer;
 import org.evosuite.assertion.TemplateAssertionKind;
 
@@ -480,6 +479,7 @@ public final class LlmPostProcessingResponseParser {
         private final PostProcessingOptions options;
         private final PostProcessingExpressionTypeResolver expressionTypes;
         private final PostProcessingCallablePolicy callablePolicy;
+        private final PostProcessingOperandPolicy operandPolicy;
         private final java.util.List<Diagnostic> diagnostics = new java.util.ArrayList<>();
         private int currentAssertionIndex = -1;
         private String currentAssertionId;
@@ -490,6 +490,7 @@ public final class LlmPostProcessingResponseParser {
             this.options = context.options() == null ? PostProcessingOptions.fromProperties() : context.options();
             this.expressionTypes = new PostProcessingExpressionTypeResolver(context, this::resolveMethodCallType);
             this.callablePolicy = new PostProcessingCallablePolicy(context, options, expressionTypes::resolve);
+            this.operandPolicy = new PostProcessingOperandPolicy(expressionTypes);
         }
 
         private PostProcessingOptions options() {
@@ -938,32 +939,29 @@ public final class LlmPostProcessingResponseParser {
 
         private boolean hasCompatibleArrayOperands(LlmPostProcessingResponse.AssertionKind kind, ExprType expectedType,
                                                    ExprType actualType, String path) {
-            if (kind == LlmPostProcessingResponse.AssertionKind.NOT_EQUALS) {
-                diagnostic(DiagnosticCode.UNSUPPORTED_KIND, path,
-                        "NOT_EQUALS on arrays is unsupported in schema version 1");
-                return false;
+            switch (operandPolicy.arrayCompatibility(kind, expectedType, actualType)) {
+                case VALID:
+                case UNKNOWN_OPERAND:
+                    return true;
+                case NOT_EQUALS:
+                    diagnostic(DiagnosticCode.UNSUPPORTED_KIND, path,
+                            "NOT_EQUALS on arrays is unsupported in schema version 1");
+                    return false;
+                case NOT_ARRAY:
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                            "Array equality requires array operands on both sides");
+                    return false;
+                case MULTI_DIMENSIONAL:
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                            "Array equality supports one-dimensional arrays only");
+                    return false;
+                case COMPONENT_MISMATCH:
+                    diagnostic(DiagnosticCode.INVALID_FIELD, path,
+                            "Array equality requires matching component types");
+                    return false;
+                default:
+                    return false;
             }
-            if ((expectedType.isArray() && !actualType.isKnown())
-                    || (actualType.isArray() && !expectedType.isKnown())) {
-                return true;
-            }
-            if (!expectedType.isArray() || !actualType.isArray()) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Array equality requires array operands on both sides");
-                return false;
-            }
-            if (expectedType.arrayDepth != 1 || actualType.arrayDepth != 1) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Array equality supports one-dimensional arrays only");
-                return false;
-            }
-            if (expectedType.componentType != null && actualType.componentType != null
-                    && !sameType(expectedType.componentType, actualType.componentType)) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                        "Array equality requires matching component types");
-                return false;
-            }
-            return true;
         }
 
         private boolean canRenderCanonicalAssertion(LlmPostProcessingResponse.AssertionKind kind, String expected,
@@ -990,50 +988,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean areEqualsCompatible(ExprType expectedType, ExprType actualType) {
-            if (expectedType.isNull() || actualType.isNull()) {
-                return expectedType.isReferenceLike() || actualType.isReferenceLike();
-            }
-            if (expectedType.isNumericLike() && actualType.isNumericLike()) {
-                return true;
-            }
-            if (expectedType.isBooleanLike() && actualType.isBooleanLike()) {
-                return true;
-            }
-            if (expectedType.isCharLike() && actualType.isCharLike()) {
-                return true;
-            }
-            if (expectedType.isReferenceLike() && actualType.isReferenceLike()) {
-                return sameType(expectedType.typeName, actualType.typeName)
-                        || "java.lang.Object".equals(canonicalType(expectedType.typeName))
-                        || "java.lang.Object".equals(canonicalType(actualType.typeName))
-                        || areReferenceTypesAssignmentCompatible(expectedType.typeName, actualType.typeName);
-            }
-            return false;
-        }
-
-        private boolean areReferenceTypesAssignmentCompatible(String first, String second) {
-            try {
-                ClassLoader loader = org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT();
-                Class<?> firstClass = Class.forName(canonicalType(first), false, loader);
-                Class<?> secondClass = Class.forName(canonicalType(second), false, loader);
-                return firstClass.isAssignableFrom(secondClass) || secondClass.isAssignableFrom(firstClass)
-                        || hasCommonComparableSupertype(firstClass, secondClass);
-            } catch (Throwable ignored) {
-                return false;
-            }
-        }
-
-        private boolean hasCommonComparableSupertype(Class<?> first, Class<?> second) {
-            for (Class<?> type : first.getInterfaces()) {
-                if (type.equals(java.io.Serializable.class) || type.equals(Cloneable.class)) {
-                    continue;
-                }
-                if (type.isAssignableFrom(second)) {
-                    return true;
-                }
-            }
-            Class<?> superclass = first.getSuperclass();
-            return superclass != null && !Object.class.equals(superclass) && superclass.isAssignableFrom(second);
+            return operandPolicy.areEqualsCompatible(expectedType, actualType);
         }
 
         private ExprType resolveExpressionType(String expression) {
@@ -1069,17 +1024,7 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean isNegativeNumericLiteral(String expression) {
-            try {
-                Expression parsed = StaticJavaParser.parseExpression(expression);
-                if (parsed instanceof UnaryExpr) {
-                    UnaryExpr unaryExpr = (UnaryExpr) parsed;
-                    return unaryExpr.getOperator() == UnaryExpr.Operator.MINUS
-                            && resolveExpressionType(unaryExpr.getExpression()).isNumeric();
-                }
-                return false;
-            } catch (RuntimeException e) {
-                return false;
-            }
+            return operandPolicy.isNegativeNumericLiteral(expression);
         }
 
         private boolean sameType(String first, String second) {
