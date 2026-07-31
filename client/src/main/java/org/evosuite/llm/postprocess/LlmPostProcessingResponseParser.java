@@ -64,7 +64,6 @@ public final class LlmPostProcessingResponseParser {
     private static final Set<String> NO_ASSERTION_REASONS = allowedFields(
             "NO_STABLE_OBSERVATION", "NO_LEGAL_CALLABLE", "THROWING_TEST", "CANDIDATE_REDUNDANCY",
             "ONLY_SETUP_VALUES", "TRUNCATED_OBSERVATION", "OTHER");
-    private static final Set<String> COMMENT_FIELDS = allowedFields("afterStatementId", "text");
     private static final Set<String> ASSERTION_FIELDS = allowedFields("assertionId", "kind", "expected", "actual",
             "delta", "purpose", "intent", "placement", "container", "element", "target", "size", "map", "key",
             "candidateId", "value", "expression");
@@ -226,10 +225,7 @@ public final class LlmPostProcessingResponseParser {
         ParserState state = new ParserState(context == null ? ParseContext.empty() : context,
                 new LlmPostProcessingResponse(schemaVersion));
         state.reportUnknownFields(root, "", ROOT_FIELDS);
-        state.parseTestName(root.get("testName"));
-        state.parseVariableNames(root.get("variableNames"));
-        state.parseComments(root.get("comments"));
-        state.parseSectionBreaks(root.get("sectionBreaksAfter"));
+        state.parseBasicEdits(root);
         state.parseAssertions(root.get("assertions"));
         state.parseAssertionDecision(root.get("assertionDecision"), root.get("noAssertionReason"));
         return LlmPostProcessingParseResult.success(state.response, state.diagnostics,
@@ -580,129 +576,8 @@ public final class LlmPostProcessingResponseParser {
             return context.options() == null ? PostProcessingOptions.fromProperties() : context.options();
         }
 
-        private void parseTestName(JsonNode node) {
-            if (node == null || node.isNull()) {
-                return;
-            }
-            if (!node.isTextual()) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, "testName", "testName must be a string");
-                return;
-            }
-            String name = node.asText().trim();
-            if (!isValidJavaIdentifier(name)) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, "testName", "testName is not a valid Java identifier");
-                return;
-            }
-            response.setTestName(name);
-        }
-
-        private void parseVariableNames(JsonNode node) {
-            if (node == null || node.isNull()) {
-                return;
-            }
-            if (!node.isObject()) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, "variableNames", "variableNames must be an object");
-                return;
-            }
-            Iterator<String> fieldNames = node.fieldNames();
-            while (fieldNames.hasNext()) {
-                String variableId = fieldNames.next();
-                String path = "variableNames." + variableId;
-                JsonNode value = node.get(variableId);
-                if (context.knowsVariableIds() && !context.hasVariableId(variableId)) {
-                    diagnostic(DiagnosticCode.UNKNOWN_ID, path, "Unknown variable ID: " + variableId);
-                    continue;
-                }
-                if (value == null || !value.isTextual()) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Variable name must be a string");
-                    continue;
-                }
-                String name = value.asText().trim();
-                if (!isValidJavaIdentifier(name)) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Variable name is not a valid Java identifier");
-                    continue;
-                }
-                response.addVariableName(variableId, name);
-            }
-        }
-
-        private void parseComments(JsonNode node) {
-            if (node == null || node.isNull()) {
-                return;
-            }
-            if (!node.isArray()) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, "comments", "comments must be an array");
-                return;
-            }
-            Set<String> seen = new LinkedHashSet<>();
-            int accepted = 0;
-            for (int i = 0; i < node.size(); i++) {
-                String path = "comments[" + i + "]";
-                if (accepted >= options().contextLimits().commentsPerTest()) {
-                    diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Comment limit exceeded");
-                    break;
-                }
-                JsonNode entry = node.get(i);
-                if (entry == null || !entry.isObject()) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Comment entry must be an object");
-                    continue;
-                }
-                reportUnknownFields(entry, path, COMMENT_FIELDS);
-                String afterStatementId = text(entry.get("afterStatementId"));
-                if (afterStatementId == null) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".afterStatementId",
-                            "afterStatementId must be a string");
-                    continue;
-                }
-                if (context.knowsStatementIds() && !context.hasStatementId(afterStatementId)) {
-                    diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".afterStatementId",
-                            "Unknown statement ID: " + afterStatementId);
-                    continue;
-                }
-                String comment = sanitizeComment(text(entry.get("text")));
-                if (comment == null || comment.isEmpty()) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".text", "Comment text must be non-empty");
-                    continue;
-                }
-                if (comment.length() > options().contextLimits().commentChars()) {
-                    diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path + ".text", "Comment text is too long");
-                    continue;
-                }
-                String key = afterStatementId + "\n" + comment;
-                if (!seen.add(key)) {
-                    diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate comment");
-                    continue;
-                }
-                response.addComment(new LlmPostProcessingResponse.CommentProposal(afterStatementId, comment));
-                accepted++;
-            }
-        }
-
-        private void parseSectionBreaks(JsonNode node) {
-            if (node == null || node.isNull()) {
-                return;
-            }
-            if (!node.isArray()) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, "sectionBreaksAfter", "sectionBreaksAfter must be an array");
-                return;
-            }
-            for (int i = 0; i < node.size(); i++) {
-                String path = "sectionBreaksAfter[" + i + "]";
-                String statementId = text(node.get(i));
-                if (statementId == null) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path, "Section break ID must be a string");
-                    continue;
-                }
-                if (context.knowsStatementIds() && !context.hasStatementId(statementId)) {
-                    diagnostic(DiagnosticCode.UNKNOWN_ID, path, "Unknown statement ID: " + statementId);
-                    continue;
-                }
-                if (response.getSectionBreaksAfter().contains(statementId)) {
-                    diagnostic(DiagnosticCode.DUPLICATE, path, "Duplicate section break");
-                    continue;
-                }
-                response.addSectionBreakAfter(statementId);
-            }
+        private void parseBasicEdits(JsonNode root) {
+            PostProcessingEditValidator.validate(root, context, response, diagnostics);
         }
 
         private void parseAssertions(JsonNode node) {
@@ -2781,19 +2656,5 @@ public final class LlmPostProcessingResponseParser {
             return text;
         }
 
-        private static boolean isValidJavaIdentifier(String value) {
-            if (value == null || value.isEmpty() || SourceVersion.isKeyword(value)) {
-                return false;
-            }
-            if (!Character.isJavaIdentifierStart(value.charAt(0))) {
-                return false;
-            }
-            for (int i = 1; i < value.length(); i++) {
-                if (!Character.isJavaIdentifierPart(value.charAt(i))) {
-                    return false;
-                }
-            }
-            return true;
-        }
     }
 }
