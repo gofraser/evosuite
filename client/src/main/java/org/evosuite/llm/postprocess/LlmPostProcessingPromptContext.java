@@ -136,9 +136,9 @@ public final class LlmPostProcessingPromptContext {
         List<CallableMember> callableMembers = new ArrayList<>();
         Set<String> advertisedTypes = new LinkedHashSet<>();
         List<ExceptionContext> exceptions = exceptionContexts(executionResult, effectiveOptions);
-        PromptVariantCapabilities capabilities = PromptVariantCapabilities.forVariant(options == null
-                ? Properties.LLM_POSTPROCESSING_PROMPT_VARIANT
-                : Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION);
+        PromptVariantCapabilities capabilities = options == null
+                ? PromptVariantCapabilities.forVariant(Properties.LLM_POSTPROCESSING_PROMPT_VARIANT)
+                : PromptVariantCapabilities.production();
         List<CandidateFact> candidateFacts = candidateFacts(
                 references, candidateAssertions, stabilityExecutionResult, capabilities, effectiveOptions);
         candidateFacts = appendExceptionCandidateFacts(

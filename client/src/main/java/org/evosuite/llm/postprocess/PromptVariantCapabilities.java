@@ -58,6 +58,11 @@ public final class PromptVariantCapabilities {
                 effective == Properties.LlmPostProcessingPromptVariant.P11_EXCEPTION_ADJACENT_ASSERTIONS);
     }
 
+    /** Capabilities used by every fresh post-processing request. */
+    public static PromptVariantCapabilities production() {
+        return forVariant(Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION);
+    }
+
     public boolean hasCanonicalCandidates() {
         return canonicalCandidates;
     }

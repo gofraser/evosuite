@@ -53,8 +53,7 @@ final class LlmTestPostProcessor {
             ExecutionResult contextExecutionResult = candidateCollection == null
                     ? chromosome.getLastExecutionResult()
                     : candidateCollection.getExecutionResult();
-            PromptVariantCapabilities capabilities = PromptVariantCapabilities.forVariant(
-                    Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION);
+            PromptVariantCapabilities capabilities = PromptVariantCapabilities.production();
             TestCase prePromptStabilityTest = null;
             ExecutionResult prePromptStabilityResult = null;
             if ((capabilities.hasStabilityLabels()
