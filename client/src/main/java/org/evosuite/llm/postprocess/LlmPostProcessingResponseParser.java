@@ -40,7 +40,6 @@ import org.evosuite.assertion.TemplateAssertionKind;
 
 import javax.lang.model.SourceVersion;
 import java.util.ArrayList;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -217,29 +216,13 @@ public final class LlmPostProcessingResponseParser {
     }
 
     public static LlmPostProcessingParseResult parse(String response, ParseContext context) {
-        if (response == null || response.trim().isEmpty()) {
-            return LlmPostProcessingParseResult.infrastructureFailure("Empty LLM post-processing response");
+        PostProcessingResponseDecoder.DecodeResult decoded =
+                PostProcessingResponseDecoder.decode(response);
+        if (!decoded.isSuccess()) {
+            return LlmPostProcessingParseResult.infrastructureFailure(decoded.getFailureReason());
         }
-
-        JsonNode root;
-        try {
-            root = JSON_MAPPER.readTree(normalizeJsonResponse(response));
-        } catch (IOException e) {
-            return LlmPostProcessingParseResult.infrastructureFailure("Response is not valid JSON: " + e.getMessage());
-        }
-        if (root == null || !root.isObject()) {
-            return LlmPostProcessingParseResult.infrastructureFailure("Response root must be a JSON object");
-        }
-
-        JsonNode schemaVersionNode = root.get("schemaVersion");
-        if (schemaVersionNode == null || !schemaVersionNode.isIntegralNumber()) {
-            return LlmPostProcessingParseResult.infrastructureFailure("Missing or non-integral schemaVersion");
-        }
-        int schemaVersion = schemaVersionNode.asInt();
-        if (schemaVersion < LlmPostProcessingProtocol.MIN_RESPONSE_SCHEMA_VERSION
-                || schemaVersion > LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION) {
-            return LlmPostProcessingParseResult.infrastructureFailure("Unsupported schemaVersion: " + schemaVersion);
-        }
+        JsonNode root = decoded.getRoot();
+        int schemaVersion = decoded.getSchemaVersion();
         ParserState state = new ParserState(context == null ? ParseContext.empty() : context,
                 new LlmPostProcessingResponse(schemaVersion));
         state.reportUnknownFields(root, "", ROOT_FIELDS);
@@ -296,22 +279,7 @@ public final class LlmPostProcessingResponseParser {
     }
 
     static String normalizeJsonResponse(String response) {
-        String trimmed = response.trim();
-        if (!trimmed.startsWith("```")) {
-            return response;
-        }
-
-        int firstLineEnd = trimmed.indexOf('\n');
-        if (firstLineEnd < 0 || !trimmed.endsWith("```")) {
-            return response;
-        }
-
-        String fenceHeader = trimmed.substring(3, firstLineEnd).trim();
-        if (!fenceHeader.isEmpty() && !"json".equalsIgnoreCase(fenceHeader)) {
-            return response;
-        }
-
-        return trimmed.substring(firstLineEnd + 1, trimmed.length() - 3).trim();
+        return PostProcessingResponseDecoder.normalizeJsonResponse(response);
     }
 
     private static Set<String> allowedFields(String... fields) {
