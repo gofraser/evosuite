@@ -23,15 +23,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.javaparser.StaticJavaParser;
-import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.expr.ArrayCreationExpr;
-import com.github.javaparser.ast.expr.ArrayInitializerExpr;
 import com.github.javaparser.ast.expr.BinaryExpr;
-import com.github.javaparser.ast.expr.CharLiteralExpr;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
-import com.github.javaparser.ast.expr.StringLiteralExpr;
 import org.evosuite.assertion.CanonicalAssertionRenderer;
 import org.evosuite.assertion.TemplateAssertionKind;
 
@@ -480,6 +475,7 @@ public final class LlmPostProcessingResponseParser {
         private final PostProcessingExpressionTypeResolver expressionTypes;
         private final PostProcessingCallablePolicy callablePolicy;
         private final PostProcessingOperandPolicy operandPolicy;
+        private final PostProcessingExpressionSafetyPolicy expressionSafety;
         private final java.util.List<Diagnostic> diagnostics = new java.util.ArrayList<>();
         private int currentAssertionIndex = -1;
         private String currentAssertionId;
@@ -491,6 +487,7 @@ public final class LlmPostProcessingResponseParser {
             this.expressionTypes = new PostProcessingExpressionTypeResolver(context, this::resolveMethodCallType);
             this.callablePolicy = new PostProcessingCallablePolicy(context, options, expressionTypes::resolve);
             this.operandPolicy = new PostProcessingOperandPolicy(expressionTypes);
+            this.expressionSafety = new PostProcessingExpressionSafetyPolicy(context, options);
         }
 
         private PostProcessingOptions options() {
@@ -1200,7 +1197,7 @@ public final class LlmPostProcessingResponseParser {
                 return required ? null : INVALID_EXPRESSION;
             }
             boolean normalizedVariableAlias = normalizeProposedVariableAliases(parsed);
-            if (exceedsExpressionNodeLimit(parsed)) {
+            if (expressionSafety.exceedsNodeLimit(parsed)) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression AST node limit exceeded");
                 return required ? null : INVALID_EXPRESSION;
             }
@@ -1224,7 +1221,7 @@ public final class LlmPostProcessingResponseParser {
                         "Expression contains non-allowlisted object construction");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (referencesUnknownVariableId(parsed)) {
+            if (expressionSafety.referencesUnknownVariableId(parsed)) {
                 diagnostic(DiagnosticCode.UNKNOWN_ID, path, "Expression references an unknown variable ID");
                 return required ? null : INVALID_EXPRESSION;
             }
@@ -1233,7 +1230,7 @@ public final class LlmPostProcessingResponseParser {
                         "Expression contains a non-allowlisted static method call");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (exceedsChainDepthLimit(parsed)) {
+            if (expressionSafety.exceedsChainDepthLimit(parsed)) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression member-chain depth exceeded");
                 return required ? null : INVALID_EXPRESSION;
             }
@@ -1242,15 +1239,15 @@ public final class LlmPostProcessingResponseParser {
                         "Expression contains a non-allowlisted instance method call");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (exceedsLiteralCharLimit(parsed)) {
+            if (expressionSafety.exceedsLiteralCharLimit(parsed)) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Expression literal character limit exceeded");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (exceedsConstructedArrayElementLimit(parsed)) {
+            if (expressionSafety.exceedsConstructedArrayElementLimit(parsed)) {
                 diagnostic(DiagnosticCode.LIMIT_EXCEEDED, path, "Constructed array element limit exceeded");
                 return required ? null : INVALID_EXPRESSION;
             }
-            if (containsDisallowedArrayConstruction(parsed)) {
+            if (expressionSafety.containsDisallowedArrayConstruction(parsed)) {
                 diagnostic(DiagnosticCode.INVALID_FIELD, path,
                         "Constructed arrays must be one-dimensional and contain only literal or null elements");
                 return required ? null : INVALID_EXPRESSION;
@@ -1289,14 +1286,6 @@ public final class LlmPostProcessingResponseParser {
             return changed;
         }
 
-        private boolean exceedsExpressionNodeLimit(Expression expression) {
-            int limit = options().assertionPolicy().maxExpressionNodes();
-            if (limit <= 0) {
-                return false;
-            }
-            return expression.findAll(Node.class).size() > limit;
-        }
-
         private boolean containsDisallowedObjectConstruction(Expression expression) {
             return callablePolicy.containsDisallowedObjectConstruction(expression);
         }
@@ -1315,78 +1304,6 @@ public final class LlmPostProcessingResponseParser {
 
         private boolean isCallableMethod(String receiverId, String ownerType, MethodCallExpr call) {
             return callablePolicy.isCallableMethod(receiverId, ownerType, call);
-        }
-
-        private boolean exceedsChainDepthLimit(Expression expression) {
-            return LlmPostProcessingExpressionUtils.exceedsMemberChainDepth(expression,
-                    options().assertionPolicy().maxChainDepth());
-        }
-
-        private boolean referencesUnknownVariableId(Expression expression) {
-            if (!context.knowsVariableIds()) {
-                return false;
-            }
-            for (NameExpr name : expression.findAll(NameExpr.class)) {
-                String identifier = name.getNameAsString();
-                if (LlmPostProcessingExpressionUtils.looksLikeVariableId(identifier)
-                        && !context.hasVariableId(identifier)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean exceedsLiteralCharLimit(Expression expression) {
-            int limit = options().assertionPolicy().maxLiteralChars();
-            if (limit <= 0) {
-                return false;
-            }
-            int chars = 0;
-            for (StringLiteralExpr literal : expression.findAll(StringLiteralExpr.class)) {
-                chars += literal.getValue().length();
-                if (chars > limit) {
-                    return true;
-                }
-            }
-            for (CharLiteralExpr literal : expression.findAll(CharLiteralExpr.class)) {
-                chars += literal.getValue().length();
-                if (chars > limit) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean exceedsConstructedArrayElementLimit(Expression expression) {
-            int limit = options().assertionPolicy().maxConstructedArrayElements();
-            if (limit <= 0) {
-                return false;
-            }
-            for (ArrayInitializerExpr initializer : expression.findAll(ArrayInitializerExpr.class)) {
-                if (initializer.getValues().size() > limit) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean containsDisallowedArrayConstruction(Expression expression) {
-            for (ArrayCreationExpr arrayCreation : expression.findAll(ArrayCreationExpr.class)) {
-                if (arrayCreation.getLevels().size() != 1 || !arrayCreation.getInitializer().isPresent()) {
-                    return true;
-                }
-                ArrayInitializerExpr initializer = arrayCreation.getInitializer().get();
-                for (Expression value : initializer.getValues()) {
-                    if (value instanceof ArrayInitializerExpr || !isLiteralOrNull(value)) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        private boolean isLiteralOrNull(Expression expression) {
-            return expression.isLiteralExpr() || expression.isNullLiteralExpr();
         }
 
         private static final String INVALID_EXPRESSION = new String("<invalid>");
