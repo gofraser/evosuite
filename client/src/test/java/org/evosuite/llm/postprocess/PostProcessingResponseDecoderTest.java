@@ -42,4 +42,17 @@ class PostProcessingResponseDecoderTest {
         assertFalse(unknown.isSuccess());
         assertEquals("Unsupported schemaVersion: 99", unknown.getFailureReason());
     }
+
+    @Test
+    void rejectsVersionsOutsideTheSupportedReadRange() {
+        for (int version : new int[]{0, 4, 17}) {
+            PostProcessingResponseDecoder.DecodeResult result =
+                    PostProcessingResponseDecoder.decode(
+                            "{\"schemaVersion\":" + version + "}");
+
+            assertFalse(result.isSuccess());
+            assertEquals("Unsupported schemaVersion: " + version,
+                    result.getFailureReason());
+        }
+    }
 }
