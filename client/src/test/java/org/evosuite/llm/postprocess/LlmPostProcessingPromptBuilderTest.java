@@ -285,6 +285,30 @@ class LlmPostProcessingPromptBuilderTest {
         assertFalse(prompt.contains("Relational opportunities:"));
     }
 
+    @Test
+    void productionRendererPreservesTheP2CompatibilityPromptBytes() {
+        Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
+        Properties.LLM_POSTPROCESSING_TEST_NAMES = true;
+        Properties.LLM_POSTPROCESSING_VARIABLE_NAMES = true;
+        Properties.LLM_POSTPROCESSING_COMMENTS = true;
+        Properties.LLM_POSTPROCESSING_SECTION_BREAKS = true;
+        Properties.LLM_POSTPROCESSING_PROMPT_VARIANT =
+                Properties.LlmPostProcessingPromptVariant.P2_CANDIDATE_SELECTION;
+        DefaultTestCase test = new DefaultTestCase();
+        test.addStatement(new IntPrimitiveStatement(test, 7));
+
+        String compatibilityPrompt = LlmPostProcessingPromptBuilder.build(
+                LlmPostProcessingPromptContext.from(test), 0, true)
+                .getMessages().get(1).getContent();
+        PostProcessingOptions options = PostProcessingOptions.fromProperties();
+        String productionPrompt = LlmPostProcessingPromptBuilder.build(
+                LlmPostProcessingPromptContext.from(test, null, null,
+                        Collections.emptyList(), options),
+                0, true, options).getMessages().get(1).getContent();
+
+        assertEquals(compatibilityPrompt, productionPrompt);
+    }
+
     private static String cacheablePrefix(String prompt) {
         int marker = prompt.indexOf("Generated test statements:");
         return marker < 0 ? prompt : prompt.substring(0, marker);

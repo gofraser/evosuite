@@ -49,7 +49,7 @@ final class LlmPostProcessingPromptBuilder {
     /** Production entry point; new requests always use the frozen P2 protocol. */
     static PromptResult build(LlmPostProcessingPromptContext context, int testIndex,
                               boolean assertionsEnabled, PostProcessingOptions options) {
-        return buildInternal(context, testIndex, assertionsEnabled, options);
+        return PostProcessingPromptRenderer.build(context, assertionsEnabled, options);
     }
 
     private static PromptResult buildInternal(LlmPostProcessingPromptContext context, int testIndex,
