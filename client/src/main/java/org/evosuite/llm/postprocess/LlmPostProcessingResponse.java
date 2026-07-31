@@ -128,6 +128,31 @@ public class LlmPostProcessingResponse {
         return copy;
     }
 
+    /** Create an independent domain snapshot for a validated edit plan. */
+    LlmPostProcessingResponse copy() {
+        LlmPostProcessingResponse copy = new LlmPostProcessingResponse(schemaVersion);
+        copy.setAssertionDecision(assertionDecision);
+        copy.setNoAssertionReason(noAssertionReason);
+        copy.setTestName(testName);
+        for (Map.Entry<String, String> entry : variableNames.entrySet()) {
+            copy.addVariableName(entry.getKey(), entry.getValue());
+        }
+        for (CommentProposal comment : comments) {
+            copy.addComment(new CommentProposal(comment.getAfterStatementId(), comment.getText()));
+        }
+        for (String sectionBreak : sectionBreaksAfter) {
+            copy.addSectionBreakAfter(sectionBreak);
+        }
+        for (AssertionProposal assertion : assertions) {
+            copy.addAssertion(new AssertionProposal(
+                    assertion.getAssertionId(), assertion.getKind(), assertion.getExpected(),
+                    assertion.getActual(), assertion.getDelta(), assertion.getPurpose(),
+                    assertion.getIntent(), assertion.getSite(), assertion.getAfterStatementId(),
+                    assertion.getExceptionId(), assertion.getCandidateId()));
+        }
+        return copy;
+    }
+
     public enum AssertionKind {
         EQUALS,
         NOT_EQUALS,
