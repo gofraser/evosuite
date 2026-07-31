@@ -144,8 +144,7 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
         candidateFacts = appendExceptionCandidateFacts(
                 candidateFacts, exceptions, stabilityExecutionResult, capabilities, effectiveOptions);
         // A candidate fact already tells the model this variable's observed value,
-        // so emitting the same value again as an observation is redundant (plan 6.6:
-        // observations are only supplemental to the candidate pool).
+        // so emitting the same value again as an observation is redundant.
         Set<String> candidateCoveredVariableIds = new LinkedHashSet<>();
         for (CandidateFact fact : candidateFacts) {
             boolean completeCanonicalFact = isCandidateSelectable(
@@ -1291,7 +1290,7 @@ public final class LlmPostProcessingPromptContext implements PostProcessingPromp
                     collection == null ? null : safeCollectionIsEmpty(collection));
             add(members, receiverId, owner, "contains(Ljava/lang/Object;)Z", "boolean");
             if (List.class.isAssignableFrom(type)) {
-                // Element access with an observed constant index (see plan 6.3). The
+                // Element access with an observed constant index. The
                 // return type is the observed homogeneous element type so numeric or
                 // string element equality passes the operand type check; otherwise
                 // it degrades to Object (still usable for null/identity assertions).
