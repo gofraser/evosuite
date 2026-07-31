@@ -67,8 +67,6 @@ public final class LlmPostProcessingResponseParser {
     private static final Set<String> ASSERTION_FIELDS = allowedFields("assertionId", "kind", "expected", "actual",
             "delta", "purpose", "intent", "placement", "container", "element", "target", "size", "map", "key",
             "candidateId", "value", "expression");
-    private static final Set<String> ASSERTION_PLACEMENT_FIELDS =
-            allowedFields("site", "afterStatementId", "exceptionId");
     private static final Set<String> BUILT_IN_PURE_STATIC_METHODS = allowedFields(
             "java.lang.Math#*",
             "Math#*",
@@ -384,6 +382,10 @@ public final class LlmPostProcessingResponseParser {
             return throwingStatementId != null;
         }
 
+        String throwingStatementId() {
+            return throwingStatementId;
+        }
+
         PostProcessingOptions options() {
             return options;
         }
@@ -438,23 +440,17 @@ public final class LlmPostProcessingResponseParser {
         public String getDelta() {
             return delta;
         }
-    }
 
-    private static final class PlacementValue {
-        private final LlmPostProcessingResponse.AssertionSite site;
-        private final String afterStatementId;
-        private final String exceptionId;
-
-        private PlacementValue(LlmPostProcessingResponse.AssertionSite site,
-                               String afterStatementId, String exceptionId) {
-            this.site = site;
-            this.afterStatementId = afterStatementId;
-            this.exceptionId = exceptionId;
+        LlmPostProcessingResponse.AssertionSite getDefaultSite() {
+            return defaultSite;
         }
 
-        private static PlacementValue endOfTest() {
-            return new PlacementValue(LlmPostProcessingResponse.AssertionSite.END_OF_TEST,
-                    null, null);
+        String getDefaultAfterStatementId() {
+            return defaultAfterStatementId;
+        }
+
+        String getDefaultExceptionId() {
+            return defaultExceptionId;
         }
     }
 
@@ -630,14 +626,19 @@ public final class LlmPostProcessingResponseParser {
                         continue;
                     }
                 }
-                PlacementValue placement = parseAssertionPlacement(
-                        entry.get("placement"), path + ".placement", candidate);
+                PostProcessingPlacementValidator.PlacementValue placement =
+                        PostProcessingPlacementValidator.parse(
+                                entry.get("placement"), path + ".placement", response,
+                                context, candidate, currentAssertionIndex, currentAssertionId,
+                                diagnostics);
                 if (placement == null) {
                     continue;
                 }
                 if (selectedCandidate) {
-                    if (!referencesAreAvailableAtPlacement(candidate.expected, candidate.actual,
-                            candidate.delta, placement, path)) {
+                    if (!PostProcessingPlacementValidator.referencesAreAvailable(
+                            candidate.expected, candidate.actual, candidate.delta,
+                            placement, context, path, currentAssertionIndex, currentAssertionId,
+                            diagnostics)) {
                         continue;
                     }
                     if (!hasCompatibleOperands(candidate.kind, candidate.expected, candidate.actual,
@@ -685,7 +686,9 @@ public final class LlmPostProcessingResponseParser {
                 if (intent == INVALID_EXPRESSION) {
                     continue;
                 }
-                if (!referencesAreAvailableAtPlacement(expected, actual, delta, placement, path)) {
+                if (!PostProcessingPlacementValidator.referencesAreAvailable(
+                        expected, actual, delta, placement, context, path,
+                        currentAssertionIndex, currentAssertionId, diagnostics)) {
                     continue;
                 }
                 if (delta == null && (kind == LlmPostProcessingResponse.AssertionKind.EQUALS
@@ -917,137 +920,6 @@ public final class LlmPostProcessingResponseParser {
                 return INVALID_EXPRESSION;
             }
             return intent;
-        }
-
-        private PlacementValue parseAssertionPlacement(JsonNode node, String path,
-                                                       SelectableCandidate candidate) {
-            if (node == null || node.isNull()) {
-                if (response.getSchemaVersion() >= 3 && context.hasThrowingStatement()) {
-                    if (candidate != null && candidate.defaultSite != null) {
-                        return new PlacementValue(candidate.defaultSite,
-                                candidate.defaultAfterStatementId, candidate.defaultExceptionId);
-                    }
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path,
-                            "Throwing-test assertions require an advertised placement site");
-                    return null;
-                }
-                return PlacementValue.endOfTest();
-            }
-            if (!node.isObject()) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, path, "Assertion placement must be an object");
-                return null;
-            }
-            reportUnknownFields(node, path, ASSERTION_PLACEMENT_FIELDS);
-            if (response.getSchemaVersion() <= 2) {
-                String legacyAfter = text(node.get("afterStatementId"));
-                if (legacyAfter == null || legacyAfter.trim().isEmpty()) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".afterStatementId",
-                            "afterStatementId must be a non-empty string");
-                    return null;
-                }
-                if (context.knowsStatementIds() && !context.hasStatementId(legacyAfter.trim())) {
-                    diagnostic(DiagnosticCode.UNKNOWN_ID, path + ".afterStatementId",
-                            "Unknown statement ID: " + legacyAfter.trim());
-                    return null;
-                }
-                return PlacementValue.endOfTest();
-            }
-            String siteText = text(node.get("site"));
-            LlmPostProcessingResponse.AssertionSite site;
-            try {
-                site = siteText == null ? null
-                        : LlmPostProcessingResponse.AssertionSite.valueOf(siteText.trim());
-            } catch (IllegalArgumentException error) {
-                site = null;
-            }
-            if (site == null) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, path + ".site",
-                        "Unknown or missing assertion site");
-                return null;
-            }
-            String afterStatementId = text(node.get("afterStatementId"));
-            String exceptionId = text(node.get("exceptionId"));
-            if (!context.hasThrowingStatement()) {
-                if (site != LlmPostProcessingResponse.AssertionSite.END_OF_TEST) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".site",
-                            "Non-throwing tests only advertise END_OF_TEST");
-                    return null;
-                }
-                return PlacementValue.endOfTest();
-            }
-            if (site == LlmPostProcessingResponse.AssertionSite.END_OF_TEST) {
-                diagnostic(DiagnosticCode.INVALID_FIELD, path + ".site",
-                        "END_OF_TEST is unavailable for a throwing test");
-                return null;
-            }
-            if (site == LlmPostProcessingResponse.AssertionSite.BEFORE_TRY) {
-                if (afterStatementId == null || afterStatementId.trim().isEmpty()
-                        || !context.hasStatementId(afterStatementId.trim())
-                        || stableIdIndex(afterStatementId.trim(), 's')
-                        >= stableIdIndex(context.throwingStatementId, 's')) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".afterStatementId",
-                            "BEFORE_TRY requires an advertised pre-throw statement");
-                    return null;
-                }
-                return new PlacementValue(site, afterStatementId.trim(), null);
-            }
-            if (site == LlmPostProcessingResponse.AssertionSite.IN_CATCH) {
-                if (!"e0".equals(exceptionId)) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".exceptionId",
-                            "IN_CATCH requires the advertised exceptionId e0");
-                    return null;
-                }
-                return new PlacementValue(site, null, "e0");
-            }
-            return new PlacementValue(site, null, null);
-        }
-
-        private boolean referencesAreAvailableAtPlacement(String expected, String actual, String delta,
-                                                           PlacementValue placement, String path) {
-            int statementIndex;
-            if (placement.site == LlmPostProcessingResponse.AssertionSite.BEFORE_TRY) {
-                statementIndex = stableIdIndex(placement.afterStatementId, 's');
-            } else if (placement.site == LlmPostProcessingResponse.AssertionSite.IN_CATCH
-                    || placement.site == LlmPostProcessingResponse.AssertionSite.AFTER_CATCH) {
-                statementIndex = stableIdIndex(context.throwingStatementId, 's') - 1;
-            } else {
-                return true;
-            }
-            if (statementIndex < 0) {
-                return true;
-            }
-            Set<String> variables = new LinkedHashSet<>();
-            variables.addAll(LlmPostProcessingExpressionUtils.extractSymbolicVariables(expected));
-            variables.addAll(LlmPostProcessingExpressionUtils.extractSymbolicVariables(actual));
-            variables.addAll(LlmPostProcessingExpressionUtils.extractSymbolicVariables(delta));
-            for (String variableId : variables) {
-                if ("e0".equals(variableId)) {
-                    if (placement.site != LlmPostProcessingResponse.AssertionSite.IN_CATCH) {
-                        diagnostic(DiagnosticCode.INVALID_FIELD, path + ".placement",
-                                "Caught exception e0 is available only IN_CATCH");
-                        return false;
-                    }
-                    continue;
-                }
-                int variableIndex = stableIdIndex(variableId, 'v');
-                if (variableIndex > statementIndex) {
-                    diagnostic(DiagnosticCode.INVALID_FIELD, path + ".placement",
-                            "Assertion placement references a variable created after the placement statement");
-                    return false;
-                }
-            }
-            return true;
-        }
-
-        private int stableIdIndex(String id, char prefix) {
-            if (id == null || id.length() < 2 || id.charAt(0) != prefix) {
-                return -1;
-            }
-            try {
-                return Integer.parseInt(id.substring(1));
-            } catch (NumberFormatException e) {
-                return -1;
-            }
         }
 
         private boolean hasCompatibleOperands(LlmPostProcessingResponse.AssertionKind kind, String expected,
