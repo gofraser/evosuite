@@ -29,10 +29,8 @@ import com.github.javaparser.ast.expr.ArrayInitializerExpr;
 import com.github.javaparser.ast.expr.BinaryExpr;
 import com.github.javaparser.ast.expr.CharLiteralExpr;
 import com.github.javaparser.ast.expr.Expression;
-import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.NameExpr;
-import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.StringLiteralExpr;
 import com.github.javaparser.ast.expr.UnaryExpr;
 import org.evosuite.assertion.CanonicalAssertionRenderer;
@@ -480,6 +478,7 @@ public final class LlmPostProcessingResponseParser {
         private final ParseContext context;
         private final LlmPostProcessingResponse response;
         private final PostProcessingOptions options;
+        private final PostProcessingExpressionTypeResolver expressionTypes;
         private final PostProcessingCallablePolicy callablePolicy;
         private final java.util.List<Diagnostic> diagnostics = new java.util.ArrayList<>();
         private int currentAssertionIndex = -1;
@@ -489,7 +488,8 @@ public final class LlmPostProcessingResponseParser {
             this.context = context;
             this.response = response;
             this.options = context.options() == null ? PostProcessingOptions.fromProperties() : context.options();
-            this.callablePolicy = new PostProcessingCallablePolicy(context, options, this::resolveExpressionType);
+            this.expressionTypes = new PostProcessingExpressionTypeResolver(context, this::resolveMethodCallType);
+            this.callablePolicy = new PostProcessingCallablePolicy(context, options, expressionTypes::resolve);
         }
 
         private PostProcessingOptions options() {
@@ -1037,77 +1037,11 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private ExprType resolveExpressionType(String expression) {
-            if (expression == null || expression.trim().isEmpty()) {
-                return ExprType.unknown();
-            }
-            try {
-                return resolveExpressionType(StaticJavaParser.parseExpression(expression));
-            } catch (RuntimeException e) {
-                return ExprType.unknown();
-            }
+            return expressionTypes.resolve(expression);
         }
 
         private ExprType resolveExpressionType(Expression expression) {
-            if (expression == null) {
-                return ExprType.unknown();
-            }
-            if (expression.isEnclosedExpr()) {
-                return resolveExpressionType(expression.asEnclosedExpr().getInner());
-            }
-            if (expression.isBooleanLiteralExpr()) {
-                return ExprType.primitive("boolean");
-            }
-            if (expression.isNullLiteralExpr()) {
-                return ExprType.nullType();
-            }
-            if (expression.isStringLiteralExpr()) {
-                return ExprType.reference("java.lang.String");
-            }
-            if (expression.isCharLiteralExpr()) {
-                return ExprType.primitive("char");
-            }
-            if (expression.isIntegerLiteralExpr()) {
-                return ExprType.primitive("int");
-            }
-            if (expression.isLongLiteralExpr()) {
-                return ExprType.primitive("long");
-            }
-            if (expression.isDoubleLiteralExpr()) {
-                String value = expression.asDoubleLiteralExpr().getValue().toLowerCase();
-                return ExprType.primitive(value.endsWith("f") ? "float" : "double");
-            }
-            if (expression instanceof NameExpr) {
-                return ExprType.fromTypeName(context.variableType(((NameExpr) expression).getNameAsString()));
-            }
-            if (expression instanceof ArrayCreationExpr) {
-                ArrayCreationExpr arrayCreation = (ArrayCreationExpr) expression;
-                return ExprType.array(arrayCreation.getElementType().asString(), arrayCreation.getLevels().size());
-            }
-            if (expression instanceof ObjectCreationExpr) {
-                return ExprType.reference(((ObjectCreationExpr) expression).getTypeAsString());
-            }
-            if (expression instanceof MethodCallExpr) {
-                return resolveMethodCallType((MethodCallExpr) expression);
-            }
-            if (expression instanceof FieldAccessExpr) {
-                FieldAccessExpr fieldAccess = (FieldAccessExpr) expression;
-                if ("length".equals(fieldAccess.getNameAsString())
-                        && resolveExpressionType(fieldAccess.getScope()).isArray()) {
-                    return ExprType.primitive("int");
-                }
-                return ExprType.unknown();
-            }
-            if (expression instanceof UnaryExpr) {
-                UnaryExpr unaryExpr = (UnaryExpr) expression;
-                if (unaryExpr.getOperator() == UnaryExpr.Operator.LOGICAL_COMPLEMENT) {
-                    return ExprType.primitive("boolean");
-                }
-                return resolveExpressionType(unaryExpr.getExpression());
-            }
-            if (expression instanceof BinaryExpr) {
-                return resolveBinaryType((BinaryExpr) expression);
-            }
-            return ExprType.unknown();
+            return expressionTypes.resolve(expression);
         }
 
         private ExprType resolveMethodCallType(MethodCallExpr methodCall) {
@@ -1121,7 +1055,7 @@ public final class LlmPostProcessingResponseParser {
             if (methodCall.getScope().isPresent()
                     && options().assertionPolicy().allowChainedCalls()
                     && callablePolicy.isInstanceCallScope(methodCall.getScope().get())) {
-                ExprType receiverType = resolveExpressionType(methodCall.getScope().get());
+                ExprType receiverType = expressionTypes.resolve(methodCall.getScope().get());
                 String returnType = callablePolicy.callableReturnType(null, receiverType.typeName, methodCall);
                 if (returnType != null) {
                     return ExprType.fromTypeName(returnType);
@@ -1132,52 +1066,6 @@ public final class LlmPostProcessingResponseParser {
                 return callablePolicy.staticMethodReturnType(methodCall.getScope().get().toString(), methodCall);
             }
             return ExprType.unknown();
-        }
-
-        private ExprType resolveBinaryType(BinaryExpr binaryExpr) {
-            switch (binaryExpr.getOperator()) {
-                case EQUALS:
-                case NOT_EQUALS:
-                case LESS:
-                case LESS_EQUALS:
-                case GREATER:
-                case GREATER_EQUALS:
-                case AND:
-                case OR:
-                    return ExprType.primitive("boolean");
-                case PLUS:
-                    ExprType left = resolveExpressionType(binaryExpr.getLeft());
-                    ExprType right = resolveExpressionType(binaryExpr.getRight());
-                    if ("java.lang.String".equals(canonicalType(left.typeName))
-                            || "java.lang.String".equals(canonicalType(right.typeName))) {
-                        return ExprType.reference("java.lang.String");
-                    }
-                    return promotedNumericType(left, right);
-                case MINUS:
-                case MULTIPLY:
-                case DIVIDE:
-                case REMAINDER:
-                    return promotedNumericType(resolveExpressionType(binaryExpr.getLeft()),
-                            resolveExpressionType(binaryExpr.getRight()));
-                default:
-                    return ExprType.unknown();
-            }
-        }
-
-        private ExprType promotedNumericType(ExprType left, ExprType right) {
-            if (!left.isNumericLike() || !right.isNumericLike()) {
-                return ExprType.unknown();
-            }
-            if (left.isDoubleLike() || right.isDoubleLike()) {
-                return ExprType.primitive("double");
-            }
-            if (left.isFloatLike() || right.isFloatLike()) {
-                return ExprType.primitive("float");
-            }
-            if (left.isLongLike() || right.isLongLike()) {
-                return ExprType.primitive("long");
-            }
-            return ExprType.primitive("int");
         }
 
         private boolean isNegativeNumericLiteral(String expression) {
@@ -1195,54 +1083,11 @@ public final class LlmPostProcessingResponseParser {
         }
 
         private boolean sameType(String first, String second) {
-            return first != null && second != null && canonicalType(first).equals(canonicalType(second));
+            return expressionTypes.sameType(first, second);
         }
 
         private String canonicalType(String typeName) {
-            if (typeName == null) {
-                return "";
-            }
-            String trimmed = typeName.trim();
-            if ("String".equals(trimmed)) {
-                return "java.lang.String";
-            }
-            if ("Boolean".equals(trimmed)) {
-                return "java.lang.Boolean";
-            }
-            if ("Byte".equals(trimmed)) {
-                return "java.lang.Byte";
-            }
-            if ("Short".equals(trimmed)) {
-                return "java.lang.Short";
-            }
-            if ("Character".equals(trimmed)) {
-                return "java.lang.Character";
-            }
-            if ("Integer".equals(trimmed)) {
-                return "java.lang.Integer";
-            }
-            if ("Long".equals(trimmed)) {
-                return "java.lang.Long";
-            }
-            if ("Float".equals(trimmed)) {
-                return "java.lang.Float";
-            }
-            if ("Double".equals(trimmed)) {
-                return "java.lang.Double";
-            }
-            if ("Object".equals(trimmed)) {
-                return "java.lang.Object";
-            }
-            if ("BigInteger".equals(trimmed)) {
-                return "java.math.BigInteger";
-            }
-            if ("BigDecimal".equals(trimmed)) {
-                return "java.math.BigDecimal";
-            }
-            if ("Optional".equals(trimmed)) {
-                return "java.util.Optional";
-            }
-            return trimmed;
+            return expressionTypes.canonicalType(typeName);
         }
 
         private String assertionKey(LlmPostProcessingResponse.AssertionKind kind, String expected, String actual,
