@@ -32,7 +32,6 @@ final class PostProcessingTelemetryPublisher {
         for (Map.Entry<RuntimeVariable, Object> entry : valuesFor(metrics).entrySet()) {
             ClientServices.track(entry.getKey(), entry.getValue());
         }
-        publishAssertionReconciliation(0, 0, 0);
     }
 
     static EnumMap<RuntimeVariable, Object> valuesFor(LlmPostProcessor.PostProcessingMetrics metrics) {
@@ -104,6 +103,9 @@ final class PostProcessingTelemetryPublisher {
         values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair,
                 metrics.assertionsAcceptedAfterRepair);
         values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Applied, metrics.assertionsApplied);
+        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable, 0);
+        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile, 0);
+        values.put(RuntimeVariable.LLM_PostProcessing_Assertions_Shipped, 0);
         return values;
     }
 

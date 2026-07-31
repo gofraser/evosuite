@@ -72,6 +72,9 @@ class PostProcessingTelemetryPublisherTest {
                 RuntimeVariable.LLM_PostProcessing_Assertions_Repair_Requested,
                 RuntimeVariable.LLM_PostProcessing_Assertions_Proposed_After_Repair,
                 RuntimeVariable.LLM_PostProcessing_Assertions_Accepted_After_Repair,
-                RuntimeVariable.LLM_PostProcessing_Assertions_Applied);
+                RuntimeVariable.LLM_PostProcessing_Assertions_Applied,
+                RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Unstable,
+                RuntimeVariable.LLM_PostProcessing_Assertions_Removed_Compile,
+                RuntimeVariable.LLM_PostProcessing_Assertions_Shipped);
     }
 }

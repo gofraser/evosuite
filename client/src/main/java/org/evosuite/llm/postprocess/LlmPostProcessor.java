@@ -74,6 +74,7 @@ public class LlmPostProcessor {
     private final PostProcessingAssertionValidator assertionValidator;
     final ResourceGuard resourceGuard;
     private final PhaseClock phaseClock;
+    private final PostProcessingTelemetry telemetry;
     PostProcessingOptions options;
     private final PostProcessingSession session = new PostProcessingSession();
 
@@ -124,6 +125,18 @@ public class LlmPostProcessor {
                      AssertionEvaluationRunner assertionEvaluationRunner,
                      ResourceGuard resourceGuard,
                      PhaseClock phaseClock) {
+        this(llmService, assertionFallbackRunner, assertionCandidateRunner,
+                stabilityExecutionRunner, assertionEvaluationRunner, resourceGuard,
+                phaseClock, new RuntimePostProcessingTelemetry());
+    }
+
+    LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
+                     AssertionCandidateRunner assertionCandidateRunner,
+                     StabilityExecutionRunner stabilityExecutionRunner,
+                     AssertionEvaluationRunner assertionEvaluationRunner,
+                     ResourceGuard resourceGuard,
+                     PhaseClock phaseClock,
+                     PostProcessingTelemetry telemetry) {
         this.llmService = llmService;
         this.assertionFallbackRunner = assertionFallbackRunner;
         this.assertionCandidateRunner = assertionCandidateRunner;
@@ -133,6 +146,7 @@ public class LlmPostProcessor {
                 stabilityExecutionRunner, assertionEvaluationRunner);
         this.resourceGuard = resourceGuard == null ? new DefaultResourceGuard() : resourceGuard;
         this.phaseClock = phaseClock == null ? new SystemPhaseClock() : phaseClock;
+        this.telemetry = telemetry == null ? new RuntimePostProcessingTelemetry() : telemetry;
         this.options = PostProcessingOptions.fromProperties();
     }
 
@@ -214,9 +228,9 @@ public class LlmPostProcessor {
         MinimizationResult effectiveMinimizationResult = minimizationResult == null
                 ? MinimizationResult.disabled(suite)
                 : minimizationResult;
-        publishMinimizationContext(effectiveMinimizationResult);
+        telemetry.publishMinimizationContext(effectiveMinimizationResult);
         if (!options.enabled()) {
-            publishZeroMetrics("disabled");
+            telemetry.publish(new PostProcessingMetrics("disabled"));
             return 0;
         }
         if (effectiveMinimizationResult.isIncomplete()
@@ -224,32 +238,33 @@ public class LlmPostProcessor {
                 == Properties.LlmPostProcessingOnIncompleteMinimization.SKIP) {
             logger.info("Unified LLM post-processing skipped: minimization incomplete ({})",
                     effectiveMinimizationResult.getStatus());
-            publishZeroMetrics("incomplete_minimization_" + effectiveMinimizationResult.getStatus().name());
+            telemetry.publish(new PostProcessingMetrics(
+                    "incomplete_minimization_" + effectiveMinimizationResult.getStatus().name()));
             return 0;
         }
         if (options.provider() == Properties.LlmProvider.NONE) {
             logger.info("Unified LLM post-processing skipped: no LLM provider configured");
-            publishZeroMetrics("no_provider");
+            telemetry.publish(new PostProcessingMetrics("no_provider"));
             return 0;
         }
         if (!options.features().any()) {
             logger.info("Unified LLM post-processing skipped: no response features enabled");
-            publishZeroMetrics("no_features_enabled");
+            telemetry.publish(new PostProcessingMetrics("no_features_enabled"));
             return 0;
         }
         if (suite == null || suite.size() == 0) {
-            publishZeroMetrics("empty_suite");
+            telemetry.publish(new PostProcessingMetrics("empty_suite"));
             return 0;
         }
         if (llmService == null || !llmService.isAvailable() || !llmService.hasBudget()) {
             logger.info("Unified LLM post-processing skipped: LLM service unavailable or budget exhausted");
-            publishZeroMetrics("service_unavailable_or_no_budget");
+            telemetry.publish(new PostProcessingMetrics("service_unavailable_or_no_budget"));
             return 0;
         }
 
         LlmPostProcessingPhase.Result phaseResult = new LlmPostProcessingPhase(this).run(
                 suite, effectiveMinimizationResult, options);
-        publishMetrics(phaseResult.metrics);
+        telemetry.publish(phaseResult.metrics);
         // Keep only the deprecated static bridge usable for legacy callers;
         // production reconciliation receives this.session explicitly.
         LEGACY_SESSION.clear();
@@ -322,31 +337,19 @@ public class LlmPostProcessor {
     }
 
     public static void publishSkippedPostProcessingMetrics(String skipReason, MinimizationResult minimizationResult) {
-        publishMinimizationContext(minimizationResult == null
+        PostProcessingTelemetryPublisher.publishMinimizationContext(minimizationResult == null
                 ? MinimizationResult.disabled(null)
                 : minimizationResult);
-        publishZeroMetrics(skipReason);
+        PostProcessingTelemetryPublisher.publish(new PostProcessingMetrics(skipReason));
     }
 
     /** Publish a skipped phase using this processor's explicit session. */
     public void publishSkippedPostProcessingMetricsForPhase(String skipReason,
                                                             MinimizationResult minimizationResult) {
-        publishMinimizationContext(minimizationResult == null
+        telemetry.publishMinimizationContext(minimizationResult == null
                 ? MinimizationResult.disabled(null)
                 : minimizationResult);
-        publishZeroMetrics(skipReason);
-    }
-
-    private static void publishZeroMetrics(String skipReason) {
-        publishMetrics(new PostProcessingMetrics(skipReason));
-    }
-
-    private static void publishMinimizationContext(MinimizationResult minimizationResult) {
-        PostProcessingTelemetryPublisher.publishMinimizationContext(minimizationResult);
-    }
-
-    private static void publishMetrics(PostProcessingMetrics metrics) {
-        PostProcessingTelemetryPublisher.publish(metrics);
+        telemetry.publish(new PostProcessingMetrics(skipReason));
     }
 
     public static int countUnifiedTemplateAssertions(TestSuiteChromosome suite) {
@@ -372,7 +375,7 @@ public class LlmPostProcessor {
                 PostProcessingAssertionReconciler.reconcile(suite,
                 initiallyAppliedAssertions);
         int removedCompile = compileRemovedAssertionCount(session);
-        PostProcessingTelemetryPublisher.publishAssertionReconciliation(
+        telemetry.publishAssertionReconciliation(
                 Math.max(0, reconciliation.removedUnstable() - removedCompile),
                 removedCompile, reconciliation.shipped());
         publishFinalAssertionLifecycle(session, suite);
