@@ -949,15 +949,39 @@ class LlmPostProcessingResponseParserTest {
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"BigDecimal.valueOf(3L)\",\"actual\":\"v0\"},"
-                + "{\"assertionId\":\"a1\",\"kind\":\"NOT_NULL\","
+                + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\","
+                + "\"expected\":\"BigDecimal.valueOf(3.5D)\",\"actual\":\"v0\"},"
+                + "{\"assertionId\":\"a2\",\"kind\":\"NOT_NULL\","
                 + "\"actual\":\"java.util.Optional.empty()\"}"
                 + "]}";
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, context());
 
         assertFalse(result.isInfrastructureFailure());
-        assertEquals(2, result.getResponse().getAssertions().size());
+        assertEquals(3, result.getResponse().getAssertions().size());
         assertTrue(result.getDiagnostics().isEmpty());
+    }
+
+    @Test
+    void parseRejectsUnsupportedCharSequenceNumericOverloads() {
+        Map<String, String> variableTypes = new LinkedHashMap<>();
+        variableTypes.put("v0", "java.lang.CharSequence");
+        variableTypes.put("v1", "java.lang.CharSequence");
+        LlmPostProcessingResponseParser.ParseContext parseContext = PostProcessingTestContexts.context(
+                new HashSet<>(Arrays.asList("s0")),
+                new HashSet<>(Arrays.asList("v0", "v1")),
+                new HashSet<LlmPostProcessingResponseParser.CallableMethod>(),
+                new HashSet<String>(), new HashSet<String>(), variableTypes);
+        String json = "{\"schemaVersion\":2,\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
+                + "\"actual\":\"Integer.parseInt(v0, 0, 1, 10) > 0\"},"
+                + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\","
+                + "\"actual\":\"Long.parseLong(v1, 0, 1, 10) > 0\"}]}";
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, parseContext);
+
+        assertTrue(result.getResponse().getAssertions().isEmpty());
+        assertEquals(2, count(result, DiagnosticCode.INVALID_FIELD));
     }
 
     @Test

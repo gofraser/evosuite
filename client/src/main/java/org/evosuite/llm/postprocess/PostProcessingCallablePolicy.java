@@ -66,10 +66,18 @@ final class PostProcessingCallablePolicy {
             "java.lang.Double#parseDouble(Ljava/lang/String;)D",
             "java.math.BigInteger#valueOf(J)Ljava/math/BigInteger;",
             "java.math.BigDecimal#valueOf(J)Ljava/math/BigDecimal;",
+            "java.math.BigDecimal#valueOf(D)Ljava/math/BigDecimal;",
             "java.math.BigDecimal#valueOf(JI)Ljava/math/BigDecimal;",
             "java.util.Optional#empty()Ljava/util/Optional;",
             "java.util.Optional#of(Ljava/lang/Object;)Ljava/util/Optional;",
             "java.util.Optional#ofNullable(Ljava/lang/Object;)Ljava/util/Optional;");
+
+    /*
+     * Keep the numeric conversion allowlist focused on the common primitive
+     * and String overloads. The newer CharSequence slice overloads of
+     * Integer.parseInt and Long.parseLong are intentionally not supported
+     * until generated assertions have a demonstrated need for them.
+     */
     private static final Set<String> BUILT_IN_IMMUTABLE_TYPES = allowedFields(
             "java.lang.String",
             "java.lang.Boolean",
