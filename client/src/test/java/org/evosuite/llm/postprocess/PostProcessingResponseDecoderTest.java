@@ -26,7 +26,6 @@ class PostProcessingResponseDecoderTest {
                         "```json\n{\"schemaVersion\":2,\"futureField\":true}\n```");
 
         assertTrue(result.isSuccess());
-        assertEquals(2, result.getSchemaVersion());
         assertTrue(result.getRoot().get("futureField").asBoolean());
     }
 

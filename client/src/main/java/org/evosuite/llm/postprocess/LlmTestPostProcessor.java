@@ -96,7 +96,6 @@ final class LlmTestPostProcessor {
             result.sectionBreaksProposed = proposedCounts.getSectionBreaks();
             result.assertionsProposed = proposedCounts.getAssertions();
             if (assertionsEnabledForTest) {
-                LlmPostProcessingResponse parsedResponse = response;
                 List<LlmPostProcessingParseResult.Diagnostic> initialValidationDiagnostics =
                         Collections.emptyList();
                 LlmPostProcessingPhase.StopReason stopReason = LlmPostProcessingPhase.StopReason.NONE;
@@ -126,7 +125,7 @@ final class LlmTestPostProcessor {
                     result.assertionsAcceptedInitial = response.getAssertions().size();
                     LlmPostProcessor.AssertionRepairResult repairResult =
                             processor.repairRejectedAssertionsIfPossible(phaseContext, parseResult,
-                                    parsedResponse, response, initialValidationDiagnostics, oracleContext, validationTest,
+                                    response, initialValidationDiagnostics, oracleContext, validationTest,
                                     contextExecutionResult, limits,
                                     requestedCallsBeforeTest + result.requestedCalls, testIndex, minimizationResult,
                                     options);

@@ -103,14 +103,6 @@ public final class LlmPostProcessingReferences {
         return position;
     }
 
-    public Statement resolveStatement(TestCase test, String statementId) {
-        int position = getStatementPosition(statementId);
-        if (test == null || position < 0 || position >= test.size()) {
-            throw new IllegalArgumentException("Statement ID cannot be resolved in target test: " + statementId);
-        }
-        return test.getStatement(position);
-    }
-
     public VariableReference resolveVariable(TestCase test, String variableId) {
         int position = getVariablePosition(variableId);
         if (test == null || position < 0 || position >= test.size()) {

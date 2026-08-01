@@ -961,6 +961,27 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
+    void parseValidatesArgumentsForBuiltInStaticMethods() {
+        String json = "{"
+                + "\"schemaVersion\":2,"
+                + "\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
+                + "\"actual\":\"Integer.parseInt(\\\"7\\\") > 0\"},"
+                + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\","
+                + "\"actual\":\"Integer.parseInt(7) > 0\"},"
+                + "{\"assertionId\":\"a2\",\"kind\":\"NOT_NULL\","
+                + "\"actual\":\"java.util.Optional.empty(7)\"}"
+                + "]}";
+
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, context());
+
+        assertFalse(result.isInfrastructureFailure());
+        assertEquals(1, result.getResponse().getAssertions().size());
+        assertEquals("a0", result.getResponse().getAssertions().get(0).getAssertionId());
+        assertEquals(2, count(result, DiagnosticCode.INVALID_FIELD));
+    }
+
+    @Test
     void parse_deniesEnvironmentSensitiveStaticCallsEvenWhenConfigured() {
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST =
                 "java.lang.System#*,java.lang.Runtime#*,java.nio.file.Files#*";

@@ -216,15 +216,15 @@ final class PostProcessingPromptRenderer {
     static String callableMemberText(OracleContext context,
                                      Set<String> relevantVariableIds,
                                      PostProcessingOptions options) {
-        return renderCallableMembers(context, relevantVariableIds, options).text;
+        return renderCallableMembers(context, relevantVariableIds, options);
     }
 
-    private static CallableMemberRendering renderCallableMembers(
+    private static String renderCallableMembers(
             OracleContext context,
             Set<String> relevantVariableIds,
-        PostProcessingOptions options) {
+            PostProcessingOptions options) {
         if (context.getCallableMembers().isEmpty()) {
-            return new CallableMemberRendering("none\n");
+            return "none\n";
         }
         Map<String, LinkedHashSet<String>> membersByType = new LinkedHashMap<>();
         LinkedHashSet<String> receiverBindings = new LinkedHashSet<>();
@@ -261,15 +261,7 @@ final class PostProcessingPromptRenderer {
         if (truncatedTypes > 0) {
             appendCapped(builder, "truncatedCallableTypes=" + truncatedTypes + "\n", maxChars);
         }
-        return new CallableMemberRendering(builder.length() == 0 ? "none\n" : builder.toString());
-    }
-
-    static final class CallableMemberRendering {
-        final String text;
-
-        private CallableMemberRendering(String text) {
-            this.text = text;
-        }
+        return builder.length() == 0 ? "none\n" : builder.toString();
     }
 
     private static String candidateFactLine(OracleContext.CandidateFact fact,

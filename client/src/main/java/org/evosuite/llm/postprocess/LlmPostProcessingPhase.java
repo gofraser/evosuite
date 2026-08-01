@@ -95,8 +95,7 @@ final class LlmPostProcessingPhase {
             }
             if (!processor.canStartAnotherLlmCall(phaseContext)) {
                 stopReason = StopReason.TIMEOUT;
-                metrics.capSkippedTests += Math.max(0,
-                        LlmPostProcessor.remainingItems(workItems, workIndex));
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
                 break;
             }
 
@@ -106,8 +105,7 @@ final class LlmPostProcessingPhase {
             metrics.add(result);
             if (result.stopReason != StopReason.NONE) {
                 stopReason = result.stopReason;
-                metrics.capSkippedTests += Math.max(0,
-                        LlmPostProcessor.remainingItems(workItems, workIndex + 1));
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex + 1);
                 break;
             }
         }

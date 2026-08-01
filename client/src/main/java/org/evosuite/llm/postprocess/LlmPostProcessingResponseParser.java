@@ -88,7 +88,7 @@ public final class LlmPostProcessingResponseParser {
         state.parseBasicEdits(root);
         state.parseAssertions(root.get("assertions"));
         state.parseAssertionDecision(root.get("assertionDecision"), root.get("noAssertionReason"));
-        return LlmPostProcessingParseResult.successWithEntries(state.response, state.diagnostics,
+        return LlmPostProcessingParseResult.success(state.response, state.diagnostics,
                 proposedCounts(root), state.assertionEntries(rawAssertions(root)));
     }
 
@@ -254,6 +254,22 @@ public final class LlmPostProcessingResponseParser {
 
         public String getDelta() {
             return delta;
+        }
+
+        String canonicalKey() {
+            return canonicalKey(kind, expected, actual, delta);
+        }
+
+        static String canonicalKey(LlmPostProcessingResponse.AssertionKind kind,
+                                   String expected, String actual, String delta) {
+            return kind.name()
+                    + "|" + normalize(expected)
+                    + "|" + normalize(actual)
+                    + "|" + normalize(delta);
+        }
+
+        private static String normalize(String expression) {
+            return expression == null ? "" : expression.replaceAll("\\s+", "");
         }
 
     }
@@ -946,10 +962,7 @@ public final class LlmPostProcessingResponseParser {
 
         private String assertionKey(LlmPostProcessingResponse.AssertionKind kind, String expected, String actual,
                                     String delta) {
-            return kind.name()
-                    + "|" + normalizedExpression(expected)
-                    + "|" + normalizedExpression(actual)
-                    + "|" + normalizedExpression(delta);
+            return SelectableCandidate.canonicalKey(kind, expected, actual, delta);
         }
 
         private String normalizedExpression(String expression) {

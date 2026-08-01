@@ -134,6 +134,40 @@ class OracleContextTest {
     }
 
     @Test
+    void captureDoesNotExposeStructuredValueSummariesAsSelectableCandidates() {
+        DefaultTestCase test = new DefaultTestCase();
+        UninterpretedStatement arrayStatement = new UninterpretedStatement(test, String[].class,
+                "return values;", Collections.emptyMap(), "values");
+        UninterpretedStatement collectionStatement = new UninterpretedStatement(test, List.class,
+                "return values;", Collections.emptyMap(), "values");
+        UninterpretedStatement mapStatement = new UninterpretedStatement(test, Map.class,
+                "return values;", Collections.emptyMap(), "values");
+        test.addStatement(arrayStatement);
+        test.addStatement(collectionStatement);
+        test.addStatement(mapStatement);
+
+        PrimitiveAssertion arrayAssertion = new PrimitiveAssertion();
+        arrayAssertion.setSource(arrayStatement.getReturnValue());
+        arrayAssertion.setValue(new String[]{"a", "b"});
+        PrimitiveAssertion collectionAssertion = new PrimitiveAssertion();
+        collectionAssertion.setSource(collectionStatement.getReturnValue());
+        collectionAssertion.setValue(Arrays.asList("a", "b"));
+        PrimitiveAssertion mapAssertion = new PrimitiveAssertion();
+        mapAssertion.setSource(mapStatement.getReturnValue());
+        Map<String, Integer> values = new HashMap<>();
+        values.put("a", 1);
+        mapAssertion.setValue(values);
+
+        OracleContext context = OracleContext.from(test, null,
+                Arrays.asList(arrayAssertion, collectionAssertion, mapAssertion),
+                PostProcessingOptions.fromProperties());
+
+        assertEquals(3, context.getCandidateFacts().size());
+        assertTrue(context.getCandidateFacts().stream()
+                .allMatch(fact -> fact.getCandidateId() == null));
+    }
+
+    @Test
     void captureExposesStableStatementIdsTypesAndAnnotatedCode() {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));

@@ -104,24 +104,15 @@ public class LlmPostProcessingResponse {
      * repair flows that temporarily remove assertion proposals.
      */
     LlmPostProcessingResponse withoutAssertions() {
-        LlmPostProcessingResponse copy = new LlmPostProcessingResponse();
-        copy.setAssertionDecision(assertionDecision);
-        copy.setNoAssertionReason(noAssertionReason);
-        copy.setTestName(testName);
-        for (Map.Entry<String, String> entry : variableNames.entrySet()) {
-            copy.addVariableName(entry.getKey(), entry.getValue());
-        }
-        for (CommentProposal comment : comments) {
-            copy.addComment(comment);
-        }
-        for (String sectionBreak : sectionBreaksAfter) {
-            copy.addSectionBreakAfter(sectionBreak);
-        }
-        return copy;
+        return copy(false);
     }
 
     /** Create an independent domain snapshot for a validated edit plan. */
     LlmPostProcessingResponse copy() {
+        return copy(true);
+    }
+
+    private LlmPostProcessingResponse copy(boolean includeAssertions) {
         LlmPostProcessingResponse copy = new LlmPostProcessingResponse();
         copy.setAssertionDecision(assertionDecision);
         copy.setNoAssertionReason(noAssertionReason);
@@ -135,11 +126,13 @@ public class LlmPostProcessingResponse {
         for (String sectionBreak : sectionBreaksAfter) {
             copy.addSectionBreakAfter(sectionBreak);
         }
-        for (AssertionProposal assertion : assertions) {
-            copy.addAssertion(new AssertionProposal(
-                    assertion.getAssertionId(), assertion.getKind(), assertion.getExpected(),
-                    assertion.getActual(), assertion.getDelta(), assertion.getPurpose(),
-                    assertion.getIntent(), assertion.getCandidateId()));
+        if (includeAssertions) {
+            for (AssertionProposal assertion : assertions) {
+                copy.addAssertion(new AssertionProposal(
+                        assertion.getAssertionId(), assertion.getKind(), assertion.getExpected(),
+                        assertion.getActual(), assertion.getDelta(), assertion.getPurpose(),
+                        assertion.getIntent(), assertion.getCandidateId()));
+            }
         }
         return copy;
     }

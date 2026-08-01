@@ -35,25 +35,41 @@ final class PostProcessingCallablePolicy {
 
     private static final Set<String> BUILT_IN_PURE_STATIC_METHODS = allowedFields(
             "java.lang.Math#*",
-            "java.util.Arrays#asList",
-            "java.lang.Boolean#valueOf",
-            "java.lang.Byte#valueOf",
-            "java.lang.Byte#parseByte",
-            "java.lang.Short#valueOf",
-            "java.lang.Short#parseShort",
-            "java.lang.Integer#valueOf",
-            "java.lang.Integer#parseInt",
-            "java.lang.Long#valueOf",
-            "java.lang.Long#parseLong",
-            "java.lang.Float#valueOf",
-            "java.lang.Float#parseFloat",
-            "java.lang.Double#valueOf",
-            "java.lang.Double#parseDouble",
-            "java.math.BigInteger#valueOf",
-            "java.math.BigDecimal#valueOf",
-            "java.util.Optional#empty",
-            "java.util.Optional#of",
-            "java.util.Optional#ofNullable");
+            "java.util.Arrays#asList([Ljava/lang/Object;)Ljava/util/List;",
+            "java.lang.Boolean#valueOf(Z)Ljava/lang/Boolean;",
+            "java.lang.Boolean#valueOf(Ljava/lang/String;)Ljava/lang/Boolean;",
+            "java.lang.Byte#valueOf(B)Ljava/lang/Byte;",
+            "java.lang.Byte#valueOf(Ljava/lang/String;)Ljava/lang/Byte;",
+            "java.lang.Byte#valueOf(Ljava/lang/String;I)Ljava/lang/Byte;",
+            "java.lang.Byte#parseByte(Ljava/lang/String;)B",
+            "java.lang.Byte#parseByte(Ljava/lang/String;I)B",
+            "java.lang.Short#valueOf(S)Ljava/lang/Short;",
+            "java.lang.Short#valueOf(Ljava/lang/String;)Ljava/lang/Short;",
+            "java.lang.Short#valueOf(Ljava/lang/String;I)Ljava/lang/Short;",
+            "java.lang.Short#parseShort(Ljava/lang/String;)S",
+            "java.lang.Short#parseShort(Ljava/lang/String;I)S",
+            "java.lang.Integer#valueOf(I)Ljava/lang/Integer;",
+            "java.lang.Integer#valueOf(Ljava/lang/String;)Ljava/lang/Integer;",
+            "java.lang.Integer#valueOf(Ljava/lang/String;I)Ljava/lang/Integer;",
+            "java.lang.Integer#parseInt(Ljava/lang/String;)I",
+            "java.lang.Integer#parseInt(Ljava/lang/String;I)I",
+            "java.lang.Long#valueOf(J)Ljava/lang/Long;",
+            "java.lang.Long#valueOf(Ljava/lang/String;)Ljava/lang/Long;",
+            "java.lang.Long#valueOf(Ljava/lang/String;I)Ljava/lang/Long;",
+            "java.lang.Long#parseLong(Ljava/lang/String;)J",
+            "java.lang.Long#parseLong(Ljava/lang/String;I)J",
+            "java.lang.Float#valueOf(F)Ljava/lang/Float;",
+            "java.lang.Float#valueOf(Ljava/lang/String;)Ljava/lang/Float;",
+            "java.lang.Float#parseFloat(Ljava/lang/String;)F",
+            "java.lang.Double#valueOf(D)Ljava/lang/Double;",
+            "java.lang.Double#valueOf(Ljava/lang/String;)Ljava/lang/Double;",
+            "java.lang.Double#parseDouble(Ljava/lang/String;)D",
+            "java.math.BigInteger#valueOf(J)Ljava/math/BigInteger;",
+            "java.math.BigDecimal#valueOf(J)Ljava/math/BigDecimal;",
+            "java.math.BigDecimal#valueOf(JI)Ljava/math/BigDecimal;",
+            "java.util.Optional#empty()Ljava/util/Optional;",
+            "java.util.Optional#of(Ljava/lang/Object;)Ljava/util/Optional;",
+            "java.util.Optional#ofNullable(Ljava/lang/Object;)Ljava/util/Optional;");
     private static final Set<String> BUILT_IN_IMMUTABLE_TYPES = allowedFields(
             "java.lang.String",
             "java.lang.Boolean",
@@ -164,58 +180,12 @@ final class PostProcessingCallablePolicy {
     }
 
     ExprType staticMethodReturnType(String owner, MethodCallExpr call) {
-        String methodName = call.getNameAsString();
-        String canonicalOwner = canonicalType(owner);
-        if ("java.lang.Boolean".equals(canonicalOwner) && "valueOf".equals(methodName)) {
-            return ExprType.reference("java.lang.Boolean");
-        }
-        if ("java.lang.Byte".equals(canonicalOwner)
-                && ("valueOf".equals(methodName) || "parseByte".equals(methodName))) {
-            return "parseByte".equals(methodName)
-                    ? ExprType.primitive("byte") : ExprType.reference("java.lang.Byte");
-        }
-        if ("java.lang.Short".equals(canonicalOwner)
-                && ("valueOf".equals(methodName) || "parseShort".equals(methodName))) {
-            return "parseShort".equals(methodName)
-                    ? ExprType.primitive("short") : ExprType.reference("java.lang.Short");
-        }
-        if ("java.lang.Integer".equals(canonicalOwner)
-                && ("valueOf".equals(methodName) || "parseInt".equals(methodName))) {
-            return "parseInt".equals(methodName)
-                    ? ExprType.primitive("int") : ExprType.reference("java.lang.Integer");
-        }
-        if ("java.lang.Long".equals(canonicalOwner)
-                && ("valueOf".equals(methodName) || "parseLong".equals(methodName))) {
-            return "parseLong".equals(methodName)
-                    ? ExprType.primitive("long") : ExprType.reference("java.lang.Long");
-        }
-        if ("java.lang.Float".equals(canonicalOwner)
-                && ("valueOf".equals(methodName) || "parseFloat".equals(methodName))) {
-            return "parseFloat".equals(methodName)
-                    ? ExprType.primitive("float") : ExprType.reference("java.lang.Float");
-        }
-        if ("java.lang.Double".equals(canonicalOwner)
-                && ("valueOf".equals(methodName) || "parseDouble".equals(methodName))) {
-            return "parseDouble".equals(methodName)
-                    ? ExprType.primitive("double") : ExprType.reference("java.lang.Double");
-        }
-        if ("java.math.BigInteger".equals(canonicalOwner) && "valueOf".equals(methodName)) {
-            return ExprType.reference("java.math.BigInteger");
-        }
-        if ("java.math.BigDecimal".equals(canonicalOwner) && "valueOf".equals(methodName)) {
-            return ExprType.reference("java.math.BigDecimal");
-        }
-        if ("java.util.Optional".equals(canonicalOwner)) {
-            return ExprType.reference("java.util.Optional");
-        }
         for (StaticAllowlistEntry entry : staticAllowlistEntries) {
-            if (entry.builtIn || entry.signature == null
-                    || !matchesStaticAllowlistEntry(owner, call, entry)) {
+            if (!matchesStaticAllowlistEntry(owner, call, entry) || entry.signature == null) {
                 continue;
             }
-            JvmMethodDescriptor signature = entry.signature;
-            if (signature != null && signature.isValid()) {
-                return signature.returnType();
+            if (entry.signature.isValid()) {
+                return entry.signature.returnType();
             }
         }
         return ExprType.unknown();
@@ -317,7 +287,9 @@ final class PostProcessingCallablePolicy {
         if (entry.signature == null) {
             return entry.builtIn;
         }
-        return argumentsMatchDescriptor(call, entry.signature);
+        return entry.varargs
+                ? argumentsMatchVarargs(call, entry.signature)
+                : argumentsMatchDescriptor(call, entry.signature);
     }
 
     private static boolean isValidConfiguredStaticAllowlistEntry(String entry) {
@@ -345,6 +317,23 @@ final class PostProcessingCallablePolicy {
 
     private boolean argumentsMatchDescriptor(MethodCallExpr call, JvmMethodDescriptor signature) {
         return descriptorMatchScore(call, signature) >= 0;
+    }
+
+    private boolean argumentsMatchVarargs(MethodCallExpr call, JvmMethodDescriptor signature) {
+        if (signature == null || !signature.isValid() || signature.parameterTypes().size() != 1) {
+            return false;
+        }
+        ExprType arrayType = signature.parameterTypes().get(0);
+        if (!arrayType.isArray()) {
+            return false;
+        }
+        ExprType elementType = ExprType.fromTypeName(arrayType.componentType);
+        for (int i = 0; i < call.getArguments().size(); i++) {
+            if (argumentCompatibilityScore(typeResolver.resolve(call.getArgument(i)), elementType) < 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private int descriptorMatchScore(MethodCallExpr call, JvmMethodDescriptor signature) {
@@ -518,14 +507,16 @@ final class PostProcessingCallablePolicy {
         private final JvmMethodDescriptor signature;
         private final boolean wildcard;
         private final boolean builtIn;
+        private final boolean varargs;
 
         private StaticAllowlistEntry(String owner, String method, JvmMethodDescriptor signature,
-                                     boolean wildcard, boolean builtIn) {
+                                     boolean wildcard, boolean builtIn, boolean varargs) {
             this.owner = owner;
             this.method = method;
             this.signature = signature;
             this.wildcard = wildcard;
             this.builtIn = builtIn;
+            this.varargs = varargs;
         }
 
         private static StaticAllowlistEntry parse(String entry, boolean builtIn) {
@@ -533,13 +524,15 @@ final class PostProcessingCallablePolicy {
             String owner = canonicalOwnerType(entry.substring(0, separator));
             String member = entry.substring(separator + 1);
             if ("*".equals(member)) {
-                return new StaticAllowlistEntry(owner, null, null, true, builtIn);
+                return new StaticAllowlistEntry(owner, null, null, true, builtIn, false);
             }
             int descriptorStart = member.indexOf('(');
             String method = descriptorStart < 0 ? member : member.substring(0, descriptorStart);
             JvmMethodDescriptor signature = descriptorStart < 0
                     ? null : JvmMethodDescriptor.parse(member.substring(descriptorStart));
-            return new StaticAllowlistEntry(owner, method, signature, false, builtIn);
+            boolean varargs = builtIn && "java.util.Arrays".equals(owner)
+                    && "asList".equals(method);
+            return new StaticAllowlistEntry(owner, method, signature, false, builtIn, varargs);
         }
 
         @Override
@@ -551,13 +544,14 @@ final class PostProcessingCallablePolicy {
             return owner.equals(entry.owner)
                     && java.util.Objects.equals(method, entry.method)
                     && java.util.Objects.equals(signature == null ? null : signature.descriptor(),
-                    entry.signature == null ? null : entry.signature.descriptor());
+                    entry.signature == null ? null : entry.signature.descriptor())
+                    && varargs == entry.varargs;
         }
 
         @Override
         public int hashCode() {
             return java.util.Objects.hash(owner, method,
-                    signature == null ? null : signature.descriptor());
+                    signature == null ? null : signature.descriptor(), varargs);
         }
     }
 

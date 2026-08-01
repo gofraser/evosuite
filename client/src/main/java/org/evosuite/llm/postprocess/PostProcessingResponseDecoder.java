@@ -52,7 +52,7 @@ final class PostProcessingResponseDecoder {
             return DecodeResult.failure("Unsupported schemaVersion: " + schemaVersion
                     + "; expected " + LlmPostProcessingProtocol.RESPONSE_SCHEMA_VERSION);
         }
-        return DecodeResult.success(root, schemaVersion);
+        return DecodeResult.success(root);
     }
 
     static String normalizeJsonResponse(String response) {
@@ -76,21 +76,19 @@ final class PostProcessingResponseDecoder {
 
     static final class DecodeResult {
         private final JsonNode root;
-        private final int schemaVersion;
         private final String failureReason;
 
-        private DecodeResult(JsonNode root, int schemaVersion, String failureReason) {
+        private DecodeResult(JsonNode root, String failureReason) {
             this.root = root;
-            this.schemaVersion = schemaVersion;
             this.failureReason = failureReason;
         }
 
-        static DecodeResult success(JsonNode root, int schemaVersion) {
-            return new DecodeResult(root, schemaVersion, null);
+        static DecodeResult success(JsonNode root) {
+            return new DecodeResult(root, null);
         }
 
         static DecodeResult failure(String reason) {
-            return new DecodeResult(null, -1, reason);
+            return new DecodeResult(null, reason);
         }
 
         boolean isSuccess() {
@@ -99,10 +97,6 @@ final class PostProcessingResponseDecoder {
 
         JsonNode getRoot() {
             return root;
-        }
-
-        int getSchemaVersion() {
-            return schemaVersion;
         }
 
         String getFailureReason() {

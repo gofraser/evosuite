@@ -322,12 +322,8 @@ final class OracleContext {
             if (statementId == null && sourceId == null && referencedIds.isEmpty()) {
                 continue;
             }
-            CandidateProjection projection = candidateProjection(references, assertion, options);
-            LlmPostProcessingResponseParser.SelectableCandidate selectable = projection == null
-                    ? null
-                    : new LlmPostProcessingResponseParser.SelectableCandidate(
-                    projection.getKind(), projection.getExpected(), projection.getActual(),
-                    projection.getDelta());
+            LlmPostProcessingResponseParser.SelectableCandidate selectable =
+                    candidateProjection(references, assertion, options);
             facts.add(new CandidateFact(
                     null,
                     statementId == null ? "s?" : statementId,
@@ -335,7 +331,7 @@ final class OracleContext {
                     assertion.getClass().getSimpleName(),
                     valueSummaryText(assertion.getValue(), options),
                     referencedIds,
-                    projection == null ? null : projection.canonicalKey(),
+                    selectable == null ? null : selectable.canonicalKey(),
                     selectable));
         }
         facts.sort((left, right) -> {
@@ -392,18 +388,7 @@ final class OracleContext {
     }
 
 
-    static int stableIdIndex(String id) {
-        if (id == null || id.length() < 2) {
-            return -1;
-        }
-        try {
-            return Integer.parseInt(id.substring(1));
-        } catch (NumberFormatException ignored) {
-            return -1;
-        }
-    }
-
-    private static CandidateProjection candidateProjection(
+    private static LlmPostProcessingResponseParser.SelectableCandidate candidateProjection(
             LlmPostProcessingReferences references, Assertion assertion,
             PostProcessingOptions options) {
         if (assertion == null) {
@@ -415,7 +400,7 @@ final class OracleContext {
         }
         if (assertion instanceof NullAssertion && assertion.getValue() instanceof Boolean) {
             boolean isNull = (Boolean) assertion.getValue();
-            return new CandidateProjection(isNull
+            return new LlmPostProcessingResponseParser.SelectableCandidate(isNull
                     ? LlmPostProcessingResponse.AssertionKind.NULL
                     : LlmPostProcessingResponse.AssertionKind.NOT_NULL,
                     null, sourceId, null);
@@ -424,7 +409,7 @@ final class OracleContext {
             String destId = variableId(references, ((EqualsAssertion) assertion).getDest());
             if (destId != null) {
                 boolean equal = (Boolean) assertion.getValue();
-                return new CandidateProjection(equal
+                return new LlmPostProcessingResponseParser.SelectableCandidate(equal
                         ? LlmPostProcessingResponse.AssertionKind.EQUALS
                         : LlmPostProcessingResponse.AssertionKind.NOT_EQUALS,
                         sourceId, destId, null);
@@ -434,7 +419,7 @@ final class OracleContext {
             String destId = variableId(references, ((SameAssertion) assertion).getDest());
             if (destId != null) {
                 boolean same = (Boolean) assertion.getValue();
-                return new CandidateProjection(same
+                return new LlmPostProcessingResponseParser.SelectableCandidate(same
                         ? LlmPostProcessingResponse.AssertionKind.SAME
                         : LlmPostProcessingResponse.AssertionKind.NOT_SAME,
                         sourceId, destId, null);
@@ -444,18 +429,20 @@ final class OracleContext {
             String containedId = variableId(references,
                     ((ContainsAssertion) assertion).getContainedVariable());
             if (containedId != null) {
-                return new CandidateProjection(LlmPostProcessingResponse.AssertionKind.TRUE,
+                return new LlmPostProcessingResponseParser.SelectableCandidate(
+                        LlmPostProcessingResponse.AssertionKind.TRUE,
                         null, sourceId + ".contains(" + containedId + ")", null);
             }
         }
         if (assertion instanceof ArrayLengthAssertion && assertion.getValue() != null) {
-            return new CandidateProjection(LlmPostProcessingResponse.AssertionKind.EQUALS,
+            return new LlmPostProcessingResponseParser.SelectableCandidate(
+                    LlmPostProcessingResponse.AssertionKind.EQUALS,
                     String.valueOf(assertion.getValue()), sourceId + ".length", null);
         }
         return fallbackCandidateProjection(references, assertion, options, sourceId);
     }
 
-    private static CandidateProjection fallbackCandidateProjection(
+    private static LlmPostProcessingResponseParser.SelectableCandidate fallbackCandidateProjection(
             LlmPostProcessingReferences references, Assertion assertion,
             PostProcessingOptions options, String sourceId) {
         String code;
@@ -490,19 +477,19 @@ final class OracleContext {
                     String method = call.getNameAsString();
                     if (("assertEquals".equals(method) || "assertArrayEquals".equals(method))
                             && arguments.size() >= 2) {
-                        return new CandidateProjection(
+                        return new LlmPostProcessingResponseParser.SelectableCandidate(
                                 LlmPostProcessingResponse.AssertionKind.EQUALS,
                                 arguments.get(0).toString(), arguments.get(1).toString(),
                                 arguments.size() >= 3 ? arguments.get(2).toString() : null);
                     }
                     if ("assertNotEquals".equals(method) && arguments.size() >= 2) {
-                        return new CandidateProjection(
+                        return new LlmPostProcessingResponseParser.SelectableCandidate(
                                 LlmPostProcessingResponse.AssertionKind.NOT_EQUALS,
                                 arguments.get(0).toString(), arguments.get(1).toString(), null);
                     }
                     if (("assertTrue".equals(method) || "assertFalse".equals(method))
                             && arguments.size() == 1) {
-                        return new CandidateProjection(
+                        return new LlmPostProcessingResponseParser.SelectableCandidate(
                                 "assertTrue".equals(method)
                                         ? LlmPostProcessingResponse.AssertionKind.TRUE
                                         : LlmPostProcessingResponse.AssertionKind.FALSE,
@@ -510,7 +497,7 @@ final class OracleContext {
                     }
                     if (("assertNull".equals(method) || "assertNotNull".equals(method))
                             && arguments.size() == 1) {
-                        return new CandidateProjection(
+                        return new LlmPostProcessingResponseParser.SelectableCandidate(
                                 "assertNull".equals(method)
                                         ? LlmPostProcessingResponse.AssertionKind.NULL
                                         : LlmPostProcessingResponse.AssertionKind.NOT_NULL,
@@ -518,7 +505,7 @@ final class OracleContext {
                     }
                     if (("assertSame".equals(method) || "assertNotSame".equals(method))
                             && arguments.size() == 2) {
-                        return new CandidateProjection(
+                        return new LlmPostProcessingResponseParser.SelectableCandidate(
                                 "assertSame".equals(method)
                                         ? LlmPostProcessingResponse.AssertionKind.SAME
                                         : LlmPostProcessingResponse.AssertionKind.NOT_SAME,
@@ -529,8 +516,8 @@ final class OracleContext {
                 // Fall through to the structured value projection below.
             }
         }
-        String expected = valueSummaryText(assertion.getValue(), options);
-        return expected == null ? null : new CandidateProjection(
+        String expected = literalValue(assertion.getValue());
+        return expected == null ? null : new LlmPostProcessingResponseParser.SelectableCandidate(
                 LlmPostProcessingResponse.AssertionKind.EQUALS, expected, sourceId, null);
     }
 

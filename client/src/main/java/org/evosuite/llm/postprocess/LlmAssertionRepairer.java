@@ -47,7 +47,6 @@ final class LlmAssertionRepairer {
     /** Structured-input entry point used by the production repair workflow. */
     static List<RejectedAssertion> collectRepairableRejectedAssertions(
             LlmPostProcessingParseResult parseResult,
-            LlmPostProcessingResponse parsedResponse,
             LlmPostProcessingResponse acceptedResponse,
             List<LlmPostProcessingParseResult.Diagnostic> validationDiagnostics) {
         if (parseResult == null || parseResult.getAssertionEntries().isEmpty()) {
@@ -89,19 +88,6 @@ final class LlmAssertionRepairer {
                 }
             }
         }
-        if (parsedResponse != null) {
-            for (LlmPostProcessingResponse.AssertionProposal proposal : parsedResponse.getAssertions()) {
-                if (proposal == null || acceptedIds.contains(proposal.getAssertionId())
-                        || byId.containsKey(proposal.getAssertionId())) {
-                    continue;
-                }
-                RejectedAssertion candidate = new RejectedAssertion(
-                        proposal.getAssertionId(), proposal.toString());
-                candidate.addDiagnostic("Validation rejected the assertion");
-                byId.put(proposal.getAssertionId(), candidate);
-            }
-        }
-
         List<RejectedAssertion> result = new ArrayList<>();
         for (RejectedAssertion candidate : byId.values()) {
             if (candidate.isRepairable()) {
@@ -145,7 +131,7 @@ final class LlmAssertionRepairer {
                         raw, entry.getProposal(), entry.getDiagnostics()));
             }
         }
-        return LlmPostProcessingParseResult.successWithEntries(filtered, parseResult.getDiagnostics(),
+        return LlmPostProcessingParseResult.success(filtered, parseResult.getDiagnostics(),
                 parseResult.getProposedCounts(), entries);
     }
 

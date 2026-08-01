@@ -66,7 +66,6 @@ public class LlmPostProcessor {
     private final AssertionFallbackRunner assertionFallbackRunner;
     final AssertionCandidateRunner assertionCandidateRunner;
     final StabilityExecutionRunner stabilityExecutionRunner;
-    private final AssertionEvaluationRunner assertionEvaluationRunner;
     private final PostProcessingAssertionValidator assertionValidator;
     final ResourceGuard resourceGuard;
     private final PhaseClock phaseClock;
@@ -91,7 +90,6 @@ public class LlmPostProcessor {
         this.assertionFallbackRunner = assertionFallbackRunner;
         this.assertionCandidateRunner = assertionCandidateRunner;
         this.stabilityExecutionRunner = stabilityExecutionRunner;
-        this.assertionEvaluationRunner = assertionEvaluationRunner;
         this.assertionValidator = new PostProcessingAssertionValidator(
                 stabilityExecutionRunner, assertionEvaluationRunner);
         this.resourceGuard = resourceGuard == null ? new DefaultResourceGuard() : resourceGuard;
@@ -682,7 +680,6 @@ public class LlmPostProcessor {
     AssertionRepairResult repairRejectedAssertionsIfPossible(
             LlmPostProcessingPhaseContext phaseContext,
             LlmPostProcessingParseResult parseResult,
-            LlmPostProcessingResponse parsedResponse,
             LlmPostProcessingResponse acceptedResponse,
             List<LlmPostProcessingParseResult.Diagnostic> validationDiagnostics,
             OracleContext context,
@@ -706,7 +703,7 @@ public class LlmPostProcessor {
 
         List<LlmAssertionRepairer.RejectedAssertion> rejected =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                        parseResult, parsedResponse, acceptedResponse, validationDiagnostics);
+                        parseResult, acceptedResponse, validationDiagnostics);
         if (rejected.isEmpty()) {
             return AssertionRepairResult.noCall(acceptedResponse);
         }

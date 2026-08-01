@@ -47,7 +47,7 @@ class LlmAssertionRepairerTest {
                         LlmPostProcessingParseResult.DiagnosticCode.STABILITY_EXECUTION,
                         "assertions[a0]", "second execution changed the result"));
         assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                parsed, parsed.getResponse(), accepted, stability).isEmpty());
+                parsed, accepted, stability).isEmpty());
 
         List<LlmPostProcessingParseResult.Diagnostic> observed = Collections.singletonList(
                 new LlmPostProcessingParseResult.Diagnostic(
@@ -55,7 +55,7 @@ class LlmAssertionRepairerTest {
                         "assertions[a0]", "expected true but observed false"));
         List<LlmAssertionRepairer.RejectedAssertion> repairable =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                        parsed, parsed.getResponse(), accepted, observed);
+                        parsed, accepted, observed);
         assertEquals(1, repairable.size());
         assertTrue(repairable.get(0).getDiagnostics().get(0).contains("expected true but observed false"));
     }
@@ -68,7 +68,7 @@ class LlmAssertionRepairerTest {
 
         List<LlmAssertionRepairer.RejectedAssertion> repairable =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(parsed,
-                        parsed.getResponse(), new LlmPostProcessingResponse(), Collections.emptyList());
+                        new LlmPostProcessingResponse(), Collections.emptyList());
 
         assertEquals(1, repairable.size());
     }
@@ -82,7 +82,7 @@ class LlmAssertionRepairerTest {
 
         List<LlmAssertionRepairer.RejectedAssertion> repairable =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                        parsed, parsed.getResponse(), new LlmPostProcessingResponse(),
+                        parsed, new LlmPostProcessingResponse(),
                         Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList());
 
         assertEquals(1, repairable.size());
@@ -101,7 +101,7 @@ class LlmAssertionRepairerTest {
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY));
 
         assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                parsed, parsed.getResponse(), new LlmPostProcessingResponse(), diagnostics).isEmpty());
+                parsed, new LlmPostProcessingResponse(), diagnostics).isEmpty());
     }
 
     @Test
@@ -132,7 +132,7 @@ class LlmAssertionRepairerTest {
 
         List<LlmAssertionRepairer.RejectedAssertion> rejected =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(parsed,
-                        parsed.getResponse(), new LlmPostProcessingResponse(), Collections.emptyList());
+                        new LlmPostProcessingResponse(), Collections.emptyList());
         List<LlmMessage> messages = LlmAssertionRepairer.buildRepairMessages(promptContext, rejected, options);
         String repairPrompt = messages.get(1).getContent();
 
@@ -154,7 +154,7 @@ class LlmAssertionRepairerTest {
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY));
 
         assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                parsed, parsed.getResponse(), new LlmPostProcessingResponse(), diagnostics).isEmpty());
+                parsed, new LlmPostProcessingResponse(), diagnostics).isEmpty());
     }
 
     private static LlmPostProcessingResponseParser.ParseContext booleanContext() {
