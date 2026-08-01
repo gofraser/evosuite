@@ -28,13 +28,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Parsed schema-versioned edit plan returned by unified LLM post-processing.
+ * Parsed canonical edit plan returned by unified LLM post-processing.
  */
 public class LlmPostProcessingResponse {
 
-    public static final int SUPPORTED_SCHEMA_VERSION = LlmPostProcessingProtocol.MAX_RESPONSE_SCHEMA_VERSION;
-
-    private final int schemaVersion;
     private String assertionDecision;
     private String noAssertionReason;
     private String testName;
@@ -43,12 +40,7 @@ public class LlmPostProcessingResponse {
     private final Set<String> sectionBreaksAfter = new LinkedHashSet<>();
     private final List<AssertionProposal> assertions = new ArrayList<>();
 
-    public LlmPostProcessingResponse(int schemaVersion) {
-        this.schemaVersion = schemaVersion;
-    }
-
-    public int getSchemaVersion() {
-        return schemaVersion;
+    public LlmPostProcessingResponse() {
     }
 
     public String getAssertionDecision() {
@@ -112,7 +104,7 @@ public class LlmPostProcessingResponse {
      * repair flows that temporarily remove assertion proposals.
      */
     LlmPostProcessingResponse withoutAssertions() {
-        LlmPostProcessingResponse copy = new LlmPostProcessingResponse(schemaVersion);
+        LlmPostProcessingResponse copy = new LlmPostProcessingResponse();
         copy.setAssertionDecision(assertionDecision);
         copy.setNoAssertionReason(noAssertionReason);
         copy.setTestName(testName);
@@ -130,7 +122,7 @@ public class LlmPostProcessingResponse {
 
     /** Create an independent domain snapshot for a validated edit plan. */
     LlmPostProcessingResponse copy() {
-        LlmPostProcessingResponse copy = new LlmPostProcessingResponse(schemaVersion);
+        LlmPostProcessingResponse copy = new LlmPostProcessingResponse();
         copy.setAssertionDecision(assertionDecision);
         copy.setNoAssertionReason(noAssertionReason);
         copy.setTestName(testName);
@@ -147,8 +139,7 @@ public class LlmPostProcessingResponse {
             copy.addAssertion(new AssertionProposal(
                     assertion.getAssertionId(), assertion.getKind(), assertion.getExpected(),
                     assertion.getActual(), assertion.getDelta(), assertion.getPurpose(),
-                    assertion.getIntent(), assertion.getSite(), assertion.getAfterStatementId(),
-                    assertion.getExceptionId(), assertion.getCandidateId()));
+                    assertion.getIntent(), assertion.getCandidateId()));
         }
         return copy;
     }
@@ -171,13 +162,6 @@ public class LlmPostProcessingResponse {
         LESS,
         GREATER_EQUALS,
         LESS_EQUALS
-    }
-
-    public enum AssertionSite {
-        END_OF_TEST,
-        BEFORE_TRY,
-        IN_CATCH,
-        AFTER_CATCH
     }
 
     public static final class CommentProposal {
@@ -206,10 +190,7 @@ public class LlmPostProcessingResponse {
         private final String delta;
         private final String purpose;
         private final String intent;
-        private final String afterStatementId;
         private final String candidateId;
-        private final AssertionSite site;
-        private final String exceptionId;
 
         public AssertionProposal(String assertionId, AssertionKind kind, String expected,
                                  String actual, String delta, String purpose) {
@@ -218,13 +199,7 @@ public class LlmPostProcessingResponse {
 
         public AssertionProposal(String assertionId, AssertionKind kind, String expected,
                                  String actual, String delta, String purpose,
-                                 String intent, String afterStatementId) {
-            this(assertionId, kind, expected, actual, delta, purpose, intent, afterStatementId, null);
-        }
-
-        public AssertionProposal(String assertionId, AssertionKind kind, String expected,
-                                 String actual, String delta, String purpose,
-                                 String intent, String afterStatementId, String candidateId) {
+                                 String intent, String candidateId) {
             this.assertionId = assertionId;
             this.kind = kind;
             this.expected = expected;
@@ -232,27 +207,7 @@ public class LlmPostProcessingResponse {
             this.delta = delta;
             this.purpose = purpose;
             this.intent = intent;
-            this.afterStatementId = afterStatementId;
             this.candidateId = candidateId;
-            this.site = afterStatementId == null ? AssertionSite.END_OF_TEST : AssertionSite.BEFORE_TRY;
-            this.exceptionId = null;
-        }
-
-        public AssertionProposal(String assertionId, AssertionKind kind, String expected,
-                                 String actual, String delta, String purpose,
-                                 String intent, AssertionSite site, String afterStatementId,
-                                 String exceptionId, String candidateId) {
-            this.assertionId = assertionId;
-            this.kind = kind;
-            this.expected = expected;
-            this.actual = actual;
-            this.delta = delta;
-            this.purpose = purpose;
-            this.intent = intent;
-            this.afterStatementId = afterStatementId;
-            this.candidateId = candidateId;
-            this.site = site == null ? AssertionSite.END_OF_TEST : site;
-            this.exceptionId = exceptionId;
         }
 
         public String getAssertionId() {
@@ -283,20 +238,8 @@ public class LlmPostProcessingResponse {
             return intent;
         }
 
-        public String getAfterStatementId() {
-            return afterStatementId;
-        }
-
         public String getCandidateId() {
             return candidateId;
-        }
-
-        public AssertionSite getSite() {
-            return site;
-        }
-
-        public String getExceptionId() {
-            return exceptionId;
         }
 
         public String getSource() {

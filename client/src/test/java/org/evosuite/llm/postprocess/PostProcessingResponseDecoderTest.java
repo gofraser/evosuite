@@ -40,18 +40,18 @@ class PostProcessingResponseDecoderTest {
         assertFalse(malformed.isSuccess());
         assertTrue(malformed.getFailureReason().startsWith("Response is not valid JSON:"));
         assertFalse(unknown.isSuccess());
-        assertEquals("Unsupported schemaVersion: 99", unknown.getFailureReason());
+        assertEquals("Unsupported schemaVersion: 99; expected 2", unknown.getFailureReason());
     }
 
     @Test
-    void rejectsVersionsOutsideTheSupportedReadRange() {
+    void rejectsVersionsOtherThanTheProductionSchema() {
         for (int version : new int[]{0, 4, 17}) {
             PostProcessingResponseDecoder.DecodeResult result =
                     PostProcessingResponseDecoder.decode(
                             "{\"schemaVersion\":" + version + "}");
 
             assertFalse(result.isSuccess());
-            assertEquals("Unsupported schemaVersion: " + version,
+            assertEquals("Unsupported schemaVersion: " + version + "; expected 2",
                     result.getFailureReason());
         }
     }

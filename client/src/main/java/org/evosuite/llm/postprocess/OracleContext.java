@@ -32,6 +32,7 @@ import org.evosuite.assertion.EqualsAssertion;
 import org.evosuite.assertion.Inspector;
 import org.evosuite.assertion.InspectorManager;
 import org.evosuite.assertion.NullAssertion;
+import org.evosuite.assertion.SameAssertion;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -79,7 +80,6 @@ final class OracleContext {
     private final List<CallableMember> callableMembers;
     private final List<ExceptionContext> exceptions;
     private final List<CandidateFact> candidateFacts;
-    private final PostProcessingOptions options;
     private final LlmPostProcessingResponseParser.ParseContext parseContext;
 
     private OracleContext(LlmPostProcessingReferences references,
@@ -95,33 +95,29 @@ final class OracleContext {
         this.callableMembers = Collections.unmodifiableList(new ArrayList<>(callableMembers));
         this.exceptions = Collections.unmodifiableList(new ArrayList<>(exceptions));
         this.candidateFacts = Collections.unmodifiableList(new ArrayList<>(candidateFacts));
-        this.options = options;
-        this.parseContext = buildParseContext();
+        this.parseContext = buildParseContext(options);
     }
 
     /** Production context capture using the phase's immutable options snapshot. */
     static OracleContext from(TestCase test, ExecutionResult executionResult,
-                                                      ExecutionResult stabilityExecutionResult,
                                                       List<Assertion> candidateAssertions,
                                                       PostProcessingOptions options) {
         if (options == null) {
             throw new IllegalArgumentException("Oracle context requires options");
         }
-        PostProcessingOptions effectiveOptions = options;
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         List<StatementContext> statements = new ArrayList<>();
         List<Observation> observations = new ArrayList<>();
         List<CallableMember> callableMembers = new ArrayList<>();
         Set<String> advertisedTypes = new LinkedHashSet<>();
-        List<ExceptionContext> exceptions = exceptionContexts(executionResult, effectiveOptions);
+        List<ExceptionContext> exceptions = exceptionContexts(executionResult, options);
         List<CandidateFact> candidateFacts = candidateFacts(
-                references, candidateAssertions, effectiveOptions);
+                references, candidateAssertions, options);
         // A candidate fact already tells the model this variable's observed value,
         // so emitting the same value again as an observation is redundant.
         Set<String> candidateCoveredVariableIds = new LinkedHashSet<>();
         for (CandidateFact fact : candidateFacts) {
-            if (fact.getSourceId() != null && fact.getObservedValue() != null
-                    ) {
+            if (fact.getSourceId() != null && fact.getObservedValue() != null) {
                 candidateCoveredVariableIds.add(fact.getSourceId());
             }
         }
@@ -142,23 +138,23 @@ final class OracleContext {
                         runtimeType(returnValue, finalScope),
                         normalizeCode(statement.getCode())));
                 Observation observation = primitiveInputObservation(
-                        statementId, variableId, statement, effectiveOptions);
+                        statementId, variableId, statement, options);
                 if (observation != null) {
                     observations.add(observation);
                 }
                 Observation finalScopeObservation = finalScopeObservation(
-                        statementId, variableId, statement, returnValue, finalScope, effectiveOptions);
+                        statementId, variableId, statement, returnValue, finalScope, options);
                 if (finalScopeObservation != null
                         && (variableId == null || !candidateCoveredVariableIds.contains(variableId))) {
                     observations.add(finalScopeObservation);
                 }
                 Object runtimeValue = finalScopeValue(returnValue, finalScope);
                 callableMembers.addAll(callableMembers(
-                        variableId, returnValue, declaredType, runtimeValue, advertisedTypes, effectiveOptions));
+                        variableId, returnValue, declaredType, runtimeValue, advertisedTypes, options));
             }
         }
         return new OracleContext(references, statements, observations, callableMembers, exceptions,
-                candidateFacts, effectiveOptions);
+                candidateFacts, options);
     }
 
     public LlmPostProcessingReferences getReferences() {
@@ -195,7 +191,7 @@ final class OracleContext {
         return parseContext;
     }
 
-    private LlmPostProcessingResponseParser.ParseContext buildParseContext() {
+    private LlmPostProcessingResponseParser.ParseContext buildParseContext(PostProcessingOptions options) {
         Set<LlmPostProcessingResponseParser.CallableMethod> callableMethods = new LinkedHashSet<>();
         for (CallableMember member : callableMembers) {
             callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
@@ -212,17 +208,6 @@ final class OracleContext {
         }
 
         Set<String> expressionVariableIds = new LinkedHashSet<>(references.getVariableIds());
-        String throwingStatementId = exceptions.isEmpty() ? null : exceptions.get(0).getStatementId();
-        if (throwingStatementId != null) {
-            expressionVariableIds.add("e0");
-            variableTypes.put("e0", "java.lang.Throwable");
-            callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
-                    "e0", "java.lang.Throwable", "getMessage", "()Ljava/lang/String;",
-                    "java.lang.String"));
-            callableMethods.add(new LlmPostProcessingResponseParser.CallableMethod(
-                    "e0", "java.lang.Throwable", "getCause", "()Ljava/lang/Throwable;",
-                    "java.lang.Throwable"));
-        }
 
         Set<String> observedCandidateKeys = new LinkedHashSet<>();
         Map<String, LlmPostProcessingResponseParser.SelectableCandidate> selectableCandidates =
@@ -232,8 +217,7 @@ final class OracleContext {
                 observedCandidateKeys.add(fact.getAssertionKey());
             }
             if (isCandidateSelectable(fact)) {
-                selectableCandidates.put(fact.getCandidateId(),
-                        candidateWithDefaultPlacement(fact, throwingStatementId));
+                selectableCandidates.put(fact.getCandidateId(), fact.getSelectableCandidate());
             }
         }
 
@@ -246,36 +230,7 @@ final class OracleContext {
         return LlmPostProcessingResponseParser.context(
                 references.getStatementIds(), expressionVariableIds, callableMethods,
                 observedCandidateKeys, setupInputVariableIds, variableTypes,
-                selectableCandidates, throwingStatementId, options);
-    }
-
-    static LlmPostProcessingResponseParser.SelectableCandidate candidateWithDefaultPlacement(
-            CandidateFact fact, String throwingStatementId) {
-        LlmPostProcessingResponseParser.SelectableCandidate candidate = fact.getSelectableCandidate();
-        if (candidate == null || throwingStatementId == null) {
-            return candidate;
-        }
-        if (fact.getReferencedIds().contains("e0")) {
-            return candidate.withDefaultPlacement(
-                    LlmPostProcessingResponse.AssertionSite.IN_CATCH, null, "e0");
-        }
-        int throwingPosition = stableIdIndex(throwingStatementId);
-        int latestReferencedPosition = -1;
-        for (String referencedId : fact.getReferencedIds()) {
-            if (referencedId != null && referencedId.startsWith("v")) {
-                latestReferencedPosition = Math.max(latestReferencedPosition,
-                        stableIdIndex(referencedId));
-            }
-        }
-        if (latestReferencedPosition < 0 && fact.getStatementId() != null) {
-            latestReferencedPosition = stableIdIndex(fact.getStatementId());
-        }
-        if (latestReferencedPosition >= 0 && latestReferencedPosition < throwingPosition) {
-            return candidate.withDefaultPlacement(
-                    LlmPostProcessingResponse.AssertionSite.BEFORE_TRY,
-                    LlmPostProcessingReferences.statementId(latestReferencedPosition), null);
-        }
-        return candidate;
+                selectableCandidates, options);
     }
 
     private static String declaredType(Statement statement, VariableReference returnValue) {
@@ -332,9 +287,7 @@ final class OracleContext {
                     LlmPostProcessingReferences.statementId(position),
                     throwable.getClass().getName(),
                     Boolean.TRUE.equals(executionResult.getExplicitExceptions().get(position)),
-                    sanitizedMessage(throwable.getMessage(), options),
-                    isCompleteExceptionMessage(throwable.getMessage(), options),
-                    throwable.getCause() == null));
+                    sanitizedMessage(throwable.getMessage(), options)));
         }
         contexts.sort((left, right) -> left.getStatementId().compareTo(right.getStatementId()));
         return contexts;
@@ -350,15 +303,6 @@ final class OracleContext {
             sanitized = sanitized.substring(0, maxChars);
         }
         return "\"" + escapeJava(sanitized) + "\"";
-    }
-
-    private static boolean isCompleteExceptionMessage(String message, PostProcessingOptions options) {
-        if (message == null || message.isEmpty()) {
-            return true;
-        }
-        String sanitized = message.replace('\r', ' ').replace('\n', ' ')
-                .replace('\t', ' ').trim();
-        return sanitized.length() <= Math.max(1, options.assertionPolicy().maxLiteralChars());
     }
 
     private static List<CandidateFact> candidateFacts(LlmPostProcessingReferences references,
@@ -378,8 +322,12 @@ final class OracleContext {
             if (statementId == null && sourceId == null && referencedIds.isEmpty()) {
                 continue;
             }
-            LlmPostProcessingResponseParser.SelectableCandidate selectable =
-                    selectableCandidate(references, assertion);
+            CandidateProjection projection = candidateProjection(references, assertion, options);
+            LlmPostProcessingResponseParser.SelectableCandidate selectable = projection == null
+                    ? null
+                    : new LlmPostProcessingResponseParser.SelectableCandidate(
+                    projection.getKind(), projection.getExpected(), projection.getActual(),
+                    projection.getDelta());
             facts.add(new CandidateFact(
                     null,
                     statementId == null ? "s?" : statementId,
@@ -387,7 +335,7 @@ final class OracleContext {
                     assertion.getClass().getSimpleName(),
                     valueSummaryText(assertion.getValue(), options),
                     referencedIds,
-                    assertionKey(references, assertion, options),
+                    projection == null ? null : projection.canonicalKey(),
                     selectable));
         }
         facts.sort((left, right) -> {
@@ -455,141 +403,135 @@ final class OracleContext {
         }
     }
 
-    private static LlmPostProcessingResponseParser.SelectableCandidate selectableCandidate(
-            LlmPostProcessingReferences references, Assertion assertion) {
-        String code;
-        try {
-            code = assertion.getCode();
-        } catch (RuntimeException | AssertionError error) {
+    private static CandidateProjection candidateProjection(
+            LlmPostProcessingReferences references, Assertion assertion,
+            PostProcessingOptions options) {
+        if (assertion == null) {
             return null;
         }
-        if (code == null) {
-            return null;
-        }
-        Map<String, String> stableVariableIds = new LinkedHashMap<>();
-        for (VariableReference variable : assertion.getReferencedVariables()) {
-            String id = variableId(references, variable);
-            if (id != null && variable.getName() != null) {
-                stableVariableIds.put(variable.getName(), id);
-            }
-        }
-        code = code.trim();
-        if (code.endsWith(";")) {
-            code = code.substring(0, code.length() - 1);
-        }
-        try {
-            Expression expression = StaticJavaParser.parseExpression(code);
-            for (NameExpr name : expression.findAll(NameExpr.class)) {
-                String id = stableVariableIds.get(name.getNameAsString());
-                if (id != null) {
-                    name.setName(id);
-                }
-            }
-            if (!(expression instanceof MethodCallExpr)) {
-                return null;
-            }
-            MethodCallExpr call = (MethodCallExpr) expression;
-            String method = call.getNameAsString();
-            List<Expression> arguments = call.getArguments();
-            LlmPostProcessingResponse.AssertionKind kind;
-            String expected = null;
-            String actual;
-            String delta = null;
-            if (("assertEquals".equals(method) || "assertArrayEquals".equals(method))
-                    && arguments.size() >= 2) {
-                kind = LlmPostProcessingResponse.AssertionKind.EQUALS;
-                expected = arguments.get(0).toString();
-                actual = arguments.get(1).toString();
-                delta = arguments.size() >= 3 ? arguments.get(2).toString() : null;
-            } else if ("assertNotEquals".equals(method) && arguments.size() >= 2) {
-                kind = LlmPostProcessingResponse.AssertionKind.NOT_EQUALS;
-                expected = arguments.get(0).toString();
-                actual = arguments.get(1).toString();
-            } else if ("assertTrue".equals(method) && arguments.size() == 1) {
-                kind = LlmPostProcessingResponse.AssertionKind.TRUE;
-                actual = arguments.get(0).toString();
-            } else if ("assertFalse".equals(method) && arguments.size() == 1) {
-                kind = LlmPostProcessingResponse.AssertionKind.FALSE;
-                actual = arguments.get(0).toString();
-            } else if ("assertNull".equals(method) && arguments.size() == 1) {
-                kind = LlmPostProcessingResponse.AssertionKind.NULL;
-                actual = arguments.get(0).toString();
-            } else if ("assertNotNull".equals(method) && arguments.size() == 1) {
-                kind = LlmPostProcessingResponse.AssertionKind.NOT_NULL;
-                actual = arguments.get(0).toString();
-            } else if ("assertSame".equals(method) && arguments.size() == 2) {
-                kind = LlmPostProcessingResponse.AssertionKind.SAME;
-                expected = arguments.get(0).toString();
-                actual = arguments.get(1).toString();
-            } else if ("assertNotSame".equals(method) && arguments.size() == 2) {
-                kind = LlmPostProcessingResponse.AssertionKind.NOT_SAME;
-                expected = arguments.get(0).toString();
-                actual = arguments.get(1).toString();
-            } else {
-                return null;
-            }
-            return new LlmPostProcessingResponseParser.SelectableCandidate(
-                    kind, expected, actual, delta);
-        } catch (RuntimeException error) {
-            return null;
-        }
-    }
-
-    private static String assertionKey(LlmPostProcessingReferences references, Assertion assertion,
-                                       PostProcessingOptions options) {
         String sourceId = variableId(references, assertion.getSource());
         if (sourceId == null) {
             return null;
         }
         if (assertion instanceof NullAssertion && assertion.getValue() instanceof Boolean) {
             boolean isNull = (Boolean) assertion.getValue();
-            return assertionKey(isNull ? "NULL" : "NOT_NULL", null, sourceId, null);
+            return new CandidateProjection(isNull
+                    ? LlmPostProcessingResponse.AssertionKind.NULL
+                    : LlmPostProcessingResponse.AssertionKind.NOT_NULL,
+                    null, sourceId, null);
         }
-        if (assertion instanceof EqualsAssertion) {
-            EqualsAssertion equals = (EqualsAssertion) assertion;
-            String destId = variableId(references, equals.getDest());
-            if (destId == null || !(assertion.getValue() instanceof Boolean)) {
-                return null;
+        if (assertion instanceof EqualsAssertion && assertion.getValue() instanceof Boolean) {
+            String destId = variableId(references, ((EqualsAssertion) assertion).getDest());
+            if (destId != null) {
+                boolean equal = (Boolean) assertion.getValue();
+                return new CandidateProjection(equal
+                        ? LlmPostProcessingResponse.AssertionKind.EQUALS
+                        : LlmPostProcessingResponse.AssertionKind.NOT_EQUALS,
+                        sourceId, destId, null);
             }
-            boolean equal = (Boolean) assertion.getValue();
-            return assertionKey(equal ? "EQUALS" : "NOT_EQUALS", sourceId, destId, null);
+        }
+        if (assertion instanceof SameAssertion && assertion.getValue() instanceof Boolean) {
+            String destId = variableId(references, ((SameAssertion) assertion).getDest());
+            if (destId != null) {
+                boolean same = (Boolean) assertion.getValue();
+                return new CandidateProjection(same
+                        ? LlmPostProcessingResponse.AssertionKind.SAME
+                        : LlmPostProcessingResponse.AssertionKind.NOT_SAME,
+                        sourceId, destId, null);
+            }
         }
         if (assertion instanceof ContainsAssertion) {
-            String code = codeHint(references, assertion);
-            return code == null ? null : "TRUE||" + normalizeKeyExpression(unquote(code)) + "|";
-        }
-        if (assertion instanceof ArrayLengthAssertion) {
-            Object value = assertion.getValue();
-            if (value == null) {
-                return null;
+            String containedId = variableId(references,
+                    ((ContainsAssertion) assertion).getContainedVariable());
+            if (containedId != null) {
+                return new CandidateProjection(LlmPostProcessingResponse.AssertionKind.TRUE,
+                        null, sourceId + ".contains(" + containedId + ")", null);
             }
-            return assertionKey("EQUALS", String.valueOf(value), sourceId + ".length", null);
         }
-        Object value = assertion.getValue();
-        String expected = valueSummaryText(value, options);
-        if (expected == null) {
-            return null;
+        if (assertion instanceof ArrayLengthAssertion && assertion.getValue() != null) {
+            return new CandidateProjection(LlmPostProcessingResponse.AssertionKind.EQUALS,
+                    String.valueOf(assertion.getValue()), sourceId + ".length", null);
         }
-        return assertionKey("EQUALS", expected, sourceId, null);
+        return fallbackCandidateProjection(references, assertion, options, sourceId);
     }
 
-    private static String assertionKey(String kind, String expected, String actual, String delta) {
-        return kind
-                + "|" + normalizeKeyExpression(expected)
-                + "|" + normalizeKeyExpression(actual)
-                + "|" + normalizeKeyExpression(delta);
-    }
-
-    private static String normalizeKeyExpression(String expression) {
-        return expression == null ? "" : expression.replaceAll("\\s+", "");
-    }
-
-    private static String unquote(String value) {
-        if (value == null || value.length() < 2 || value.charAt(0) != '"'
-                || value.charAt(value.length() - 1) != '"') {
-            return value;
+    private static CandidateProjection fallbackCandidateProjection(
+            LlmPostProcessingReferences references, Assertion assertion,
+            PostProcessingOptions options, String sourceId) {
+        String code;
+        try {
+            code = assertion.getCode();
+        } catch (RuntimeException | AssertionError error) {
+            code = null;
         }
-        return value.substring(1, value.length() - 1);
+        if (code != null) {
+            Map<String, String> stableVariableIds = new LinkedHashMap<>();
+            for (VariableReference variable : assertion.getReferencedVariables()) {
+                String id = variableId(references, variable);
+                if (id != null && variable.getName() != null) {
+                    stableVariableIds.put(variable.getName(), id);
+                }
+            }
+            try {
+                String expressionText = code.trim();
+                if (expressionText.endsWith(";")) {
+                    expressionText = expressionText.substring(0, expressionText.length() - 1);
+                }
+                Expression expression = StaticJavaParser.parseExpression(expressionText);
+                for (NameExpr name : expression.findAll(NameExpr.class)) {
+                    String id = stableVariableIds.get(name.getNameAsString());
+                    if (id != null) {
+                        name.setName(id);
+                    }
+                }
+                if (expression instanceof MethodCallExpr) {
+                    MethodCallExpr call = (MethodCallExpr) expression;
+                    List<Expression> arguments = call.getArguments();
+                    String method = call.getNameAsString();
+                    if (("assertEquals".equals(method) || "assertArrayEquals".equals(method))
+                            && arguments.size() >= 2) {
+                        return new CandidateProjection(
+                                LlmPostProcessingResponse.AssertionKind.EQUALS,
+                                arguments.get(0).toString(), arguments.get(1).toString(),
+                                arguments.size() >= 3 ? arguments.get(2).toString() : null);
+                    }
+                    if ("assertNotEquals".equals(method) && arguments.size() >= 2) {
+                        return new CandidateProjection(
+                                LlmPostProcessingResponse.AssertionKind.NOT_EQUALS,
+                                arguments.get(0).toString(), arguments.get(1).toString(), null);
+                    }
+                    if (("assertTrue".equals(method) || "assertFalse".equals(method))
+                            && arguments.size() == 1) {
+                        return new CandidateProjection(
+                                "assertTrue".equals(method)
+                                        ? LlmPostProcessingResponse.AssertionKind.TRUE
+                                        : LlmPostProcessingResponse.AssertionKind.FALSE,
+                                null, arguments.get(0).toString(), null);
+                    }
+                    if (("assertNull".equals(method) || "assertNotNull".equals(method))
+                            && arguments.size() == 1) {
+                        return new CandidateProjection(
+                                "assertNull".equals(method)
+                                        ? LlmPostProcessingResponse.AssertionKind.NULL
+                                        : LlmPostProcessingResponse.AssertionKind.NOT_NULL,
+                                null, arguments.get(0).toString(), null);
+                    }
+                    if (("assertSame".equals(method) || "assertNotSame".equals(method))
+                            && arguments.size() == 2) {
+                        return new CandidateProjection(
+                                "assertSame".equals(method)
+                                        ? LlmPostProcessingResponse.AssertionKind.SAME
+                                        : LlmPostProcessingResponse.AssertionKind.NOT_SAME,
+                                arguments.get(0).toString(), arguments.get(1).toString(), null);
+                    }
+                }
+            } catch (RuntimeException ignored) {
+                // Fall through to the structured value projection below.
+            }
+        }
+        String expected = valueSummaryText(assertion.getValue(), options);
+        return expected == null ? null : new CandidateProjection(
+                LlmPostProcessingResponse.AssertionKind.EQUALS, expected, sourceId, null);
     }
 
     private static int candidatePriority(String kind) {
@@ -655,26 +597,6 @@ final class OracleContext {
     private static String valueSummaryText(Object value, PostProcessingOptions options) {
         ValueSummary summary = valueSummary(value, options);
         return summary == null ? null : summary.value;
-    }
-
-    private static String codeHint(LlmPostProcessingReferences references, Assertion assertion) {
-        String code;
-        try {
-            code = assertion.getCode();
-        } catch (RuntimeException | AssertionError e) {
-            return null;
-        }
-        if (code == null || code.trim().isEmpty()) {
-            return null;
-        }
-        String normalized = normalizeCode(code);
-        for (VariableReference variable : assertion.getReferencedVariables()) {
-            String id = variableId(references, variable);
-            if (id != null && variable != null && variable.getName() != null) {
-                normalized = normalized.replace(variable.getName(), id);
-            }
-        }
-        return "\"" + escapeJava(normalized) + "\"";
     }
 
     private static Observation primitiveInputObservation(String statementId, String variableId,
@@ -1404,17 +1326,12 @@ final class OracleContext {
         private final String type;
         private final boolean explicit;
         private final String message;
-        private final boolean messageComplete;
-        private final boolean causeNull;
 
-        private ExceptionContext(String statementId, String type, boolean explicit, String message,
-                                 boolean messageComplete, boolean causeNull) {
+        private ExceptionContext(String statementId, String type, boolean explicit, String message) {
             this.statementId = statementId;
             this.type = type;
             this.explicit = explicit;
             this.message = message;
-            this.messageComplete = messageComplete;
-            this.causeNull = causeNull;
         }
 
         public String getStatementId() {
@@ -1433,13 +1350,6 @@ final class OracleContext {
             return message;
         }
 
-        public boolean isMessageComplete() {
-            return messageComplete;
-        }
-
-        public boolean isCauseNull() {
-            return causeNull;
-        }
     }
 
     public static final class CandidateFact {

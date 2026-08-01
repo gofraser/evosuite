@@ -351,11 +351,11 @@ final class PostProcessingCallablePolicy {
         if (signature == null) {
             return call.getArguments().isEmpty() ? 0 : -1;
         }
-        if (!signature.isValid() || signature.parameterDescriptors().size() != call.getArguments().size()) {
+        if (!signature.isValid() || signature.parameterTypes().size() != call.getArguments().size()) {
             return -1;
         }
         int score = 0;
-        for (int i = 0; i < signature.parameterDescriptors().size(); i++) {
+        for (int i = 0; i < signature.parameterTypes().size(); i++) {
             int argumentScore = argumentCompatibilityScore(
                     typeResolver.resolve(call.getArgument(i)), signature.parameterTypes().get(i));
             if (argumentScore < 0) {
@@ -496,13 +496,20 @@ final class PostProcessingCallablePolicy {
     }
 
     private static Set<String> buildImmutableTypes(PostProcessingOptions options) {
-        Set<String> types = new LinkedHashSet<>(BUILT_IN_IMMUTABLE_TYPES);
+        Set<String> types = new LinkedHashSet<>();
+        for (String type : BUILT_IN_IMMUTABLE_TYPES) {
+            addImmutableTypeForms(types, type);
+        }
         for (String type : options.assertionPolicy().immutableTypes()) {
-            String canonical = ExprType.canonicalName(type);
-            types.add(canonical);
-            types.add(simpleName(canonical));
+            addImmutableTypeForms(types, type);
         }
         return Collections.unmodifiableSet(types);
+    }
+
+    private static void addImmutableTypeForms(Set<String> types, String type) {
+        String canonical = ExprType.canonicalName(type);
+        types.add(canonical);
+        types.add(simpleName(canonical));
     }
 
     private static final class StaticAllowlistEntry {
@@ -523,7 +530,7 @@ final class PostProcessingCallablePolicy {
 
         private static StaticAllowlistEntry parse(String entry, boolean builtIn) {
             int separator = entry.indexOf('#');
-            String owner = entry.substring(0, separator);
+            String owner = canonicalOwnerType(entry.substring(0, separator));
             String member = entry.substring(separator + 1);
             if ("*".equals(member)) {
                 return new StaticAllowlistEntry(owner, null, null, true, builtIn);
@@ -566,7 +573,8 @@ final class PostProcessingCallablePolicy {
         }
         String trimmed = typeName.trim();
         int genericStart = trimmed.indexOf('<');
-        return genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
+        String raw = genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
+        return ExprType.canonicalName(raw);
     }
 
     private static String canonicalType(String typeName) {

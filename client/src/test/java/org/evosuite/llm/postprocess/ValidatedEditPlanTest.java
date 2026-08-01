@@ -14,7 +14,7 @@ class ValidatedEditPlanTest {
 
     @Test
     void planOwnsAnIndependentResponseSnapshot() {
-        LlmPostProcessingResponse decoded = new LlmPostProcessingResponse(2);
+        LlmPostProcessingResponse decoded = new LlmPostProcessingResponse();
         decoded.setTestName("beforeValidation");
         decoded.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
                 "a0", LlmPostProcessingResponse.AssertionKind.TRUE,

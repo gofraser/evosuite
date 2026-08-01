@@ -25,8 +25,6 @@ import java.util.List;
 final class JvmMethodDescriptor {
 
     private final String descriptor;
-    private final List<String> parameterDescriptors;
-    private final String returnDescriptor;
     private final List<ExprType> parameterTypes;
     private final ExprType returnType;
     private final boolean valid;
@@ -34,8 +32,6 @@ final class JvmMethodDescriptor {
     private JvmMethodDescriptor(String descriptor, List<String> parameterDescriptors,
                                String returnDescriptor, boolean valid) {
         this.descriptor = descriptor;
-        this.parameterDescriptors = Collections.unmodifiableList(parameterDescriptors);
-        this.returnDescriptor = returnDescriptor;
         List<ExprType> types = new ArrayList<>();
         for (String parameterDescriptor : parameterDescriptors) {
             types.add(typeOf(parameterDescriptor));
@@ -112,24 +108,12 @@ final class JvmMethodDescriptor {
         return descriptor;
     }
 
-    List<String> parameterDescriptors() {
-        return parameterDescriptors;
-    }
-
     List<ExprType> parameterTypes() {
         return parameterTypes;
     }
 
-    String returnDescriptor() {
-        return returnDescriptor;
-    }
-
     ExprType returnType() {
         return returnType;
-    }
-
-    static String typeName(String descriptor) {
-        return typeOf(descriptor).typeName;
     }
 
     private static ExprType typeOf(String descriptor) {
@@ -162,7 +146,7 @@ final class JvmMethodDescriptor {
     }
 
     int argumentCount() {
-        return valid ? parameterDescriptors.size() : 0;
+        return valid ? parameterTypes.size() : 0;
     }
 
     boolean isValid() {

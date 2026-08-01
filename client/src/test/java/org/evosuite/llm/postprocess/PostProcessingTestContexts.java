@@ -17,7 +17,7 @@ final class PostProcessingTestContexts {
                 Collections.<LlmPostProcessingResponseParser.CallableMethod>emptySet(),
                 Collections.<String>emptySet(), Collections.<String>emptySet(),
                 Collections.<String, String>emptyMap(),
-                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(), null);
+                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap());
     }
 
     static LlmPostProcessingResponseParser.ParseContext context(
@@ -26,7 +26,7 @@ final class PostProcessingTestContexts {
         return context(statementIds, variableIds, callableMethods,
                 Collections.<String>emptySet(), Collections.<String>emptySet(),
                 Collections.<String, String>emptyMap(),
-                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(), null);
+                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap());
     }
 
     static LlmPostProcessingResponseParser.ParseContext context(
@@ -35,7 +35,7 @@ final class PostProcessingTestContexts {
             Set<String> observedCandidateKeys) {
         return context(statementIds, variableIds, callableMethods, observedCandidateKeys,
                 Collections.<String>emptySet(), Collections.<String, String>emptyMap(),
-                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(), null);
+                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap());
     }
 
     static LlmPostProcessingResponseParser.ParseContext context(
@@ -44,7 +44,7 @@ final class PostProcessingTestContexts {
             Set<String> observedCandidateKeys, Set<String> setupInputVariableIds) {
         return context(statementIds, variableIds, callableMethods, observedCandidateKeys,
                 setupInputVariableIds, Collections.<String, String>emptyMap(),
-                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(), null);
+                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap());
     }
 
     static LlmPostProcessingResponseParser.ParseContext context(
@@ -54,7 +54,7 @@ final class PostProcessingTestContexts {
             Map<String, String> variableTypes) {
         return context(statementIds, variableIds, callableMethods, observedCandidateKeys,
                 setupInputVariableIds, variableTypes,
-                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(), null);
+                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap());
     }
 
     static LlmPostProcessingResponseParser.ParseContext context(
@@ -63,19 +63,8 @@ final class PostProcessingTestContexts {
             Set<String> observedCandidateKeys, Set<String> setupInputVariableIds,
             Map<String, String> variableTypes,
             Map<String, LlmPostProcessingResponseParser.SelectableCandidate> selectableCandidates) {
-        return context(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, variableTypes, selectableCandidates, null);
-    }
-
-    static LlmPostProcessingResponseParser.ParseContext context(
-            Set<String> statementIds, Set<String> variableIds,
-            Set<LlmPostProcessingResponseParser.CallableMethod> callableMethods,
-            Set<String> observedCandidateKeys, Set<String> setupInputVariableIds,
-            Map<String, String> variableTypes,
-            Map<String, LlmPostProcessingResponseParser.SelectableCandidate> selectableCandidates,
-            String throwingStatementId) {
         return LlmPostProcessingResponseParser.context(statementIds, variableIds, callableMethods,
                 observedCandidateKeys, setupInputVariableIds, variableTypes,
-                selectableCandidates, throwingStatementId, PostProcessingOptions.fromProperties());
+                selectableCandidates, PostProcessingOptions.fromProperties());
     }
 }

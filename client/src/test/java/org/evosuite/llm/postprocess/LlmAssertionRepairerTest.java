@@ -37,10 +37,10 @@ class LlmAssertionRepairerTest {
 
     @Test
     void stabilityFailuresAreNotRepairableAndObservedFailuresKeepExactDiagnostic() {
-        String raw = "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+        String raw = "{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\","
                 + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";
         LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(raw, booleanContext());
-        LlmPostProcessingResponse accepted = new LlmPostProcessingResponse(1);
+        LlmPostProcessingResponse accepted = new LlmPostProcessingResponse();
 
         List<LlmPostProcessingParseResult.Diagnostic> stability = Collections.singletonList(
                 new LlmPostProcessingParseResult.Diagnostic(
@@ -62,27 +62,27 @@ class LlmAssertionRepairerTest {
 
     @Test
     void fencedInitialResponseStillProducesRepairCandidates() {
-        String raw = "```json\n{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+        String raw = "```json\n{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\","
                 + "\"kind\":\"UNKNOWN\",\"actual\":\"v0\"}]}\n```";
         LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(raw, booleanContext());
 
         List<LlmAssertionRepairer.RejectedAssertion> repairable =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(parsed,
-                        parsed.getResponse(), new LlmPostProcessingResponse(1), Collections.emptyList());
+                        parsed.getResponse(), new LlmPostProcessingResponse(), Collections.emptyList());
 
         assertEquals(1, repairable.size());
     }
 
     @Test
     void repairCorrelationUsesOriginalAssertionIndexWhenEarlierEntryHasNoId() {
-        String raw = "{\"schemaVersion\":1,\"assertions\":["
+        String raw = "{\"schemaVersion\":2,\"assertions\":["
                 + "{\"kind\":\"TRUE\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"UNKNOWN\",\"actual\":\"v0\"}]}";
         LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(raw, booleanContext());
 
         List<LlmAssertionRepairer.RejectedAssertion> repairable =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                        parsed, parsed.getResponse(), new LlmPostProcessingResponse(1),
+                        parsed, parsed.getResponse(), new LlmPostProcessingResponse(),
                         Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList());
 
         assertEquals(1, repairable.size());
@@ -91,7 +91,7 @@ class LlmAssertionRepairerTest {
 
     @Test
     void snippetHarnessCompilationFailuresAreNotSentBackForAssertionRepair() {
-        String raw = "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+        String raw = "{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\","
                 + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";
         LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(raw, booleanContext());
         List<LlmPostProcessingParseResult.Diagnostic> diagnostics = Collections.singletonList(
@@ -101,7 +101,7 @@ class LlmAssertionRepairerTest {
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY));
 
         assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                parsed, parsed.getResponse(), new LlmPostProcessingResponse(1), diagnostics).isEmpty());
+                parsed, parsed.getResponse(), new LlmPostProcessingResponse(), diagnostics).isEmpty());
     }
 
     @Test
@@ -123,7 +123,7 @@ class LlmAssertionRepairerTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         test.addStatement(new IntPrimitiveStatement(test, 9));
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
-        OracleContext promptContext = OracleContext.from(test, null, null,
+        OracleContext promptContext = OracleContext.from(test, null,
                 Collections.emptyList(), options);
         String raw = "{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\","
                 + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";
@@ -132,7 +132,7 @@ class LlmAssertionRepairerTest {
 
         List<LlmAssertionRepairer.RejectedAssertion> rejected =
                 LlmAssertionRepairer.collectRepairableRejectedAssertions(parsed,
-                        parsed.getResponse(), new LlmPostProcessingResponse(2), Collections.emptyList());
+                        parsed.getResponse(), new LlmPostProcessingResponse(), Collections.emptyList());
         List<LlmMessage> messages = LlmAssertionRepairer.buildRepairMessages(promptContext, rejected, options);
         String repairPrompt = messages.get(1).getContent();
 
@@ -144,7 +144,7 @@ class LlmAssertionRepairerTest {
 
     @Test
     void callablePolicyFailuresAreNotRepairable() {
-        String raw = "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+        String raw = "{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\","
                 + "\"kind\":\"TRUE\",\"actual\":\"v0\"}]}";
         LlmPostProcessingParseResult parsed = LlmPostProcessingResponseParser.parse(raw, booleanContext());
         List<LlmPostProcessingParseResult.Diagnostic> diagnostics = Collections.singletonList(
@@ -154,7 +154,7 @@ class LlmAssertionRepairerTest {
                         LlmPostProcessingParseResult.DiagnosticReason.SAFETY_POLICY));
 
         assertTrue(LlmAssertionRepairer.collectRepairableRejectedAssertions(
-                parsed, parsed.getResponse(), new LlmPostProcessingResponse(1), diagnostics).isEmpty());
+                parsed, parsed.getResponse(), new LlmPostProcessingResponse(), diagnostics).isEmpty());
     }
 
     private static LlmPostProcessingResponseParser.ParseContext booleanContext() {

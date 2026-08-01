@@ -52,7 +52,12 @@ final class ExprType {
 
     static ExprType array(String componentType, int arrayDepth) {
         String canonicalComponent = canonicalName(componentType);
-        return new ExprType(Kind.ARRAY, canonicalComponent + "[]", canonicalComponent, arrayDepth);
+        int depth = Math.max(1, arrayDepth);
+        StringBuilder name = new StringBuilder(canonicalComponent);
+        for (int i = 0; i < depth; i++) {
+            name.append("[]");
+        }
+        return new ExprType(Kind.ARRAY, name.toString(), canonicalComponent, depth);
     }
 
     static ExprType fromTypeName(String typeName) {
@@ -92,6 +97,13 @@ final class ExprType {
         if ("BigInteger".equals(trimmed)) return "java.math.BigInteger";
         if ("BigDecimal".equals(trimmed)) return "java.math.BigDecimal";
         if ("Optional".equals(trimmed)) return "java.util.Optional";
+        if ("UUID".equals(trimmed)) return "java.util.UUID";
+        if ("LocalDate".equals(trimmed)) return "java.time.LocalDate";
+        if ("LocalTime".equals(trimmed)) return "java.time.LocalTime";
+        if ("LocalDateTime".equals(trimmed)) return "java.time.LocalDateTime";
+        if ("Instant".equals(trimmed)) return "java.time.Instant";
+        if ("Duration".equals(trimmed)) return "java.time.Duration";
+        if ("Period".equals(trimmed)) return "java.time.Period";
         return trimmed;
     }
 
@@ -123,22 +135,22 @@ final class ExprType {
     }
 
     boolean isBoolean() {
-        return "boolean".equals(typeName) || "java.lang.Boolean".equals(canonicalWrapper(typeName))
-                || "Boolean".equals(typeName);
+        return isBooleanLike();
     }
 
     boolean isBooleanLike() {
-        return isBoolean();
+        String canonical = canonicalName(typeName);
+        return "boolean".equals(canonical) || "java.lang.Boolean".equals(canonical);
     }
 
     boolean isCharLike() {
-        return "char".equals(typeName)
-                || "java.lang.Character".equals(canonicalWrapper(typeName))
-                || "Character".equals(typeName);
+        String canonical = canonicalName(typeName);
+        return "char".equals(canonical) || "java.lang.Character".equals(canonical);
     }
 
     boolean isNumeric() {
-        return isNumericPrimitive(typeName) || isNumericWrapper(typeName);
+        String canonical = canonicalName(typeName);
+        return isNumericPrimitive(canonical) || isNumericWrapper(canonical);
     }
 
     boolean isNumericLike() {
@@ -150,21 +162,18 @@ final class ExprType {
     }
 
     boolean isFloatLike() {
-        return "float".equals(typeName)
-                || "java.lang.Float".equals(canonicalWrapper(typeName))
-                || "Float".equals(typeName);
+        String canonical = canonicalName(typeName);
+        return "float".equals(canonical) || "java.lang.Float".equals(canonical);
     }
 
     boolean isDoubleLike() {
-        return "double".equals(typeName)
-                || "java.lang.Double".equals(canonicalWrapper(typeName))
-                || "Double".equals(typeName);
+        String canonical = canonicalName(typeName);
+        return "double".equals(canonical) || "java.lang.Double".equals(canonical);
     }
 
     boolean isLongLike() {
-        return "long".equals(typeName)
-                || "java.lang.Long".equals(canonicalWrapper(typeName))
-                || "Long".equals(typeName);
+        String canonical = canonicalName(typeName);
+        return "long".equals(canonical) || "java.lang.Long".equals(canonical);
     }
 
     private static boolean isNumericPrimitive(String typeName) {
@@ -177,40 +186,11 @@ final class ExprType {
     }
 
     private static boolean isNumericWrapper(String typeName) {
-        String canonical = canonicalWrapper(typeName);
-        return "java.lang.Byte".equals(canonical)
-                || "java.lang.Short".equals(canonical)
-                || "java.lang.Integer".equals(canonical)
-                || "java.lang.Long".equals(canonical)
-                || "java.lang.Float".equals(canonical)
-                || "java.lang.Double".equals(canonical);
-    }
-
-    private static String canonicalWrapper(String typeName) {
-        if ("Byte".equals(typeName)) {
-            return "java.lang.Byte";
-        }
-        if ("Short".equals(typeName)) {
-            return "java.lang.Short";
-        }
-        if ("Character".equals(typeName)) {
-            return "java.lang.Character";
-        }
-        if ("Integer".equals(typeName)) {
-            return "java.lang.Integer";
-        }
-        if ("Long".equals(typeName)) {
-            return "java.lang.Long";
-        }
-        if ("Float".equals(typeName)) {
-            return "java.lang.Float";
-        }
-        if ("Double".equals(typeName)) {
-            return "java.lang.Double";
-        }
-        if ("Boolean".equals(typeName)) {
-            return "java.lang.Boolean";
-        }
-        return typeName;
+        return "java.lang.Byte".equals(typeName)
+                || "java.lang.Short".equals(typeName)
+                || "java.lang.Integer".equals(typeName)
+                || "java.lang.Long".equals(typeName)
+                || "java.lang.Float".equals(typeName)
+                || "java.lang.Double".equals(typeName);
     }
 }

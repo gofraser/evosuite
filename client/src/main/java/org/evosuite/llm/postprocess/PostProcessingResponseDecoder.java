@@ -17,7 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 
 /**
- * Decodes the JSON envelope and accepts only known response schema versions.
+ * Decodes the JSON envelope for the canonical production response schema.
  * Field and assertion policy validation remains in the response parser.
  */
 final class PostProcessingResponseDecoder {
@@ -48,9 +48,9 @@ final class PostProcessingResponseDecoder {
             return DecodeResult.failure("Missing or non-integral schemaVersion");
         }
         int schemaVersion = schemaVersionNode.asInt();
-        if (schemaVersion < LlmPostProcessingProtocol.MIN_RESPONSE_SCHEMA_VERSION
-                || schemaVersion > LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION) {
-            return DecodeResult.failure("Unsupported schemaVersion: " + schemaVersion);
+        if (schemaVersion != LlmPostProcessingProtocol.RESPONSE_SCHEMA_VERSION) {
+            return DecodeResult.failure("Unsupported schemaVersion: " + schemaVersion
+                    + "; expected " + LlmPostProcessingProtocol.RESPONSE_SCHEMA_VERSION);
         }
         return DecodeResult.success(root, schemaVersion);
     }

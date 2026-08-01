@@ -19,8 +19,7 @@ public final class ValidatedEditPlan {
 
     private ValidatedEditPlan(LlmPostProcessingResponse response,
                               List<LlmPostProcessingParseResult.Diagnostic> diagnostics) {
-        this.response = response == null ? new LlmPostProcessingResponse(
-                LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION) : response.copy();
+        this.response = response == null ? new LlmPostProcessingResponse() : response.copy();
         this.diagnostics = Collections.unmodifiableList(new ArrayList<>(
                 diagnostics == null
                         ? Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList()

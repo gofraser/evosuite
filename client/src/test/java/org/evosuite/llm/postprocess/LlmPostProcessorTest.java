@@ -215,7 +215,7 @@ class LlmPostProcessorTest {
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(test);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
+        model.enqueue("{\"schemaVersion\":2,\"testName\":\"shouldNotApply\"}");
 
         run(processor(new UnavailableTestLlmService(model)), suite);
 
@@ -231,7 +231,7 @@ class LlmPostProcessorTest {
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(test);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
+        model.enqueue("{\"schemaVersion\":2,\"testName\":\"shouldNotApply\"}");
         LlmService service = new NoBudgetTestLlmService(model);
 
         run(processor(service), suite);
@@ -253,7 +253,7 @@ class LlmPostProcessorTest {
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(test);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
+        model.enqueue("{\"schemaVersion\":2,\"testName\":\"shouldNotApply\"}");
         LlmService service = createService(model, 1);
 
         run(processor(service), suite);
@@ -338,11 +338,11 @@ class LlmPostProcessorTest {
         suite.addTest(second);
         markAllTestsExecutedNormally(suite);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("```json\n{\"schemaVersion\":1,"
+        model.enqueue("```json\n{\"schemaVersion\":2,"
                 + "\"testName\":\"partial\","
                 + "\"variableNames\":{\"v0\":\"count\",\"v9\":\"missing\"},"
                 + "\"comments\":[{\"afterStatementId\":\"s9\",\"text\":\"invalid\"}]}\n```");
-        model.enqueue("{\"schemaVersion\":1,"
+        model.enqueue("{\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}"
@@ -406,7 +406,7 @@ class LlmPostProcessorTest {
         TestSuiteChromosome suite = singleTestSuite(7);
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1}");
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2}");
 
         run(processor(createService(model, 1)), suite);
 
@@ -425,7 +425,7 @@ class LlmPostProcessorTest {
         suite.addTest(uninterpretedIntReturnTest());
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1}");
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2}");
 
         run(processor(createService(model, 1), new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7)), suite);
 
@@ -443,7 +443,7 @@ class LlmPostProcessorTest {
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"testName\":\"usesPostProcessing\","
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Prepare the value.\"}],"
@@ -472,7 +472,7 @@ class LlmPostProcessorTest {
         suite.addTest(second);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"first\"}}");
         LlmService service = createService(model, 2);
 
         run(processor(service), suite);
@@ -493,7 +493,7 @@ class LlmPostProcessorTest {
         suite.addTest(second);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"first\"}}");
         LlmService service = createService(model, 2);
 
         run(processor(service), suite);
@@ -512,8 +512,8 @@ class LlmPostProcessorTest {
         suite.addTest(first);
         suite.addTest(second);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
-        model.enqueue("{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
+        model.enqueue("{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"first\"}}");
+        model.enqueue("{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 1);
 
         run(processor(service), suite);
@@ -534,7 +534,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2,\"testName\":\"shouldNotApply\"}");
         LlmService service = createService(model, 1);
 
         run(processor(service), suite,
@@ -555,8 +555,8 @@ class LlmPostProcessorTest {
         suite.addTest(first);
         suite.addTest(second);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
-        model.enqueue("{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
+        model.enqueue("{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"first\"}}");
+        model.enqueue("{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 10);
 
         run(processor(service), suite);
@@ -582,9 +582,9 @@ class LlmPostProcessorTest {
         suite.addTest(second);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"first\"}}");
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 10);
 
         run(processor(service), suite,
@@ -616,7 +616,7 @@ class LlmPostProcessorTest {
         suite.addTest(uniqueCoverage);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"selected\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"selected\"}}");
         LlmService service = createService(model, 10);
 
         run(processor(service), suite,
@@ -643,9 +643,9 @@ class LlmPostProcessorTest {
         suite.addTest(second);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"first\"}}");
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 10);
 
         run(processor(service), suite,
@@ -670,9 +670,9 @@ class LlmPostProcessorTest {
         suite.addTest(second);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"first\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"first\"}}");
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"second\"}}");
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"second\"}}");
         LlmService service = createService(model, 10);
 
         run(processor(service), suite,
@@ -708,7 +708,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"testName\":\"partialAccepted\","
                         + "\"variableNames\":{\"v0\":\"count\",\"v9\":\"missing\"},"
                         + "\"comments\":["
@@ -742,7 +742,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,\"testName\":\"readableOnly\"}");
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2,\"testName\":\"readableOnly\"}");
         LlmService service = createService(model, 1);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
 
@@ -766,7 +766,7 @@ class LlmPostProcessorTest {
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"testName\":\"secondProcessed\"}");
+                "{\"schemaVersion\":2,\"testName\":\"secondProcessed\"}");
         LlmService service = createService(model, 1);
 
         run(processor(service, new RecordingFallbackRunner(0), new FailOnceCandidateRunner()), suite);
@@ -786,7 +786,7 @@ class LlmPostProcessorTest {
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\","
+                "{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\","
                         + "\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
 
@@ -806,7 +806,7 @@ class LlmPostProcessorTest {
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(test);
         MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1}");
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2}");
         LlmService service = createService(model, 1);
         RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
 
@@ -845,7 +845,7 @@ class LlmPostProcessorTest {
         TestChromosome chromosome = suite.addTest(test);
         chromosome.setLastExecutionResult(throwingResult(test));
         MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,\"testName\":\"shouldNotApply\"}");
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2,\"testName\":\"shouldNotApply\"}");
         LlmService service = createService(model, 1);
 
         run(processor(service), suite);
@@ -864,7 +864,7 @@ class LlmPostProcessorTest {
         chromosome.setLastExecutionResult(throwingResult(test));
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"testName\":\"readableThrowingTest\","
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\"}]}");
@@ -905,7 +905,7 @@ class LlmPostProcessorTest {
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
-        String rawResponse = "{\"schemaVersion\":1,"
+        String rawResponse = "{\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"}"
@@ -913,7 +913,7 @@ class LlmPostProcessorTest {
         CompleteAssertionGenerator.CandidateCollection candidates =
                 new FinalScopeCandidateRunner(7).collectCandidates(test);
         OracleContext context = OracleContext.from(
-                test, candidates.getExecutionResult(), null, candidates.getAssertions(),
+                test, candidates.getExecutionResult(), candidates.getAssertions(),
                 PostProcessingOptions.fromProperties());
         LlmPostProcessingParseResult parseResult = LlmPostProcessingResponseParser.parse(
                 rawResponse, context.toParseContext());
@@ -939,7 +939,7 @@ class LlmPostProcessorTest {
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"assertions\":["
+                "{\"schemaVersion\":2,\"assertions\":["
                         + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         Path traceDir = Files.createTempDirectory("llm-lifecycle");
@@ -978,7 +978,7 @@ class LlmPostProcessorTest {
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
         model.enqueue(LlmFeature.POST_PROCESSING,
-                "{\"schemaVersion\":1,\"assertions\":["
+                "{\"schemaVersion\":2,\"assertions\":["
                         + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         Path traceDir = Files.createTempDirectory("llm-compile-lifecycle");
@@ -1065,7 +1065,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,\"assertions\":["
+        model.enqueue("{\"schemaVersion\":2,\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}");
 
         int applied = run(processor(createService(model, 1), new RecordingFallbackRunner(0),
@@ -1085,7 +1085,7 @@ class LlmPostProcessorTest {
         TestChromosome chromosome = suite.addTest(test);
         assertNull(chromosome.getLastExecutionResult());
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,"
+        model.enqueue("{\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
@@ -1108,13 +1108,14 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,"
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
 
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7),
-                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner()), suite);
+                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner(),
+                null, null, new RuntimePostProcessingTelemetry()), suite);
 
         assertTrue(test.getAssertions().isEmpty());
     }
@@ -1142,7 +1143,7 @@ class LlmPostProcessorTest {
         MockChatLanguageModel model = new MockChatLanguageModel();
         // Proposes an LLM assertion whose expected value disagrees with the
         // stability scope, so it is rejected during validation.
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,"
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
@@ -1151,7 +1152,8 @@ class LlmPostProcessorTest {
         // candidates on a clone; use the cloning double so the real test's
         // baseline assertions are not detached by candidate collection.
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new ClonedFinalScopeCandidateRunner(7),
-                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner()), suite);
+                new FinalScopeStabilityRunner(8), new IntegerScopeAssertionEvaluationRunner(),
+                null, null, new RuntimePostProcessingTelemetry()), suite);
 
         // No LLM template assertion shipped, and the mutation baseline is intact:
         // same instance, same rendered code, and it is still the test's only assertion.
@@ -1171,7 +1173,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         MockChatLanguageModel model = new MockChatLanguageModel();
-        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":1,"
+        model.enqueue(LlmFeature.POST_PROCESSING, "{\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
         LlmService service = createService(model, 1);
@@ -1179,7 +1181,8 @@ class LlmPostProcessorTest {
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new FinalScopeCandidateRunner(7),
                 new FinalScopeStabilityRunner(7),
                 (proposal, validationTest, references, finalScope, options) ->
-                        LlmPostProcessor.EvaluationOutcome.compileFailure("compile rejected")), suite);
+                        LlmPostProcessor.EvaluationOutcome.compileFailure("compile rejected"),
+                null, null, new RuntimePostProcessingTelemetry()), suite);
 
         assertTrue(test.getAssertions().isEmpty());
     }
@@ -1195,7 +1198,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,"
+        model.enqueue("{\"schemaVersion\":2,"
                 + "\"testName\":\"keepsReadability\","
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"}"
@@ -1224,7 +1227,7 @@ class LlmPostProcessorTest {
         markAllTestsExecutedNormally(suite);
         QueueCapturingModel model = new QueueCapturingModel();
         CapturingClientNode node = installCapturingClientNode();
-        model.enqueue("{\"schemaVersion\":1,"
+        model.enqueue("{\"schemaVersion\":2,"
                 + "\"testName\":\"noBudgetForRepair\","
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"}"
@@ -1259,7 +1262,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,"
+        model.enqueue("{\"schemaVersion\":2,"
                 + "\"testName\":\"repairFailureKeepsReadability\","
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"}"
@@ -1284,7 +1287,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,"
+        model.enqueue("{\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"ASSERT_EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}"
                 + "]}");
@@ -1308,7 +1311,7 @@ class LlmPostProcessorTest {
         suite.addTest(test);
         markAllTestsExecutedNormally(suite);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,"
+        model.enqueue("{\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}"
@@ -1334,7 +1337,7 @@ class LlmPostProcessorTest {
 
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new NoOpCandidateRunner(),
                 new FinalScopeStabilityRunner(7), new IntegerScopeAssertionEvaluationRunner(),
-                new SequenceResourceGuard(true)), suite);
+                new SequenceResourceGuard(true), null, new RuntimePostProcessingTelemetry()), suite);
 
         assertNull(TestPresentationMetadata.get(test));
         assertEquals(0, model.messages.size());
@@ -1353,7 +1356,8 @@ class LlmPostProcessorTest {
 
         run(new LlmPostProcessor(service, new RecordingFallbackRunner(0), new NoOpCandidateRunner(),
                 new FinalScopeStabilityRunner(7), new IntegerScopeAssertionEvaluationRunner(),
-                new SequenceResourceGuard(false), new SequencePhaseClock(0L, 1000L)), suite);
+                new SequenceResourceGuard(false), new SequencePhaseClock(0L, 1000L),
+                new RuntimePostProcessingTelemetry()), suite);
 
         assertNull(TestPresentationMetadata.get(test));
         assertEquals(0, model.messages.size());
@@ -1371,7 +1375,7 @@ class LlmPostProcessorTest {
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(test);
         QueueCapturingModel model = new QueueCapturingModel();
-        model.enqueue("{\"schemaVersion\":1,"
+        model.enqueue("{\"schemaVersion\":2,"
                 + "\"testName\":\"readabilitySurvivesLowMemory\","
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"7\",\"actual\":\"v1\"}]}");
@@ -1382,7 +1386,8 @@ class LlmPostProcessorTest {
                 testCase -> fail("stability execution must not start after low memory"),
                 (proposal, validationTest, references, finalScope, options) ->
                         fail("assertion evaluation must not start after low memory"),
-                new SequenceResourceGuard(false, true)), suite);
+                new SequenceResourceGuard(false, true), null,
+                new RuntimePostProcessingTelemetry()), suite);
 
         assertEquals("readabilitySurvivesLowMemory", TestPresentationMetadata.get(test).getTestName());
         assertTrue(test.getAssertions().isEmpty());
@@ -1401,11 +1406,11 @@ class LlmPostProcessorTest {
         suite.addTest(stable);
         suite.addTest(unstable);
 
-        LlmPostProcessor.FinalAssertionReconciliation reconciliation =
-                LlmPostProcessor.finalAssertionReconciliation(suite, 3);
+        PostProcessingAssertionReconciler.Reconciliation reconciliation =
+                PostProcessingAssertionReconciler.reconcile(suite, 3);
 
-        assertEquals(1, reconciliation.getShipped());
-        assertEquals(2, reconciliation.getRemovedUnstable());
+        assertEquals(1, reconciliation.shipped());
+        assertEquals(2, reconciliation.removedUnstable());
     }
 
     private static DefaultTestCase singleIntTest(int value) {
@@ -1557,7 +1562,8 @@ class LlmPostProcessorTest {
                 : 7;
         return new LlmPostProcessor(service, fallbackRunner, candidateRunner,
                 new FinalScopeStabilityRunner(stabilityValue),
-                new IntegerScopeAssertionEvaluationRunner());
+                new IntegerScopeAssertionEvaluationRunner(), null,
+                null, new RuntimePostProcessingTelemetry());
     }
 
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {
@@ -1798,7 +1804,7 @@ class LlmPostProcessorTest {
         public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
             this.messages = messages;
             this.feature = feature;
-            return new LlmService.LlmResponse("{\"schemaVersion\":1}", 0, 0);
+            return new LlmService.LlmResponse("{\"schemaVersion\":2}", 0, 0);
         }
     }
 

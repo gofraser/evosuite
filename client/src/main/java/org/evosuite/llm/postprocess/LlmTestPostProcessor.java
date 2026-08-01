@@ -56,7 +56,7 @@ final class LlmTestPostProcessor {
                     ? chromosome.getLastExecutionResult()
                     : candidateCollection.getExecutionResult();
             OracleContext oracleContext = OracleContext.from(
-                    validationTest, contextExecutionResult, null,
+                    validationTest, contextExecutionResult,
                     candidateCollection == null ? Collections.emptyList()
                             : candidateCollection.getAssertions(), options);
             assertionEligible = assertionEligible && LlmPostProcessor.hasAssertionOpportunity(oracleContext);

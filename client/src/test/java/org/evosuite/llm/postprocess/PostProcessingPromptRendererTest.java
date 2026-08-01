@@ -169,7 +169,7 @@ class PostProcessingPromptRendererTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
         String prompt = PostProcessingPromptRenderer.build(
-                OracleContext.from(test, null, null, Collections.emptyList(), options),
+                OracleContext.from(test, null, Collections.emptyList(), options),
                 true, options).getMessages().get(1).getContent();
 
         assertTrue(prompt.contains("Prompt version: postprocessing-production-v2"));
@@ -187,7 +187,7 @@ class PostProcessingPromptRendererTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
         String prompt = PostProcessingPromptRenderer.build(
-                OracleContext.from(test, null, null,
+                OracleContext.from(test, null,
                         Collections.emptyList(), options),
                 true, options).getMessages().get(1).getContent();
 
@@ -211,7 +211,7 @@ class PostProcessingPromptRendererTest {
 
     private static PromptResult productionPrompt(DefaultTestCase test, boolean assertionsEnabled) {
         PostProcessingOptions options = PostProcessingOptions.fromProperties();
-        OracleContext context = OracleContext.from(test, null, null,
+        OracleContext context = OracleContext.from(test, null,
                 Collections.emptyList(), options);
         return PostProcessingPromptRenderer.build(context, assertionsEnabled, options);
     }

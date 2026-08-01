@@ -144,7 +144,7 @@ class LlmPostProcessingOutputRenderingTest {
         test.addStatement(new IntPrimitiveStatement(test, 8));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"testName\":\"usesReadablePostProcessedOutput\","
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Keep the observed count.\"}],"
@@ -174,7 +174,7 @@ class LlmPostProcessingOutputRenderingTest {
         test.addStatement(new IntPrimitiveStatement(test, 8));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"testName\":\"usesReadablePostProcessedOutput\","
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Keep the observed count.\"}],"
@@ -244,7 +244,7 @@ class LlmPostProcessingOutputRenderingTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"testName\":\"throwingReadableOnly\","
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Readable edits still apply.\"}],"
@@ -272,7 +272,7 @@ class LlmPostProcessingOutputRenderingTest {
         test.addStatement(stringStatement);
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"variableNames\":{\"v0\":\"count\",\"v1\":\"label\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s1\",\"text\":\"Inputs are unchanged.\"}],"
                         + "\"sectionBreaksAfter\":[\"s1\"]}",

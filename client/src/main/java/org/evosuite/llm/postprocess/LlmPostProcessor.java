@@ -73,55 +73,11 @@ public class LlmPostProcessor {
     private final PostProcessingTelemetry telemetry;
 
     public LlmPostProcessor() {
-        this(LlmService.getInstance());
-    }
-
-    LlmPostProcessor(LlmService llmService) {
-        this(llmService, new TraceAssertionFallbackRunner());
-    }
-
-    LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner) {
-        this(llmService, assertionFallbackRunner, new TraceAssertionCandidateRunner());
-    }
-
-    LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
-                     AssertionCandidateRunner assertionCandidateRunner) {
-        this(llmService, assertionFallbackRunner, assertionCandidateRunner, new DefaultStabilityExecutionRunner());
-    }
-
-    LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
-                     AssertionCandidateRunner assertionCandidateRunner,
-                     StabilityExecutionRunner stabilityExecutionRunner) {
-        this(llmService, assertionFallbackRunner, assertionCandidateRunner, stabilityExecutionRunner,
-                PostProcessingAssertionValidator.defaultEvaluationRunner());
-    }
-
-    LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
-                     AssertionCandidateRunner assertionCandidateRunner,
-                     StabilityExecutionRunner stabilityExecutionRunner,
-                     AssertionEvaluationRunner assertionEvaluationRunner) {
-        this(llmService, assertionFallbackRunner, assertionCandidateRunner, stabilityExecutionRunner,
-                assertionEvaluationRunner, new DefaultResourceGuard());
-    }
-
-    LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
-                     AssertionCandidateRunner assertionCandidateRunner,
-                     StabilityExecutionRunner stabilityExecutionRunner,
-                     AssertionEvaluationRunner assertionEvaluationRunner,
-                     ResourceGuard resourceGuard) {
-        this(llmService, assertionFallbackRunner, assertionCandidateRunner, stabilityExecutionRunner,
-                assertionEvaluationRunner, resourceGuard, new SystemPhaseClock());
-    }
-
-    LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
-                     AssertionCandidateRunner assertionCandidateRunner,
-                     StabilityExecutionRunner stabilityExecutionRunner,
-                     AssertionEvaluationRunner assertionEvaluationRunner,
-                     ResourceGuard resourceGuard,
-                     PhaseClock phaseClock) {
-        this(llmService, assertionFallbackRunner, assertionCandidateRunner,
-                stabilityExecutionRunner, assertionEvaluationRunner, resourceGuard,
-                phaseClock, new RuntimePostProcessingTelemetry());
+        this(LlmService.getInstance(), new TraceAssertionFallbackRunner(),
+                new TraceAssertionCandidateRunner(), new DefaultStabilityExecutionRunner(),
+                PostProcessingAssertionValidator.defaultEvaluationRunner(),
+                new DefaultResourceGuard(), new SystemPhaseClock(),
+                new RuntimePostProcessingTelemetry());
     }
 
     LlmPostProcessor(LlmService llmService, AssertionFallbackRunner assertionFallbackRunner,
@@ -232,7 +188,7 @@ public class LlmPostProcessor {
         }
 
         PostProcessingMetrics phaseMetrics = new LlmPostProcessingPhase(this, phaseContext).run(
-                suite, effectiveMinimizationResult, phaseContext);
+                suite, effectiveMinimizationResult);
         phaseContext.telemetry().publish(phaseMetrics);
         return phaseMetrics.assertionsApplied;
     }
@@ -388,12 +344,12 @@ public class LlmPostProcessor {
                         proposal.getExpected(),
                         proposal.getDelta(),
                         proposal.getIntent(),
-                        proposal.getAfterStatementId(),
+                        "",
                         proposal.getPurpose(),
                         proposal.getSource(),
                         proposal.getCandidateId(),
-                        proposal.getSite() == null ? "" : proposal.getSite().name(),
-                        proposal.getExceptionId()));
+                        "",
+                        ""));
     }
 
     void recordAppliedAssertionLifecycle(
@@ -467,22 +423,14 @@ public class LlmPostProcessor {
                 + String.valueOf(assertion.getPurpose());
     }
 
-    /** Compatibility view retained for package-level reconciliation tests. */
-    static FinalAssertionReconciliation finalAssertionReconciliation(
-            TestSuiteChromosome suite, int initiallyAppliedAssertions) {
-        PostProcessingAssertionReconciler.Reconciliation result =
-                PostProcessingAssertionReconciler.reconcile(suite, initiallyAppliedAssertions);
-        return new FinalAssertionReconciliation(result.shipped(), result.removedUnstable());
-    }
-
     static int remainingItems(List<WorkItem> workItems, int startIndex) {
         if (workItems == null || startIndex >= workItems.size()) {
             return 0;
         }
-        return Math.max(0, workItems.size() - Math.max(0, startIndex));
+        return workItems.size() - startIndex;
     }
 
-    boolean isAssertionEligibleForVersion1(TestChromosome chromosome) {
+    boolean isAssertionEligible(TestChromosome chromosome) {
         if (chromosome == null || chromosome.getTestCase() == null || chromosome.getTestCase().size() == 0) {
             return false;
         }
@@ -616,7 +564,7 @@ public class LlmPostProcessor {
                             firstNonEmpty(assertionExpected(proposal), rawField(rawAssertion, "expected")),
                             firstNonEmpty(assertionDelta(proposal), rawField(rawAssertion, "delta")),
                             firstNonEmpty(assertionIntent(proposal), rawField(rawAssertion, "intent")),
-                            firstNonEmpty(assertionPlacement(proposal), rawPlacement(rawAssertion)),
+                            "",
                             firstNonEmpty(assertionPurpose(proposal), rawField(rawAssertion, "purpose")),
                             proposal == null
                                     ? (rawField(rawAssertion, "candidateId").isEmpty()
@@ -679,7 +627,6 @@ public class LlmPostProcessor {
         assertion.put("expected", proposal.getExpected());
         assertion.put("delta", proposal.getDelta());
         assertion.put("intent", proposal.getIntent());
-        assertion.put("placementAfterStatementId", proposal.getAfterStatementId());
         assertion.put("purpose", proposal.getPurpose());
         return assertion;
     }
@@ -690,18 +637,6 @@ public class LlmPostProcessor {
         }
         Object value = assertion.getFields().get(fieldName);
         return value == null ? "" : String.valueOf(value);
-    }
-
-    private static String rawPlacement(LlmPostProcessingParseResult.RawAssertion assertion) {
-        if (assertion == null) {
-            return "";
-        }
-        Object placement = assertion.getFields().get("placement");
-        if (placement instanceof Map) {
-            Object after = ((Map<?, ?>) placement).get("afterStatementId");
-            return after == null ? "" : String.valueOf(after);
-        }
-        return rawField(assertion, "afterStatementId");
     }
 
     private static String firstNonEmpty(String... values) {
@@ -738,10 +673,6 @@ public class LlmPostProcessor {
 
     private static String assertionIntent(LlmPostProcessingResponse.AssertionProposal proposal) {
         return proposal == null ? "" : proposal.getIntent();
-    }
-
-    private static String assertionPlacement(LlmPostProcessingResponse.AssertionProposal proposal) {
-        return proposal == null ? "" : proposal.getAfterStatementId();
     }
 
     private static String assertionPurpose(LlmPostProcessingResponse.AssertionProposal proposal) {
@@ -796,12 +727,11 @@ public class LlmPostProcessor {
             repairableIds.add(candidate.getAssertionId());
         }
 
-        boolean callAttempted = false;
-        String rawRepairResponse = null;
+        List<LlmMessage> repairMessages = LlmAssertionRepairer.buildRepairMessages(
+                context, rejected, options);
         try {
-            callAttempted = true;
-            rawRepairResponse = queryWithPostProcessingTraceContext(
-                    LlmAssertionRepairer.buildRepairMessages(context, rejected, options),
+            String rawRepairResponse = queryWithPostProcessingTraceContext(
+                    repairMessages,
                     testIndex,
                     minimizationResult,
                     2);
@@ -832,11 +762,9 @@ public class LlmPostProcessor {
         } catch (RuntimeException e) {
             logger.debug("Unified LLM post-processing assertion repair skipped after failure: {}",
                     e.getMessage());
-            return callAttempted
-                    ? AssertionRepairResult.called(acceptedResponse, rejected.size(),
+            return AssertionRepairResult.called(acceptedResponse, rejected.size(),
                     0, 0, java.util.Collections.<LlmPostProcessingParseResult.Diagnostic>emptyList(),
-                    java.util.Collections.<LlmPostProcessingParseResult.RawAssertion>emptyList())
-                    : AssertionRepairResult.noCall(acceptedResponse);
+                    java.util.Collections.<LlmPostProcessingParseResult.RawAssertion>emptyList());
         }
     }
 
@@ -1393,24 +1321,6 @@ public class LlmPostProcessor {
             this.signature = signature;
             this.testIndex = testIndex;
             this.minimizationResult = minimizationResult;
-        }
-    }
-
-    static final class FinalAssertionReconciliation {
-        private final int shipped;
-        private final int removedUnstable;
-
-        private FinalAssertionReconciliation(int shipped, int removedUnstable) {
-            this.shipped = shipped;
-            this.removedUnstable = removedUnstable;
-        }
-
-        int getShipped() {
-            return shipped;
-        }
-
-        int getRemovedUnstable() {
-            return removedUnstable;
         }
     }
 

@@ -36,10 +36,12 @@ public final class LlmPostProcessingParseResult {
     private final LlmPostProcessingResponse response;
     private final PostProcessingCounts proposedCounts;
     private final List<RawAssertion> rawAssertions;
+    private final List<AssertionParseEntry> assertionEntries;
 
     private LlmPostProcessingParseResult(LlmPostProcessingResponse response,
                                          PostProcessingCounts proposedCounts,
                                          List<RawAssertion> rawAssertions,
+                                         List<AssertionParseEntry> assertionEntries,
                                          boolean infrastructureFailure,
                                          String infrastructureFailureReason,
                                          List<Diagnostic> diagnostics) {
@@ -50,6 +52,8 @@ public final class LlmPostProcessingParseResult {
         this.proposedCounts = proposedCounts == null ? PostProcessingCounts.none() : proposedCounts;
         this.rawAssertions = Collections.unmodifiableList(new ArrayList<>(
                 rawAssertions == null ? Collections.<RawAssertion>emptyList() : rawAssertions));
+        this.assertionEntries = Collections.unmodifiableList(new ArrayList<>(
+                assertionEntries == null ? Collections.<AssertionParseEntry>emptyList() : assertionEntries));
     }
 
     public static LlmPostProcessingParseResult success(LlmPostProcessingResponse response,
@@ -60,7 +64,7 @@ public final class LlmPostProcessingParseResult {
 
     public static LlmPostProcessingParseResult infrastructureFailure(String reason) {
         return new LlmPostProcessingParseResult(null, PostProcessingCounts.none(),
-                Collections.<RawAssertion>emptyList(), true, reason,
+                Collections.<RawAssertion>emptyList(), Collections.<AssertionParseEntry>emptyList(), true, reason,
                 Collections.<Diagnostic>emptyList());
     }
 
@@ -69,7 +73,23 @@ public final class LlmPostProcessingParseResult {
                                                        PostProcessingCounts proposedCounts,
                                                        List<RawAssertion> rawAssertions) {
         return new LlmPostProcessingParseResult(response, proposedCounts, rawAssertions,
-                false, null, diagnostics);
+                entriesFrom(rawAssertions, response, diagnostics), false, null, diagnostics);
+    }
+
+    static LlmPostProcessingParseResult successWithEntries(LlmPostProcessingResponse response,
+                                                           List<Diagnostic> diagnostics,
+                                                           PostProcessingCounts proposedCounts,
+                                                           List<AssertionParseEntry> assertionEntries) {
+        List<RawAssertion> rawAssertions = new ArrayList<>();
+        if (assertionEntries != null) {
+            for (AssertionParseEntry entry : assertionEntries) {
+                if (entry != null && entry.getRaw() != null) {
+                    rawAssertions.add(entry.getRaw());
+                }
+            }
+        }
+        return new LlmPostProcessingParseResult(response, proposedCounts, rawAssertions,
+                assertionEntries, false, null, diagnostics);
     }
 
     public LlmPostProcessingResponse getResponse() {
@@ -95,6 +115,45 @@ public final class LlmPostProcessingParseResult {
     /** Decoded raw assertion entries retained for diagnostics and repair prompts. */
     public List<RawAssertion> getRawAssertions() {
         return rawAssertions;
+    }
+
+    /** Per-wire-entry parse state, including accepted proposal and diagnostics. */
+    public List<AssertionParseEntry> getAssertionEntries() {
+        return assertionEntries;
+    }
+
+    private static List<AssertionParseEntry> entriesFrom(
+            List<RawAssertion> rawAssertions,
+            LlmPostProcessingResponse response,
+            List<Diagnostic> diagnostics) {
+        if (rawAssertions == null || rawAssertions.isEmpty()) {
+            return Collections.emptyList();
+        }
+        Map<String, LlmPostProcessingResponse.AssertionProposal> proposals = new LinkedHashMap<>();
+        if (response != null) {
+            for (LlmPostProcessingResponse.AssertionProposal proposal : response.getAssertions()) {
+                if (proposal != null && proposal.getAssertionId() != null) {
+                    proposals.put(proposal.getAssertionId(), proposal);
+                }
+            }
+        }
+        Map<Integer, List<Diagnostic>> diagnosticsByIndex = new LinkedHashMap<>();
+        if (diagnostics != null) {
+            for (Diagnostic diagnostic : diagnostics) {
+                if (diagnostic != null && diagnostic.getAssertionIndex() >= 0) {
+                    diagnosticsByIndex.computeIfAbsent(diagnostic.getAssertionIndex(),
+                            ignored -> new ArrayList<>()).add(diagnostic);
+                }
+            }
+        }
+        List<AssertionParseEntry> result = new ArrayList<>();
+        for (RawAssertion raw : rawAssertions) {
+            LlmPostProcessingResponse.AssertionProposal proposal = raw == null
+                    ? null : proposals.get(raw.getAssertionId());
+            result.add(new AssertionParseEntry(raw, proposal,
+                    diagnosticsByIndex.get(raw == null ? -1 : raw.getIndex())));
+        }
+        return result;
     }
 
     public static final class RawAssertion {
@@ -124,6 +183,27 @@ public final class LlmPostProcessingParseResult {
         public String getAssertionId() { return assertionId; }
         public String getRawJson() { return rawJson; }
         public Map<String, Object> getFields() { return fields; }
+    }
+
+    public static final class AssertionParseEntry {
+        private final RawAssertion raw;
+        private final LlmPostProcessingResponse.AssertionProposal proposal;
+        private final List<Diagnostic> diagnostics;
+
+        public AssertionParseEntry(RawAssertion raw,
+                                   LlmPostProcessingResponse.AssertionProposal proposal,
+                                   List<Diagnostic> diagnostics) {
+            this.raw = raw;
+            this.proposal = proposal;
+            this.diagnostics = Collections.unmodifiableList(new ArrayList<>(
+                    diagnostics == null ? Collections.<Diagnostic>emptyList() : diagnostics));
+        }
+
+        public RawAssertion getRaw() { return raw; }
+
+        public LlmPostProcessingResponse.AssertionProposal getProposal() { return proposal; }
+
+        public List<Diagnostic> getDiagnostics() { return diagnostics; }
     }
 
     public enum DiagnosticCode {

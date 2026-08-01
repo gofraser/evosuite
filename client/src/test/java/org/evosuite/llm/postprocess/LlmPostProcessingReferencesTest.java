@@ -82,7 +82,7 @@ class LlmPostProcessingReferencesTest {
         DefaultTestCase test = new DefaultTestCase();
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
-        String response = "{\"schemaVersion\":1,"
+        String response = "{\"schemaVersion\":2,"
                 + "\"variableNames\":{\"v0\":\"number\",\"v1\":\"missing\"},"
                 + "\"comments\":[{\"afterStatementId\":\"s1\",\"text\":\"missing\"}]}";
 

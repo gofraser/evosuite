@@ -222,9 +222,9 @@ final class PostProcessingPromptRenderer {
     private static CallableMemberRendering renderCallableMembers(
             OracleContext context,
             Set<String> relevantVariableIds,
-            PostProcessingOptions options) {
+        PostProcessingOptions options) {
         if (context.getCallableMembers().isEmpty()) {
-            return new CallableMemberRendering("none\n", 0, 0);
+            return new CallableMemberRendering("none\n");
         }
         Map<String, LinkedHashSet<String>> membersByType = new LinkedHashMap<>();
         LinkedHashSet<String> receiverBindings = new LinkedHashSet<>();
@@ -250,7 +250,6 @@ final class PostProcessingPromptRenderer {
             appendCapped(builder, "receivers: " + String.join(", ", receiverBindings) + "\n", maxChars);
         }
         int truncatedTypes = 0;
-        int emittedMembers = 0;
         for (Map.Entry<String, LinkedHashSet<String>> entry : membersByType.entrySet()) {
             String line = "owner=" + entry.getKey() + " members=" + String.join(", ", entry.getValue()) + "\n";
             if (maxChars > 0 && builder.length() + line.length() > maxChars) {
@@ -258,74 +257,19 @@ final class PostProcessingPromptRenderer {
                 continue;
             }
             builder.append(line);
-            emittedMembers += entry.getValue().size();
         }
         if (truncatedTypes > 0) {
             appendCapped(builder, "truncatedCallableTypes=" + truncatedTypes + "\n", maxChars);
         }
-        int dropped = Math.max(0, context.getCallableMembers().size() - emittedMembers);
-        return new CallableMemberRendering(
-                builder.length() == 0 ? "none\n" : builder.toString(),
-                emittedMembers, dropped);
-    }
-
-    static String additionalLegalCallText(OracleContext context,
-                                           PostProcessingOptions options) {
-        CallableMemberRendering rendering = renderCallableMembers(context, null, options);
-        if (rendering.droppedCount == 0) {
-            return rendering.text;
-        }
-        StringBuilder builder = new StringBuilder(rendering.text);
-        appendCapped(builder, "droppedMethods=" + rendering.droppedCount + "\n",
-                options.contextLimits().callableChars());
-        return builder.toString();
+        return new CallableMemberRendering(builder.length() == 0 ? "none\n" : builder.toString());
     }
 
     static final class CallableMemberRendering {
         final String text;
-        final int emittedCount;
-        final int droppedCount;
 
-        private CallableMemberRendering(String text, int emittedCount, int droppedCount) {
+        private CallableMemberRendering(String text) {
             this.text = text;
-            this.emittedCount = emittedCount;
-            this.droppedCount = droppedCount;
         }
-    }
-
-    static String safeAssertionSiteText(OracleContext context) {
-        if (context.getExceptions().isEmpty()) {
-            return "- END_OF_TEST available="
-                    + String.join(",", context.getReferences().getVariableIds()) + "\n";
-        }
-        OracleContext.ExceptionContext exception = context.getExceptions().get(0);
-        int throwingPosition = OracleContext.stableIdIndex(exception.getStatementId());
-        List<String> completedStatements = new ArrayList<>();
-        List<String> availableVariables = new ArrayList<>();
-        for (int position = 0; position < throwingPosition; position++) {
-            String statementId = LlmPostProcessingReferences.statementId(position);
-            if (context.getReferences().hasStatementId(statementId)) {
-                completedStatements.add(statementId);
-            }
-            String variableId = LlmPostProcessingReferences.variableId(position);
-            if (context.getReferences().hasVariableId(variableId)) {
-                availableVariables.add(variableId);
-            }
-        }
-        String available = String.join(",", availableVariables);
-        StringBuilder builder = new StringBuilder();
-        if (!completedStatements.isEmpty()) {
-            builder.append("- BEFORE_TRY after=")
-                    .append(String.join(",", completedStatements))
-                    .append(" available=").append(available).append('\n');
-        }
-        builder.append("- IN_CATCH exception=e0 available=e0");
-        if (!available.isEmpty()) {
-            builder.append(',').append(available);
-        }
-        builder.append('\n');
-        builder.append("- AFTER_CATCH available=").append(available).append('\n');
-        return builder.toString();
     }
 
     private static String candidateFactLine(OracleContext.CandidateFact fact,

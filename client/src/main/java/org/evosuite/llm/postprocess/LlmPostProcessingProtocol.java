@@ -11,8 +11,6 @@ public final class LlmPostProcessingProtocol {
 
     /** Schema emitted by every new production request. */
     public static final int RESPONSE_SCHEMA_VERSION = 2;
-    public static final int MAX_RESPONSE_SCHEMA_VERSION = 3;
-    public static final int MIN_RESPONSE_SCHEMA_VERSION = 1;
     public static final String PARSER_VERSION = "postprocessing-parser-v4";
     public static final String PRODUCTION_PROMPT_VERSION = "postprocessing-production-v2";
 

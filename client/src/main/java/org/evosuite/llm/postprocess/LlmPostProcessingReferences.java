@@ -25,7 +25,6 @@ import org.evosuite.testcase.variable.VariableReference;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -36,11 +35,15 @@ public final class LlmPostProcessingReferences {
 
     private final Map<String, Integer> statementPositions;
     private final Map<String, Integer> variablePositions;
+    private final Set<String> statementIds;
+    private final Set<String> variableIds;
 
     private LlmPostProcessingReferences(Map<String, Integer> statementPositions,
                                         Map<String, Integer> variablePositions) {
         this.statementPositions = Collections.unmodifiableMap(new LinkedHashMap<>(statementPositions));
         this.variablePositions = Collections.unmodifiableMap(new LinkedHashMap<>(variablePositions));
+        this.statementIds = this.statementPositions.keySet();
+        this.variableIds = this.variablePositions.keySet();
     }
 
     public static LlmPostProcessingReferences from(TestCase test) {
@@ -61,11 +64,11 @@ public final class LlmPostProcessingReferences {
     }
 
     public Set<String> getStatementIds() {
-        return Collections.unmodifiableSet(new LinkedHashSet<>(statementPositions.keySet()));
+        return statementIds;
     }
 
     public Set<String> getVariableIds() {
-        return Collections.unmodifiableSet(new LinkedHashSet<>(variablePositions.keySet()));
+        return variableIds;
     }
 
     public Map<String, Integer> getStatementPositions() {
@@ -125,8 +128,7 @@ public final class LlmPostProcessingReferences {
                 getStatementIds(), getVariableIds(), Collections.<LlmPostProcessingResponseParser.CallableMethod>emptySet(),
                 Collections.<String>emptySet(), Collections.<String>emptySet(),
                 Collections.<String, String>emptyMap(),
-                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(),
-                null, options);
+                Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(), options);
     }
 
     public static String statementId(int position) {

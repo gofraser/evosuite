@@ -92,7 +92,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new StringPrimitiveStatement(test, "value"));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"testName\":\"usesReadableNames\","
                 + "\"variableNames\":{\"v0\":\"count\",\"v1\":\"label\"},"
                 + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Initialize the count.\"}],"
@@ -140,7 +140,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new IntPrimitiveStatement(test, 8));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"variableNames\":{\"v0\":\"count\",\"v1\":\"label\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Initialize the count.\"}],"
                         + "\"sectionBreaksAfter\":[\"s0\"]}",
@@ -165,7 +165,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"count\"}}",
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"count\"}}",
                 references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
@@ -182,7 +182,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new IntPrimitiveStatement(test, 8));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"value\",\"v1\":\"value\"}}",
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"value\",\"v1\":\"value\"}}",
                 references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
@@ -209,7 +209,7 @@ class LlmPostProcessingEditApplierTest {
         assertTrue(originalCode.contains("int int0 = 7;"), originalCode);
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,\"variableNames\":{\"v0\":\"int0\"}}",
+                "{\"schemaVersion\":2,\"variableNames\":{\"v0\":\"int0\"}}",
                 references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
 
         LlmPostProcessingEditApplier.ApplyResult result =
@@ -234,7 +234,7 @@ class LlmPostProcessingEditApplierTest {
         executionResult.reportNewThrownException(1, new RuntimeException("boom"));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"comments\":["
                         + "{\"afterStatementId\":\"s0\",\"text\":\"Before throw.\"},"
                         + "{\"afterStatementId\":\"s1\",\"text\":\"After throw.\"}],"
@@ -259,7 +259,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\","
@@ -290,7 +290,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(stringStatement);
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"testName\":\"keepsInputs\","
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Do not rewrite inputs.\"}],"
@@ -311,7 +311,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v9\"}]}",
                 references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
@@ -330,7 +330,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"NOT_EQUALS\","
                         + "\"expected\":\"8\",\"actual\":\"v0\"}]}",
@@ -353,7 +353,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"NOT_EQUALS\","
                         + "\"expected\":\"8\",\"actual\":\"v0\"}]}",
@@ -485,7 +485,7 @@ class LlmPostProcessingEditApplierTest {
         source.addStatement(new IntPrimitiveStatement(source, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(source);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"variableNames\":{\"v0\":\"count\"},"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\","
@@ -515,7 +515,7 @@ class LlmPostProcessingEditApplierTest {
         test.addStatement(new IntPrimitiveStatement(test, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\"}]}",
                 references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
@@ -542,33 +542,12 @@ class LlmPostProcessingEditApplierTest {
     }
 
     @Test
-    void templateAssertionsNormalizeLegacyPlacementToEndOfTest() {
-        DefaultTestCase test = new DefaultTestCase();
-        test.addStatement(new IntPrimitiveStatement(test, 7));
-        test.addStatement(new IntPrimitiveStatement(test, 8));
-        LlmPostProcessingReferences references = LlmPostProcessingReferences.from(test);
-        LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
-                        + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
-                        + "\"expected\":\"7\",\"actual\":\"v0\","
-                        + "\"placement\":{\"afterStatementId\":\"s0\"}}]}",
-                references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();
-
-        LlmPostProcessingEditApplier.ApplyResult result =
-                apply(test, references, response);
-
-        assertEquals(1, result.getAssertionsApplied());
-        Assertion assertion = test.getAssertions().get(0);
-        assertSame(test.getStatement(1), assertion.getStatement());
-    }
-
-    @Test
     void templateAssertionsCopyThroughAddAssertionsWithHostStatement() {
         DefaultTestCase source = new DefaultTestCase();
         source.addStatement(new IntPrimitiveStatement(source, 7));
         LlmPostProcessingReferences references = LlmPostProcessingReferences.from(source);
         LlmPostProcessingResponse response = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,"
+                "{\"schemaVersion\":2,"
                         + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                         + "\"expected\":\"7\",\"actual\":\"v0\"}]}",
                 references.toParseContext(PostProcessingOptions.fromProperties())).getResponse();

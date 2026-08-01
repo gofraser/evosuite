@@ -56,7 +56,7 @@ public final class LlmPostProcessingResponseParser {
             "NO_STABLE_OBSERVATION", "NO_LEGAL_CALLABLE", "THROWING_TEST", "CANDIDATE_REDUNDANCY",
             "ONLY_SETUP_VALUES", "TRUNCATED_OBSERVATION", "OTHER");
     private static final Set<String> ASSERTION_FIELDS = allowedFields("assertionId", "kind", "expected", "actual",
-            "delta", "purpose", "intent", "placement", "container", "element", "target", "size", "map", "key",
+            "delta", "purpose", "intent", "container", "element", "target", "size", "map", "key",
             "candidateId", "value", "expression");
     private LlmPostProcessingResponseParser() {
         // Utility class.
@@ -68,10 +68,9 @@ public final class LlmPostProcessingResponseParser {
                                    Set<String> setupInputVariableIds,
                                    Map<String, String> variableTypes,
                                    Map<String, SelectableCandidate> selectableCandidates,
-                                   String throwingStatementId,
                                    PostProcessingOptions options) {
         return new ParseContext(statementIds, variableIds, callableMethods, observedCandidateKeys,
-                setupInputVariableIds, variableTypes, selectableCandidates, throwingStatementId, options);
+                setupInputVariableIds, variableTypes, selectableCandidates, options);
     }
 
     public static LlmPostProcessingParseResult parse(String response, ParseContext context) {
@@ -84,14 +83,13 @@ public final class LlmPostProcessingResponseParser {
             return LlmPostProcessingParseResult.infrastructureFailure(decoded.getFailureReason());
         }
         JsonNode root = decoded.getRoot();
-        int schemaVersion = decoded.getSchemaVersion();
-        ParserState state = new ParserState(context, new LlmPostProcessingResponse(schemaVersion));
+        ParserState state = new ParserState(context, new LlmPostProcessingResponse());
         state.reportUnknownFields(root, "", ROOT_FIELDS);
         state.parseBasicEdits(root);
         state.parseAssertions(root.get("assertions"));
         state.parseAssertionDecision(root.get("assertionDecision"), root.get("noAssertionReason"));
-        return LlmPostProcessingParseResult.success(state.response, state.diagnostics,
-                proposedCounts(root), rawAssertions(root));
+        return LlmPostProcessingParseResult.successWithEntries(state.response, state.diagnostics,
+                proposedCounts(root), state.assertionEntries(rawAssertions(root)));
     }
 
     private static PostProcessingCounts proposedCounts(JsonNode root) {
@@ -111,15 +109,16 @@ public final class LlmPostProcessingResponseParser {
         }
         for (int index = 0; index < assertions.size(); index++) {
             JsonNode assertion = assertions.get(index);
-            if (assertion == null || !assertion.isObject()) {
-                continue;
-            }
-            String assertionId = textValue(assertion.get("assertionId"));
+            String assertionId = assertion != null && assertion.isObject()
+                    ? textValue(assertion.get("assertionId")) : null;
             String normalizedId = assertionId == null || assertionId.trim().isEmpty()
                     ? null : assertionId.trim();
+            Map<String, Object> fields = assertion != null && assertion.isObject()
+                    ? JSON_MAPPER.convertValue(assertion, LinkedHashMap.class)
+                    : Collections.<String, Object>emptyMap();
             result.add(new LlmPostProcessingParseResult.RawAssertion(
                     index, normalizedId, assertion.toString(),
-                    JSON_MAPPER.convertValue(assertion, LinkedHashMap.class)));
+                    fields));
         }
         return result;
     }
@@ -154,7 +153,6 @@ public final class LlmPostProcessingResponseParser {
         private final Set<String> setupInputVariableIds;
         private final Map<String, String> variableTypes;
         private final Map<String, SelectableCandidate> selectableCandidates;
-        private final String throwingStatementId;
         private final PostProcessingOptions options;
 
         private ParseContext(Set<String> statementIds, Set<String> variableIds,
@@ -163,7 +161,6 @@ public final class LlmPostProcessingResponseParser {
                              Set<String> setupInputVariableIds,
                              Map<String, String> variableTypes,
                              Map<String, SelectableCandidate> selectableCandidates,
-                             String throwingStatementId,
                              PostProcessingOptions options) {
             this.statementIds = copy(statementIds);
             this.variableIds = copy(variableIds);
@@ -172,7 +169,6 @@ public final class LlmPostProcessingResponseParser {
             this.setupInputVariableIds = copy(setupInputVariableIds);
             this.variableTypes = copyMap(variableTypes);
             this.selectableCandidates = copyMap(selectableCandidates);
-            this.throwingStatementId = throwingStatementId;
             if (options == null) {
                 throw new IllegalArgumentException("Production parse context requires options");
             }
@@ -221,14 +217,6 @@ public final class LlmPostProcessingResponseParser {
             return setupInputVariableIds.contains(id);
         }
 
-        boolean hasThrowingStatement() {
-            return throwingStatementId != null;
-        }
-
-        String throwingStatementId() {
-            return throwingStatementId;
-        }
-
         PostProcessingOptions options() {
             return options;
         }
@@ -243,33 +231,13 @@ public final class LlmPostProcessingResponseParser {
         private final String expected;
         private final String actual;
         private final String delta;
-        private final LlmPostProcessingResponse.AssertionSite defaultSite;
-        private final String defaultAfterStatementId;
-        private final String defaultExceptionId;
 
         public SelectableCandidate(LlmPostProcessingResponse.AssertionKind kind, String expected,
                                    String actual, String delta) {
-            this(kind, expected, actual, delta, null, null, null);
-        }
-
-        private SelectableCandidate(LlmPostProcessingResponse.AssertionKind kind, String expected,
-                                    String actual, String delta,
-                                    LlmPostProcessingResponse.AssertionSite defaultSite,
-                                    String defaultAfterStatementId, String defaultExceptionId) {
             this.kind = kind;
             this.expected = expected;
             this.actual = actual;
             this.delta = delta;
-            this.defaultSite = defaultSite;
-            this.defaultAfterStatementId = defaultAfterStatementId;
-            this.defaultExceptionId = defaultExceptionId;
-        }
-
-        SelectableCandidate withDefaultPlacement(
-                LlmPostProcessingResponse.AssertionSite site,
-                String afterStatementId, String exceptionId) {
-            return new SelectableCandidate(kind, expected, actual, delta,
-                    site, afterStatementId, exceptionId);
         }
 
         public LlmPostProcessingResponse.AssertionKind getKind() {
@@ -288,17 +256,6 @@ public final class LlmPostProcessingResponseParser {
             return delta;
         }
 
-        LlmPostProcessingResponse.AssertionSite getDefaultSite() {
-            return defaultSite;
-        }
-
-        String getDefaultAfterStatementId() {
-            return defaultAfterStatementId;
-        }
-
-        String getDefaultExceptionId() {
-            return defaultExceptionId;
-        }
     }
 
     public static final class CallableMethod {
@@ -397,7 +354,8 @@ public final class LlmPostProcessingResponseParser {
             }
             String trimmed = typeName.trim();
             int genericStart = trimmed.indexOf('<');
-            return genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
+            String raw = genericStart < 0 ? trimmed : trimmed.substring(0, genericStart);
+            return ExprType.canonicalName(raw);
         }
     }
 
@@ -410,6 +368,8 @@ public final class LlmPostProcessingResponseParser {
         private final PostProcessingOperandPolicy operandPolicy;
         private final PostProcessingExpressionSafetyPolicy expressionSafety;
         private final java.util.List<Diagnostic> diagnostics = new java.util.ArrayList<>();
+        private final Map<Integer, LlmPostProcessingResponse.AssertionProposal> acceptedAssertions
+                = new LinkedHashMap<>();
         private int currentAssertionIndex = -1;
         private String currentAssertionId;
 
@@ -481,22 +441,18 @@ public final class LlmPostProcessingResponseParser {
                         continue;
                     }
                 }
-                PostProcessingPlacementValidator.PlacementValue placement =
-                        PostProcessingPlacementValidator.parse(
-                                entry.get("placement"), path + ".placement", response,
-                                context, candidate, currentAssertionIndex, currentAssertionId,
-                                diagnostics);
-                if (placement == null) {
-                    continue;
-                }
                 if (selectedCandidate) {
                     if (parseSelectedCandidate(entry, path, assertionId, candidate,
-                            candidateId.trim(), placement)) {
+                            candidateId.trim())) {
+                        acceptedAssertions.put(i, response.getAssertions()
+                                .get(response.getAssertions().size() - 1));
                         accepted++;
                     }
                     continue;
                 }
-                if (parseSynthesizedAssertion(entry, path, assertionId, placement, assertionKeys)) {
+                if (parseSynthesizedAssertion(entry, path, assertionId, assertionKeys)) {
+                    acceptedAssertions.put(i, response.getAssertions()
+                            .get(response.getAssertions().size() - 1));
                     accepted++;
                 }
             }
@@ -504,15 +460,26 @@ public final class LlmPostProcessingResponseParser {
             currentAssertionId = null;
         }
 
-        private boolean parseSelectedCandidate(JsonNode entry, String path, String assertionId,
-                                               SelectableCandidate candidate, String candidateId,
-                                               PostProcessingPlacementValidator.PlacementValue placement) {
-            if (!PostProcessingPlacementValidator.referencesAreAvailable(
-                    candidate.expected, candidate.actual, candidate.delta,
-                    placement, context, path, currentAssertionIndex, currentAssertionId,
-                    diagnostics)) {
-                return false;
+        private List<LlmPostProcessingParseResult.AssertionParseEntry> assertionEntries(
+                List<LlmPostProcessingParseResult.RawAssertion> rawAssertions) {
+            Map<Integer, List<Diagnostic>> diagnosticsByIndex = new LinkedHashMap<>();
+            for (Diagnostic diagnostic : diagnostics) {
+                if (diagnostic != null && diagnostic.getAssertionIndex() >= 0) {
+                    diagnosticsByIndex.computeIfAbsent(diagnostic.getAssertionIndex(),
+                            ignored -> new ArrayList<>()).add(diagnostic);
+                }
             }
+            List<LlmPostProcessingParseResult.AssertionParseEntry> result = new ArrayList<>();
+            for (LlmPostProcessingParseResult.RawAssertion raw : rawAssertions) {
+                result.add(new LlmPostProcessingParseResult.AssertionParseEntry(
+                        raw, acceptedAssertions.get(raw.getIndex()),
+                        diagnosticsByIndex.get(raw.getIndex())));
+            }
+            return result;
+        }
+
+        private boolean parseSelectedCandidate(JsonNode entry, String path, String assertionId,
+                                               SelectableCandidate candidate, String candidateId) {
             if (!hasCompatibleOperands(candidate.kind, candidate.expected, candidate.actual,
                     candidate.delta, path)
                     || !canRenderCanonicalAssertion(candidate.kind, candidate.expected,
@@ -526,13 +493,11 @@ public final class LlmPostProcessingResponseParser {
             String purpose = parseAssertionPurpose(entry, path);
             response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
                     assertionId, candidate.kind, candidate.expected, candidate.actual,
-                    candidate.delta, purpose, intent, placement.site,
-                    placement.afterStatementId, placement.exceptionId, candidateId));
+                    candidate.delta, purpose, intent, candidateId));
             return true;
         }
 
         private boolean parseSynthesizedAssertion(JsonNode entry, String path, String assertionId,
-                                                  PostProcessingPlacementValidator.PlacementValue placement,
                                                   Set<String> assertionKeys) {
             LlmPostProcessingResponse.AssertionKind kind = parseKind(entry.get("kind"), path + ".kind");
             if (kind == null || !hasValidOperandShape(kind, entry, path)) {
@@ -560,11 +525,6 @@ public final class LlmPostProcessingResponseParser {
             actual = canonicalSpecialFloatingLiteral(actual, originalExpectedType);
             String intent = parseAssertionIntent(entry.get("intent"), path + ".intent");
             if (intent == null) {
-                return false;
-            }
-            if (!PostProcessingPlacementValidator.referencesAreAvailable(
-                    expected, actual, delta, placement, context, path,
-                    currentAssertionIndex, currentAssertionId, diagnostics)) {
                 return false;
             }
             if (delta == null && (kind == LlmPostProcessingResponse.AssertionKind.EQUALS
@@ -597,7 +557,7 @@ public final class LlmPostProcessingResponseParser {
             String purpose = parseAssertionPurpose(entry, path);
             response.addAssertion(new LlmPostProcessingResponse.AssertionProposal(
                     assertionId, kind, expected, actual, delta, purpose, intent,
-                    placement.site, placement.afterStatementId, placement.exceptionId, null));
+                    null));
             return true;
         }
 
@@ -735,7 +695,7 @@ public final class LlmPostProcessingResponseParser {
             intent = intent.trim();
             if (!"REGRESSION".equals(intent)) {
                 diagnostic(DiagnosticCode.UNSUPPORTED_KIND, path,
-                        "Only REGRESSION assertion intent is supported by schema version 1");
+                        "Only REGRESSION assertion intent is supported by schema version 2");
                 return null;
             }
             return intent;
@@ -894,7 +854,7 @@ public final class LlmPostProcessingResponseParser {
                     return true;
                 case NOT_EQUALS:
                     diagnostic(DiagnosticCode.UNSUPPORTED_KIND, path,
-                            "NOT_EQUALS on arrays is unsupported in schema version 1");
+                            "NOT_EQUALS on arrays is unsupported in schema version 2");
                     return false;
                 case NOT_ARRAY:
                     diagnostic(DiagnosticCode.INVALID_FIELD, path,

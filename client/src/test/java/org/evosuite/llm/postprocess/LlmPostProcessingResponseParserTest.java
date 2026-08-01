@@ -93,55 +93,9 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_schemaThreeAcceptsAdvertisedInCatchSite() {
-        HashSet<String> statements = new HashSet<>(Arrays.asList("s0", "s1"));
-        HashSet<String> variables = new HashSet<>(Arrays.asList("v0", "e0"));
-        HashSet<LlmPostProcessingResponseParser.CallableMethod> callables = new HashSet<>();
-        callables.add(new LlmPostProcessingResponseParser.CallableMethod(
-                "e0", "java.lang.Throwable", "getMessage", "()Ljava/lang/String;",
-                "java.lang.String"));
-        Map<String, String> types = new LinkedHashMap<>();
-        types.put("v0", "int");
-        types.put("e0", "java.lang.Throwable");
-        LlmPostProcessingResponseParser.ParseContext throwingContext =
-                PostProcessingTestContexts.context(
-                        statements, variables, callables, Collections.<String>emptySet(),
-                        Collections.<String>emptySet(), types,
-                        Collections.<String, LlmPostProcessingResponseParser.SelectableCandidate>emptyMap(),
-                        "s1");
-        String json = "{\"schemaVersion\":3,\"assertions\":[{"
-                + "\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
-                + "\"expected\":\"\\\"boom\\\"\",\"actual\":\"e0.getMessage()\","
-                + "\"placement\":{\"site\":\"IN_CATCH\",\"exceptionId\":\"e0\"}}]}";
-
-        LlmPostProcessingParseResult result =
-                LlmPostProcessingResponseParser.parse(json, throwingContext);
-
-        assertFalse(result.isInfrastructureFailure());
-        assertTrue(result.getDiagnostics().isEmpty(), result.getDiagnostics().toString());
-        assertEquals(LlmPostProcessingResponse.AssertionSite.IN_CATCH,
-                result.getResponse().getAssertions().get(0).getSite());
-    }
-
-    @Test
-    void parse_schemaThreeRejectsUnavailableExceptionSite() {
-        String json = "{\"schemaVersion\":3,\"assertions\":[{"
-                + "\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0 > 0\","
-                + "\"placement\":{\"site\":\"IN_CATCH\",\"exceptionId\":\"e0\"}}]}";
-
-        LlmPostProcessingParseResult result =
-                LlmPostProcessingResponseParser.parse(json, context());
-
-        assertFalse(result.isInfrastructureFailure());
-        assertTrue(result.getResponse().getAssertions().isEmpty());
-        assertTrue(result.getDiagnostics().stream()
-                .anyMatch(diagnostic -> diagnostic.getCode() == DiagnosticCode.INVALID_FIELD));
-    }
-
-    @Test
     void parse_validResponse_acceptsIndependentEditCategories() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"testName\":\"withdrawReducesBalance\","
                 + "\"variableNames\":{\"v0\":\"account\",\"v1\":\"amount\"},"
                 + "\"comments\":[{\"afterStatementId\":\"s1\",\"text\":\"Withdraw part of the balance.\"}],"
@@ -156,7 +110,6 @@ class LlmPostProcessingResponseParserTest {
         assertFalse(result.isInfrastructureFailure());
         assertTrue(result.getDiagnostics().isEmpty());
         LlmPostProcessingResponse response = result.getResponse();
-        assertEquals(1, response.getSchemaVersion());
         assertEquals("withdrawReducesBalance", response.getTestName());
         assertEquals("account", response.getVariableNames().get("v0"));
         assertEquals(1, response.getComments().size());
@@ -211,6 +164,23 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
+    void parseRetainsOneEntryPerWireAssertionWithLocalDiagnostics() {
+        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
+                "{\"schemaVersion\":2,\"assertions\":[null,"
+                        + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0\"},"
+                        + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0\"}]}",
+                context());
+
+        assertEquals(3, result.getAssertionEntries().size());
+        assertEquals(0, result.getAssertionEntries().get(0).getRaw().getIndex());
+        assertFalse(result.getAssertionEntries().get(0).getDiagnostics().isEmpty());
+        assertEquals("a0", result.getAssertionEntries().get(1).getRaw().getAssertionId());
+        assertNotNull(result.getAssertionEntries().get(1).getProposal());
+        assertEquals(1, result.getAssertionEntries().get(2).getDiagnostics().size());
+        assertNull(result.getAssertionEntries().get(2).getProposal());
+    }
+
+    @Test
     void diagnosticsCarryTypedRepairability() {
         LlmPostProcessingParseResult.Diagnostic repairable =
                 new LlmPostProcessingParseResult.Diagnostic(
@@ -238,7 +208,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_normalizesProposedVariableNamesInAssertionExpressions() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"variableNames\":{\"v0\":\"account\"},"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"90\",\"actual\":\"account.getBalance()\"}]"
@@ -255,7 +225,7 @@ class LlmPostProcessingResponseParserTest {
     void parse_markdownFencedJson_acceptsResponse() {
         String json = "```json\n"
                 + "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"testName\":\"loadsDictionary\","
                 + "\"variableNames\":{\"v0\":\"parser\"}"
                 + "}\n"
@@ -272,7 +242,7 @@ class LlmPostProcessingResponseParserTest {
     void parse_plainMarkdownFence_acceptsResponse() {
         String json = "```\n"
                 + "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"testName\":\"loadsDictionary\""
                 + "}\n"
                 + "```";
@@ -286,7 +256,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_unknownFieldsProduceDiagnosticsWithoutDiscardingValidEdits() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"testName\":\"keepsValidFields\","
                 + "\"futureField\":\"ignored\","
                 + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"Prepare.\",\"future\":\"ignored\"}],"
@@ -314,13 +284,13 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_schemaThreeIsReadableForReplay() {
+    void parse_schemaTwoIsReadable() {
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":3,\"testName\":\"someTest\"}", context());
+                "{\"schemaVersion\":2,\"testName\":\"someTest\"}", context());
 
         assertFalse(result.isInfrastructureFailure());
         assertNotNull(result.getResponse());
-        assertEquals(3, result.getResponse().getSchemaVersion());
+        assertNotNull(result.getResponse());
     }
 
     @Test
@@ -360,7 +330,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_unknownIdsRejectOnlyAffectedEntries() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"variableNames\":{\"v0\":\"account\",\"v9\":\"missing\"},"
                 + "\"comments\":[{\"afterStatementId\":\"s9\",\"text\":\"bad\"},"
                 + "{\"afterStatementId\":\"s1\",\"text\":\"good\"}],"
@@ -381,7 +351,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_duplicatesAreNormalizedWithDiagnostics() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"variableNames\":{\"v0\":\"name\",\"v1\":\"name\"},"
                 + "\"comments\":[{\"afterStatementId\":\"s1\",\"text\":\"same\"},"
                 + "{\"afterStatementId\":\"s1\",\"text\":\"same\"}],"
@@ -403,7 +373,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsDuplicateAssertionExpressions() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v0\"}"
@@ -420,7 +390,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsAssertionsAlreadyRepresentedByObservedCandidateFacts() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"NOT_NULL\",\"actual\":\"v0\"}"
@@ -444,7 +414,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsDirectSetupInputAssertionsButAllowsRelationalUse() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\",\"actual\":\"v0 > 0\"}"
@@ -467,7 +437,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_acceptsNumericRelationalKindsAndRejectsDegenerateOrNonNumeric() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"GREATER\",\"expected\":\"v1\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"GREATER_EQUALS\",\"expected\":\"v0\",\"actual\":\"v0\"},"
@@ -500,7 +470,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsObviousTautologicalAssertions() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"v0\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"SAME\",\"expected\":\"v0\",\"actual\":\"v0\"},"
@@ -522,7 +492,7 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_MAX_COMMENTS_PER_TEST = 1;
         Properties.LLM_POSTPROCESSING_MAX_ASSERTIONS_PER_TEST = 1;
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"one\"},"
                 + "{\"afterStatementId\":\"s1\",\"text\":\"two\"}],"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0.isActive()\"},"
@@ -540,7 +510,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_invalidAssertionDoesNotInvalidateNamesOrComments() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"testName\":\"validName\","
                 + "\"comments\":[{\"afterStatementId\":\"s0\",\"text\":\"still accepted\"}],"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
@@ -559,7 +529,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_sanitizesCommentsAndRejectsUnsafeCommentText() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"comments\":["
                 + "{\"afterStatementId\":\"s0\",\"text\":\"// useful comment\\nwith newline\"},"
                 + "{\"afterStatementId\":\"s1\",\"text\":\"*/ closes block\"},"
@@ -577,7 +547,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_unsupportedAssertionKindRejectsOnlyThatAssertion() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EVENTUALLY_EQUALS\","
                 + "\"expected\":\"1\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"NOT_NULL\",\"actual\":\"v0\"}]"
@@ -594,7 +564,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_acceptsCollectionAssertionAliasesAndRegressionIntent() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"CONTAINS\","
                 + "\"container\":\"v1\",\"element\":\"\\\"x\\\"\",\"intent\":\"REGRESSION\"},"
@@ -619,7 +589,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsSpecificationIntentForRegressionSchema() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"NOT_NULL\","
                 + "\"actual\":\"v1\",\"intent\":\"SPECIFICATION\"}]"
                 + "}";
@@ -632,29 +602,9 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_normalizesLegacyAssertionPlacementToEndOfTest() {
-        String json = "{"
-                + "\"schemaVersion\":1,"
-                + "\"assertions\":["
-                + "{\"assertionId\":\"a0\",\"kind\":\"NOT_NULL\",\"actual\":\"v1\","
-                + "\"placement\":{\"afterStatementId\":\"s1\"}},"
-                + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\",\"actual\":\"v2\","
-                + "\"placement\":{\"afterStatementId\":\"s1\"}}"
-                + "]}";
-
-        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(json, typedContext());
-
-        assertFalse(result.isInfrastructureFailure());
-        assertEquals(2, result.getResponse().getAssertions().size());
-        assertNull(result.getResponse().getAssertions().get(0).getAfterStatementId());
-        assertNull(result.getResponse().getAssertions().get(1).getAfterStatementId());
-        assertEquals(0, count(result, DiagnosticCode.INVALID_FIELD));
-    }
-
-    @Test
     void parse_invalidJavaExpressionRejectsOnlyThatAssertion() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"testName\":\"stillValid\","
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0 +\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"NOT_NULL\",\"actual\":\"v0\"}]"
@@ -672,7 +622,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_unknownVariableIdInAssertionExpressionRejectsOnlyThatAssertion() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"42\",\"actual\":\"v9.getValue()\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"NOT_NULL\",\"actual\":\"v0\"}]"
@@ -689,7 +639,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsAssertionOperandShapeViolations() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"expected\":\"true\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"NOT_NULL\",\"actual\":\"v0\",\"delta\":\"0.1\"},"
@@ -714,7 +664,7 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_MAX_LITERAL_CHARS = 4;
         Properties.LLM_POSTPROCESSING_MAX_CONSTRUCTED_ARRAY_ELEMENTS = 2;
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0.getValue().equals(1)\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"\\\"abcdef\\\"\",\"actual\":\"v0\"},"
@@ -733,7 +683,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_allowsOneDimensionalLiteralArrayConstruction() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"new String[]{\\\"a\\\", null}\",\"actual\":\"v0\"}]"
                 + "}";
@@ -748,7 +698,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsSizedNonLiteralAndMultidimensionalArrayConstruction() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"new int[2]\",\"actual\":\"v0\"},"
@@ -770,7 +720,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsUnsupportedMutationAndCodeBlockExpressionConstructs() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0 = 3\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\",\"actual\":\"++v0\"},"
@@ -790,7 +740,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsRawAssertionCallsInsideExpressions() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"assertTrue(v0 > 0)\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"FALSE\",\"actual\":\"org.junit.Assert.fail()\"},"
@@ -808,7 +758,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsNonAllowlistedConstructorsButAllowsImmutableConstructors() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"new java.util.ArrayList()\",\"actual\":\"v0\"},"
@@ -828,7 +778,7 @@ class LlmPostProcessingResponseParserTest {
     void parse_respectsImmutableConstructorDisableFlagAndConfiguredExtensions() {
         Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS = false;
         String disabledJson = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"new java.math.BigDecimal(\\\"1\\\")\",\"actual\":\"v0\"}]"
                 + "}";
@@ -842,7 +792,7 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_ALLOW_IMMUTABLE_CONSTRUCTORS = true;
         Properties.LLM_POSTPROCESSING_IMMUTABLE_TYPES = "com.example.Value";
         String configuredJson = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"new Value(1)\",\"actual\":\"v0\"}]"
                 + "}";
@@ -859,7 +809,7 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST =
                 "com.example.Values#normalize(I)I";
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"Math.abs(v0)\",\"actual\":\"1\"},"
@@ -880,7 +830,7 @@ class LlmPostProcessingResponseParserTest {
                 "com.example.Values#normalize(I),"
                         + "com.example.Values#coerce";
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"Values.normalize(v0)\",\"actual\":\"v1\"},"
@@ -900,7 +850,7 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST =
                 "com.example.Values#*";
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":[{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"Values.normalize(v0)\",\"actual\":\"v1\"}]"
                 + "}";
@@ -916,7 +866,7 @@ class LlmPostProcessingResponseParserTest {
     void parse_matchesConfiguredStaticDescriptorAgainstArgumentTypes() {
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST =
                 "com.example.Values#normalize(I)I";
-        String json = "{\"schemaVersion\":1,\"assertions\":["
+        String json = "{\"schemaVersion\":2,\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"Values.normalize(v1)\",\"actual\":\"1\"}]}";
 
@@ -938,7 +888,7 @@ class LlmPostProcessingResponseParserTest {
                 new HashSet<>(Arrays.asList("s0", "s1")),
                 new HashSet<>(Arrays.asList("v0", "v1")), callables,
                 new HashSet<String>(), new HashSet<String>(), variableTypes);
-        String json = "{\"schemaVersion\":1,\"assertions\":["
+        String json = "{\"schemaVersion\":2,\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"v0.convert(v1)\",\"actual\":\"1\"}]}";
 
@@ -960,7 +910,7 @@ class LlmPostProcessingResponseParserTest {
                 new HashSet<>(Arrays.asList("s0", "s1")),
                 new HashSet<>(Arrays.asList("v0", "v1")), callables,
                 new HashSet<String>(), new HashSet<String>(), variableTypes);
-        String json = "{\"schemaVersion\":1,\"assertions\":["
+        String json = "{\"schemaVersion\":2,\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
                 + "\"actual\":\"v0.accept(v1)\"}]}";
 
@@ -982,7 +932,7 @@ class LlmPostProcessingResponseParserTest {
                 new HashSet<>(Arrays.asList("s0", "s1")),
                 new HashSet<>(Arrays.asList("v0", "v1")), callables,
                 new HashSet<String>(), new HashSet<String>(), variableTypes);
-        String json = "{\"schemaVersion\":1,\"assertions\":["
+        String json = "{\"schemaVersion\":2,\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
                 + "\"actual\":\"v0.accept(v1)\"}]}";
 
@@ -995,7 +945,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_allowsBuiltInPureStaticValueFactories() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"BigDecimal.valueOf(3L)\",\"actual\":\"v0\"},"
@@ -1015,7 +965,7 @@ class LlmPostProcessingResponseParserTest {
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST =
                 "java.lang.System#*,java.lang.Runtime#*,java.nio.file.Files#*";
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
                 + "\"actual\":\"System.currentTimeMillis() > 0\"},"
@@ -1039,7 +989,7 @@ class LlmPostProcessingResponseParserTest {
     void parse_deniesMathRandomEvenWhenMathWildcardIsAllowlisted() {
         Properties.LLM_POSTPROCESSING_PURE_STATIC_ALLOWLIST = "java.lang.Math#*,Math#*";
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
                 + "\"actual\":\"Math.random() < 0.9\"},"
@@ -1058,7 +1008,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_deniesEnvironmentSensitiveInstanceCallsEvenWhenCallable() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"NOT_NULL\",\"actual\":\"v0.getClass()\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\",\"actual\":\"v0.wait()\"},"
@@ -1083,7 +1033,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsNonAllowlistedStaticCalls() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\","
                 + "\"actual\":\"System.currentTimeMillis() > 0\"},"
@@ -1100,7 +1050,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsNonAllowlistedInstanceCalls() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0.isReady()\"}"
                 + "]}";
@@ -1119,7 +1069,7 @@ class LlmPostProcessingResponseParserTest {
     void parse_enforcesMemberChainDepthLimit() {
         Properties.LLM_POSTPROCESSING_MAX_CHAIN_DEPTH = 2;
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0.getA().getB().isReady()\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"TRUE\",\"actual\":\"v0.isReady()\"}"
@@ -1136,7 +1086,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_enforcesTypedCanonicalOperandMatrix() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"NULL\",\"actual\":\"v0\"},"
@@ -1156,7 +1106,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_addsExactDeltaForFloatingEqualityAndRejectsInvalidExplicitDelta() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"1.0\",\"actual\":\"v3\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"1\",\"actual\":\"v0\",\"delta\":\"0.1\"},"
@@ -1176,7 +1126,7 @@ class LlmPostProcessingResponseParserTest {
 
     @Test
     void parse_canonicalizesRuntimeSpecialFloatingTokensUsingDeclaredType() {
-        String json = "{\"schemaVersion\":1,\"assertions\":["
+        String json = "{\"schemaVersion\":2,\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\","
                 + "\"expected\":\"Infinity\",\"actual\":\"v3\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\","
@@ -1201,7 +1151,7 @@ class LlmPostProcessingResponseParserTest {
 
     @Test
     void parse_normalizesMechanicalAssertionShapeErrorsBeforeValidation() {
-        String json = "{\"schemaVersion\":1,\"assertions\":["
+        String json = "{\"schemaVersion\":2,\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v2\",\"expected\":false},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"actual\":\"v0\",\"value\":7}]}";
 
@@ -1227,7 +1177,7 @@ class LlmPostProcessingResponseParserTest {
                 new LinkedHashMap<String, String>(), candidates);
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,\"assertions\":[{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}",
+                "{\"schemaVersion\":2,\"assertions\":[{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}",
                 context);
 
         assertEquals(1, result.getResponse().getAssertions().size());
@@ -1253,7 +1203,7 @@ class LlmPostProcessingResponseParserTest {
                         variableTypes, candidates);
 
         LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":1,\"assertions\":["
+                "{\"schemaVersion\":2,\"assertions\":["
                         + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}",
                 parseContext);
 
@@ -1262,38 +1212,9 @@ class LlmPostProcessingResponseParserTest {
     }
 
     @Test
-    void parse_usesValidatedImplicitPlacementForThrowingCandidateSelection() {
-        Map<String, LlmPostProcessingResponseParser.SelectableCandidate> candidates = new LinkedHashMap<>();
-        candidates.put("c0", new LlmPostProcessingResponseParser.SelectableCandidate(
-                LlmPostProcessingResponse.AssertionKind.EQUALS, "7", "v0", null)
-                .withDefaultPlacement(
-                        LlmPostProcessingResponse.AssertionSite.BEFORE_TRY, "s0", null));
-        Map<String, String> variableTypes = new LinkedHashMap<>();
-        variableTypes.put("v0", "int");
-        LlmPostProcessingResponseParser.ParseContext throwingContext =
-                PostProcessingTestContexts.context(
-                        new HashSet<>(Arrays.asList("s0", "s1")),
-                        new HashSet<>(Collections.singletonList("v0")),
-                        Collections.<LlmPostProcessingResponseParser.CallableMethod>emptySet(),
-                        Collections.<String>emptySet(), Collections.<String>emptySet(),
-                        variableTypes, candidates, "s1");
-
-        LlmPostProcessingParseResult result = LlmPostProcessingResponseParser.parse(
-                "{\"schemaVersion\":3,\"assertions\":["
-                        + "{\"assertionId\":\"a0\",\"candidateId\":\"c0\"}]}",
-                throwingContext);
-
-        assertTrue(result.getDiagnostics().isEmpty(), result.getDiagnostics().toString());
-        assertEquals(1, result.getResponse().getAssertions().size());
-        assertEquals(LlmPostProcessingResponse.AssertionSite.BEFORE_TRY,
-                result.getResponse().getAssertions().get(0).getSite());
-        assertEquals("s0", result.getResponse().getAssertions().get(0).getAfterStatementId());
-    }
-
-    @Test
     void parse_enforcesArrayOperandCompatibility() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"NOT_EQUALS\",\"expected\":\"v4\",\"actual\":\"v5\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"v4\",\"actual\":\"v6\"},"
@@ -1312,7 +1233,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_allowsTypeResolvedChainedCallableMembers() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0.getCart().contains(v1)\"},"
                 + "{\"assertionId\":\"a1\",\"kind\":\"NOT_NULL\",\"actual\":\"v0.getCart()\"}"
@@ -1329,7 +1250,7 @@ class LlmPostProcessingResponseParserTest {
     void parse_rejectsChainedCallableMembersWhenDisabled() {
         Properties.LLM_POSTPROCESSING_ALLOW_CHAINED_CALLS = false;
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0.getCart().contains(v1)\"}"
                 + "]}";
@@ -1344,7 +1265,7 @@ class LlmPostProcessingResponseParserTest {
     @Test
     void parse_rejectsChainedCallableMembersWhenTypeMethodIsNotAdvertised() {
         String json = "{"
-                + "\"schemaVersion\":1,"
+                + "\"schemaVersion\":2,"
                 + "\"assertions\":["
                 + "{\"assertionId\":\"a0\",\"kind\":\"TRUE\",\"actual\":\"v0.getCart().contains(v1)\"}"
                 + "]}";

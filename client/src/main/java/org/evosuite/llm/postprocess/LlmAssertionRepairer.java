@@ -50,60 +50,55 @@ final class LlmAssertionRepairer {
             LlmPostProcessingResponse parsedResponse,
             LlmPostProcessingResponse acceptedResponse,
             List<LlmPostProcessingParseResult.Diagnostic> validationDiagnostics) {
-        Map<String, RejectedAssertion> byId = rawAssertionEntries(parseResult);
-        if (byId.isEmpty()) {
+        if (parseResult == null || parseResult.getAssertionEntries().isEmpty()) {
             return Collections.emptyList();
         }
-
-        Set<String> parsedIds = assertionIds(parsedResponse);
+        Map<String, RejectedAssertion> byId = new LinkedHashMap<>();
         Set<String> acceptedIds = assertionIds(acceptedResponse);
-        Map<String, List<LlmPostProcessingParseResult.Diagnostic>> validationById =
-                diagnosticsByAssertionId(validationDiagnostics);
-        for (LlmPostProcessingResponse.AssertionProposal proposal : parsedResponse.getAssertions()) {
-            if (!acceptedIds.contains(proposal.getAssertionId())) {
-                RejectedAssertion candidate = byId.get(proposal.getAssertionId());
-                if (candidate != null) {
-                    List<LlmPostProcessingParseResult.Diagnostic> exactDiagnostics =
-                            validationById.get(proposal.getAssertionId());
-                    if (exactDiagnostics == null || exactDiagnostics.isEmpty()) {
-                        candidate.addDiagnostic("Validation rejected the assertion");
-                    } else {
-                        for (LlmPostProcessingParseResult.Diagnostic diagnostic : exactDiagnostics) {
-                            candidate.addDiagnostic(diagnostic);
-                            if (!isRepairableDiagnostic(diagnostic)) {
-                                candidate.markNonRepairable();
-                            }
+        for (LlmPostProcessingParseResult.AssertionParseEntry entry
+                : parseResult.getAssertionEntries()) {
+            LlmPostProcessingParseResult.RawAssertion raw = entry.getRaw();
+            if (raw == null || raw.getAssertionId() == null) {
+                continue;
+            }
+            RejectedAssertion candidate = byId.get(raw.getAssertionId());
+            if (candidate == null) {
+                candidate = new RejectedAssertion(raw.getAssertionId(), raw.getRawJson());
+                byId.put(raw.getAssertionId(), candidate);
+            } else {
+                candidate.markNonRepairable();
+            }
+            for (LlmPostProcessingParseResult.Diagnostic diagnostic : entry.getDiagnostics()) {
+                candidate.addDiagnostic(diagnostic);
+                if (!isRepairableDiagnostic(diagnostic)) {
+                    candidate.markNonRepairable();
+                }
+            }
+            if (entry.getProposal() != null && !acceptedIds.contains(raw.getAssertionId())) {
+                List<LlmPostProcessingParseResult.Diagnostic> exactDiagnostics =
+                        validationDiagnosticsFor(raw.getAssertionId(), validationDiagnostics);
+                if (exactDiagnostics == null || exactDiagnostics.isEmpty()) {
+                    candidate.addDiagnostic("Validation rejected the assertion");
+                } else {
+                    for (LlmPostProcessingParseResult.Diagnostic diagnostic : exactDiagnostics) {
+                        candidate.addDiagnostic(diagnostic);
+                        if (!isRepairableDiagnostic(diagnostic)) {
+                            candidate.markNonRepairable();
                         }
                     }
                 }
             }
         }
-
-        Map<Integer, List<LlmPostProcessingParseResult.Diagnostic>> diagnosticsByIndex =
-                diagnosticsByAssertionIndex(parseResult);
-        Map<Integer, LlmPostProcessingParseResult.RawAssertion> rawByIndex =
-                rawAssertionsByIndex(parseResult);
-        for (Map.Entry<Integer, List<LlmPostProcessingParseResult.Diagnostic>> entry
-                : diagnosticsByIndex.entrySet()) {
-            int index = entry.getKey();
-            LlmPostProcessingParseResult.RawAssertion rawAssertion = rawByIndex.get(index);
-            if (rawAssertion == null) {
-                continue;
-            }
-            String assertionId = rawAssertion.getAssertionId();
-            RejectedAssertion candidate = byId.get(assertionId);
-            if (candidate == null || parsedIds.contains(assertionId)) {
-                continue;
-            }
-            boolean repairable = true;
-            for (LlmPostProcessingParseResult.Diagnostic diagnostic : entry.getValue()) {
-                if (!isRepairableDiagnostic(diagnostic)) {
-                    repairable = false;
+        if (parsedResponse != null) {
+            for (LlmPostProcessingResponse.AssertionProposal proposal : parsedResponse.getAssertions()) {
+                if (proposal == null || acceptedIds.contains(proposal.getAssertionId())
+                        || byId.containsKey(proposal.getAssertionId())) {
+                    continue;
                 }
-                candidate.addDiagnostic(diagnostic);
-            }
-            if (!repairable) {
-                candidate.markNonRepairable();
+                RejectedAssertion candidate = new RejectedAssertion(
+                        proposal.getAssertionId(), proposal.toString());
+                candidate.addDiagnostic("Validation rejected the assertion");
+                byId.put(proposal.getAssertionId(), candidate);
             }
         }
 
@@ -111,20 +106,6 @@ final class LlmAssertionRepairer {
         for (RejectedAssertion candidate : byId.values()) {
             if (candidate.isRepairable()) {
                 result.add(candidate);
-            }
-        }
-        return result;
-    }
-
-    private static Map<Integer, LlmPostProcessingParseResult.RawAssertion> rawAssertionsByIndex(
-            LlmPostProcessingParseResult parseResult) {
-        if (parseResult == null || parseResult.getRawAssertions().isEmpty()) {
-            return Collections.emptyMap();
-        }
-        Map<Integer, LlmPostProcessingParseResult.RawAssertion> result = new LinkedHashMap<>();
-        for (LlmPostProcessingParseResult.RawAssertion assertion : parseResult.getRawAssertions()) {
-            if (assertion != null && assertion.getIndex() >= 0) {
-                result.put(assertion.getIndex(), assertion);
             }
         }
         return result;
@@ -148,16 +129,24 @@ final class LlmAssertionRepairer {
         if (parseResult.isInfrastructureFailure()) {
             return parseResult;
         }
-        LlmPostProcessingResponse filtered = new LlmPostProcessingResponse(
-                LlmPostProcessingResponse.SUPPORTED_SCHEMA_VERSION);
+        LlmPostProcessingResponse filtered = new LlmPostProcessingResponse();
         for (LlmPostProcessingResponse.AssertionProposal proposal
                 : parseResult.getResponse().getAssertions()) {
             if (repairableIds.contains(proposal.getAssertionId())) {
                 filtered.addAssertion(proposal);
             }
         }
-        return LlmPostProcessingParseResult.success(filtered, parseResult.getDiagnostics(),
-                parseResult.getProposedCounts(), parseResult.getRawAssertions());
+        List<LlmPostProcessingParseResult.AssertionParseEntry> entries = new ArrayList<>();
+        for (LlmPostProcessingParseResult.AssertionParseEntry entry
+                : parseResult.getAssertionEntries()) {
+            LlmPostProcessingParseResult.RawAssertion raw = entry.getRaw();
+            if (raw != null && repairableIds.contains(raw.getAssertionId())) {
+                entries.add(new LlmPostProcessingParseResult.AssertionParseEntry(
+                        raw, entry.getProposal(), entry.getDiagnostics()));
+            }
+        }
+        return LlmPostProcessingParseResult.successWithEntries(filtered, parseResult.getDiagnostics(),
+                parseResult.getProposedCounts(), entries);
     }
 
     private static String repairPrompt(OracleContext context,
@@ -175,7 +164,6 @@ final class LlmAssertionRepairer {
         builder.append("Rules:\n");
         builder.append("- Return at most one corrected assertion for each input assertionId.\n");
         builder.append("- Preserve assertionId values exactly and do not introduce new IDs.\n");
-        builder.append("- Preserve the semantic placement site. If a placement diagnostic identifies its JSON shape or a missing required afterStatementId/exceptionId, correct that representation or required field; otherwise do not change site, afterStatementId, or exceptionId.\n");
         builder.append("- Do not change test names, variable names, comments, or section breaks.\n");
         builder.append("- Use only stable variable IDs and callable members listed below.\n");
         builder.append("- Return [] if no correction is justified.\n\n");
@@ -228,21 +216,6 @@ final class LlmAssertionRepairer {
         return trimmed;
     }
 
-    private static Map<String, RejectedAssertion> rawAssertionEntries(
-            LlmPostProcessingParseResult parseResult) {
-        if (parseResult == null || parseResult.getRawAssertions().isEmpty()) {
-            return Collections.emptyMap();
-        }
-        Map<String, RejectedAssertion> result = new LinkedHashMap<>();
-        for (LlmPostProcessingParseResult.RawAssertion assertion : parseResult.getRawAssertions()) {
-            if (assertion != null && assertion.getAssertionId() != null) {
-                result.put(assertion.getAssertionId(), new RejectedAssertion(
-                        assertion.getAssertionId(), assertion.getRawJson()));
-            }
-        }
-        return result;
-    }
-
     private static Set<String> assertionIds(LlmPostProcessingResponse response) {
         if (response == null || response.getAssertions().isEmpty()) {
             return Collections.emptySet();
@@ -254,48 +227,24 @@ final class LlmAssertionRepairer {
         return result;
     }
 
-    private static Map<Integer, List<LlmPostProcessingParseResult.Diagnostic>> diagnosticsByAssertionIndex(
-            LlmPostProcessingParseResult parseResult) {
-        if (parseResult == null || parseResult.getDiagnostics().isEmpty()) {
-            return Collections.emptyMap();
+    private static List<LlmPostProcessingParseResult.Diagnostic> validationDiagnosticsFor(
+            String assertionId, List<LlmPostProcessingParseResult.Diagnostic> diagnostics) {
+        if (assertionId == null || diagnostics == null || diagnostics.isEmpty()) {
+            return Collections.emptyList();
         }
-        Map<Integer, List<LlmPostProcessingParseResult.Diagnostic>> result = new LinkedHashMap<>();
-        for (LlmPostProcessingParseResult.Diagnostic diagnostic : parseResult.getDiagnostics()) {
-            int index = diagnostic.getAssertionIndex();
-            if (index < 0) {
-                continue;
-            }
-            result.computeIfAbsent(index, ignored -> new ArrayList<>()).add(diagnostic);
-        }
-        return result;
-    }
-
-    private static Map<String, List<LlmPostProcessingParseResult.Diagnostic>> diagnosticsByAssertionId(
-            List<LlmPostProcessingParseResult.Diagnostic> diagnostics) {
-        if (diagnostics == null || diagnostics.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        Map<String, List<LlmPostProcessingParseResult.Diagnostic>> result = new LinkedHashMap<>();
+        List<LlmPostProcessingParseResult.Diagnostic> result = new ArrayList<>();
         for (LlmPostProcessingParseResult.Diagnostic diagnostic : diagnostics) {
-            if (diagnostic == null || diagnostic.getAssertionId() == null) {
-                continue;
+            if (diagnostic != null && assertionId.equals(diagnostic.getAssertionId())) {
+                result.add(diagnostic);
             }
-            result.computeIfAbsent(diagnostic.getAssertionId(), ignored -> new ArrayList<>())
-                    .add(diagnostic);
         }
         return result;
     }
 
     private static boolean isRepairableDiagnostic(LlmPostProcessingParseResult.Diagnostic diagnostic) {
-        if (diagnostic == null
-                || diagnostic.getRepairability()
-                != LlmPostProcessingParseResult.Repairability.REPAIRABLE) {
-            return false;
-        }
-        return diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.INVALID_FIELD
-                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.UNSUPPORTED_KIND
-                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.COMPILE
-                || diagnostic.getCode() == LlmPostProcessingParseResult.DiagnosticCode.OBSERVED_EXECUTION;
+        return diagnostic != null
+                && diagnostic.getRepairability()
+                == LlmPostProcessingParseResult.Repairability.REPAIRABLE;
     }
 
     static final class RejectedAssertion {
@@ -377,9 +326,6 @@ final class LlmAssertionRepairer {
             case OBSERVED_EXECUTION:
                 return "Correct the expected value from the stable observation, or return no repair if the observation does not justify it.";
             case INVALID_FIELD:
-                if (path.contains(".placement")) {
-                    return "Encode placement as an object with a valid site field and the required afterStatementId or exceptionId for that same semantic site.";
-                }
                 if (message.contains("type") || message.contains("compatible") || message.contains("numeric")
                         || message.contains("boolean") || message.contains("reference")) {
                     return "Replace the named operand with an expression of the exact required type shown in observations.";

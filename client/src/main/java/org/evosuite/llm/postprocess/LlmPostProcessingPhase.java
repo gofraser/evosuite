@@ -16,25 +16,24 @@ import java.util.List;
 
 /**
  * Suite-level scheduler and aggregator for unified post-processing.
- * Per-test model interaction and validation remain behind the processor
- * callback until the next extraction step.
  */
 final class LlmPostProcessingPhase {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmPostProcessingPhase.class);
 
     private final LlmPostProcessor processor;
+    private final LlmPostProcessingPhaseContext phaseContext;
     private final LlmTestPostProcessor testProcessor;
 
     LlmPostProcessingPhase(LlmPostProcessor processor,
                            LlmPostProcessingPhaseContext phaseContext) {
         this.processor = processor;
+        this.phaseContext = phaseContext;
         this.testProcessor = new LlmTestPostProcessor(processor, phaseContext);
     }
 
     LlmPostProcessor.PostProcessingMetrics run(TestSuiteChromosome suite,
-                                               MinimizationResult minimizationResult,
-                                               LlmPostProcessingPhaseContext phaseContext) {
+                                               MinimizationResult minimizationResult) {
         PostProcessingOptions options = phaseContext.options();
         boolean limitedIncompleteMinimization = minimizationResult.isIncomplete()
                 && options.phaseBudget().incompletePolicy()
@@ -50,20 +49,17 @@ final class LlmPostProcessingPhase {
         for (int workIndex = 0; workIndex < workItems.size(); workIndex++) {
             if (processor.isPhaseTimedOut(phaseContext)) {
                 stopReason = StopReason.TIMEOUT;
-                metrics.capSkippedTests += Math.max(0,
-                        LlmPostProcessor.remainingItems(workItems, workIndex));
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
                 break;
             }
             if (limits.maxTests > 0 && metrics.requestedTests >= limits.maxTests) {
                 stopReason = StopReason.MAX_TESTS;
-                metrics.capSkippedTests += Math.max(0,
-                        LlmPostProcessor.remainingItems(workItems, workIndex));
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
                 break;
             }
             if (limits.maxCalls > 0 && metrics.requestedCalls >= limits.maxCalls) {
                 stopReason = StopReason.MAX_CALLS;
-                metrics.capSkippedTests += Math.max(0,
-                        LlmPostProcessor.remainingItems(workItems, workIndex));
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
                 break;
             }
             LlmPostProcessor.WorkItem workItem = workItems.get(workIndex);
@@ -77,18 +73,16 @@ final class LlmPostProcessingPhase {
             if (processor.isLowMemory(phaseContext)) {
                 logger.info("Unified LLM post-processing stopped before test {}: low memory", testIndex);
                 stopReason = StopReason.LOW_MEMORY;
-                metrics.capSkippedTests += Math.max(0,
-                        LlmPostProcessor.remainingItems(workItems, workIndex));
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
                 break;
             }
             if (limits.maxTotalStatements > 0 && metrics.requestedStatements + test.size()
                     > limits.maxTotalStatements) {
                 stopReason = StopReason.MAX_TOTAL_STATEMENTS;
-                metrics.capSkippedTests += Math.max(0,
-                        LlmPostProcessor.remainingItems(workItems, workIndex));
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
                 break;
             }
-            boolean assertionEligible = processor.isAssertionEligibleForVersion1(chromosome);
+            boolean assertionEligible = processor.isAssertionEligible(chromosome);
             if (test.size() == 0 && !options.features().testNames()) {
                 metrics.skippedTests++;
                 continue;
@@ -96,8 +90,7 @@ final class LlmPostProcessingPhase {
             if (!processor.hasLlmBudget()) {
                 logger.info("Unified LLM post-processing stopped: LLM call budget exhausted");
                 stopReason = StopReason.BUDGET_EXHAUSTED;
-                metrics.capSkippedTests += Math.max(0,
-                        LlmPostProcessor.remainingItems(workItems, workIndex));
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
                 break;
             }
             if (!processor.canStartAnotherLlmCall(phaseContext)) {
