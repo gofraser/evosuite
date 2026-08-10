@@ -113,6 +113,9 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
 
         PromptResult promptResult = buildPrompt(className, cluster, typeNames);
         String response = llmService.query(promptResult, feature);
+        if (isCancelled()) {
+            return EnrichmentResult.failure("Cancelled after LLM query");
+        }
 
         return parseAndAddSequences(response, promptResult, className,
                 new LinkedHashSet<>(typeNames));
@@ -138,11 +141,18 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         List<String> diagnostics = new ArrayList<>();
 
         try {
+            if (isCancelled()) {
+                return EnrichmentResult.failure("Cancelled before parsing LLM response");
+            }
             RepairResult repairResult = repairLoop.attemptParse(
                     response, promptResult.getMessages(), LlmFeature.OBJECT_POOL_ENRICHMENT);
 
             if (repairResult.isSuccess() && repairResult.getParseResults() != null) {
                 for (ParseResult parseResult : repairResult.getParseResults()) {
+                    if (isCancelled()) {
+                        diagnostics.add("Cancelled before object-pool mutation");
+                        break;
+                    }
                     if (parseResult.getTestCase() != null && parseResult.getTestCase().size() > 0) {
                         sequencesParsed++;
                         TypeKeyInsertionResult insertionResult =
@@ -235,6 +245,10 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
         }
 
         for (Class<?> type : candidateTypes) {
+            if (isCancelled()) {
+                diagnostics.add("Cancelled before object-pool mutation");
+                break;
+            }
             // getLastObject mirrors the ObjectPool retrieval path and fails iff
             // no variable assignable to type exists in the case, so it subsumes
             // the prior hasObject(type, size()) check.
@@ -250,8 +264,14 @@ public class LlmObjectPoolEnricher extends AbstractLlmEnricher<LlmObjectPoolEnri
                 GenericClass<?> genericClass = GenericClassFactory.get(type);
                 TestCase sequence = testCase.clone();
                 markParsedFromLlm(sequence);
-                ObjectPoolManager.getInstance().addSequence(genericClass, sequence);
-                LlmStatistics.recordObjectPoolSequencesAdded(1);
+                boolean mutated = mutateIfActive(() -> {
+                    ObjectPoolManager.getInstance().addSequence(genericClass, sequence);
+                    LlmStatistics.recordObjectPoolSequencesAdded(1);
+                });
+                if (!mutated) {
+                    diagnostics.add("Cancelled before object-pool mutation");
+                    break;
+                }
                 insertions++;
                 logger.debug("Inserted sequence under type key: {}", type.getName());
             } catch (Throwable t) {

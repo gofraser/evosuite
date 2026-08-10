@@ -34,12 +34,14 @@ class SutContextProviderFactoryTest {
     private LlmSutContextMode originalMode;
     private boolean originalFallback;
     private int originalMaxChars;
+    private String originalSourcePath;
 
     @BeforeEach
     void saveProperties() {
         originalMode = Properties.LLM_SUT_CONTEXT_MODE;
         originalFallback = Properties.LLM_CONTEXT_FALLBACK_ENABLED;
         originalMaxChars = Properties.LLM_CONTEXT_MAX_CHARS;
+        originalSourcePath = Properties.LLM_SOURCE_PATH;
     }
 
     @AfterEach
@@ -47,6 +49,8 @@ class SutContextProviderFactoryTest {
         Properties.LLM_SUT_CONTEXT_MODE = originalMode;
         Properties.LLM_CONTEXT_FALLBACK_ENABLED = originalFallback;
         Properties.LLM_CONTEXT_MAX_CHARS = originalMaxChars;
+        Properties.LLM_SOURCE_PATH = originalSourcePath;
+        SutContextProviderFactory.resetForRunCompletion();
     }
 
     @Test
@@ -141,6 +145,34 @@ class SutContextProviderFactoryTest {
 
         SutContextProviderFactory.ContextResult result = factory.getContext("com.example.Foo", null);
         assertEquals("short", result.getText());
+    }
+
+    @Test
+    void cacheDoesNotReuseContextAcrossConfigurationSnapshots() {
+        Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.BYTECODE_DISASSEMBLED;
+        SutContextProvider stubProvider = new StubProvider("abcdefghijklmnopqrstuvwxyz");
+        SutContextProviderFactory factory = new SutContextProviderFactory(
+                stubProvider, stubProvider, stubProvider, stubProvider);
+
+        Properties.LLM_CONTEXT_MAX_CHARS = 3;
+        String first = factory.getContext("com.example.Foo", null).getText();
+        Properties.LLM_CONTEXT_MAX_CHARS = 8;
+        String second = factory.getContext("com.example.Foo", null).getText();
+
+        assertTrue(first.startsWith("abc\n"));
+        assertTrue(second.startsWith("abcdefgh\n"));
+        assertNotEquals(first, second);
+    }
+
+    @Test
+    void runCompletionDropsSharedFactoryInstance() {
+        SutContextProvider stub = new StubProvider("old-run");
+        SutContextProviderFactory oldRun = new SutContextProviderFactory(stub, stub, stub, stub);
+        SutContextProviderFactory.setInstanceForTesting(oldRun);
+
+        SutContextProviderFactory.resetForRunCompletion();
+
+        assertNotSame(oldRun, SutContextProviderFactory.getInstance());
     }
 
     @Test

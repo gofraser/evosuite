@@ -206,6 +206,56 @@ class LlmSeededPopulationFactoryIntegrationTest {
     }
 
     @Test
+    void timeoutSuppressesLateFinalSeedsWhenProviderIgnoresInterrupt() throws Exception {
+        java.util.concurrent.CountDownLatch enteredProvider = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch releaseProvider = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch providerFinished = new java.util.concurrent.CountDownLatch(1);
+        LlmService.ChatLanguageModel interruptIgnoringModel = (messages, feature) -> {
+            enteredProvider.countDown();
+            boolean interrupted = false;
+            while (releaseProvider.getCount() != 0) {
+                try {
+                    releaseProvider.await();
+                } catch (InterruptedException ignored) {
+                    // Model/transport deliberately ignores cancellation to
+                    // emulate a provider call that cannot be interrupted.
+                    interrupted = true;
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            providerFinished.countDown();
+            return LlmService.LlmResponse.fromText(SIMPLE_JUNIT_RESPONSE);
+        };
+        LlmService service = createService(interruptIgnoringModel, 4);
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newSingleThreadExecutor();
+        TestChromosome fallbackChromosome = new TestChromosome();
+        fallbackChromosome.setTestCase(new DefaultTestCase());
+
+        try {
+            LlmSeededPopulationFactory factory = new LlmSeededPopulationFactory(
+                    () -> fallbackChromosome, service, Collections::emptyList, executor);
+            assertTrue(enteredProvider.await(5, java.util.concurrent.TimeUnit.SECONDS));
+
+            assertTrue(factory.awaitAndDrainSeeds(25L).isEmpty(),
+                    "timed-out seeding must not expose unfinished output");
+            releaseProvider.countDown();
+            assertTrue(providerFinished.await(5, java.util.concurrent.TimeUnit.SECONDS));
+
+            // Give the cancelled worker a chance to finish its post-query path.
+            Thread.sleep(100L);
+            assertSame(fallbackChromosome, factory.getChromosome(),
+                    "a response arriving after cancellation must not be queued as a seed");
+            assertEquals(0L, LlmStatistics.getInitialPopulationCandidatesQueued());
+        } finally {
+            releaseProvider.countDown();
+            executor.shutdownNow();
+            service.close();
+        }
+    }
+
+    @Test
     void timeoutRetainsValidatedPartialSeedsFromEarlierRepairTurn() throws Exception {
         // brokenTest instantiates the abstract SUT via an anonymous body that
         // does NOT implement the required abstract method. The SUT-aware

@@ -80,6 +80,18 @@ class TestSuiteGeneratorPostProcessingTest {
     }
 
     @Test
+    void configuredButUnavailableServiceDoesNotSuppressStandardAssertions() {
+        Properties.ORACLE_REPLAY_INPUT = "";
+        Properties.ASSERTIONS = true;
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_POSTPROCESSING_ASSERTIONS = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+
+        assertTrue(TestSuiteGenerator.shouldGenerateStandardAssertions(false));
+        assertFalse(TestSuiteGenerator.shouldGenerateStandardAssertions(true));
+    }
+
+    @Test
     void mutationLlmReplayRunsStandardAssertionsBeforeUnifiedAssertions() {
         Properties.ORACLE_REPLAY_INPUT = "suite.structural";
         Properties.ORACLE_REPLAY_STRATEGY = Properties.OracleReplayStrategy.MUTATION_LLM;

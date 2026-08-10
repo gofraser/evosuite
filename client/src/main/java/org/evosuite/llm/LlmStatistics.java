@@ -473,6 +473,16 @@ public class LlmStatistics {
     }
 
     /**
+     * Clears process-scoped counters after a completed in-process EvoSuite run.
+     * Statistics must be published before this method is called.
+     */
+    public static void resetRunCounters() {
+        resetEnrichmentElapsedMs();
+        resetSeedingCounters();
+        resetDiagnosticCardCounters();
+    }
+
+    /**
      * Records uncovered-goal gains attributed to a diagnostic-card type.
      * Gains are ignored when type is null or gain <= 0.
      */
@@ -532,6 +542,20 @@ public class LlmStatistics {
     private final AtomicLong outputTokens = new AtomicLong();
     private final AtomicLong totalLatencyMs = new AtomicLong();
     private final Map<LlmFeature, FeatureStats> perFeature = new ConcurrentHashMap<>();
+    private volatile String configuredModel = "";
+
+    /**
+     * Associates this statistics instance with the immutable configuration of
+     * the run that owns it.  The service invokes this during construction so
+     * publishing never reads mutable global properties from a later run.
+     */
+    void setConfiguration(LlmConfiguration configuration) {
+        if (configuration == null || configuration.getProvider() == Properties.LlmProvider.NONE) {
+            configuredModel = "";
+        } else {
+            configuredModel = configuration.getModel();
+        }
+    }
 
     /** Records a successful LLM call for the given feature, updating token and latency totals. */
     public void recordCall(LlmFeature feature, int inputTokenCount, int outputTokenCount, long latencyMs) {
@@ -544,18 +568,42 @@ public class LlmStatistics {
                 .recordSuccess(inputTokenCount, outputTokenCount, latencyMs);
     }
 
+    /**
+     * Records a provider attempt which will be retried.  It contributes to the
+     * documented total-attempt and latency metrics, but not to final outcome
+     * counters such as {@code LLM_Calls_Failed}.
+     */
+    public void recordRetryAttempt(LlmFeature feature, long latencyMs) {
+        totalCalls.incrementAndGet();
+        totalLatencyMs.addAndGet(Math.max(0L, latencyMs));
+        perFeature.computeIfAbsent(feature, ignored -> new FeatureStats())
+                .recordRetryAttempt(latencyMs);
+    }
+
     /** Records a failed LLM call for the given feature. */
     public void recordFailure(LlmFeature feature) {
+        recordFailure(feature, 0L);
+    }
+
+    /** Records a final failed provider attempt, including its elapsed time. */
+    public void recordFailure(LlmFeature feature, long latencyMs) {
         totalCalls.incrementAndGet();
         failedCalls.incrementAndGet();
-        perFeature.computeIfAbsent(feature, ignored -> new FeatureStats()).recordFailure();
+        totalLatencyMs.addAndGet(Math.max(0L, latencyMs));
+        perFeature.computeIfAbsent(feature, ignored -> new FeatureStats()).recordFailure(latencyMs);
     }
 
     /** Records an LLM call timeout for the given feature. */
     public void recordTimeout(LlmFeature feature) {
+        recordTimeout(feature, 0L);
+    }
+
+    /** Records a final timed-out provider attempt, including its elapsed time. */
+    public void recordTimeout(LlmFeature feature, long latencyMs) {
         totalCalls.incrementAndGet();
         timedOutCalls.incrementAndGet();
-        perFeature.computeIfAbsent(feature, ignored -> new FeatureStats()).recordTimeout();
+        totalLatencyMs.addAndGet(Math.max(0L, latencyMs));
+        perFeature.computeIfAbsent(feature, ignored -> new FeatureStats()).recordTimeout(latencyMs);
     }
 
     public long getTotalCalls() {
@@ -599,9 +647,7 @@ public class LlmStatistics {
     public void publishRuntimeVariables() {
         // Do not reset counters here: they are accumulated during the run and
         // must be published as-is at shutdown.
-        String model = Properties.LLM_PROVIDER != Properties.LlmProvider.NONE
-                ? Properties.LLM_MODEL : "";
-        ClientServices.track(RuntimeVariable.LLM_Model, model);
+        ClientServices.track(RuntimeVariable.LLM_Model, configuredModel);
         ClientServices.track(RuntimeVariable.LLM_Calls, getTotalCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, getSuccessfulCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, getFailedCalls());
@@ -1104,14 +1150,21 @@ public class LlmStatistics {
             latency.addAndGet(Math.max(0L, latencyMs));
         }
 
-        void recordFailure() {
+        void recordRetryAttempt(long latencyMs) {
             calls.incrementAndGet();
-            failures.incrementAndGet();
+            latency.addAndGet(Math.max(0L, latencyMs));
         }
 
-        void recordTimeout() {
+        void recordFailure(long latencyMs) {
+            calls.incrementAndGet();
+            failures.incrementAndGet();
+            latency.addAndGet(Math.max(0L, latencyMs));
+        }
+
+        void recordTimeout(long latencyMs) {
             calls.incrementAndGet();
             timedOut.incrementAndGet();
+            latency.addAndGet(Math.max(0L, latencyMs));
         }
 
         /** Returns an immutable snapshot of this feature's statistics. */

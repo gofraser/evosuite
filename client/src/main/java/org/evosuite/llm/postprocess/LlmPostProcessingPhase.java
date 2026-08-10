@@ -116,7 +116,11 @@ final class LlmPostProcessingPhase {
                 metrics.testNamesApplied, metrics.variableNamesApplied,
                 metrics.commentsApplied, metrics.sectionBreaksApplied,
                 metrics.assertionsApplied);
-        return metrics.snapshot(stopReason.value);
+        String terminalReason = stopReason.value;
+        if (terminalReason.isEmpty() && metrics.infrastructureFailures > 0) {
+            terminalReason = "infrastructure_failure";
+        }
+        return metrics.snapshot(terminalReason);
     }
 
     enum StopReason {

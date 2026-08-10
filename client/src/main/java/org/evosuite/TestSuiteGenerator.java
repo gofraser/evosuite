@@ -36,6 +36,7 @@ import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.junit.writer.Scaffolding;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.LlmStatistics;
+import org.evosuite.llm.LlmRunLifecycle;
 import org.evosuite.llm.postprocess.LlmPostProcessingPhaseContext;
 import org.evosuite.llm.postprocess.LlmPostProcessor;
 import org.evosuite.testcase.TestPresentationMetadata;
@@ -101,6 +102,29 @@ public class TestSuiteGenerator {
     private LlmPoolEnrichmentOrchestrator llmOrchestrator;
     private LlmPostProcessor activeLlmPostProcessor;
 
+    private void stopLlmPoolEnrichment() {
+        LlmPoolEnrichmentOrchestrator active = llmOrchestrator;
+        llmOrchestrator = null;
+        if (active == null) {
+            return;
+        }
+        try {
+            LlmStatistics.flushSeedingMetrics();
+        } catch (Throwable t) {
+            logger.warn("LLM seeding metric flush failed before cancellation (non-fatal): {}", t.getMessage());
+        }
+        try {
+            active.cancelAll();
+        } catch (Throwable t) {
+            logger.warn("LLM enrichment cancellation failed (non-fatal): {}", t.getMessage());
+        }
+        try {
+            LlmStatistics.flushSeedingMetrics();
+        } catch (Throwable t) {
+            logger.warn("LLM seeding metric flush failed after cancellation (non-fatal): {}", t.getMessage());
+        }
+    }
+
 
     private void initializeTargetClass() throws Throwable {
         TargetClassInitializer initializer = new TargetClassInitializer();
@@ -129,6 +153,15 @@ public class TestSuiteGenerator {
      * @return The result of the test generation process.
      */
     public TestGenerationResult generateTestSuite() {
+        try {
+            return generateTestSuiteInternal();
+        } finally {
+            stopLlmPoolEnrichment();
+            LlmRunLifecycle.completeRun();
+        }
+    }
+
+    private TestGenerationResult generateTestSuiteInternal() {
 
         structuralSuiteExportCompleted = false;
 
@@ -298,28 +331,7 @@ public class TestSuiteGenerator {
         }
 
         TestSuiteChromosome testCases = generateTests();
-
-        // Search is over — stop any background LLM enrichment so it can't keep
-        // mutating shared pools (ConstantPoolManager, ObjectPoolManager,
-        // CastClassManager) during post-processing or after RuntimeVariable
-        // snapshots are taken.
-        if (llmOrchestrator != null) {
-            try {
-                LlmStatistics.flushSeedingMetrics();
-            } catch (Throwable t) {
-                logger.warn("LLM seeding metric flush failed before cancelAll (non-fatal): {}", t.getMessage());
-            }
-            try {
-                llmOrchestrator.cancelAll();
-            } catch (Throwable t) {
-                logger.warn("LLM enrichment cancelAll failed (non-fatal): {}", t.getMessage());
-            }
-            try {
-                LlmStatistics.flushSeedingMetrics();
-            } catch (Throwable t) {
-                logger.warn("LLM seeding metric flush failed after cancelAll (non-fatal): {}", t.getMessage());
-            }
-        }
+        stopLlmPoolEnrichment();
 
         // As post process phases such as minimisation, coverage analysis, etc., may call getFitness()
         // of each fitness function, which may try to update the Archive, in here we explicitly disable
@@ -857,7 +869,13 @@ public class TestSuiteGenerator {
                                     MinimizationResult minimizationResult,
                                     ReplayStructureSnapshot replayStructure) {
 
-        boolean generateStandardAssertions = shouldGenerateStandardAssertions();
+        // Create the phase and perform its cheap availability preflight before
+        // deciding whether it is safe to suppress EvoSuite's normal oracles.
+        activeLlmPostProcessor = new LlmPostProcessor();
+        LlmPostProcessingPhaseContext postProcessingContext =
+                activeLlmPostProcessor.createPhaseContext();
+        boolean generateStandardAssertions = shouldGenerateStandardAssertions(
+                activeLlmPostProcessor.canStartUnifiedPostProcessing(postProcessingContext));
         if (generateStandardAssertions) {
             // Assertion generation and validation can reinstrument the SUT and
             // change the class loader stored in statements. Keep assertion-free
@@ -892,9 +910,6 @@ public class TestSuiteGenerator {
         int llmPostProcessingAssertionsApplied = 0;
         // Keep one explicit post-processing session from phase entry through
         // final JUnit reconciliation, including skipped/failed phase paths.
-        activeLlmPostProcessor = new LlmPostProcessor();
-        LlmPostProcessingPhaseContext postProcessingContext =
-                activeLlmPostProcessor.createPhaseContext();
         if (Properties.LLM_POSTPROCESSING_ENABLED) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Running unified LLM post-processing");
@@ -922,6 +937,13 @@ public class TestSuiteGenerator {
         } else {
             activeLlmPostProcessor.publishSkippedPostProcessingMetrics(
                     postProcessingContext, "disabled", minimizationResult);
+        }
+
+        if (!generateStandardAssertions
+                && Properties.ASSERTIONS
+                && postProcessingContext.requiresStandardAssertionFallback()) {
+            addStandardAssertionsForTestsWithoutOracle(testSuite,
+                    postProcessingContext);
         }
 
         if (Properties.NO_RUNTIME_DEPENDENCY) {
@@ -1088,9 +1110,47 @@ public class TestSuiteGenerator {
     }
 
     static boolean shouldGenerateStandardAssertions() {
+        return shouldGenerateStandardAssertions(true);
+    }
+
+    static boolean shouldGenerateStandardAssertions(boolean llmServiceReady) {
         return Properties.ASSERTIONS
                 && (isMutationLlmReplay()
+                || !llmServiceReady
                 || !(LlmPostProcessor.isAnyFeatureEnabled() && Properties.LLM_POSTPROCESSING_ASSERTIONS));
+    }
+
+    private void addStandardAssertionsForTestsWithoutOracle(TestSuiteChromosome suite,
+                                                             LlmPostProcessingPhaseContext context) {
+        if (suite == null || suite.size() == 0) {
+            return;
+        }
+        String reason = context == null ? "unknown" : context.getTerminalReason();
+        if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            logger.warn("Cannot apply standard assertion fallback after LLM {}: no phase time remains", reason);
+            return;
+        }
+        if (isMemoryTooLowForPhase("standard assertion fallback after LLM " + reason)) {
+            return;
+        }
+        TestSuiteChromosome missingOracles = new TestSuiteChromosome();
+        for (TestChromosome chromosome : suite.getTestChromosomes()) {
+            if (chromosome != null && chromosome.getTestCase() != null
+                    && chromosome.getTestCase().getAssertions().isEmpty()
+                    && context != null
+                    && context.shouldGenerateStandardAssertionsFor(chromosome.getTestCase())) {
+                // addTest(TestCase) deliberately shares the live TestCase, so
+                // generated assertions are attached to the original suite.
+                missingOracles.addTest(chromosome.getTestCase());
+            }
+        }
+        if (missingOracles.size() == 0) {
+            return;
+        }
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Applying standard assertions to " + missingOracles.size()
+                + " test(s) after LLM post-processing stopped: " + reason);
+        TestSuiteGeneratorHelper.addAssertions(missingOracles);
     }
 
     private static boolean isMutationLlmReplay() {

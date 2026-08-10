@@ -105,6 +105,23 @@ public class LlmPostProcessor {
     }
 
     /**
+     * Cheap preflight used before suppressing EvoSuite's normal assertion
+     * generation. This deliberately performs no provider request.
+     */
+    public boolean canStartUnifiedPostProcessing(LlmPostProcessingPhaseContext phaseContext) {
+        if (phaseContext == null) {
+            return false;
+        }
+        PostProcessingOptions options = phaseContext.options();
+        return options.enabled()
+                && options.provider() != Properties.LlmProvider.NONE
+                && options.features().any()
+                && llmService != null
+                && llmService.isAvailable()
+                && llmService.hasBudget();
+    }
+
+    /**
      * Check if unified LLM post-processing is enabled, has at least one selected
      * response feature, and the LLM provider is configured.
      */
@@ -153,7 +170,7 @@ public class LlmPostProcessor {
                 : minimizationResult;
         phaseContext.telemetry().publishMinimizationContext(effectiveMinimizationResult);
         if (!options.enabled()) {
-            phaseContext.telemetry().publish(new PostProcessingMetrics("disabled"));
+            publishMetrics(phaseContext, new PostProcessingMetrics("disabled"));
             return 0;
         }
         if (effectiveMinimizationResult.isIncomplete()
@@ -161,34 +178,40 @@ public class LlmPostProcessor {
                 == Properties.LlmPostProcessingOnIncompleteMinimization.SKIP) {
             logger.info("Unified LLM post-processing skipped: minimization incomplete ({})",
                     effectiveMinimizationResult.getStatus());
-            phaseContext.telemetry().publish(new PostProcessingMetrics(
+            publishMetrics(phaseContext, new PostProcessingMetrics(
                     "incomplete_minimization_" + effectiveMinimizationResult.getStatus().name()));
             return 0;
         }
         if (options.provider() == Properties.LlmProvider.NONE) {
             logger.info("Unified LLM post-processing skipped: no LLM provider configured");
-            phaseContext.telemetry().publish(new PostProcessingMetrics("no_provider"));
+            publishMetrics(phaseContext, new PostProcessingMetrics("no_provider"));
             return 0;
         }
         if (!options.features().any()) {
             logger.info("Unified LLM post-processing skipped: no response features enabled");
-            phaseContext.telemetry().publish(new PostProcessingMetrics("no_features_enabled"));
+            publishMetrics(phaseContext, new PostProcessingMetrics("no_features_enabled"));
             return 0;
         }
         if (suite == null || suite.size() == 0) {
-            phaseContext.telemetry().publish(new PostProcessingMetrics("empty_suite"));
+            publishMetrics(phaseContext, new PostProcessingMetrics("empty_suite"));
             return 0;
         }
         if (llmService == null || !llmService.isAvailable() || !llmService.hasBudget()) {
             logger.info("Unified LLM post-processing skipped: LLM service unavailable or budget exhausted");
-            phaseContext.telemetry().publish(new PostProcessingMetrics("service_unavailable_or_no_budget"));
+            publishMetrics(phaseContext, new PostProcessingMetrics("service_unavailable_or_no_budget"));
             return 0;
         }
 
         PostProcessingMetrics phaseMetrics = new LlmPostProcessingPhase(this, phaseContext).run(
                 suite, effectiveMinimizationResult);
-        phaseContext.telemetry().publish(phaseMetrics);
+        publishMetrics(phaseContext, phaseMetrics);
         return phaseMetrics.assertionsApplied;
+    }
+
+    private static void publishMetrics(LlmPostProcessingPhaseContext phaseContext,
+                                       PostProcessingMetrics metrics) {
+        phaseContext.recordTerminalReason(metrics == null ? "" : metrics.skipReason);
+        phaseContext.telemetry().publish(metrics);
     }
 
     boolean isPhaseTimedOut(LlmPostProcessingPhaseContext phaseContext) {
@@ -259,7 +282,7 @@ public class LlmPostProcessor {
         phaseContext.telemetry().publishMinimizationContext(minimizationResult == null
                 ? MinimizationResult.disabled(null)
                 : minimizationResult);
-        phaseContext.telemetry().publish(new PostProcessingMetrics(skipReason));
+        publishMetrics(phaseContext, new PostProcessingMetrics(skipReason));
     }
 
     public static int countUnifiedTemplateAssertions(TestSuiteChromosome suite) {

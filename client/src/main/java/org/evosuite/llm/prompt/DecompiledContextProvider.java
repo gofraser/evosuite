@@ -65,11 +65,16 @@ public class DecompiledContextProvider implements SutContextProvider {
     private static final Logger logger = LoggerFactory.getLogger(DecompiledContextProvider.class);
 
     /** Shared single-thread executor for decompilation tasks. Daemon thread so JVM exit is not blocked. */
-    private static final ExecutorService DECOMPILER_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "cfr-decompiler");
-        t.setDaemon(true);
-        return t;
-    });
+    private static final Object EXECUTOR_LOCK = new Object();
+    private static volatile ExecutorService decompilerExecutor = createExecutor();
+
+    private static ExecutorService createExecutor() {
+        return Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "cfr-decompiler");
+            t.setDaemon(true);
+            return t;
+        });
+    }
 
     @Override
     public Optional<String> getContext(String className, TestCluster cluster) {
@@ -78,18 +83,50 @@ public class DecompiledContextProvider implements SutContextProvider {
         }
 
         int timeoutSeconds = Math.max(1, Properties.LLM_DECOMPILER_TIMEOUT_SECONDS);
+        ExecutorService executor = decompilerExecutor;
+        Future<Optional<String>> future = null;
         try {
-            Future<Optional<String>> future = DECOMPILER_EXECUTOR.submit(new DecompileTask(className));
+            future = executor.submit(createDecompileTask(className));
             return future.get(timeoutSeconds, TimeUnit.SECONDS);
         } catch (TimeoutException e) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            replaceExecutor(executor);
             logger.warn("CFR decompiler timed out after {}s for {}; falling back", timeoutSeconds, className);
             return Optional.empty();
         } catch (InterruptedException e) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            replaceExecutor(executor);
             Thread.currentThread().interrupt();
             return Optional.empty();
         } catch (ExecutionException e) {
             logger.warn("CFR decompilation failed for {}: {}", className, e.getMessage());
             return Optional.empty();
+        }
+    }
+
+    Callable<Optional<String>> createDecompileTask(String className) {
+        return new DecompileTask(className);
+    }
+
+    /** Cancel current decompilation work and give the next EvoSuite run a clean worker. */
+    public static void resetForRunCompletion() {
+        replaceExecutor(decompilerExecutor);
+    }
+
+    private static void replaceExecutor(ExecutorService expected) {
+        synchronized (EXECUTOR_LOCK) {
+            if (decompilerExecutor != expected) {
+                return;
+            }
+            try {
+                expected.shutdownNow();
+            } finally {
+                decompilerExecutor = createExecutor();
+            }
         }
     }
 

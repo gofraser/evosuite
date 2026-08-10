@@ -44,6 +44,7 @@ final class LlmTestPostProcessor {
         int testIndex = workItem.originalIndex;
         TestChromosome chromosome = workItem.chromosome;
         TestCase test = chromosome.getTestCase();
+        phaseContext.recordAttemptedTest(test);
         PostProcessingOptions options = phaseContext.options();
         try {
             boolean repairSkippedForBudget = false;
@@ -81,6 +82,9 @@ final class LlmTestPostProcessor {
                 logger.warn("Unified LLM post-processing ignored response for test {}: {}",
                         testIndex, parseResult.getInfrastructureFailureReason());
                 result.infrastructureFailures = 1;
+                if (options.features().assertions()) {
+                    phaseContext.recordFailedAssertionTest(test);
+                }
                 result.fallbackCounters.add(processor.runAssertionFallback(test, assertionEligible,
                         LlmPostProcessor.FallbackTrigger.INFRASTRUCTURE_FAILURE, options));
                 return result;
@@ -163,6 +167,9 @@ final class LlmTestPostProcessor {
             if (result.stopReason == LlmPostProcessingPhase.StopReason.LOW_MEMORY
                     || processor.isLowMemory(phaseContext)) {
                 result.stopReason = LlmPostProcessingPhase.StopReason.LOW_MEMORY;
+                if (options.features().assertions() && result.assertionsApplied == 0) {
+                    phaseContext.recordFailedAssertionTest(test);
+                }
                 result.acceptedResponses = 1;
                 result.partiallyProcessedTests = 1;
                 return result;
@@ -178,6 +185,9 @@ final class LlmTestPostProcessor {
                 result.processedTests = 1;
             }
             if (result.stopReason == LlmPostProcessingPhase.StopReason.TIMEOUT) {
+                if (options.features().assertions() && result.assertionsApplied == 0) {
+                    phaseContext.recordFailedAssertionTest(test);
+                }
                 return result;
             }
             if (!parseResult.getDiagnostics().isEmpty()) {
@@ -189,11 +199,17 @@ final class LlmTestPostProcessor {
         } catch (LlmBudgetExceededException e) {
             logger.info("Unified LLM post-processing stopped: {}", e.getMessage());
             result.stopReason = LlmPostProcessingPhase.StopReason.BUDGET_EXHAUSTED;
+            if (options.features().assertions()) {
+                phaseContext.recordFailedAssertionTest(test);
+            }
             return result;
         } catch (RuntimeException | AssertionError e) {
             logger.warn("Unified LLM post-processing skipped test {} after per-test failure: {}",
                     testIndex, e.getMessage());
             result.infrastructureFailures = 1;
+            if (options.features().assertions()) {
+                phaseContext.recordFailedAssertionTest(test);
+            }
             result.fallbackCounters.add(processor.runAssertionFallback(test, assertionEligible,
                     LlmPostProcessor.FallbackTrigger.INFRASTRUCTURE_FAILURE, options));
             return result;

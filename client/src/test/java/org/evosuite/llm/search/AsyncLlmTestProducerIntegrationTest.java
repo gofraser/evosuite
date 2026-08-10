@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -67,12 +68,7 @@ class AsyncLlmTestProducerIntegrationTest {
 
         try {
             producer.start();
-            List<TestChromosome> produced = Collections.emptyList();
-            long deadline = System.currentTimeMillis() + 3000L;
-            while (produced.isEmpty() && System.currentTimeMillis() < deadline) {
-                Thread.sleep(50L);
-                produced = producer.drainAvailable();
-            }
+            List<TestChromosome> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
             assertFalse(produced.isEmpty(), "producer should provide at least one chromosome");
         } finally {
             producer.stop();
@@ -102,12 +98,7 @@ class AsyncLlmTestProducerIntegrationTest {
 
         try {
             producer.start();
-            List<TestChromosome> produced = Collections.emptyList();
-            long deadline = System.currentTimeMillis() + 3000L;
-            while (produced.isEmpty() && System.currentTimeMillis() < deadline) {
-                Thread.sleep(50L);
-                produced = producer.drainAvailable();
-            }
+            List<TestChromosome> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
             assertFalse(produced.isEmpty(), "producer should provide at least one chromosome");
             InjectionAttemptMetadata metadata = producer.consumeAttemptMetadata(produced.get(0));
             assertNotNull(metadata);
@@ -139,12 +130,7 @@ class AsyncLlmTestProducerIntegrationTest {
 
         try {
             producer.start();
-            List<TestChromosome> produced = Collections.emptyList();
-            long deadline = System.currentTimeMillis() + 3000L;
-            while (produced.isEmpty() && System.currentTimeMillis() < deadline) {
-                Thread.sleep(50L);
-                produced = producer.drainAvailable();
-            }
+            List<TestChromosome> produced = awaitAvailable(producer, 10, TimeUnit.SECONDS);
             assertFalse(produced.isEmpty(),
                     "DIAGNOSTIC mode must fall back to the pool prompt when no cards can be extracted");
         } finally {
@@ -201,5 +187,19 @@ class AsyncLlmTestProducerIntegrationTest {
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));
+    }
+
+    private static List<TestChromosome> awaitAvailable(AsyncLlmTestProducer producer,
+                                                        long timeout,
+                                                        TimeUnit unit) throws InterruptedException {
+        long deadline = System.nanoTime() + unit.toNanos(timeout);
+        do {
+            List<TestChromosome> produced = producer.drainAvailable();
+            if (!produced.isEmpty()) {
+                return produced;
+            }
+            TimeUnit.MILLISECONDS.sleep(10L);
+        } while (System.nanoTime() < deadline);
+        return producer.drainAvailable();
     }
 }

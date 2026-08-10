@@ -168,6 +168,9 @@ public class LlmPoolEnrichmentOrchestrator {
             // Surfaced via whenComplete; nothing to do here.
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            // Future cancellation does not reliably interrupt an already
+            // running CompletableFuture action; set the cooperative flag too.
+            cancelEnricher(castFuture, castClassEnricher);
         }
 
         // Note background-running data enrichments for operator visibility.

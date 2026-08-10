@@ -79,6 +79,13 @@ public class AsyncLlmTestProducer {
     private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
     private final Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate =
             Collections.synchronizedMap(new IdentityHashMap<>());
+    /**
+     * Makes a candidate and its attribution visible as one hand-off.  The
+     * queue is deliberately still exposed as chromosomes for compatibility,
+     * but consumers must never be able to drain a chromosome before its
+     * metadata has been installed.
+     */
+    private final Object publicationLock = new Object();
     private final AtomicLong diagnosticCallsAttempted = new AtomicLong();
     private final AtomicLong diagnosticCardsUsed = new AtomicLong();
     private final AtomicLong loopIterations = new AtomicLong();
@@ -182,7 +189,9 @@ public class AsyncLlmTestProducer {
     /** Drains and returns all currently queued test chromosomes without blocking. */
     public List<TestChromosome> drainAvailable() {
         List<TestChromosome> tests = new ArrayList<>();
-        testQueue.drainTo(tests);
+        synchronized (publicationLock) {
+            testQueue.drainTo(tests);
+        }
         return tests;
     }
 
@@ -250,15 +259,14 @@ public class AsyncLlmTestProducer {
 
             PromptResult prompt;
             List<ProblemCardType> cardTypes;
-            if (shouldUseDiagnosticPrompt()) {
-                ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls,
-                        diagnosticCallsAttempted.incrementAndGet());
-            }
+            boolean diagnosticPrompt = shouldUseDiagnosticPrompt() && !cachedDiagnosticCards.isEmpty();
             Collection<TestFitnessFunction> attemptTargetGoals;
-            if (shouldUseDiagnosticPrompt() && !cachedDiagnosticCards.isEmpty()) {
+            if (diagnosticPrompt) {
                 prompt = buildDiagnosticPromptForAsync(currentGoals, currentTests, cachedDiagnosticCards);
                 cardTypes = extractCardTypes(cachedDiagnosticCards);
                 attemptTargetGoals = extractCardRelatedGoals(cachedDiagnosticCards);
+                ClientServices.track(RuntimeVariable.LLM_AsyncProducer_DiagnosticCalls,
+                        diagnosticCallsAttempted.incrementAndGet());
                 ClientServices.track(RuntimeVariable.LLM_AsyncProducer_Cards_Used,
                         diagnosticCardsUsed.addAndGet(cardTypes.size()));
             } else {
@@ -290,28 +298,26 @@ public class AsyncLlmTestProducer {
                     boolean producedAny = false;
                     int published = 0;
                     for (TestChromosome chromosome : candidates) {
-                        try {
-                            if (!cardTypes.isEmpty()) {
-                                chromosome.setDiagnosticCardTypes(cardTypes);
-                            }
-                            testQueue.put(chromosome);
-                            attemptMetadataByCandidate.put(chromosome, new InjectionAttemptMetadata(
+                        if (!cardTypes.isEmpty()) {
+                            chromosome.setDiagnosticCardTypes(cardTypes);
+                        }
+                        boolean publishedCandidate = publishCandidate(chromosome,
+                                new InjectionAttemptMetadata(
                                     registration.getAttemptId(),
                                     cardTypes.isEmpty()
                                             ? Collections.<ProblemCardType>emptyList()
                                             : new ArrayList<>(cardTypes),
                                     attemptTargetGoals));
-                            producedAny = true;
-                            published++;
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            recordStopReason(StopReason.INTERRUPTED);
-                            if (repeatedInjectionMemory != null && !registration.isEmpty()) {
-                                repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
+                        if (!publishedCandidate) {
+                            if (!running) {
+                                return;
                             }
-                            running = false;
-                            return;
+                            // Bounded queue is full. Drop this candidate and let
+                            // the next producer iteration observe fresh goals.
+                            continue;
                         }
+                        producedAny = true;
+                        published++;
                     }
                     if (!producedAny && repeatedInjectionMemory != null && !registration.isEmpty()) {
                         repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
@@ -355,6 +361,37 @@ public class AsyncLlmTestProducer {
         RepairResult result = repairLoop.attemptParse(
                 response, prompt.getMessages(), LlmFeature.ASYNC_PRODUCER);
         return result.isSuccess() ? result.toChromosomes() : Collections.emptyList();
+    }
+
+    /**
+     * Publishes one candidate together with its attribution.  Holding the
+     * same lock in drainAvailable() closes the otherwise observable interval
+     * between queue insertion and metadata insertion.  stop() changes
+     * running before interrupting this thread; the final check retracts a
+     * candidate that raced with that stop request before any consumer can see
+     * it.
+     */
+    private boolean publishCandidate(TestChromosome chromosome,
+                                     InjectionAttemptMetadata metadata) {
+        synchronized (publicationLock) {
+            if (!running) {
+                return false;
+            }
+            attemptMetadataByCandidate.put(chromosome, metadata);
+            // Never block while holding publicationLock: drainAvailable() uses
+            // the same lock, so a blocking put into a full queue would prevent
+            // the only consumer from making space.
+            if (!testQueue.offer(chromosome)) {
+                attemptMetadataByCandidate.remove(chromosome);
+                return false;
+            }
+            if (!running) {
+                testQueue.remove(chromosome);
+                attemptMetadataByCandidate.remove(chromosome);
+                return false;
+            }
+            return true;
+        }
     }
 
     private boolean shouldUseDiagnosticPrompt() {

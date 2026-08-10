@@ -62,6 +62,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -79,6 +82,48 @@ class TestRepairLoopTest {
     void restoreProperties() {
         Properties.LLM_ENABLE_TRUNCATION_RECOVERY = originalTruncationRecovery;
         Properties.TARGET_CLASS = originalTargetClass;
+        TestRepairLoop.resetForRunCompletion();
+    }
+
+    @Test
+    void timedOutInterruptIgnoringCompilerDoesNotPoisonNextParse() throws Exception {
+        AtomicBoolean releaseBlockedWorker = new AtomicBoolean();
+        ExecutorService blockedExecutor = Executors.newSingleThreadExecutor(r -> {
+            Thread thread = new Thread(r, "blocked-parse-compile-test");
+            thread.setDaemon(true);
+            return thread;
+        });
+        blockedExecutor.submit(() -> {
+            while (!releaseBlockedWorker.get()) {
+                try {
+                    Thread.sleep(10L);
+                } catch (InterruptedException ignored) {
+                    // Simulate a compiler/dependency that ignores cancellation.
+                }
+            }
+        });
+        TestRepairLoop.setParseCompileExecutorForTesting(blockedExecutor);
+
+        TestRepairLoop loop = new TestRepairLoop(
+                mock(LlmService.class), mock(TestParser.class), new LlmResponseParser(),
+                mock(ClusterExpansionManager.class),
+                testCase -> new ExecutionResult(testCase), 0);
+        ParseResult candidate = new ParseResult(new DefaultTestCase(), "testRecovered");
+        Method compileGate = TestRepairLoop.class.getDeclaredMethod(
+                "checkRenderedCompilation", ParseResult.class, long.class);
+        compileGate.setAccessible(true);
+
+        try {
+            String timedOut = (String) compileGate.invoke(
+                    loop, candidate, System.nanoTime() + 100_000_000L);
+            assertTrue(timedOut.contains("compile check timed out"));
+
+            String recovered = (String) compileGate.invoke(loop, candidate, Long.MAX_VALUE);
+            assertNull(recovered,
+                    "a timed-out compile worker must not block the replacement executor");
+        } finally {
+            releaseBlockedWorker.set(true);
+        }
     }
 
     @Test

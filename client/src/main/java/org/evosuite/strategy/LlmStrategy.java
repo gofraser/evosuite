@@ -166,7 +166,12 @@ public class LlmStrategy extends TestGenerationStrategy {
         LlmSeededPopulationFactory seededFactory = createSeededFactory();
         long waitMillis = LlmWaitBudget.repairAwareWaitMillis(
                 () -> TimeController.getInstance().getRemainingTimeInPhaseMs());
-        List<TestChromosome> llmSeeds = seededFactory.awaitAndDrainSeeds(waitMillis);
+        List<TestChromosome> llmSeeds;
+        try {
+            llmSeeds = seededFactory.awaitAndDrainSeeds(waitMillis);
+        } finally {
+            seededFactory.close();
+        }
         LoggingUtils.getEvoLogger().info("* Received {} LLM seeds",
                 llmSeeds.size());
 

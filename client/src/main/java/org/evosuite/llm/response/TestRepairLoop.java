@@ -79,6 +79,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.CancellationException;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 import org.evosuite.runtime.sandbox.Sandbox;
@@ -156,11 +158,17 @@ public class TestRepairLoop {
 
     private static final Pattern ALIASED_IMPORT_PATTERN = Pattern.compile(
             "(?m)^\\s*import\\s+[^;]+\\s+as\\s+([^;]+);\\s*$", Pattern.CASE_INSENSITIVE);
-    private static final ExecutorService PARSE_COMPILE_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-        Thread t = new Thread(r, "evosuite-llm-parse-compile");
-        t.setDaemon(true);
-        return t;
-    });
+    private static final Object PARSE_COMPILE_EXECUTOR_LOCK = new Object();
+    private static final long DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(10L);
+    private static volatile ExecutorService parseCompileExecutor = createParseCompileExecutor();
+
+    private static ExecutorService createParseCompileExecutor() {
+        return Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "evosuite-llm-parse-compile");
+            t.setDaemon(true);
+            return t;
+        });
+    }
 
     /** Error patterns that the LLM cannot fix (native libs, sandbox, etc.). */
     private static final Set<String> UNFIXABLE_ERROR_PATTERNS = new HashSet<>(Arrays.asList(
@@ -469,6 +477,7 @@ public class TestRepairLoop {
         headlessRepairEscalated = false;
         identicalErrorEscalated = false;
         pendingTopOfMessageEscalationHint = null;
+        expansionAttempted = false;
         boolean observedExecutionDrop = false;
         boolean strictContractReaskUsed = false;
         String previousError = null;
@@ -648,7 +657,7 @@ public class TestRepairLoop {
             if (!validTests.isEmpty()) {
                 List<ParseResult> compileChecked = new ArrayList<>();
                 for (ParseResult pr : validTests) {
-                    String compileError = checkRenderedCompilation(pr);
+                    String compileError = checkRenderedCompilation(pr, repairDeadlineNanos);
                     if (compileError == null) {
                         compileChecked.add(pr);
                     } else {
@@ -4549,7 +4558,7 @@ public class TestRepairLoop {
         }
     }
 
-    private String checkRenderedCompilation(ParseResult parseResult) {
+    private String checkRenderedCompilation(ParseResult parseResult, long repairDeadlineNanos) {
         if (parseResult == null || parseResult.getTestCase() == null) {
             return "Compilation error in parsed test '<unnamed>': missing parsed test case";
         }
@@ -4570,12 +4579,27 @@ public class TestRepairLoop {
         String methodBody = visitor.getCode() == null ? "" : visitor.getCode();
         String source = buildCompilationProbeSource(parseResult, methodBody, visitor.getImports());
 
-        Path tmpDir = null;
+        ExecutorService executor = parseCompileExecutor;
+        Future<String> future = null;
         try {
             final String method = safeMethodName(parseResult);
             final String finalSource = source;
-            Future<String> future = PARSE_COMPILE_EXECUTOR.submit(() -> runRenderedCompilationCheck(method, finalSource));
-            return future.get();
+            future = executor.submit(() -> runRenderedCompilationCheck(method, finalSource));
+            return future.get(parseCompileTimeoutNanos(repairDeadlineNanos), TimeUnit.NANOSECONDS);
+        } catch (TimeoutException timeout) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            replaceParseCompileExecutor(executor);
+            return "Compilation error in parsed test '" + safeMethodName(parseResult)
+                    + "': parse-phase compile check timed out";
+        } catch (InterruptedException interrupted) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            replaceParseCompileExecutor(executor);
+            Thread.currentThread().interrupt();
+            throw new CancellationException("Interrupted during parse-phase compile check");
         } catch (SecurityException securityException) {
             return "Compilation error in parsed test '" + safeMethodName(parseResult)
                     + "': parse-phase compile check failed due to sandbox/security restrictions: "
@@ -4613,16 +4637,74 @@ public class TestRepairLoop {
         if (!Sandbox.isSecurityManagerInitialized()) {
             return;
         }
+        ExecutorService executor = parseCompileExecutor;
+        Future<Thread> future = null;
         try {
-            Future<Thread> future = PARSE_COMPILE_EXECUTOR.submit(Thread::currentThread);
-            Thread worker = future.get();
+            future = executor.submit(Thread::currentThread);
+            Thread worker = future.get(2L, TimeUnit.SECONDS);
             Sandbox.addPrivilegedThread(worker);
+        } catch (TimeoutException timeout) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            replaceParseCompileExecutor(executor);
+            logger.warn("Timed out registering parse-compile worker; replaced the blocked executor");
+        } catch (InterruptedException interrupted) {
+            if (future != null) {
+                future.cancel(true);
+            }
+            replaceParseCompileExecutor(executor);
+            Thread.currentThread().interrupt();
         } catch (SecurityException se) {
             // Caller is not privileged right now; another privileged caller may register later.
             logger.debug("Could not register parse-compile worker as privileged from thread '{}': {}",
                     Thread.currentThread().getName(), se.getMessage());
         } catch (Throwable t) {
             logger.debug("Could not bootstrap parse-compile worker privilege registration: {}", t.toString());
+        }
+    }
+
+    private static long parseCompileTimeoutNanos(long repairDeadlineNanos) {
+        if (repairDeadlineNanos == NO_REPAIR_DEADLINE) {
+            return DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS;
+        }
+        long remaining = repairDeadlineNanos - System.nanoTime();
+        // The repair deadline governs whether another provider request may be
+        // started. If it has already elapsed, still validate locally salvaged
+        // tests; caller cancellation remains able to interrupt this bounded
+        // compile task.
+        if (remaining <= 0L) {
+            return DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS;
+        }
+        return Math.min(DEFAULT_PARSE_COMPILE_TIMEOUT_NANOS, remaining);
+    }
+
+    private static void replaceParseCompileExecutor(ExecutorService expected) {
+        synchronized (PARSE_COMPILE_EXECUTOR_LOCK) {
+            if (parseCompileExecutor != expected) {
+                return;
+            }
+            try {
+                expected.shutdownNow();
+            } finally {
+                parseCompileExecutor = createParseCompileExecutor();
+            }
+        }
+    }
+
+    /** Cancel compile probes and provision a clean worker for the next EvoSuite run. */
+    public static void resetForRunCompletion() {
+        replaceParseCompileExecutor(parseCompileExecutor);
+    }
+
+    static void setParseCompileExecutorForTesting(ExecutorService executor) {
+        if (executor == null) {
+            throw new IllegalArgumentException("Parse compile executor must not be null");
+        }
+        synchronized (PARSE_COMPILE_EXECUTOR_LOCK) {
+            ExecutorService previous = parseCompileExecutor;
+            parseCompileExecutor = executor;
+            previous.shutdownNow();
         }
     }
 
@@ -4636,7 +4718,7 @@ public class TestRepairLoop {
         try {
             tmpDir = Files.createTempDirectory("evosuite-llm-parse-compile-");
             String packageName = getSutPackage();
-            String className = "__ParseCompileProbe_" + Math.abs(methodName.hashCode());
+            String className = "__ParseCompileProbe_" + Integer.toUnsignedString(methodName.hashCode());
             Path pkgDir = tmpDir;
             if (packageName != null && !packageName.trim().isEmpty()) {
                 pkgDir = tmpDir.resolve(packageName.replace('.', File.separatorChar));
@@ -4721,7 +4803,8 @@ public class TestRepairLoop {
                                                String methodBody,
                                                Set<Class<?>> imports) {
         String packageName = getSutPackage();
-        String className = "__ParseCompileProbe_" + Math.abs(safeMethodName(parseResult).hashCode());
+        String className = "__ParseCompileProbe_"
+                + Integer.toUnsignedString(safeMethodName(parseResult).hashCode());
         StringBuilder sb = new StringBuilder();
         if (packageName != null && !packageName.trim().isEmpty()) {
             sb.append("package ").append(packageName).append(";\n\n");

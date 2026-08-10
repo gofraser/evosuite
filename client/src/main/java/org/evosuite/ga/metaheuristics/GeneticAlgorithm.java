@@ -137,6 +137,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         } finally {
             long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
             org.evosuite.llm.LlmStatistics.recordInitialPopulationElapsedMs(elapsedMs);
+            seededFactory.close();
         }
     }
 

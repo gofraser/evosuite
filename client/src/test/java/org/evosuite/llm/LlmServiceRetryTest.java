@@ -22,22 +22,35 @@ package org.evosuite.llm;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.nio.file.Paths;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class LlmServiceRetryTest {
 
+    @TempDir
+    Path tempDir;
+
     @Test
     void requestWorkerIsPrivilegedWhenSandboxIsAlreadyActive() {
         Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
-        Sandbox.initializeSecurityManagerForSUT();
+        try {
+            Sandbox.initializeSecurityManagerForSUT();
+        } catch (UnsupportedOperationException e) {
+            Assumptions.abort("Security Manager is unavailable on this JVM");
+        }
         LlmService.ChatLanguageModel model = (messages, feature) -> {
             // SocketOutputStream construction performs the same
             // writeFileDescriptor check as this constructor.
@@ -62,7 +75,7 @@ class LlmServiceRetryTest {
     }
 
     @Test
-    void retries429ThenSucceeds() {
+    void retries429ThenSucceeds() throws Exception {
         AtomicInteger calls = new AtomicInteger();
         LlmService.ChatLanguageModel model = (messages, feature) -> {
             if (calls.incrementAndGet() == 1) {
@@ -81,26 +94,32 @@ class LlmServiceRetryTest {
                 2,
                 2,
                 1,
-                false,
-                Paths.get("target/llm-test-traces"),
+                true,
+                tempDir,
                 "run-1");
 
         LlmStatistics statistics = new LlmStatistics();
         LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(2);
+        LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
         LlmService service = new LlmService(model,
                 budget,
                 configuration,
                 statistics,
-                new LlmTraceRecorder(configuration));
+                recorder);
 
         try {
             String output = service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
 
             assertEquals("ok", output);
             assertEquals(2, calls.get());
+            assertEquals(2, statistics.getTotalCalls());
             assertEquals(1, statistics.getSuccessfulCalls());
             assertEquals(0, statistics.getFailedCalls());
             assertEquals(0, budget.getRemaining());
+            assertEquals(2, Files.readAllLines(recorder.getTraceFile(), java.nio.charset.StandardCharsets.UTF_8).size());
+            String trace = new String(Files.readAllBytes(recorder.getTraceFile()), java.nio.charset.StandardCharsets.UTF_8);
+            assertTrue(trace.contains("\"parse_status\":\"RETRYING\""));
+            assertTrue(trace.contains("\"parse_status\":\"SUCCESS\""));
         } finally {
             service.close();
         }
@@ -276,6 +295,87 @@ class LlmServiceRetryTest {
             assertEquals(0, calls.get());
             assertEquals(2, budget.getRemaining());
         } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void timeoutReplacesExecutorWhenProviderIgnoresInterruption() throws Exception {
+        CountDownLatch started = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            started.countDown();
+            while (release.getCount() > 0L) {
+                try {
+                    release.await(25L, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException ignored) {
+                    // Deliberately emulate a provider/transport that swallows
+                    // interruption while its request remains live.
+                }
+            }
+            return LlmService.LlmResponse.fromText("late");
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 1, 0, 1,
+                false, Paths.get("target/llm-test-traces"), "stuck-worker");
+        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1), configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration));
+
+        try {
+            assertThrows(LlmCallFailedException.class, () -> service.query(
+                    Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR));
+            assertTrue(started.await(1L, TimeUnit.SECONDS));
+            assertEquals(2L, service.getExecutorGenerationForTesting(),
+                    "a timed-out live worker must cause a fresh executor to be installed");
+        } finally {
+            release.countDown();
+            service.close();
+        }
+    }
+
+    @Test
+    void callerInterruptionCancelsProviderAndPreservesInterruptStatus() throws Exception {
+        CountDownLatch providerStarted = new CountDownLatch(1);
+        CountDownLatch providerInterrupted = new CountDownLatch(1);
+        AtomicReference<Boolean> callerInterrupted = new AtomicReference<>(false);
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            providerStarted.countDown();
+            try {
+                new CountDownLatch(1).await();
+                return LlmService.LlmResponse.fromText("unexpected");
+            } catch (InterruptedException e) {
+                providerInterrupted.countDown();
+                throw e;
+            }
+        };
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.NONE,
+                "mock", "", "", 0.0, 1024, 5, 0, 1,
+                false, Paths.get("target/llm-test-traces"), "caller-interrupt");
+        LlmService service = new LlmService(model, new LlmBudgetCoordinator.Local(1), configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration));
+        Thread caller = new Thread(() -> {
+            try {
+                service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+                callerInterrupted.set(Thread.currentThread().isInterrupted());
+            }
+        });
+
+        try {
+            caller.start();
+            assertTrue(providerStarted.await(1L, TimeUnit.SECONDS));
+            caller.interrupt();
+            caller.join(3_000L);
+            assertFalse(caller.isAlive());
+            assertInstanceOf(LlmCallFailedException.class, failure.get());
+            assertTrue(callerInterrupted.get());
+            assertTrue(providerInterrupted.await(1L, TimeUnit.SECONDS));
+        } finally {
+            caller.interrupt();
             service.close();
         }
     }

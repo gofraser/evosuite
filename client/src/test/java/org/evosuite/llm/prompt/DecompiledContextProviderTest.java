@@ -25,6 +25,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
+import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -40,6 +42,7 @@ class DecompiledContextProviderTest {
     @AfterEach
     void restoreProperties() {
         Properties.LLM_DECOMPILER_TIMEOUT_SECONDS = originalTimeout;
+        DecompiledContextProvider.resetForRunCompletion();
     }
 
     @Test
@@ -78,5 +81,40 @@ class DecompiledContextProviderTest {
     void modeLabelIsCorrect() {
         DecompiledContextProvider provider = new DecompiledContextProvider();
         assertEquals("Decompiled source", provider.modeLabel());
+    }
+
+    @Test
+    void timedOutInterruptIgnoringTaskDoesNotPoisonNextDecompilation() {
+        Properties.LLM_DECOMPILER_TIMEOUT_SECONDS = 1;
+        AtomicBoolean releaseBlockedTask = new AtomicBoolean();
+        DecompiledContextProvider blocked = new DecompiledContextProvider() {
+            @Override
+            Callable<Optional<String>> createDecompileTask(String className) {
+                return () -> {
+                    while (!releaseBlockedTask.get()) {
+                        try {
+                            Thread.sleep(10L);
+                        } catch (InterruptedException ignored) {
+                            // Deliberately simulate a dependency that ignores cancellation.
+                        }
+                    }
+                    return Optional.of("late");
+                };
+            }
+        };
+
+        try {
+            assertEquals(Optional.empty(), blocked.getContext("example.Blocked", null));
+
+            DecompiledContextProvider recovered = new DecompiledContextProvider() {
+                @Override
+                Callable<Optional<String>> createDecompileTask(String className) {
+                    return () -> Optional.of("recovered");
+                }
+            };
+            assertEquals(Optional.of("recovered"), recovered.getContext("example.Recovered", null));
+        } finally {
+            releaseBlockedTask.set(true);
+        }
     }
 }

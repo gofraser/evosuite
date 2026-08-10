@@ -63,6 +63,9 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
     protected EnrichmentResult doEnrich(String className, TestCluster cluster) {
         PromptResult promptResult = buildPrompt(className, cluster);
         String response = llmService.query(promptResult, feature);
+        if (isCancelled()) {
+            return EnrichmentResult.failure("Cancelled after LLM query");
+        }
 
         List<Object> constants = parseConstants(response);
         int sutParsed = constants.size();
@@ -84,6 +87,10 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
                 try {
                     PromptResult depPrompt = buildDependencyPrompt(className, dependencyClass, cluster);
                     String depResponse = llmService.query(depPrompt, feature);
+                    if (isCancelled()) {
+                        logger.debug("Cancelled after dependency constant query, stopping");
+                        break;
+                    }
                     List<Object> depConstants = capDependencyConstants(parseConstants(depResponse));
                     nonSutParsed += depConstants.size();
                     nonSutAdded += addToPool(depConstants, false);
@@ -264,12 +271,21 @@ public class LlmConstantPoolEnricher extends AbstractLlmEnricher<LlmConstantPool
         int added = 0;
         for (Object constant : constants) {
             try {
-                if (sutPool) {
-                    poolManager.addSUTConstant(constant);
-                    LlmStatistics.recordSutConstantsAdded(1);
-                } else {
-                    poolManager.addNonSUTConstant(constant);
-                    LlmStatistics.recordNonSutConstantsAdded(1);
+                // This is deliberately inside mutateIfActive rather than a
+                // preceding isCancelled() check: a timeout may arrive in the
+                // tiny interval between a check and the global-pool write.
+                boolean mutated = mutateIfActive(() -> {
+                    if (sutPool) {
+                        poolManager.addSUTConstant(constant);
+                        LlmStatistics.recordSutConstantsAdded(1);
+                    } else {
+                        poolManager.addNonSUTConstant(constant);
+                        LlmStatistics.recordNonSutConstantsAdded(1);
+                    }
+                });
+                if (!mutated) {
+                    logger.debug("Cancelled before constant-pool mutation, stopping");
+                    break;
                 }
                 added++;
             } catch (Throwable t) {

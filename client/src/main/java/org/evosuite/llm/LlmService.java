@@ -53,6 +53,8 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,6 +75,7 @@ public class LlmService implements AutoCloseable {
     private final LlmTraceRecorder traceRecorder;
     private final Random jitterRandom;
     private volatile ExecutorService executorService;
+    private final AtomicLong executorGeneration = new AtomicLong(1L);
     private final boolean available;
 
     public LlmService(ChatLanguageModel model,
@@ -103,10 +106,15 @@ public class LlmService implements AutoCloseable {
         this.budgetCoordinator = budgetCoordinator;
         this.configuration = configuration;
         this.statistics = statistics;
+        this.statistics.setConfiguration(configuration);
         this.traceRecorder = traceRecorder;
         this.jitterRandom = jitterRandom;
         this.executorService = createExecutorService();
         this.available = available;
+    }
+
+    long getExecutorGenerationForTesting() {
+        return executorGeneration.get();
     }
 
     /** Returns the process-scoped singleton instance, creating it lazily on first access. */
@@ -140,6 +148,30 @@ public class LlmService implements AutoCloseable {
                 instance.close();
             }
             instance = null;
+        }
+    }
+
+    /**
+     * Closes the process-scoped LLM resources after a completed EvoSuite run.
+     *
+     * <p>Call this only after publishing the run statistics.  It deliberately
+     * clears the singleton so a later in-process invocation snapshots its own
+     * properties, budget, trace file, and provider client instead of inheriting
+     * those from the completed run.
+     */
+    public static void closeAndResetForRunCompletion() {
+        try {
+            synchronized (INSTANCE_LOCK) {
+                if (instance != null) {
+                    try {
+                        instance.close();
+                    } finally {
+                        instance = null;
+                    }
+                }
+            }
+        } finally {
+            LlmStatistics.resetRunCounters();
         }
     }
 
@@ -498,8 +530,22 @@ public class LlmService implements AutoCloseable {
                 return response.getText();
             } catch (Exception e) {
                 lastError = unwrap(e);
+                long latency = System.currentTimeMillis() - start;
+
+                if (e instanceof InterruptedException || Thread.currentThread().isInterrupted()) {
+                    // Future.get() clears the interrupted flag before throwing.
+                    // Do not turn a shutdown request into an ordinary provider
+                    // failure or continue with a retry.
+                    statistics.recordFailure(feature, latency);
+                    safeRecordTrace(feature, messages, "", 0, 0, latency,
+                            "INTERRUPTED", options.repairAttempt,
+                            options.expansionAttempted, safeExpandedClasses,
+                            lastError.getClass().getSimpleName(), options);
+                    Thread.currentThread().interrupt();
+                    throw new LlmCallFailedException("LLM query interrupted", lastError, false);
+                }
                 boolean retryable = isRetryable(lastError);
-                if (!retryable || attempt == maxTries) {
+                if (!retryable || attempt == maxTries || remainingNanos(options.deadlineNanos) <= 0L) {
                     String friendly = friendlyMessage(lastError);
                     if (!retryable) {
                         logger.warn("LLM call failed (attempt {}/{}): {}", attempt, maxTries, friendly);
@@ -507,7 +553,7 @@ public class LlmService implements AutoCloseable {
                         logger.warn("LLM call failed after {} attempts: {}", attempt, friendly);
                     }
                     if (isInvalidModelError(friendly)) {
-                        List<String> available = fetchAvailableModelIds();
+                        List<String> available = fetchAvailableModelIds(options.deadlineNanos);
                         if (!available.isEmpty()) {
                             String configuredModel = configuration.getModel();
                             if (configuredModel != null && available.contains(configuredModel.trim())) {
@@ -522,20 +568,32 @@ public class LlmService implements AutoCloseable {
                     }
                     logger.debug("Full LLM error detail", lastError);
                     if (lastError instanceof TimeoutException) {
-                        statistics.recordTimeout(feature);
+                        statistics.recordTimeout(feature, latency);
                     } else {
-                        statistics.recordFailure(feature);
+                        statistics.recordFailure(feature, latency);
                     }
                     safeRecordTrace(feature, messages, "", 0, 0,
-                            System.currentTimeMillis() - start, "FAILED", options.repairAttempt,
+                            latency, "FAILED", options.repairAttempt,
                             options.expansionAttempted, safeExpandedClasses,
                             lastError.getClass().getSimpleName(), options);
                     throw new LlmCallFailedException(
                             "LLM query failed after " + attempt + " attempt(s): " + friendly, lastError, retryable);
                 }
+                // LLM_Calls measures provider attempts, while the failed and
+                // timed-out counters retain their documented final-outcome
+                // semantics.  Record retries separately so costs and traces
+                // do not hide transient provider work.
+                statistics.recordRetryAttempt(feature, latency);
+                safeRecordTrace(feature, messages, "", 0, 0, latency,
+                        "RETRYING", options.repairAttempt,
+                        options.expansionAttempted, safeExpandedClasses,
+                        lastError.getClass().getSimpleName(), options);
                 logger.debug("LLM call failed (attempt {}/{}): {}; retrying...",
                         attempt, maxTries, friendlyMessage(lastError));
-                sleepBackoff(attempt, options.deadlineNanos);
+                if (!sleepBackoff(attempt, options.deadlineNanos)) {
+                    Thread.currentThread().interrupt();
+                    throw new LlmCallFailedException("LLM retry interrupted", lastError, false);
+                }
             }
         }
 
@@ -546,10 +604,17 @@ public class LlmService implements AutoCloseable {
                                           long deadlineNanos) throws Exception {
         ExecutorService runner = executorService;
         ChatLanguageModel snapshot = model;
+        AtomicBoolean workerEntered = new AtomicBoolean();
+        CountDownLatch workerExited = new CountDownLatch(1);
         Future<LlmResponse> future = runner.submit(new Callable<LlmResponse>() {
             @Override
             public LlmResponse call() throws Exception {
-                return snapshot.generate(messages, feature);
+                workerEntered.set(true);
+                try {
+                    return snapshot.generate(messages, feature);
+                } finally {
+                    workerExited.countDown();
+                }
             }
         });
         try {
@@ -567,7 +632,7 @@ public class LlmService implements AutoCloseable {
             // Object.wait, which IS interruptible, so this normally tears down
             // the call.
             future.cancel(true);
-            if (!waitForWorkerToFinish(future, 2_000L)) {
+            if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
                 // Worker is still running — either OkHttp is in a non-interruptible
                 // path (Net.poll on the dispatcher thread) or langchain4j swallowed
                 // the interrupt. Drop the executor entirely so the leaked worker
@@ -577,23 +642,45 @@ public class LlmService implements AutoCloseable {
                 replaceExecutorService(runner);
             }
             throw e;
+        } catch (InterruptedException e) {
+            // Cancelling is just as important for caller interruption as for a
+            // timeout: otherwise a completed request can mutate state after a
+            // search worker has been stopped.
+            future.cancel(true);
+            if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
+                logger.warn("LLM worker did not terminate after caller interruption; replacing executor");
+                replaceExecutorService(runner);
+            }
+            Thread.currentThread().interrupt();
+            throw e;
         }
     }
 
-    private boolean waitForWorkerToFinish(Future<?> future, long waitMs) {
-        long deadline = System.currentTimeMillis() + waitMs;
-        while (System.currentTimeMillis() < deadline) {
-            if (future.isDone()) {
-                return true;
-            }
+    private boolean waitForWorkerToFinish(AtomicBoolean workerEntered,
+                                          CountDownLatch workerExited,
+                                          long waitMs) {
+        // Future.isDone() is not a worker-liveness signal: cancellation marks
+        // a FutureTask done before its callable has necessarily returned.
+        // The callable's finally block is the only reliable acknowledgement.
+        if (!workerEntered.get()) {
+            // A task cancelled while queued never enters the callable. Give the
+            // narrow runner-registration race a short chance to become visible.
             try {
-                Thread.sleep(50L);
+                if (!workerExited.await(Math.min(50L, waitMs), TimeUnit.MILLISECONDS)
+                        && !workerEntered.get()) {
+                    return true;
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                return future.isDone();
+                return false;
             }
         }
-        return future.isDone();
+        try {
+            return workerExited.await(Math.max(0L, waitMs), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
     }
 
     /**
@@ -620,6 +707,7 @@ public class LlmService implements AutoCloseable {
             // Best effort — even if shutdown throws, we still want a fresh executor below.
         }
         this.executorService = createExecutorService();
+        executorGeneration.incrementAndGet();
         if (available && configuration.getProvider() != Properties.LlmProvider.NONE) {
             try {
                 this.model = createProviderModel(configuration);
@@ -653,7 +741,7 @@ public class LlmService implements AutoCloseable {
         });
     }
 
-    private void sleepBackoff(int attempt, long deadlineNanos) {
+    private boolean sleepBackoff(int attempt, long deadlineNanos) {
         int exponent = Math.min(Math.max(0, attempt - 1), 20);
         long base = (long) configuration.getRetryBaseDelayMs() * (1L << exponent);
         double jitterFactor = 0.8 + (0.4 * jitterRandom.nextDouble());
@@ -665,13 +753,14 @@ public class LlmService implements AutoCloseable {
                             Math.max(0L, remainingNanos(deadlineNanos))));
         }
         if (delay <= 0) {
-            return;
+            return true;
         }
         try {
             Thread.sleep(delay);
+            return true;
         } catch (InterruptedException interruptedException) {
-            Thread.currentThread().interrupt();
-            logger.warn("Interrupted during LLM retry backoff");
+            logger.debug("Interrupted during LLM retry backoff");
+            return false;
         }
     }
 
@@ -934,6 +1023,10 @@ public class LlmService implements AutoCloseable {
      * diagnostics only.
      */
     List<String> fetchAvailableModelIds() {
+        return fetchAvailableModelIds(Long.MAX_VALUE);
+    }
+
+    List<String> fetchAvailableModelIds(long deadlineNanos) {
         String base = configuration.getBaseUrl();
         if (isBlank(base)) {
             return Collections.emptyList();
@@ -950,12 +1043,17 @@ public class LlmService implements AutoCloseable {
             endpoint = base + "/v1/models";
         }
 
+        HttpURLConnection conn = null;
         try {
+            int timeoutMs = diagnosticTimeoutMillis(deadlineNanos);
+            if (timeoutMs <= 0) {
+                return Collections.emptyList();
+            }
             logger.debug("Querying available models at {}", endpoint);
-            HttpURLConnection conn = (HttpURLConnection) new URL(endpoint).openConnection();
+            conn = (HttpURLConnection) new URL(endpoint).openConnection();
             conn.setRequestMethod("GET");
-            conn.setConnectTimeout(5_000);
-            conn.setReadTimeout(5_000);
+            conn.setConnectTimeout(timeoutMs);
+            conn.setReadTimeout(timeoutMs);
             if (!isBlank(configuration.getApiKey())) {
                 conn.setRequestProperty("Authorization", "Bearer " + configuration.getApiKey().trim());
             }
@@ -971,6 +1069,9 @@ public class LlmService implements AutoCloseable {
                     new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
+                    if (remainingNanos(deadlineNanos) <= 0) {
+                        return Collections.emptyList();
+                    }
                     sb.append(line);
                 }
             }
@@ -988,7 +1089,23 @@ public class LlmService implements AutoCloseable {
         } catch (Exception e) {
             logger.debug("Failed to fetch available models from {}: {}", endpoint, e.getMessage());
             return Collections.emptyList();
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
         }
+    }
+
+    private static int diagnosticTimeoutMillis(long deadlineNanos) {
+        if (deadlineNanos == Long.MAX_VALUE) {
+            return 5_000;
+        }
+        long remaining = remainingNanos(deadlineNanos);
+        if (remaining <= 0L) {
+            return 0;
+        }
+        long remainingMillis = TimeUnit.NANOSECONDS.toMillis(remaining);
+        return (int) Math.min(5_000L, Math.max(1L, remainingMillis));
     }
 
     private static final Pattern MODEL_ID_PATTERN =

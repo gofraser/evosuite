@@ -453,6 +453,23 @@ class LlmObjectPoolEnricherTest {
     }
 
     @Test
+    void cancelledEnricherDoesNotMutateObjectPool() throws Exception {
+        LlmObjectPoolEnricher enricher = createEnricherWithMocks();
+        DefaultTestCase tc = new DefaultTestCase();
+        GenericConstructor gc = new GenericConstructor(
+                ArrayList.class.getConstructor(), GenericClassFactory.get(ArrayList.class));
+        tc.addStatement(new ConstructorStatement(tc, gc, Collections.emptyList()));
+
+        enricher.cancel();
+        LlmObjectPoolEnricher.TypeKeyInsertionResult result =
+                enricher.addSequenceToPoolByProducedTypes(tc, Set.of("java.util.ArrayList"));
+
+        assertEquals(0, result.insertions);
+        assertFalse(ObjectPoolManager.getInstance().hasSequence(GenericClassFactory.get(ArrayList.class)),
+                "cancellation must win over a direct object-pool insertion attempt");
+    }
+
+    @Test
     void endToEnd_supertypeRetrieval_exactMatchAlwaysWorks() throws Exception {
         LlmObjectPoolEnricher enricher = createEnricherWithMocks();
 

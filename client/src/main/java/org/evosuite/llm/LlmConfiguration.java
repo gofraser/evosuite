@@ -23,6 +23,9 @@ import org.evosuite.Properties;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -43,6 +46,8 @@ public class LlmConfiguration {
     private final boolean traceEnabled;
     private final Path traceDir;
     private final String runId;
+    private final List<String> postProcessingCapabilities;
+    private final String postProcessingRepairPolicy;
 
     /** Constructs an immutable LLM configuration snapshot with all fields. */
     public LlmConfiguration(Properties.LlmProvider provider,
@@ -57,10 +62,34 @@ public class LlmConfiguration {
                             boolean traceEnabled,
                             Path traceDir,
                             String runId) {
+        if (provider == null) {
+            throw new IllegalArgumentException("LLM provider must not be null");
+        }
+        if (!Double.isFinite(temperature) || temperature < 0.0 || temperature > 2.0) {
+            throw new IllegalArgumentException("LLM temperature must be finite and in [0, 2]");
+        }
+        if (maxTokens < 1) {
+            throw new IllegalArgumentException("LLM max tokens must be at least 1");
+        }
+        if (timeoutSeconds < 1) {
+            throw new IllegalArgumentException("LLM timeout seconds must be at least 1");
+        }
+        if (retryMaxAttempts < 0) {
+            throw new IllegalArgumentException("LLM retry max attempts must not be negative");
+        }
+        if (retryBaseDelayMs < 1) {
+            throw new IllegalArgumentException("LLM retry base delay must be at least 1ms");
+        }
+        if (traceDir == null) {
+            throw new IllegalArgumentException("LLM trace directory must not be null");
+        }
+        if (runId == null || runId.trim().isEmpty()) {
+            throw new IllegalArgumentException("LLM run id must not be blank");
+        }
         this.provider = provider;
-        this.model = model;
-        this.apiKey = apiKey;
-        this.baseUrl = baseUrl;
+        this.model = trimToEmpty(model);
+        this.apiKey = trimToEmpty(apiKey);
+        this.baseUrl = trimToEmpty(baseUrl);
         this.temperature = temperature;
         this.maxTokens = maxTokens;
         this.timeoutSeconds = timeoutSeconds;
@@ -68,7 +97,9 @@ public class LlmConfiguration {
         this.retryBaseDelayMs = retryBaseDelayMs;
         this.traceEnabled = traceEnabled;
         this.traceDir = traceDir;
-        this.runId = runId;
+        this.runId = runId.trim();
+        this.postProcessingCapabilities = snapshotPostProcessingCapabilities();
+        this.postProcessingRepairPolicy = snapshotPostProcessingRepairPolicy();
     }
 
     /** Returns a new builder for constructing LlmConfiguration instances. */
@@ -109,6 +140,35 @@ public class LlmConfiguration {
         }
         String env = System.getenv(envKey);
         return env == null ? "" : env.trim();
+    }
+
+    private static String trimToEmpty(String value) {
+        return value == null ? "" : value.trim();
+    }
+
+    private static List<String> snapshotPostProcessingCapabilities() {
+        List<String> capabilities = new ArrayList<>();
+        if (Properties.LLM_POSTPROCESSING_ASSERTIONS) {
+            capabilities.add("assertions");
+        }
+        if (Properties.LLM_POSTPROCESSING_TEST_NAMES) {
+            capabilities.add("test_names");
+        }
+        if (Properties.LLM_POSTPROCESSING_VARIABLE_NAMES) {
+            capabilities.add("variable_names");
+        }
+        if (Properties.LLM_POSTPROCESSING_COMMENTS) {
+            capabilities.add("comments");
+        }
+        if (Properties.LLM_POSTPROCESSING_SECTION_BREAKS) {
+            capabilities.add("section_breaks");
+        }
+        return Collections.unmodifiableList(capabilities);
+    }
+
+    private static String snapshotPostProcessingRepairPolicy() {
+        Properties.LlmPostProcessingRepairPolicy policy = Properties.LLM_POSTPROCESSING_REPAIR_POLICY;
+        return policy == null ? "" : policy.name();
     }
 
     public Properties.LlmProvider getProvider() {
@@ -159,6 +219,16 @@ public class LlmConfiguration {
         return runId;
     }
 
+    /** Returns the post-processing capabilities enabled when this run was configured. */
+    public List<String> getPostProcessingCapabilities() {
+        return postProcessingCapabilities;
+    }
+
+    /** Returns the post-processing repair policy captured for this run. */
+    public String getPostProcessingRepairPolicy() {
+        return postProcessingRepairPolicy;
+    }
+
     /**
      * Fluent builder for {@link LlmConfiguration}.
      */
@@ -167,11 +237,11 @@ public class LlmConfiguration {
         private String model = "";
         private String apiKey = "";
         private String baseUrl = "";
-        private double temperature = 0.0;
-        private int maxTokens = 1024;
-        private int timeoutSeconds = 30;
+        private double temperature = 0.7;
+        private int maxTokens = 32768;
+        private int timeoutSeconds = 60;
         private int retryMaxAttempts = 2;
-        private int retryBaseDelayMs = 1000;
+        private int retryBaseDelayMs = 250;
         private boolean traceEnabled = false;
         private Path traceDir = Paths.get("evosuite-report", "llm-traces");
         private String runId = UUID.randomUUID().toString();

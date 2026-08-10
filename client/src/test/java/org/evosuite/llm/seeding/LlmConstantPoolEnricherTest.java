@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.*;
 import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.junit.jupiter.api.AfterEach;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CountDownLatch;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -56,6 +58,7 @@ class LlmConstantPoolEnricherTest {
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
         LlmService.resetInstanceForTesting();
         LlmStatistics.resetSeedingCounters();
+        ConstantPoolManager.getInstance().reset();
     }
 
     @AfterEach
@@ -65,6 +68,7 @@ class LlmConstantPoolEnricherTest {
         Properties.LLM_FEW_SHOT_USE_ARCHIVE = savedUseArchive;
         LlmService.resetInstanceForTesting();
         LlmStatistics.resetSeedingCounters();
+        ConstantPoolManager.getInstance().reset();
     }
 
     // ---- Constant parsing tests ----
@@ -259,6 +263,51 @@ class LlmConstantPoolEnricherTest {
         assertEquals(2, result.getNonSutConstantsAdded());
         assertEquals(10, result.getConstantsParsed());
         assertNull(result.getFailureReason());
+    }
+
+    @Test
+    void cancellationAfterInterruptIgnoringQueryDoesNotMutateConstantPool() throws Exception {
+        CountDownLatch queryEntered = new CountDownLatch(1);
+        CountDownLatch releaseQuery = new CountDownLatch(1);
+        CountDownLatch queryFinished = new CountDownLatch(1);
+        LlmService.ChatLanguageModel model = (messages, feature) -> {
+            queryEntered.countDown();
+            boolean interrupted = false;
+            while (releaseQuery.getCount() != 0) {
+                try {
+                    releaseQuery.await();
+                } catch (InterruptedException ignored) {
+                    // Simulate a transport that does not honour cancellation.
+                    interrupted = true;
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            queryFinished.countDown();
+            return LlmService.LlmResponse.fromText("\"late-constant-marker\"");
+        };
+        LlmService service = createService(model, 4);
+        LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(service);
+
+        try {
+            CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> future =
+                    enricher.enrichAsync("com.example.Target", null);
+            assertTrue(queryEntered.await(5, TimeUnit.SECONDS));
+
+            enricher.cancel();
+            future.cancel(true);
+            releaseQuery.countDown();
+            assertTrue(queryFinished.await(5, TimeUnit.SECONDS));
+
+            Thread.sleep(100L);
+            assertFalse(ConstantPoolManager.getInstance().getSUTConstantPool().getStrings()
+                            .contains("late-constant-marker"),
+                    "a response that returns after cancellation must not mutate the constant pool");
+        } finally {
+            releaseQuery.countDown();
+            service.close();
+        }
     }
 
     // ---- Prompt building test ----

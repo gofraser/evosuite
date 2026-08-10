@@ -53,14 +53,14 @@ public final class LlmWaitBudget {
     public static long repairAwareWaitSeconds() {
         long timeout = Math.max(1L, Properties.LLM_TIMEOUT_SECONDS);
         long attempts = Math.max(0L, Properties.LLM_REPAIR_ATTEMPTS);
-        return Math.max(1L, timeout * (attempts + 1L));
+        return Math.max(1L, saturatingMultiply(timeout, attempts + 1L));
     }
 
     /**
      * Worst-case wall-clock wait in milliseconds, unclamped.
      */
     public static long repairAwareWaitMillis() {
-        return repairAwareWaitSeconds() * 1000L;
+        return saturatingMultiply(repairAwareWaitSeconds(), 1000L);
     }
 
     /**
@@ -97,5 +97,15 @@ public final class LlmWaitBudget {
             return derived;
         }
         return Math.max(1L, Math.min(derived, remaining));
+    }
+
+    private static long saturatingMultiply(long left, long right) {
+        if (left <= 0L || right <= 0L) {
+            return 0L;
+        }
+        if (left > Long.MAX_VALUE / right) {
+            return Long.MAX_VALUE;
+        }
+        return left * right;
     }
 }

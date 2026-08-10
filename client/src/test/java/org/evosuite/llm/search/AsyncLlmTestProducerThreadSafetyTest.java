@@ -33,11 +33,14 @@ import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -107,6 +110,55 @@ class AsyncLlmTestProducerThreadSafetyTest {
             assertFalse(produced.isEmpty(), "transient snapshot failure must not kill the producer");
             assertTrue(snapshots.get() >= 2);
         } finally {
+            producer.stop();
+        }
+    }
+
+    @Test
+    void stopDropsCandidateThatArrivesAfterAnInterruptIgnoringRequest() throws Exception {
+        LlmService service = mock(LlmService.class);
+        when(service.isAvailable()).thenReturn(true);
+        when(service.hasBudget()).thenReturn(true);
+        CountDownLatch requestEntered = new CountDownLatch(1);
+        CountDownLatch releaseRequest = new CountDownLatch(1);
+        CountDownLatch requestReturned = new CountDownLatch(1);
+        TestChromosome lateCandidate = new TestChromosome();
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                () -> Collections.singleton(new FixedFitnessGoal("example.Target", "method()V", 1.0)),
+                null, service, 1, 1, 0) {
+            @Override
+            protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
+                requestEntered.countDown();
+                boolean interrupted = false;
+                while (true) {
+                    try {
+                        releaseRequest.await();
+                        break;
+                    } catch (InterruptedException ignored) {
+                        interrupted = true;
+                    }
+                }
+                if (interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+                requestReturned.countDown();
+                return Collections.singletonList(lateCandidate);
+            }
+        };
+
+        try {
+            producer.start();
+            assertTrue(requestEntered.await(1, TimeUnit.SECONDS));
+            // stop() returns after its bounded join even when the request ignores
+            // interruption. Releasing it afterwards exercises the late-result path.
+            producer.stop();
+            releaseRequest.countDown();
+            assertTrue(requestReturned.await(1, TimeUnit.SECONDS));
+            assertTrue(producer.drainAvailable().isEmpty(),
+                    "A candidate returned after stop() must not be published");
+            assertNull(producer.consumeAttemptMetadata(lateCandidate));
+        } finally {
+            releaseRequest.countDown();
             producer.stop();
         }
     }

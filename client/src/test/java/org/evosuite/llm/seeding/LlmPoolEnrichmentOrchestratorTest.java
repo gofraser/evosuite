@@ -532,7 +532,10 @@ class LlmPoolEnrichmentOrchestratorTest {
         // Wire a slow future that blocks longer than the timeout
         CompletableFuture<LlmCastClassEnricher.EnrichmentResult> slowFuture = new CompletableFuture<>();
         LlmCastClassEnricher spyEnricher = org.mockito.Mockito.spy(realEnricher);
-        when(spyEnricher.enrichAsync(anyString(), any())).thenReturn(slowFuture);
+        // doReturn avoids invoking the real asynchronous method while Mockito
+        // is setting up the spy.
+        org.mockito.Mockito.doReturn(slowFuture)
+                .when(spyEnricher).enrichAsync(anyString(), any());
 
         LlmPoolEnrichmentOrchestrator orchestrator =
                 new LlmPoolEnrichmentOrchestrator(mock(LlmConstantPoolEnricher.class),

@@ -241,6 +241,39 @@ class LlmPostProcessorTest {
     }
 
     @Test
+    void infrastructureSkipMarksStandardAssertionFallbackRequired() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        LlmPostProcessor phaseProcessor = processor(new NoBudgetTestLlmService(new QueueCapturingModel()));
+        LlmPostProcessingPhaseContext context = phaseProcessor.createPhaseContext();
+
+        phaseProcessor.runUnifiedPostProcessing(singleTestSuite(7),
+                MinimizationResult.disabled(null), context);
+
+        assertEquals("service_unavailable_or_no_budget", context.getTerminalReason());
+        assertTrue(context.requiresStandardAssertionFallback());
+    }
+
+    @Test
+    void assertionFallbackTargetsOnlyUnattemptedOrFailedTests() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        LlmPostProcessingPhaseContext context = processor(
+                new NoBudgetTestLlmService(new QueueCapturingModel())).createPhaseContext();
+        DefaultTestCase explicitNoOracle = singleIntTest(1);
+        DefaultTestCase failed = singleIntTest(2);
+        DefaultTestCase unattempted = singleIntTest(3);
+        context.recordAttemptedTest(explicitNoOracle);
+        context.recordAttemptedTest(failed);
+        context.recordFailedAssertionTest(failed);
+        context.recordTerminalReason("infrastructure_failure");
+
+        assertFalse(context.shouldGenerateStandardAssertionsFor(explicitNoOracle));
+        assertTrue(context.shouldGenerateStandardAssertionsFor(failed));
+        assertTrue(context.shouldGenerateStandardAssertionsFor(unattempted));
+    }
+
+    @Test
     void runUnifiedPostProcessing_noFeaturesEnabledNoopsWithoutCallingModel() {
         Properties.LLM_POSTPROCESSING_ENABLED = true;
         Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;

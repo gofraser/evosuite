@@ -134,6 +134,48 @@ class LlmTraceRecorderTest {
     }
 
     @Test
+    void recordsConfiguredPostProcessingPolicyAndCapabilities() throws Exception {
+        boolean assertions = org.evosuite.Properties.LLM_POSTPROCESSING_ASSERTIONS;
+        boolean testNames = org.evosuite.Properties.LLM_POSTPROCESSING_TEST_NAMES;
+        boolean variableNames = org.evosuite.Properties.LLM_POSTPROCESSING_VARIABLE_NAMES;
+        boolean comments = org.evosuite.Properties.LLM_POSTPROCESSING_COMMENTS;
+        boolean sectionBreaks = org.evosuite.Properties.LLM_POSTPROCESSING_SECTION_BREAKS;
+        org.evosuite.Properties.LlmPostProcessingRepairPolicy repairPolicy =
+                org.evosuite.Properties.LLM_POSTPROCESSING_REPAIR_POLICY;
+        try {
+            org.evosuite.Properties.LLM_POSTPROCESSING_ASSERTIONS = false;
+            org.evosuite.Properties.LLM_POSTPROCESSING_TEST_NAMES = true;
+            org.evosuite.Properties.LLM_POSTPROCESSING_VARIABLE_NAMES = false;
+            org.evosuite.Properties.LLM_POSTPROCESSING_COMMENTS = true;
+            org.evosuite.Properties.LLM_POSTPROCESSING_SECTION_BREAKS = false;
+            org.evosuite.Properties.LLM_POSTPROCESSING_REPAIR_POLICY =
+                    org.evosuite.Properties.LlmPostProcessingRepairPolicy.BATCHED;
+
+            LlmConfiguration configuration = new LlmConfiguration(
+                    org.evosuite.Properties.LlmProvider.OPENAI, "model-1", "", "", 0.0,
+                    256, 3, 1, 1, true, tempDir, "run-policy");
+            LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
+            recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
+                    .feature(LlmFeature.POST_PROCESSING)
+                    .messages(Arrays.asList(LlmMessage.user("request")))
+                    .responseText("response")
+                    .parseStatus("SUCCESS")
+                    .build());
+
+            String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
+            assertTrue(content.contains("\"postprocessing_repair_policy\":\"BATCHED\""));
+            assertTrue(content.contains("\"postprocessing_capabilities\":[\"test_names\",\"comments\"]"));
+        } finally {
+            org.evosuite.Properties.LLM_POSTPROCESSING_ASSERTIONS = assertions;
+            org.evosuite.Properties.LLM_POSTPROCESSING_TEST_NAMES = testNames;
+            org.evosuite.Properties.LLM_POSTPROCESSING_VARIABLE_NAMES = variableNames;
+            org.evosuite.Properties.LLM_POSTPROCESSING_COMMENTS = comments;
+            org.evosuite.Properties.LLM_POSTPROCESSING_SECTION_BREAKS = sectionBreaks;
+            org.evosuite.Properties.LLM_POSTPROCESSING_REPAIR_POLICY = repairPolicy;
+        }
+    }
+
+    @Test
     void writesPostProcessingAssertionDiagnosticEvent() throws Exception {
         LlmConfiguration configuration = new LlmConfiguration(
                 org.evosuite.Properties.LlmProvider.OPENAI,

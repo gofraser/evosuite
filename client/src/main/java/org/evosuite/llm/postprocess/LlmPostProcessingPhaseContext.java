@@ -3,6 +3,12 @@
  */
 package org.evosuite.llm.postprocess;
 
+import org.evosuite.testcase.TestCase;
+
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
+
 /**
  * Immutable configuration and isolated lifecycle state for one post-processing
  * phase. The public shell lets the suite generator carry the phase explicitly;
@@ -15,6 +21,11 @@ public final class LlmPostProcessingPhaseContext {
     private final LlmPostProcessor.PhaseClock phaseClock;
     private final PostProcessingTelemetry telemetry;
     private final long startMillis;
+    private volatile String terminalReason = "";
+    private final Set<TestCase> attemptedTests =
+            Collections.newSetFromMap(new IdentityHashMap<>());
+    private final Set<TestCase> failedAssertionTests =
+            Collections.newSetFromMap(new IdentityHashMap<>());
 
     LlmPostProcessingPhaseContext(PostProcessingOptions options,
                                   PostProcessingSession session,
@@ -48,5 +59,66 @@ public final class LlmPostProcessingPhaseContext {
 
     long startMillis() {
         return startMillis;
+    }
+
+    void recordTerminalReason(String reason) {
+        terminalReason = reason == null ? "" : reason;
+    }
+
+    /**
+     * Describes why the phase stopped or was skipped. An empty value means the
+     * configured work completed normally.
+     */
+    public String getTerminalReason() {
+        return terminalReason;
+    }
+
+    /**
+     * Whether ordinary EvoSuite assertions should cover tests that received no
+     * oracle because the LLM phase could not run or finish for an
+     * infrastructure reason. Deliberate size/call caps are not failures.
+     */
+    public boolean requiresStandardAssertionFallback() {
+        if (!options.features().assertions()) {
+            return false;
+        }
+        switch (terminalReason) {
+            case "disabled":
+            case "no_provider":
+            case "no_features_enabled":
+            case "service_unavailable_or_no_budget":
+            case "incomplete_minimization":
+            case "timeout":
+            case "low_memory":
+            case "budget_exhausted":
+            case "infrastructure_failure":
+            case "phase_failure":
+                return true;
+            default:
+                return terminalReason.startsWith("incomplete_minimization_");
+        }
+    }
+
+    void recordAttemptedTest(TestCase test) {
+        if (test != null) {
+            attemptedTests.add(test);
+        }
+    }
+
+    void recordFailedAssertionTest(TestCase test) {
+        if (test != null) {
+            failedAssertionTests.add(test);
+        }
+    }
+
+    /**
+     * Selects only tests the failed phase did not reach, plus an attempted test
+     * whose oracle-specific work failed. This preserves an explicit LLM
+     * {@code NO_SAFE_ORACLE} decision on successfully processed tests.
+     */
+    public boolean shouldGenerateStandardAssertionsFor(TestCase test) {
+        return requiresStandardAssertionFallback()
+                && test != null
+                && (!attemptedTests.contains(test) || failedAssertionTests.contains(test));
     }
 }

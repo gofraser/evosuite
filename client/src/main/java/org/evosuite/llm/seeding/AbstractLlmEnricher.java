@@ -35,9 +35,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Standardizes async execution, budget checks, and error handling.
  *
  * <p>Uses a dedicated daemon-thread executor (not ForkJoinPool.commonPool())
- * so that blocking LLM I/O does not starve CPU-bound work, and
- * {@link ExecutorService#shutdownNow()} delivers real thread interruption
- * when the orchestrator cancels enrichment on timeout.
+ * so that blocking LLM I/O does not starve CPU-bound work. Runtime
+ * cancellation is cooperative: the pool is process-shared, and the
+ * cancellation/mutation gate below prevents a late task from changing global
+ * seed state even when its transport ignores interruption.
  */
 public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.EnrichmentResult> {
 
@@ -62,6 +63,14 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
      * the orchestrator via {@link #cancel()} when the enrichment deadline expires.
      */
     private final AtomicBoolean cancelled = new AtomicBoolean(false);
+    /**
+     * Serializes cancellation with the small critical sections that mutate a
+     * process-wide pool.  Cancelling a CompletableFuture alone does not stop
+     * its running action, so a last check outside the mutation is not enough:
+     * cancellation could otherwise win in the gap between that check and the
+     * pool write.
+     */
+    private final Object cancellationLock = new Object();
 
     protected AbstractLlmEnricher(LlmService llmService, LlmFeature feature) {
         this.llmService = llmService;
@@ -94,7 +103,9 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
      * Subclass loops should poll {@link #isCancelled()}.
      */
     public void cancel() {
-        cancelled.set(true);
+        synchronized (cancellationLock) {
+            cancelled.set(true);
+        }
     }
 
     /**
@@ -103,6 +114,25 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
      */
     protected boolean isCancelled() {
         return cancelled.get() || Thread.currentThread().isInterrupted();
+    }
+
+    /**
+     * Runs one shared-state mutation only while this enricher is still active.
+     * The cancellation flag and the mutation are synchronized to make the
+     * cancellation boundary unambiguous for callers that time out while an
+     * LLM request is returning.
+     *
+     * @return {@code true} when the mutation ran, {@code false} when it was
+     *         suppressed because cancellation had already been requested
+     */
+    protected boolean mutateIfActive(Runnable mutation) {
+        synchronized (cancellationLock) {
+            if (isCancelled()) {
+                return false;
+            }
+            mutation.run();
+            return true;
+        }
     }
 
     /**

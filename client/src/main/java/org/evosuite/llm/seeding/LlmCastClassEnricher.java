@@ -304,26 +304,29 @@ public class LlmCastClassEnricher extends AbstractLlmEnricher<LlmCastClassEnrich
 
             validated++;
 
-            // Final cancellation check before mutating CastClassManager
-            if (isCancelled()) {
-                logger.debug("Cast class enrichment: cancelled before adding '{}'", suggestion);
-                break;
-            }
-
-            // Snapshot size before add to measure actual classes added
-            int sizeBefore = CastClassManager.getInstance().getCastClasses().size();
-
+            final int[] addedHolder = {0};
             try {
-                CastClassManager.getInstance().addCastClass(suggestion, LLM_CAST_CLASS_PRIORITY);
+                boolean mutated = mutateIfActive(() -> {
+                    CastClassManager manager = CastClassManager.getInstance();
+                    int sizeBefore = manager.getCastClasses().size();
+                    manager.addCastClass(suggestion, LLM_CAST_CLASS_PRIORITY);
+                    addedHolder[0] = manager.getCastClasses().size() - sizeBefore;
+                    if (addedHolder[0] > 0) {
+                        LlmStatistics.recordCastClassesAccepted(addedHolder[0]);
+                    }
+                });
+                if (!mutated) {
+                    logger.debug("Cast class enrichment: cancelled before adding '{}'", suggestion);
+                    break;
+                }
             } catch (Throwable t) {
                 logger.debug("Cast class enrichment: failed to add '{}': {}", suggestion, t.getMessage());
                 continue;
             }
 
-            int added = CastClassManager.getInstance().getCastClasses().size() - sizeBefore;
+            int added = addedHolder[0];
             classesAdded += added;
             if (added > 0) {
-                LlmStatistics.recordCastClassesAccepted(added);
                 logger.debug("Cast class enrichment: accepted '{}' ({} class(es) added)", suggestion, added);
             }
 

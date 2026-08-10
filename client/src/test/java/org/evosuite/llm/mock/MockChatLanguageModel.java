@@ -1,21 +1,5 @@
 /*
- * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
- * contributors
- *
- * This file is part of EvoSuite.
- *
- * EvoSuite is free software: you can redistribute it and/or modify it
- * under the terms of the GNU Lesser General Public License as published
- * by the Free Software Foundation, either version 3.0 of the License, or
- * (at your option) any later version.
- *
- * EvoSuite is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite contributors.
  */
 package org.evosuite.llm.mock;
 
@@ -29,12 +13,11 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Deterministic in-memory chat model for unit tests and trace replay.
- */
+/** Deterministic in-memory chat model for tests. */
 public class MockChatLanguageModel implements LlmService.ChatLanguageModel {
 
-    private final Map<LlmFeature, Deque<LlmService.LlmResponse>> responses = new EnumMap<>(LlmFeature.class);
+    private final Map<LlmFeature, Deque<LlmService.LlmResponse>> responses =
+            new EnumMap<>(LlmFeature.class);
 
     public void enqueue(LlmFeature feature, String responseText) {
         enqueue(feature, new LlmService.LlmResponse(responseText, 0, 0));

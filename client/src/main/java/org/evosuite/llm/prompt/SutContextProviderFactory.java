@@ -77,6 +77,16 @@ public class SutContextProviderFactory {
         }
     }
 
+    /** Clears process-scoped context and provider state after one EvoSuite run. */
+    public static void resetForRunCompletion() {
+        synchronized (INSTANCE_LOCK) {
+            if (sharedInstance != null) {
+                sharedInstance.clearCache();
+            }
+            sharedInstance = null;
+        }
+    }
+
     /** Constructs a factory with default provider implementations. */
     public SutContextProviderFactory() {
         this(new SignatureContextProvider(),
@@ -109,7 +119,10 @@ public class SutContextProviderFactory {
         if (mode == LlmSutContextMode.SIGNATURE_ONLY) {
             return computeContext(className, cluster, mode);
         }
-        String cacheKey = mode.name() + ":" + (className == null ? "" : className);
+        String cacheKey = mode.name()
+                + ":" + (className == null ? "" : className)
+                + ":max=" + Properties.LLM_CONTEXT_MAX_CHARS
+                + ":source=" + (Properties.LLM_SOURCE_PATH == null ? "" : Properties.LLM_SOURCE_PATH.trim());
         ContextResult cached = cache.get(cacheKey);
         if (cached != null) {
             return cached;

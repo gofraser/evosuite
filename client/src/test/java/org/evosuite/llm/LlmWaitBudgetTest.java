@@ -117,4 +117,12 @@ class LlmWaitBudgetTest {
         long seconds = LlmWaitBudget.repairAwareWaitSeconds();
         assertEquals(seconds * 1000L, LlmWaitBudget.repairAwareWaitMillis());
     }
+
+    @Test
+    void millisSaturatesInsteadOfOverflowingForValidLargeProperties() {
+        Properties.LLM_TIMEOUT_SECONDS = Integer.MAX_VALUE;
+        Properties.LLM_REPAIR_ATTEMPTS = Integer.MAX_VALUE;
+
+        assertEquals(Long.MAX_VALUE, LlmWaitBudget.repairAwareWaitMillis());
+    }
 }

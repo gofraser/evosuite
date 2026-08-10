@@ -487,14 +487,14 @@ public class LlmTraceRecorder {
                         ? LlmPostProcessingProtocol.promptVersion() : "");
         traceRecord.put("postprocessing_capabilities",
                 record.feature == LlmFeature.POST_PROCESSING
-                        ? Collections.emptyList()
+                        ? configuration.getPostProcessingCapabilities()
                         : Collections.emptyList());
         traceRecord.put("postprocessing_internal_context_truncated",
                 record.feature == LlmFeature.POST_PROCESSING
                         && hasInternalContextTruncation(safeMessages));
         traceRecord.put("postprocessing_repair_policy",
                 record.feature == LlmFeature.POST_PROCESSING
-                        ? Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE.name() : "");
+                        ? configuration.getPostProcessingRepairPolicy() : "");
         traceRecord.put("messages", toSerializableMessages(safeMessages));
         traceRecord.put("response_text", record.responseText);
         traceRecord.put("parse_status", record.parseStatus);
@@ -701,9 +701,9 @@ public class LlmTraceRecorder {
         traceRecord.put("postprocessing_prompt_variant",
                 LlmPostProcessingProtocol.promptVersion());
         traceRecord.put("postprocessing_capabilities",
-                Collections.emptyList());
+                configuration.getPostProcessingCapabilities());
         traceRecord.put("postprocessing_repair_policy",
-                Properties.LlmPostProcessingRepairPolicy.TARGETED_ONE.name());
+                configuration.getPostProcessingRepairPolicy());
         traceRecord.put("system_prompt_hash", contentHash(
                 new SystemPromptProvider().getPostProcessingSystemPrompt()));
     }

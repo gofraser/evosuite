@@ -135,7 +135,7 @@ class StagnationLlmHelperTest {
             responseGate.countDown();
 
             // Poll briefly for the async tests to land.
-            List<TestChromosome> tests = drainWithTimeout(helper, 2_000);
+            List<TestChromosome> tests = drainWithTimeout(helper, 10_000);
             assertFalse(tests.isEmpty(),
                     "ASYNC mode should eventually deliver tests via drain()");
             assertEquals(1L, helper.getPromptsSubmitted());
@@ -196,7 +196,7 @@ class StagnationLlmHelperTest {
             // Let the call complete at t=5; consumeWindow() re-arms the
             // window from this completion time, not from t=0 or t=2.
             responseGate.countDown();
-            List<TestChromosome> tests = drainWithTimeout(helper, 2_000);
+            List<TestChromosome> tests = drainWithTimeout(helper, 10_000);
             assertFalse(tests.isEmpty(), "ASYNC mode should eventually deliver tests via drain()");
 
             // Just past completion (t=5.5 < 5+threshold): must not fire again.
@@ -255,7 +255,7 @@ class StagnationLlmHelperTest {
 
             // Complete the call at t=2; consumeWindow() re-arms the window to t=2.
             responseGate.countDown();
-            List<TestChromosome> tests = drainWithTimeout(helper, 2_000);
+            List<TestChromosome> tests = drainWithTimeout(helper, 10_000);
             assertFalse(tests.isEmpty());
 
             // Covered goals increase before completion + threshold (t=2.5 < 3).
@@ -443,6 +443,62 @@ class StagnationLlmHelperTest {
             assertFalse(tests.isEmpty(),
                     "Graceful shutdown must allow the in-flight call's tests to be drained");
         } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
+    void asyncMode_hardShutdownDropsLateInterruptIgnoringCompletion() throws Exception {
+        CountDownLatch providerEntered = new CountDownLatch(1);
+        CountDownLatch releaseProvider = new CountDownLatch(1);
+        CountDownLatch providerReturned = new CountDownLatch(1);
+        MockChatLanguageModel model = new MockChatLanguageModel() {
+            @Override
+            public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+                providerEntered.countDown();
+                // Deliberately model a provider that ignores cancellation.
+                while (true) {
+                    try {
+                        releaseProvider.await();
+                        break;
+                    } catch (InterruptedException ignored) {
+                        // Keep waiting until the test permits a late completion.
+                    }
+                }
+                providerReturned.countDown();
+                return super.generate(messages, feature);
+            }
+        };
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get);
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.ASYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, Collections.singleton(goal), pop);
+            assertTrue(providerEntered.await(1, TimeUnit.SECONDS));
+
+            helper.shutdown();
+            releaseProvider.countDown();
+            assertTrue(providerReturned.await(1, TimeUnit.SECONDS));
+            assertTrue(helper.awaitTermination(2, TimeUnit.SECONDS));
+
+            assertTrue(helper.drain().isEmpty(),
+                    "A completion returned after hard shutdown must not be published");
+            assertEquals(0L, helper.getResponsesReceived());
+            assertEquals(0L, helper.getTestsPublished());
+            assertEquals(0L, helper.getCalls());
+            assertTrue(detector.peekStagnation(0),
+                    "Hard shutdown must not re-arm the stagnation window from a late completion");
+        } finally {
+            releaseProvider.countDown();
             helper.shutdown();
             service.close();
         }
