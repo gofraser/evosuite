@@ -19,25 +19,12 @@
  */
 package com.examples.with.different.packagename.solver;
 
-import java.util.Arrays;
-
 public class Maze {
 
     // Maze hard-coded dimensions
     private static final int H_SIZE = 7;
     private static final int W_SIZE = 11;
 
-
-    private static void draw(char[][] maze) {
-        int k, j;
-        for (k = 0; k < H_SIZE; k++) {
-            for (j = 0; j < W_SIZE; j++) {
-                System.out.print(maze[k][j]);
-            }
-            System.out.print("\n");
-        }
-        System.out.print("\n");
-    }
 
     public static int walk(char[] moves) {
         char[][] maze = new char[][]{
@@ -66,16 +53,6 @@ public class Maze {
         y = 1;
         maze[y][y] = 'X';
 
-        // Print some info
-        System.out.print("Maze dimensions: " + W_SIZE + "," + H_SIZE + "\n");
-        System.out.print("Player pos: " + x + "x" + y + "\n");
-        System.out.print("Iteration no. " + i + "\n");
-        System.out.print("The player moves with 'w', 's', 'a' and 'd'\n");
-        System.out.print("Try to reach the price(#)!\n");
-
-        // Draw the maze
-        draw(maze);
-
         // Iterate and run 'program'
         while (i < moves.length) {
             ox = x;
@@ -94,14 +71,11 @@ public class Maze {
                     x++;
                     break;
                 default: {
-                    System.out.println("Invalid move " + moves[i]);
                     return 0;
                 }
             }
 
             if (maze[y][x] == '#') {
-                System.out.print("You win!\n");
-                System.out.print("Your solution \n" + Arrays.toString(moves));
                 return 1;
             }
 
@@ -111,17 +85,14 @@ public class Maze {
             }
 
             if (ox == x && oy == y) {
-                System.out.print("You lose\n");
                 return 2;
             }
 
             maze[y][x] = 'X';
-            draw(maze); // draw it
 
             i++;
         }
 
-        System.out.print("Treasure not found.\n");
         return 3;
     }
 

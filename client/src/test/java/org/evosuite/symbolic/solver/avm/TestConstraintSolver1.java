@@ -43,7 +43,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class TestConstraintSolver1 extends RandomizedTC {
     public void testMe(String x) {
         if (x.length() == 5 && x.charAt(4) == '_') {
-            System.out.println("Juhu");
+            // Keep the branch as a symbolic-analysis target without producing test output.
         }
     }
 
@@ -83,22 +83,14 @@ public class TestConstraintSolver1 extends RandomizedTC {
 
         Collection<Constraint<?>> constraints = buildConstraintSystem();
 
-        System.out.println("Constraints:");
-        for (Constraint<?> c : constraints) {
-            System.out.println(c.toString());
-        }
-
         EvoSuiteSolver seeker = new EvoSuiteSolver();
         try {
             SolverResult solverResult = seeker.solve(constraints);
             assertTrue(solverResult.isSAT());
 
             Map<String, Object> model = solverResult.getModel();
-            System.out.println(model);
 
             Object var0 = model.get("var0");
-            System.out.println("Expected: " + EXPECTED_STRING);
-            System.out.println("Found: " + var0);
 
             assertEquals(EXPECTED_STRING, var0);
         } catch (SolverTimeoutException | SolverParseException | SolverErrorException | IOException e) {
