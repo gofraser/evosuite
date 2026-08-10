@@ -59,7 +59,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * together with the no-op crossover (variants are exact clones of the raw
  * candidate and the partner).
  */
-class LlmBlendingTest {
+class LlmBlendingTest extends MosaTestSupport {
 
     private boolean savedEnabled;
     private int savedMutants;

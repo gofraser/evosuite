@@ -19,10 +19,14 @@
  */
 package org.evosuite.llm.response;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.DecompiledContextProvider;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
@@ -49,8 +53,10 @@ import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.slf4j.LoggerFactory;
 
 import java.awt.AWTError;
 import java.lang.reflect.Method;
@@ -77,9 +83,52 @@ class TestRepairLoopTest {
 
     private final boolean originalTruncationRecovery = Properties.LLM_ENABLE_TRUNCATION_RECOVERY;
     private final String originalTargetClass = Properties.TARGET_CLASS;
+    private Logger testRepairLoopLogger;
+    private Logger decompiledContextLogger;
+    private Logger evoLogger;
+    private ListAppender<ILoggingEvent> testRepairLoopLogAppender;
+    private ListAppender<ILoggingEvent> decompiledContextLogAppender;
+    private ListAppender<ILoggingEvent> evoLogAppender;
+    private boolean testRepairLoopLoggerAdditive;
+    private boolean decompiledContextLoggerAdditive;
+    private boolean evoLoggerAdditive;
+
+    @BeforeEach
+    void captureExpectedWarnings() {
+        testRepairLoopLogger = (Logger) LoggerFactory.getLogger(TestRepairLoop.class);
+        decompiledContextLogger = (Logger) LoggerFactory.getLogger(DecompiledContextProvider.class);
+        evoLogger = (Logger) LoggerFactory.getLogger("evo_logger");
+
+        testRepairLoopLoggerAdditive = testRepairLoopLogger.isAdditive();
+        decompiledContextLoggerAdditive = decompiledContextLogger.isAdditive();
+        evoLoggerAdditive = evoLogger.isAdditive();
+
+        testRepairLoopLogAppender = new ListAppender<>();
+        decompiledContextLogAppender = new ListAppender<>();
+        evoLogAppender = new ListAppender<>();
+        testRepairLoopLogAppender.start();
+        decompiledContextLogAppender.start();
+        evoLogAppender.start();
+
+        testRepairLoopLogger.addAppender(testRepairLoopLogAppender);
+        decompiledContextLogger.addAppender(decompiledContextLogAppender);
+        evoLogger.addAppender(evoLogAppender);
+        testRepairLoopLogger.setAdditive(false);
+        decompiledContextLogger.setAdditive(false);
+        evoLogger.setAdditive(false);
+    }
 
     @AfterEach
     void restoreProperties() {
+        testRepairLoopLogger.detachAppender(testRepairLoopLogAppender);
+        decompiledContextLogger.detachAppender(decompiledContextLogAppender);
+        evoLogger.detachAppender(evoLogAppender);
+        testRepairLoopLogAppender.stop();
+        decompiledContextLogAppender.stop();
+        evoLogAppender.stop();
+        testRepairLoopLogger.setAdditive(testRepairLoopLoggerAdditive);
+        decompiledContextLogger.setAdditive(decompiledContextLoggerAdditive);
+        evoLogger.setAdditive(evoLoggerAdditive);
         Properties.LLM_ENABLE_TRUNCATION_RECOVERY = originalTruncationRecovery;
         Properties.TARGET_CLASS = originalTargetClass;
         TestRepairLoop.resetForRunCompletion();
@@ -1058,6 +1107,8 @@ class TestRepairLoopTest {
         TestCase salvaged = result.get();
         assertEquals(1, salvaged.size());
         assertInstanceOf(ConstructorStatement.class, salvaged.getStatement(0));
+        assertLogMessage(testRepairLoopLogAppender,
+                "Successfully salvaged test " + testCase.getID() + " by removing assertions.");
     }
 
     @Test
@@ -1101,6 +1152,10 @@ class TestRepairLoopTest {
         List<LlmMessage> sentConversation = conversationCaptor.getValue();
         String userRepairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
         assertTrue(userRepairMessage.contains("Do NOT include assertions"));
+        assertLogMessage(testRepairLoopLogAppender,
+                "Attempting brute-force salvage for test case:");
+        assertLogMessage(testRepairLoopLogAppender,
+                "Discarded salvaged test");
     }
 
     @Test
@@ -4552,6 +4607,13 @@ class TestRepairLoopTest {
         assertFalse(result.getDiagnostics().stream()
                 .anyMatch(d -> d.contains("recurrent access violations")),
                 "Non-access errors should not trigger access violation tracking: " + result.getDiagnostics());
+    }
+
+    private static void assertLogMessage(ListAppender<ILoggingEvent> appender, String message) {
+        assertTrue(appender.list.stream()
+                        .anyMatch(event -> event.getFormattedMessage().contains(message)),
+                "Expected log message containing '" + message + "' but got: "
+                        + appender.list);
     }
 
     private interface CheckedStubTarget {

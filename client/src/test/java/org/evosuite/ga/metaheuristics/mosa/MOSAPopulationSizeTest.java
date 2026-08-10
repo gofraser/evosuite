@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *   <li>Non-speciation path preserves prior behavior.</li>
  * </ul>
  */
-class MOSAPopulationSizeTest {
+class MOSAPopulationSizeTest extends MosaTestSupport {
 
     private boolean savedSpeciationEnabled;
     private boolean savedBalanceParentSelection;

@@ -72,7 +72,9 @@ public class BytecodeVersionCompatibilityTest {
     public void testCompatibilityFixture(String javaVersion) throws Exception {
         String className = "bytecode_tests.CompatibilityFixture";
         Properties.TARGET_CLASS = className;
-        
+
+        Assumptions.assumeTrue(BytecodeFixtureClassLoader.isSupported(javaVersion),
+                "The current JDK cannot compile Java " + javaVersion + " fixtures");
         BytecodeFixtureClassLoader loader = new BytecodeFixtureClassLoader(javaVersion);
         
         byte[] rawBytes = loader.getClassBytes(className);

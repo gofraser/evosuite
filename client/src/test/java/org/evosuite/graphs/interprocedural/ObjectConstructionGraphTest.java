@@ -392,7 +392,7 @@ public class ObjectConstructionGraphTest {
 					branchMaps.add(field.name);
 				}
 			}
-			assertTrue(branchMaps.size() <= 1,
+			assertTrue(branchMaps.size() <= 1, () ->
 					"a loop predicate must not inherit maps from earlier stores to javac's reused "
 							+ "iterator slot; branch=" + entry.getKey() + ", maps=" + branchMaps
 							+ ", graph=" + entry.getValue());

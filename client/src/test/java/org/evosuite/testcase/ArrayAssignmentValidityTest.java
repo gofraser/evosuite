@@ -63,11 +63,9 @@ public class ArrayAssignmentValidityTest {
         AssignmentStatement assignment = new AssignmentStatement(tc, oobIndex,
                 value.getReturnValue());
         
-        try {
-            tc.addStatement(assignment);
-        } catch (AssertionError e) {
-            // Expected because addStatement() internally asserts isValid()!
-        }
+        // Bypass addStatement()'s invariant assertion so that isValid() can inspect the malformed
+        // test case directly without logging an expected error.
+        tc.addStatements(Collections.singletonList(assignment));
 
         // isValid() should return false, not throw a ClassCastException or crash
 
@@ -180,11 +178,8 @@ public class ArrayAssignmentValidityTest {
         AssignmentStatement assign1 = new AssignmentStatement(tc, idx1,
                 value.getReturnValue());
         
-        try {
-            tc.addStatement(assign1);
-        } catch (AssertionError e) {
-            // Expected
-        }
+        // Bypass addStatement()'s invariant assertion to test isValid() directly.
+        tc.addStatements(Collections.singletonList(assign1));
 
         assertFalse(tc.isValid(), "arr[1] on length-1 array should be invalid");
     }

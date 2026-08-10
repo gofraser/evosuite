@@ -19,6 +19,10 @@
  */
 package org.evosuite.ga.archive;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
@@ -32,6 +36,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.lenient;
@@ -56,6 +61,10 @@ public class ArchiveTest {
     private ExceptionCoverageTestFitness exceptionTarget;
 
     private Properties.Criterion[] originalCriteria;
+    private Logger coverageArchiveLogger;
+    private ListAppender<ILoggingEvent> coverageArchiveLogAppender;
+    private boolean coverageArchiveLoggerAdditive;
+    private Level coverageArchiveLoggerLevel;
 
     @BeforeEach
     public void setUp() {
@@ -63,11 +72,27 @@ public class ArchiveTest {
         Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.LINE};
         lenient().when(target.getTargetClass()).thenReturn("Foo");
         lenient().when(target.getTargetMethod()).thenReturn("bar");
+
+        coverageArchiveLogger = (Logger) LoggerFactory.getLogger(CoverageArchive.class);
+        coverageArchiveLogAppender = new ListAppender<>();
+        coverageArchiveLogAppender.start();
+        coverageArchiveLogger.addAppender(coverageArchiveLogAppender);
+        coverageArchiveLoggerAdditive = coverageArchiveLogger.isAdditive();
+        coverageArchiveLoggerLevel = coverageArchiveLogger.getLevel();
+        coverageArchiveLogger.setAdditive(false);
+        coverageArchiveLogger.setLevel(Level.WARN);
     }
 
     @AfterEach
     public void tearDown() {
-        Properties.CRITERION = originalCriteria;
+        try {
+            Properties.CRITERION = originalCriteria;
+        } finally {
+            coverageArchiveLogger.detachAppender(coverageArchiveLogAppender);
+            coverageArchiveLogger.setAdditive(coverageArchiveLoggerAdditive);
+            coverageArchiveLogger.setLevel(coverageArchiveLoggerLevel);
+            coverageArchiveLogAppender.stop();
+        }
     }
 
     @Test
@@ -139,6 +164,7 @@ public class ArchiveTest {
         assertEquals(0, archive.getNumberOfCoveredTargets());
         assertEquals(1, archive.getNumberOfUncoveredTargets());
         assertFalse(archive.hasSolution(target));
+        assertLogMessage(Level.WARN, "Archive add aborted for goal");
     }
 
     @Test
@@ -160,5 +186,20 @@ public class ArchiveTest {
         assertEquals(1, archive.getNumberOfCoveredTargets());
         assertEquals(0, archive.getNumberOfUncoveredTargets());
         assertTrue(archive.hasSolution(exceptionTarget));
+        assertLogMessage(Level.WARN,
+                "A solution with a timeout/exception result has been added to the archive");
+    }
+
+    private void assertLogMessage(Level level, String message) {
+        ILoggingEvent matchingEvent = null;
+        for (ILoggingEvent event : coverageArchiveLogAppender.list) {
+            if (event.getLevel() == level
+                    && event.getFormattedMessage().contains(message)) {
+                assertTrue(matchingEvent == null,
+                        "Expected at most one matching archive log event");
+                matchingEvent = event;
+            }
+        }
+        assertNotNull(matchingEvent, "Missing expected archive log event: " + message);
     }
 }

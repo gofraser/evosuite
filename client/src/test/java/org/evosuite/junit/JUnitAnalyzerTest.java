@@ -19,6 +19,10 @@
  */
 package org.evosuite.junit;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.examples.with.different.packagename.sandbox.OpenStream;
 import com.examples.with.different.packagename.test.DowncastExample;
 import org.apache.commons.io.FileUtils;
@@ -34,11 +38,14 @@ import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.symbolic.TestCaseBuilder;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Method;
 import java.nio.charset.StandardCharsets;
@@ -53,6 +60,7 @@ import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.jar.Manifest;
+import java.util.stream.Collectors;
 
 public class JUnitAnalyzerTest {
 
@@ -74,10 +82,28 @@ public class JUnitAnalyzerTest {
     private static final boolean DEFAULT_REPLACE_GUI = Properties.REPLACE_GUI;
 
     private File file = new File(OpenStream.FILE_NAME);
+    private Logger analyzerLogger;
+    private Logger instrumentationLogger;
+    private ListAppender<ILoggingEvent> analyzerLogAppender;
+    private ListAppender<ILoggingEvent> instrumentationLogAppender;
+    private boolean analyzerLoggerAdditive;
+    private boolean instrumentationLoggerAdditive;
 
 
     @BeforeEach
     public void init() {
+        analyzerLogger = (Logger) LoggerFactory.getLogger(JUnitAnalyzer.class);
+        instrumentationLogger = (Logger) LoggerFactory.getLogger(InstrumentingClassLoader.class);
+        analyzerLoggerAdditive = analyzerLogger.isAdditive();
+        instrumentationLoggerAdditive = instrumentationLogger.isAdditive();
+        analyzerLogAppender = new ListAppender<>();
+        instrumentationLogAppender = new ListAppender<>();
+        analyzerLogAppender.start();
+        instrumentationLogAppender.start();
+        analyzerLogger.addAppender(analyzerLogAppender);
+        instrumentationLogger.addAppender(instrumentationLogAppender);
+        analyzerLogger.setAdditive(false);
+        instrumentationLogger.setAdditive(false);
 
         ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
 
@@ -89,6 +115,12 @@ public class JUnitAnalyzerTest {
 
     @AfterEach
     public void reset() {
+        analyzerLogger.detachAppender(analyzerLogAppender);
+        instrumentationLogger.detachAppender(instrumentationLogAppender);
+        analyzerLogger.setAdditive(analyzerLoggerAdditive);
+        instrumentationLogger.setAdditive(instrumentationLoggerAdditive);
+        analyzerLogAppender.stop();
+        instrumentationLogAppender.stop();
         Properties.CRITERION = defaultCriterion;
         Properties.SELECTED_JUNIT = defaultSelectedJUnit;
         Properties.SEED_MUTATIONS = defaultSeedMutations;
@@ -108,11 +140,8 @@ public class JUnitAnalyzerTest {
     @Test
     public void testSandboxIssue() throws Exception {
 
-        // Skip test if Security Manager is not supported (Java 24+)
-        if (!Sandbox.isSecurityManagerSupported()) {
-            System.out.println("Skipping testSandboxIssue: Security Manager not supported in this JVM (Java 24+)");
-            return;
-        }
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported(),
+                "Security Manager is not supported in this JVM (Java 24+)");
 
         //First, get a TestCase from a carved JUnit
 
@@ -239,6 +268,20 @@ public class JUnitAnalyzerTest {
 
         Class<?>[] classes = (Class<?>[]) loadTests.invoke(null, Collections.singletonList(javaFile));
         Assertions.assertNull(classes);
+
+        List<ILoggingEvent> loaderErrors = eventsContaining(instrumentationLogAppender,
+                Level.ERROR, "Error while loading class MissingClass_ESTest");
+        Assertions.assertEquals(1, loaderErrors.size(),
+                "Missing class loading should produce one instrumenting-loader error");
+        Assertions.assertEquals(FileNotFoundException.class.getName(),
+                loaderErrors.get(0).getThrowableProxy().getClassName());
+
+        List<ILoggingEvent> analyzerErrors = eventsContaining(analyzerLogAppender,
+                Level.ERROR, "Failed to load test case MissingClass_ESTest");
+        Assertions.assertEquals(1, analyzerErrors.size(),
+                "Missing class loading should produce one analyzer error");
+        Assertions.assertEquals(ClassNotFoundException.class.getName(),
+                analyzerErrors.get(0).getThrowableProxy().getClassName());
     }
 
     @Test
@@ -261,6 +304,11 @@ public class JUnitAnalyzerTest {
         Files.write(classFile.toPath(), new byte[]{0});
         classFile.deleteOnExit();
         Assertions.assertTrue((boolean) method.invoke(null, Collections.singletonList(javaFile)));
+
+        List<ILoggingEvent> missingOutputErrors = eventsContaining(analyzerLogAppender,
+                Level.ERROR, "Compilation reported success but 1 expected class file(s) are missing");
+        Assertions.assertEquals(1, missingOutputErrors.size());
+        Assertions.assertNull(missingOutputErrors.get(0).getThrowableProxy());
     }
 
     @Test
@@ -367,6 +415,11 @@ public class JUnitAnalyzerTest {
         File sanitizedEntry = new File(sanitized);
         Assertions.assertTrue(sanitizedEntry.exists());
         Assertions.assertTrue(sanitizedEntry.isDirectory());
+
+        List<ILoggingEvent> sanitizationWarnings = eventsContaining(analyzerLogAppender,
+                Level.WARN, "Using sanitized compiler classpath entry for malformed jar");
+        Assertions.assertEquals(1, sanitizationWarnings.size());
+        Assertions.assertNull(sanitizationWarnings.get(0).getThrowableProxy());
     }
 
     @Test
@@ -595,6 +648,16 @@ public class JUnitAnalyzerTest {
 
             Assertions.assertTrue(disabledField.getBoolean(null));
             Assertions.assertFalse(loggedField.getBoolean(null));
+
+            List<ILoggingEvent> infrastructureErrors = eventsContaining(analyzerLogAppender,
+                    Level.ERROR, "Javac infrastructure failure during compile check");
+            Assertions.assertEquals(1, infrastructureErrors.size());
+            Assertions.assertEquals(RuntimeException.class.getName(),
+                    infrastructureErrors.get(0).getThrowableProxy().getClassName());
+            Assertions.assertTrue(eventsContaining(analyzerLogAppender, Level.ERROR,
+                    "No META-INF/services/java.nio.file.spi.FileSystemProvider declaration was found")
+                    .stream().anyMatch(event -> event.getFormattedMessage()
+                            .contains("compiler classpath used during failure analysis")));
         } finally {
             disabledField.setBoolean(null, previousDisabled);
             loggedField.setBoolean(null, previousLogged);
@@ -630,10 +693,23 @@ public class JUnitAnalyzerTest {
             skippedLoggedField.setBoolean(null, true);
             Assertions.assertTrue((boolean) shouldSkip.invoke(null));
             Assertions.assertTrue(skippedLoggedField.getBoolean(null));
+
+            List<ILoggingEvent> skipWarnings = eventsContaining(analyzerLogAppender,
+                    Level.WARN, "Skipping compile-dependent JUnit execution checks");
+            Assertions.assertEquals(1, skipWarnings.size());
+            Assertions.assertNull(skipWarnings.get(0).getThrowableProxy());
         } finally {
             disabledField.setBoolean(null, previousDisabled);
             skippedLoggedField.setBoolean(null, previousSkippedLogged);
         }
+    }
+
+    private static List<ILoggingEvent> eventsContaining(ListAppender<ILoggingEvent> appender,
+                                                        Level level, String message) {
+        return appender.list.stream()
+                .filter(event -> event.getLevel() == level)
+                .filter(event -> event.getFormattedMessage().contains(message))
+                .collect(Collectors.toList());
     }
 
 }

@@ -36,6 +36,9 @@ public class ThrowingClinit {
     public static int counter;
 
     static {
+        int invocations = Integer.parseInt(
+                System.getProperty("throwingclinit.invocations", "0"));
+        System.setProperty("throwingclinit.invocations", Integer.toString(invocations + 1));
         counter++;
         if ("true".equals(System.getProperty("throwingclinit.fail"))) {
             throw new RuntimeException("forced failure in <clinit>");

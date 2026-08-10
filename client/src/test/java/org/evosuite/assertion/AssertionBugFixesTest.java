@@ -19,7 +19,11 @@
  */
 package org.evosuite.assertion;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -28,7 +32,10 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testsuite.TestSuiteChromosome;
+import org.evosuite.setup.TestCluster;
+import org.evosuite.utils.generic.GenericField;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -36,6 +43,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -71,12 +79,11 @@ public class AssertionBugFixesTest {
         }
     }
 
-    public static class ExplodingStaticFieldProbeTarget {
-        public static final Object INSTANCE = createInstance();
+    public static class StaticFieldProbeTarget {
+        public static final Object INSTANCE = new StaticFieldProbeValue();
+    }
 
-        private static Object createInstance() {
-            throw new NullPointerException("probe boom");
-        }
+    public static class StaticFieldProbeValue {
     }
 
     /**
@@ -307,7 +314,15 @@ public class AssertionBugFixesTest {
     @Test
     public void testChangeClassLoader_fallsBackWhenTargetInitializationFails() {
         String originalTargetClass = Properties.TARGET_CLASS;
+        String originalClassPath = Properties.CP;
+        Logger assertionGeneratorLogger = (Logger) LoggerFactory.getLogger(AssertionGenerator.class);
+        boolean originalAdditive = assertionGeneratorLogger.isAdditive();
+        ListAppender<ILoggingEvent> logAppender = new ListAppender<>();
+        logAppender.start();
+        assertionGeneratorLogger.addAppender(logAppender);
+        assertionGeneratorLogger.setAdditive(false);
         try {
+            ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
             Properties.TARGET_CLASS = ExplodingStaticInitTarget.class.getName();
             Properties.resetTargetClass();
 
@@ -319,8 +334,21 @@ public class AssertionBugFixesTest {
             assertDoesNotThrow(() -> generator.triggerChangeClassLoader(suite));
             assertTrue(testChromosome.isChanged(),
                     "Fallback load without <clinit> should still switch tests to the new classloader");
+            List<ILoggingEvent> fallbackWarnings = logAppender.list.stream()
+                    .filter(event -> event.getFormattedMessage().contains(
+                            "Falling back to non-initializing load"))
+                    .collect(Collectors.toList());
+            assertEquals(1, fallbackWarnings.size(),
+                    "A failed initialized load should be followed by exactly one fallback warning");
+            assertEquals(ExceptionInInitializerError.class.getName(),
+                    fallbackWarnings.get(0).getThrowableProxy().getClassName());
         } finally {
+            assertionGeneratorLogger.detachAppender(logAppender);
+            assertionGeneratorLogger.setAdditive(originalAdditive);
             Properties.TARGET_CLASS = originalTargetClass;
+            Properties.CP = originalClassPath;
+            ClassPathHandler.resetSingleton();
+            TestCluster.reset();
             Properties.resetTargetClass();
         }
     }
@@ -328,8 +356,10 @@ public class AssertionBugFixesTest {
     @Test
     public void testChangeClassLoader_skipsTargetStaticFieldProbeDuringAssertionReload() {
         String originalTargetClass = Properties.TARGET_CLASS;
+        String originalClassPath = Properties.CP;
         try {
-            Properties.TARGET_CLASS = ExplodingStaticFieldProbeTarget.class.getName();
+            ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
+            Properties.TARGET_CLASS = StaticFieldProbeTarget.class.getName();
             Properties.resetTargetClass();
 
             TestSuiteChromosome suite = new TestSuiteChromosome();
@@ -340,8 +370,20 @@ public class AssertionBugFixesTest {
             assertDoesNotThrow(() -> generator.triggerChangeClassLoader(suite));
             assertTrue(testChromosome.isChanged(),
                     "Assertion reload should not poison the fresh classloader via target static-field probes");
+            boolean hasSpecializedFieldGenerator = TestCluster.getInstance().getGeneratorsByType().entrySet().stream()
+                    .filter(entry -> entry.getKey().getRawClass().getName()
+                            .equals(StaticFieldProbeValue.class.getName()))
+                    .flatMap(entry -> entry.getValue().stream())
+                    .filter(GenericField.class::isInstance)
+                    .map(GenericField.class::cast)
+                    .anyMatch(field -> field.getField().getName().equals("INSTANCE"));
+            assertFalse(hasSpecializedFieldGenerator,
+                    "Assertion reload must not add a generator based on probing the target static field");
         } finally {
             Properties.TARGET_CLASS = originalTargetClass;
+            Properties.CP = originalClassPath;
+            ClassPathHandler.resetSingleton();
+            TestCluster.reset();
             Properties.resetTargetClass();
         }
     }

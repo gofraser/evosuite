@@ -44,6 +44,7 @@ import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -66,9 +67,19 @@ public class FunctionalMockStatementTest {
 
     private static final int DEFAULT_LIMIT = Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT;
 
+    @BeforeEach
+    public void setUp() {
+        Properties.TARGET_CLASS = FunctionalMockStatementTest.class.getName();
+        Properties.resetTargetClass();
+        assertNotNull(Properties.getTargetClassAndDontInitialise(),
+                "the test target should be loadable before exercising functional mocks");
+    }
+
     @AfterEach
     public void tearDown() {
         Properties.FUNCTIONAL_MOCKING_INPUT_LIMIT = DEFAULT_LIMIT;
+        Properties.TARGET_CLASS = "";
+        Properties.resetTargetClass();
     }
 
     public interface Foo {
@@ -711,7 +722,10 @@ public class FunctionalMockStatementTest {
         String previousTargetClass = Properties.TARGET_CLASS;
         Properties.resetTargetClass();
         try {
-            Properties.TARGET_CLASS = "";
+            // Use a real, unrelated target while constructing the original statement. The test
+            // changes the target afterwards to verify that copy() does not re-run mockability
+            // validation, and an empty target would only produce a misleading class-load warning.
+            Properties.TARGET_CLASS = FunctionalMockStatementTest.class.getName();
             Type consumerOfObjectType = TypeUtils.parameterize(Consumer.class, Object.class);
             FunctionalMockStatement mockStmt = new FunctionalMockStatement(
                     new DefaultTestCase(),

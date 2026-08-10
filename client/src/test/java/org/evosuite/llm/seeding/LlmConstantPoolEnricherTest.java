@@ -19,6 +19,9 @@
  */
 package org.evosuite.llm.seeding;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
 import org.evosuite.llm.*;
 import org.evosuite.llm.mock.MockChatLanguageModel;
@@ -29,6 +32,7 @@ import org.evosuite.utils.generic.GenericAccessibleObject;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.nio.file.Paths;
@@ -49,12 +53,21 @@ class LlmConstantPoolEnricherTest {
     private Properties.LlmPromptTechnique savedTechnique;
     private boolean savedUseParsed;
     private boolean savedUseArchive;
+    private Logger evoLogger;
+    private ListAppender<ILoggingEvent> evoLogAppender;
+    private boolean evoLoggerAdditive;
 
     @BeforeEach
     void setUp() {
         savedTechnique = Properties.LLM_PROMPT_TECHNIQUE;
         savedUseParsed = Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT;
         savedUseArchive = Properties.LLM_FEW_SHOT_USE_ARCHIVE;
+        evoLogger = (Logger) LoggerFactory.getLogger("evo_logger");
+        evoLoggerAdditive = evoLogger.isAdditive();
+        evoLogAppender = new ListAppender<>();
+        evoLogAppender.start();
+        evoLogger.addAppender(evoLogAppender);
+        evoLogger.setAdditive(false);
         Properties.LLM_PROVIDER = Properties.LlmProvider.NONE;
         LlmService.resetInstanceForTesting();
         LlmStatistics.resetSeedingCounters();
@@ -63,6 +76,9 @@ class LlmConstantPoolEnricherTest {
 
     @AfterEach
     void tearDown() {
+        evoLogger.detachAppender(evoLogAppender);
+        evoLogAppender.stop();
+        evoLogger.setAdditive(evoLoggerAdditive);
         Properties.LLM_PROMPT_TECHNIQUE = savedTechnique;
         Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT = savedUseParsed;
         Properties.LLM_FEW_SHOT_USE_ARCHIVE = savedUseArchive;
@@ -190,8 +206,8 @@ class LlmConstantPoolEnricherTest {
     // ---- Async/failure behavior tests ----
 
     @Test
-    void enrichAsync_returnsFailureOnUnavailableService() throws Exception {
-        LlmService service = createUnavailableService();
+    void enrichAsync_returnsSkippedWhenServiceUnavailable() throws Exception {
+        LlmService service = createTrulyUnavailableService();
         LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(service);
 
         CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> future =
@@ -199,13 +215,14 @@ class LlmConstantPoolEnricherTest {
 
         LlmConstantPoolEnricher.EnrichmentResult result = future.get(5, TimeUnit.SECONDS);
         assertFalse(result.isSuccess());
+        assertFalse(result.isAttempted());
+        assertEquals("LLM unavailable or no budget", result.getFailureReason());
         assertEquals(0, result.getConstantsAdded());
     }
 
     @Test
     void enrichAsync_completesWithinTimeout() throws Exception {
-        // Create a service that will throw (simulating unavailable model)
-        LlmService service = createUnavailableService();
+        LlmService service = createTrulyUnavailableService();
         LlmConstantPoolEnricher enricher = new LlmConstantPoolEnricher(service);
 
         CompletableFuture<LlmConstantPoolEnricher.EnrichmentResult> future =
@@ -214,6 +231,7 @@ class LlmConstantPoolEnricherTest {
         // Should complete quickly, not hang
         LlmConstantPoolEnricher.EnrichmentResult result = future.get(5, TimeUnit.SECONDS);
         assertNotNull(result);
+        assertFalse(result.isAttempted());
     }
 
     @Test
@@ -485,6 +503,13 @@ class LlmConstantPoolEnricherTest {
 
     private static LlmService createUnavailableService() {
         return createService(new MockChatLanguageModel(), 0);
+    }
+
+    private static LlmService createTrulyUnavailableService() {
+        LlmService service = org.mockito.Mockito.mock(LlmService.class);
+        org.mockito.Mockito.when(service.isAvailable()).thenReturn(false);
+        org.mockito.Mockito.when(service.hasBudget()).thenReturn(false);
+        return service;
     }
 
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {

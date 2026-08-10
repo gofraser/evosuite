@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * front-0 (rank 0) members, honors the population share cap with
  * oldest-lineages-lose-first semantics, and is inert when disabled.
  */
-class LineageElitismTest {
+class LineageElitismTest extends MosaTestSupport {
 
     private int savedGenerations;
     private double savedMaxFraction;

@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga.metaheuristics;
 
+import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmSuiteInjectionPolicy;
 import org.evosuite.ga.ChromosomeFactory;
@@ -57,17 +58,33 @@ class LlmWholeSuiteIntegrationTest {
 
     private LlmSuiteInjectionPolicy originalPolicy;
     private int originalPopulation;
+    private String originalTargetClass;
+    private Properties.Criterion[] originalCriterion;
+    private boolean originalSandbox;
 
     @BeforeEach
     void setUp() {
         originalPolicy = Properties.LLM_SUITE_INJECTION_POLICY;
         originalPopulation = Properties.POPULATION;
+        originalTargetClass = Properties.TARGET_CLASS;
+        originalCriterion = Properties.CRITERION;
+        originalSandbox = Properties.SANDBOX;
+        Properties.SANDBOX = false;
+        Properties.TARGET_CLASS = FlagExample1.class.getName();
+        Properties.resetTargetClass();
+        assertNotNull(Properties.getTargetClassAndDontInitialise(),
+                "the integration-test fixture should be loadable");
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH};
     }
 
     @AfterEach
     void tearDown() {
         Properties.LLM_SUITE_INJECTION_POLICY = originalPolicy;
         Properties.POPULATION = originalPopulation;
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.CRITERION = originalCriterion;
+        Properties.SANDBOX = originalSandbox;
+        Properties.resetTargetClass();
     }
 
     @Test
@@ -87,8 +104,8 @@ class LlmWholeSuiteIntegrationTest {
     void suiteGoalSupplierUsesTestLevelGoalsFromCriteria() {
         // In a real run, getUncoveredGoalsForSuiteChromosomes() derives goals from
         // FitnessFunctions.getFitnessFactory(criterion).getCoverageGoals().
-        // In unit test context without instrumentation, this produces empty goals
-        // (no class loaded). Verify the mechanism: when allTestLevelGoals is empty,
+        // This fixture is loaded but not analyzed, so no call graph-backed goals
+        // are available. Verify the mechanism: when allTestLevelGoals is empty,
         // the supplier returns empty; when pre-populated, it returns uncovered goals.
         SuiteGAWithGoals ga = new SuiteGAWithGoals(() -> newSuite());
         ga.addFitnessFunction(new DummySuiteFitness());

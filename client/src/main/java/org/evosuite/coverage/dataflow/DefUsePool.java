@@ -300,7 +300,7 @@ public class DefUsePool {
         // Add to optimized map
         defIdsToDefs.put(def.getDefId(), def);
 
-        logger.debug("Added to DefUsePool as def: " + def);
+        logger.debug("Added to DefUsePool as def: {}", def);
     }
 
     private static void fillUseMaps(Use use) {
@@ -311,7 +311,7 @@ public class DefUsePool {
         // Add to optimized map
         useIdsToUses.put(use.getUseId(), use);
 
-        logger.debug("Added to DefUsePool as use: " + use);
+        logger.debug("Added to DefUsePool as use: {}", use);
     }
 
     // filling the maps

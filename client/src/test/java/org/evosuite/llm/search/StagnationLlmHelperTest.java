@@ -19,6 +19,9 @@
  */
 package org.evosuite.llm.search;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmStagnationMode;
 import org.evosuite.llm.LlmBudgetCoordinator;
@@ -32,7 +35,10 @@ import org.evosuite.llm.mock.MockChatLanguageModel;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Paths;
 import java.util.Collection;
@@ -50,6 +56,39 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class StagnationLlmHelperTest {
+
+    private Logger llmServiceLogger;
+    private Logger evoLogger;
+    private ListAppender<ILoggingEvent> llmServiceLogAppender;
+    private ListAppender<ILoggingEvent> evoLogAppender;
+    private boolean llmServiceLoggerAdditive;
+    private boolean evoLoggerAdditive;
+
+    @BeforeEach
+    void captureExpectedWarnings() {
+        llmServiceLogger = (Logger) LoggerFactory.getLogger(LlmService.class);
+        evoLogger = (Logger) LoggerFactory.getLogger("evo_logger");
+        llmServiceLoggerAdditive = llmServiceLogger.isAdditive();
+        evoLoggerAdditive = evoLogger.isAdditive();
+        llmServiceLogAppender = new ListAppender<>();
+        evoLogAppender = new ListAppender<>();
+        llmServiceLogAppender.start();
+        evoLogAppender.start();
+        llmServiceLogger.addAppender(llmServiceLogAppender);
+        evoLogger.addAppender(evoLogAppender);
+        llmServiceLogger.setAdditive(false);
+        evoLogger.setAdditive(false);
+    }
+
+    @AfterEach
+    void restoreLogging() {
+        llmServiceLogger.detachAppender(llmServiceLogAppender);
+        evoLogger.detachAppender(evoLogAppender);
+        llmServiceLogAppender.stop();
+        evoLogAppender.stop();
+        llmServiceLogger.setAdditive(llmServiceLoggerAdditive);
+        evoLogger.setAdditive(evoLoggerAdditive);
+    }
 
     private static final String SIMPLE_JUNIT_RESPONSE =
             "```java\n" +
@@ -210,6 +249,8 @@ class StagnationLlmHelperTest {
             helper.maybeSubmit(0, Collections.singleton(goal), pop);
             assertEquals(2L, helper.getPromptsSubmitted(),
                     "maybeSubmit must fire at completion + threshold absent improvement");
+            assertFalse(drainWithTimeout(helper, 10_000).isEmpty(),
+                    "The second request must complete before the helper is torn down");
         } finally {
             helper.shutdown();
             service.close();

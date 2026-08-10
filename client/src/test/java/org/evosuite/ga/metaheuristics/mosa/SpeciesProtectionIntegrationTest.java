@@ -40,7 +40,7 @@ import static org.mockito.Mockito.when;
 /**
  * Integration tests for the species-protection path in AbstractMOSA.
  */
-class SpeciesProtectionIntegrationTest {
+class SpeciesProtectionIntegrationTest extends MosaTestSupport {
 
     private boolean savedSpeciationEnabled;
     private double savedSpeciationThreshold;

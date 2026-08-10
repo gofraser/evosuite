@@ -19,6 +19,9 @@
  */
 package org.evosuite.llm.seeding;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.Properties;
 import org.evosuite.llm.*;
 import org.evosuite.llm.mock.MockChatLanguageModel;
@@ -28,6 +31,7 @@ import org.evosuite.utils.generic.GenericClass;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.nio.file.Paths;
 import java.util.Arrays;
@@ -46,6 +50,15 @@ class LlmCastClassEnricherTest {
     private Properties.LlmPromptTechnique savedTechnique;
     private boolean savedUseParsed;
     private boolean savedUseArchive;
+    private Logger llmServiceLogger;
+    private Logger enricherLogger;
+    private Logger evoLogger;
+    private ListAppender<ILoggingEvent> llmServiceLogAppender;
+    private ListAppender<ILoggingEvent> enricherLogAppender;
+    private ListAppender<ILoggingEvent> evoLogAppender;
+    private boolean llmServiceLoggerAdditive;
+    private boolean enricherLoggerAdditive;
+    private boolean evoLoggerAdditive;
 
     @BeforeEach
     void setUp() {
@@ -56,6 +69,24 @@ class LlmCastClassEnricherTest {
         savedTechnique = Properties.LLM_PROMPT_TECHNIQUE;
         savedUseParsed = Properties.LLM_FEW_SHOT_USE_PARSED_JUNIT;
         savedUseArchive = Properties.LLM_FEW_SHOT_USE_ARCHIVE;
+        llmServiceLogger = (Logger) LoggerFactory.getLogger(LlmService.class);
+        enricherLogger = (Logger) LoggerFactory.getLogger(LlmCastClassEnricher.class);
+        evoLogger = (Logger) LoggerFactory.getLogger("evo_logger");
+        llmServiceLoggerAdditive = llmServiceLogger.isAdditive();
+        enricherLoggerAdditive = enricherLogger.isAdditive();
+        evoLoggerAdditive = evoLogger.isAdditive();
+        llmServiceLogAppender = new ListAppender<>();
+        enricherLogAppender = new ListAppender<>();
+        evoLogAppender = new ListAppender<>();
+        llmServiceLogAppender.start();
+        enricherLogAppender.start();
+        evoLogAppender.start();
+        llmServiceLogger.addAppender(llmServiceLogAppender);
+        enricherLogger.addAppender(enricherLogAppender);
+        evoLogger.addAppender(evoLogAppender);
+        llmServiceLogger.setAdditive(false);
+        enricherLogger.setAdditive(false);
+        evoLogger.setAdditive(false);
         LlmService.resetInstanceForTesting();
         LlmStatistics.resetSeedingCounters();
         CastClassManager.getInstance().clear();
@@ -63,6 +94,15 @@ class LlmCastClassEnricherTest {
 
     @AfterEach
     void tearDown() {
+        llmServiceLogger.detachAppender(llmServiceLogAppender);
+        enricherLogger.detachAppender(enricherLogAppender);
+        evoLogger.detachAppender(evoLogAppender);
+        llmServiceLogAppender.stop();
+        enricherLogAppender.stop();
+        evoLogAppender.stop();
+        llmServiceLogger.setAdditive(llmServiceLoggerAdditive);
+        enricherLogger.setAdditive(enricherLoggerAdditive);
+        evoLogger.setAdditive(evoLoggerAdditive);
         Properties.LLM_PROVIDER = savedProvider;
         Properties.LLM_ENRICH_CAST_CLASSES = savedEnrichCastClasses;
         Properties.LLM_ENRICH_OBJECT_POOL = savedEnrichObjectPool;
@@ -244,11 +284,13 @@ class LlmCastClassEnricherTest {
 
     @Test
     void enrich_returnsSkippedWhenServiceUnavailable() {
-        LlmService service = createUnavailableService();
+        LlmService service = createTrulyUnavailableService();
         LlmCastClassEnricher enricher = new LlmCastClassEnricher(service);
 
         LlmCastClassEnricher.EnrichmentResult result = enricher.enrich("com.example.Foo", null);
         assertFalse(result.isSuccess());
+        assertFalse(result.isAttempted());
+        assertEquals("LLM unavailable or no budget", result.getFailureReason());
         assertEquals(0, result.getSuggested());
         assertEquals(0, result.getAccepted());
     }
@@ -258,8 +300,18 @@ class LlmCastClassEnricherTest {
         LlmService service = createUnavailableService();
         LlmCastClassEnricher enricher = new LlmCastClassEnricher(service);
 
-        assertDoesNotThrow(() -> enricher.enrich("com.example.Foo", null));
-        assertDoesNotThrow(() -> enricher.enrich(null, null));
+        LlmCastClassEnricher.EnrichmentResult result =
+                assertDoesNotThrow(() -> enricher.enrich("com.example.Foo", null));
+        LlmCastClassEnricher.EnrichmentResult nullResult =
+                assertDoesNotThrow(() -> enricher.enrich(null, null));
+        assertTrue(result.isAttempted());
+        assertFalse(result.isSuccess());
+        assertTrue(result.getFailureReason().contains("No mock response queued"));
+        assertTrue(nullResult.isAttempted());
+        assertFalse(nullResult.isSuccess());
+        assertTrue(nullResult.getFailureReason().contains("No mock response queued"));
+        assertLogMessage(enricherLogAppender, "Cast class enrichment failed (non-fatal)");
+        assertLogMessage(llmServiceLogAppender, "No mock response queued for feature CAST_CLASS_ENRICHMENT");
     }
 
     @Test
@@ -742,5 +794,12 @@ class LlmCastClassEnricherTest {
         org.mockito.Mockito.when(service.isAvailable()).thenReturn(false);
         org.mockito.Mockito.when(service.hasBudget()).thenReturn(false);
         return service;
+    }
+
+    private static void assertLogMessage(ListAppender<ILoggingEvent> appender, String message) {
+        assertTrue(appender.list.stream()
+                        .anyMatch(event -> event.getFormattedMessage().contains(message)),
+                "Expected log message containing '" + message + "' but got: "
+                        + appender.list);
     }
 }

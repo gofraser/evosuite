@@ -26,6 +26,7 @@ import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.expr.VariableDeclarationExpr;
 import com.github.javaparser.ast.stmt.ExpressionStmt;
+import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.Scope;
@@ -33,6 +34,7 @@ import org.evosuite.testcase.statements.FunctionalMockForAbstractClassStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericClassFactory;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -56,10 +58,26 @@ class MockitoPatternParserTest {
     );
 
     private TestMethodParser methodParser;
+    private String originalTargetClass;
+    private boolean originalSandbox;
 
     @BeforeEach
     void setUp() {
+        originalTargetClass = Properties.TARGET_CLASS;
+        originalSandbox = Properties.SANDBOX;
+        Properties.SANDBOX = false;
+        Properties.TARGET_CLASS = MockitoPatternParserTest.class.getName();
+        Properties.resetTargetClass();
+        assertNotNull(Properties.getTargetClassAndDontInitialise(),
+                "the parser test fixture should be loadable");
         methodParser = new TestMethodParser();
+    }
+
+    @AfterEach
+    void tearDown() {
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.SANDBOX = originalSandbox;
+        Properties.resetTargetClass();
     }
 
     @Test

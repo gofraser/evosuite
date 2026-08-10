@@ -24,6 +24,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.instrumentation.BytecodeInstrumentation;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
@@ -51,6 +52,8 @@ public class ModernLanguageFeaturesTest {
         String className = "bytecode_tests.SwitchExpressionFixture";
         Properties.TARGET_CLASS = className;
 
+        Assumptions.assumeTrue(BytecodeFixtureClassLoader.isSupported("17"),
+                "The current JDK cannot compile Java 17 fixtures");
         BytecodeFixtureClassLoader loader = new BytecodeFixtureClassLoader("17");
 
         byte[] rawBytes = loader.getClassBytes(className);
@@ -68,6 +71,8 @@ public class ModernLanguageFeaturesTest {
         Properties.TARGET_CLASS = className;
 
         // Records are fully supported in Java 16+. We built ours for 24.
+        Assumptions.assumeTrue(BytecodeFixtureClassLoader.isSupported("24"),
+                "The current JDK cannot compile Java 24 fixtures");
         BytecodeFixtureClassLoader loader = new BytecodeFixtureClassLoader("24");
 
         byte[] rawBytes = loader.getClassBytes(className);

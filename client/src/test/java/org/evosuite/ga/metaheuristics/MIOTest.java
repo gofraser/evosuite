@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga.metaheuristics;
 
+import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.archive.Archive;
@@ -34,8 +35,25 @@ import java.util.List;
 
 public class MIOTest {
 
+    private String originalTargetClass;
+    private Properties.Criterion[] originalCriterion;
+    private Properties.SelectionFunction originalSelectionFunction;
+    private boolean originalSandbox;
+
     @BeforeEach
     public void setUp() {
+        originalTargetClass = Properties.TARGET_CLASS;
+        originalCriterion = Properties.CRITERION;
+        originalSelectionFunction = Properties.SELECTION_FUNCTION;
+        originalSandbox = Properties.SANDBOX;
+        Properties.SANDBOX = false;
+        Properties.TARGET_CLASS = FlagExample1.class.getName();
+        Properties.resetTargetClass();
+        Assertions.assertNotNull(Properties.getTargetClassAndDontInitialise(),
+                "the MIO test fixture should be loadable");
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH};
+        Properties.SELECTION_FUNCTION =
+                Properties.SelectionFunction.RANK_CROWD_DISTANCE_TOURNAMENT;
         Properties.ARCHIVE_TYPE = Properties.ArchiveType.MIO;
         Archive.getArchiveInstance().reset();
     }
@@ -43,6 +61,11 @@ public class MIOTest {
     @AfterEach
     public void tearDown() {
         Archive.getArchiveInstance().reset();
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.CRITERION = originalCriterion;
+        Properties.SELECTION_FUNCTION = originalSelectionFunction;
+        Properties.SANDBOX = originalSandbox;
+        Properties.resetTargetClass();
     }
 
     @Test
@@ -53,7 +76,7 @@ public class MIOTest {
         // Verify initial state
         Assertions.assertTrue(mio.getBestIndividuals().isEmpty());
 
-        // We cannot easily add to MIOArchive without a valid Target and FitnessFunction.
+        // We cannot easily add to MIOArchive without a configured FitnessFunction target.
         // But we can verify that MIO.getBestIndividuals() calls Archive.getArchiveInstance().getSolutions()
         // when finalSolutions is empty.
 

@@ -19,9 +19,13 @@
  */
 package org.evosuite.runtime.instrumentation;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.evosuite.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -29,11 +33,32 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
+import org.slf4j.LoggerFactory;
 
 public class RuntimeInstrumentationRegressionTest {
 
+    private Logger runtimeInstrumentationLogger;
+
+    private ListAppender<ILoggingEvent> instrumentationErrorAppender;
+
+    private boolean originalAdditive;
+
+    @BeforeEach
+    public void captureInstrumentationErrors() {
+        runtimeInstrumentationLogger =
+                (Logger) LoggerFactory.getLogger(RuntimeInstrumentation.class);
+        originalAdditive = runtimeInstrumentationLogger.isAdditive();
+        instrumentationErrorAppender = new ListAppender<>();
+        instrumentationErrorAppender.start();
+        runtimeInstrumentationLogger.addAppender(instrumentationErrorAppender);
+        runtimeInstrumentationLogger.setAdditive(false);
+    }
+
     @AfterEach
     public void resetMockingFlags() {
+        runtimeInstrumentationLogger.detachAppender(instrumentationErrorAppender);
+        instrumentationErrorAppender.stop();
+        runtimeInstrumentationLogger.setAdditive(originalAdditive);
         RuntimeSettings.mockJVMNonDeterminism = false;
         RuntimeSettings.mockGUI = false;
         RuntimeSettings.useVFS = false;
@@ -49,8 +74,16 @@ public class RuntimeInstrumentationRegressionTest {
 
         IllegalStateException ex = Assertions.assertThrows(IllegalStateException.class,
                 () -> instrumentation.transformBytes(getClass().getClassLoader(), "sample/Bug8", reader, false));
-        Assertions.assertTrue(ex.getMessage().contains("sample/Bug8"));
-        Assertions.assertNotNull(ex.getCause());
+        Assertions.assertEquals("Failed to instrument class sample/Bug8", ex.getMessage());
+        Assertions.assertInstanceOf(RuntimeException.class, ex.getCause());
+        Assertions.assertEquals("forced instrumentation failure", ex.getCause().getMessage());
+        Assertions.assertEquals(1, instrumentationErrorAppender.list.size());
+        ILoggingEvent event = instrumentationErrorAppender.list.get(0);
+        Assertions.assertTrue(event.getFormattedMessage()
+                .contains("Error while instrumenting class sample/Bug8: forced instrumentation failure"));
+        Assertions.assertNotNull(event.getThrowableProxy());
+        Assertions.assertEquals(RuntimeException.class.getName(),
+                event.getThrowableProxy().getClassName());
     }
 
     @Test

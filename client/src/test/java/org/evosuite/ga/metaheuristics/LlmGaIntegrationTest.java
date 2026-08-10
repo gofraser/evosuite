@@ -19,6 +19,7 @@
  */
 package org.evosuite.ga.metaheuristics;
 
+import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
@@ -44,6 +45,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LlmGaIntegrationTest {
@@ -66,6 +68,9 @@ class LlmGaIntegrationTest {
     private int originalStagnationTimeoutSeconds;
     private int originalStagnationTests;
     private int originalPopulation;
+    private String originalTargetClass;
+    private Properties.Criterion[] originalCriterion;
+    private boolean originalSandbox;
 
     @BeforeEach
     void setUp() {
@@ -77,6 +82,15 @@ class LlmGaIntegrationTest {
         originalStagnationTimeoutSeconds = Properties.LLM_STAGNATION_TIMEOUT_SECONDS;
         originalStagnationTests = Properties.LLM_STAGNATION_TESTS;
         originalPopulation = Properties.POPULATION;
+        originalTargetClass = Properties.TARGET_CLASS;
+        originalCriterion = Properties.CRITERION;
+        originalSandbox = Properties.SANDBOX;
+        Properties.SANDBOX = false;
+        Properties.TARGET_CLASS = FlagExample1.class.getName();
+        Properties.resetTargetClass();
+        assertNotNull(Properties.getTargetClassAndDontInitialise(),
+                "the integration-test fixture should be loadable");
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.BRANCH};
         LlmService.resetInstanceForTesting();
     }
 
@@ -90,6 +104,10 @@ class LlmGaIntegrationTest {
         Properties.LLM_STAGNATION_TIMEOUT_SECONDS = originalStagnationTimeoutSeconds;
         Properties.LLM_STAGNATION_TESTS = originalStagnationTests;
         Properties.POPULATION = originalPopulation;
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.CRITERION = originalCriterion;
+        Properties.SANDBOX = originalSandbox;
+        Properties.resetTargetClass();
         LlmService.resetInstanceForTesting();
     }
 

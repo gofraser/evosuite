@@ -19,6 +19,10 @@
  */
 package org.evosuite.llm;
 
+import com.examples.with.different.packagename.llm.Target;
+import org.evosuite.Properties;
+import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -31,7 +35,10 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericMethod;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Constructor;
@@ -50,18 +57,44 @@ import static org.junit.jupiter.api.Assertions.*;
  * These tests call {@code copy()} directly (not via {@code clone()}) to ensure
  * provenance is retained through mutation/crossover/copy-heavy evolutionary paths.
  */
-class LlmProvenanceCopyPathTest {
+public class LlmProvenanceCopyPathTest {
 
-    // --- Helper class used as a target for reflection-based statement creation ---
-    @SuppressWarnings("unused")
-    public static class Target {
-        public int field;
-        public static int staticField;
-        public Target() {}
-        public Target(int x) { this.field = x; }
-        public int doSomething(int x) { return x; }
-        public static int staticDoSomething() { return 1; }
-        public static int staticTakesInt(int x) { return x; }
+    private String savedTargetClass;
+    private String savedClassPath;
+    private String savedClassPrefix;
+    private String savedSubPrefix;
+    private String savedProjectPrefix;
+
+    @BeforeEach
+    void configureTargetClass() throws Exception {
+        savedTargetClass = Properties.TARGET_CLASS;
+        savedClassPath = Properties.CP;
+        savedClassPrefix = Properties.CLASS_PREFIX;
+        savedSubPrefix = Properties.SUB_PREFIX;
+        savedProjectPrefix = Properties.PROJECT_PREFIX;
+
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
+        Properties.TARGET_CLASS = Target.class.getName();
+        Properties.resetTargetClass();
+        Properties.getTargetClassAndDontInitialise();
+        TestFactory.getInstance().reset();
+        TestCluster.reset();
+        TestCluster.getInstance().addGenerator(
+                GenericClassFactory.get(Target.class),
+                new GenericConstructor(Target.class.getConstructor(), Target.class));
+    }
+
+    @AfterEach
+    void restoreTargetClass() {
+        TestFactory.getInstance().reset();
+        TestCluster.reset();
+        Properties.TARGET_CLASS = savedTargetClass;
+        Properties.CP = savedClassPath;
+        Properties.CLASS_PREFIX = savedClassPrefix;
+        Properties.SUB_PREFIX = savedSubPrefix;
+        Properties.PROJECT_PREFIX = savedProjectPrefix;
+        ClassPathHandler.resetSingleton();
+        Properties.resetTargetClass();
     }
 
     // --- Helper interface used for FunctionalMock crossover tests ---

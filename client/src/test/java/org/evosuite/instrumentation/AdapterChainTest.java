@@ -51,7 +51,7 @@ public class AdapterChainTest {
         
         // Verify with ASM CheckClassAdapter
         ClassReader resultReader = new ClassReader(transformed);
-        CheckClassAdapter.verify(resultReader, true, new java.io.PrintWriter(System.err));
+        CheckClassAdapter.verify(resultReader, false, new java.io.PrintWriter(System.err));
     }
 
     @Test

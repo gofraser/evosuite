@@ -28,6 +28,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.NullStatement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -41,7 +42,17 @@ class TestParserTest {
 
     @BeforeEach
     void setUp() {
+        Properties.TARGET_CLASS = TestParser.class.getName();
+        Properties.resetTargetClass();
+        assertNotNull(Properties.getTargetClassAndDontInitialise(),
+                "the parser test target should be loadable before parsing tests");
         parser = new TestParser(getClass().getClassLoader());
+    }
+
+    @AfterEach
+    void tearDown() {
+        Properties.TARGET_CLASS = "";
+        Properties.resetTargetClass();
     }
 
     @Test

@@ -19,6 +19,10 @@
  */
 package org.evosuite.testsuite;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
@@ -47,6 +51,7 @@ import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -56,10 +61,16 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SuppressWarnings("unused")
 public class TestTestSuiteMinimizer {
     private static java.util.Properties currentProperties;
+    private Logger minimizerLogger;
+    private ListAppender<ILoggingEvent> minimizerLogAppender;
+    private boolean minimizerLoggerAdditive;
+    private Level minimizerLoggerLevel;
 
     @BeforeEach
     public void setUp() {
@@ -70,13 +81,29 @@ public class TestTestSuiteMinimizer {
         ClassReInitializer.resetSingleton();
         Randomness.setSeed(42);
         currentProperties = (java.util.Properties) System.getProperties().clone();
+
+        minimizerLogger = (Logger) LoggerFactory.getLogger(TestSuiteMinimizer.class);
+        minimizerLogAppender = new ListAppender<>();
+        minimizerLogAppender.start();
+        minimizerLogger.addAppender(minimizerLogAppender);
+        minimizerLoggerAdditive = minimizerLogger.isAdditive();
+        minimizerLoggerLevel = minimizerLogger.getLevel();
+        minimizerLogger.setAdditive(false);
+        minimizerLogger.setLevel(Level.WARN);
     }
 
     @AfterEach
     public void tearDown() {
-        TestGenerationContext.getInstance().resetContext();
-        System.setProperties(currentProperties);
-        Properties.getInstance().resetToDefaults();
+        try {
+            TestGenerationContext.getInstance().resetContext();
+            System.setProperties(currentProperties);
+            Properties.getInstance().resetToDefaults();
+        } finally {
+            minimizerLogger.detachAppender(minimizerLogAppender);
+            minimizerLogger.setAdditive(minimizerLoggerAdditive);
+            minimizerLogger.setLevel(minimizerLoggerLevel);
+            minimizerLogAppender.stop();
+        }
     }
 
     @Test
@@ -454,6 +481,7 @@ public class TestTestSuiteMinimizer {
         assertEquals(1, result.getOriginalLength());
         assertEquals(1, result.getFinalTests());
         assertEquals(1, result.getFinalLength());
+        assertLogMessage(Level.WARN, "Minimization preflight aborted at test 0/1");
     }
 
     @Test
@@ -636,6 +664,26 @@ public class TestTestSuiteMinimizer {
         assertEquals(2, result.getFinalLength());
         assertEquals(2, suite.totalLengthOfTestCases());
         assertEquals(2, suite.getTests().get(0).size());
+        TestCase restored = suite.getTestChromosomes().get(0).getTestCase();
+        assertNotSame(test, restored);
+        assertEquals(Integer.valueOf(1),
+                ((IntPrimitiveStatement) restored.getStatement(0)).getValue());
+        assertEquals(Integer.valueOf(2),
+                ((IntPrimitiveStatement) restored.getStatement(1)).getValue());
+        assertLogMessage(Level.ERROR, "Minimization failed (RuntimeException)");
+    }
+
+    private void assertLogMessage(Level level, String message) {
+        ILoggingEvent matchingEvent = null;
+        for (ILoggingEvent event : minimizerLogAppender.list) {
+            if (event.getLevel() == level
+                    && event.getFormattedMessage().contains(message)) {
+                assertTrue(matchingEvent == null,
+                        "Expected at most one matching minimizer log event");
+                matchingEvent = event;
+            }
+        }
+        assertNotNull(matchingEvent, "Missing expected minimizer log event: " + message);
     }
 
     private static ExecutionTrace nonEmptyTrace() {

@@ -19,13 +19,18 @@
  */
 package org.evosuite.runtime.classhandling;
 
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import com.examples.with.different.packagename.classhandling.MutableEnum;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.EvoClassLoader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -33,10 +38,32 @@ import java.lang.reflect.Method;
 
 public class ClassResetterTest {
 
+    private Logger classResetterLogger;
+
+    private ListAppender<ILoggingEvent> resetWarningAppender;
+
+    private boolean originalAdditive;
+
+    @BeforeEach
+    public void captureResetWarnings() {
+        System.clearProperty("throwingclinit.fail");
+        System.clearProperty("throwingclinit.invocations");
+        classResetterLogger = (Logger) LoggerFactory.getLogger(ClassResetter.class);
+        originalAdditive = classResetterLogger.isAdditive();
+        resetWarningAppender = new ListAppender<>();
+        resetWarningAppender.start();
+        classResetterLogger.addAppender(resetWarningAppender);
+        classResetterLogger.setAdditive(false);
+    }
+
     @AfterEach
     public void clearPoisonAndProperty() {
+        classResetterLogger.detachAppender(resetWarningAppender);
+        resetWarningAppender.stop();
+        classResetterLogger.setAdditive(originalAdditive);
         ClassResetter.getInstance().clearPoisonedClassesForTests();
         System.clearProperty("throwingclinit.fail");
+        System.clearProperty("throwingclinit.invocations");
     }
 
 
@@ -117,6 +144,7 @@ public class ClassResetterTest {
             Field counter = klass.getDeclaredField("counter");
             counter.setAccessible(true);
             Assertions.assertEquals(1, counter.getInt(null));
+            Assertions.assertEquals("1", System.getProperty("throwingclinit.invocations"));
 
             // Arm the throw and request a reset. __STATIC_RESET first zeroes
             // the counter, then replays <clinit>: counter goes 0 -> 1 and the
@@ -125,16 +153,15 @@ public class ClassResetterTest {
             System.setProperty("throwingclinit.fail", "true");
             ClassResetter.getInstance().reset(cut);
             Assertions.assertEquals(1, counter.getInt(null));
+            Assertions.assertEquals("2", System.getProperty("throwingclinit.invocations"));
+            Assertions.assertTrue(resetWarningAppender.list.stream()
+                    .anyMatch(event -> event.getFormattedMessage().contains("forced failure")));
 
             // Second reset must be skipped because the class is poisoned.
-            // If the skip is missing, __STATIC_RESET would run again: counter
-            // would briefly become 0 before incrementing back to 1. We can't
-            // observe the intermediate 0 from here, but we can observe that
-            // the warning-logging path doesn't repeat — verified indirectly
-            // by checking that the counter is still 1 with the throw armed
-            // (i.e. no further reset attempt was made).
             ClassResetter.getInstance().reset(cut);
             Assertions.assertEquals(1, counter.getInt(null));
+            Assertions.assertEquals("2", System.getProperty("throwingclinit.invocations"));
+            Assertions.assertEquals(1, resetWarningAppender.list.size());
 
         } finally {
             RuntimeSettings.resetStaticState = resetValue;
