@@ -21,6 +21,7 @@ package org.evosuite.testcase.execution;
 
 import org.evosuite.Properties;
 import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.setup.TestCluster;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -163,14 +164,50 @@ class ExecutableSnippetEngineImportFilterTest {
         buildStatementClassSource.setAccessible(true);
 
         String previousTarget = Properties.TARGET_CLASS;
+        Set<Class<?>> analyzedClasses = TestCluster.getInstance().getAnalyzedClasses();
+        Set<Class<?>> previousAnalyzedClasses = new LinkedHashSet<>(analyzedClasses);
         try {
-            Properties.TARGET_CLASS = "com.example.sut.TargetType";
+            analyzedClasses.add(ExecutableSnippetEngine.class);
+            Properties.TARGET_CLASS = ExecutableSnippetEngine.class.getName();
             String source = (String) buildStatementClassSource.invoke(
-                    engine, "k_pkg", "TargetType t = null;", Collections.emptyMap(), null);
+                    engine, "k_pkg", "ExecutableSnippetEngine value = null;",
+                    Collections.emptyMap(), null);
             assertNotNull(source);
-            assertTrue(source.contains("import com.example.sut.*;"));
+            assertTrue(source.contains(
+                    "import org.evosuite.testcase.execution.*;"));
         } finally {
             Properties.TARGET_CLASS = previousTarget;
+            analyzedClasses.clear();
+            analyzedClasses.addAll(previousAnalyzedClasses);
+        }
+    }
+
+    @Test
+    void generatedSnippetImportsOnlyAnalyzedClassesReferencedByTheSnippet() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method buildStatementClassSource = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "buildStatementClassSource", String.class, String.class, Map.class, String.class);
+        buildStatementClassSource.setAccessible(true);
+        Set<Class<?>> analyzedClasses = TestCluster.getInstance().getAnalyzedClasses();
+        Set<Class<?>> previousAnalyzedClasses = new LinkedHashSet<>(analyzedClasses);
+        analyzedClasses.clear();
+        try {
+            analyzedClasses.add(java.util.concurrent.atomic.AtomicInteger.class);
+
+            String unrelated = (String) buildStatementClassSource.invoke(
+                    engine, "k_unrelated", "Object value = null;",
+                    Collections.emptyMap(), null);
+            String referenced = (String) buildStatementClassSource.invoke(
+                    engine, "k_referenced", "AtomicInteger value = null;",
+                    Collections.emptyMap(), null);
+
+            assertFalse(unrelated.contains(
+                    "import java.util.concurrent.atomic.AtomicInteger;"));
+            assertTrue(referenced.contains(
+                    "import java.util.concurrent.atomic.AtomicInteger;"));
+        } finally {
+            analyzedClasses.clear();
+            analyzedClasses.addAll(previousAnalyzedClasses);
         }
     }
 
@@ -185,8 +222,27 @@ class ExecutableSnippetEngineImportFilterTest {
                 engine, "k2", "Object o = mock(Runnable.class);", Collections.emptyMap(), null);
 
         assertNotNull(source);
-        assertTrue(source.contains("private static <T> T mock(Class<T> type)"));
+        assertTrue(source.contains("private static <T> T mock(java.lang.Class<T> type)"));
+        assertTrue(source.contains("new java.lang.Class<?>[]{type}"));
         assertTrue(source.contains("defaultValue("));
+    }
+
+    @Test
+    void addClassImportRejectsPublicNestedTypeInsideInaccessibleOuter() throws Exception {
+        ExecutableSnippetEngine engine = ExecutableSnippetEngine.INSTANCE;
+        Method addClassImport = ExecutableSnippetEngine.class.getDeclaredMethod(
+                "addClassImport", Class.class, Map.class, Set.class);
+        addClassImport.setAccessible(true);
+        Map<String, String> simpleNameToFqn = new LinkedHashMap<>();
+
+        addClassImport.invoke(engine, PublicNestedType.class, simpleNameToFqn,
+                new LinkedHashSet<String>());
+
+        assertTrue(simpleNameToFqn.isEmpty());
+    }
+
+    public static class PublicNestedType {
+        // The test class enclosing this public type is package-private.
     }
 
     @Test

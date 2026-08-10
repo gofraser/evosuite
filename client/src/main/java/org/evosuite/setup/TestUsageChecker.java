@@ -569,21 +569,16 @@ public class TestUsageChecker {
             return false;
         }
 
-        // FIXME: EvoSuite currently can't deal properly with the Map.of(...) methods introduced in Java 9
-        if (m.getDeclaringClass().equals(java.util.Map.class) && Modifier.isStatic(m.getModifiers())) {
-            return false;
-        }
-
-        // FIXME: EvoSuite currently can't deal properly with the Set.of(...) methods introduced in Java 9
-        if (m.getDeclaringClass().equals(java.util.Set.class) && Modifier.isStatic(m.getModifiers())) {
-            return false;
-        }
-
-        // List.ofLazy(...) is a preview API in newer JDKs and does not compile in the default
-        // EvoSuite toolchain. Exclude it rather than generating preview-dependent tests.
-        if (m.getDeclaringClass().equals(java.util.List.class)
-                && m.getName().equals("ofLazy")
-                && Modifier.isStatic(m.getModifiers())) {
+        // EvoSuite can't deal properly with the static factory methods added to the
+        // JDK collection interfaces in Java 9+ (List/Set/Map .of(...)/copyOf(...)/
+        // ofEntries(...)/entry(...), and the List.ofLazy(...) preview API). These are
+        // *static interface methods*: invoking them requires -source 8 or higher, so
+        // any generated test that uses one fails to compile against the many Defects4J
+        // targets built at -source 6/7. Exclude them regardless of the running JVM.
+        if (Modifier.isStatic(m.getModifiers())
+                && (m.getDeclaringClass().equals(java.util.List.class)
+                        || m.getDeclaringClass().equals(java.util.Set.class)
+                        || m.getDeclaringClass().equals(java.util.Map.class))) {
             return false;
         }
 

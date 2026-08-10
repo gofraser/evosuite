@@ -38,10 +38,11 @@ import org.evosuite.result.TestGenerationResult;
 import org.evosuite.result.TestGenerationResultBuilder;
 import org.evosuite.rmi.MasterServices;
 import org.evosuite.rmi.service.ClientNodeRemote;
-import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.runtime.util.JarPathing;
 import org.evosuite.runtime.util.JavaExecCmdUtil;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.statistics.SearchStatistics;
+import org.evosuite.testsuite.OracleReplayConfiguration;
 import org.evosuite.utils.ExternalProcessGroupHandler;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -155,7 +156,7 @@ public class TestGeneration {
                 new Option("replayOracle", true,
                         "load a structural-suite artifact and run oracle post-processing only"),
                 new Option("oracleStrategy", true,
-                        "oracle replay strategy: NONE, ALL, MUTATION, or LLM")
+                        "oracle replay strategy: NONE, ALL, MUTATION, LLM, or MUTATION_LLM")
         };
     }
 
@@ -180,7 +181,8 @@ public class TestGeneration {
         }
         if (replayRequested && !strategySpecified) {
             LoggingUtils.getEvoLogger().error(
-                    "-replayOracle requires an explicit -oracleStrategy (NONE, ALL, MUTATION, or LLM)");
+                    "-replayOracle requires an explicit -oracleStrategy "
+                            + "(NONE, ALL, MUTATION, LLM, or MUTATION_LLM)");
             return false;
         }
         if (replayRequested && Properties.NUM_PARALLEL_CLIENTS != 1) {
@@ -219,10 +221,14 @@ public class TestGeneration {
                     Properties.OracleReplayStrategy strategy = Properties.OracleReplayStrategy.valueOf(
                             rawStrategy.trim().toUpperCase(Locale.ROOT));
                     Properties.ORACLE_REPLAY_STRATEGY = strategy;
+                    // The client applies this configuration again before replay. Apply it
+                    // in the master as well so its client wait deadline includes the
+                    // phases enabled by the selected oracle arm.
+                    OracleReplayConfiguration.apply(strategy);
                     javaOpts.add("-Doracle_replay_strategy=" + strategy.name());
                 } catch (RuntimeException e) {
                     LoggingUtils.getEvoLogger().error(
-                            "Invalid -oracleStrategy '{}'; expected NONE, ALL, MUTATION, or LLM",
+                            "Invalid -oracleStrategy '{}'; expected NONE, ALL, MUTATION, LLM, or MUTATION_LLM",
                             rawStrategy);
                     return false;
                 }

@@ -243,6 +243,25 @@ class TestUsageCheckerTest {
     }
 
     @Test
+    void testJdkCollectionStaticFactoryMethodsAreRejected() throws NoSuchMethodException {
+        // List/Set/Map .of(...) are static *interface* methods (Java 9+); a generated
+        // test that calls one needs -source 8+ and fails against many Defects4J targets
+        // built at -source 6/7 (e.g. Closure). They must be excluded from the cluster.
+        Assertions.assertFalse(TestUsageChecker.canUse(
+                java.util.List.class.getMethod("of", Object[].class)),
+                "List.of(...) must not be usable");
+        Assertions.assertFalse(TestUsageChecker.canUse(
+                java.util.Set.class.getMethod("of", Object[].class)),
+                "Set.of(...) must not be usable");
+        Assertions.assertFalse(TestUsageChecker.canUse(
+                java.util.Map.class.getMethod("of")),
+                "Map.of() must not be usable");
+        Assertions.assertFalse(TestUsageChecker.canUse(
+                java.util.List.class.getMethod("copyOf", java.util.Collection.class)),
+                "List.copyOf(...) must not be usable");
+    }
+
+    @Test
     void testUnsafeDependencyPrefixIsAllowedForMatchingTargetPackage() {
         Properties.TARGET_CLASS = "scala.collection.GeneratedCandidate";
         ByteArrayClassLoader loader = new ByteArrayClassLoader();

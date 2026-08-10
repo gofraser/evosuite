@@ -1162,6 +1162,18 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      */
     public String getSimpleName() {
         // return raw_class.getSimpleName();
+        // ClassUtils.getShortClassName converts every '$' to '.', treating it as
+        // a nested-class separator. That mangles a top-level class whose
+        // identifier legitimately contains '$' (e.g.
+        // com.google.gson.internal.$Gson$Types renders as ".Gson.Types", which is
+        // uncompilable). For a top-level class the JDK simple name preserves the
+        // identifier; only member classes need the dotted outer.inner short name.
+        if (!isArray() && rawClass.getEnclosingClass() == null) {
+            String jdkSimpleName = rawClass.getSimpleName();
+            if (!jdkSimpleName.isEmpty()) {
+                return jdkSimpleName.replace(";", "[]");
+            }
+        }
         String name = ClassUtils.getShortClassName(rawClass).replace(";", "[]");
         if (!isPrimitive() && primitiveClasses.contains(name)) {
             return rawClass.getSimpleName().replace(";", "[]");

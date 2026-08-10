@@ -25,19 +25,18 @@ import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
+import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.statistics.RuntimeVariable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import org.evosuite.runtime.sandbox.Sandbox;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
 
 import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.GenericArrayType;
@@ -45,10 +44,10 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -70,11 +69,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Compiles and executes Java snippets used by fallback parser artifacts.
@@ -93,7 +92,8 @@ public final class ExecutableSnippetEngine {
     private static final Pattern CANNOT_FIND_SYMBOL_CLASS_DETAIL_PATTERN =
             Pattern.compile("(?m)^\\s*symbol:\\s+class\\s+[A-Za-z_][A-Za-z0-9_$.]*\\s*$");
     private static final Pattern STATEMENTS_OUTSIDE_METHOD_PATTERN =
-            Pattern.compile("\\.java:(\\d+):\\s+error:\\s+statements\\s+not\\s+expected\\s+outside\\s+of\\s+methods\\s+and\\s+initializers");
+            Pattern.compile("\\.java:(\\d+):\\s+error:\\s+statements\\s+not\\s+expected\\s+"
+                    + "outside\\s+of\\s+methods\\s+and\\s+initializers");
     private static final Pattern MISSING_RETURN_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+missing\\s+return\\s+statement");
     private static final Pattern ABSTRACT_INSTANTIATION_PATTERN =
@@ -103,7 +103,8 @@ public final class ExecutableSnippetEngine {
     private static final Pattern CTOR_CANNOT_APPLY_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+constructor .* cannot be applied to given types;");
     private static final Pattern NON_PUBLIC_ACCESS_PATTERN =
-            Pattern.compile("\\.java:(\\d+):\\s+error:\\s+.* is not public in .*; cannot be accessed from outside package");
+            Pattern.compile("\\.java:(\\d+):\\s+error:\\s+.* is not public in .*; cannot be "
+                    + "accessed from outside package");
     private static final Pattern INCOMPATIBLE_TYPES_PATTERN =
             Pattern.compile("\\.java:(\\d+):\\s+error:\\s+incompatible types:.*");
     private static final Pattern UNREADABLE_CLASSPATH_ENTRY_PATTERN =
@@ -118,7 +119,8 @@ public final class ExecutableSnippetEngine {
      * code, so a blanket {@code com.sun.*} filter would drop valid references.
      */
     private static final Pattern FORBIDDEN_FQN_IN_SOURCE_PATTERN =
-            Pattern.compile("\\b(?:sun\\.|jdk\\.internal\\.|jdk\\.javadoc\\.internal\\.|com\\.sun\\.proxy\\.)[A-Za-z0-9_$.]+");
+            Pattern.compile("\\b(?:sun\\.|jdk\\.internal\\.|jdk\\.javadoc\\.internal\\."
+                    + "|com\\.sun\\.proxy\\.)[A-Za-z0-9_$.]+");
     /**
      * Blocks direct security-manager mutation in LLM fallback snippets.
      * Security manager state is controlled by EvoSuite runtime/sandbox setup,
@@ -139,7 +141,8 @@ public final class ExecutableSnippetEngine {
             Pattern.compile("\\bnew\\s+((?:java\\.awt\\.)?(?:Window|Frame|Dialog|FileDialog)|"
                     + "(?:javax\\.swing\\.)?(?:JFrame|JDialog|JWindow))\\s*\\(");
     private static final Pattern VFS_IO_NEW_EXPRESSION_PATTERN =
-            Pattern.compile("\\bnew\\s+((?:java\\.io\\.)?(?:File|RandomAccessFile|FileInputStream|FileOutputStream|FileReader|FileWriter|PrintStream|PrintWriter))\\s*\\(");
+            Pattern.compile("\\bnew\\s+((?:java\\.io\\.)?(?:File|RandomAccessFile|FileInputStream|"
+                    + "FileOutputStream|FileReader|FileWriter|PrintStream|PrintWriter))\\s*\\(");
     private static final Pattern VFS_IO_STATIC_CALL_OWNER_PATTERN =
             Pattern.compile("\\b((?:java\\.io\\.)?File|(?:java\\.nio\\.file\\.)?(?:Files|Paths|FileSystems))\\s*\\.");
 
@@ -365,6 +368,9 @@ public final class ExecutableSnippetEngine {
         return evaluateAssertion(assertionCode, variableTypes, variableValues, 0, 0);
     }
 
+    /**
+     * Evaluates an assertion snippet with separate compilation and evaluation timeouts.
+     */
     public boolean evaluateAssertion(String assertionCode,
                                      Map<String, Type> variableTypes,
                                      Map<String, Object> variableValues,
@@ -545,7 +551,8 @@ public final class ExecutableSnippetEngine {
                     classpath = repairedClasspath;
                     repaired = true;
                 }
-                SourceSanitizationOutcome repairedSource = sanitizeSourceForKnownCompileIssuesWithOutcome(workingSource, diagnostics);
+                SourceSanitizationOutcome repairedSource =
+                        sanitizeSourceForKnownCompileIssuesWithOutcome(workingSource, diagnostics);
                 if (repairedSource != null && repairedSource.sanitizedSource != null
                         && !repairedSource.sanitizedSource.equals(workingSource)) {
                     workingSource = repairedSource.sanitizedSource;
@@ -616,7 +623,8 @@ public final class ExecutableSnippetEngine {
         return outcome == null ? null : outcome.sanitizedSource;
     }
 
-    private SourceSanitizationOutcome sanitizeSourceForKnownCompileIssuesWithOutcome(String source, String diagnostics) {
+    private SourceSanitizationOutcome sanitizeSourceForKnownCompileIssuesWithOutcome(
+            String source, String diagnostics) {
         boolean changed = false;
         Set<Integer> targetLines = new LinkedHashSet<>();
         Set<Integer> cannotFindSymbolLines = new LinkedHashSet<>();
@@ -1084,6 +1092,7 @@ public final class ExecutableSnippetEngine {
             try {
                 targetLines.add(Integer.parseInt(matcher.group(1)));
             } catch (NumberFormatException ignored) {
+                // Ignore malformed compiler diagnostic line numbers.
             }
         }
     }
@@ -1210,35 +1219,18 @@ public final class ExecutableSnippetEngine {
                                String sourceCode,
                                String returnExpression) {
         Set<String> imports = new LinkedHashSet<>();
-        Set<String> wildcardClassImports = new LinkedHashSet<>();
         Set<String> targetWildcardPackageImports = new LinkedHashSet<>();
         Set<Class<?>> knownClasses = new LinkedHashSet<>();
 
-        // Import public classes from the TestCluster — these are the SUT and
-        // its dependencies that EvoSuite has analyzed.
-        // We track simple names to avoid collisions (e.g., two classes both
-        // named "Color" from different packages).
+        // TestCluster classes are candidates for resolving names that actually
+        // occur in the snippet. Do not import the entire cluster: an unrelated
+        // inaccessible nested type can otherwise make every assertion snippet
+        // fail compilation.
         Map<String, String> simpleNameToFqn = new LinkedHashMap<>();
         Set<String> collidingSimpleNames = new LinkedHashSet<>();
         try {
             for (Class<?> cls : org.evosuite.setup.TestCluster.getInstance().getAnalyzedClasses()) {
                 rememberKnownClass(cls, knownClasses);
-                addClassImport(cls, simpleNameToFqn, collidingSimpleNames);
-                // Add a wildcard import if the class has at least one public
-                // inner class/enum.  If getDeclaredClasses() fails (e.g.,
-                // because a transitive dependency like javax.media.j3d is
-                // absent), we emit the wildcard import optimistically — losing
-                // all inner types is worse than a private-access error on one.
-                String canonical = cls.getCanonicalName();
-                if (isImportableFqn(canonical)) {
-                    try {
-                        if (hasPublicDeclaredClass(cls)) {
-                            wildcardClassImports.add(canonical);
-                        }
-                    } catch (NoClassDefFoundError ignored) {
-                        wildcardClassImports.add(canonical);
-                    }
-                }
             }
         } catch (Exception ignored) {
             // TestCluster may not be initialized
@@ -1272,7 +1264,8 @@ public final class ExecutableSnippetEngine {
         }
 
         seedKnownClassesFromSource(sourceCode, returnExpression, knownClasses);
-        ensureSnippetImports(sourceCode, returnExpression, bindings, knownClasses, simpleNameToFqn, collidingSimpleNames);
+        ensureSnippetImports(sourceCode, returnExpression, bindings, knownClasses,
+                simpleNameToFqn, collidingSimpleNames);
 
         for (Map.Entry<String, String> entry : simpleNameToFqn.entrySet()) {
             if (!collidingSimpleNames.contains(entry.getKey())) {
@@ -1295,10 +1288,6 @@ public final class ExecutableSnippetEngine {
 
         for (String name : imports) {
             src.append("import ").append(name).append(";\n");
-        }
-        // Wildcard-import each analyzed class that has public inner types
-        for (String className : wildcardClassImports) {
-            src.append("import ").append(className).append(".*;\n");
         }
         for (String pkg : targetWildcardPackageImports) {
             src.append("import ").append(pkg).append(".*;\n");
@@ -1598,18 +1587,18 @@ public final class ExecutableSnippetEngine {
 
     private void appendCompatibilityHelpers(StringBuilder src) {
         src.append("  @SuppressWarnings(\"unchecked\")\n");
-        src.append("  private static <T> T mock(Class<T> type) {\n");
+        src.append("  private static <T> T mock(java.lang.Class<T> type) {\n");
         src.append("    if (type == null) return null;\n");
         src.append("    if (type.isInterface()) {\n");
         src.append("      Object proxy = java.lang.reflect.Proxy.newProxyInstance(\n");
         src.append("          type.getClassLoader(),\n");
-        src.append("          new Class<?>[]{type},\n");
+        src.append("          new java.lang.Class<?>[]{type},\n");
         src.append("          (p, m, a) -> defaultValue(m.getReturnType()));\n");
         src.append("      return (T) proxy;\n");
         src.append("    }\n");
         src.append("    return null;\n");
         src.append("  }\n");
-        src.append("  private static Object defaultValue(Class<?> returnType) {\n");
+        src.append("  private static java.lang.Object defaultValue(java.lang.Class<?> returnType) {\n");
         src.append("    if (returnType == null || !returnType.isPrimitive()) return null;\n");
         src.append("    if (returnType == boolean.class) return Boolean.FALSE;\n");
         src.append("    if (returnType == byte.class) return Byte.valueOf((byte)0);\n");
@@ -1623,15 +1612,6 @@ public final class ExecutableSnippetEngine {
         src.append("  }\n");
     }
 
-    private boolean hasPublicDeclaredClass(Class<?> cls) {
-        for (Class<?> inner : cls.getDeclaredClasses()) {
-            if (java.lang.reflect.Modifier.isPublic(inner.getModifiers())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private void addClassImport(Class<?> cls,
                                 Map<String, String> simpleNameToFqn,
                                 Set<String> collidingSimpleNames) {
@@ -1642,7 +1622,7 @@ public final class ExecutableSnippetEngine {
         if (importCandidate.isPrimitive()) {
             return;
         }
-        if (!java.lang.reflect.Modifier.isPublic(importCandidate.getModifiers())) {
+        if (!isPubliclyAccessibleClass(importCandidate)) {
             return;
         }
         String name = importCandidate.getCanonicalName();
@@ -1659,6 +1639,17 @@ public final class ExecutableSnippetEngine {
         } else {
             simpleNameToFqn.put(simpleName, name);
         }
+    }
+
+    private boolean isPubliclyAccessibleClass(Class<?> cls) {
+        Class<?> current = cls;
+        while (current != null) {
+            if (!java.lang.reflect.Modifier.isPublic(current.getModifiers())) {
+                return false;
+            }
+            current = current.getEnclosingClass();
+        }
+        return true;
     }
 
     private Class<?> rawComponentType(Class<?> arrayType) {
@@ -1783,6 +1774,9 @@ public final class ExecutableSnippetEngine {
         return normalized;
     }
 
+    /**
+     * Removes unreadable classpath entries identified by compiler diagnostics.
+     */
     public String sanitizeClasspathForKnownCompileIssues(String classpath, String diagnostics) {
         if (classpath == null || classpath.isEmpty() || diagnostics == null || diagnostics.isEmpty()) {
             return null;

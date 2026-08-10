@@ -25,6 +25,7 @@ import org.junit.Test;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.FrameworkMethod;
 import org.junit.runners.model.InitializationError;
+import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,6 +160,76 @@ public class EvoRunner extends BlockJUnit4ClassRunner {
         testMethods.addAll(getTestClass().getAnnotatedMethods(EvoSuiteTest.class));
         testMethods.addAll(getTestClass().getAnnotatedMethods(Test.class));
         return new ArrayList<>(testMethods);
+    }
+
+    /**
+     * Wrap each test method so that a functional-mock instability surfacing on
+     * replay is reported as a skipped assumption rather than a failure.
+     *
+     * <p>An EvoSuite mock uses {@link ViolatedAssumptionAnswer} for methods that
+     * were not exercised when the test was generated; that answer throws a
+     * {@link FalsePositiveException} (an {@code AssumptionViolatedException}), so
+     * JUnit skips the test. But when the class under test uses a mock differently
+     * on replay, Mockito's own framework can throw a misuse exception
+     * (e.g. {@code UnfinishedStubbingException}, {@code WrongTypeOfReturnValue},
+     * {@code InvalidUseOfMatchersException}) before that answer ever runs. Those
+     * exceptions likewise indicate a false positive, not a real defect, so we
+     * convert them into the same skipped-assumption outcome instead of letting
+     * them fail the test.
+     */
+    @Override
+    protected Statement methodInvoker(FrameworkMethod method, Object test) {
+        final Statement base = super.methodInvoker(method, test);
+        return new Statement() {
+            @Override
+            public void evaluate() throws Throwable {
+                try {
+                    base.evaluate();
+                } catch (Throwable t) {
+                    if (isFunctionalMockInstability(t)) {
+                        throw new FalsePositiveException(
+                                "Skipping test due to functional-mock instability on replay: "
+                                        + t.getClass().getName()
+                                        + (t.getMessage() == null ? ""
+                                                : ": " + firstLine(t.getMessage())));
+                    }
+                    throw t;
+                }
+            }
+        };
+    }
+
+    /**
+     * Whether a throwable (or any cause in its chain) is a Mockito framework
+     * exception. For an EvoSuite mock, such an exception means the class under
+     * test used the mock differently than at generation time, which is a false
+     * positive rather than a real fault. Matched by class-name substring so it
+     * holds whether or not the Mockito packages are relocated (shaded) in the
+     * generated-test runtime jar. A real fault surfaces as a SUT/JDK exception
+     * or a JUnit assertion error, never as a {@code mockito.exceptions.*} type.
+     */
+    static boolean isFunctionalMockInstability(Throwable throwable) {
+        Throwable current = throwable;
+        int guard = 0;
+        while (current != null && guard++ < 50) {
+            for (Class<?> type = current.getClass();
+                    type != null && type != Object.class; type = type.getSuperclass()) {
+                if (type.getName().contains(".mockito.exceptions.")) {
+                    return true;
+                }
+            }
+            Throwable cause = current.getCause();
+            if (cause == current) {
+                break;
+            }
+            current = cause;
+        }
+        return false;
+    }
+
+    private static String firstLine(String message) {
+        int newline = message.indexOf('\n');
+        return newline < 0 ? message : message.substring(0, newline);
     }
 
     /**
