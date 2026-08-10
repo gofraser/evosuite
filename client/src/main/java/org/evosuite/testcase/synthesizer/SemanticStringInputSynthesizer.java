@@ -11,13 +11,7 @@
  */
 package org.evosuite.testcase.synthesizer;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.EntityWithParametersStatement;
 import org.evosuite.testcase.statements.StringPrimitiveStatement;
@@ -26,6 +20,10 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.FieldInsnNode;
 import org.objectweb.asm.tree.MethodInsnNode;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Inverts selected semantic String pipelines into useful target inputs.
@@ -34,7 +32,7 @@ import org.objectweb.asm.tree.MethodInsnNode;
  * parsing JSON, splitting a CIDR, matching an address, and so on. Replaying those calls in the test
  * creates disconnected values and cannot change the target execution. For supported, deterministic
  * formats we instead materialize a representative source String and pass it directly to the target
- * entry. The derived parser/array graph is then considered satisfied and must not be replayed.</p>
+ * entry. The derived parser/array graph is then considered satisfied and must not be replayed.
  */
 final class SemanticStringInputSynthesizer {
 
@@ -79,9 +77,6 @@ final class SemanticStringInputSynthesizer {
             target.replaceParameterReference(reference, argument);
             int nodeId = root.var.getInstruction() == null ? -1
                     : root.var.getInstruction().getInstructionId();
-            ObjectConstructionActionTrace.setupAction("semantic_string_input", nodeId,
-                    plan.kind.name().toLowerCase() + ":" + value,
-                    ObjectConstructionActionTrace.definitionPosition(test, reference));
             changed = true;
         }
         return changed;
@@ -180,10 +175,12 @@ final class SemanticStringInputSynthesizer {
                 return "{}";
             }
             return "{\"value\":0}";
-        case CIDR:
-            // Start with a fully valid value. Its String slot remains mutable, so ordinary search
-            // can subsequently explore malformed masks without templates failing at the parser.
-            return "10.0.0.1/24";
+            case CIDR:
+
+                // Start with a fully valid value. Its String slot remains mutable, so ordinary
+                // search
+                // can subsequently explore malformed masks without templates failing at the parser.
+                return "10.0.0.1/24";
         case IP_ADDRESS:
         default:
             return "10.0.0.1";

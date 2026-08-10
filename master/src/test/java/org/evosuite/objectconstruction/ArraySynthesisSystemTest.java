@@ -71,15 +71,12 @@ public class ArraySynthesisSystemTest extends SystemTestBase {
         Properties.MINIMIZE = false;
         Properties.SEARCH_BUDGET = 20;
         Properties.RANDOM_SEED = 42L;
-        Properties.INDIVIDUAL_LEGITIMIZATION_BUDGET = 3;
-        Properties.TOTAL_LEGITIMIZATION_BUDGET = 10;
 
         Properties.TARGET_CLASS = ArgsParser.class.getCanonicalName();
         Properties.TARGET_METHOD = ""; // whole-class mode
         Properties.APPLY_OBJECT_RULE = true;
-        Properties.OBJECT_RULE_WHOLE_CLASS = true;
 
-        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession()
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession()
                 .resetInconsistentTemplatesDiscarded();
 
         EvoSuite evosuite = new EvoSuite();
@@ -99,7 +96,7 @@ public class ArraySynthesisSystemTest extends SystemTestBase {
         }
 
         System.out.println("ArgsParser inconsistentTemplatesDiscarded="
-                + org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession()
+                + org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession()
                         .getInconsistentTemplatesDiscarded()
                 + " (observability hook; see class Javadoc for why this is usually 0 in-process)");
     }

@@ -86,23 +86,4 @@ class TargetMethodLookupTest {
                 "the legacy method-only lookup must remain method-only");
     }
 
-    @Test
-    void missingExactTargetHasMaximalLegitimacyDistance() throws Exception {
-        DefaultTestCase test = new DefaultTestCase();
-        GenericConstructor constructor = new GenericConstructor(
-                StringBuilder.class.getConstructor(), StringBuilder.class);
-        VariableReference receiver = test.addStatement(new ConstructorStatement(
-                test, constructor, Collections.emptyList()));
-        Method otherLength = StringBuilder.class.getMethod("length");
-        String signature = "length" + MethodUtil.getSignature(otherLength);
-        test.addStatement(new MethodStatement(test,
-                new GenericMethod(otherLength, StringBuilder.class), receiver,
-                Collections.emptyList()));
-        TargetContext.setActive(new TargetContext(String.class.getName(), signature, null));
-
-        TestChromosome chromosome = new TestChromosome();
-        chromosome.setTestCase(test);
-
-        Assertions.assertEquals(Double.MAX_VALUE, chromosome.getLegitimacyDistance());
-    }
 }

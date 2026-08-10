@@ -11,17 +11,12 @@
  */
 package org.evosuite.testcase.factories;
 
-import java.util.Map;
-import java.util.Set;
-
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.synthesizer.FunctionalMockSetupCoordinator;
-import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
-import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
-import org.evosuite.testcase.synthesizer.TargetContext;
+import java.util.Map;
+import java.util.Set;
 
 /** Publishes a run session without coupling generation state to the RMI statistics service. */
 public final class ObjectRuleStatisticsReporter {
@@ -29,46 +24,21 @@ public final class ObjectRuleStatisticsReporter {
     private ObjectRuleStatisticsReporter() {
     }
 
-    public static void publish(ObjectRuleSession session) {
-        double successRate = session.legitimizationTrials == 0
-                ? 0.0
-                : (double) session.legitimizationSuccess / session.legitimizationTrials;
+    public static void publish(ObjectRuleRuntime runtime) {
+        ObjectRuleSession session = runtime.getSession();
 
-        track(RuntimeVariable.ObjectGraphBranches, countObjectGraphBranches());
-        track(RuntimeVariable.ObjectGraphMaxSize, maxObjectGraphSize());
+        track(RuntimeVariable.ObjectGraphBranches, countObjectGraphBranches(runtime));
+        track(RuntimeVariable.ObjectGraphMaxSize, maxObjectGraphSize(runtime));
         track(RuntimeVariable.TemplateSynthesisTime, session.templateSynthesisTimeMs);
         track(RuntimeVariable.ObjectRuleSynthesisTime, session.synthesisTimeMs);
         track(RuntimeVariable.ObjectRuleTemplateExecTime, session.templateExecTimeMs);
-        track(RuntimeVariable.ObjectRuleLegitimizationTime, session.legitimizationTimeMs);
         track(RuntimeVariable.TemplateInjections, session.templateInjections);
-        track(RuntimeVariable.LegitimizationSuccessRate, successRate);
-        track(RuntimeVariable.LegitimizationAttempts, session.legitimizationTrials);
-        track(RuntimeVariable.LegitimizationSuccesses, session.legitimizationSuccess);
-        track(RuntimeVariable.LegitimizationSkipped, session.legitimizationSkipped);
-        track(RuntimeVariable.ObjectRuleEverEligibleBranches,
-                ObjectRuleBranchSelector.getInstance().getEverEligibleCount());
-        track(RuntimeVariable.ObjectRuleBlacklistedBranches,
-                ObjectRuleBranchSelector.getInstance().getBlacklistedCount());
-        track(RuntimeVariable.ObjectRuleTargetedBranches,
-                ObjectRuleBranchSelector.getInstance().getTargetedBranchCount());
-        track(RuntimeVariable.ObjectRuleMaxInjectionsPerBranch,
-                ObjectRuleBranchSelector.getInstance().getMaxInjectionsPerBranch());
-        track(RuntimeVariable.ObjectRuleRepeatedFailureBranches,
-                ObjectRuleBranchSelector.getInstance().getRepeatedFailureBranchCount());
-        track(RuntimeVariable.ObjectRuleMaxConsecutiveFailures,
-                ObjectRuleBranchSelector.getInstance().getMaxConsecutiveFailures());
-        track(RuntimeVariable.ObjectRuleLastFreshSynthesisIteration,
-                session.lastFreshSynthesisIteration);
-        track(RuntimeVariable.ObjectRuleEntryRejectedConstructor,
-                TargetContext.getRejectedConstructorEntries());
-        track(RuntimeVariable.ObjectRuleEntryRejectedNonPublic,
-                TargetContext.getRejectedNonPublicEntries());
-        track(RuntimeVariable.ObjectRuleEntryRejectedOther,
-                TargetContext.getRejectedOtherEntries());
-        track(RuntimeVariable.ObjectRuleTemplateSurvivalMean,
-                ObjectRuleTelemetry.getInstance().meanSurvival());
-        track(RuntimeVariable.ObjectRuleTemplateSurvival5,
-                ObjectRuleTelemetry.getInstance().survivalAtLeastFive());
+        track(
+                RuntimeVariable.ObjectRuleEverEligibleBranches,
+                runtime.getBranchSelector().getEverEligibleCount());
+        track(
+                RuntimeVariable.ObjectRuleBlacklistedBranches,
+                runtime.getBranchSelector().getBlacklistedCount());
         track(RuntimeVariable.TemplateCacheHits, session.templateCacheHits);
         track(RuntimeVariable.ObjectRuleFreshSyntheses, session.freshSyntheses);
         track(RuntimeVariable.ObjectRuleFirstShotSuccesses, session.firstShotSuccesses);
@@ -77,6 +47,9 @@ public final class ObjectRuleStatisticsReporter {
         track(RuntimeVariable.ObjectRuleWorkingGoalUnavailable, session.workingGoalUnavailable);
         track(RuntimeVariable.ObjectRuleWorkingGoalEvaluationFailures,
                 session.workingGoalEvaluationFailures);
+        track(
+                RuntimeVariable.ObjectRuleInconsistentTemplates,
+                session.inconsistentTemplatesDiscarded);
         track(RuntimeVariable.ObjectRuleMockSetupOpportunities,
                 FunctionalMockSetupCoordinator.getOpportunities());
         track(RuntimeVariable.ObjectRuleMockSetupMethodsObserved,
@@ -101,10 +74,10 @@ public final class ObjectRuleStatisticsReporter {
         ClientServices.getInstance().getClientNode().trackOutputVariable(variable, value);
     }
 
-    static int countObjectGraphBranches() {
+    static int countObjectGraphBranches(ObjectRuleRuntime runtime) {
         int count = 0;
-        for (Map<org.evosuite.coverage.branch.Branch, Set<DepVariable>> branches
-                : ObjectConstructionContext.branchInterestedVarsMap.values()) {
+        for (Map<org.evosuite.coverage.branch.Branch, Set<DepVariable>> branches :
+                runtime.getBranchInterestedVarsMap().values()) {
             if (branches != null) {
                 for (Set<DepVariable> variables : branches.values()) {
                     if (variables != null && !variables.isEmpty()) {
@@ -116,10 +89,10 @@ public final class ObjectRuleStatisticsReporter {
         return count;
     }
 
-    static int maxObjectGraphSize() {
+    static int maxObjectGraphSize(ObjectRuleRuntime runtime) {
         int max = 0;
-        for (Map<org.evosuite.coverage.branch.Branch, Set<DepVariable>> branches
-                : ObjectConstructionContext.branchInterestedVarsMap.values()) {
+        for (Map<org.evosuite.coverage.branch.Branch, Set<DepVariable>> branches :
+                runtime.getBranchInterestedVarsMap().values()) {
             if (branches != null) {
                 for (Set<DepVariable> variables : branches.values()) {
                     if (variables != null) {

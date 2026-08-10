@@ -26,6 +26,8 @@ import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.archive.Archive;
+import org.evosuite.coverage.branch.Branch;
+import org.evosuite.coverage.branch.BranchPool;
 import org.evosuite.ga.bloatcontrol.BloatControlFunction;
 import org.evosuite.ga.localsearch.DefaultLocalSearchObjective;
 import org.evosuite.ga.localsearch.LocalSearchBudget;
@@ -54,6 +56,7 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testparser.TestParser;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionTracer;
+import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.factories.TestSuiteChromosomeFactory;
 import org.evosuite.utils.ArrayUtil;
@@ -782,7 +785,26 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * initialization phase.</p>
      */
     public void prepareSearch() {
-        // Default: no pre-search analysis required.
+        if (!Properties.APPLY_OBJECT_RULE
+                || (Properties.TARGET_METHOD != null && !Properties.TARGET_METHOD.isEmpty())) {
+            return;
+        }
+
+        Set<Branch> targetBranches = new LinkedHashSet<>();
+        for (Branch branch : BranchPool.getInstance(
+                org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT())
+                .getAllBranches()) {
+            String branchClass = branch.getInstruction().getClassName();
+            if (branchClass != null
+                    && (Properties.TARGET_CLASS.equals(branchClass)
+                            || branchClass.startsWith(Properties.TARGET_CLASS + "$"))) {
+                targetBranches.add(branch);
+            }
+        }
+        ObjectRuleBranchSelector selector =
+                org.evosuite.TestGenerationContext.getInstance()
+                        .getObjectRuleRuntime().getBranchSelector();
+        selector.prepareEligibility(targetBranches);
     }
 
     /**

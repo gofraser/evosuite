@@ -6,6 +6,7 @@
  */
 package org.evosuite.testcase;
 
+import org.evosuite.TestGenerationContext;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.EntityWithParametersStatement;
 import org.evosuite.testcase.statements.FieldStatement;
@@ -104,20 +105,23 @@ public class VariableResolverConcreteFactoryTest {
     public void synthesisUsesScalarForUnconstrainedObjectInsteadOfArbitraryGraph()
             throws Exception {
         TestCase test = new DefaultTestCase();
-        boolean previous = VariableResolver.setObjectRuleSynthesisConstruction(true);
+        boolean previous = TestGenerationContext.getInstance().getObjectRuleRuntime()
+                .setSynthesisConstruction(true);
         VariableReference result;
         try {
             result = resolver().resolveVariable(
                     test, Object.class, 0, GenerationContext.fromDepth(2), concreteConfig);
         } finally {
-            VariableResolver.setObjectRuleSynthesisConstruction(previous);
+            TestGenerationContext.getInstance().getObjectRuleRuntime()
+                    .setSynthesisConstruction(previous);
         }
 
         assertEquals(1, test.size());
         assertTrue(test.getStatement(0) instanceof StringPrimitiveStatement);
         assertEquals(String.class, result.getVariableClass());
         assertTrue(((StringPrimitiveStatement) test.getStatement(0)).isObjectRuleSlot());
-        assertFalse(VariableResolver.isObjectRuleSynthesisConstruction());
+        assertFalse(TestGenerationContext.getInstance().getObjectRuleRuntime()
+                .isSynthesisConstruction());
         assertNoMocks(test);
     }
 

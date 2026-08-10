@@ -21,13 +21,12 @@ package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
-import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.operators.selection.BestKSelection;
 import org.evosuite.ga.operators.selection.RandomKSelection;
 import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.ga.operators.selection.SelectionFunction;
-import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.statistics.RuntimeVariable;
@@ -37,13 +36,12 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.Listener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
- * Implementation of the Many-Objective Sorting Algorithm (MOSA) described in the
- * paper "Reformulating branch coverage as a many-objective optimization problem".
+ * Implementation of the Many-Objective Sorting Algorithm (MOSA) described in the paper
+ * "Reformulating branch coverage as a many-objective optimization problem".
  *
  * @author Annibale Panichella, Fitsum M. Kifetew
  */
@@ -143,11 +141,6 @@ public class MOSA extends AbstractMOSA {
     public void generateSolution() {
         logger.info("executing generateSolution function");
 
-        if (Properties.APPLY_OBJECT_RULE) {
-            // EvoObj: the total legitimization budget is measured from search start.
-            TestCaseLegitimizer.startTime = System.currentTimeMillis();
-        }
-
         // keep track of covered goals
         this.fitnessFunctions.forEach(this::addUncoveredGoal);
 
@@ -232,8 +225,8 @@ public class MOSA extends AbstractMOSA {
     }
 
     /**
-     * Registers all external candidate sources for this MOSA instance:
-     * island immigrants, LLM async producer, and LLM stagnation detector.
+     * Registers all external candidate sources for this MOSA instance: island immigrants, LLM async
+     * producer, and LLM stagnation detector.
      */
     @Override
     protected void registerAdditionalCandidateSources() {

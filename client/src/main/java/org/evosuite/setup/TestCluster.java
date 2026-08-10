@@ -30,30 +30,23 @@ import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.factories.TestGenerationUtil;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.ListUtil;
-import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
-
 import static java.util.stream.Collectors.toCollection;
 
 /**
  * Test cluster definition for a given system under test (SUT).
  *
- * <p>
- * The test cluster defines the set of available classes,
- * their constructors, methods and fields.
- * </p>
+ * <p>The test cluster defines the set of available classes, their constructors, methods and fields.
  *
  * @author Gordon Fraser
  */
@@ -79,13 +72,13 @@ public class TestCluster {
 
     /**
      * Baseline set of discovered target calls before runtime pruning.
-     * <p>
-     * Some search components (eg archive-driven call removal) can temporarily
-     * drain {@link #testMethods}. Keeping this baseline allows mutation to
-     * recover and continue exploring instead of dead-ending.
-     * </p>
+     *
+     * <p>Some search components (eg archive-driven call removal) can temporarily drain {@link
+     * #testMethods}. Keeping this baseline allows mutation to recover and continue exploring
+     * instead of dead-ending.
      */
-    private static final Set<GenericAccessibleObject<?>> allDiscoveredTestMethods = new LinkedHashSet<>();
+    private static final Set<GenericAccessibleObject<?>> allDiscoveredTestMethods =
+            new LinkedHashSet<>();
 
     /**
      * Guard to avoid repeating the same fallback warning every generation.
@@ -108,14 +101,13 @@ public class TestCluster {
     private static final Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorCache = new LinkedHashMap<>();
 
     /**
-     * Guards concurrent access to {@link #generators} and {@link #generatorCache}.
-     * The LLM async producer thread can call into {@code ClusterExpansionManager},
-     * which mutates the generators map via {@link #addGenerator}, while the main
-     * GA thread is iterating it in {@link #cacheGenerators}. {@code LinkedHashMap}
-     * is not thread-safe, so without this lock the race surfaces as
-     * {@code generators.get(key)} returning {@code null} for a key that
-     * {@code keySet()} just yielded. The monitor is reentrant, so the
-     * setup-time call chains that re-enter {@code cacheGenerators} remain safe.
+     * Guards concurrent access to {@link #generators} and {@link #generatorCache}. The LLM async
+     * producer thread can call into {@code ClusterExpansionManager}, which mutates the generators
+     * map via {@link #addGenerator}, while the main GA thread is iterating it in {@link
+     * #cacheGenerators}. {@code LinkedHashMap} is not thread-safe, so without this lock the race
+     * surfaces as {@code generators.get(key)} returning {@code null} for a key that {@code
+     * keySet()} just yielded. The monitor is reentrant, so the setup-time call chains that re-enter
+     * {@code cacheGenerators} remain safe.
      */
     private static final Object generatorsLock = new Object();
 
@@ -175,7 +167,6 @@ public class TestCluster {
         generatorCache.clear();
         Set<GenericClass<?>> removed = new LinkedHashSet<>();
 
-
         for (Map.Entry<GenericClass<?>, Set<GenericAccessibleObject<?>>> entry : generators.entrySet()) {
             if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
                 logger.warn("Stopping unusable-generator pruning because initialization time is exhausted");
@@ -229,22 +220,16 @@ public class TestCluster {
         }
     }
 
-
     /**
-     * if a class X has a generator non-static method for Y, but, among its own generators for X it has one
-     * that uses Y as input, then do not use any non-static method of X as generator for Y.
-     * This is to avoid nasty cycles.
-     * For example, consider the case of:
+     * if a class X has a generator non-static method for Y, but, among its own generators for X it
+     * has one that uses Y as input, then do not use any non-static method of X as generator for Y.
+     * This is to avoid nasty cycles. For example, consider the case of:
      *
-     * <p>
-     * X(Y y){...} <br>
+     * <p>X(Y y){...} <br>
      * Y getY(){...}
-     * </p>
      *
-     * <p>
-     * If we need Y, we could end up using x.getY(), which for instantiating x would need a Y, which might
-     * end up in an infinite recursion...
-     * </p>
+     * <p>If we need Y, we could end up using x.getY(), which for instantiating x would need a Y,
+     * which might end up in an infinite recursion...
      */
     private void removeDirectCycle() {
 
@@ -356,7 +341,6 @@ public class TestCluster {
         return inheritanceTree;
     }
 
-
     /**
      * Set the inheritance tree.
      *
@@ -395,7 +379,6 @@ public class TestCluster {
         return false;
 
     }
-
 
     /**
      * Add a generator reflection object.
@@ -460,7 +443,6 @@ public class TestCluster {
         testMethods.remove(call);
     }
 
-
     public void addEnvironmentTestCall(GenericAccessibleObject<?> call) throws IllegalArgumentException {
         Inputs.checkNull(call);
         environmentMethods.add(call);
@@ -479,8 +461,8 @@ public class TestCluster {
     }
 
     /**
-     * Calculate and cache all generators for a particular type. All generic
-     * types on the generator are instantiated according to the produced type.
+     * Calculate and cache all generators for a particular type. All generic types on the generator
+     * are instantiated according to the produced type.
      *
      * @param clazz the class to cache generators for
      * @throws ConstructionFailedException if construction fails
@@ -510,11 +492,16 @@ public class TestCluster {
         } else {
             logger.debug("2. Target class is not object: {}", clazz);
             for (GenericClass<?> generatorClazz : generators.keySet()) {
-                // logger.debug("3. Considering original generator: " + generatorClazz + " for " + clazz);
+
+                // logger.debug("3. Considering original generator: " + generatorClazz + " for " +
+                // clazz);
 
                 if (generatorClazz.canBeInstantiatedTo(clazz)) {
-                    //logger.debug("4. generator " + generatorClazz + " can be instantiated to " + clazz);
-                    GenericClass<?> instantiatedGeneratorClazz = generatorClazz.getWithParametersFromSuperclass(clazz);
+
+                    // logger.debug("4. generator " + generatorClazz + " can be instantiated to " +
+                    // clazz);
+                    GenericClass<?> instantiatedGeneratorClazz =
+                            generatorClazz.getWithParametersFromSuperclass(clazz);
                     logger.debug("Instantiated type: {} for {} and superclass {}",
                             instantiatedGeneratorClazz, generatorClazz, clazz);
 
@@ -534,7 +521,8 @@ public class TestCluster {
 
                             boolean hadTypeParameters = false;
 
-                            // Instantiate potential further type variables based on type variables of return type
+                            // Instantiate potential further type variables based on type variables
+                            // of return type
                             if (newGenerator.getOwnerClass().hasWildcardOrTypeVariables()) {
                                 logger.debug("Instantiating type parameters of owner type: {}",
                                         newGenerator.getOwnerClass());
@@ -544,7 +532,9 @@ public class TestCluster {
                                 hadTypeParameters = true;
                             }
 
-                            // If it is a generic method, instantiate generic type variables for the produced class
+                            // If it is a generic method, instantiate generic type variables for the
+                            // produced
+                            // class
                             if (newGenerator.hasTypeParameters()) {
                                 logger.debug("Instantiating type parameters");
                                 /*
@@ -598,14 +588,24 @@ public class TestCluster {
                         }
                     }
                     // FIXME:
-                    // There are cases where this might lead to relevant cast classes not being included
+
+                    // There are cases where this might lead to relevant cast classes not being
+                    // included
                     // but in manycases it will pull in large numbers of useless dependencies.
-                    // Commented out for now, until we find a case where the problem can be properly studied.
+
+                    // Commented out for now, until we find a case where the problem can be properly
+                    // studied.
                     //                } else {
-                    //                    logger.debug("4. generator {} CANNOT be instantiated to {}",
+
+                    //                    logger.debug("4. generator {} CANNOT be instantiated to
+                    // {}",
                     //                            generatorClazz, clazz);
-                    //                    for(GenericClass boundClass : generatorClazz.getGenericBounds()) {
-                    //                        CastClassManager.getInstance().addCastClass(boundClass, 0);
+
+                    //                    for(GenericClass boundClass :
+                    // generatorClazz.getGenericBounds()) {
+                    //
+                    //
+                    // CastClassManager.getInstance().addCastClass(boundClass, 0);
                     //                    }
                 }
             }
@@ -616,7 +616,6 @@ public class TestCluster {
                 }
             }
         }
-
 
         logger.debug("]");
         generatorCache.put(clazz, targetGenerators);
@@ -741,7 +740,8 @@ public class TestCluster {
      * Get the set of analyzed classes.
      *
      * @return the analyzedClasses
-     * @deprecated This field is deprecated and should not be used. It is maintained for backward compatibility.
+     * @deprecated This field is deprecated and should not be used. It is maintained for backward
+     *     compatibility.
      */
     @Deprecated
     public Set<Class<?>> getAnalyzedClasses() {
@@ -793,14 +793,6 @@ public class TestCluster {
             throws ConstructionFailedException {
 
         Set<GenericAccessibleObject<?>> calls = getCallsFor(clazz, true);
-
-        // EvoObj (method-level targeting): never invoke the target method as a
-        // modifier on another object; the target call is inserted exactly once
-        // as a test call. No-op unless the object rule is enabled and TARGET_METHOD is set.
-        if (Properties.APPLY_OBJECT_RULE && !Properties.TARGET_METHOD.isEmpty()
-                && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()) {
-            calls.removeIf(TestGenerationUtil::isTargetMethod);
-        }
 
         if (calls.isEmpty()) {
             throw new ConstructionFailedException("No modifiers for " + clazz);
@@ -998,7 +990,10 @@ public class TestCluster {
                     calls.add(call);
                 } else if (!Collection.class.isAssignableFrom(call.getDeclaringClass())
                         && !Map.class.isAssignableFrom(call.getDeclaringClass())) {
-                    // Methods that return collections are candidates, unless they are methods of the collections
+
+                    // Methods that return collections are candidates, unless they are methods of
+                    // the
+                    // collections
                     calls.add(call);
                 } else if (!call.getDeclaringClass().getName().startsWith("java")) {
                     calls.add(call);
@@ -1008,7 +1003,9 @@ public class TestCluster {
                     }
                 }
             }
-            // This may happen e.g. for java.util.concurrent.ArrayBlockingQueue which has no default constructor
+
+            // This may happen e.g. for java.util.concurrent.ArrayBlockingQueue which has no default
+            // constructor
             if (calls.isEmpty()) {
                 calls.addAll(all);
             }
@@ -1051,8 +1048,8 @@ public class TestCluster {
     }
 
     /**
-     * FIXME: This is a workaround for a bug where Integer is not contained in
-     * the generatorCache, but there is a key. No idea how it comes to place
+     * FIXME: This is a workaround for a bug where Integer is not contained in the generatorCache,
+     * but there is a key. No idea how it comes to place
      *
      * @param clazz the class to add a numeric constructor for
      */
@@ -1106,7 +1103,8 @@ public class TestCluster {
     /**
      * Determine the set of generators for an Object.class instance
      *
-     * @return a collection of all cast classes stored in {@link CastClassManager}; cannot be <code>null</code>>.
+     * @return a collection of all cast classes stored in {@link CastClassManager}; cannot be <code>
+     *     null</code>>.
      */
     public Set<GenericAccessibleObject<?>> getObjectGenerators() {
         // TODO: Use probabilities based on distance to SUT
@@ -1146,7 +1144,6 @@ public class TestCluster {
             return getRandomGenerator(concreteClass);
         }
 
-
         Collection<GenericAccessibleObject<?>> generators;
         if (isSpecialCase(clazz)) {
             generators = getGeneratorsForSpecialCase(clazz);
@@ -1178,7 +1175,6 @@ public class TestCluster {
 
         return Randomness.choice(compatible);
     }
-
 
     /**
      * Randomly select one generator.
@@ -1302,9 +1298,9 @@ public class TestCluster {
         // Applying this roulette to every ordinary random dependency made graphless EvoObj runs
         // behaviorally different from baseline and was especially expensive for Jackson-heavy
         // classes such as event-ruler's Event.
-        if (Properties.APPLY_OBJECT_RULE
-                && Properties.OBJECT_RULE_PREFER_CONCRETE_FACTORIES
-                && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()) {
+        if (org.evosuite.TestGenerationContext.getInstance()
+                .getObjectRuleRuntime()
+                .isEntryConstruction()) {
             GenericAccessibleObject<?> biased = chooseByParamNumBias(compatible);
             if (biased != null) {
                 return biased;
@@ -1345,9 +1341,9 @@ public class TestCluster {
     }
 
     /**
-     * Selects a generator from the compatible list using weighted random selection that
-     * favours generators whose parameters are easier to satisfy. This reduces wasted
-     * construction attempts compared to uniform random selection.
+     * Selects a generator from the compatible list using weighted random selection that favours
+     * generators whose parameters are easier to satisfy. This reduces wasted construction attempts
+     * compared to uniform random selection.
      */
     private GenericAccessibleObject<?> selectWeightedGenerator(
             List<GenericAccessibleObject<?>> compatible, GenericClass<?> targetType) {
@@ -1454,9 +1450,8 @@ public class TestCluster {
     }
 
     /**
-     * Returns true for abstract AWT/Swing types that have no concrete implementation
-     * available in a headless environment.  These types can only be obtained via
-     * mocking when running headless.
+     * Returns true for abstract AWT/Swing types that have no concrete implementation available in a
+     * headless environment. These types can only be obtained via mocking when running headless.
      */
     private static boolean isHeadlessOnlyType(Class<?> type) {
         String name = type.getName();
@@ -1466,11 +1461,10 @@ public class TestCluster {
     }
 
     /**
-     * Returns true if the given class is a JDK Swing/AWT {@link java.awt.Component}
-     * subclass, ie declared in {@code java.awt.*} or {@code javax.swing.*} (including
-     * nested classes like {@code javax.swing.JPopupMenu$Separator}).  EvoSuite's
-     * own mock classes live in {@code org.evosuite.runtime.mock.*} and are not
-     * matched.
+     * Returns true if the given class is a JDK Swing/AWT {@link java.awt.Component} subclass, ie
+     * declared in {@code java.awt.*} or {@code javax.swing.*} (including nested classes like {@code
+     * javax.swing.JPopupMenu$Separator}). EvoSuite's own mock classes live in {@code
+     * org.evosuite.runtime.mock.*} and are not matched.
      */
     private static boolean isJdkGuiComponent(Class<?> clazz) {
         if (clazz == null) {
@@ -1488,10 +1482,9 @@ public class TestCluster {
     }
 
     /**
-     * Returns {@code true} if any class in {@code clazz}'s superclass chain
-     * has a registered OverrideMock.  This means bytecode instrumentation will
-     * replace the superclass reference, allowing the mock to handle headless
-     * construction.
+     * Returns {@code true} if any class in {@code clazz}'s superclass chain has a registered
+     * OverrideMock. This means bytecode instrumentation will replace the superclass reference,
+     * allowing the mock to handle headless construction.
      */
     private static boolean hasMockedAncestor(Class<?> clazz) {
         for (Class<?> c = clazz.getSuperclass(); c != null; c = c.getSuperclass()) {
@@ -1504,10 +1497,9 @@ public class TestCluster {
     }
 
     /**
-     * Returns {@code true} if the given type has generators registered but all of
-     * them are filtered out by headless mode.  This is used to decide whether
-     * to fall back to functional mocking for the CUT when it extends a
-     * headless-incompatible type (e.g., JFrame).
+     * Returns {@code true} if the given type has generators registered but all of them are filtered
+     * out by headless mode. This is used to decide whether to fall back to functional mocking for
+     * the CUT when it extends a headless-incompatible type (e.g., JFrame).
      */
     public boolean hasOnlyHeadlessIncompatibleGenerators(GenericClass<?> clazz) {
         if (!Properties.HEADLESS_MODE) {
@@ -1565,12 +1557,12 @@ public class TestCluster {
     }
 
     /**
-     * Scores a generator based on how likely it is to succeed. Higher is better.
-     * Considers: number of parameters, whether parameters are primitive/simple,
-     * whether the generator is circular (requires the target type), and whether
-     * parameter types have known generators.
+     * Scores a generator based on how likely it is to succeed. Higher is better. Considers: number
+     * of parameters, whether parameters are primitive/simple, whether the generator is circular
+     * (requires the target type), and whether parameter types have known generators.
      */
-    private double scoreGenerator(GenericAccessibleObject<?> generator, GenericClass<?> targetType) {
+    private double scoreGenerator(
+            GenericAccessibleObject<?> generator, GenericClass<?> targetType) {
         double score = 1.0;
 
         // Penalise circular generators — they can only work if the type is already
@@ -1619,16 +1611,17 @@ public class TestCluster {
     }
 
     /**
-     * Checks whether a generator requires the given target type as one of its parameters
-     * (or as the owner/caller type for non-static methods). This is used to detect circular
-     * dependencies where all generators for a type T themselves require a T to be constructed.
+     * Checks whether a generator requires the given target type as one of its parameters (or as the
+     * owner/caller type for non-static methods). This is used to detect circular dependencies where
+     * all generators for a type T themselves require a T to be constructed.
      *
-     * <p>Only flags a parameter as circular when the parameter type IS-A target type (i.e.,
-     * the parameter is the target type itself or a subtype). A parameter that is a supertype
-     * of the target (e.g., {@code Object}, {@code AutoCloseable}) can be satisfied by many
-     * other types and does not indicate a circular dependency.
+     * <p>Only flags a parameter as circular when the parameter type IS-A target type (i.e., the
+     * parameter is the target type itself or a subtype). A parameter that is a supertype of the
+     * target (e.g., {@code Object}, {@code AutoCloseable}) can be satisfied by many other types and
+     * does not indicate a circular dependency.
      */
-    private boolean generatorRequiresType(GenericAccessibleObject<?> generator, GenericClass<?> targetType) {
+    private boolean generatorRequiresType(
+            GenericAccessibleObject<?> generator, GenericClass<?> targetType) {
         Class<?> targetRaw = targetType.getRawClass();
         // For non-static methods, the owner type (caller) is also a dependency
         if (generator.isMethod() && !generator.isStatic()) {
@@ -1740,7 +1733,6 @@ public class TestCluster {
         return environmentMethods.size();
     }
 
-
     /**
      * Simply check if there is any generator that gives us a SUT instance.
      *
@@ -1805,15 +1797,6 @@ public class TestCluster {
         List<GenericAccessibleObject<?>> candidateTestMethods = new ArrayList<>(testMethods);
         candidateTestMethods.removeIf(this::shouldFilterHeadlessIncompatibleTestCall);
 
-        // EvoObj (method-level targeting): if the test already calls the target
-        // method, drop it from the candidates so exactly one call is inserted.
-        // No-op unless the object rule is enabled and TARGET_METHOD is set.
-        if (Properties.APPLY_OBJECT_RULE
-                && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()
-                && TestGenerationUtil.getTargetMethodPosition(test, test.size() - 1) != -1) {
-            TestGenerationUtil.filterTargetMethod(test, candidateTestMethods);
-        }
-
         if (candidateTestMethods.isEmpty()) {
             List<GenericAccessibleObject<?>> fallbackCalls = new ArrayList<>(allDiscoveredTestMethods);
             fallbackCalls.removeIf(this::shouldFilterHeadlessIncompatibleTestCall);
@@ -1838,14 +1821,9 @@ public class TestCluster {
             // It may happen that all remaining test calls are constructors. In this case it's ok.
             if (candidateTestMethods.isEmpty()) {
                 candidateTestMethods = new ArrayList<>(testMethods);
-                if (Properties.APPLY_OBJECT_RULE
-                        && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()
-                        && TestGenerationUtil.getTargetMethodPosition(test, test.size() - 1) != -1) {
-                    TestGenerationUtil.filterTargetMethod(test, candidateTestMethods);
-                }
+
             }
         }
-
 
         if (Properties.SORT_CALLS) {
             candidateTestMethods = sortCalls(candidateTestMethods);
@@ -1854,24 +1832,6 @@ public class TestCluster {
         GenericAccessibleObject<?> choice = Properties.SORT_CALLS
                 ? ListUtil.selectRankBiased(candidateTestMethods)
                 : Randomness.choice(candidateTestMethods);
-
-        // EvoObj (method-level targeting): if the target method is still a
-        // candidate (i.e. not yet present in the test), insert it first so that
-        // every test calls the target method exactly once. No-op unless the
-        // object rule is enabled and TARGET_METHOD is set.
-        if (Properties.APPLY_OBJECT_RULE && !Properties.TARGET_METHOD.isEmpty()
-                && org.evosuite.testcase.VariableResolver.isObjectRuleEntryConstruction()) {
-            for (GenericAccessibleObject<?> candidate : candidateTestMethods) {
-                if (candidate instanceof GenericMethod) {
-                    GenericMethod method = (GenericMethod) candidate;
-                    String sig = method.getName() + MethodUtil.getSignature(method.getMethod());
-                    if (sig.equals(Properties.TARGET_METHOD)) {
-                        choice = candidate;
-                        break;
-                    }
-                }
-            }
-        }
 
         logger.debug("Chosen call: " + choice);
         if (choice.getOwnerClass().hasWildcardOrTypeVariables()) {
@@ -1891,7 +1851,6 @@ public class TestCluster {
         }
         return choice;
     }
-
 
     public int getNumTestCalls() {
         return testMethods.size();
@@ -1965,8 +1924,7 @@ public class TestCluster {
     }
 
     /**
-     * Some standard classes need to be treated specially to increase
-     * performance.
+     * Some standard classes need to be treated specially to increase performance.
      *
      * @param clazz the class to check
      * @return true if it is a special case
@@ -1986,7 +1944,6 @@ public class TestCluster {
 
         return clazz.isAssignableTo(Number.class);
     }
-
 
     /*
      * (non-Javadoc)

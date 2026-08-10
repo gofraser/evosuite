@@ -29,7 +29,6 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
@@ -63,7 +62,7 @@ public class RealWorldExcerptSynthesisTest {
         Properties.TARGET_METHOD = "";
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
-        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().clearWorkingTarget();
         org.evosuite.TestGenerationContext.getInstance().resetContext();
     }
 
@@ -83,7 +82,6 @@ public class RealWorldExcerptSynthesisTest {
         Properties.RANDOM_SEED = 42L;
         Randomness.setSeed(42L);
         Properties.CHROMOSOME_LENGTH = 40;
-        Properties.INDIVIDUAL_LEGITIMIZATION_BUDGET = 3;
         Properties.TARGET_CLASS = clazz.getName();
         Properties.TARGET_METHOD = signatureOf(clazz, methodName, paramNum);
         Properties.APPLY_OBJECT_RULE = true;
@@ -106,7 +104,8 @@ public class RealWorldExcerptSynthesisTest {
 
     private static Branch stateBearingBranch() {
         Map<Branch, Set<DepVariable>> map =
-                ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+                org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+                        .getBranchInterestedVarsMap().get(Properties.TARGET_METHOD);
         assertNotNull(map, "the target method should have an OCG entry");
         Branch best = null;
         int bestSize = 0;
@@ -132,7 +131,7 @@ public class RealWorldExcerptSynthesisTest {
         RandomLengthTestFactory factory = new RandomLengthTestFactory();
         boolean produced = false;
         for (int attempt = 0; attempt < 60 && !produced; attempt++) {
-            org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
+            org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
             TestCase test = factory.getChromosome().getTestCase();
             if (test.findTargetMethodCallStatement() != null) {
                 produced = true;
@@ -155,7 +154,7 @@ public class RealWorldExcerptSynthesisTest {
 
         RandomLengthTestFactory factory = new RandomLengthTestFactory();
         for (int attempt = 0; attempt < 10; attempt++) {
-            org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
+            org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
             TestChromosome chromosome = factory.getChromosome();
             assertNotNull(chromosome.getTestCase(), "synthesis on the JNFE model must not fail");
         }

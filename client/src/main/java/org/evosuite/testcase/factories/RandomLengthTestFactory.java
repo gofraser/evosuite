@@ -20,6 +20,8 @@
 package org.evosuite.testcase.factories;
 
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.coverage.branch.Branch;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
@@ -45,16 +47,19 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
      */
     protected static final Logger logger = LoggerFactory.getLogger(RandomLengthTestFactory.class);
 
-    private final ObjectRuleGenerationCoordinator objectRuleCoordinator =
+    /**
+     * The coordinator is local execution state and must not cross the client/master RMI boundary.
+     */
+    private transient ObjectRuleGenerationCoordinator objectRuleCoordinator =
             new ObjectRuleGenerationCoordinator(this);
 
     /**
-     * Creates a random test case (i.e., a test case consisting of random statements) with the given.
-     * {@code size} as an exclusive upper bound for the number of contained statements. In
+     * Creates a random test case (i.e., a test case consisting of random statements) with the
+     * given. {@code size} as an exclusive upper bound for the number of contained statements. In
      * particular, {@code size} is chosen at random from the interval [1, size). This means that
      * returned test cases contain at most {@code size - 1} statements. Usually, one can also expect
-     * the test case to contain at least one statement, but it is still possible that an empty
-     * test case is returned, although very unlikely.
+     * the test case to contain at least one statement, but it is still possible that an empty test
+     * case is returned, although very unlikely.
      *
      * @param size the upper bound for the test case length
      * @return a random test case
@@ -70,14 +75,29 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         }
 
         if (allowObjectRule && Properties.APPLY_OBJECT_RULE) {
-            TestCase test = objectRuleCoordinator.generate(size);
-            if (logger.isDebugEnabled()) {
-                logger.debug("Randomized test case:" + test.toCode());
+            ObjectRuleSession session =
+                    TestGenerationContext.getInstance().getObjectRuleRuntime().getSession();
+            boolean localTarget = session.getWorkingBranch() == null
+                    && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty());
+            if (localTarget) {
+                Branch branch = TestGenerationContext.getInstance().getObjectRuleRuntime()
+                        .getBranchSelector().selectPreparedBranch();
+                session.setWorkingTarget(0, branch, java.util.Collections.emptyList());
             }
-            if (tracerEnabled) {
-                ExecutionTracer.enable();
+            try {
+                TestCase test = objectRuleCoordinator().generate(size);
+                if (logger.isDebugEnabled()) {
+                    logger.debug("Randomized test case:" + test.toCode());
+                }
+                return test;
+            } finally {
+                if (localTarget) {
+                    session.clearWorkingTarget();
+                }
+                if (tracerEnabled) {
+                    ExecutionTracer.enable();
+                }
             }
-            return test;
         }
 
         final TestCase test = getNewTestCase();
@@ -100,6 +120,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
             testFactory.insertRandomStatement(test, test.size() - 1);
         }
 
+        // A single insertion may add a compound statement and its dependencies. Enforce the
+        // public exclusive bound after generation as well as in the loop condition.
+        while (size > 0 && test.size() >= size) {
+            test.remove(test.size() - 1);
+        }
+
         if (logger.isDebugEnabled()) {
             logger.debug("Randomized test case:" + test.toCode());
         }
@@ -109,6 +135,13 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
         }
 
         return test;
+    }
+
+    private ObjectRuleGenerationCoordinator objectRuleCoordinator() {
+        if (objectRuleCoordinator == null) {
+            objectRuleCoordinator = new ObjectRuleGenerationCoordinator(this);
+        }
+        return objectRuleCoordinator;
     }
 
     TestCase getBaselineRandomTestCase(int size) {
@@ -136,19 +169,12 @@ public class RandomLengthTestFactory implements ChromosomeFactory<TestChromosome
     public TestChromosome getChromosome() {
         TestChromosome c = new TestChromosome();
         c.setTestCase(getRandomTestCase(Properties.CHROMOSOME_LENGTH));
-        int templateId = Properties.APPLY_OBJECT_RULE
-                ? org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession()
-                .consumeLastProducedTemplateId()
-                : 0;
-        if (templateId != 0) {
-            c.setObjectRuleTemplateId(templateId);
-        }
+
         return c;
     }
 
     /**
-     * Provided so that subtypes of this factory type can modify the returned
-     * TestCase.
+     * Provided so that subtypes of this factory type can modify the returned TestCase.
      *
      * @return a {@link org.evosuite.testcase.TestCase} object.
      */

@@ -1,12 +1,5 @@
 package org.evosuite.graphs.interprocedural;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
@@ -21,8 +14,7 @@ import org.evosuite.graphs.interprocedural.interestednode.IInterestedNodeFilter;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.graphs.interprocedural.var.DepVariableFactory;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
-import org.evosuite.setup.DependencyAnalysis;
-import org.evosuite.testcase.synthesizer.ObjectConstructionGraphDiagnostics;
+import org.evosuite.testcase.factories.ObjectRuleRuntime;
 import org.evosuite.testcase.synthesizer.TargetContext;
 import org.objectweb.asm.tree.AbstractInsnNode;
 import org.objectweb.asm.tree.MethodNode;
@@ -31,311 +23,393 @@ import org.objectweb.asm.tree.analysis.SourceValue;
 import org.objectweb.asm.tree.analysis.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * Entry point of the object construction graph analysis. {@link #initializeDataflow}
- * iterates the branches of the target method and fills {@link #branchInterestedVarsMap} with the
- * state variables each branch depends on, and {@link #recommendedClasses} with the concrete
+ * Entry point of the object construction graph analysis. On-demand branch analysis fills the
+ * run-scoped object-rule runtime with the state variables each branch depends on and the concrete
  * subtypes discovered via {@code INSTANCEOF} checks.
  *
  * <p>Ported from the {@code evosuite-plus-plus} fork with cleanups applied.
  */
 public class InterproceduralGraphAnalysis {
 
-	private static final Logger logger = LoggerFactory.getLogger(InterproceduralGraphAnalysis.class);
+    private static final Logger logger =
+            LoggerFactory.getLogger(InterproceduralGraphAnalysis.class);
 
-	/**
-	 * Clear the analysis' mutable static state. Delegates to the {@link ObjectConstructionContext}
-	 * holder; prefer wiring {@link ObjectConstructionContext#reset()} into
-	 * {@link TestGenerationContext#resetContext()} for automatic between-run cleanup.
-	 */
-	public static void clear() {
-		ObjectConstructionContext.reset();
-	}
+    /** Clear the analysis state owned by the current run. */
+    public static void clear() {
 
-	public static boolean isReachableInClass(BytecodeInstruction source, BytecodeInstruction target) {
+        TestGenerationContext.getInstance().getObjectRuleRuntime().reset();
+    }
 
-		BasicBlock sourceBlock = source.getBasicBlock();
-		BasicBlock targetBlock = target.getBasicBlock();
+    public static boolean isReachableInClass(
+            BytecodeInstruction source, BytecodeInstruction target) {
 
-		int distance = 0;
-		try {
-			ActualControlFlowGraph cfg = source.getActualCFG();
-			distance = cfg.getDistance(sourceBlock, targetBlock);
-		}
-		catch (Exception e) {
-			return false;
-		}
+        BasicBlock sourceBlock = source.getBasicBlock();
+        BasicBlock targetBlock = target.getBasicBlock();
 
-		if (distance >= 0) {
-			if (distance == 0) {
-				if (source.getInstructionId() < target.getInstructionId()) {
-					return true;
-				}
-			}
-			else {
-				return true;
-			}
-		}
-		return false;
-	}
+        int distance = 0;
+        try {
+            ActualControlFlowGraph cfg = source.getActualCFG();
+            distance = cfg.getDistance(sourceBlock, targetBlock);
+        } catch (Exception e) {
+            return false;
+        }
 
-	public static void initializeDataflow(IInterestedNodeFilter interestedNodeFilter) {
-		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        if (distance >= 0) {
+            if (distance == 0) {
+                if (source.getInstructionId() < target.getInstructionId()) {
+                    return true;
+                }
+            } else {
+                return true;
+            }
+        }
+        return false;
+    }
 
-		for (String className : BranchPool.getInstance(classLoader).knownClasses()) {
-			// when limitToCUT== true, if not the class under test of a inner/anonymous
-			// class, continue
-			if (!isCUT(className))
-				continue;
-			// when limitToCUT==false, consider all classes, but excludes libraries ones
-			// according the INSTRUMENT_LIBRARIES property
-			if (!Properties.INSTRUMENT_LIBRARIES && !DependencyAnalysis.isTargetProject(className))
-				continue;
+    /** Analyze the explicitly selected target method once during setup. */
+    public static synchronized void analyzeConfiguredTargetMethod(
+            IInterestedNodeFilter interestedNodeFilter) {
 
-			// Branches
-			for (String methodName : BranchPool.getInstance(classLoader).knownMethods(className)) {
-				if (Properties.TARGET_METHOD.equals(methodName)) {
-					ActualControlFlowGraph cfg = GraphPool.getInstance(classLoader).getActualCFG(className, methodName);
-					FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
+        if (Properties.TARGET_METHOD == null
+                || Properties.TARGET_METHOD.isEmpty()
+                || Properties.TARGET_CLASS == null
+                || Properties.TARGET_CLASS.isEmpty()) {
+            return;
+        }
+        InstrumentingClassLoader classLoader =
+                TestGenerationContext.getInstance().getClassLoaderForSUT();
 
-					Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
-					ObjectConstructionContext.recommendedClasses = analyzeRecommendationClasses(cfg);
-					ObjectConstructionContext.branchInterestedVarsMap.put(methodName, map);
-				}
-			}
-		}
-	}
+        ActualControlFlowGraph cfg =
+                GraphPool.getInstance(classLoader)
+                        .getActualCFG(Properties.TARGET_CLASS, Properties.TARGET_METHOD);
+        if (cfg == null) {
+            return;
+        }
+        FBranchDefUseAnalyzer.analyze(
+                GraphPool.getInstance(classLoader)
+                        .getRawCFG(Properties.TARGET_CLASS, Properties.TARGET_METHOD));
+        Map<Branch, Set<DepVariable>> map = analyzeIndividualMethod(cfg, interestedNodeFilter);
+        ObjectRuleRuntime runtime = TestGenerationContext.getInstance().getObjectRuleRuntime();
+        runtime.setRecommendedClasses(analyzeRecommendationClasses(cfg));
+        runtime.putBranchInterestedVars(Properties.TARGET_METHOD, map);
+    }
 
-	/**
-	 * Whole-class mode: analyze the object-construction graph on demand and cache it in
-	 * {@link ObjectConstructionContext#branchInterestedVarsMap}, instead of the eager
-	 * {@link #initializeDataflow} loop over {@code TARGET_METHOD}. Idempotent per entry method.
-	 */
-	public static synchronized void analyzeBranchOnDemand(Branch branch, IInterestedNodeFilter interestedNodeFilter) {
-		if (branch == null || branch.getInstruction() == null) {
-			return;
-		}
-		String className = branch.getInstruction().getClassName();
-		String methodName = branch.getInstruction().getMethodName();
-		String cacheKey = methodName;
-		TargetContext context = null;
-		if (Properties.OBJECT_RULE_WHOLE_CLASS
-				&& (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty())) {
-			context = TargetContext.forBranch(branch);
-			if (context == null) {
-				return;
-			}
-			cacheKey = context.getMethodSignature();
-		}
-		if (className == null || methodName == null
-				|| ObjectConstructionContext.branchInterestedVarsMap.containsKey(cacheKey)) {
-			return;
-		}
+    /**
+     * Analyze the object-construction graph on demand and cache it in the current run's graph
+     * cache. Directly callable entries are cached per entry method; inaccessible branches are
+     * analyzed one at a time and merged into the map for their accessible caller.
+     */
+    public static synchronized void analyzeBranchOnDemand(
+            Branch branch, IInterestedNodeFilter interestedNodeFilter) {
+        if (branch == null || branch.getInstruction() == null) {
+            return;
+        }
+        String className = branch.getInstruction().getClassName();
+        String methodName = branch.getInstruction().getMethodName();
+        String cacheKey = methodName;
+        TargetContext context = null;
 
-		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-		ActualControlFlowGraph cfg = GraphPool.getInstance(classLoader).getActualCFG(className, methodName);
-		if (cfg == null) {
-			return;
-		}
-		try {
-			FBranchDefUseAnalyzer.analyze(GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
-			Map<Branch, Set<DepVariable>> map = context != null
-					&& !context.getMethodSignature().equals(context.getBranchMethodSignature())
-					? analyzeIndividualBranch(cfg, branch, interestedNodeFilter)
-					: analyzeIndividualMethod(cfg, interestedNodeFilter);
-			ObjectConstructionContext.branchInterestedVarsMap.put(cacheKey, map);
-			ObjectConstructionContext.recommendedClasses.putAll(analyzeRecommendationClasses(cfg));
-		} catch (Exception | StackOverflowError e) {
-			// Best-effort, on-demand analysis: never let a failure here abort test generation.
-			// Cache an empty result so this method is not re-analyzed (and re-failed) each generation.
-			logger.warn("On-demand object-construction analysis failed for {}.{}: {}",
-					className, methodName, e.toString());
-			ObjectConstructionContext.branchInterestedVarsMap.put(cacheKey, new LinkedHashMap<>());
-		}
-	}
+        context = TargetContext.forBranch(branch);
+        if (context == null) {
+            return;
+        }
+        cacheKey = context.getMethodSignature();
+        if (!context.getMethodSignature().equals(context.getBranchMethodSignature())) {
+            // A private branch is analyzed in isolation, even though its graph is exposed through
+            // the nearest accessible caller. Keep one cache entry per branch so two private
+            // methods sharing that caller do not suppress one another's analysis.
+            cacheKey = branchCacheKey(context, branch);
+        }
 
-	@SuppressWarnings("rawtypes")
-	public static Map<Integer, List<String>> analyzeRecommendationClasses(ActualControlFlowGraph cfg) {
-		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-		String className = cfg.getClassName();
-		String methodName = cfg.getMethodName();
+        ObjectRuleRuntime runtime = TestGenerationContext.getInstance().getObjectRuleRuntime();
+        boolean branchSpecificEntry =
+                !context.getMethodSignature().equals(context.getBranchMethodSignature());
+        Map<Branch, Set<DepVariable>> cached =
+                runtime.getBranchInterestedVarsMap().get(cacheKey);
+        boolean alreadyAnalyzed =
+                branchSpecificEntry
+                        ? cached != null && cached.containsKey(branch)
+                        : cached != null;
+        if (className == null || methodName == null || alreadyAnalyzed) {
+            return;
+        }
 
-		Map<Integer, List<String>> recommendationClasses = new LinkedHashMap<Integer, List<String>>();
-		for (BytecodeInstruction ins : BytecodeInstructionPool.getInstance(classLoader).
-				getInstructionsIn(className, methodName)) {
-			/**
-			 * handle instanceof instruction, it is essential for test initialization with polymorphism
-			 */
-			if (ins.checkInstanceOf()) {
-				String checkingClassName = ins.getInstanceOfCheckingType();
-				if (checkingClassName != null) {
-					int operandNum = ins.getOperandNum();
-					for (int i = 0; i < operandNum; i++) {
-						Frame frame = ins.getFrame();
-						int index = frame.getStackSize() - operandNum + i;
-						Value val = frame.getStack(index);
-						if (!(val instanceof SourceValue)) {
-							continue;
-						}
+        InstrumentingClassLoader classLoader =
+                TestGenerationContext.getInstance().getClassLoaderForSUT();
+        ActualControlFlowGraph cfg =
+                GraphPool.getInstance(classLoader).getActualCFG(className, methodName);
+        if (cfg == null) {
+            return;
+        }
+        try {
+            FBranchDefUseAnalyzer.analyze(
+                    GraphPool.getInstance(classLoader).getRawCFG(className, methodName));
+            Map<Branch, Set<DepVariable>> map =
+                    branchSpecificEntry
+                            ? analyzeIndividualBranch(cfg, branch, interestedNodeFilter)
+                            : analyzeIndividualMethod(cfg, interestedNodeFilter);
 
-						SourceValue srcValue = (SourceValue) val;
-						MethodNode node = DefUseAnalyzer.getMethodNode(classLoader, className, methodName);
-						/**
-						 * get all the instruction defining the value.
-						 */
-						for (AbstractInsnNode insNode : srcValue.insns) {
-							BytecodeInstruction defIns = DefUseAnalyzer.convert2BytecodeInstruction(cfg, node, insNode);
-							if (defIns != null) {
-								DepVariable var = DepVariableFactory.createVariableInstance(defIns);
-								if (var.isParameter()) {
-									int position = var.getInstruction().getParameterPosition();
-									List<String> classes = recommendationClasses.get(position);
-									if (classes == null) {
-										classes = new ArrayList<String>();
-									}
-									if (!classes.contains(checkingClassName)) {
-										classes.add(checkingClassName);
-										recommendationClasses.put(position, classes);
-									}
+            if (branchSpecificEntry && cached != null) {
+                cached.putAll(map);
+            } else {
+                runtime.putBranchInterestedVars(cacheKey, map);
+            }
 
-								}
-							}
-						}
-					}
-				}
+            runtime.mergeRecommendedClasses(analyzeRecommendationClasses(cfg));
+        } catch (Exception | StackOverflowError e) {
+            // Best-effort, on-demand analysis: never let a failure here abort test generation.
 
-			}
-		}
+            // Cache an empty result so this method is not re-analyzed (and re-failed) each
+            // generation.
+            logger.warn(
+                    "On-demand object-construction analysis failed for {}.{}: {}",
+                    className,
+                    methodName,
+                    e.toString());
 
-		return recommendationClasses;
-	}
+            if (branchSpecificEntry) {
+                Map<Branch, Set<DepVariable>> failed =
+                        cached == null ? new LinkedHashMap<>() : cached;
+                failed.put(branch, new LinkedHashSet<>());
+                runtime.putBranchInterestedVars(cacheKey, failed);
+            } else {
+                runtime.putBranchInterestedVars(cacheKey, new LinkedHashMap<>());
+            }
+        }
+    }
 
+    private static String branchCacheKey(TargetContext context, Branch branch) {
+        BytecodeInstruction instruction = branch.getInstruction();
+        String caseValue = branch.isSwitchCaseBranch()
+                ? String.valueOf(branch.getTargetCaseValue())
+                : "";
+        return context.getMethodSignature()
+                + "@branch["
+                + instruction.getClassName()
+                + ":"
+                + instruction.getMethodName()
+                + ":"
+                + instruction.getInstructionId()
+                + ":"
+                + branch.getActualBranchId()
+                + ":"
+                + caseValue
+                + "]";
+    }
 
-	@SuppressWarnings("rawtypes")
-	public static Map<Branch, Set<DepVariable>> analyzeIndividualMethod(ActualControlFlowGraph cfg, IInterestedNodeFilter interestedNodeFilter) {
-		Map<Branch, Set<DepVariable>> map = new LinkedHashMap<>();
-		long deadlineNanos = analysisDeadlineNanos();
+    @SuppressWarnings("rawtypes")
+    public static Map<Integer, List<String>> analyzeRecommendationClasses(
+            ActualControlFlowGraph cfg) {
+        InstrumentingClassLoader classLoader =
+                TestGenerationContext.getInstance().getClassLoaderForSUT();
+        String className = cfg.getClassName();
+        String methodName = cfg.getMethodName();
 
-		InstrumentingClassLoader classLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
-		String className = cfg.getClassName();
-		String methodName = cfg.getMethodName();
+        Map<Integer, List<String>> recommendationClasses =
+                new LinkedHashMap<Integer, List<String>>();
+        for (BytecodeInstruction ins :
+                BytecodeInstructionPool.getInstance(classLoader)
+                        .getInstructionsIn(className, methodName)) {
 
-		for (Branch b : BranchPool.getInstance(classLoader).retrieveBranchesInMethod(className, methodName)) {
-			Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
-			if (deadlineReached(deadlineNanos)) {
-				map.put(b, inputRootVars);
-				ObjectConstructionGraphDiagnostics.recordAnalysis(b, inputRootVars);
-				continue;
-			}
-			InterproceduralGraphAnalyzer graphAnalyzer = new InterproceduralGraphAnalyzer(
-					b, interestedNodeFilter, deadlineNanos);
-			Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
-			try {
-				if (!b.isInstrumented()) {
-					Frame frame = b.getInstruction().getFrame();
-					for (int i = 0; i < b.getInstruction().getOperandNum(); i++) {
-						int index = frame.getStackSize() - i - 1;
-						Value val = frame.getStack(index);
+            /**
+             * handle instanceof instruction, it is essential for test initialization with
+             * polymorphism
+             */
+            if (ins.checkInstanceOf()) {
+                String checkingClassName = ins.getInstanceOfCheckingType();
+                if (checkingClassName != null) {
+                    int operandNum = ins.getOperandNum();
+                    for (int i = 0; i < operandNum; i++) {
+                        Frame frame = ins.getFrame();
+                        int index = frame.getStackSize() - operandNum + i;
+                        Value val = frame.getStack(index);
+                        if (!(val instanceof SourceValue)) {
+                            continue;
+                        }
 
-						graphAnalyzer.searchDependantVariables(val, cfg, inputRootVars, visitedIns,
-								Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
-					}
-				}
-			} catch (Exception | StackOverflowError e) {
-				// The object-construction graph is a best-effort search aid. If analyzing one
-				// branch fails (an instruction the interprocedural traversal cannot resolve, or
-				// runaway recursion on a complex method), skip that branch's graph rather than
-				// aborting the whole method's analysis — and with it the entire test generation.
-				// A branch with no graph simply falls back to plain random generation.
-				if (e instanceof InterproceduralGraphAnalyzer.AnalysisTimeoutException) {
-					logger.debug("Object-construction analysis budget exhausted in {}.{}",
-							className, methodName);
-				} else {
-					logger.warn("Skipping object-construction analysis for branch {} in {}.{}: {}",
-							b, className, methodName, e.toString());
-				}
-				inputRootVars.clear();
-			}
+                        SourceValue srcValue = (SourceValue) val;
+                        MethodNode node =
+                                DefUseAnalyzer.getMethodNode(classLoader, className, methodName);
 
-			map.put(b, inputRootVars);
-			ObjectConstructionGraphDiagnostics.recordAnalysis(b, inputRootVars);
-		}
+                        /** get all the instruction defining the value. */
+                        for (AbstractInsnNode insNode : srcValue.insns) {
+                            BytecodeInstruction defIns =
+                                    DefUseAnalyzer.convert2BytecodeInstruction(cfg, node, insNode);
+                            if (defIns != null) {
+                                DepVariable var = DepVariableFactory.createVariableInstance(defIns);
+                                if (var.isParameter()) {
+                                    int position = var.getInstruction().getParameterPosition();
+                                    List<String> classes = recommendationClasses.get(position);
+                                    if (classes == null) {
+                                        classes = new ArrayList<String>();
+                                    }
+                                    if (!classes.contains(checkingClassName)) {
+                                        classes.add(checkingClassName);
+                                        recommendationClasses.put(position, classes);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
-		return map;
-	}
+        return recommendationClasses;
+    }
 
-	@SuppressWarnings("rawtypes")
-	public static Map<Branch, Set<DepVariable>> analyzeIndividualBranch(ActualControlFlowGraph cfg, Branch branch, IInterestedNodeFilter interestedNodeFilter) {
-		Map<Branch, Set<DepVariable>> map = new LinkedHashMap<>();
+    @SuppressWarnings("rawtypes")
+    public static Map<Branch, Set<DepVariable>> analyzeIndividualMethod(
+            ActualControlFlowGraph cfg, IInterestedNodeFilter interestedNodeFilter) {
+        Map<Branch, Set<DepVariable>> map = new LinkedHashMap<>();
+        long deadlineNanos = analysisDeadlineNanos();
 
-		InterproceduralGraphAnalyzer graphAnalyzer = new InterproceduralGraphAnalyzer(
-				branch, interestedNodeFilter, analysisDeadlineNanos());
-		Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
-		Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
-		if (!branch.isInstrumented()) {
-			Frame frame = branch.getInstruction().getFrame();
-			for (int i = 0; i < branch.getInstruction().getOperandNum(); i++) {
-				int index = frame.getStackSize() - i - 1;
-				Value val = frame.getStack(index);
+        InstrumentingClassLoader classLoader =
+                TestGenerationContext.getInstance().getClassLoaderForSUT();
+        String className = cfg.getClassName();
+        String methodName = cfg.getMethodName();
 
-				graphAnalyzer.searchDependantVariables(val, cfg, inputRootVars, visitedIns,
-						Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
-			}
-		}
+        for (Branch b :
+                BranchPool.getInstance(classLoader)
+                        .retrieveBranchesInMethod(className, methodName)) {
+            Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
+            if (deadlineReached(deadlineNanos)) {
+                map.put(b, inputRootVars);
+                continue;
+            }
+            InterproceduralGraphAnalyzer graphAnalyzer =
+                    new InterproceduralGraphAnalyzer(b, interestedNodeFilter, deadlineNanos);
+            Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
+            try {
+                if (!b.isInstrumented()) {
+                    Frame frame = b.getInstruction().getFrame();
+                    for (int i = 0; i < b.getInstruction().getOperandNum(); i++) {
+                        int index = frame.getStackSize() - i - 1;
+                        Value val = frame.getStack(index);
 
-		map.put(branch, inputRootVars);
-		ObjectConstructionGraphDiagnostics.recordAnalysis(branch, inputRootVars);
+                        graphAnalyzer.searchDependantVariables(
+                                val,
+                                cfg,
+                                inputRootVars,
+                                visitedIns,
+                                Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
+                    }
+                }
+            } catch (Exception | StackOverflowError e) {
+                // The object-construction graph is a best-effort search aid. If analyzing one
+                // branch fails (an instruction the interprocedural traversal cannot resolve, or
+                // runaway recursion on a complex method), skip that branch's graph rather than
+                // aborting the whole method's analysis — and with it the entire test generation.
+                // A branch with no graph simply falls back to plain random generation.
+                if (e instanceof InterproceduralGraphAnalyzer.AnalysisTimeoutException) {
+                    logger.debug(
+                            "Object-construction analysis budget exhausted in {}.{}",
+                            className,
+                            methodName);
+                } else {
+                    logger.warn(
+                            "Skipping object-construction analysis for branch {} in {}.{}: {}",
+                            b,
+                            className,
+                            methodName,
+                            e.toString());
+                }
+                inputRootVars.clear();
+            }
 
-		return map;
-	}
+            map.put(b, inputRootVars);
+        }
 
-	private static long analysisDeadlineNanos() {
-		if (!Properties.OBJECT_RULE_WHOLE_CLASS || Properties.OBJECT_RULE_ANALYSIS_TIMEOUT <= 0) {
-			return Long.MAX_VALUE;
-		}
-		return System.nanoTime()
-				+ Properties.OBJECT_RULE_ANALYSIS_TIMEOUT * 1_000_000L;
-	}
+        return map;
+    }
 
-	private static boolean deadlineReached(long deadlineNanos) {
-		return deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0;
-	}
+    @SuppressWarnings("rawtypes")
+    public static Map<Branch, Set<DepVariable>> analyzeIndividualBranch(
+            ActualControlFlowGraph cfg, Branch branch, IInterestedNodeFilter interestedNodeFilter) {
+        Map<Branch, Set<DepVariable>> map = new LinkedHashMap<>();
 
-	private static boolean isCUT(String className) {
-		if (!Properties.TARGET_CLASS.equals("") && !(className.equals(Properties.TARGET_CLASS)
-				|| className.startsWith(Properties.TARGET_CLASS + "$"))) {
-			return false;
-		}
-		return true;
-	}
+        InterproceduralGraphAnalyzer graphAnalyzer =
+                new InterproceduralGraphAnalyzer(
+                        branch, interestedNodeFilter, analysisDeadlineNanos());
+        Set<DepVariable> inputRootVars = new LinkedHashSet<DepVariable>();
+        Set<BytecodeInstruction> visitedIns = new LinkedHashSet<BytecodeInstruction>();
+        if (!branch.isInstrumented()) {
+            Frame frame = branch.getInstruction().getFrame();
+            for (int i = 0; i < branch.getInstruction().getOperandNum(); i++) {
+                int index = frame.getStackSize() - i - 1;
+                Value val = frame.getStack(index);
 
-	public static Map<Branch, List<ConstructionPath>> checkObjectDifficultPath() {
-		Map<Branch, Set<DepVariable>> interestedBranches = ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+                graphAnalyzer.searchDependantVariables(
+                        val,
+                        cfg,
+                        inputRootVars,
+                        visitedIns,
+                        Properties.COMPUTATION_GRAPH_METHOD_CALL_DEPTH);
+            }
+        }
 
-		Map<Branch, List<ConstructionPath>> interestedPaths = new LinkedHashMap<>();
-		for (Branch branch : interestedBranches.keySet()) {
-			Set<DepVariable> interestedVariables = interestedBranches.get(branch);
+        map.put(branch, inputRootVars);
 
-			List<ConstructionPath> paths = new ArrayList<ConstructionPath>();
-			for (DepVariable interestVar : interestedVariables) {
-				for (DepVariable root : interestVar.getRootVars().keySet()) {
-					ConstructionPath path = root.findPath(interestVar);
-					if (path != null) {
-						if (path.hasValidRoot()
-								&& !paths.contains(path)) {
-							paths.add(path);
-						}
-					}
-				}
-			}
+        return map;
+    }
 
-			if (!paths.isEmpty()) {
-				interestedPaths.put(branch, paths);
-			}
-		}
+    private static long analysisDeadlineNanos() {
+        if (Properties.OBJECT_RULE_ANALYSIS_TIMEOUT <= 0) {
+            return Long.MAX_VALUE;
+        }
+        return System.nanoTime() + Properties.OBJECT_RULE_ANALYSIS_TIMEOUT * 1_000_000L;
+    }
 
-		return interestedPaths;
-	}
+    private static boolean deadlineReached(long deadlineNanos) {
+        return deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0;
+    }
 
+    private static boolean isCUT(String className) {
+        if (!Properties.TARGET_CLASS.equals("")
+                && !(className.equals(Properties.TARGET_CLASS)
+                        || className.startsWith(Properties.TARGET_CLASS + "$"))) {
+            return false;
+        }
+        return true;
+    }
+
+    public static Map<Branch, List<ConstructionPath>> checkObjectDifficultPath() {
+        Map<Branch, Set<DepVariable>> interestedBranches =
+                TestGenerationContext.getInstance()
+                        .getObjectRuleRuntime()
+                        .getBranchInterestedVarsMap()
+                        .get(Properties.TARGET_METHOD);
+
+        Map<Branch, List<ConstructionPath>> interestedPaths = new LinkedHashMap<>();
+        for (Map.Entry<Branch, Set<DepVariable>> entry : interestedBranches.entrySet()) {
+            Branch branch = entry.getKey();
+            Set<DepVariable> interestedVariables = entry.getValue();
+
+            List<ConstructionPath> paths = new ArrayList<ConstructionPath>();
+            for (DepVariable interestVar : interestedVariables) {
+                for (DepVariable root : interestVar.getRootVars().keySet()) {
+                    ConstructionPath path = root.findPath(interestVar);
+                    if (path != null) {
+                        if (path.hasValidRoot() && !paths.contains(path)) {
+                            paths.add(path);
+                        }
+                    }
+                }
+            }
+
+            if (!paths.isEmpty()) {
+                interestedPaths.put(branch, paths);
+            }
+        }
+
+        return interestedPaths;
+    }
 }

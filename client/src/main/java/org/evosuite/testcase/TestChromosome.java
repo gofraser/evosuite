@@ -33,9 +33,7 @@ import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.ConcolicMutation;
 import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
-import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
@@ -46,7 +44,6 @@ import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.function.BiConsumer;
@@ -55,7 +52,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collector;
 import java.util.stream.Stream;
-
 import static java.util.stream.Collectors.toCollection;
 
 /**
@@ -70,41 +66,25 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     private static final Logger logger = LoggerFactory.getLogger(TestChromosome.class);
 
     /**
-     * EvoObj legitimacy distance: how far this test still is from executing through
-     * the target-method call. 0 means the target call is reached.
-     */
-    private double legitimacyDistance = 0;
-
-    /**
-     * EvoObj template lineage id. Zero means this chromosome is not descended from an
-     * object-rule template; non-zero values intentionally survive clone, crossover and mutation
-     * so template retention can be measured across generations.
-     */
-    private int objectRuleTemplateId = 0;
-
-
-
-    /**
      * Secondary objectives used during ranking.
      */
     private static final List<SecondaryObjective<TestChromosome>> secondaryObjectives =
             new ArrayList<>();
 
     /**
-     * Marks the external source that introduced this chromosome into the MOSA
-     * union (set in {@code collectExternalCandidates}). Cleared on {@code clone()}
-     * so offspring of an injected parent are not themselves flagged as injected:
-     * the marker reflects fresh arrivals only, used by the population species
-     * recorder to annotate disruption events.
+     * Marks the external source that introduced this chromosome into the MOSA union (set in {@code
+     * collectExternalCandidates}). Cleared on {@code clone()} so offspring of an injected parent
+     * are not themselves flagged as injected: the marker reflects fresh arrivals only, used by the
+     * population species recorder to annotate disruption events.
      *
-     * <p>Transient because the marker is only meaningful within a single
-     * generation on the client side; it has no role after RMI transfer.
+     * <p>Transient because the marker is only meaningful within a single generation on the client
+     * side; it has no role after RMI transfer.
      */
     private transient InjectionSource injectionSource;
 
     /**
-     * Monotonic lineage identifier assigned when this chromosome is injected
-     * from an external source. Negative when unset.
+     * Monotonic lineage identifier assigned when this chromosome is injected from an external
+     * source. Negative when unset.
      */
     private transient long injectionLineageId = -1L;
 
@@ -114,41 +94,37 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     private transient int injectionGeneration = -1;
 
     /**
-     * Whether this chromosome is eligible for incubator-species protection.
-     * Eligibility is set at injection time and evaluated in survival selection.
+     * Whether this chromosome is eligible for incubator-species protection. Eligibility is set at
+     * injection time and evaluated in survival selection.
      */
     private transient boolean incubatorEligible = false;
 
     /**
-     * Diagnostic card types associated with the prompt that produced this
-     * chromosome. Cleared on clone so descendants are not treated as fresh
-     * prompt outputs.
+     * Diagnostic card types associated with the prompt that produced this chromosome. Cleared on
+     * clone so descendants are not treated as fresh prompt outputs.
      */
     private transient List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
 
     /**
-     * Channel through which this chromosome entered the MOSA union when it is
-     * a blend-related entrant (raw injection, mutation-burst variant, or
-     * crossover blend). Null for ordinary GA offspring. Cleared on clone like
-     * the other injection fields; telemetry-only, never read by selection.
+     * Channel through which this chromosome entered the MOSA union when it is a blend-related
+     * entrant (raw injection, mutation-burst variant, or crossover blend). Null for ordinary GA
+     * offspring. Cleared on clone like the other injection fields; telemetry-only, never read by
+     * selection.
      */
     private transient BlendChannel blendChannel;
 
     /**
-     * Injected lineages this chromosome genetically descends from, propagated
-     * explicitly at every offspring birth (breeding, random insertion, brood
-     * blending). Must NOT be folded into {@link #injectionLineageId}: that
-     * field's cleared-on-clone semantics mark fresh arrivals only and are
-     * load-bearing for incubator protection and the species recorder, whereas
-     * descent marks must follow genetic material through ordinary breeding so
-     * lineage take-over is measurable. Capped at {@link #DESCENT_LINEAGE_CAP}
-     * entries, keeping the lowest (oldest) lineage ids.
+     * Injected lineages this chromosome genetically descends from, propagated explicitly at every
+     * offspring birth (breeding, random insertion, brood blending). Must NOT be folded into {@link
+     * #injectionLineageId}: that field's cleared-on-clone semantics mark fresh arrivals only and
+     * are load-bearing for incubator protection and the species recorder, whereas descent marks
+     * must follow genetic material through ordinary breeding so lineage take-over is measurable.
+     * Capped at {@link #DESCENT_LINEAGE_CAP} entries, keeping the lowest (oldest) lineage ids.
      */
     private transient Set<Long> descentLineageIds = Collections.emptySet();
 
     /** Maximum number of descent lineage ids retained per chromosome. */
     public static final int DESCENT_LINEAGE_CAP = 4;
-
 
     /**
      * {@inheritDoc}
@@ -247,9 +223,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * Merges the given lineage ids into this chromosome's descent marks,
-     * enforcing {@link #DESCENT_LINEAGE_CAP} by keeping the lowest (oldest)
-     * ids so long-lived lineages remain traceable.
+     * Merges the given lineage ids into this chromosome's descent marks, enforcing {@link
+     * #DESCENT_LINEAGE_CAP} by keeping the lowest (oldest) ids so long-lived lineages remain
+     * traceable.
      */
     public void addDescentLineages(Collection<Long> lineageIds) {
         if (lineageIds == null || lineageIds.isEmpty()) {
@@ -270,8 +246,8 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * @return descent marks plus this chromosome's own injection lineage when
-     * set — the full set of lineages whose material this chromosome carries.
+     * @return descent marks plus this chromosome's own injection lineage when set — the full set of
+     *     lineages whose material this chromosome carries.
      */
     public Set<Long> effectiveLineages() {
         if (injectionLineageId < 0L) {
@@ -283,14 +259,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         TreeSet<Long> all = new TreeSet<>(descentLineageIds);
         all.add(injectionLineageId);
         return Collections.unmodifiableSet(all);
-    }
-
-    public int getObjectRuleTemplateId() {
-        return objectRuleTemplateId;
-    }
-
-    public void setObjectRuleTemplateId(int objectRuleTemplateId) {
-        this.objectRuleTemplateId = objectRuleTemplateId;
     }
 
     /**
@@ -311,11 +279,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         c.setNumberOfEvaluations(this.getNumberOfEvaluations());
         c.setKineticEnergy(getKineticEnergy());
         c.setNumCollisions(getNumCollisions());
-        c.setObjectRuleTemplateId(this.objectRuleTemplateId);
 
         return c;
     }
-
 
     /* (non-Javadoc)
      * @see org.evosuite.testcase.ExecutableChromosome#copyCachedResults(org.evosuite.testcase.ExecutableChromosome)
@@ -343,7 +309,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             }
         }
     }
-
 
     /**
      * {@inheritDoc}
@@ -381,7 +346,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         }
     }
 
-
     /**
      * {@inheritDoc}
      *
@@ -413,7 +377,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     public int hashCode() {
         return test.hashCode();
     }
-
 
     /* (non-Javadoc)
      * @see org.evosuite.ga.Chromosome#localSearch()
@@ -483,7 +446,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         test.forEach(Statement::isValid);
     }
 
-
     private boolean mockChange() {
 
         /*
@@ -546,12 +508,12 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * Creates mock fallbacks for missing return types when satisfyParameters fails.
-     * For each missing type, tries to create a functional mock. If the type cannot be
-     * mocked, creates a null reference instead.
+     * Creates mock fallbacks for missing return types when satisfyParameters fails. For each
+     * missing type, tries to create a functional mock. If the type cannot be mocked, creates a null
+     * reference instead.
      */
-    private List<VariableReference> createMockFallbacks(TestCase test, List<Type> missing, int position)
-            throws ConstructionFailedException {
+    private List<VariableReference> createMockFallbacks(
+            TestCase test, List<Type> missing, int position) throws ConstructionFailedException {
         List<VariableReference> refs = new ArrayList<>();
         TestFactory tf = TestFactory.getInstance();
         GenerationContext context = GenerationContext.fromDepth(1);
@@ -699,7 +661,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         // EvoObj: with the slot bias on, half the time tune one of the primitive template
         // slots in place instead of mutating uniformly. Falls through to the uniform pass if there
         // are no slots or the slot mutation does not change anything.
-        if (!changed && Properties.OBJECT_RULE_SLOT_BIAS && Randomness.nextDouble() < 0.5) {
+        if (!changed && Randomness.nextDouble() < 0.5) {
             changed = mutateObjectRuleSlot(testFactory, lastMutatableStatement);
         }
 
@@ -740,9 +702,9 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * EvoObj: mutate a randomly chosen primitive template slot in place. Returns whether
-     * a slot was found and successfully mutated. In-place primitive mutation preserves the slot
-     * flag; a mutation that replaces the statement with a different type naturally loses it.
+     * EvoObj: mutate a randomly chosen primitive template slot in place. Returns whether a slot was
+     * found and successfully mutated. In-place primitive mutation preserves the slot flag; a
+     * mutation that replaces the statement with a different type naturally loses it.
      */
     private boolean mutateObjectRuleSlot(TestFactory testFactory, int lastMutatableStatement) {
         List<Integer> slotPositions = new ArrayList<>();
@@ -764,8 +726,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * With exponentially decreasing probability, insert statements at random
-     * position.
+     * With exponentially decreasing probability, insert statements at random position.
      *
      * @return true if the chromosome was changed.
      */
@@ -790,8 +751,7 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * Collect path constraints and negate one of them to derive new integer
-     * inputs.
+     * Collect path constraints and negate one of them to derive new integer inputs.
      *
      * @return true if the chromosome was changed.
      */
@@ -872,14 +832,13 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * <p>hasException.</p>
+     * hasException.
      *
      * @return true if an exception was thrown.
      */
     public boolean hasException() {
         return lastExecutionResult != null && !lastExecutionResult.noThrownExceptions();
     }
-
 
     /**
      * {@inheritDoc}
@@ -889,7 +848,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
             TestSuiteFitnessFunction testSuiteFitnessFunction) {
         return testSuiteFitnessFunction.runTest(this.test);
     }
-
 
     @Override
     public int compareSecondaryObjective(TestChromosome o) {
@@ -908,19 +866,16 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     }
 
     /**
-     * Add an additional secondary objective to the end of the list of
-     * objectives.
+     * Add an additional secondary objective to the end of the list of objectives.
      *
      * @param objective a {@link org.evosuite.ga.SecondaryObjective} object.
      */
     public static void addSecondaryObjective(SecondaryObjective<TestChromosome> objective) {
         secondaryObjectives.add(objective);
     }
-    
+
     /**
-     * <p>
      * Getter for the field <code>secondaryObjectives</code>.
-     * </p>
      *
      * @return a {@link java.util.List} object.
      */
@@ -931,12 +886,12 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
     /**
      * Clear the list of secondary objectives.
      *
-     * <p>This method should be called to avoid state pollution when running unit tests involving this class.
+     * <p>This method should be called to avoid state pollution when running unit tests involving
+     * this class.
      */
     public static void clearSecondaryObjectives() {
         secondaryObjectives.clear();
     }
-
 
     /**
      * Converts this chromosome to a test suite.
@@ -982,48 +937,6 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
         public Set<Characteristics> characteristics() {
             return characteristics;
         }
-    }
-
-    // --- EvoObj legitimization ---
-
-    /**
-     * Executes this test and returns the statement that stopped execution short (typically the one
-     * that threw), or {@code null} if the test executes up to (near) the end without an early exit.
-     */
-    public Statement getStatementReportingException() {
-        // Reuse the cached execution result when present (mirrors updateLegitimacyDistance) so the
-        // legitimizer does not execute every offspring twice per generation.
-        if (this.getLastExecutionResult() == null) {
-            ExecutionResult result = TestCaseExecutor.runTest(this.getTestCase());
-            this.setLastExecutionResult(result);
-        }
-        int numOfExecutedStatements = this.getLastExecutionResult().getExecutedStatements();
-
-        if (numOfExecutedStatements >= this.test.size() - 1) {
-            return null;
-        }
-
-        return test.getStatement(numOfExecutedStatements);
-    }
-
-    /**
-     * Recomputes and returns the legitimacy distance of this test via the legitimizer. A failure in
-     * the auxiliary fitness evaluation is treated as maximally distant (never as a success): distance
-     * 0 means the target call was reached, so degrading a failure to 0 would masquerade as success.
-     */
-    public double getLegitimacyDistance() {
-        try {
-            TestCaseLegitimizer.getInstance().updateLegitimacyDistance(this);
-        } catch (Exception e) {
-            legitimacyDistance = Double.MAX_VALUE;
-            logger.debug("Legitimacy distance evaluation failed", e);
-        }
-
-        return legitimacyDistance;
-    }
-
-    public void setLegitimacyDistance(double legitimacyDistance) {
-        this.legitimacyDistance = legitimacyDistance;
     }
 
 }

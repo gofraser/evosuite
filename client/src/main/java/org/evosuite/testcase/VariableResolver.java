@@ -40,7 +40,6 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -60,56 +59,8 @@ public class VariableResolver {
 
     private final TestFactory testFactory;
 
-    /** Restricts broad stable-generator ranking to construction of an EvoObj entry call. */
-    private static final ThreadLocal<Boolean> OBJECT_RULE_ENTRY_CONSTRUCTION =
-            ThreadLocal.withInitial(() -> Boolean.FALSE);
-
-    /**
-     * Restricts synthesis-only value policies to graph-to-code materialization. In particular,
-     * an unconstrained {@code Object} setter argument must not recursively select an arbitrary
-     * class from the cast-class pool.
-     */
-    private static final ThreadLocal<Boolean> OBJECT_RULE_SYNTHESIS_CONSTRUCTION =
-            ThreadLocal.withInitial(() -> Boolean.FALSE);
-
     public VariableResolver(TestFactory testFactory) {
         this.testFactory = testFactory;
-    }
-
-    /**
-     * Enables or restores stable entry-parameter construction on the current generation thread.
-     * The previous value is returned so callers can restore nested scopes in a finally block.
-     */
-    public static boolean setObjectRuleEntryConstruction(boolean enabled) {
-        boolean previous = OBJECT_RULE_ENTRY_CONSTRUCTION.get();
-        OBJECT_RULE_ENTRY_CONSTRUCTION.set(enabled);
-        return previous;
-    }
-
-    /**
-     * Whether the current thread is resolving the receiver/arguments of an EvoObj entry call.
-     *
-     * <p>Generator preferences must be scoped to this speculative operation. Applying them to
-     * ordinary random generation merely because EvoObj is enabled changes graphless searches and
-     * can make complex dependency construction dramatically slower.</p>
-     */
-    public static boolean isObjectRuleEntryConstruction() {
-        return OBJECT_RULE_ENTRY_CONSTRUCTION.get();
-    }
-
-    /**
-     * Enables or restores graph-to-code construction on the current generation thread.
-     *
-     * @return the previous value, for restoration in a {@code finally} block
-     */
-    public static boolean setObjectRuleSynthesisConstruction(boolean enabled) {
-        boolean previous = OBJECT_RULE_SYNTHESIS_CONSTRUCTION.get();
-        OBJECT_RULE_SYNTHESIS_CONSTRUCTION.set(enabled);
-        return previous;
-    }
-
-    public static boolean isObjectRuleSynthesisConstruction() {
-        return OBJECT_RULE_SYNTHESIS_CONSTRUCTION.get();
     }
 
     /**
@@ -152,7 +103,7 @@ public class VariableResolver {
          * graph-to-code argument: it turns one opaque value into an arbitrary classpath graph
          * before createObject() can apply the synthesis scalar rule.
          */
-        if (OBJECT_RULE_SYNTHESIS_CONSTRUCTION.get()
+        if (TestGenerationContext.getInstance().getObjectRuleRuntime().isSynthesisConstruction()
                 && GenericClassFactory.get(parameterType).getRawClass() == Object.class) {
             return createObject(test, Object.class, position, context,
                     new VariableResolutionConfig.Builder(config)
@@ -469,7 +420,7 @@ public class VariableResolver {
          * normal random generation, mutation, setup repair, and cached-template execution retain
          * their existing behavior.
          */
-        if (OBJECT_RULE_SYNTHESIS_CONSTRUCTION.get()
+        if (TestGenerationContext.getInstance().getObjectRuleRuntime().isSynthesisConstruction()
                 && clazz.getRawClass() == Object.class) {
             StringPrimitiveStatement scalar = new StringPrimitiveStatement(test, "value");
             scalar.setObjectRuleSlot(true);
@@ -503,10 +454,11 @@ public class VariableResolver {
         // through TestFactory.changeNullStatement(). Apply the same narrow preference here while
         // EvoObj is active, otherwise environment-bearing constructor arguments (notably Path)
         // are already mocks by the time synthesis begins and no matching virtual setup is possible.
-        boolean preferConcreteGenerators = config.isPreferConcreteGenerators()
-                || (Properties.APPLY_OBJECT_RULE
-                        && Properties.OBJECT_RULE_PREFER_CONCRETE_FACTORIES
-                        && OBJECT_RULE_ENTRY_CONSTRUCTION.get());
+        boolean preferConcreteGenerators =
+                config.isPreferConcreteGenerators()
+                        || TestGenerationContext.getInstance()
+                                .getObjectRuleRuntime()
+                                .isEntryConstruction();
         double roll = Randomness.nextDouble();
         boolean rollPassed = roll < effectiveMockProb;
         boolean canMock = rollPassed ? FunctionalMockStatement.canBeFunctionalMocked(type) : false;
@@ -619,9 +571,9 @@ public class VariableResolver {
     }
 
     /**
-     * Constructs the small set of value/environment types for which a stable public factory is
-     * more useful than a behaviorless functional mock. Values are object-rule slots so the normal
-     * GA can still mutate them. Any partial insertion is rolled back before falling through to the
+     * Constructs the small set of value/environment types for which a stable public factory is more
+     * useful than a behaviorless functional mock. Values are object-rule slots so the normal GA can
+     * still mutate them. Any partial insertion is rolled back before falling through to the
      * ordinary generator/mock policy.
      */
     private VariableReference tryCreatePreferredConcreteValue(

@@ -29,7 +29,6 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
@@ -38,7 +37,6 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.ConstructorStatement;
-import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.junit.jupiter.api.AfterEach;
@@ -114,7 +112,7 @@ public class ObjectRuleFactoryTest {
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
         Properties.P_OBJECT_RULE_APPLICATION = 0.6;
-        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().clearWorkingTarget();
         org.evosuite.TestGenerationContext.getInstance().resetContext();
     }
 
@@ -134,7 +132,6 @@ public class ObjectRuleFactoryTest {
         Properties.RANDOM_SEED = 42L;
         Randomness.setSeed(42L);
         Properties.CHROMOSOME_LENGTH = 40;
-        Properties.INDIVIDUAL_LEGITIMIZATION_BUDGET = 5;
 
         Properties.TARGET_CLASS = clazz.getName();
         Properties.TARGET_METHOD = signatureOf(clazz, methodName, paramNum);
@@ -158,7 +155,8 @@ public class ObjectRuleFactoryTest {
     /** Pick the branch with the largest OCG leaf set (the most object state to construct). */
     private static Branch pickStateBearingBranch() {
         Map<Branch, Set<DepVariable>> map =
-                ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+                org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+                        .getBranchInterestedVarsMap().get(Properties.TARGET_METHOD);
         assertNotNull(map, "the target method should have an OCG entry");
         Branch best = null;
         int bestSize = 0;
@@ -191,7 +189,6 @@ public class ObjectRuleFactoryTest {
     public void factoryAppliesObjectRuleTemplate() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1, true);
         Branch stateBranch = pickStateBearingBranch();
-        TestCaseLegitimizer.startTime = System.currentTimeMillis();
         // Force the object rule to always apply when a target call is present.
         Properties.P_OBJECT_RULE_APPLICATION = 1.0;
 
@@ -201,7 +198,7 @@ public class ObjectRuleFactoryTest {
 
         boolean templateApplied = false;
         for (int attempt = 0; attempt < 60 && !templateApplied; attempt++) {
-            org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
+            org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
             TestChromosome chromosome = factory.getChromosome();
             TestCase test = chromosome.getTestCase();
 
@@ -227,7 +224,7 @@ public class ObjectRuleFactoryTest {
     public void factoryReturnsForSizeOneWithoutHanging() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1, true);
         Properties.CHROMOSOME_LENGTH = 1;
-        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().clearWorkingTarget();
 
         RandomLengthTestFactory factory = new RandomLengthTestFactory();
         TestChromosome chromosome = assertTimeoutPreemptively(Duration.ofSeconds(10),
@@ -240,9 +237,28 @@ public class ObjectRuleFactoryTest {
     }
 
     @Test
+    public void factoryKeepsObjectRuleTemplatesBelowTheExclusiveLengthBound() {
+        analyze(PublicInstanceFieldExample.class, "targetM", 1, true);
+        Properties.CHROMOSOME_LENGTH = 3;
+        Properties.P_OBJECT_RULE_APPLICATION = 1.0;
+        Branch stateBranch = pickStateBearingBranch();
+        RandomLengthTestFactory factory = new RandomLengthTestFactory();
+
+        for (int attempt = 0; attempt < 20; attempt++) {
+            org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+                    .getSession().setWorkingTarget(0, stateBranch, java.util.Collections.emptyList());
+            TestCase generated = factory.getChromosome().getTestCase();
+            assertTrue(generated.size() < Properties.CHROMOSOME_LENGTH,
+                    "generated size was " + generated.size() + " for bound "
+                            + Properties.CHROMOSOME_LENGTH + ": "
+                            + "object-rule synthesis must treat chromosome length as an exclusive bound");
+        }
+    }
+
+    @Test
     public void zeroApplicationProbabilityIsExactlyBaselineTransparent() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1, true);
-        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, pickStateBearingBranch(), java.util.Collections.emptyList());
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, pickStateBearingBranch(), java.util.Collections.emptyList());
         Properties.P_OBJECT_RULE_APPLICATION = 0.0;
         RandomLengthTestFactory factory = new RandomLengthTestFactory();
 
@@ -270,8 +286,7 @@ public class ObjectRuleFactoryTest {
     @Test
     public void factoryUnchangedWhenObjectRuleDisabled() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1, false);
-        org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
-        int trialsBefore = org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().legitimizationTrials;
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().clearWorkingTarget();
 
         RandomLengthTestFactory factory = new RandomLengthTestFactory();
         for (int i = 0; i < 20; i++) {
@@ -281,9 +296,7 @@ public class ObjectRuleFactoryTest {
                     "a random test must respect the length bound");
         }
 
-        assertTrue(org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().getWorkingBranch() == null,
+        assertTrue(org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().getWorkingBranch() == null,
                 "the disabled object rule must not select a working branch");
-        assertTrue(org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().legitimizationTrials == trialsBefore,
-                "the disabled object rule must not run legitimization");
     }
 }

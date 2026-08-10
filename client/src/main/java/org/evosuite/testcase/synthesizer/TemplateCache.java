@@ -19,6 +19,8 @@
  */
 package org.evosuite.testcase.synthesizer;
 
+import org.evosuite.coverage.branch.Branch;
+import org.evosuite.testcase.TestCase;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -26,59 +28,45 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
-import org.evosuite.testcase.TestCase;
-
 /**
- * Caches the best object-construction template synthesized for each branch. The fork
- * re-ran analysis, synthesis and legitimization on every injection (its {@code templateTestMap} was
- * written but never read); this cache lets the factory occasionally reuse a proven template instead,
- * which cuts synthesis time (visible in the {@code TemplateSynthesisTime} statistic) for branches
- * that are injected repeatedly.
+ * Caches the best object-construction template synthesized for each branch. The fork re-ran
+ * analysis and synthesis on every injection (its {@code templateTestMap} was written but never
+ * read); this cache lets the factory occasionally reuse a proven template instead, which cuts
+ * synthesis time for branches that are injected repeatedly.
  *
- * <p>"Best" means the template with the lowest legitimacy distance seen so far (a template that
- * reaches the target call, distance 0, is ideal). Entries for branches that become covered are
- * evicted via {@link #retainUncovered(Collection)}. Per-run state is reset from
- * {@link ObjectConstructionContext#reset()} for determinism.
+ * <p>The first structurally consistent template is retained. Entries for branches that become
+ * covered are evicted via {@link #retainUncovered(Collection)}. Per-run state is reset by the
+ * owning {@code ObjectRuleRuntime} for determinism.
  *
- * <p>Only the template test is cached, not the {@code PartialGraph}. The
- * reuse path hands back a clone of the finished template and never re-enters synthesis or
- * legitimization, so a cached graph would be write-only, hence it is omitted.
+ * <p>Only the template test is cached, not the {@code PartialGraph}. The reuse path hands back a
+ * clone of the finished template and never re-enters synthesis, so a cached graph would be
+ * write-only, hence it is omitted.
  */
 public class TemplateCache {
 
-    private static final TemplateCache instance = new TemplateCache();
-
     private final Map<Branch, TestCase> bestTemplate = new LinkedHashMap<>();
-    private final Map<Branch, Double> bestDistance = new LinkedHashMap<>();
 
-    private TemplateCache() {
+    public TemplateCache() {
     }
 
-    public static TemplateCache getInstance() {
-        return instance;
-    }
-
-    /** Clears all cached templates. Invoked from {@link ObjectConstructionContext#reset()}. */
+    /** Clears all cached templates. */
     public void reset() {
         bestTemplate.clear();
-        bestDistance.clear();
+
     }
 
     /**
-     * Stores a template for the branch if it is the first one or improves on (is no worse than) the
-     * best legitimacy distance recorded so far. The test is cloned so later mutation of the caller's
+     * Stores the first template for a branch. The test is cloned so later mutation of the caller's
      * copy cannot corrupt the cache.
      */
-    public void store(Branch branch, TestCase template, double legitimacyDistance) {
+    public void store(Branch branch, TestCase template) {
         if (branch == null || template == null) {
             return;
         }
-        Double previousBest = bestDistance.get(branch);
-        if (previousBest == null || legitimacyDistance <= previousBest) {
+
+        if (!bestTemplate.containsKey(branch)) {
             bestTemplate.put(branch, template.clone());
-            bestDistance.put(branch, legitimacyDistance);
+
         }
     }
 
@@ -106,7 +94,7 @@ public class TemplateCache {
             Branch branch = it.next().getKey();
             if (!keep.contains(branch)) {
                 it.remove();
-                bestDistance.remove(branch);
+
             }
         }
     }

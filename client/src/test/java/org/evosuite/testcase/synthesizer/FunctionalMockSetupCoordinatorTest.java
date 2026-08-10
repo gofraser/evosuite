@@ -11,6 +11,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
@@ -36,29 +37,17 @@ import static org.junit.Assert.assertTrue;
 
 public class FunctionalMockSetupCoordinatorTest {
 
-    private boolean oldMockSetup;
-    private int oldExtraExecutions;
-    private int oldMaxFailedAttempts;
     private String oldTargetClass;
 
     @Before
     public void setUp() {
-        oldMockSetup = Properties.OBJECT_RULE_MOCK_SETUP;
-        oldExtraExecutions = Properties.OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS;
-        oldMaxFailedAttempts = Properties.OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS;
         oldTargetClass = Properties.TARGET_CLASS;
-        Properties.OBJECT_RULE_MOCK_SETUP = true;
-        Properties.OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS = 1;
-        Properties.OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS = 3;
         Properties.TARGET_CLASS = MockConsumer.class.getName();
         FunctionalMockSetupCoordinator.reset();
     }
 
     @After
     public void tearDown() {
-        Properties.OBJECT_RULE_MOCK_SETUP = oldMockSetup;
-        Properties.OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS = oldExtraExecutions;
-        Properties.OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS = oldMaxFailedAttempts;
         Properties.TARGET_CLASS = oldTargetClass;
         FunctionalMockSetupCoordinator.reset();
     }
@@ -110,6 +99,43 @@ public class FunctionalMockSetupCoordinatorTest {
     }
 
     @Test
+    public void recipeIsNotReusedForDifferentMockConsumerContext() throws Exception {
+        TestCase first = unstubbedTemplate();
+        ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
+        FunctionalMockSetupCoordinator.RepairProposal proposal =
+                FunctionalMockSetupCoordinator.proposeRepair(first, initial);
+        assertNotNull(proposal);
+        assertTrue(TestCaseExecutor.getInstance().execute(proposal.getTest()).noThrownExceptions());
+        FunctionalMockSetupCoordinator.recordSuccess(proposal, true);
+
+        TestCase later = unstubbedTemplate(OtherMockConsumer.class.getMethod(
+                "consumeOther", Service.class));
+        assertFalse(FunctionalMockSetupCoordinator.applyCachedSetup(later));
+        ExecutionResult laterInitial = TestCaseExecutor.getInstance().execute(later);
+        assertFalse(laterInitial.noThrownExceptions());
+        assertEquals(1, ((FunctionalMockStatement) later.getStatement(0))
+                .getInvocationObservationsNeedingStubs().size());
+    }
+
+    @Test
+    public void unrelatedExistingStubDoesNotSuppressCompatibleRecipe() throws Exception {
+        TestCase first = unstubbedTemplate();
+        ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
+        FunctionalMockSetupCoordinator.RepairProposal proposal =
+                FunctionalMockSetupCoordinator.proposeRepair(first, initial);
+        assertNotNull(proposal);
+        assertTrue(TestCaseExecutor.getInstance().execute(proposal.getTest()).noThrownExceptions());
+        FunctionalMockSetupCoordinator.recordSuccess(proposal, true);
+
+        TestCase later = unstubbedTemplate();
+        FunctionalMockStatement mock = (FunctionalMockStatement) later.getStatement(0);
+        mock.addMethodStubbing(new MethodDescriptor(Service.class.getMethod("other"),
+                GenericClassFactory.get(Service.class)), Collections.emptyList());
+        assertTrue(FunctionalMockSetupCoordinator.applyCachedSetup(later));
+        assertTrue(TestCaseExecutor.getInstance().execute(later).noThrownExceptions());
+    }
+
+    @Test
     public void improvingButNonCoveringStubRecipeIsNotProactive() throws Exception {
         TestCase first = unstubbedTemplate();
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(first);
@@ -129,9 +155,7 @@ public class FunctionalMockSetupCoordinatorTest {
 
     @Test
     public void repeatedlyUnhelpfulRecipeIsNegativelyCached() throws Exception {
-        Properties.OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS = 2;
-
-        for (int attempt = 0; attempt < 2; attempt++) {
+        for (int attempt = 0; attempt < 3; attempt++) {
             TestCase original = unstubbedTemplate();
             ExecutionResult initial = TestCaseExecutor.getInstance().execute(original);
             FunctionalMockSetupCoordinator.RepairProposal proposal =
@@ -143,44 +167,27 @@ public class FunctionalMockSetupCoordinatorTest {
         TestCase repeated = unstubbedTemplate();
         ExecutionResult repeatedResult = TestCaseExecutor.getInstance().execute(repeated);
         assertNull(FunctionalMockSetupCoordinator.proposeRepair(repeated, repeatedResult));
-        assertEquals(2, FunctionalMockSetupCoordinator.getAttempts());
+        assertEquals(3, FunctionalMockSetupCoordinator.getAttempts());
         assertEquals(1, FunctionalMockSetupCoordinator.getBlacklistedRecipes());
         assertEquals(1, FunctionalMockSetupCoordinator.getNegativeCacheHits());
     }
 
     @Test
-    public void zeroBudgetDoesNotCreateARepairCandidate() throws Exception {
-        TestCase original = unstubbedTemplate();
-        ExecutionResult initial = TestCaseExecutor.getInstance().execute(original);
-        Properties.OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS = 0;
-
-        assertEquals(null, FunctionalMockSetupCoordinator.proposeRepair(original, initial));
-        assertEquals(0, FunctionalMockSetupCoordinator.getExtraExecutions());
-    }
-
-    @Test
-    public void booleanMockSetupExploresBothDirectionsAndCachesWinner() throws Exception {
-        Properties.OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS = 2;
+    public void booleanMockSetupUsesTheFixedRepairBudget() throws Exception {
         TestCase original = unstubbedBooleanTemplate();
         ExecutionResult initial = TestCaseExecutor.getInstance().execute(original);
 
         List<FunctionalMockSetupCoordinator.RepairProposal> proposals =
                 FunctionalMockSetupCoordinator.proposeRepairs(original, initial);
 
-        assertEquals(2, proposals.size());
-        assertEquals(Collections.singletonList(Boolean.TRUE),
-                booleanValues(proposals.get(0).getTest()));
-        assertEquals(Collections.singletonList(Boolean.FALSE),
-                booleanValues(proposals.get(1).getTest()));
+        assertEquals(1, proposals.size());
         assertTrue(TestCaseExecutor.getInstance().execute(
                 proposals.get(0).getTest()).noThrownExceptions());
-        assertTrue(TestCaseExecutor.getInstance().execute(
-                proposals.get(1).getTest()).noThrownExceptions());
 
         FunctionalMockSetupCoordinator.recordSuccess(proposals.get(0), true);
         TestCase later = unstubbedBooleanTemplate();
         assertTrue(FunctionalMockSetupCoordinator.applyCachedSetup(later));
-        assertEquals(Collections.singletonList(Boolean.TRUE), booleanValues(later));
+        assertEquals(1, booleanValues(later).size());
     }
 
     @Test
@@ -225,14 +232,17 @@ public class FunctionalMockSetupCoordinatorTest {
     }
 
     private static TestCase unstubbedTemplate() throws Exception {
+        return unstubbedTemplate(MockConsumer.class.getMethod("consume", Service.class));
+    }
+
+    private static TestCase unstubbedTemplate(Method consume) throws Exception {
         TestCase test = new DefaultTestCase();
         FunctionalMockStatement mockStatement = new FunctionalMockStatement(
                 test, Service.class, GenericClassFactory.get(Service.class));
         VariableReference mock = test.addStatement(mockStatement);
-        Method consume = MockConsumer.class.getMethod("consume", Service.class);
         test.addStatement(new MethodStatement(
                 test,
-                new GenericMethod(consume, MockConsumer.class),
+                new GenericMethod(consume, consume.getDeclaringClass()),
                 null,
                 Collections.singletonList(mock)));
         return test;
@@ -286,6 +296,8 @@ public class FunctionalMockSetupCoordinatorTest {
 
     public interface Service {
         String value();
+
+        String other();
     }
 
     public interface BooleanService {
@@ -325,6 +337,12 @@ public class FunctionalMockSetupCoordinatorTest {
 
         public static boolean consumeBoolean(BooleanService service) {
             return service.value();
+        }
+    }
+
+    public static class OtherMockConsumer {
+        public static int consumeOther(Service service) {
+            return service.other().length();
         }
     }
 }

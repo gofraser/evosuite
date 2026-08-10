@@ -19,6 +19,12 @@
  */
 package org.evosuite.testcase.synthesizer;
 
+import org.evosuite.Properties;
+import org.evosuite.TimeController;
+import org.evosuite.coverage.branch.Branch;
+import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
+import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
+import org.evosuite.graphs.interprocedural.var.DepVariable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,41 +35,33 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
-import org.evosuite.Properties;
-import org.evosuite.TimeController;
-import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
-import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
-import org.evosuite.graphs.interprocedural.var.DepVariable;
-
 /**
- * Chooses which uncovered branch the object-construction template should target. It
- * refines the fork's "pick any uncovered branch uniformly at random" by skipping work that cannot
- * pay off:
+ * Chooses which uncovered branch the object-construction template should target. It refines the
+ * fork's "pick any uncovered branch uniformly at random" by skipping work that cannot pay off:
  *
  * <ul>
  *   <li><b>Eligibility</b>: a branch is only worth a template if its object-construction graph has
  *       at least one dependent state variable (a primitive-only branch has nothing for synthesis to
- *       build). Computed lazily and cached.</li>
- *   <li><b>Negative caching</b>: after {@code object_rule_max_failed_attempts} discarded synthesis
- *       attempts for a branch, the branch is marked ineligible for the rest of the run. With
- *       A structurally consistent template still counts as a failure when it throws before the
- *       target call. This prevents a cloneable but useless prefix from resetting the failure streak
- *       and being synthesized indefinitely.</li>
+ *       build). Computed lazily and cached.
+ *   <li><b>Negative caching</b>: after three discarded synthesis attempts for a branch, the branch
+ *       is marked ineligible for the rest of the run. With A structurally consistent template still
+ *       counts as a failure when it throws before the target call. This prevents a cloneable but
+ *       useless prefix from resetting the failure streak and being synthesized indefinitely.
  * </ul>
  *
  * <p>Selection among the remaining eligible branches stays uniformly random, so this only avoids
  * wasted synthesis — it does not otherwise change which branches the object rule helps cover. It is
  * always active when {@code apply_object_rule} is enabled; no separate flag. Per-run state is reset
- * from {@link ObjectConstructionContext#reset()} for determinism.
+ * by the owning object-rule runtime for determinism.
  */
 public class ObjectRuleBranchSelector {
 
-    private static final ObjectRuleBranchSelector instance = new ObjectRuleBranchSelector();
-
     /** Cached "has a non-empty object graph" verdict per branch. */
     private final Map<Branch, Boolean> eligibilityCache = new LinkedHashMap<>();
+
+    /** Canonical graph prepared while classifying an eligible branch. */
+    private final Map<Branch, PreparedObjectRuleCandidate> preparedCandidates =
+            new LinkedHashMap<>();
 
     /** Consecutive synthesis attempts per branch that did not produce a usable template. */
     private final Map<Branch, Integer> failedAttempts = new LinkedHashMap<>();
@@ -74,15 +72,6 @@ public class ObjectRuleBranchSelector {
     /** Branches that have been eligible at least once in this run. */
     private final Set<Branch> everEligible = new LinkedHashSet<>();
 
-    /** Fresh synthesis attempts per targeted branch (telemetry only). */
-    private final Map<Branch, Integer> synthesisAttempts = new LinkedHashMap<>();
-
-    /** Branches that have experienced at least two consecutive failed synthesis attempts. */
-    private final Set<Branch> repeatedFailureBranches = new LinkedHashSet<>();
-
-    /** Largest consecutive-failure streak observed for any branch. */
-    private int maxConsecutiveFailures;
-
     /**
      * RNG used only to randomize lazy eligibility discovery. It must not consume EvoSuite's main
      * search stream: for classes with no eligible graph (for example CIDR), discovery is a no-op
@@ -90,22 +79,17 @@ public class ObjectRuleBranchSelector {
      */
     private Random discoveryRandom = new Random(0L);
 
-    private ObjectRuleBranchSelector() {
+    public ObjectRuleBranchSelector() {
     }
 
-    public static ObjectRuleBranchSelector getInstance() {
-        return instance;
-    }
-
-    /** Clears all per-run caches. Invoked from {@link ObjectConstructionContext#reset()}. */
+    /** Clears all per-run caches. */
     public void reset() {
         eligibilityCache.clear();
+
+        preparedCandidates.clear();
         failedAttempts.clear();
         ineligible.clear();
         everEligible.clear();
-        synthesisAttempts.clear();
-        repeatedFailureBranches.clear();
-        maxConsecutiveFailures = 0;
         discoveryRandom = new Random(Properties.RANDOM_SEED == null ? 0L : Properties.RANDOM_SEED);
     }
 
@@ -122,12 +106,9 @@ public class ObjectRuleBranchSelector {
             return cached;
         }
         boolean eligible;
-        if (Properties.OBJECT_RULE_WHOLE_CLASS
-                && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty())) {
-            eligible = resolveWholeClassEligibility(branch);
-        } else {
-            eligible = hasConstructibleObjectGraph(branch);
-        }
+
+        eligible = resolveWholeClassEligibility(branch);
+
         eligibilityCache.put(branch, eligible);
         if (eligible) {
             everEligible.add(branch);
@@ -142,7 +123,7 @@ public class ObjectRuleBranchSelector {
      * strategies can perform the potentially expensive interprocedural graph discovery during
      * initialization, before the effective search budget starts. Once this method returns,
      * selection among the supplied branches is cache-only and cannot spend search time expanding
-     * object-construction graphs.</p>
+     * object-construction graphs.
      *
      * @param branches all branches that may later be presented for selection
      */
@@ -158,15 +139,14 @@ public class ObjectRuleBranchSelector {
     }
 
     /**
-     * Whole-class eligibility: the branch's own containing method must be a valid entry
-     * method ({@link TargetContext#forBranch}), and, once its object graph is analyzed on demand,
-     * the branch must depend on object state.
+     * Whole-class eligibility: the branch's own containing method must be a valid entry method
+     * ({@link TargetContext#forBranch}), and, once its object graph is analyzed on demand, the
+     * branch must depend on object state.
      */
     private boolean resolveWholeClassEligibility(Branch branch) {
         TargetContext context = TargetContext.forBranch(branch);
         if (context == null) {
-            ObjectConstructionGraphDiagnostics.recordEligibilityDecision(
-                    branch, null, null, false, TargetContext.rejectionReasonForBranch(branch));
+
             return false;
         }
         InterproceduralGraphAnalysis.analyzeBranchOnDemand(branch, new OCGInterestedNodeFilter());
@@ -184,7 +164,11 @@ public class ObjectRuleBranchSelector {
     }
 
     private boolean hasNonEmptyObjectGraph(Branch branch) {
-        for (Map<Branch, Set<DepVariable>> perBranch : ObjectConstructionContext.branchInterestedVarsMap.values()) {
+        for (Map<Branch, Set<DepVariable>> perBranch :
+                org.evosuite.TestGenerationContext.getInstance()
+                        .getObjectRuleRuntime()
+                        .getBranchInterestedVarsMap()
+                        .values()) {
             Set<DepVariable> vars = perBranch.get(branch);
             if (vars != null && !vars.isEmpty()) {
                 return true;
@@ -199,30 +183,45 @@ public class ObjectRuleBranchSelector {
 
     private boolean evaluateConstructibleObjectGraph(Branch branch, TargetContext context) {
         if (!hasNonEmptyObjectGraph(branch)) {
-            ObjectConstructionGraphDiagnostics.recordEligibilityDecision(
-                    branch, context, null, false, "no_object_state_dependency");
+
             return false;
         }
         PartialGraph graph = new ConstructionPathSynthesizer()
                 .constructPartialComputationGraph(branch);
         if (!graph.hasExternallyConstructibleState()) {
-            ObjectConstructionGraphDiagnostics.recordEligibilityDecision(
-                    branch, context, graph, false, "no_externally_constructible_state");
+
             return false;
         }
         if (!graph.hasPotentialSynthesisAction()) {
-            ObjectConstructionGraphDiagnostics.recordEligibilityDecision(
-                    branch, context, graph, false, "no_runtime_synthesis_action");
+
             return false;
         }
         if (graph.hasDependencyCycle()) {
-            ObjectConstructionGraphDiagnostics.recordEligibilityDecision(
-                    branch, context, graph, false, "dependency_cycle");
             return false;
         }
-        ObjectConstructionGraphDiagnostics.recordEligibilityDecision(
-                branch, context, graph, true, "eligible");
+        preparedCandidates.put(branch, new PreparedObjectRuleCandidate(branch, context, graph));
         return true;
+    }
+
+    public PreparedObjectRuleCandidate getPreparedCandidate(Branch branch) {
+        return branch == null ? null : preparedCandidates.get(branch);
+    }
+
+    /**
+     * Selects one already-prepared candidate for algorithms that do not maintain uncovered-goal
+     * frontiers. Such algorithms still need a concrete working branch for whole-class EvoObj;
+     * callers should clear the session target after generating that one test.
+     */
+    public Branch selectPreparedBranch() {
+        List<Branch> candidates = new ArrayList<>();
+        for (Branch branch : preparedCandidates.keySet()) {
+            if (!ineligible.contains(branch)) {
+                candidates.add(branch);
+            }
+        }
+        return candidates.isEmpty()
+                ? null
+                : candidates.get(discoveryRandom.nextInt(candidates.size()));
     }
 
     /**
@@ -235,7 +234,7 @@ public class ObjectRuleBranchSelector {
      * Already-discovered eligible branches are reused until they are covered or negatively cached;
      * only then is the unknown remainder shuffled and scanned to the next eligible branch. This
      * makes analysis genuinely on demand and prevents the initial population from repeatedly
-     * expanding unrelated graphs.</p>
+     * expanding unrelated graphs.
      */
     public Branch selectWorkingBranch(Collection<Branch> uncoveredBranches) {
         if (uncoveredBranches == null || uncoveredBranches.isEmpty()) {
@@ -310,7 +309,7 @@ public class ObjectRuleBranchSelector {
         if (branch == null) {
             return;
         }
-        synthesisAttempts.put(branch, synthesisAttempts.getOrDefault(branch, 0) + 1);
+
         if (reachedTargetCall && coveredWorkingGoal) {
             failedAttempts.remove(branch);
             return;
@@ -332,19 +331,17 @@ public class ObjectRuleBranchSelector {
     private void recordRetryableFailure(Branch branch) {
         int attempts = failedAttempts.getOrDefault(branch, 0) + 1;
         failedAttempts.put(branch, attempts);
-        maxConsecutiveFailures = Math.max(maxConsecutiveFailures, attempts);
-        if (attempts >= 2) {
-            repeatedFailureBranches.add(branch);
-        }
-        if (attempts >= Properties.OBJECT_RULE_MAX_FAILED_ATTEMPTS) {
+
+        if (attempts >= ObjectRulePolicy.MAX_FAILED_ATTEMPTS) {
             ineligible.add(branch);
         }
+
     }
 
     /**
      * Permanently rejects a branch for which no receiver generator or callable entry exists.
-     * Randomized failures with known generators use
-     * {@link #recordRetryableEntryConstructionFailure(Branch)} instead.
+     * Randomized failures with known generators use {@link
+     * #recordRetryableEntryConstructionFailure(Branch)} instead.
      */
     public void recordEntryConstructionFailure(Branch branch) {
         if (branch == null) {
@@ -362,23 +359,4 @@ public class ObjectRuleBranchSelector {
         return ineligible.size();
     }
 
-    public int getTargetedBranchCount() {
-        return synthesisAttempts.size();
-    }
-
-    public int getMaxInjectionsPerBranch() {
-        int max = 0;
-        for (Integer attempts : synthesisAttempts.values()) {
-            max = Math.max(max, attempts);
-        }
-        return max;
-    }
-
-    public int getRepeatedFailureBranchCount() {
-        return repeatedFailureBranches.size();
-    }
-
-    public int getMaxConsecutiveFailures() {
-        return maxConsecutiveFailures;
-    }
 }

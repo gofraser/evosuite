@@ -82,9 +82,6 @@ public class ObjectRuleSystemTest extends SystemTestBase {
         // template synthesis; the assertions are deliberately tolerant.
         Properties.SEARCH_BUDGET = 5000;
         Properties.RANDOM_SEED = 42L;
-        // Keep legitimization from dominating the budget in a unit-test setting.
-        Properties.INDIVIDUAL_LEGITIMIZATION_BUDGET = 3;
-        Properties.TOTAL_LEGITIMIZATION_BUDGET = 10;
     }
 
     private TestSuiteChromosome runSearch(String targetClass) {
@@ -127,7 +124,6 @@ public class ObjectRuleSystemTest extends SystemTestBase {
                 + RuntimeVariable.ObjectGraphMaxSize + ","
                 + RuntimeVariable.TemplateSynthesisTime + ","
                 + RuntimeVariable.TemplateInjections + ","
-                + RuntimeVariable.LegitimizationSuccessRate + ","
                 + phaseVOutputVariables();
         double withRule = runSearch(BasicRules.class.getCanonicalName()).getCoverage();
 
@@ -175,7 +171,6 @@ public class ObjectRuleSystemTest extends SystemTestBase {
         Properties.TARGET_CLASS = BasicRules.class.getCanonicalName();
         Properties.TARGET_METHOD = ""; // no target method: whole-class mode
         Properties.APPLY_OBJECT_RULE = true;
-        Properties.OBJECT_RULE_WHOLE_CLASS = true;
 
         TestSuiteChromosome best = runSearch(BasicRules.class.getCanonicalName());
         Assertions.assertNotNull(best, "whole-class object-rule search should produce a suite");
@@ -189,7 +184,6 @@ public class ObjectRuleSystemTest extends SystemTestBase {
     public void graphInertWholeClassSearchIsExactlyBaselineTransparent() {
         configureTransparencySearch();
         Properties.APPLY_OBJECT_RULE = false;
-        Properties.OBJECT_RULE_WHOLE_CLASS = false;
         TestSuiteChromosome baseline =
                 runSearch(LocalDerivedArrayWholeClassExample.class.getCanonicalName());
         String baselineSuite = baseline.toString();
@@ -200,7 +194,6 @@ public class ObjectRuleSystemTest extends SystemTestBase {
 
         configureTransparencySearch();
         Properties.APPLY_OBJECT_RULE = true;
-        Properties.OBJECT_RULE_WHOLE_CLASS = true;
         Properties.P_OBJECT_RULE_APPLICATION = 0.6;
         TestSuiteChromosome inertEvoObj =
                 runSearch(LocalDerivedArrayWholeClassExample.class.getCanonicalName());
@@ -237,7 +230,6 @@ public class ObjectRuleSystemTest extends SystemTestBase {
                 + RuntimeVariable.ObjectGraphMaxSize + ","
                 + RuntimeVariable.TemplateSynthesisTime + ","
                 + RuntimeVariable.TemplateInjections + ","
-                + RuntimeVariable.LegitimizationSuccessRate + ","
                 + phaseVOutputVariables();
 
         runSearch(BasicRules.class.getCanonicalName());
@@ -247,18 +239,14 @@ public class ObjectRuleSystemTest extends SystemTestBase {
         for (RuntimeVariable v : new RuntimeVariable[] {
                 RuntimeVariable.ObjectGraphBranches, RuntimeVariable.ObjectGraphMaxSize,
                 RuntimeVariable.TemplateSynthesisTime, RuntimeVariable.TemplateInjections,
-                RuntimeVariable.LegitimizationSuccessRate,
                 RuntimeVariable.ObjectRuleEverEligibleBranches,
                 RuntimeVariable.ObjectRuleBlacklistedBranches,
-                RuntimeVariable.ObjectRuleLastFreshSynthesisIteration,
-                RuntimeVariable.ObjectRuleEntryRejectedConstructor,
-                RuntimeVariable.ObjectRuleEntryRejectedNonPublic,
-                RuntimeVariable.ObjectRuleEntryRejectedOther,
-                RuntimeVariable.ObjectRuleTemplateSurvivalMean,
-                RuntimeVariable.ObjectRuleTemplateSurvival5,
                 RuntimeVariable.TemplateCacheHits,
                 RuntimeVariable.ObjectRuleFreshSyntheses,
-                RuntimeVariable.ObjectRuleFirstShotSuccesses }) {
+                RuntimeVariable.ObjectRuleFirstShotSuccesses,
+                RuntimeVariable.ObjectRuleImmediateCoverage,
+                RuntimeVariable.ObjectRuleReachedNotCovered,
+                RuntimeVariable.ObjectRuleInconsistentTemplates }) {
             Assertions.assertNotNull(map.get(v.toString()), v + " should be reported");
         }
         // BasicRules.checkRules reads Player[] state -> at least one branch has a non-empty graph.
@@ -278,14 +266,11 @@ public class ObjectRuleSystemTest extends SystemTestBase {
     private static String phaseVOutputVariables() {
         return RuntimeVariable.ObjectRuleEverEligibleBranches + ","
                 + RuntimeVariable.ObjectRuleBlacklistedBranches + ","
-                + RuntimeVariable.ObjectRuleLastFreshSynthesisIteration + ","
-                + RuntimeVariable.ObjectRuleEntryRejectedConstructor + ","
-                + RuntimeVariable.ObjectRuleEntryRejectedNonPublic + ","
-                + RuntimeVariable.ObjectRuleEntryRejectedOther + ","
-                + RuntimeVariable.ObjectRuleTemplateSurvivalMean + ","
-                + RuntimeVariable.ObjectRuleTemplateSurvival5 + ","
                 + RuntimeVariable.TemplateCacheHits + ","
                 + RuntimeVariable.ObjectRuleFreshSyntheses + ","
-                + RuntimeVariable.ObjectRuleFirstShotSuccesses;
+                + RuntimeVariable.ObjectRuleFirstShotSuccesses + ","
+                + RuntimeVariable.ObjectRuleImmediateCoverage + ","
+                + RuntimeVariable.ObjectRuleReachedNotCovered + ","
+                + RuntimeVariable.ObjectRuleInconsistentTemplates;
     }
 }

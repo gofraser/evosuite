@@ -22,6 +22,8 @@ package org.evosuite.testcase.synthesizer;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.evosuite.Properties;
@@ -29,7 +31,8 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchPool;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
+import org.evosuite.graphs.interprocedural.InterproceduralGraphAnalysis;
+import org.evosuite.graphs.interprocedural.interestednode.OCGInterestedNodeFilter;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.ExceptionMapGenerator;
@@ -71,10 +74,8 @@ public class WholeClassModeTest {
 		Properties.TARGET_METHOD = "";
 		Properties.TARGET_CLASS = "";
 		Properties.APPLY_OBJECT_RULE = false;
-		Properties.OBJECT_RULE_WHOLE_CLASS = false;
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = false;
 		Properties.P_OBJECT_RULE_APPLICATION = 0.6;
-		org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().clearWorkingTarget();
+		org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().clearWorkingTarget();
 		TargetContext.clearActive();
 		org.evosuite.TestGenerationContext.getInstance().resetContext();
 	}
@@ -98,7 +99,6 @@ public class WholeClassModeTest {
 		Properties.TARGET_CLASS = clazz.getName();
 		Properties.TARGET_METHOD = "";
 		Properties.APPLY_OBJECT_RULE = true;
-		Properties.OBJECT_RULE_WHOLE_CLASS = true;
 
 		String cp = System.getProperty("user.dir") + "/target/test-classes";
 		ClassPathHandler.getInstance().addElementToTargetProjectClassPath(cp);
@@ -153,32 +153,18 @@ public class WholeClassModeTest {
 		assertEquals(signatureOf(WholeClassExample.class, "publicEntry", 1), ctx.getMethodSignature());
 
 		Branch packageBranch = firstBranchOf(WholeClassExample.class, "packageEntry", 1);
-		assertNull(TargetContext.forBranch(packageBranch),
-				"the core synthesis surface remains public/protected");
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
-		TargetContext packageContext = TargetContext.forBranch(packageBranch);
-		assertNotNull(packageContext,
-				"expanded entries use EvoSuite's package-aware accessibility policy");
-		assertEquals(signatureOf(WholeClassExample.class, "packageEntry", 1),
-				packageContext.getMethodSignature());
+		assertNotNull(TargetContext.forBranch(packageBranch),
+				"package-visible entries are callable by generated tests");
 
 		Branch privateBranch = firstBranchOf(WholeClassExample.class, "hiddenEntry", 1);
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = false;
-		assertNull(TargetContext.forBranch(privateBranch),
-				"a branch in a private method is not a valid entry (no call-graph search)");
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
 		TargetContext privateContext = TargetContext.forBranch(privateBranch);
-		assertNotNull(privateContext, "expanded entries allow private branches through a public caller");
+		assertNotNull(privateContext, "private branches resolve through a public caller");
 		assertEquals(signatureOf(WholeClassExample.class, "publicCallsHidden", 1),
 				privateContext.getMethodSignature());
 
 		Branch constructorBranch = firstConstructorBranchOf(WholeClassExample.class, 1);
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = false;
-		assertNull(TargetContext.forBranch(constructorBranch),
-				"a constructor branch is rejected unless expanded entries are enabled");
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
 		TargetContext constructorContext = TargetContext.forBranch(constructorBranch);
-		assertNotNull(constructorContext, "expanded entries allow constructor branches");
+		assertNotNull(constructorContext, "constructor branches are valid entries");
 		assertTrue(constructorContext.isConstructorEntry());
 		assertEquals(constructorSignatureOf(WholeClassExample.class, 1),
 				constructorContext.getMethodSignature());
@@ -211,25 +197,44 @@ public class WholeClassModeTest {
 		Branch privateBranch = firstBranchOf(WholeClassExample.class, "hiddenEntry", 1);
 
 		// Nothing analyzed eagerly in whole-class mode.
-		assertTrue(ObjectConstructionContext.branchInterestedVarsMap.isEmpty(),
+		assertTrue(org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+				.getBranchInterestedVarsMap().isEmpty(),
 				"whole-class mode does not eagerly analyze any method");
 
-		ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+		ObjectRuleBranchSelector selector = new ObjectRuleBranchSelector();
 		selector.reset();
 		assertTrue(selector.isEligible(publicBranch),
 				"a public-method branch with object state is eligible (analyzed on demand)");
-		assertTrue(ObjectConstructionContext.branchInterestedVarsMap
+		assertTrue(org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+				.getBranchInterestedVarsMap()
 						.containsKey(signatureOf(WholeClassExample.class, "publicEntry", 1)),
 				"eligibility should have analyzed the entry method on demand");
-		assertTrue(!selector.isEligible(privateBranch), "a private-method branch is ineligible");
+		assertTrue(selector.isEligible(privateBranch),
+				"a private-method branch with a callable public path is eligible");
 		selector.reset();
-		ObjectConstructionContext.reset();
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
+		org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().reset();
 		assertTrue(selector.isEligible(privateBranch),
 				"a private-method branch with a public caller and object state is eligible");
-		assertTrue(ObjectConstructionContext.branchInterestedVarsMap
-						.containsKey(signatureOf(WholeClassExample.class, "publicCallsHidden", 1)),
-				"private branch analysis should be cached under the public entry method");
+		assertTrue(org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+				.getBranchInterestedVarsMap().values().stream()
+				.anyMatch(branches -> branches.containsKey(privateBranch)),
+				"private branch analysis should be cached under a branch-safe public entry key");
+	}
+
+	@Test
+	public void privateBranchesSharingCallerAreAnalyzedIndependently() {
+		analyzeWholeClass(WholeClassExample.class);
+		Branch first = firstBranchOf(WholeClassExample.class, "firstHiddenEntry", 1);
+		Branch second = firstBranchOf(WholeClassExample.class, "secondHiddenEntry", 1);
+
+		InterproceduralGraphAnalysis.analyzeBranchOnDemand(first, new OCGInterestedNodeFilter());
+		InterproceduralGraphAnalysis.analyzeBranchOnDemand(second, new OCGInterestedNodeFilter());
+
+		Map<String, Map<Branch, Set<org.evosuite.graphs.interprocedural.var.DepVariable>>> cache =
+				org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+						.getBranchInterestedVarsMap();
+		assertTrue(cache.values().stream().anyMatch(branches -> branches.containsKey(first)));
+		assertTrue(cache.values().stream().anyMatch(branches -> branches.containsKey(second)));
 	}
 
 	@Test
@@ -244,7 +249,7 @@ public class WholeClassModeTest {
 						.map(value -> entry.getKey().toString() + "=" + value))
 				.sorted().collect(Collectors.toList());
 
-		ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+		ObjectRuleBranchSelector selector = new ObjectRuleBranchSelector();
 		selector.reset();
 		selector.prepareEligibility(java.util.Collections.singleton(publicBranch));
 
@@ -263,7 +268,7 @@ public class WholeClassModeTest {
 	@Test
 	public void localArrayDerivedFromStringIsNotConstructibleObjectState() {
 		analyzeWholeClass(LocalDerivedArrayWholeClassExample.class);
-		ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+		ObjectRuleBranchSelector selector = new ObjectRuleBranchSelector();
 		selector.reset();
 
 		String signature = signatureOf(
@@ -290,7 +295,7 @@ public class WholeClassModeTest {
 		RandomLengthTestFactory factory = new RandomLengthTestFactory();
 		boolean built = false;
 		for (int attempt = 0; attempt < 60 && !built; attempt++) {
-			org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, publicBranch, java.util.Collections.emptyList());
+			org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, publicBranch, java.util.Collections.emptyList());
 			TestChromosome chromosome = factory.getChromosome();
 			TestCase test = chromosome.getTestCase();
 			if (test.findMethodCallStatement(entrySig) != null) {
@@ -306,7 +311,7 @@ public class WholeClassModeTest {
 	public void rejectedObjectRuleApplicationDoesNotConsumeSearchRandomness() {
 		analyzeWholeClass(WholeClassExample.class);
 		Branch publicBranch = firstBranchOf(WholeClassExample.class, "publicEntry", 1);
-		org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, publicBranch, java.util.Collections.emptyList());
+		org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, publicBranch, java.util.Collections.emptyList());
 		Properties.P_OBJECT_RULE_APPLICATION = 0.0;
 
 		Randomness.setSeed(47L);
@@ -332,11 +337,10 @@ public class WholeClassModeTest {
 
 	@Test
 	public void rejectedEntryContextIsExactlyBaselineTransparent() {
-		analyzeWholeClass(WholeClassExample.class);
-		Branch privateBranch = firstBranchOf(WholeClassExample.class, "hiddenEntry", 1);
-		assertNull(TargetContext.forBranch(privateBranch));
-		assertTransparentFallback(new RandomLengthTestFactory(), privateBranch, 1.0,
-				"a branch without a callable entry");
+		analyzeWholeClass(UnconstructableWholeClassExample.class);
+		Branch branch = firstBranchOf(UnconstructableWholeClassExample.class, "entry", 0);
+		assertTransparentFallback(new RandomLengthTestFactory(), branch, 1.0,
+				"a branch whose receiver cannot be constructed");
 	}
 
 	@Test
@@ -382,7 +386,7 @@ public class WholeClassModeTest {
 	private static void assertTransparentFallback(
 			RandomLengthTestFactory factory, Branch branch, double probability, String scenario) {
 		Properties.P_OBJECT_RULE_APPLICATION = probability;
-		org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, branch, java.util.Collections.emptyList());
+		org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, branch, java.util.Collections.emptyList());
 
 		Randomness.setSeed(47L);
 		Properties.APPLY_OBJECT_RULE = false;
@@ -398,7 +402,8 @@ public class WholeClassModeTest {
 		assertEquals(baselineNextRandom, evoObjNextRandom,
 				scenario + " must restore the exact RNG state before fallback");
 		if (branch != null) {
-			assertTrue(!TemplateCache.getInstance().hasTemplate(branch),
+			assertTrue(!org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+					.getTemplateCache().hasTemplate(branch),
 					scenario + " must not publish a rejected template");
 		}
 	}
@@ -463,7 +468,7 @@ public class WholeClassModeTest {
 		String entrySig = signatureOf(FactoryOnlyWholeClassExample.class, "entry", 1);
 		String factorySig = signatureOf(FactoryOnlyWholeClassExample.class, "create", 1);
 
-		org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, branch, java.util.Collections.emptyList());
+		org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, branch, java.util.Collections.emptyList());
 		TestCase test = new RandomLengthTestFactory().getChromosome().getTestCase();
 
 		assertNotNull(test.findMethodCallStatement(factorySig),
@@ -476,7 +481,6 @@ public class WholeClassModeTest {
 	@Test
 	public void factoryInsertsConstructorEntryWhenExpandedEntriesAreEnabled() {
 		analyzeWholeClass(WholeClassExample.class);
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
 		Properties.P_OBJECT_RULE_APPLICATION = 1.0;
 		Branch constructorBranch = firstConstructorBranchOf(WholeClassExample.class, 1);
 		String constructorSig = constructorSignatureOf(WholeClassExample.class, 1);
@@ -484,7 +488,7 @@ public class WholeClassModeTest {
 		RandomLengthTestFactory factory = new RandomLengthTestFactory();
 		boolean built = false;
 		for (int attempt = 0; attempt < 60 && !built; attempt++) {
-			org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, constructorBranch, java.util.Collections.emptyList());
+			org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, constructorBranch, java.util.Collections.emptyList());
 			TestChromosome chromosome = factory.getChromosome();
 			TestCase test = chromosome.getTestCase();
 			for (int i = 0; i < test.size(); i++) {
@@ -505,7 +509,6 @@ public class WholeClassModeTest {
 	@Test
 	public void factoryUsesPublicCallerForPrivateBranchWhenExpandedEntriesAreEnabled() {
 		analyzeWholeClass(WholeClassExample.class);
-		Properties.OBJECT_RULE_EXPANDED_ENTRIES = true;
 		Properties.P_OBJECT_RULE_APPLICATION = 1.0;
 		Branch privateBranch = firstBranchOf(WholeClassExample.class, "hiddenEntry", 1);
 		String entrySig = signatureOf(WholeClassExample.class, "publicCallsHidden", 1);
@@ -513,7 +516,7 @@ public class WholeClassModeTest {
 		RandomLengthTestFactory factory = new RandomLengthTestFactory();
 		boolean built = false;
 		for (int attempt = 0; attempt < 60 && !built; attempt++) {
-			org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession().setWorkingTarget(0, privateBranch, java.util.Collections.emptyList());
+			org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession().setWorkingTarget(0, privateBranch, java.util.Collections.emptyList());
 			TestChromosome chromosome = factory.getChromosome();
 			TestCase test = chromosome.getTestCase();
 			if (test.findMethodCallStatement(entrySig) != null) {

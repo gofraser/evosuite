@@ -229,6 +229,10 @@ class RandomLengthTestFactoryEntryTest {
         assertFalse(builder.insertEntryMethodCallOnExistingReceiver(test, context));
         assertTrue(builder.isConcreteReceiverTypeNegativelyCached(failingClass));
         assertEquals(2, test.size(), "validation must not append the entry call");
+
+        TestGenerationContext.getInstance().getObjectRuleRuntime().reset();
+        assertFalse(builder.isConcreteReceiverTypeNegativelyCached(failingClass),
+                "a runtime reset must invalidate receiver failures from the previous run");
     }
 
     @Test
@@ -280,10 +284,7 @@ class RandomLengthTestFactoryEntryTest {
 
     @Test
     void requiredFieldTypeSelectsControllableConstructor() throws Exception {
-        boolean oldMockSetup = Properties.OBJECT_RULE_MOCK_SETUP;
-        try {
-            Properties.OBJECT_RULE_MOCK_SETUP = true;
-            Properties.TARGET_CLASS = CollaboratorReceiver.class.getName();
+        Properties.TARGET_CLASS = CollaboratorReceiver.class.getName();
             String classPath = System.getProperty("user.dir") + "/target/test-classes";
             ClassPathHandler.getInstance().addElementToTargetProjectClassPath(classPath);
             DependencyAnalysis.analyzeClass(Properties.TARGET_CLASS,
@@ -312,9 +313,6 @@ class RandomLengthTestFactoryEntryTest {
             VariableReference collaborator = constructor.getParameterReferences().get(0);
             assertTrue(test.getStatement(collaborator.getStPosition())
                     instanceof FunctionalMockStatement);
-        } finally {
-            Properties.OBJECT_RULE_MOCK_SETUP = oldMockSetup;
-        }
     }
 
     @Test

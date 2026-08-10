@@ -14,19 +14,15 @@ import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.ControlFlowDistance;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.setup.ExceptionMapGenerator;
 import org.evosuite.testcase.DefaultTestCase;
-import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
-import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
 import org.evosuite.testcase.synthesizer.TargetContext;
-import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.utils.MethodUtil;
 import org.evosuite.utils.Randomness;
 import org.junit.jupiter.api.AfterEach;
@@ -53,7 +49,7 @@ public class ObjectRuleStatisticsTest {
         Properties.TARGET_METHOD = "";
         Properties.TARGET_CLASS = "";
         Properties.APPLY_OBJECT_RULE = false;
-        TemplateCache.getInstance().reset();
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getTemplateCache().reset();
         session().clearWorkingTarget();
         TimeController.resetSingleton();
         org.evosuite.TestGenerationContext.getInstance().resetContext();
@@ -70,7 +66,6 @@ public class ObjectRuleStatisticsTest {
 
     @Test
     public void resetStatisticsClearsProductionCounters() {
-        session().legitimizationTrials = 7;
         session().templateInjections = 11;
         session().templateSynthesisTimeMs = 1234;
         session().currentIteration = 9;
@@ -83,7 +78,6 @@ public class ObjectRuleStatisticsTest {
 
         session().reset();
 
-        assertEquals(0, session().legitimizationTrials);
         assertEquals(0, session().templateInjections);
         assertEquals(0L, session().templateSynthesisTimeMs);
         assertEquals(0, session().currentIteration);
@@ -142,24 +136,13 @@ public class ObjectRuleStatisticsTest {
     }
 
     @Test
-    public void objectRuleTelemetryTracksSurvivalAndReset() {
-        ObjectRuleTelemetry telemetry = ObjectRuleTelemetry.getInstance();
-        telemetry.recordInjection(1, 3);
-        TestChromosome chromosome = new TestChromosome();
-        chromosome.setObjectRuleTemplateId(1);
-        telemetry.recordPopulation(Collections.singletonList(chromosome), 8);
-        assertEquals(5.0, telemetry.meanSurvival(), 0.0);
-        assertEquals(1.0, telemetry.survivalAtLeastFive(), 0.0);
-        ObjectConstructionContext.reset();
-        assertEquals(0.0, telemetry.meanSurvival(), 0.0);
-    }
-
-    @Test
     public void objectRuleCountersResetThroughConstructionContext() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1);
-        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
-        org.evosuite.coverage.branch.Branch branch = ObjectConstructionContext
-                .branchInterestedVarsMap.get(Properties.TARGET_METHOD).entrySet().stream()
+        ObjectRuleBranchSelector selector = org.evosuite.TestGenerationContext.getInstance()
+                .getObjectRuleRuntime().getBranchSelector();
+        org.evosuite.coverage.branch.Branch branch = org.evosuite.TestGenerationContext.getInstance()
+                .getObjectRuleRuntime().getBranchInterestedVarsMap().get(Properties.TARGET_METHOD)
+                .entrySet().stream()
                 .filter(entry -> entry.getValue() != null && !entry.getValue().isEmpty())
                 .map(java.util.Map.Entry::getKey).findFirst().orElse(null);
         assertTrue(branch != null);
@@ -169,29 +152,34 @@ public class ObjectRuleStatisticsTest {
         selector.recordSynthesisAttempt(branch, false);
         TargetContext.forBranch(null);
         assertTrue(selector.getBlacklistedCount() > 0);
-        ObjectConstructionContext.reset();
+        org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().reset();
         assertEquals(0, selector.getBlacklistedCount());
-        assertEquals(0, TargetContext.getRejectedOtherEntries());
     }
 
     @Test
     public void objectGraphStatsReflectAnalysis() {
         analyze(PublicInstanceFieldExample.class, "targetM", 1);
-        assertTrue(ObjectRuleStatisticsReporter.countObjectGraphBranches() > 0);
-        assertTrue(ObjectRuleStatisticsReporter.maxObjectGraphSize() >= 1);
-        ObjectRuleStatisticsReporter.publish(session());
+        ObjectRuleRuntime runtime = org.evosuite.TestGenerationContext.getInstance()
+                .getObjectRuleRuntime();
+        assertTrue(ObjectRuleStatisticsReporter.countObjectGraphBranches(runtime) > 0);
+        assertTrue(ObjectRuleStatisticsReporter.maxObjectGraphSize(runtime) >= 1);
+        ObjectRuleStatisticsReporter.publish(
+                org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime());
     }
 
     @Test
     public void statsSafeWhenContextEmpty() {
         org.evosuite.TestGenerationContext.getInstance().resetContext();
-        assertEquals(0, ObjectRuleStatisticsReporter.countObjectGraphBranches());
-        assertEquals(0, ObjectRuleStatisticsReporter.maxObjectGraphSize());
-        ObjectRuleStatisticsReporter.publish(session());
+        ObjectRuleRuntime runtime = org.evosuite.TestGenerationContext.getInstance()
+                .getObjectRuleRuntime();
+        assertEquals(0, ObjectRuleStatisticsReporter.countObjectGraphBranches(runtime));
+        assertEquals(0, ObjectRuleStatisticsReporter.maxObjectGraphSize(runtime));
+        ObjectRuleStatisticsReporter.publish(
+                org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime());
     }
 
     private static ObjectRuleSession session() {
-        return org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession();
+        return org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession();
     }
 
     private static void analyze(Class<?> clazz, String methodName, int parameterCount) {

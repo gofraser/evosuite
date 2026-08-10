@@ -31,7 +31,6 @@ import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
@@ -114,8 +113,9 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
     @Override
     public void searchFinished(GeneticAlgorithm<T> algorithm) {
 
-        // If the search is finished, we may want to clear the queue and just send the final element?
-        //individuals.clear(); // TODO: Maybe have a check on size
+        // If the search is finished, we may want to clear the queue and just send the final
+        // element?
+        // individuals.clear(); // TODO: Maybe have a check on size
         enqueueSnapshot(algorithm.getBestIndividual());
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Statements_Executed,
                 MaxStatementsStoppingCondition.getNumExecutedStatements());
@@ -134,7 +134,7 @@ public class StatisticsListener<T extends Chromosome<T>> implements SearchListen
         if (Properties.APPLY_OBJECT_RULE) {
             // EvoObj object-rule statistics.
             org.evosuite.testcase.factories.ObjectRuleStatisticsReporter.publish(
-                    org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession());
+                    org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime());
         }
         done = true;
         if (notifier != null) {

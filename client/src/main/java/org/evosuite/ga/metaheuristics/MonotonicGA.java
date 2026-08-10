@@ -26,18 +26,14 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageFactory;
 import org.evosuite.coverage.branch.BranchCoverageGoal;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
-import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
-import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.ga.*;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.factories.ObjectRuleSession;
-import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
+import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -207,7 +203,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
         population = newGeneration;
         // archive
         updateFitnessFunctionsAndValues();
-        recordObjectRuleTemplateSurvival();
 
         currentIteration++;
     }
@@ -245,16 +240,15 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     // but hard to debug :(
 
     /**
-     * EvoObj: choose the working branch for the next
-     * generation from the uncovered branch goals (MonotonicGA hook). The choice is
-     * delegated to {@link ObjectRuleBranchSelector}, which restricts it to branches with a
-     * non-empty object graph and drops branches that repeatedly fail synthesis.
-     * {@code null} when no eligible branch remains, which disables template synthesis for the
-     * generation.
+     * EvoObj: choose the working branch for the next generation from the uncovered branch goals
+     * (MonotonicGA hook). The choice is delegated to {@link ObjectRuleBranchSelector}, which
+     * restricts it to branches with a non-empty object graph and drops branches that repeatedly
+     * fail synthesis. {@code null} when no eligible branch remains, which disables template
+     * synthesis for the generation.
      */
     private void selectObjectRuleWorkingBranch() {
         ObjectRuleSession session =
-                TestGenerationContext.getInstance().getObjectRuleSession();
+                TestGenerationContext.getInstance().getObjectRuleRuntime().getSession();
         session.clearWorkingTarget();
 
         List<BranchCoverageTestFitness> branchGoals = new BranchCoverageFactory().getCoverageGoals();
@@ -274,21 +268,19 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
                 }
             }
             Branch workingBranch =
-                    ObjectRuleBranchSelector.getInstance().selectWorkingBranch(uncoveredBranches);
+                    TestGenerationContext.getInstance()
+                            .getObjectRuleRuntime()
+                            .getBranchSelector()
+                            .selectWorkingBranch(uncoveredBranches);
             List<BranchCoverageTestFitness> workingGoals =
                     uncoveredGoalsByBranch.get(workingBranch);
             session.setWorkingTarget(this.currentIteration, workingBranch, workingGoals);
             // Evict cached templates for branches that are now covered.
-            TemplateCache.getInstance().retainUncovered(uncoveredBranches);
-        }
-    }
 
-    @SuppressWarnings("unchecked")
-    private void recordObjectRuleTemplateSurvival() {
-        if (Properties.APPLY_OBJECT_RULE && !population.isEmpty()
-                && population.get(0) instanceof org.evosuite.testcase.TestChromosome) {
-            ObjectRuleTelemetry.getInstance().recordPopulation(
-                    (List<org.evosuite.testcase.TestChromosome>) population, this.currentIteration);
+            TestGenerationContext.getInstance()
+                    .getObjectRuleRuntime()
+                    .getTemplateCache()
+                    .retainUncovered(uncoveredBranches);
         }
     }
 
@@ -350,10 +342,6 @@ public class MonotonicGA<T extends Chromosome<T>> extends GeneticAlgorithm<T> {
     /** {@inheritDoc} */
     @Override
     public void generateSolution() {
-        if (Properties.APPLY_OBJECT_RULE) {
-            // EvoObj: the total legitimization budget is measured from search start.
-            TestCaseLegitimizer.startTime = System.currentTimeMillis();
-        }
         if (Properties.ENABLE_SECONDARY_OBJECTIVE_AFTER > 0 || Properties.ENABLE_SECONDARY_OBJECTIVE_STARVATION) {
             disableFirstSecondaryCriterion();
         }

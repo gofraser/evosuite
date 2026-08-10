@@ -10,12 +10,23 @@ set -euo pipefail
 : "${APPTAINER_IMAGE:?APPTAINER_IMAGE is required}"
 : "${EVOSUITE_JAR:?EVOSUITE_JAR is required}"
 : "${DATASET_ROOT:?DATASET_ROOT is required}"
+: "${STATISTICS_VALIDATOR:?STATISTICS_VALIDATOR is required}"
+
+if [[ ! -f "${STATISTICS_VALIDATOR}" ]]; then
+  echo "Missing statistics validator: ${STATISTICS_VALIDATOR}" >&2
+  exit 2
+fi
 
 TASK_ID="${SLURM_ARRAY_TASK_ID:-0}"
 MANIFEST_FILE="${RUN_DIR}/manifests/chunks/chunk_$(printf '%05d' "${TASK_ID}").tsv"
 
 RETRY_COUNT="${RETRY_COUNT:-1}"
 TIMEOUT_LIMIT="${TIMEOUT_LIMIT:-30m}"
+# Independent host-side bound around Apptainer. The inner timeout bounds Java, while this one
+# also terminates a wedged container runtime and every descendant process. Keep it longer than the
+# inner bound so EvoSuite normally has time to write its terminal statistics row.
+OUTER_TIMEOUT_LIMIT="${OUTER_TIMEOUT_LIMIT:-35m}"
+OUTER_TIMEOUT_KILL_AFTER="${OUTER_TIMEOUT_KILL_AFTER:-30s}"
 EXTRA_TIMEOUT="${EXTRA_TIMEOUT:-600}"
 JUNIT_CHECK_TIMEOUT="${JUNIT_CHECK_TIMEOUT:-1200}"
 EVOSUITE_MEM_MB="${EVOSUITE_MEM_MB:-4000}"
@@ -26,14 +37,25 @@ export HOME="/scratch/${USER}"
 mkdir -p "${HOME}"
 
 # Prefer node-local storage for temporary files.
-LOCAL_TMP_BASE="${LOCAL_TMP_BASE:-/local/${USER}}"
+LOCAL_TMP_BASE="${LOCAL_TMP_BASE:-${SLURM_TMPDIR:-/local/${USER}}}"
 TASK_TMP_DIR="${LOCAL_TMP_BASE}/evosuite_objconstruction_${SLURM_JOB_ID:-nojob}_${TASK_ID}"
 if mkdir -p "${TASK_TMP_DIR}" 2>/dev/null; then
   export TMPDIR="${TASK_TMP_DIR}"
-  export APPTAINER_TMPDIR="${TASK_TMP_DIR}"
 else
-  export TMPDIR="${TMPDIR:-/tmp}"
+  echo "Warning: unable to create isolated task tmp under ${LOCAL_TMP_BASE}" >&2
+  TASK_TMP_DIR="${RUN_DIR}/tmp/evosuite_objconstruction_${SLURM_JOB_ID:-nojob}_${TASK_ID}"
+  mkdir -p "${TASK_TMP_DIR}"
+  export TMPDIR="${TASK_TMP_DIR}"
 fi
+export APPTAINER_TMPDIR="${TASK_TMP_DIR}"
+cleanup_task_tmp() {
+  case "${TASK_TMP_DIR}" in
+    */evosuite_objconstruction_*)
+      rm -rf -- "${TASK_TMP_DIR}"
+      ;;
+  esac
+}
+trap cleanup_task_tmp EXIT
 
 if [[ "${NOFILE_SOFT_LIMIT}" =~ ^[0-9]+$ ]]; then
   hard_nofile="$(ulimit -Hn)"
@@ -61,7 +83,7 @@ EVOSUITE_JAR_BASENAME="$(basename "${EVOSUITE_JAR}")"
 STATUS_FILE="${RUN_DIR}/status/task_${TASK_ID}.tsv"
 
 if [[ ! -f "${STATUS_FILE}" ]]; then
-  printf 'task_id\trun_id\tproject_id\tclass_name\tconfig_id\trepetition\texit_code\tattempts\n' > "${STATUS_FILE}"
+  printf 'task_id\trun_id\tproject_id\tclass_name\tconfig_id\trepetition\texit_code\tattempts\tfailure_reason\n' > "${STATUS_FILE}"
 fi
 
 # Manifest format: run_id, project_id, class_name, classpath, config_id, repetition, extra_args
@@ -78,27 +100,36 @@ while IFS=$'\t' read -r run_id project_id class_name classpath config_id repetit
   repetition=$(echo "${repetition}" | tr -d '\r')
   extra_args=$(echo "${extra_args}" | tr -d '\r')
 
-  # The host dataset root is bound to /sf110 inside the container; rewrite any
-  # absolute classpath entry that points into it.
-  if [[ -n "${SF110_ROOT:-}" ]]; then
-    classpath=$(echo "${classpath}" | sed "s|${SF110_ROOT}|/sf110|g")
-  fi
+  # The selected host dataset is bound to /dataset inside the container; rewrite absolute
+  # classpath entries emitted by the manifest generator to their container-visible paths.
+  classpath=$(echo "${classpath}" | sed "s|${DATASET_ROOT}|/dataset|g")
 
-  project_dir="/sf110/${project_id}"
+  project_dir="/dataset/${project_id}"
   logfile="${RUN_DIR}/logs/${project_id}_${class_name}_${config_id}_R${repetition}.log"
+  class_segment=$(printf '%s' "${class_name}" | sed 's/[^A-Za-z0-9_.$-]/_/g')
+  statistics_file="${RUN_DIR}/reports/${config_id}/rep${repetition}/${class_segment}/statistics.csv"
 
   mkdir -p "${RUN_DIR}/reports/${config_id}/rep${repetition}"
 
   attempt=0
   exit_code=1
+  failure_reason="not_started"
   while (( attempt <= RETRY_COUNT )); do
     attempt=$((attempt + 1))
+    attempt_log="${logfile}.attempt${attempt}.tmp"
+    rm -f "${attempt_log}"
+    # Never allow a successful row from an earlier attempt to validate a later
+    # attempt that failed before writing statistics.
+    rm -f "${statistics_file}"
 
     set +e
-    apptainer exec \
-      --bind "${DATASET_ROOT}:/sf110" \
+    timeout --signal=TERM --kill-after="${OUTER_TIMEOUT_KILL_AFTER}" \
+      "${OUTER_TIMEOUT_LIMIT}" \
+      apptainer exec \
+      --bind "${DATASET_ROOT}:/dataset" \
       --bind "${EVOSUITE_BIND_DIR}:/evosuite" \
       --bind "${RUN_DIR}:/results" \
+      --bind "${TASK_TMP_DIR}:/tmp" \
       "${APPTAINER_IMAGE}" \
       bash -s -- \
         "${project_dir}" \
@@ -113,7 +144,7 @@ while IFS=$'\t' read -r run_id project_id class_name classpath config_id repetit
         "${extra_args}" \
         "${config_id}" \
         "${repetition}" \
-      >> "${logfile}" 2>&1 <<'EOF'
+      > "${attempt_log}" 2>&1 <<'EOF'
 set -euo pipefail
 project_dir="$1"
 jar_name="$2"
@@ -157,6 +188,41 @@ timeout -k "${timeout_limit}" "${timeout_limit}" "${cmd[@]}"
 EOF
     exit_code=$?
     set -e
+    cat "${attempt_log}" >> "${logfile}"
+    failure_reason="process_exit_${exit_code}"
+    if [[ ${exit_code} -eq 124 ]]; then
+      failure_reason="outer_timeout"
+    fi
+
+    # EvoSuite's master process can exit 0 after a forked client was SIGKILLed
+    # and only report the real client status in the log. Treat that as a failed
+    # run so status TSVs and retries reflect the actual client outcome.
+    if [[ ${exit_code} -eq 0 ]]; then
+      hidden_client_exit="$(
+        sed -nE 's/.*terminated unexpectedly\..*exitCode=([0-9]+).*/\1/p' "${attempt_log}" | tail -n 1
+      )"
+      if [[ -n "${hidden_client_exit}" ]]; then
+        exit_code="${hidden_client_exit}"
+        failure_reason="client_exit_${hidden_client_exit}"
+      fi
+    fi
+
+    # Process exit zero is necessary but insufficient.  EvoSuite can write a
+    # partial N/A row after ERROR/TIMEOUT and still let the master exit zero.
+    if [[ ${exit_code} -eq 0 ]]; then
+      set +e
+      validation_reason="$(python3 "${STATISTICS_VALIDATOR}" "${statistics_file}" 2>&1)"
+      validation_exit=$?
+      set -e
+      if [[ ${validation_exit} -ne 0 ]]; then
+        failure_reason="$(printf '%s' "${validation_reason}" | tr '\t\r\n' '___')"
+        exit_code=65
+        echo "run_id=${run_id} statistics validation failed: ${failure_reason}" >> "${logfile}"
+      else
+        failure_reason="success"
+      fi
+    fi
+    rm -f "${attempt_log}"
 
     if [[ ${exit_code} -eq 0 ]]; then
       break
@@ -165,8 +231,8 @@ EOF
     echo "run_id=${run_id} failed with code ${exit_code} (attempt ${attempt}/$((RETRY_COUNT + 1)))" >> "${logfile}"
   done
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "${TASK_ID}" "${run_id}" "${project_id}" "${class_name}" "${config_id}" "${repetition}" "${exit_code}" "${attempt}" \
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "${TASK_ID}" "${run_id}" "${project_id}" "${class_name}" "${config_id}" "${repetition}" "${exit_code}" "${attempt}" "${failure_reason}" \
     >> "${STATUS_FILE}"
 
 done < "${MANIFEST_FILE}"

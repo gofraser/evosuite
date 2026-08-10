@@ -6,7 +6,6 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.runtime.LoopCounter;
 import org.evosuite.setup.DependencyAnalysis;
@@ -81,7 +80,8 @@ class ObjectIdentitySynthesisTest {
 
     private static Branch stateBranch() {
         Map<Branch, Set<DepVariable>> branches =
-                ObjectConstructionContext.branchInterestedVarsMap
+                org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+                        .getBranchInterestedVarsMap()
                         .get(Properties.TARGET_METHOD);
         assertNotNull(branches);
         return branches.entrySet().stream()

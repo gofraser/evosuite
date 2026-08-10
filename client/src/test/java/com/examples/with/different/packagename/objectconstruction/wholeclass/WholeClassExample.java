@@ -38,8 +38,26 @@ public class WholeClassExample {
 		return hiddenEntry(x);
 	}
 
+	public boolean publicCallsBothHidden(int x) {
+		return firstHiddenEntry(x) || secondHiddenEntry(x);
+	}
+
 	private boolean hiddenEntry(int x) {
 		if (state == x) {
+			return true;
+		}
+		return false;
+	}
+
+	private boolean firstHiddenEntry(int x) {
+		if (state == x) {
+			return true;
+		}
+		return false;
+	}
+
+	private boolean secondHiddenEntry(int x) {
+		if (state != x) {
 			return true;
 		}
 		return false;

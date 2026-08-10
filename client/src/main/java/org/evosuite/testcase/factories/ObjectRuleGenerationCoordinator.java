@@ -21,14 +21,11 @@ package org.evosuite.testcase.factories;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestFactory;
-import org.evosuite.testcase.VariableResolver;
 import org.evosuite.testcase.synthesizer.ConstructionPathSynthesizer;
-import org.evosuite.testcase.synthesizer.ObjectConstructionGraphDiagnostics;
 import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.synthesizer.PartialGraph;
+import org.evosuite.testcase.synthesizer.PreparedObjectRuleCandidate;
 import org.evosuite.testcase.synthesizer.TargetContext;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -53,7 +50,18 @@ final class ObjectRuleGenerationCoordinator {
     }
 
     private static ObjectRuleSession session() {
-        return org.evosuite.TestGenerationContext.getInstance().getObjectRuleSession();
+        return org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime().getSession();
+    }
+
+    private static ObjectRuleBranchSelector branchSelector() {
+        return org.evosuite.TestGenerationContext.getInstance()
+                .getObjectRuleRuntime()
+                .getBranchSelector();
+    }
+
+    PartialGraph preparedGraph(Branch branch) {
+        PreparedObjectRuleCandidate candidate = branchSelector().getPreparedCandidate(branch);
+        return candidate == null ? null : candidate.getPartialGraph();
     }
 
     /** Search state that must be invisible to ordinary generation after a rejected attempt. */
@@ -66,7 +74,10 @@ final class ObjectRuleGenerationCoordinator {
         private SpeculativeGenerationState() {
             randomness = Randomness.snapshot();
             primitiveReuseProbability = Properties.PRIMITIVE_REUSE_PROBABILITY;
-            entryConstruction = VariableResolver.isObjectRuleEntryConstruction();
+            entryConstruction =
+                    org.evosuite.TestGenerationContext.getInstance()
+                            .getObjectRuleRuntime()
+                            .isEntryConstruction();
             targetContext = TargetContext.getActive();
         }
     }
@@ -81,136 +92,39 @@ final class ObjectRuleGenerationCoordinator {
          */
         SpeculativeGenerationState stateBeforeAttempt =
                 new SpeculativeGenerationState();
-        return isWholeClassMode()
-                ? getWholeClassObjectRuleTestCase(size, stateBeforeAttempt)
-                : getObjectRuleTestCase(size, stateBeforeAttempt);
+        TestCase generated = getWholeClassObjectRuleTestCase(size, stateBeforeAttempt);
+        if (generated != null && generated.size() < size) {
+            return generated;
+        }
+        return fallbackToDefault(size, stateBeforeAttempt);
     }
 
     /**
-     * EvoObj generation path. Only reached when {@code apply_object_rule=true}. After
-     * the first inserted statement the test contains the target-method call (guaranteed by the M1
-     * {@code TestCluster.getRandomTestCall} changes); at that point, with probability
-     * {@link Properties#P_OBJECT_RULE_APPLICATION}, the test is turned into an object-construction
-     * template for the session's working branch and legitimized.
-     */
-    private TestCase getObjectRuleTestCase(
-            int size, SpeculativeGenerationState stateBeforeAttempt) {
-        if (session().getWorkingBranch() == null
-                || Properties.P_OBJECT_RULE_APPLICATION <= 0.0
-                || ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff()) {
-            return fallbackToDefault(size, stateBeforeAttempt);
-        }
-        boolean applyObjectRule =
-                Randomness.nextDouble() <= Properties.P_OBJECT_RULE_APPLICATION;
-        if (!applyObjectRule) {
-            return fallbackToDefault(size, stateBeforeAttempt);
-        }
-
-        TestCase test = owner.getNewTestCase();
-        final TestFactory testFactory = TestFactory.getInstance();
-
-        // Object-rule construction disables primitive reuse so template "slots" get fresh values
-        // (the fork's implicit slot mechanism). Saved and restored around this method.
-        final double oldPrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
-        final boolean previousEntryConstruction =
-                VariableResolver.setObjectRuleEntryConstruction(true);
-        Properties.PRIMITIVE_REUSE_PROBABILITY = 0;
-        try {
-            if (size <= 1) {
-                logger.warn("Requested random test case size {} is too small, defaulting to empty test case.", size);
-                return fallbackToDefault(size, stateBeforeAttempt);
-            }
-            int length = Randomness.nextInt(1, size);
-
-            boolean allowNullValue = Properties.NULL_PROBABILITY > Randomness.nextDouble();
-
-            int num = 0;
-            boolean synthesisAttempted = false;
-            while (test.size() < length && num < Properties.MAX_ATTEMPTS) {
-                int position = test.size() - 1;
-
-                int targetMethodCallPosition = -1;
-                if (!Properties.TARGET_METHOD.isEmpty()) {
-                    targetMethodCallPosition = TestGenerationUtil.getTargetMethodPosition(test, test.size() - 1);
-                    if (targetMethodCallPosition != -1) {
-                        // Keep insertions before the target-method call.
-                        position = targetMethodCallPosition - 1;
-                    }
-                }
-
-                // The first inserted statement is the target-method call; once it is present, turn
-                // the test into an object-construction template for the working branch.
-                if (num == 1 && targetMethodCallPosition != -1 && applyObjectRule) {
-                    synthesisAttempted = true;
-                    // Occasionally reuse a proven cached template instead of re-synthesizing; the
-                    // main GA mutates the clone as usual.
-                    TestCase cached = ObjectRuleTemplateSynthesizer.tryReuseCachedTemplate(
-                            session().getWorkingBranch());
-                    if (cached != null) {
-                        test = cached;
-                        session().templateInjections++;
-                        session().templateCacheHits++;
-                        session().markProducedTemplate(false);
-                    } else {
-                        test = templateSynthesizer.synthesize(
-                                test, allowNullValue, size, stateBeforeAttempt);
-                    }
-                    break;
-                } else {
-                    int success = testFactory.insertRandomStatement(test, position);
-                    int count = 0;
-                    while (test.size() == 0 || success == -1) {
-                        test = new DefaultTestCase();
-                        success = testFactory.insertRandomStatement(test, 0);
-                        if (test.size() != 0 && success != -1 && !allowNullValue) {
-                            templateSynthesizer.mutateNullStatements(test);
-                        }
-                        count++;
-                        if (count > 10) {
-                            break;
-                        }
-                    }
-                }
-
-                num++;
-            }
-            if (!synthesisAttempted) {
-                return fallbackToDefault(size, stateBeforeAttempt);
-            }
-        } catch (RuntimeException | LinkageError | AssertionError | StackOverflowError failure) {
-            logger.debug("Method-level EvoObj attempt failed; using ordinary generation", failure);
-            return fallbackToDefault(size, stateBeforeAttempt);
-        } finally {
-            Properties.PRIMITIVE_REUSE_PROBABILITY = oldPrimitiveReuse;
-            VariableResolver.setObjectRuleEntryConstruction(previousEntryConstruction);
-        }
-
-        return test;
-    }
-
-    /** Whole-class object-rule mode: apply the object rule without {@code -Dtarget_method}. */
-    private static boolean isWholeClassMode() {
-        return Properties.OBJECT_RULE_WHOLE_CLASS
-                && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty());
-    }
-
-    /**
-     * EvoObj whole-class generation path. There is no globally fixed target method, so the
-     * entry method is derived from the working branch's own containing method: a call to that method
-     * is inserted first, then the object-construction template is synthesized against it (with the
-     * {@link org.evosuite.testcase.synthesizer.TargetContext} published for the synthesis). Falls back
-     * to a plain random test when the object rule does not apply or the branch is not a valid entry.
+     * EvoObj whole-class generation path. There is no globally fixed target method, so the entry
+     * method is derived from the working branch's own containing method: a call to that method is
+     * inserted first, then the object-construction template is synthesized against it (with the
+     * {@link org.evosuite.testcase.synthesizer.TargetContext} published for the synthesis). Falls
+     * back to a plain random test when the object rule does not apply or the branch is not a valid
+     * entry.
      */
     private TestCase getWholeClassObjectRuleTestCase(
             int size, SpeculativeGenerationState stateBeforeAttempt) {
+
         Branch b = session().getWorkingBranch();
+        PreparedObjectRuleCandidate candidate = branchSelector().getPreparedCandidate(b);
         org.evosuite.testcase.synthesizer.TargetContext context =
-                (b == null) ? null : org.evosuite.testcase.synthesizer.TargetContext.forBranch(b);
-        boolean applyObjectRule = context != null
-                && !ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff()
-                && Properties.P_OBJECT_RULE_APPLICATION > 0.0
-                && Randomness.nextDouble() <= Properties.P_OBJECT_RULE_APPLICATION;
+                candidate == null
+                        ? ((b == null)
+                                ? null
+                                : org.evosuite.testcase.synthesizer.TargetContext.forBranch(b))
+                        : candidate.getTargetContext();
+        boolean applyObjectRule =
+                context != null
+                        && !ObjectRuleTemplateSynthesizer.shouldStopSynthesisForNoPayoff()
+                        && Properties.P_OBJECT_RULE_APPLICATION > 0.0
+                        && Randomness.nextDouble() <= Properties.P_OBJECT_RULE_APPLICATION;
         if (!applyObjectRule) {
+
             // Merely considering EvoObj must not perturb ordinary random generation. In
             // particular, p_object_rule_application=0 must be exactly reproducible against
             // baseline even after whole-class eligibility has selected a working branch.
@@ -219,17 +133,24 @@ final class ObjectRuleGenerationCoordinator {
 
         boolean allowNullValue = Properties.NULL_PROBABILITY > Randomness.nextDouble();
         final double oldPrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
+
         Properties.PRIMITIVE_REUSE_PROBABILITY = 0;
+
         org.evosuite.testcase.synthesizer.TargetContext.setActive(context);
         try {
-            PartialGraph entryGraph = newConstructionPathSynthesizer()
-                    .constructPartialComputationGraph(b);
+
+            PartialGraph entryGraph =
+                    candidate == null
+                            ? newConstructionPathSynthesizer().constructPartialComputationGraph(b)
+                            : candidate.getPartialGraph();
             // Occasionally reuse a proven cached template.
             TestCase cached = ObjectRuleTemplateSynthesizer.tryReuseCachedTemplate(b);
-            if (cached != null) {
+
+            if (cached != null && cached.size() < size) {
+
                 session().templateInjections++;
                 session().templateCacheHits++;
-                session().markProducedTemplate(false);
+
                 return cached;
             }
 
@@ -246,23 +167,34 @@ final class ObjectRuleGenerationCoordinator {
                 cleanConstructionAttempts++;
                 test = owner.getNewTestCase();
                 boolean previousEntryConstruction =
-                        VariableResolver.setObjectRuleEntryConstruction(true);
+                        org.evosuite.TestGenerationContext.getInstance()
+                                .getObjectRuleRuntime()
+                                .setEntryConstruction(true);
                 try {
                     insertion = entryBuilder.insertEntryMethodCall(test, context, entryGraph);
                 } finally {
-                    VariableResolver.setObjectRuleEntryConstruction(previousEntryConstruction);
+                    org.evosuite.TestGenerationContext.getInstance()
+                            .getObjectRuleRuntime()
+                            .setEntryConstruction(previousEntryConstruction);
+                }
+                if (test.size() >= size) {
+                    while (test.size() > 0) {
+                        test.remove(test.size() - 1);
+                    }
+                    insertion = ObjectRuleEntryBuilder.EntryInsertionResult.RETRYABLE_FAILURE;
                 }
                 if (insertion == ObjectRuleEntryBuilder.EntryInsertionResult.SUCCESS
-                        || insertion == ObjectRuleEntryBuilder.EntryInsertionResult.PERMANENT_FAILURE) {
+                        || insertion
+                                == ObjectRuleEntryBuilder.EntryInsertionResult.PERMANENT_FAILURE) {
                     break;
                 }
             }
             if (insertion != ObjectRuleEntryBuilder.EntryInsertionResult.SUCCESS) {
                 // Preserve baseline generation exactly when speculative construction fails. Once
                 // the ordinary test exists, however, it may already contain a receiver produced by
-                // the same factory path used by regular search (eg CompoundByteTransition.coalesce).
-                TestCase baseline = generateDefaultFromCheckpoint(
-                        size, stateBeforeAttempt);
+                // the same factory path used by regular search (eg
+                // CompoundByteTransition.coalesce).
+                TestCase baseline = generateDefaultFromCheckpoint(size, stateBeforeAttempt);
                 Randomness.State randomnessAfterBaseline = Randomness.snapshot();
                 TestCase attachmentCandidate;
                 try {
@@ -272,52 +204,46 @@ final class ObjectRuleGenerationCoordinator {
                     return baseline;
                 }
                 boolean previousFallbackEntryConstruction =
-                        VariableResolver.setObjectRuleEntryConstruction(true);
+                        org.evosuite.TestGenerationContext.getInstance()
+                                .getObjectRuleRuntime()
+                                .setEntryConstruction(true);
                 boolean attachedToExistingReceiver;
                 try {
                     attachedToExistingReceiver =
                             entryBuilder.insertEntryMethodCallOnExistingReceiver(
                                     attachmentCandidate, context);
                 } finally {
-                    VariableResolver.setObjectRuleEntryConstruction(
-                            previousFallbackEntryConstruction);
+                    org.evosuite.TestGenerationContext.getInstance()
+                            .getObjectRuleRuntime()
+                            .setEntryConstruction(previousFallbackEntryConstruction);
                 }
                 if (attachedToExistingReceiver) {
-                    ObjectConstructionGraphDiagnostics.recordEntryDecision(
-                            context, "attached_existing_receiver",
-                            cleanConstructionAttempts, true);
                     return templateSynthesizer.synthesize(
                             attachmentCandidate, allowNullValue, size, stateBeforeAttempt);
                 }
-                ObjectConstructionGraphDiagnostics.recordEntryDecision(
-                        context,
-                        insertion == ObjectRuleEntryBuilder.EntryInsertionResult.PERMANENT_FAILURE
-                                ? "permanent_construction_failure"
-                                : "retryable_construction_failure",
-                        cleanConstructionAttempts, false);
                 Randomness.restore(randomnessAfterBaseline);
                 if (insertion == ObjectRuleEntryBuilder.EntryInsertionResult.PERMANENT_FAILURE) {
-                    ObjectRuleBranchSelector.getInstance().recordEntryConstructionFailure(b);
+                    branchSelector().recordEntryConstructionFailure(b);
                 } else {
-                    ObjectRuleBranchSelector.getInstance().recordRetryableEntryConstructionFailure(b);
+
+                    branchSelector().recordRetryableEntryConstructionFailure(b);
                 }
                 return baseline;
             }
-            ObjectConstructionGraphDiagnostics.recordEntryDecision(
-                    context, "constructed_entry", cleanConstructionAttempts, false);
-            return templateSynthesizer.synthesize(
-                    test, allowNullValue, size, stateBeforeAttempt);
+            return templateSynthesizer.synthesize(test, allowNullValue, size, stateBeforeAttempt);
+
         } catch (RuntimeException | LinkageError | AssertionError | StackOverflowError failure) {
             logger.debug("Whole-class EvoObj attempt failed; using ordinary generation", failure);
             return fallbackToDefault(size, stateBeforeAttempt);
         } finally {
             Properties.PRIMITIVE_REUSE_PROBABILITY = oldPrimitiveReuse;
+
             org.evosuite.testcase.synthesizer.TargetContext.clearActive();
         }
     }
 
-    TestCase fallbackToDefault(
-            int size, SpeculativeGenerationState stateBeforeAttempt) {
+    TestCase fallbackToDefault(int size, SpeculativeGenerationState stateBeforeAttempt) {
+
         return generateDefaultFromCheckpoint(size, stateBeforeAttempt);
     }
 
@@ -328,22 +254,29 @@ final class ObjectRuleGenerationCoordinator {
      */
     private TestCase generateDefaultFromCheckpoint(
             int size, SpeculativeGenerationState stateBeforeAttempt) {
+
         double speculativePrimitiveReuse = Properties.PRIMITIVE_REUSE_PROBABILITY;
         boolean speculativeEntryConstruction =
-                VariableResolver.isObjectRuleEntryConstruction();
+                org.evosuite.TestGenerationContext.getInstance()
+                        .getObjectRuleRuntime()
+                        .isEntryConstruction();
         TargetContext speculativeTargetContext = TargetContext.getActive();
         Randomness.restore(stateBeforeAttempt.randomness);
         Properties.PRIMITIVE_REUSE_PROBABILITY =
                 stateBeforeAttempt.primitiveReuseProbability;
-        VariableResolver.setObjectRuleEntryConstruction(
-                stateBeforeAttempt.entryConstruction);
+
+        org.evosuite.TestGenerationContext.getInstance()
+                .getObjectRuleRuntime()
+                .setEntryConstruction(stateBeforeAttempt.entryConstruction);
         restoreTargetContext(stateBeforeAttempt.targetContext);
         try {
             return owner.getBaselineRandomTestCase(size);
         } finally {
             Properties.PRIMITIVE_REUSE_PROBABILITY = speculativePrimitiveReuse;
-            VariableResolver.setObjectRuleEntryConstruction(
-                    speculativeEntryConstruction);
+
+            org.evosuite.TestGenerationContext.getInstance()
+                    .getObjectRuleRuntime()
+                    .setEntryConstruction(speculativeEntryConstruction);
             restoreTargetContext(speculativeTargetContext);
         }
     }

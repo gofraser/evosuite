@@ -109,6 +109,7 @@ CORE_OUTPUT_VARIABLES = (
     "algorithm",
     "search_budget",
     "Random_Seed",
+    "Test_Generation_Status",
     "Total_Goals",
     "Covered_Goals",
     "Coverage",
@@ -131,17 +132,28 @@ OBJECT_RULE_OUTPUT_VARIABLES = (
     "ObjectGraphBranches",
     "ObjectGraphMaxSize",
     "TemplateSynthesisTime",
-    # Phase breakdown of TemplateSynthesisTime (synthesis vs template execution vs legitimizer).
+    # Phase breakdown of TemplateSynthesisTime.
     "ObjectRuleSynthesisTime",
     "ObjectRuleTemplateExecTime",
-    "ObjectRuleLegitimizationTime",
     "TemplateInjections",
-    "LegitimizationSuccessRate",
-    # Raw legitimization counters so the success rate's numerator/denominator and the
-    # budget-starvation signal (skipped) are visible, not just the ratio.
-    "LegitimizationAttempts",
-    "LegitimizationSuccesses",
-    "LegitimizationSkipped",
+    "ObjectRuleEverEligibleBranches",
+    "ObjectRuleBlacklistedBranches",
+    "TemplateCacheHits",
+    "ObjectRuleFreshSyntheses",
+    "ObjectRuleFirstShotSuccesses",
+    "ObjectRuleImmediateCoverage",
+    "ObjectRuleReachedNotCovered",
+    "ObjectRuleWorkingGoalUnavailable",
+    "ObjectRuleWorkingGoalEvaluationFailures",
+    "ObjectRuleMockSetupOpportunities",
+    "ObjectRuleMockSetupMethodsObserved",
+    "ObjectRuleMockSetupStubsAdded",
+    "ObjectRuleMockSetupAttempts",
+    "ObjectRuleMockSetupSuccesses",
+    "ObjectRuleMockSetupProactiveUses",
+    "ObjectRuleMockSetupExtraExecutions",
+    "ObjectRuleMockSetupNegativeCacheHits",
+    "ObjectRuleMockSetupBlacklistedRecipes",
 )
 
 
@@ -170,6 +182,10 @@ def get_standard_evosuite_args(search_budget):
         f"-Dtest_comments={on_off}",
         f"-Dassertions={on_off}",
         f"-Dminimize={on_off}",
+        # Constant inlining executes every final test again. It has no observable output when
+        # JUnit generation is disabled, but blocking callbacks can turn it into a long timeout
+        # cascade after an otherwise successful search. Keep all post-processing paired.
+        f"-Dinline={on_off}",
         f"-Djunit_tests={on_off}",
         "-Denable_asserts_for_evosuite=true",
         "-Dignore_missing_statistics=true",
@@ -183,8 +199,7 @@ def get_standard_evosuite_args(search_budget):
         "-Dassertion_timeout=60",
         f"-Dextra_timeout={extra_timeout}",
         f"-Djunit_check_timeout={junit_check_timeout}",
-        # METHODNOEXCEPTION must stay in the criteria for construction_fitness to
-        # have anything to grade; keep the standard EvoSuite default set.
+        # Keep the standard EvoSuite criterion set identical across both arms.
         "-Dcriterion=LINE:BRANCH:EXCEPTION:WEAKMUTATION:OUTPUT:METHOD:METHODNOEXCEPTION:CBRANCH",
     ]
 

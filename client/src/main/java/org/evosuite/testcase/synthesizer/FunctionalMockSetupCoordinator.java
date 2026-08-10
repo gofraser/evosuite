@@ -13,6 +13,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.VariableResolutionConfig;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.FunctionalMockStatement.MockInvocationObservation;
 import org.evosuite.testcase.statements.MethodStatement;
@@ -20,11 +21,12 @@ import org.evosuite.testcase.statements.PrimitiveStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.numeric.BooleanPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.utils.generic.GenericClassFactory;
-import org.evosuite.utils.generic.GenericMethod;
-import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.ParameterizedTypeImpl;
-
+import org.evosuite.utils.generic.GenericClassFactory;
+import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -35,8 +37,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /** Runtime-guided materialization and reuse of functional-mock return-value stubs. */
 public final class FunctionalMockSetupCoordinator {
@@ -114,7 +114,7 @@ public final class FunctionalMockSetupCoordinator {
     }
 
     /** Applies cached stubs to matching mocks before their template's normal first execution. */
-    public static boolean applyCachedSetup(TestCase test) {
+    public static synchronized boolean applyCachedSetup(TestCase test) {
         if (!enabled() || test == null || SUCCESSFUL_RECIPES.isEmpty()) {
             return false;
         }
@@ -122,9 +122,11 @@ public final class FunctionalMockSetupCoordinator {
         Map<String, Integer> ordinals = new HashMap<>();
         List<FunctionalMockStatement> mocks = functionalMocks(test);
         for (FunctionalMockStatement mock : mocks) {
-            String key = recipeKey(mock, nextOrdinal(ordinals, mock.getTargetClass().getName()));
+            String key = recipeKey(test, mock,
+                    nextOrdinal(ordinals, mock.getTargetClass().getName()));
             CachedRecipe recipe = SUCCESSFUL_RECIPES.get(key);
-            if (recipe == null || recipe.observations.isEmpty() || hasAnyStub(mock)) {
+            if (recipe == null || recipe.observations.isEmpty()
+                    || hasCompatibleStub(mock, recipe.observations)) {
                 continue;
             }
             int originalSize = test.size();
@@ -164,7 +166,7 @@ public final class FunctionalMockSetupCoordinator {
      * direction. Functional mocks and Java primitives otherwise overwhelmingly produce false,
      * making a missing true branch effectively invisible to setup repair.
      */
-    public static RepairToken applyObservedSetup(TestCase candidate,
+    public static synchronized RepairToken applyObservedSetup(TestCase candidate,
                                                  boolean preferNonDefaultBooleans) {
         return applyObservedSetup(candidate, preferNonDefaultBooleans, null);
     }
@@ -201,11 +203,11 @@ public final class FunctionalMockSetupCoordinator {
             }
             observed += observations.size();
             methodsObserved += observations.size();
-            String key = recipeKey(mock, ordinal);
+            String key = recipeKey(candidate, mock, ordinal);
             String failureKey = failureKey(
                     key, observations, preferNonDefaultBooleans, numericHint);
             if (FAILED_RECIPES.getOrDefault(failureKey, 0)
-                    >= Properties.OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS) {
+                    >= ObjectRulePolicy.MAX_FAILED_ATTEMPTS) {
                 negativeCacheHit = true;
                 continue;
             }
@@ -238,21 +240,23 @@ public final class FunctionalMockSetupCoordinator {
     }
 
     /**
-     * Creates bounded repair variants from observations made during the template's first
-     * execution. Boolean returns try the non-default direction first and, when the shared setup
-     * budget permits, the default direction second.
+     * Creates bounded repair variants from observations made during the template's first execution.
+     * Boolean returns try the non-default direction first and, when the shared setup budget
+     * permits, the default direction second.
      */
     public static List<RepairProposal> proposeRepairs(
             TestCase original, ExecutionResult result, Number numericHint) {
         boolean booleanVariant = hasObservedBooleanSetup(original);
         boolean observed = hasObservedSetup(original);
-        if (Properties.OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS <= 0
-                || original == null || result == null || result.hasTimeout()
+        if (ObjectRulePolicy.MAX_EXTRA_EXECUTIONS <= 0
+                || original == null
+                || result == null
+                || result.hasTimeout()
                 || (result.getFirstPositionOfThrownException() == null && !observed)) {
             return Collections.emptyList();
         }
 
-        int limit = Math.max(1, Properties.OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS);
+        int limit = ObjectRulePolicy.MAX_EXTRA_EXECUTIONS;
         List<RepairProposal> proposals = new ArrayList<>();
         addProposal(proposals, original, true, numericHint);
         if (booleanVariant && limit > 1) {
@@ -323,7 +327,7 @@ public final class FunctionalMockSetupCoordinator {
      * useful as the current GA individual; caching it for every later synthesis can otherwise
      * suppress branch negative caching and reproduce the same non-covering template indefinitely.
      */
-    public static void recordSuccess(RepairToken token, boolean cacheForProactiveUse) {
+    public static synchronized void recordSuccess(RepairToken token, boolean cacheForProactiveUse) {
         if (token == null) {
             return;
         }
@@ -350,14 +354,14 @@ public final class FunctionalMockSetupCoordinator {
             int previous = FAILED_RECIPES.getOrDefault(failureKey, 0);
             int updated = previous + 1;
             FAILED_RECIPES.put(failureKey, updated);
-            if (previous < Properties.OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS
-                    && updated >= Properties.OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS) {
+            if (previous < ObjectRulePolicy.MAX_FAILED_ATTEMPTS
+                    && updated >= ObjectRulePolicy.MAX_FAILED_ATTEMPTS) {
                 blacklistedRecipes++;
             }
         }
     }
 
-    public static void recordExtraExecution() {
+    public static synchronized void recordExtraExecution() {
         extraExecutions++;
     }
 
@@ -482,10 +486,15 @@ public final class FunctionalMockSetupCoordinator {
         throw new IllegalArgumentException("Unsupported numeric primitive " + primitive);
     }
 
-    /** Seed one generic element into collection/map mock returns so a repaired execution can
-     * distinguish an iteration-dependent path from Mockito's empty-container default. */
-    private static void materializeReturnedContainer(TestCase test, VariableReference container,
-            Type returnType, FunctionalMockStatement boundaryMock,
+    /**
+     * Seed one generic element into collection/map mock returns so a repaired execution can
+     * distinguish an iteration-dependent path from Mockito's empty-container default.
+     */
+    private static void materializeReturnedContainer(
+            TestCase test,
+            VariableReference container,
+            Type returnType,
+            FunctionalMockStatement boundaryMock,
             VariableResolutionConfig config)
             throws ConstructionFailedException {
         if (!(returnType instanceof ParameterizedType) || container == null) {
@@ -573,8 +582,24 @@ public final class FunctionalMockSetupCoordinator {
         return mocks;
     }
 
-    private static boolean hasAnyStub(FunctionalMockStatement mock) {
-        return !mock.getMockedMethods().isEmpty();
+    private static boolean hasCompatibleStub(
+            FunctionalMockStatement mock, List<MockInvocationObservation> observations) {
+        if (mock.getMockedMethods().isEmpty()) {
+            return false;
+        }
+        for (MockInvocationObservation observation : observations) {
+            boolean found = false;
+            for (MethodDescriptor stub : mock.getMockedMethods()) {
+                if (stub.getID().equals(observation.getDescriptor().getID())) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static int nextOrdinal(Map<String, Integer> ordinals, String type) {
@@ -584,8 +609,27 @@ public final class FunctionalMockSetupCoordinator {
         return ordinal;
     }
 
-    private static String recipeKey(FunctionalMockStatement mock, int ordinal) {
-        return Properties.TARGET_CLASS + "|" + mock.getTargetClass().getName() + "|" + ordinal;
+    private static String recipeKey(TestCase test, FunctionalMockStatement mock, int ordinal) {
+        return Properties.TARGET_CLASS + "|" + mock.getTargetClass().getName() + "|" + ordinal
+                + "|context=" + mockContext(test, mock);
+    }
+
+    /**
+     * A mock ordinal is not stable across whole-class branches. Include the statements which
+     * consume this particular mock so a recipe learned from one use cannot be replayed at an
+     * unrelated use of the same mock type.
+     */
+    private static String mockContext(TestCase test, FunctionalMockStatement mock) {
+        StringBuilder context = new StringBuilder();
+        VariableReference returnValue = mock.getReturnValue();
+        for (int position = mock.getPosition() + 1; position < test.size(); position++) {
+            Statement statement = test.getStatement(position);
+            if (statement.getVariableReferences().contains(returnValue)) {
+                context.append(position - mock.getPosition()).append(':')
+                        .append(statement).append(';');
+            }
+        }
+        return context.length() == 0 ? "none" : context.toString();
     }
 
     private static String failureKey(String recipeKey,
@@ -611,7 +655,7 @@ public final class FunctionalMockSetupCoordinator {
     }
 
     private static boolean enabled() {
-        return Properties.OBJECT_RULE_MOCK_SETUP;
+        return true;
     }
 
     public static synchronized void reset() {
@@ -628,13 +672,13 @@ public final class FunctionalMockSetupCoordinator {
         blacklistedRecipes = 0;
     }
 
-    public static int getOpportunities() { return opportunities; }
-    public static int getMethodsObserved() { return methodsObserved; }
-    public static int getStubsAdded() { return stubsAdded; }
-    public static int getAttempts() { return attempts; }
-    public static int getSuccesses() { return successes; }
-    public static int getProactiveUses() { return proactiveUses; }
-    public static int getExtraExecutions() { return extraExecutions; }
-    public static int getNegativeCacheHits() { return negativeCacheHits; }
-    public static int getBlacklistedRecipes() { return blacklistedRecipes; }
+    public static synchronized int getOpportunities() { return opportunities; }
+    public static synchronized int getMethodsObserved() { return methodsObserved; }
+    public static synchronized int getStubsAdded() { return stubsAdded; }
+    public static synchronized int getAttempts() { return attempts; }
+    public static synchronized int getSuccesses() { return successes; }
+    public static synchronized int getProactiveUses() { return proactiveUses; }
+    public static synchronized int getExtraExecutions() { return extraExecutions; }
+    public static synchronized int getNegativeCacheHits() { return negativeCacheHits; }
+    public static synchronized int getBlacklistedRecipes() { return blacklistedRecipes; }
 }

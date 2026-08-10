@@ -34,7 +34,6 @@ import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.runtime.LoopCounter;
@@ -96,7 +95,6 @@ public class ObjectConstructionSynthesisTest {
 		Properties.TARGET_METHOD = "";
 		Properties.TARGET_CLASS = "";
 		Properties.APPLY_OBJECT_RULE = false;
-		Properties.OBJECT_RULE_SLOT_BIAS = false;
 		org.evosuite.TestGenerationContext.getInstance().resetContext();
 	}
 
@@ -150,7 +148,8 @@ public class ObjectConstructionSynthesisTest {
 
 	private static Map<Branch, Set<DepVariable>> graph() {
 		Map<Branch, Set<DepVariable>> map =
-				ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+                TestGenerationContext.getInstance().getObjectRuleRuntime()
+                        .getBranchInterestedVarsMap().get(Properties.TARGET_METHOD);
 		assertNotNull(map, "the target method should have an OCG entry");
 		return map;
 	}
@@ -246,9 +245,9 @@ public class ObjectConstructionSynthesisTest {
 		if (left == right) {
 			return left != null;
 		}
-		return ObjectConstructionActionTrace.definitionPosition(test, left) >= 0
-				&& ObjectConstructionActionTrace.definitionPosition(test, left)
-				== ObjectConstructionActionTrace.definitionPosition(test, right);
+		return ConstructionReferenceUtil.definitionPosition(test, left) >= 0
+				&& ConstructionReferenceUtil.definitionPosition(test, left)
+				== ConstructionReferenceUtil.definitionPosition(test, right);
 	}
 
 	private static int countConstructors(TestCase test) {
@@ -491,7 +490,7 @@ public class ObjectConstructionSynthesisTest {
 		assertEquals(1, addPlayer.getParameterReferences().size());
 		VariableReference insertedPlayer = addPlayer.getParameterReferences().get(0);
 		Statement insertedPlayerDefinition = test.getStatement(
-				ObjectConstructionActionTrace.definitionPosition(test, insertedPlayer));
+				ConstructionReferenceUtil.definitionPosition(test, insertedPlayer));
 		assertTrue(insertedPlayerDefinition instanceof ConstructorStatement,
 				"the inserted element must be a concrete Player construction, but was "
 						+ insertedPlayerDefinition + " in:\n" + test.toCode());
@@ -537,7 +536,6 @@ public class ObjectConstructionSynthesisTest {
 	@Test
 	public void synthesisConstructsExpectedStateAndCoversChosenDirection() throws Exception {
 		analyze(PrimitiveFieldTuningExample.class, "target", 1);
-		Properties.OBJECT_RULE_SLOT_BIAS = true;
 		Branch branch = pickStateBearingBranch();
 
 		TestCase test = initializeTestWithTargetCall(PrimitiveFieldTuningExample.class, "target", 1);

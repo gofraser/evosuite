@@ -42,7 +42,6 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.tree.ClassNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
@@ -76,7 +75,8 @@ public class DependencyAnalysis {
     /**
      * Clear static state, optionally preserving the inheritance tree cache.
      *
-     * @param keepInheritanceTree if true, keep the inheritance tree cache (and its classpath signature)
+     * @param keepInheritanceTree if true, keep the inheritance tree cache (and its classpath
+     *     signature)
      */
     public static void clear(boolean keepInheritanceTree) {
         classCache.clear();
@@ -124,11 +124,11 @@ public class DependencyAnalysis {
     }
 
     /**
-     * If the inheritance tree has been marked stale and we still have the classpath it was
-     * built from, regenerate it on the spot. This is the same dance that {@link #analyzeClass}
-     * does up front, exposed so detectors that find a stale cache *during* cluster generation
-     * (e.g. {@link ConcreteClassAnalyzer} when a JDK class fails to load) can rebuild instead
-     * of just printing a warning.
+     * If the inheritance tree has been marked stale and we still have the classpath it was built
+     * from, regenerate it on the spot. This is the same dance that {@link #analyzeClass} does up
+     * front, exposed so detectors that find a stale cache *during* cluster generation (e.g. {@link
+     * ConcreteClassAnalyzer} when a JDK class fails to load) can rebuild instead of just printing a
+     * warning.
      *
      * @return {@code true} if the tree was regenerated, {@code false} if no action was taken.
      */
@@ -233,11 +233,13 @@ public class DependencyAnalysis {
 
         analyze(className);
 
-        // EvoObj: once the cluster/instrumentation is set up, build the object
-        // construction graph for the target method's branches. Gated on APPLY_OBJECT_RULE so
-        // default behaviour is unchanged.
-        if (Properties.APPLY_OBJECT_RULE) {
-            InterproceduralGraphAnalysis.initializeDataflow(new OCGInterestedNodeFilter());
+        // Method-level object construction uses one selected graph at setup time. Whole-class
+        // generation leaves TARGET_METHOD empty and expands each finalist branch on demand.
+        if (Properties.APPLY_OBJECT_RULE
+                && Properties.TARGET_METHOD != null
+                && !Properties.TARGET_METHOD.isEmpty()) {
+            InterproceduralGraphAnalysis.analyzeConfiguredTargetMethod(
+                    new OCGInterestedNodeFilter());
         }
     }
 
@@ -507,7 +509,6 @@ public class DependencyAnalysis {
         return cn;
     }
 
-
     private static void gatherStatistics() {
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.Predicates,
@@ -583,7 +584,7 @@ public class DependencyAnalysis {
     }
 
     /**
-     * <p>logClasspathAnalysisSummary.</p>
+     * logClasspathAnalysisSummary.
      *
      * @param classPath a {@link java.util.List} object.
      */

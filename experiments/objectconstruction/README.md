@@ -1,91 +1,145 @@
 # EvoObj object-construction experiment
 
-Cluster scripting to compare **vanilla EvoSuite** against **EvoObj** (graph-based
-seed object synthesis, `apply_object_rule`) and its enhancements, over a corpus
-of classes. The EvoObj arms run in **whole-class mode** (no `-Dtarget_method`),
-so the search picks an entry method per branch and the experiment fits a normal
-per-class benchmark.
+EvoObj adds graph-based seed-object synthesis to EvoSuite. The frozen experiment compares vanilla
+EvoSuite with one production configuration; historical tuning mechanisms have been removed from
+the runner.
 
-The layout mirrors the LLM experiment's `run_phaseN.py` / `submit_slurm.sh`:
-a Python manifest generator emits chunked TSVs, and a SLURM array runs each chunk
-inside the Apptainer image against `evosuite.jar`.
+## Frozen configurations
 
-## Arms
+| ID | Purpose |
+|---|---|
+| `baseline` | Vanilla EvoSuite (`apply_object_rule=false`) |
+| `evoobj_synthesis_final` | The cleaned whole-class synthesis pipeline |
 
-| id | Description | Flags on top of the baseline |
-|----|-------------|------------------------------|
-| `baseline` | Vanilla EvoSuite | `apply_object_rule=false` |
-| `evoobj` | EvoObj core | `apply_object_rule=true`, `object_rule_whole_class=true` |
-| `evoobj_reflection` | + reflection fallback | `object_rule_reflection_fallback=true` |
-| `evoobj_slotbias` | + mutation slot bias | `object_rule_slot_bias=true` |
-| `evoobj_construction_fit` | + construction fitness | `construction_fitness=true` |
-| `evoobj_full` | All enhancements | all three above |
+`final`, `main`, and `finalists` are aliases containing exactly the baseline and cleaned finalist.
+Forward experiments should use `final`.
 
-Every arm holds all other search settings constant (DynaMOSA, MaxTime, the same
-criteria including `METHODNOEXCEPTION` so `construction_fitness` has goals to
-grade), so only the object-rule flags vary.
+The finalist pins all behavior-bearing properties explicitly:
 
-Config groups (`--config-group`): `core` (baseline + evoobj), `ablation` /
-`full` (all six arms). Pick individual arms with `--config id1,id2` or the
-`CONFIGS` env var.
+```text
+apply_object_rule=true
+p_object_rule_application=0.6
+```
+
+## Synthesis behavior
+
+An eligible graph belongs to an uncovered branch whose reachable entry is callable and whose
+rooted dependency graph contains state that synthesis can influence. Whole-class eligibility and
+entry discovery occur before the effective search budget. Constructors and reachable static
+factories are valid expanded entries. Invalid operand links, inaccessible entries, empty relevant
+state, and graphs that cannot be rooted at a constructable input are rejected with a stable reason.
+
+A synthesis attempt is one fresh graph-to-test conversion for a selected eligible branch. A
+template injection occurs only when a consistent synthesized test (or an exact-branch cached clone)
+is handed to the search. Failed, inconsistent, or unchanged speculative templates are not
+injections.
+
+Speculation snapshots the random stream and temporary generation state. If eligibility,
+construction, synthesis, or consistency checks reject the candidate, EvoSuite restores that state
+and performs ordinary random generation. Consequently `apply_object_rule=false`, a zero
+application probability, and rejected EvoObj attempts preserve ordinary generation behavior.
+
+Functional mocks are used only when normal construction cannot provide the required value.
+After the template's normal first execution, EvoObj may materialize observed missing return stubs
+on a clone. Retry and extra-execution bounds are private implementation policy, and unsuccessful
+recipes are negatively cached while successful recipes may be proactively reused.
+
+EvoObj resets its graph context, branch selector, template cache, functional-mock recipe caches,
+and counters at generation boundaries. The run-scoped runtime is owned by `TestGenerationContext`.
 
 ## Corpus
 
-A CSV with columns `project_id, class_name, java_path, complexity, classpath`
-(see `data/classes.example.csv`). Only `project_id`, `class_name`, and
-`classpath` are used; `java_path` and `complexity` are ignored (kept so the same
-class list works across tools). Classpath entries are resolved relative to
-`$SF110_ROOT/<project_id>/` unless already absolute. Copy your class list to
-`data/classes.csv` (the default) or point `--corpus` / `CORPUS` elsewhere.
+The corpus CSV has `project_id`, `class_name`, and `classpath` columns. Optional `java_path` and
+`complexity` columns are ignored. Relative classpath entries resolve below
+`<dataset-root>/<project_id>/`; absolute entries are preserved.
 
-## Running
+For the audited LLM benchmark use the canonical 273-class file:
 
-Inspect the matrix and run count without submitting:
+```text
+/scratch/fraser/llm-benchmark/selected_classes_evosuite.csv
+SHA-256 1baebf4177ab280b7b8efb600f93a2d1d848f9f5f3fa484f2898a9c0eca16d60
+```
+
+Do not replace it with the raw Maven classpath export: test-scope Mockito artifacts conflict with
+EvoSuite's instrumenting class loader, and the audited file also contains symmetric exclusions for
+environmentally infeasible or arm-independent failures.
+
+## Local inspection
+
+From `experiments/objectconstruction/scripts`:
 
 ```bash
-cd experiments/objectconstruction/scripts
-python3 run_experiment.py --list-configs
-python3 run_experiment.py --corpus ../data/classes.csv --reps 10
+python3 run_experiment.py --config-group final --list-configs
+
+python3 run_experiment.py \
+  --dataset-root /Users/gordon/Documents/Source/llm-test/benchmark \
+  --corpus /Users/gordon/Documents/Source/llm-test/benchmark/selected_classes_evosuite.csv \
+  --config-group final --limit-classes 1 --reps 1
 ```
 
-Submit to SLURM (all knobs overridable via the environment):
+To produce manifests locally, add `--generate-manifest /tmp/evoobj-smoke`.
+
+## Slurm submission
+
+Run from `experiments/objectconstruction/scripts`. First submit a one-repetition post-cleanup
+smoke run:
 
 ```bash
-REPS=10 SEARCH_BUDGET=120 CONFIG_GROUP=full \
-  SLURM_ACCOUNT=chair-se2 \
-  ./submit_slurm.sh
+export RUN_DIR=/scratch/fraser/evosuite/runs/objconstruction_smoke_$(date +%Y%m%d_%H%M%S)
+DATASET_ROOT=/scratch/fraser/llm-benchmark \
+CORPUS=/scratch/fraser/llm-benchmark/selected_classes_evosuite.csv \
+EVOSUITE_JAR=/scratch/fraser/evosuite/evoobj.jar \
+CONFIG_GROUP=final \
+REPS=1 SEARCH_BUDGET=120 SEED=42 \
+CHUNK_SIZE=15 ARRAY_THROTTLE=8 \
+./submit_slurm.sh
 ```
 
-Key environment variables (defaults in parentheses):
+After Phase H passes, use the same command with `REPS=10` and a definitive `RUN_DIR`.
+`submit_slurm.sh` snapshots the corpus and validator and records their hashes plus the jar hash
+under `RUN_DIR/provenance/`.
 
-- `CORPUS` (`../data/classes.csv`), `LIMIT_CLASSES` (all), `REPS` (10)
-- `SEARCH_BUDGET` seconds (120), `SEED` (42; run seed is `SEED+rep`, `-1` disables)
-- `CONFIG_GROUP` (`full`) or `CONFIGS` (comma-separated arm ids)
-- `CHUNK_SIZE` runs per array task (5), `ARRAY_THROTTLE` concurrent tasks (8)
-- `APPTAINER_IMAGE`, `EVOSUITE_JAR`, `DATASET_ROOT`/`SF110_ROOT`, `RUN_DIR`
-- `SLURM_MEM` (6G), `SLURM_TIME` (24:00:00), `SLURM_ACCOUNT` (chair-se2),
-  `SLURM_PARTITION` (general), `EVOSUITE_MEM_MB` (4000), `TIMEOUT_LIMIT` (30m)
+Important environment variables:
 
-Outputs land in `RUN_DIR`:
+- `CONFIG_GROUP` defaults to `final`; `CONFIGS` selects explicit IDs.
+- `REPS` defaults to 10; run seed is `SEED + repetition`.
+- `SEARCH_BUDGET` defaults to 120 seconds.
+- `CHUNK_SIZE` defaults to 5 and `ARRAY_THROTTLE` to 8.
+- `TIMEOUT_LIMIT` bounds Java; `OUTER_TIMEOUT_LIMIT` bounds the complete container process.
+- `WRITE_TESTS=0` disables JUnit output and all test post-processing.
 
+Each array task receives a node-local `/tmp`, preventing shared-container exhaustion. Outputs are:
+
+```text
+manifests/all_runs.tsv
+manifests/chunks/chunk_*.tsv
+reports/<arm>/rep<N>/<class>/statistics.csv
+logs/
+status/task_<id>.tsv
+provenance/
+slurm/
 ```
-manifests/all_runs.tsv          full run list
-manifests/chunks/chunk_*.tsv    one per array task
-reports/<arm>/rep<N>/<class>/   statistics.csv + tests per run
-logs/                           per-run EvoSuite stdout/stderr
-status/task_<id>.tsv            exit code + attempts per run
-slurm/                          SLURM stdout/stderr
-```
 
-## Aggregating
+## Validation and metrics
 
-Once the array finishes:
+Require all planned rows to terminate and emit pairwise exclusions:
 
 ```bash
-python3 aggregate_results.py "$RUN_DIR" --out summary.csv
+python3 aggregate_results.py "$RUN_DIR" --require-finished \
+  --pairwise-exclusions "$RUN_DIR/pairwise_exclusions.csv" \
+  --out "$RUN_DIR/summary.csv"
 ```
 
-Prints, per arm, the run count and mean of `Coverage`, `BranchCoverage`,
-`LineCoverage`, `MethodNoExceptionCoverage`, and the EvoObj statistics
-(`ObjectGraphBranches`, `ObjectGraphMaxSize`, `TemplateSynthesisTime`,
-`TemplateInjections`, `LegitimizationSuccessRate`).
+Use `--require-complete` when every planned row must contain valid numeric statistics.
+
+Coverage comparisons use `Coverage`, `BranchCoverage`, `LineCoverage`, and
+`MethodNoExceptionCoverage`. Core EvoObj funnel metrics include graph branches and size,
+eligible/blacklisted branches, fresh syntheses, template injections and cache hits, first-shot
+success, immediate coverage, reached-not-covered, synthesis/execution time, inconsistent
+templates, and functional-mock opportunities, attempts, successes, proactive uses, extra
+executions, negative-cache hits, and blacklisted recipes.
+
+A process failure is never converted into zero coverage. Missing, timed-out, crashed, malformed,
+or invalid-statistics rows are excluded symmetrically from every arm in that
+class/repetition pair. A zero exit status without valid `statistics.csv` remains invalid. Keep the
+status/provenance files so environmental failures can be distinguished from EvoSuite failures.

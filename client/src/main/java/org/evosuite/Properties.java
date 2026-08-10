@@ -30,7 +30,6 @@ import org.evosuite.utils.FileIOUtils;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.*;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -45,9 +44,9 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Central property repository. All global parameters of EvoSuite should be
- * declared as fields here, using the appropriate annotation. Access is possible
- * directly via the fields, or with getter/setter methods.
+ * Central property repository. All global parameters of EvoSuite should be declared as fields here,
+ * using the appropriate annotation. Access is possible directly via the fields, or with
+ * getter/setter methods.
  *
  * @author Gordon Fraser
  */
@@ -58,10 +57,9 @@ public class Properties {
     private static final Logger logger = LoggerFactory.getLogger(Properties.class);
 
     /**
-     * Parameters are fields of the Properties class, annotated with this
-     * annotation. The key parameter is used to identify values in property
-     * files or on the command line, the group is used in the config file or
-     * input plugins to organize parameters, and the description is also
+     * Parameters are fields of the Properties class, annotated with this annotation. The key
+     * parameter is used to identify values in property files or on the command line, the group is
+     * used in the config file or input plugins to organize parameters, and the description is also
      * displayed there.
      */
     @Retention(RetentionPolicy.RUNTIME)
@@ -175,132 +173,63 @@ public class Properties {
      */
     public static int FIELD_SETTER_SEARCH_DEPTH = 3;
 
-    @Parameter(key = "individual_legitimization_budget", group = "Test Creation",
-            description = "Per-template time budget (in seconds) for EvoObj legitimization")
-    public static int INDIVIDUAL_LEGITIMIZATION_BUDGET = 10;
-
-    @Parameter(key = "total_legitimization_budget", group = "Test Creation",
-            description = "Overall time budget (in seconds) for EvoObj legitimization. Acts as an "
-                    + "absolute floor; when the search is time-bounded, the effective budget is the "
-                    + "larger of this value and legitimization_budget_fraction of the search budget")
-    public static int TOTAL_LEGITIMIZATION_BUDGET = 30;
-
-    @Parameter(key = "legitimization_budget_fraction", group = "Test Creation",
-            description = "Fraction of the (time-bounded) search budget the EvoObj legitimizer may "
-                    + "spend overall. Only applied when stopping_condition is MAXTIME; the effective "
-                    + "total budget is max(total_legitimization_budget, this * search_budget)")
-    public static double LEGITIMIZATION_BUDGET_FRACTION = 0.5;
-
-    @Parameter(key = "p_object_rule_application", group = "Test Creation",
+    @Parameter(key =   "p_object_rule_application", group = "Test Creation",
             description = "Probability that a newly generated random test is replaced by an EvoObj "
                     + "template for the current working branch")
     public static double P_OBJECT_RULE_APPLICATION = 0.6;
 
-    @Parameter(key = "object_rule_max_failed_attempts", group = "Test Creation",
-            description = "Number of discarded/failed EvoObj synthesis attempts after which a "
-                    + "branch is negatively cached for the rest of the run")
-    public static int OBJECT_RULE_MAX_FAILED_ATTEMPTS = 3;
-
-    @Parameter(key = "object_rule_expanded_entries", group = "Test Creation",
-            description = "Allow EvoObj whole-class mode to use expanded branch entry points such "
-                    + "as constructors and static factories")
-    public static boolean OBJECT_RULE_EXPANDED_ENTRIES = true;
-
-    @Parameter(key = "object_rule_slot_bias", group = "Test Creation",
-            description = "Bias mutation toward the primitive 'slots' created by EvoObj template "
-                    + "synthesis, so the search tunes template values more often")
-    public static boolean OBJECT_RULE_SLOT_BIAS = true;
-
-    @Parameter(key = "object_rule_whole_class", group = "Test Creation",
-            description = "Apply EvoObj without -Dtarget_method: derive the entry method per branch "
-                    + "from the branch's own (public/protected) containing method")
-    public static boolean OBJECT_RULE_WHOLE_CLASS = false;
-
-    @Parameter(key = "object_rule_graph_diagnostics", group = "Test Creation",
-            description = "Write diagnostic-only per-branch object-construction graph and "
-                    + "synthesis-attempt records as JSONL under report_dir. Disabled by default; "
-                    + "diagnostic I/O is best-effort and never affects test generation")
-    public static boolean OBJECT_RULE_GRAPH_DIAGNOSTICS = false;
-
-    @Parameter(key = "object_rule_prefer_concrete_factories", group = "Test Creation",
-            description = "During EvoObj synthesis, prefer reachable concrete factories for "
-                    + "environment/value types such as Path and Charset over functional mocks")
-    public static boolean OBJECT_RULE_PREFER_CONCRETE_FACTORIES = true;
-
-    @Parameter(key = "object_rule_mock_setup", group = "Test Creation",
-            description = "When an EvoObj template fails after invoking an unstubbed functional "
-                    + "mock method, synthesize bounded return-value stubs and retry conditionally. "
-                    + "Enabled by default: repair is considered only for functional mocks already "
-                    + "needed to construct the template, and extra executions remain bounded by "
-                    + "object_rule_setup_max_extra_executions")
-    public static boolean OBJECT_RULE_MOCK_SETUP = true;
-
-    @Parameter(key = "object_rule_mock_setup_max_failed_attempts", group = "Test Creation",
-            description = "Stop retrying the same observed functional-mock setup recipe after "
-                    + "this many executions failed to improve the template")
-    @IntValue(min = 1)
-    public static int OBJECT_RULE_MOCK_SETUP_MAX_FAILED_ATTEMPTS = 3;
-
-    @Parameter(key = "object_rule_setup_max_extra_executions", group = "Test Creation",
-            description = "Maximum conditional setup-repair executions per fresh EvoObj synthesis")
-    @IntValue(min = 0)
-    public static int OBJECT_RULE_SETUP_MAX_EXTRA_EXECUTIONS = 1;
-
-    @Parameter(key = "object_rule_legitimization", group = "Test Creation",
-            description = "Run the EvoObj legitimizer to repair a synthesized template that throws "
-                    + "before the target call. When false (default), the synthesized template is used "
-                    + "as-is (pure synthesis, no repair). Off by default: on the SF110 benchmark the "
-                    + "legitimizer accounts for ~95% of object-rule runtime yet significantly lowers "
-                    + "coverage versus pure synthesis (it spends the search budget driving templates to "
-                    + "reach calls that are typically blocked by environment-infeasible branches)")
-    public static boolean OBJECT_RULE_LEGITIMIZATION = false;
-
-    /**
-     * Number of legitimization iterations during which the mutation-position discriminator keeps
-     * uniform mutation probabilities before it starts biasing toward relevant positions.
-     * Internal, not user-facing.
-     */
-    public static int PRE_ONLINE_LEARNING_ITERATION = 30;
-
     @Deprecated
-    @Parameter(key = "make_accessible", group = "TestCreation",
-            description = "Change default package rights to public package rights")
+    @Parameter(
+            key = "make_accessible",
+            group = "TestCreation",
+            description = "Change default package rights to public package rights"
+    )
     public static boolean MAKE_ACCESSIBLE = false;
 
-    @Parameter(key = "string_replacement", group = "Test Creation",
-            description = "Replace string.equals with levenshtein distance")
+    @Parameter(
+            key = "string_replacement", group = "Test Creation",
+            description =   "Replace string.equals with levenshtein distance"
+    )
     public static boolean STRING_REPLACEMENT = true;
 
-    @Parameter(key = "reset_static_fields", group = "Test Creation",
-            description = "Call static constructors only after each static field was modified")
+    @Parameter(
+            key = "reset_static_fields", group = "Test Creation",
+            description =   "Call static constructors only after each static field was modified"
+    )
     public static boolean RESET_STATIC_FIELDS = true;
 
-    @Parameter(key = "reset_static_final_fields", group = "Test Creation",
-            description = "Remove the static modifier in target fields")
+    @Parameter(key =   "reset_static_final_fields", group = "Test Creation",
+            description =   "Remove the static modifier in target fields"
+    )
     public static boolean RESET_STATIC_FINAL_FIELDS = true;
 
-    @Parameter(key = "reset_static_field_gets", group = "Test Creation",
-            description = "Call static constructors also after each static field was read")
+    @Parameter(key =   "reset_static_field_gets", group = "Test Creation",
+            description =   "Call static constructors also after each static field was read"
+    )
     public static boolean RESET_STATIC_FIELD_GETS = false;
 
-    @Parameter(key = "reset_all_classes_during_test_generation", group = "Test Creation",
-            description = "Test Generation does not apply the selective method of selection of class "
-                    + "re-initalization")
+    @Parameter(key =   "reset_all_classes_during_test_generation", group = "Test Creation",
+            description =
+                "Test Generation does not apply the selective method of selection of class "
+                        + "re-initalization"
+    )
     public static boolean RESET_ALL_CLASSES_DURING_TEST_GENERATION = false;
 
-    @Parameter(key = "reset_all_classes_during_assertion_generation", group = "Test Creation",
-            description = "Test Generation does not apply the selective method of selection of class "
-                    + "re-initalization")
+    @Parameter(key =   "reset_all_classes_during_assertion_generation", group = "Test Creation",
+            description =
+                "Test Generation does not apply the selective method of selection of class "
+                        + "re-initalization"
+    )
     public static boolean RESET_ALL_CLASSES_DURING_ASSERTION_GENERATION = true;
 
-
-    @Parameter(key = "reset_standard_streams", group = "Test Creation",
-            description = "Restore System.out, System.in and DebugGraphics.logStream after test execution")
+    @Parameter(key =   "reset_standard_streams", group = "Test Creation",
+            description =
+                "Restore System.out, System.in and DebugGraphics.logStream after test execution"
+    )
     public static boolean RESET_STANDARD_STREAMS = false;
 
     /**
-     * TODO: this option is off by default because still experimental and not
-     * fully tested.
+     * TODO: this option is off by default because still experimental and not fully tested.
      */
     @Parameter(key = "test_carving", group = "Test Creation", description = "Enable test carving")
     public static boolean TEST_CARVING = false;
@@ -377,7 +306,6 @@ public class Properties {
     @Parameter(key = "max_string", group = "Test Creation", description = "Maximum length of strings in assertions")
     @IntValue(min = 1, max = 32767) // String literals may not be longer than 32767
     public static int MAX_STRING = 1000;
-
 
     @Parameter(key = "epsilon", group = "Test Creation", description = "Epsilon for floats in local search")
     @Deprecated
@@ -494,7 +422,9 @@ public class Properties {
     @Parameter(key = "consider_main_methods", group = "Test Creation",
             description = "Generate unit tests for 'main(String[] args)' methods as well")
     public static boolean CONSIDER_MAIN_METHODS = true;
-    // should be on by default, otherwise unnecessary lower coverage: up to user if wants to skip them
+
+    // should be on by default, otherwise unnecessary lower coverage: up to user if wants to skip
+    // them
 
     @Parameter(key = "headless_mode", group = "Test Generation", description = "Run Java in AWT Headless mode")
     public static boolean HEADLESS_MODE = true;
@@ -662,7 +592,7 @@ public class Properties {
 
     /**
      * Different models of neighbourhoods in the Cellular GA.
-     **/
+     */
     public enum CgaModels {
         ONE_DIMENSION,
         LINEAR_FIVE,
@@ -686,7 +616,9 @@ public class Properties {
             description = "Check length against length of parents")
     public static boolean CHECK_PARENTS_LENGTH = false; // note, based on STVR experiments
 
-    // @Parameter(key = "check_rank_length", group = "Search Algorithm", description = "Use length in rank selection")
+    // @Parameter(key = "check_rank_length", group = "Search Algorithm", description = "Use length
+    // in
+    // rank selection")
     // public static boolean CHECK_RANK_LENGTH = false;
 
     @Parameter(key = "parent_check", group = "Search Algorithm",
@@ -704,18 +636,19 @@ public class Properties {
     //----------- DSE, which is a special case of LS ---------------
 
     /**
-     * ilebrero: Mostly for benchmarks for new module, I dont think the legacy strategy is gonna be used anymore.
-     **/
+     * ilebrero: Mostly for benchmarks for new module, I dont think the legacy strategy is gonna be
+     * used anymore.
+     */
     public enum DseModuleVersion {
         LEGACY,
         NEW
     }
 
     /**
-     * ilebrero: Hope it doesn't make a lot of confusion that there are two versions of arrays supported.
-     * - ARRAYS_THEORY: Supports Integers and Reals.
-     * - LAZY_VARIABLES: Supports Integers and Reals.
-     **/
+     * ilebrero: Hope it doesn't make a lot of confusion that there are two versions of arrays
+     * supported. - ARRAYS_THEORY: Supports Integers and Reals. - LAZY_VARIABLES: Supports Integers
+     * and Reals.
+     */
     public enum DseArraysMemoryModelVersion {
         SELECT_STORE_EXPRESSIONS,
         LAZY_VARIABLES
@@ -723,7 +656,7 @@ public class Properties {
 
     /**
      * TODO (ilebrero) : Implement private fields tracking.
-     **/
+     */
     public enum DseObjectsModelVersion {
         PUBLIC_FIELDS_NO_SUBCLASSES,
         PUBLIC_FIELDS_AND_SUBCLASSES // TODO: Implement me!
@@ -788,22 +721,27 @@ public class Properties {
     public static int DSE_TARGET_COVERAGE = 100;
 
     public enum DSEType {
+
         /**
          * apply DSE per statement.
          */
         STATEMENT,
+
         /**
          * apply DSE with all primitives in a test.
          */
         TEST,
+
         /**
          * DSE on whole suites.
          */
         SUITE
     }
 
-    // NOTE (ilebrero): This is the current method name being explored. This is NOT a good practice, but it's
-    //         the only way I can imagine to get the current method name for saving the bytecodeLogging info in a file.
+    // NOTE (ilebrero): This is the current method name being explored. This is NOT a good practice,
+    // but it's
+    //         the only way I can imagine to get the current method name for saving the
+    // bytecodeLogging info in a file.
     //         TODO: Is there a better way of doing this?
     public static String CURRENT_TARGET_METHOD = "";
 
@@ -837,11 +775,13 @@ public class Properties {
     public enum DSEStoppingConditionCriterion {
         TARGETCOVERAGE,
         MAXTIME,
+
         /**
          * In seconds.
          */
         ZEROFITNESS,
         MAXTESTS,
+
         /**
          * The ones that are setted by default on the algorithm + Strategy.
          */
@@ -907,6 +847,7 @@ public class Properties {
 
     public enum LocalSearchBudgetType {
         STATEMENTS, TESTS,
+
         /**
          * Time expressed in seconds.
          */
@@ -1077,6 +1018,7 @@ public class Properties {
 
     public enum StoppingCondition {
         MAXSTATEMENTS, MAXTESTS,
+
         /**
          * Max time in seconds.
          */
@@ -1096,26 +1038,26 @@ public class Properties {
     public static CrossoverFunction CROSSOVER_FUNCTION = CrossoverFunction.SINGLEPOINTRELATIVE;
 
     public enum TheReplacementFunction {
+
         /**
-         * Indicates a replacement function which works for all chromosomes
-         * because it solely relies on fitness values.
+         * Indicates a replacement function which works for all chromosomes because it solely relies
+         * on fitness values.
          */
         FITNESSREPLACEMENT,
+
         /**
-         * EvoSuite's default replacement function which only works on subtypes
-         * of the default chromosome types. Relies on fitness plus secondary
-         * goals such as length.
+         * EvoSuite's default replacement function which only works on subtypes of the default
+         * chromosome types. Relies on fitness plus secondary goals such as length.
          */
         DEFAULT
     }
 
     /**
-     * During search the genetic algorithm has to decide whether the parent
-     * chromosomes or the freshly created offspring chromosomes should be
-     * preferred. If you use EvoSuite with its default chromosomes the
-     * TheReplacementFunction.DEFAULT is what you want. If your chromosomes are
-     * not a subclass of the default chromosomes your have to write your own
-     * replacement function or use TheReplacementFunction.FITNESSREPLACEMENT.
+     * During search the genetic algorithm has to decide whether the parent chromosomes or the
+     * freshly created offspring chromosomes should be preferred. If you use EvoSuite with its
+     * default chromosomes the TheReplacementFunction.DEFAULT is what you want. If your chromosomes
+     * are not a subclass of the default chromosomes your have to write your own replacement
+     * function or use TheReplacementFunction.FITNESSREPLACEMENT.
      */
     @Parameter(key = "replacement_function", group = "Search Algorithm",
             description = "Replacement function for comparing offspring to parents "
@@ -1406,11 +1348,9 @@ public class Properties {
     @Parameter(key = "ctg_schedule", group = "Continuous Test Generation", description = "Schedule used to run jobs")
     public static AvailableSchedule CTG_SCHEDULE = AvailableSchedule.BUDGET;
 
-
     @Parameter(key = "ctg_extra_args", group = "Continuous Test Generation",
             description = "Extra '-D' arguments to pass to EvoSuite test generation processes")
     public static String CTG_EXTRA_ARGS = null;
-
 
     // ---------------------------------------------------------------
     // Single branch mode
@@ -1535,8 +1475,11 @@ public class Properties {
             description = "Suffix that is appended at each generated JUnit file name for failing tests")
     public static String JUNIT_FAILED_SUFFIX = "_Failed_ESTest";
 
-    //WARN: do not change this value, as had to be hardcoded in quite a few places :( if really need to change it,
+    // WARN: do not change this value, as had to be hardcoded in quite a few places :( if really
+    // need
+    // to change it,
     // all that code has to be changed as well
+
     /**
      * Suffix used to specify scaffolding files.
      */
@@ -1591,7 +1534,6 @@ public class Properties {
     @Parameter(key = "minimize_sort", group = "Output",
             description = "Sort goals before Minimization")
     public static boolean MINIMIZE_SORT = true;
-
 
     @Parameter(key = "minimize_skip_coincidental", group = "Output",
             description = "Minimize test suite after generation")
@@ -1760,7 +1702,8 @@ public class Properties {
             description = "Precision to use in double comparisons and assertions")
     public static double DOUBLE_PRECISION = 0.01;
 
-    //@Parameter(key = "old_statistics", group = "Output", description = "Use the old statistics backend on the master")
+    // @Parameter(key = "old_statistics", group = "Output", description = "Use the old statistics
+    // backend on the master")
     //public static boolean OLD_STATISTICS = false;
 
     @Parameter(key = "validate_runtime_variables", group = "Output",
@@ -1899,9 +1842,13 @@ public class Properties {
     public static int LLM_FEW_SHOT_MAX_EXAMPLES = 3;
 
     public enum LlmFewShotArchiveStrategy {
-        /** Favor archive tests covering goals related to the currently uncovered goals. */
+        /**
+         * Favor archive tests covering goals related to the currently uncovered goals.
+         */
         GOAL_OVERLAP,
-        /** Favor tests with the broadest coverage (most covered goals, then largest size). */
+        /**
+         * Favor tests with the broadest coverage (most covered goals, then largest size).
+         */
         COVERAGE_BREADTH
     }
 
@@ -1988,9 +1935,13 @@ public class Properties {
 
     // --- LLM Goal Format ---
     public enum LlmGoalFormat {
-        /** Raw goal.toString() output (backward-compatible). */
+        /**
+         * Raw goal.toString() output (backward-compatible).
+         */
         RAW,
-        /** Human-readable descriptions grouped by method (default). */
+        /**
+         * Human-readable descriptions grouped by method (default).
+         */
         LLM_FRIENDLY
     }
 
@@ -2042,19 +1993,29 @@ public class Properties {
     public static String LLM_DIAGNOSTIC_EXTRACTOR_TRACE_TARGETS = "";
 
     /**
-     * Preset bundle for LLM seeding features. When non-{@code OFF}, the chosen
-     * profile force-overrides the individual {@code LLM_SEED_*}/{@code LLM_ENRICH_*}
-     * flags via {@link #applyLlmSeedingProfile()}. Users who want fine-grained
-     * control should leave this at {@code OFF} and toggle individual flags.
+     * Preset bundle for LLM seeding features. When non-{@code OFF}, the chosen profile
+     * force-overrides the individual {@code LLM_SEED_*}/{@code LLM_ENRICH_*} flags via {@link
+     * #applyLlmSeedingProfile()}. Users who want fine-grained control should leave this at {@code
+     * OFF} and toggle individual flags.
      */
     public enum LlmSeedingProfile {
-        /** No bundle — individual flags are honoured as-is. */
+        /**
+         * No bundle — individual flags are honoured as-is.
+         */
         OFF,
-        /** Cast-class enrichment only (structural gate, single LLM call). */
+        /**
+         * Cast-class enrichment only (structural gate, single LLM call).
+         */
         MIN,
-        /** Constant pool + object pool + cast classes — no test factory, no initial seed. */
+        /**
+         * Constant pool + object pool + cast classes — no test factory, no initial seed.
+         */
         STANDARD,
-        /** Everything: structural + data enrichment + initial seed + test factory + non-SUT constants. */
+
+        /**
+         * Everything: structural + data enrichment + initial seed + test factory + non-SUT
+         * constants.
+         */
         FULL
     }
 
@@ -2067,9 +2028,9 @@ public class Properties {
     public static LlmSeedingProfile LLM_SEEDING_PROFILE = LlmSeedingProfile.OFF;
 
     /**
-     * Force-applies the LLM seeding profile bundle to the corresponding
-     * individual flags. Idempotent. Should be called once during EvoSuite
-     * setup — see {@link org.evosuite.TestSuiteGenerator}.
+     * Force-applies the LLM seeding profile bundle to the corresponding individual flags.
+     * Idempotent. Should be called once during EvoSuite setup — see {@link
+     * org.evosuite.TestSuiteGenerator}.
      */
     public static void applyLlmSeedingProfile() {
         switch (LLM_SEEDING_PROFILE) {
@@ -2101,13 +2062,21 @@ public class Properties {
         }
     }
 
-    /** Controls whether LLM-generated assertions are retained in parsed tests. */
+    /**
+     * Controls whether LLM-generated assertions are retained in parsed tests.
+     */
     public enum LlmGeneratedAssertionsPolicy {
-        /** Keep assertions for LLMSTRATEGY, drop for search/enrichment integrations. */
+        /**
+         * Keep assertions for LLMSTRATEGY, drop for search/enrichment integrations.
+         */
         AUTO,
-        /** Always keep LLM-generated assertions in parsed tests. */
+        /**
+         * Always keep LLM-generated assertions in parsed tests.
+         */
         KEEP,
-        /** Always drop LLM-generated assertions from parsed tests. */
+        /**
+         * Always drop LLM-generated assertions from parsed tests.
+         */
         DROP
     }
 
@@ -2118,9 +2087,13 @@ public class Properties {
 
     // --- LLM Strategy Mode ---
     public enum LlmStrategyMode {
-        /** One-shot baseline: generate once and stop. */
+        /**
+         * One-shot baseline: generate once and stop.
+         */
         SINGLE_PROMPT,
-        /** Iterative baseline: query, run, re-query for uncovered goals until budget exhausted. */
+        /**
+         * Iterative baseline: query, run, re-query for uncovered goals until budget exhausted.
+         */
         ITERATIVE_BUDGETED
     }
 
@@ -2193,19 +2166,22 @@ public class Properties {
     @IntValue(min = 1)
     public static int LLM_ASYNC_PRODUCER_REFRESH_INTERVAL = 5;
 
-    /** Prompt-content strategy for the asynchronous LLM producer. */
+    /**
+     * Prompt-content strategy for the asynchronous LLM producer.
+     */
     public enum LlmAsyncProducerPromptMode {
+
         /**
-         * Goal-driven prompt: picks a few uncovered goals each iteration and
-         * asks the LLM for a JUnit test targeting them. This is the historical
-         * behaviour and stays the default while we A/B the diagnostic path.
+         * Goal-driven prompt: picks a few uncovered goals each iteration and asks the LLM for a
+         * JUnit test targeting them. This is the historical behaviour and stays the default while
+         * we A/B the diagnostic path.
          */
         POOL,
+
         /**
-         * Diagnostic prompt: when ranked problem cards can be extracted from the
-         * cached population snapshot, the producer sends a card-driven prompt
-         * (mirroring the stagnation diagnostic mode). Falls back to POOL on any
-         * iteration where no cards are available.
+         * Diagnostic prompt: when ranked problem cards can be extracted from the cached population
+         * snapshot, the producer sends a card-driven prompt (mirroring the stagnation diagnostic
+         * mode). Falls back to POOL on any iteration where no cards are available.
          */
         DIAGNOSTIC
     }
@@ -2237,11 +2213,17 @@ public class Properties {
     @IntValue(min = 1)
     public static int LLM_STAGNATION_TESTS = 3;
 
-    /** Threading mode for stagnation-triggered LLM calls. */
+    /**
+     * Threading mode for stagnation-triggered LLM calls.
+     */
     public enum LlmStagnationMode {
-        /** Block the GA evolve loop until the LLM call (and any repair) returns. */
+        /**
+         * Block the GA evolve loop until the LLM call (and any repair) returns.
+         */
         SYNC,
-        /** Submit to a background worker; the GA continues evolving. */
+        /**
+         * Submit to a background worker; the GA continues evolving.
+         */
         ASYNC
     }
 
@@ -2271,24 +2253,26 @@ public class Properties {
     @IntValue(min = -1)
     public static int LLM_STAGNATION_BUDGET_GUARD_SECONDS = -1;
 
-    /** Prompt-content strategy for stagnation-triggered LLM calls. */
+    /**
+     * Prompt-content strategy for stagnation-triggered LLM calls.
+     */
     public enum LlmStagnationPromptMode {
+
         /**
-         * Pool-level prompt: includes the full uncovered-goal set (with
-         * fitness-distance annotations) and the top-K most relevant tests
-         * from the current population as existing-test context. Asks for
-         * {@code llm_stagnation_tests} fresh tests targeting any uncovered
-         * goal.
+         * Pool-level prompt: includes the full uncovered-goal set (with fitness-distance
+         * annotations) and the top-K most relevant tests from the current population as
+         * existing-test context. Asks for {@code llm_stagnation_tests} fresh tests targeting any
+         * uncovered goal.
          */
         POOL,
+
         /**
-         * Diagnostic prompt: builds a ranked set of "problem cards" from the
-         * current population snapshot (e.g., unreached methods, consistent
-         * exception barriers) and asks the LLM to prioritize and address the
-         * most pressing blockers in a single call.
+         * Diagnostic prompt: builds a ranked set of "problem cards" from the current population
+         * snapshot (e.g., unreached methods, consistent exception barriers) and asks the LLM to
+         * prioritize and address the most pressing blockers in a single call.
          *
-         * <p>If no reliable cards can be extracted, the detector falls back to
-         * {@link #POOL} for that call.
+         * <p>If no reliable cards can be extracted, the detector falls back to {@link #POOL} for
+         * that call.
          */
         DIAGNOSTIC
     }
@@ -2696,9 +2680,13 @@ public class Properties {
     public static String LLM_TRACE_DIR = "";
 
     public enum LlmSuiteInjectionPolicy {
-        /** Build a new TestSuiteChromosome from LLM-generated tests and compete it. */
+        /**
+         * Build a new TestSuiteChromosome from LLM-generated tests and compete it.
+         */
         NEW_SUITE,
-        /** Merge LLM-generated tests into existing (e.g., worst-ranked) suites. */
+        /**
+         * Merge LLM-generated tests into existing (e.g., worst-ranked) suites.
+         */
         MERGE_INTO_EXISTING
     }
 
@@ -2974,7 +2962,6 @@ public class Properties {
             description = "Usa a virtual file system for all File I/O operations")
     public static boolean VIRTUAL_FS = true;
 
-
     @Parameter(key = "virtual_net", group = "Sandbox",
             description = "Usa a virtual network for all TCP/UDP communications")
     public static boolean VIRTUAL_NET = true;
@@ -2983,10 +2970,8 @@ public class Properties {
             description = "Usa a separate classloader in the final test cases")
     public static boolean USE_SEPARATE_CLASSLOADER = false;
 
-
     // ---------------------------------------------------------------
     // Experimental
-
 
     @Deprecated
     @Parameter(key = "jee", description = "Support for JEE")
@@ -3153,7 +3138,6 @@ public class Properties {
     @Parameter(key = "junit_theories", description = "Check JUnit theories as contracts")
     public static String JUNIT_THEORIES = "";
 
-
     @Parameter(key = "exception_branches",
             description = "Instrument code with explicit branches for exceptional control flow")
     public static boolean EXCEPTION_BRANCHES = false;
@@ -3194,7 +3178,6 @@ public class Properties {
     @Parameter(key = "timeout_reset", group = "Test Execution",
             description = "Milliseconds allowed to execute the static reset of a test")
     public static int TIMEOUT_RESET = 2000;
-
 
     @Parameter(key = "concolic_timeout", group = "Test Execution",
             description = "Milliseconds allowed per test during concolic execution")
@@ -3249,7 +3232,6 @@ public class Properties {
     @Parameter(key = "replace_gui", group = "Test Execution",
             description = "Replace javax.swing with a smart stub/mock")
     public static boolean REPLACE_GUI = true;
-
 
     @Parameter(key = "max_started_threads", group = "Test Execution",
             description = "Max number of threads allowed to be started in each test")
@@ -3343,7 +3325,6 @@ public class Properties {
             Criterion.LINE, Criterion.BRANCH, Criterion.EXCEPTION, Criterion.WEAKMUTATION,
             Criterion.OUTPUT, Criterion.METHOD, Criterion.METHODNOEXCEPTION, Criterion.CBRANCH};
 
-
     /**
      * Cache target class.
      */
@@ -3357,7 +3338,6 @@ public class Properties {
                     + "This is needed for operating systems like Windows where cannot have too "
                     + "long input parameters")
     public static String CP_FILE_PATH = null;
-
 
     @Parameter(key = "PROJECT_PREFIX", group = "Runtime", description = "Package name of target package")
     public static String PROJECT_PREFIX = "";
@@ -3453,17 +3433,14 @@ public class Properties {
     @Parameter(key = "min_free_mem", group = "Runtime", description = "Minimum amount of available memory")
     public static int MIN_FREE_MEM = 50 * 1000 * 1000;
 
-
     @Parameter(key = "client_on_thread", group = "Runtime",
             description = "Run client process on same JVM of master in separate thread. "
                     + "To be used only for debugging purposes")
     public static volatile boolean CLIENT_ON_THREAD = false;
 
-
     @Parameter(key = "is_running_a_system_test", group = "Runtime",
             description = "Specify that a system test is running. To be used only for debugging purposes")
     public static volatile boolean IS_RUNNING_A_SYSTEM_TEST = false;
-
 
     // ---------------------------------------------------------------
     // Seeding test cases
@@ -3626,8 +3603,7 @@ public class Properties {
     }
 
     /**
-     * Keep track of which fields have been changed from their defaults during
-     * loading.
+     * Keep track of which fields have been changed from their defaults during loading.
      */
     private static final Set<String> changedFields = new HashSet<>();
 
@@ -4020,8 +3996,8 @@ public class Properties {
     }
 
     /**
-     * Strict function to parse boolean values because Boolean.parseBoolean silently
-     * ignores malformed strings.
+     * Strict function to parse boolean values because Boolean.parseBoolean silently ignores
+     * malformed strings.
      *
      * @param s the string to parse
      * @return the boolean value
@@ -4066,14 +4042,13 @@ public class Properties {
     }
 
     /**
-     * Set the given <code>key</code> variable to the given input Object
-     * <code>value</code>.
+     * Set the given <code>key</code> variable to the given input Object <code>value</code>.
      *
-     * @param key   a {@link java.lang.String} object identifying the parameter.
+     * @param key a {@link java.lang.String} object identifying the parameter.
      * @param value the new value for the parameter.
      * @throws NoSuchParameterException if the parameter key is not found.
      * @throws IllegalArgumentException if the value is invalid.
-     * @throws IllegalAccessException   if the field cannot be accessed.
+     * @throws IllegalAccessException if the field cannot be accessed.
      */
     public void setValue(String key, Object value)
             throws NoSuchParameterException, IllegalArgumentException,
@@ -4164,8 +4139,8 @@ public class Properties {
     }
 
     /**
-     * Returns the target class. It required, it also executes the
-     * {@code <clinit>} class initialiser of the target class.
+     * Returns the target class. It required, it also executes the {@code <clinit>} class
+     * initialiser of the target class.
      *
      * @return the initialised target class
      */
@@ -4174,10 +4149,9 @@ public class Properties {
     }
 
     /**
-     * Returns the target class. If the class is not yet initialised,
-     * this method *does not* execute the {@code <clinit>} class initialiser of the target class.
-     * This method explicitly states that the {@code <clinit>} method is not executed
-     * because of this method.
+     * Returns the target class. If the class is not yet initialised, this method *does not* execute
+     * the {@code <clinit>} class initialiser of the target class. This method explicitly states
+     * that the {@code <clinit>} method is not executed because of this method.
      *
      * @return the target class. The target class could be uninitialised.
      */
@@ -4185,11 +4159,9 @@ public class Properties {
         return getTargetClass(false);
     }
 
-
     /**
-     * Returns true if there is a loaded target class object.
-     * Warning: resetTargetClass() does not load the class, only
-     * discards the previous target class object.
+     * Returns true if there is a loaded target class object. Warning: resetTargetClass() does not
+     * load the class, only discards the previous target class object.
      *
      * @return true if the target class has been loaded
      */
@@ -4226,7 +4198,6 @@ public class Properties {
              */
 
             Runtime.getInstance().resetRuntime(); //it is important to initialize the VFS
-
 
             LoopCounter.getInstance().setActive(false);
             TARGET_CLASS_INSTANCE = Class.forName(TARGET_CLASS, initialise,

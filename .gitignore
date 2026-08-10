@@ -18,6 +18,7 @@ bin/
 examples/mine/
 examples/plot/
 examples/indi_plot/
+experiments/objectconstruction/
 src/main/resources/log4j.properties
 *.jar
 *.orig

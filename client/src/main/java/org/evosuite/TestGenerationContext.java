@@ -53,11 +53,10 @@ import org.evosuite.testcarver.extraction.CarvingManager;
 import org.evosuite.testcase.execution.ExecutionTracer;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
-import org.evosuite.testcase.factories.ObjectRuleSession;
+import org.evosuite.testcase.factories.ObjectRuleRuntime;
 import org.evosuite.utils.MasterClassLoaderBridge;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.util.Arrays;
 import java.util.List;
@@ -74,8 +73,7 @@ public class TestGenerationContext {
     private static final TestGenerationContext singleton = new TestGenerationContext();
 
     /**
-     * This is the classloader that does the instrumentation - it needs to be
-     * used by all test code.
+     * This is the classloader that does the instrumentation - it needs to be used by all test code.
      */
     private InstrumentingClassLoader classLoader;
 
@@ -90,16 +88,15 @@ public class TestGenerationContext {
     private TestClusterGenerator testClusterGenerator;
 
     /**
-     * True while the assertion-generation reloader is rebuilding the target cluster.
-     * Certain setup-time optimizations (eg reflective static-field singleton probes)
-     * should be skipped in this mode to avoid poisoning the fresh classloader with
-     * target-class initialization failures before the later non-initializing fallback
-     * has a chance to load the CUT.
+     * True while the assertion-generation reloader is rebuilding the target cluster. Certain
+     * setup-time optimizations (eg reflective static-field singleton probes) should be skipped in
+     * this mode to avoid poisoning the fresh classloader with target-class initialization failures
+     * before the later non-initializing fallback has a chance to load the CUT.
      */
     private boolean assertionGenerationContext;
 
     /** Mutable EvoObj state scoped to this test-generation context. */
-    private final ObjectRuleSession objectRuleSession = new ObjectRuleSession();
+    private final ObjectRuleRuntime objectRuleRuntime = new ObjectRuleRuntime();
 
     /**
      * Private singleton constructor.
@@ -113,8 +110,8 @@ public class TestGenerationContext {
         return singleton;
     }
 
-    public ObjectRuleSession getObjectRuleSession() {
-        return objectRuleSession;
+    public ObjectRuleRuntime getObjectRuleRuntime() {
+        return objectRuleRuntime;
     }
 
     public boolean isAssertionGenerationContext() {
@@ -126,12 +123,11 @@ public class TestGenerationContext {
     }
 
     /**
-     * This is pretty important if the SUT use classloader of the running
-     * thread. If we do not set this up, we will end up with cast exceptions.
-     * <p>
-     * Note, an example in which this happens is in org.dom4j.bean.BeanAttribute
-     * in SF100 project 62_dom4j.
-     * </p>
+     * This is pretty important if the SUT use classloader of the running thread. If we do not set
+     * this up, we will end up with cast exceptions.
+     *
+     * <p>Note, an example in which this happens is in org.dom4j.bean.BeanAttribute in SF100 project
+     * 62_dom4j.
      */
     public void goingToExecuteSUTCode() {
 
@@ -200,11 +196,11 @@ public class TestGenerationContext {
 
     /**
      * Resets the test generation context.
-     * <p>
-     * This involves clearing pools (branch, mutation, graph, etc.), resetting static state,
-     * re-initializing the instrumenting class loader, and resetting the archive and stopping conditions.
-     * This is typically done when starting a new search or when re-instrumentation is needed.
-     * </p>
+     *
+     * <p>This involves clearing pools (branch, mutation, graph, etc.), resetting static state,
+     * re-initializing the instrumenting class loader, and resetting the archive and stopping
+     * conditions. This is typically done when starting a new search or when re-instrumentation is
+     * needed.
      */
     public void resetContext() {
         logger.info("*** Resetting context");
@@ -228,10 +224,8 @@ public class TestGenerationContext {
         GraphPool.clearAll();
         DefUsePool.clear();
 
-        // EvoObj: reset the object-construction analysis/synthesis statics so state does not leak
-        // between runs or system-test methods.
-        objectRuleSession.reset();
-        org.evosuite.graphs.interprocedural.ObjectConstructionContext.reset();
+        // Reset all run-scoped object-construction analysis and synthesis state.
+        objectRuleRuntime.reset();
 
         CFGMethodAdapter.clear();
 
@@ -240,7 +234,9 @@ public class TestGenerationContext {
 
         // TODO: After this, the test cluster is empty until
         // DependencyAnalysis.analyse is called
-        // Keep inheritance metadata when classpath is unchanged; it is safe to rebuild other caches.
+
+        // Keep inheritance metadata when classpath is unchanged; it is safe to rebuild other
+        // caches.
         DependencyAnalysis.clear(true);
         TestCluster.reset();
         CastClassManager.getInstance().clear();

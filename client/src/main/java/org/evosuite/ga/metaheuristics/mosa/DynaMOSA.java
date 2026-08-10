@@ -20,7 +20,6 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
-import org.evosuite.testcase.synthesizer.TestCaseLegitimizer;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.ga.diversity.SpeciesProtectionStats;
@@ -33,7 +32,6 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.*;
 
 /**
@@ -105,7 +103,6 @@ public class DynaMOSA extends AbstractMOSA {
 
         emitGenerationMetrics(goalsManager.getUncoveredGoals().size(),
                 goalsManager.getCoveredGoals().size());
-        recordObjectRuleTemplateSurvival();
 
         this.currentIteration++;
         logger.debug("Covered goals = {}", goalsManager.getCoveredGoals().size());
@@ -119,11 +116,6 @@ public class DynaMOSA extends AbstractMOSA {
     @Override
     public void generateSolution() {
         logger.debug("executing generateSolution function");
-
-        if (Properties.APPLY_OBJECT_RULE) {
-            // EvoObj: the total legitimization budget is measured from search start.
-            TestCaseLegitimizer.startTime = System.currentTimeMillis();
-        }
 
         // Set up the targets to cover, which are initially free of any control dependencies.
         // We are trying to optimize for multiple targets at the same time.
@@ -146,20 +138,27 @@ public class DynaMOSA extends AbstractMOSA {
                 this.initializePopulation();
             }
 
-            // Compute the fitness for each population member, update the coverage information and the
+            // Compute the fitness for each population member, update the coverage information and
+            // the
             // set of goals to cover. Finally, update the archive.
-            // this.calculateFitness(); // Not required, already done by this.initializePopulation();
+
+            // this.calculateFitness(); // Not required, already done by
+            // this.initializePopulation();
 
             // Calculate dominance ranks and crowding distance. This is required to decide which
-            // individuals should be used for mutation and crossover in the first iteration of the main
+
+            // individuals should be used for mutation and crossover in the first iteration of the
+            // main
             // search loop.
-            this.rankingFunction.computeRankingAssignment(this.population, this.goalsManager.getCurrentGoals());
+            this.rankingFunction.computeRankingAssignment(
+                    this.population, this.goalsManager.getCurrentGoals());
             for (int i = 0; i < this.rankingFunction.getNumberOfSubfronts(); i++) {
                 this.distance.fastEpsilonDominanceAssignment(this.rankingFunction.getSubfront(i),
                         this.goalsManager.getCurrentGoals());
             }
 
-            // Evolve the population generation by generation until all gaols have been covered or the
+            // Evolve the population generation by generation until all gaols have been covered or
+            // the
             // search budget has been consumed.
             while (!isFinished() && this.goalsManager.getUncoveredGoals().size() > 0) {
                 this.evolve();

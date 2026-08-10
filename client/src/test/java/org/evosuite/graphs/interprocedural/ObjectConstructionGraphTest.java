@@ -62,7 +62,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Milestone M2 verification for the object construction graph (OCG) analysis. Each test runs the
  * full {@link DependencyAnalysis#analyzeClass} pipeline (with {@code apply_object_rule=true}) on a
- * fixture and asserts the structure of {@link ObjectConstructionContext#branchInterestedVarsMap}:
+ * fixture and asserts the structure of the run-scoped object-rule graph cache:
  * which state variables each branch of the target method depends on, and that they trace back to a
  * valid root ({@code this}/parameter of the target class, or a static field).
  *
@@ -111,7 +111,8 @@ public class ObjectConstructionGraphTest {
 
 	private static Map<Branch, Set<DepVariable>> graph() {
 		Map<Branch, Set<DepVariable>> map =
-				ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+				TestGenerationContext.getInstance().getObjectRuleRuntime()
+						.getBranchInterestedVarsMap().get(Properties.TARGET_METHOD);
 		assertNotNull(map, "the target method should have an entry in branchInterestedVarsMap");
 		return map;
 	}
@@ -555,7 +556,8 @@ public class ObjectConstructionGraphTest {
 		analyze(com.examples.with.different.packagename.objectconstruction.instancefield.PrivateInstanceFieldExample.class,
 				"targetM", 1, false);
 
-		assertNull(ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD),
+		assertNull(TestGenerationContext.getInstance().getObjectRuleRuntime()
+				.getBranchInterestedVarsMap().get(Properties.TARGET_METHOD),
 				"no OCG should be built when apply_object_rule is off");
 		assertFalse(Properties.APPLY_OBJECT_RULE);
 	}

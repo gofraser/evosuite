@@ -11,6 +11,31 @@
  */
 package org.evosuite.testcase.factories;
 
+import org.evosuite.setup.TestCluster;
+import org.evosuite.testcase.GenerationContext;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.TestFactory;
+import org.evosuite.testcase.VariableResolutionConfig;
+import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.testcase.statements.ArrayStatement;
+import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.FunctionalMockStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.NullStatement;
+import org.evosuite.testcase.statements.PrimitiveStatement;
+import org.evosuite.testcase.statements.Statement;
+import org.evosuite.testcase.synthesizer.PartialGraph;
+import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.utils.ParameterizedTypeImpl;
+import org.evosuite.utils.generic.GenericAccessibleObject;
+import org.evosuite.utils.generic.GenericClass;
+import org.evosuite.utils.generic.GenericClassFactory;
+import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericField;
+import org.evosuite.utils.generic.GenericMethod;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
@@ -22,41 +47,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.evosuite.Properties;
-import org.evosuite.ga.ConstructionFailedException;
-import org.evosuite.testcase.GenerationContext;
-import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestFactory;
-import org.evosuite.testcase.VariableResolutionConfig;
-import org.evosuite.testcase.VariableResolver;
-import org.evosuite.testcase.execution.ExecutionResult;
-import org.evosuite.testcase.execution.TestCaseExecutor;
-import org.evosuite.testcase.statements.ArrayStatement;
-import org.evosuite.testcase.statements.ConstructorStatement;
-import org.evosuite.testcase.statements.FunctionalMockStatement;
-import org.evosuite.testcase.statements.MethodStatement;
-import org.evosuite.testcase.statements.NullStatement;
-import org.evosuite.testcase.statements.PrimitiveStatement;
-import org.evosuite.testcase.statements.Statement;
-import org.evosuite.testcase.synthesizer.PartialGraph;
-import org.evosuite.testcase.synthesizer.TargetContext;
-import org.evosuite.utils.ParameterizedTypeImpl;
-import org.evosuite.utils.generic.GenericAccessibleObject;
-import org.evosuite.utils.generic.GenericClass;
-import org.evosuite.utils.generic.GenericClassFactory;
-import org.evosuite.utils.generic.GenericConstructor;
-import org.evosuite.utils.generic.GenericField;
-import org.evosuite.utils.generic.GenericMethod;
-import org.evosuite.testcase.variable.VariableReference;
-import org.evosuite.setup.TestCluster;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /** Constructs and validates whole-class EvoObj entry receivers and invocations. */
 class ObjectRuleEntryBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(ObjectRuleEntryBuilder.class);
     private final Set<Class<?>> failedConcreteReceiverTypes = new LinkedHashSet<>();
+    private long failureCacheEpoch = Long.MIN_VALUE;
 
     /**
      * Inserts a call to the whole-class entry method (the working branch's containing method) into
@@ -72,6 +68,7 @@ class ObjectRuleEntryBuilder {
     EntryInsertionResult insertEntryMethodCall(
             TestCase test, org.evosuite.testcase.synthesizer.TargetContext context,
             PartialGraph entryGraph) {
+        synchronizeFailureCache();
         try {
             Class<?> clazz = org.evosuite.TestGenerationContext.getInstance().getClassLoaderForSUT()
                     .loadClass(context.getClassName());
@@ -134,7 +131,8 @@ class ObjectRuleEntryBuilder {
                     || parameterClass.isEnum()) {
                 // A stable entry must not recursively call another CUT method merely to obtain a
                 // scalar argument. In CIDR this selected CIDR.ipToString(randomString), which
-                // usually threw before the selected cidr(String) call and sent the legitimizer on
+
+                // usually threw before the selected cidr(String) call and made the entry unusable
                 // an artificial repair problem. Direct primitive statements are also the values
                 // the normal GA knows how to mutate most effectively.
                 PrimitiveStatement<?> primitive = stableEntryScalar(test, parameterClass);
@@ -188,6 +186,7 @@ class ObjectRuleEntryBuilder {
 
     VariableReference constructEntryReceiver(TestCase test, Class<?> receiverClass,
             Set<String> requiredFieldDescriptors) {
+        synchronizeFailureCache();
         Type exactReceiverType = stableSynthesisReceiverType(receiverClass);
         GenericClass<?> receiverType = GenericClassFactory.get(exactReceiverType);
         LinkedHashSet<GenericAccessibleObject<?>> discoveredGenerators = new LinkedHashSet<>();
@@ -315,18 +314,19 @@ class ObjectRuleEntryBuilder {
     }
 
     boolean isConcreteReceiverTypeNegativelyCached(Class<?> receiverType) {
+        synchronizeFailureCache();
         return failedConcreteReceiverTypes.contains(receiverType);
     }
 
     /**
      * Gives an EvoObj entry receiver a cheap, deterministic instantiation for genuinely
-     * unconstrained class type variables. The ordinary search deliberately asks
-     * {@link org.evosuite.seeding.CastClassManager} for diverse assignments; doing that while
+     * unconstrained class type variables. The ordinary search deliberately asks {@link
+     * org.evosuite.seeding.CastClassManager} for diverse assignments; doing that while
      * materializing a graph template can turn an irrelevant {@code T extends Object} into a deep
      * Jackson or SUT-specific construction which has no bearing on the selected branch.
      *
      * <p>Constrained variables are deliberately left unresolved so the existing generic-bound
-     * machinery and CastClassManager still choose a valid implementation.</p>
+     * machinery and CastClassManager still choose a valid implementation.
      */
     static Type stableSynthesisReceiverType(Class<?> receiverClass) {
         TypeVariable<?>[] variables = receiverClass.getTypeParameters();
@@ -373,7 +373,8 @@ class ObjectRuleEntryBuilder {
             // Required collaborators are useful only when the object rule can control them.  Make
             // that choice deterministic for mock-setup experiments; ordinary generation and
             // non-required constructor parameters retain their existing policy.
-            if (parameter == null && required && Properties.OBJECT_RULE_MOCK_SETUP
+            if (parameter == null
+                    && required
                     && !TestCluster.getInstance().hasGenerator(parameterTypes[i])
                     && FunctionalMockStatement.canBeFunctionalMocked(parameterTypes[i])) {
                 parameter = TestFactory.getInstance().addFunctionalMock(
@@ -578,7 +579,9 @@ class ObjectRuleEntryBuilder {
         return 3;
     }
 
-    /** Execute only the receiver prefix and verify the value promised by its static generic type. */
+    /**
+     * Execute only the receiver prefix and verify the value promised by its static generic type.
+     */
     static boolean producesRuntimeReceiver(
             TestCase test, VariableReference receiver, Class<?> receiverClass) {
         if (test == null || receiver == null || receiverClass == null) {
@@ -667,6 +670,7 @@ class ObjectRuleEntryBuilder {
     /** Attach the selected entry to a receiver that ordinary random generation already produced. */
     boolean insertEntryMethodCallOnExistingReceiver(
             TestCase test, org.evosuite.testcase.synthesizer.TargetContext context) {
+        synchronizeFailureCache();
         if (context.isConstructorEntry()) {
             return findConstructorCallStatement(test, context.getClassName(),
                     context.getMethodSignature()) != null;
@@ -776,10 +780,14 @@ class ObjectRuleEntryBuilder {
         return null;
     }
 
-    /**
-     * Builds the object-construction template for {@code test} against the current working branch
-     * and, if the template throws before the target call, runs the legitimizer to try to reach it.
-     *
-     * @return the legitimized test if legitimization ran, otherwise the template test
-     */
+    /** Drop receiver failures retained by a factory when its owning run was reset. */
+    private void synchronizeFailureCache() {
+        long currentEpoch = org.evosuite.TestGenerationContext.getInstance()
+                .getObjectRuleRuntime().getResetEpoch();
+        if (failureCacheEpoch != currentEpoch) {
+            failedConcreteReceiverTypes.clear();
+            failureCacheEpoch = currentEpoch;
+        }
+    }
+
 }

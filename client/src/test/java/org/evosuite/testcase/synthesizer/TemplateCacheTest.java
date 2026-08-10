@@ -31,7 +31,6 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.graphs.interprocedural.ObjectConstructionContext;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.testcase.DefaultTestCase;
@@ -62,7 +61,7 @@ public class TemplateCacheTest {
 
     @BeforeEach
     public void setUp() {
-        TemplateCache.getInstance().reset();
+        new TemplateCache().reset();
     }
 
     @AfterEach
@@ -103,7 +102,8 @@ public class TemplateCacheTest {
             throw new AssertionError("analyzeClass failed", e);
         }
         Map<Branch, Set<DepVariable>> map =
-                ObjectConstructionContext.branchInterestedVarsMap.get(Properties.TARGET_METHOD);
+                org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime()
+                        .getBranchInterestedVarsMap().get(Properties.TARGET_METHOD);
         assertNotNull(map, "the target method should have an OCG entry");
         assertFalse(map.isEmpty(), "expected at least one analyzed branch");
         return map.keySet().iterator().next();
@@ -120,10 +120,10 @@ public class TemplateCacheTest {
     @Test
     public void storesAndReturnsAClone() {
         Branch branch = anyBranch();
-        TemplateCache cache = TemplateCache.getInstance();
+        TemplateCache cache = new TemplateCache();
         DefaultTestCase template = testOfSize(2);
 
-        cache.store(branch, template, 3.0);
+        cache.store(branch, template);
 
         assertTrue(cache.hasTemplate(branch));
         assertEquals(template.toCode(), cache.getClonedTemplate(branch).toCode(),
@@ -134,23 +134,23 @@ public class TemplateCacheTest {
     }
 
     @Test
-    public void keepsTheTemplateWithLowestDistance() {
+    public void keepsTheFirstTemplateForABranch() {
         Branch branch = anyBranch();
-        TemplateCache cache = TemplateCache.getInstance();
+        TemplateCache cache = new TemplateCache();
 
-        cache.store(branch, testOfSize(1), 5.0);
-        cache.store(branch, testOfSize(2), 2.0);   // improves -> replaces
-        cache.store(branch, testOfSize(3), 8.0);   // worse    -> ignored
+        cache.store(branch, testOfSize(1));
+        cache.store(branch, testOfSize(2));
+        cache.store(branch, testOfSize(3));
 
-        assertEquals(2, cache.getClonedTemplate(branch).size(),
-                "the cached template should be the one with the lowest legitimacy distance");
+        assertEquals(1, cache.getClonedTemplate(branch).size(),
+                "the cache keeps the first proven template");
     }
 
     @Test
     public void evictsCoveredBranches() {
         Branch branch = anyBranch();
-        TemplateCache cache = TemplateCache.getInstance();
-        cache.store(branch, testOfSize(1), 0.0);
+        TemplateCache cache = new TemplateCache();
+        cache.store(branch, testOfSize(1));
 
         cache.retainUncovered(Collections.singletonList(branch));
         assertTrue(cache.hasTemplate(branch), "still uncovered -> retained");
@@ -162,15 +162,15 @@ public class TemplateCacheTest {
     @Test
     public void resetAndNullSafety() {
         Branch branch = anyBranch();
-        TemplateCache cache = TemplateCache.getInstance();
+        TemplateCache cache = new TemplateCache();
 
-        cache.store(null, testOfSize(1), 0.0);
-        cache.store(branch, null, 0.0);
+        cache.store(null, testOfSize(1));
+        cache.store(branch, null);
         assertFalse(cache.hasTemplate(null));
         assertFalse(cache.hasTemplate(branch), "null template/branch stores are ignored");
         assertNull(cache.getClonedTemplate(null));
 
-        cache.store(branch, testOfSize(1), 1.0);
+        cache.store(branch, testOfSize(1));
         assertTrue(cache.hasTemplate(branch));
         cache.reset();
         assertFalse(cache.hasTemplate(branch), "reset clears the cache");

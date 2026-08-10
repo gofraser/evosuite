@@ -19,12 +19,6 @@
  */
 package org.evosuite.testcase.synthesizer;
 
-import java.util.ArrayDeque;
-import java.util.HashSet;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.Set;
-
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
@@ -33,26 +27,23 @@ import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.setup.callgraph.CallGraph;
 import org.evosuite.setup.callgraph.CallGraphEntry;
 import org.evosuite.utils.MethodUtil;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
- * The class/method the object-construction synthesis is currently working against. In the
- * default method-level mode this is fixed by {@code -Dtarget_method}/{@code -Dtarget_class}; in
- * whole-class mode ({@code object_rule_whole_class}) it is derived per branch from the branch's own
- * containing method.
+ * The class/method the object-construction synthesis is currently working against. It is derived
+ * per branch from the branch's own containing method, with an explicit target method retained only
+ * for setup compatibility in focused analyses.
  *
- * <p>Rather than threading a context object through every synthesis method signature, the context is
- * published for the current synthesis via {@link #setActive(TargetContext)} and consulted at the few
- * points that previously read {@link Properties#TARGET_CLASS}/{@link Properties#TARGET_METHOD}
- * through {@link #activeClassName()}/{@link #activeMethodSignature()}. When the properties are set
- * (method-level mode) those accessors return them verbatim, so M1–M5 behaviour is unchanged.
+ * <p>Rather than threading a context object through every synthesis method signature, the context
+ * is published for the current run via the run-scoped {@code ObjectRuleRuntime} and consulted at
+ * the few points that previously read {@link Properties#TARGET_CLASS}/{@link
+ * Properties#TARGET_METHOD} through {@link #activeClassName()}/{@link #activeMethodSignature()}.
  */
 public class TargetContext {
-
-    private static final ThreadLocal<TargetContext> ACTIVE = new ThreadLocal<>();
-
-    private static int rejectedConstructorEntries = 0;
-    private static int rejectedNonPublicEntries = 0;
-    private static int rejectedOtherEntries = 0;
 
     private final String className;
     private final String methodSignature;
@@ -95,128 +86,52 @@ public class TargetContext {
     }
 
     /**
-     * Resolves the context for a branch in whole-class mode: its own containing method, if that
-     * method is a conservative public/protected synthesis entry and neither a class nor an
-     * instance initializer. With expanded entries enabled, EvoSuite's normal accessibility policy
-     * additionally permits package-private methods because generated tests share the CUT package.
-     * Keeping that broader surface behind the opt-in matters: directly synthesizing recursive
-     * package APIs can create cyclic inputs that ordinary random calls rarely produce. Otherwise
-     * the branch is ineligible and {@code null} is returned.
+     * Resolves the callable entry context for a branch, using the branch's own method when it is
+     * accessible and otherwise the nearest accessible caller. Initializers and unresolved entries
+     * are rejected.
      */
     public static TargetContext forBranch(Branch branch) {
-        return resolveForBranch(branch, true);
+        return resolveForBranch(branch);
     }
 
-    /**
-     * Resolve a branch context for diagnostic export or other read-only inspection without
-     * changing the entry-rejection statistics. Diagnostics are allowed to observe an inaccessible
-     * branch, but must never make the experimental counters depend on whether diagnostics are
-     * enabled.
-     */
-    static TargetContext forBranchWithoutStatistics(Branch branch) {
-        return resolveForBranch(branch, false);
-    }
-
-    /**
-     * Stable diagnostic reason for a rejected whole-class entry. This is deliberately read-only:
-     * asking for the reason must not change rejection statistics or entry selection.
-     */
-    static String rejectionReasonForBranch(Branch branch) {
+    private static TargetContext resolveForBranch(Branch branch) {
         if (branch == null || branch.getInstruction() == null) {
-            return "missing_branch_instruction";
+            return null;
         }
         String className = branch.getInstruction().getClassName();
         String methodSignature = branch.getInstruction().getMethodName();
         if (className == null || methodSignature == null) {
-            return "missing_entry_identity";
+            return null;
         }
         if (methodSignature.startsWith("<clinit>")) {
-            return "class_initializer_not_callable";
+            return null;
         }
-        if (methodSignature.startsWith("<init>") && !Properties.OBJECT_RULE_EXPANDED_ENTRIES) {
-            return "constructor_entry_disabled";
+        if (methodSignature.startsWith("<init>")) {
+            return new TargetContext(className, methodSignature, branch, true);
         }
         try {
             Class<?> clazz =
                     TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
-            for (Method method : clazz.getDeclaredMethods()) {
-                if ((method.getName() + MethodUtil.getSignature(method)).equals(methodSignature)) {
-                    if (isDirectlyAccessibleEntry(method, clazz)) {
-                        return "entry_resolution_inconsistent";
-                    }
-                    return Properties.OBJECT_RULE_EXPANDED_ENTRIES
-                            ? "no_accessible_caller"
-                            : "entry_not_accessible";
-                }
-            }
-            return "entry_method_not_found";
-        } catch (Throwable failure) {
-            return "entry_class_resolution_failed:" + failure.getClass().getSimpleName();
-        }
-    }
-
-    private static TargetContext resolveForBranch(Branch branch, boolean countRejections) {
-        if (branch == null || branch.getInstruction() == null) {
-            if (countRejections) {
-                countOtherRejection();
-            }
-            return null;
-        }
-        String className = branch.getInstruction().getClassName();
-        String methodSignature = branch.getInstruction().getMethodName();
-        if (className == null || methodSignature == null) {
-            if (countRejections) {
-                countOtherRejection();
-            }
-            return null;
-        }
-        if (methodSignature.startsWith("<clinit>")) {
-            if (countRejections) {
-                countConstructorRejection();
-            }
-            return null;
-        }
-        if (methodSignature.startsWith("<init>")) {
-            if (Properties.OBJECT_RULE_EXPANDED_ENTRIES) {
-                return new TargetContext(className, methodSignature, branch, true);
-            }
-            if (countRejections) {
-                countConstructorRejection();
-            }
-            return null;
-        }
-        try {
-            Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
             for (Method m : clazz.getDeclaredMethods()) {
                 if ((m.getName() + MethodUtil.getSignature(m)).equals(methodSignature)) {
                     if (isDirectlyAccessibleEntry(m, clazz)) {
                         return new TargetContext(className, methodSignature, branch);
                     }
-                    if (Properties.OBJECT_RULE_EXPANDED_ENTRIES) {
-                        String caller = nearestAccessibleCaller(className, methodSignature, clazz);
-                        if (caller != null) {
-                            return new TargetContext(className, caller, branch);
-                        }
-                    }
-                    if (countRejections) {
-                        countNonPublicRejection();
+                    String caller = nearestAccessibleCaller(className, methodSignature, clazz);
+                    if (caller != null) {
+                        return new TargetContext(className, caller, branch);
                     }
                     return null;
                 }
             }
         } catch (Throwable t) {
-            if (countRejections) {
-                countOtherRejection();
-            }
             return null;
-        }
-        if (countRejections) {
-            countOtherRejection();
         }
         return null;
     }
 
-    private static String nearestAccessibleCaller(String className, String methodSignature, Class<?> clazz) {
+    private static String nearestAccessibleCaller(
+            String className, String methodSignature, Class<?> clazz) {
         CallGraph callGraph = DependencyAnalysis.getCallGraph();
         if (callGraph == null) {
             return null;
@@ -267,87 +182,56 @@ public class TargetContext {
 
     private static boolean isDirectlyAccessibleEntry(Method method, Class<?> owner) {
         int modifiers = method.getModifiers();
-        return Modifier.isPublic(modifiers) || Modifier.isProtected(modifiers)
-                || (Properties.OBJECT_RULE_EXPANDED_ENTRIES
-                        && TestUsageChecker.canUse(method, owner));
+        return Modifier.isPublic(modifiers)
+                || Modifier.isProtected(modifiers)
+                || TestUsageChecker.canUse(method, owner);
     }
 
-    private static void countConstructorRejection() {
-        if (Properties.APPLY_OBJECT_RULE) {
-            rejectedConstructorEntries++;
-        }
-    }
-
-    private static void countNonPublicRejection() {
-        if (Properties.APPLY_OBJECT_RULE) {
-            rejectedNonPublicEntries++;
-        }
-    }
-
-    private static void countOtherRejection() {
-        if (Properties.APPLY_OBJECT_RULE) {
-            rejectedOtherEntries++;
-        }
-    }
-
-    public static int getRejectedConstructorEntries() {
-        return rejectedConstructorEntries;
-    }
-
-    public static int getRejectedNonPublicEntries() {
-        return rejectedNonPublicEntries;
-    }
-
-    public static int getRejectedOtherEntries() {
-        return rejectedOtherEntries;
-    }
-
-    public static void resetStatistics() {
-        rejectedConstructorEntries = 0;
-        rejectedNonPublicEntries = 0;
-        rejectedOtherEntries = 0;
-    }
-
-    /** The active context for the current synthesis, or {@code null} when none is set. */
+    /**
+     * The active context for the current run, or {@code null} when none is set.
+     */
     public static TargetContext getActive() {
-        return ACTIVE.get();
+        return TestGenerationContext.getInstance().getObjectRuleRuntime().getActiveTargetContext();
     }
 
     public static void setActive(TargetContext context) {
-        ACTIVE.set(context);
+
+        TestGenerationContext.getInstance().getObjectRuleRuntime().setActiveTargetContext(context);
     }
 
     public static void clearActive() {
-        ACTIVE.remove();
+
+        TestGenerationContext.getInstance().getObjectRuleRuntime().setActiveTargetContext(null);
     }
 
     /**
      * The class name synthesis should treat as the target: the explicit {@code -Dtarget_class} if
-     * set, otherwise the active whole-class context's class, otherwise the empty string (object rule
-     * inert, as before).
+     * set, otherwise the active whole-class context's class, otherwise the empty string (object
+     * rule inert, as before).
      */
     public static String activeClassName() {
         if (Properties.TARGET_CLASS != null && !Properties.TARGET_CLASS.isEmpty()) {
             return Properties.TARGET_CLASS;
         }
-        TargetContext context = ACTIVE.get();
+        TargetContext context = getActive();
         return context == null ? Properties.TARGET_CLASS : context.className;
     }
 
     /**
-     * The method signature synthesis should treat as the target: the explicit {@code -Dtarget_method}
-     * if set, otherwise the active whole-class context's method, otherwise the empty string.
+     * The method signature synthesis should treat as the target: the explicit {@code
+     * -Dtarget_method} if set, otherwise the active whole-class context's method, otherwise the
+     * empty string.
      */
     public static String activeMethodSignature() {
         if (Properties.TARGET_METHOD != null && !Properties.TARGET_METHOD.isEmpty()) {
             return Properties.TARGET_METHOD;
         }
-        TargetContext context = ACTIVE.get();
+        TargetContext context = getActive();
         return context == null ? Properties.TARGET_METHOD : context.methodSignature;
     }
 
     public static boolean activeConstructorEntry() {
-        TargetContext context = ACTIVE.get();
+        TargetContext context = getActive();
         return context != null && context.constructorEntry
                 && (Properties.TARGET_METHOD == null || Properties.TARGET_METHOD.isEmpty());
     }

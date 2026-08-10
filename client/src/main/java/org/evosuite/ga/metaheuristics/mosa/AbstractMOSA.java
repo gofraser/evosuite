@@ -20,17 +20,12 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
-import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties.SelectionFunction;
+import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
-import org.evosuite.testcase.synthesizer.ObjectConstructionGraphDiagnostics;
-import org.evosuite.testcase.synthesizer.ObjectRuleTelemetry;
-import org.evosuite.testcase.synthesizer.TemplateCache;
 import org.evosuite.coverage.exception.ExceptionCoverageSuiteFitness;
-import org.evosuite.testcase.factories.ObjectRuleSession;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.FitnessFunction;
@@ -39,16 +34,16 @@ import org.evosuite.ga.comparators.DominanceComparator;
 import org.evosuite.ga.comparators.OnlyCrowdingComparator;
 import org.evosuite.ga.diversity.DefaultSpeciesAssigner;
 import org.evosuite.ga.diversity.DefaultSpeciesPolicy;
-import org.evosuite.ga.diversity.PopulationDiversityComputation;
 import org.evosuite.ga.diversity.FitnessSpaceSnapshotRecorder;
 import org.evosuite.ga.diversity.JaccardSpeciesDistance;
 import org.evosuite.ga.diversity.ObjectiveCoverageRecorder;
+import org.evosuite.ga.diversity.PopulationDiversityComputation;
 import org.evosuite.ga.diversity.PopulationShapeRecorder;
 import org.evosuite.ga.diversity.PopulationSpeciesRecorder;
 import org.evosuite.ga.diversity.SpeciesAssigner;
 import org.evosuite.ga.diversity.SpeciesBirthRegistry;
-import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.diversity.SpeciesPolicy;
+import org.evosuite.ga.diversity.SpeciesProtectionStats;
 import org.evosuite.ga.diversity.StableSpeciesAssigner;
 import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
 import org.evosuite.ga.operators.ranking.CrowdingDistance;
@@ -75,8 +70,10 @@ import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.factories.ObjectRuleSession;
 import org.evosuite.testcase.secondaryobjectives.TestCaseSecondaryObjective;
 import org.evosuite.testcase.statements.*;
+import org.evosuite.testcase.synthesizer.ObjectRuleBranchSelector;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testparser.TestParser;
 import org.evosuite.testsuite.TestSuiteChromosome;
@@ -87,7 +84,6 @@ import org.evosuite.utils.LoggingUtils;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.util.*;
 
 /**
@@ -102,21 +98,21 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private static final Logger logger = LoggerFactory.getLogger(AbstractMOSA.class);
 
     /**
-     * A source of externally-produced candidate chromosomes that should be
-     * injected into the MOSA union during {@code evolve()}.
+     * A source of externally-produced candidate chromosomes that should be injected into the MOSA
+     * union during {@code evolve()}.
      *
-     * <p>Each source is drained once per generation. Returned lists may be empty
-     * but must not be null.
+     * <p>Each source is drained once per generation. Returned lists may be empty but must not be
+     * null.
      */
     @FunctionalInterface
     protected interface ExternalCandidateSource {
         List<TestChromosome> drain();
 
         /**
-         * Tag applied to chromosomes drained from this source by
-         * {@link #collectExternalCandidates}. Default {@code null} (no tag) so
-         * existing lambda-style registrations remain valid. Override (typically
-         * via an anonymous class or {@link #taggedSource}) to opt in.
+         * Tag applied to chromosomes drained from this source by {@link
+         * #collectExternalCandidates}. Default {@code null} (no tag) so existing lambda-style
+         * registrations remain valid. Override (typically via an anonymous class or {@link
+         * #taggedSource}) to opt in.
          */
         default InjectionSource injectionSource() {
             return null;
@@ -133,11 +129,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Helper to register an external candidate source whose drained chromosomes
-     * should be tagged with a fixed injection source.
+     * Helper to register an external candidate source whose drained chromosomes should be tagged
+     * with a fixed injection source.
      */
-    protected static ExternalCandidateSource taggedSource(InjectionSource source,
-                                                          ExternalCandidateSource delegate) {
+    protected static ExternalCandidateSource taggedSource(
+            InjectionSource source, ExternalCandidateSource delegate) {
         return new ExternalCandidateSource() {
             @Override
             public List<TestChromosome> drain() {
@@ -152,10 +148,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Registered external candidate sources. Subclasses add sources during
-     * initialization (e.g., island immigrants, LLM async producer,
-     * LLM stagnation detector). All sources are drained uniformly
-     * in {@link #collectExternalCandidates}.
+     * Registered external candidate sources. Subclasses add sources during initialization (e.g.,
+     * island immigrants, LLM async producer, LLM stagnation detector). All sources are drained
+     * uniformly in {@link #collectExternalCandidates}.
      */
     protected final transient List<ExternalCandidateSource> externalCandidateSources =
             new ArrayList<>();
@@ -187,35 +182,33 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected transient LanguageModelCrossover llmCrossover;
 
     /**
-     * Species map from the most recent generation's speciation assignment.
-     * Used during breeding for optional intra-species mating restriction.
-     * Null until the first speciation-enabled evolve() completes.
+     * Species map from the most recent generation's speciation assignment. Used during breeding for
+     * optional intra-species mating restriction. Null until the first speciation-enabled evolve()
+     * completes.
      */
     protected Map<Integer, List<TestChromosome>> currentSpeciesMap;
 
     /**
-     * Tracks whether the last call to {@link #shouldApplyLocalSearch()} returned
-     * true. Used by {@link #applyLocalSearch(TestSuiteChromosome)} to gate
-     * re-evaluation: when the adapter delegates LS scheduling to this MOSA
-     * instance, only re-evaluate suite tests if LS was actually applied.
+     * Tracks whether the last call to {@link #shouldApplyLocalSearch()} returned true. Used by
+     * {@link #applyLocalSearch(TestSuiteChromosome)} to gate re-evaluation: when the adapter
+     * delegates LS scheduling to this MOSA instance, only re-evaluate suite tests if LS was
+     * actually applied.
      */
     private boolean lastLocalSearchScheduled;
 
     /**
-     * Set after lazy discovery has classified the complete uncovered branch set and found no
-     * usable OCG. In that case EvoObj must be behaviorally close to baseline instead of rebuilding
-     * branch maps and scanning candidates in every remaining generation.
+     * Set after lazy discovery has classified the complete uncovered branch set and found no usable
+     * OCG. In that case EvoObj must be behaviorally close to baseline instead of rebuilding branch
+     * maps and scanning candidates in every remaining generation.
      */
     private transient boolean objectRulePermanentlyInert;
 
     /**
-     * Pending LS-produced tests to be injected into the next generation's
-     * union via {@link #collectExternalCandidates}. Populated by
-     * {@link #applyLocalSearch(TestSuiteChromosome)} with only the delta
-     * (post-LS minus pre-LS suite tests) and drained during the subsequent
-     * {@link #evolve()} call. This ensures only truly LS-introduced tests
-     * compete in ranking and may become parents for future breeding,
-     * without staging unchanged archive snapshot tests.
+     * Pending LS-produced tests to be injected into the next generation's union via {@link
+     * #collectExternalCandidates}. Populated by {@link #applyLocalSearch(TestSuiteChromosome)} with
+     * only the delta (post-LS minus pre-LS suite tests) and drained during the subsequent {@link
+     * #evolve()} call. This ensures only truly LS-introduced tests compete in ranking and may
+     * become parents for future breeding, without staging unchanged archive snapshot tests.
      */
     private final List<TestChromosome> pendingLsTests = new ArrayList<>();
 
@@ -228,86 +221,84 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final boolean speciationEnabled;
 
     /**
-     * Speciation assigner. Always non-null; uses a no-op implementation when
-     * speciation is disabled. Transient because lambdas/anonymous classes are
-     * not serializable and this field is not needed after RMI transfer.
+     * Speciation assigner. Always non-null; uses a no-op implementation when speciation is
+     * disabled. Transient because lambdas/anonymous classes are not serializable and this field is
+     * not needed after RMI transfer.
      */
     protected final transient SpeciesAssigner speciesAssigner;
 
     /**
-     * Speciation policy. Always non-null; uses a no-op implementation when
-     * speciation is disabled. Transient because anonymous inner classes are
-     * not serializable and this field is not needed after RMI transfer.
+     * Speciation policy. Always non-null; uses a no-op implementation when speciation is disabled.
+     * Transient because anonymous inner classes are not serializable and this field is not needed
+     * after RMI transfer.
      */
     protected final transient SpeciesPolicy speciesPolicy;
 
     /**
-     * If true, species assignments are computed for timeline tracking even
-     * when speciation survival is disabled.
+     * If true, species assignments are computed for timeline tracking even when speciation survival
+     * is disabled.
      */
     protected final boolean trackSpeciesWhenSpeciationDisabled;
 
     /**
-     * Species assigner used only for observability when speciation is disabled.
-     * This never feeds back into survival, ranking, or mating behavior.
+     * Species assigner used only for observability when speciation is disabled. This never feeds
+     * back into survival, ranking, or mating behavior.
      */
     protected final transient SpeciesAssigner speciesTrackingAssigner;
 
     /**
-     * Most recent species assignment over {@code this.population}, used by the
-     * population species recorder. Set by both the speciation-enabled and the
-     * tracking-only branches of {@link #applySpeciationSurvival}, distinct from
-     * {@link #currentSpeciesMap} which is only set when speciation is enabled
-     * and feeds mating restriction.
+     * Most recent species assignment over {@code this.population}, used by the population species
+     * recorder. Set by both the speciation-enabled and the tracking-only branches of {@link
+     * #applySpeciationSurvival}, distinct from {@link #currentSpeciesMap} which is only set when
+     * speciation is enabled and feeds mating restriction.
      */
     protected transient Map<Integer, List<TestChromosome>> lastTrackedSpeciesMap;
 
     /**
-     * Per-generation population/species sidecar writer. Non-null when
-     * {@link Properties#SPECIES_POPULATION_TIMELINE_ENABLED} is true.
+     * Per-generation population/species sidecar writer. Non-null when {@link
+     * Properties#SPECIES_POPULATION_TIMELINE_ENABLED} is true.
      */
     protected final transient PopulationSpeciesRecorder populationSpeciesRecorder;
 
     /**
-     * Wall-clock start of the population species recording, captured on the first
-     * snapshot so each row's {@code elapsed_ms} is relative to the first recorded
-     * generation. {@code -1} until set.
+     * Wall-clock start of the population species recording, captured on the first snapshot so each
+     * row's {@code elapsed_ms} is relative to the first recorded generation. {@code -1} until set.
      */
     private transient long populationSpeciesStartMs = -1L;
 
     /**
-     * Per-generation, per-goal best-fitness sidecar writer. Non-null when
-     * {@link Properties#OBJECTIVE_COVERAGE_TIMELINE_ENABLED} is true.
+     * Per-generation, per-goal best-fitness sidecar writer. Non-null when {@link
+     * Properties#OBJECTIVE_COVERAGE_TIMELINE_ENABLED} is true.
      */
     protected final transient ObjectiveCoverageRecorder objectiveCoverageRecorder;
 
     /**
-     * Periodic Pareto-front fitness-vector sidecar writer. Non-null when
-     * {@link Properties#FITNESS_SPACE_SNAPSHOT_ENABLED} is true.
+     * Periodic Pareto-front fitness-vector sidecar writer. Non-null when {@link
+     * Properties#FITNESS_SPACE_SNAPSHOT_ENABLED} is true.
      */
     protected final transient FitnessSpaceSnapshotRecorder fitnessSpaceSnapshotRecorder;
 
     /**
-     * Periodic per-individual covered-branch-set sidecar writer. Non-null when
-     * {@link Properties#POPULATION_SHAPE_SNAPSHOT_ENABLED} is true.
+     * Periodic per-individual covered-branch-set sidecar writer. Non-null when {@link
+     * Properties#POPULATION_SHAPE_SNAPSHOT_ENABLED} is true.
      */
     protected final transient PopulationShapeRecorder populationShapeRecorder;
 
     /**
-     * Wall-clock start of the population shape recording, captured on the first
-     * snapshot so each row's {@code elapsed_ms} is relative to the first recorded
-     * generation. {@code -1} until set. Independent of
-     * {@link #populationSpeciesStartMs}: the two recorders can be enabled separately.
+     * Wall-clock start of the population shape recording, captured on the first snapshot so each
+     * row's {@code elapsed_ms} is relative to the first recorded generation. {@code -1} until set.
+     * Independent of {@link #populationSpeciesStartMs}: the two recorders can be enabled
+     * separately.
      */
     private transient long populationShapeStartMs = -1L;
 
     /**
-     * Per-generation offspring fate counters (vs. parent, see
-     * {@link OffspringFate}), reset at the start of {@link #breedNextGeneration()}.
-     * Cheap to maintain unconditionally: classification only reads cached
-     * fitness maps.
+     * Per-generation offspring fate counters (vs. parent, see {@link OffspringFate}), reset at the
+     * start of {@link #breedNextGeneration()}. Cheap to maintain unconditionally: classification
+     * only reads cached fitness maps.
      */
     protected transient int lastGenOffspringBred;
+
     protected transient int lastGenOffspringBetter;
     protected transient int lastGenOffspringNeutral;
     protected transient int lastGenOffspringWorse;
@@ -327,31 +318,34 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     /** Lazily created extractor for the problem-card timeline (NOOP trace sink). */
     private transient ProblemCardExtractor timelineCardExtractor;
+
     private transient Set<TestChromosome> lastCardExtractionPopulation;
     private transient int lastCardExtractionCoveredCount = -1;
     private transient String lastCardEncodedCounts = "";
 
     /** Per-generation counters for species-protection observability. */
     private transient int lastSpeciesQuotaProtectedCount;
+
     private transient int lastSpeciesNewbornProtectedCount;
     private transient int lastSpeciesIncubatorProtectedCount;
     private transient int lastSpeciesSharingAdjustedCount;
 
     /**
-     * Number of externally supplied candidates drained during the current
-     * generation's {@link #collectExternalCandidates(List)} call, before
-     * filtering/ranking decides what survives into the population snapshot.
+     * Number of externally supplied candidates drained during the current generation's {@link
+     * #collectExternalCandidates(List)} call, before filtering/ranking decides what survives into
+     * the population snapshot.
      */
     protected transient int lastGenInjectedAttemptsCount;
 
     /**
-     * Dominant source among the current generation's drained external
-     * candidates (by attempt count). Null when no tagged attempts occurred.
+     * Dominant source among the current generation's drained external candidates (by attempt
+     * count). Null when no tagged attempts occurred.
      */
     protected transient InjectionSource lastGenDominantAttemptSource;
 
     /** Per-source attempt counters for the current generation. */
     protected transient int lastGenAttemptsLlmStagnationCount;
+
     protected transient int lastGenAttemptsLlmAsyncCount;
     protected transient int lastGenAttemptsIslandImmigrantCount;
     protected transient int lastGenAttemptsLocalSearchCount;
@@ -361,10 +355,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected transient int lastGenInjectedCandidatesSurvivedCount;
 
     /**
-     * Monotonic lineage id counter used to tag freshly injected candidates.
-     * Zero means "first injected lineage in this run".
+     * Monotonic lineage id counter used to tag freshly injected candidates. Zero means "first
+     * injected lineage in this run".
      */
     private transient long nextInjectionLineageId;
+
     private transient long llmInjectedCandidatesOrphanFilteredTotal;
     private transient long llmInjectedCandidatesDeduplicatedTotal;
     private transient long llmInjectedCandidatesAdmittedTotal;
@@ -373,6 +368,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     /** Per-generation counters for blend-brood observability. */
     protected transient int lastGenBlendVariantsBredCount;
+
     protected transient int lastGenBlendVariantsAdmittedCount;
     protected transient int lastGenBlendVariantsSurvivedCount;
     protected transient int lastGenBlendMutantAdmittedCount;
@@ -394,11 +390,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private transient long llmBlendGoalPartnerFallbackTotal;
     private transient long llmAsyncStaleTargetTotal;
     private transient long llmLineageElitismReinsertedTotal;
+
     /**
-     * Running total of offspring chromosomes dropped by the orphan tripwire in
-     * {@link #processOffspringMutation(TestChromosome, TestChromosome, List,
-     * BreedingDisruptionObserver, boolean)}. Exported as
-     * {@link RuntimeVariable#Orphaned_Offspring_Dropped} after every increment.
+     * Running total of offspring chromosomes dropped by the orphan tripwire in {@link
+     * #processOffspringMutation(TestChromosome, TestChromosome, List, BreedingDisruptionObserver,
+     * boolean)}. Exported as {@link RuntimeVariable#Orphaned_Offspring_Dropped} after every
+     * increment.
      */
     private transient long orphanedOffspringDroppedTotal;
 
@@ -545,8 +542,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * This method is used to generate new individuals (offspring) from
-     * the current population. The offspring population has the same size as the parent population.
+     * This method is used to generate new individuals (offspring) from the current population. The
+     * offspring population has the same size as the parent population.
      *
      * @return offspring population
      */
@@ -650,7 +647,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
                     crossoverApplied);
         }
-        // EvoObj: collect the uncovered branch goals once per generation (not per inserted test) and
+
+        // EvoObj: collect the uncovered branch goals once per generation (not per inserted test)
+        // and
         // evict cached templates for branches that are now covered. No-op unless enabled.
         List<Branch> uncoveredBranches = null;
         List<Branch> candidateBranches = null;
@@ -661,7 +660,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             uncoveredGoalsByBranch = objectRuleUncoveredGoalsByBranch();
             uncoveredBranches = new ArrayList<>(uncoveredGoalsByBranch.keySet());
             candidateBranches = objectRuleCandidateBranches();
-            TemplateCache.getInstance().retainUncovered(uncoveredBranches);
+
+            TestGenerationContext.getInstance()
+                    .getObjectRuleRuntime()
+                    .getTemplateCache()
+                    .retainUncovered(uncoveredBranches);
         }
         // Add new randomly generate tests
         for (int i = 0; i < Properties.POPULATION * Properties.P_TEST_INSERTION; i++) {
@@ -672,15 +675,20 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 // branches with a non-empty object graph and drops repeatedly-failing ones.
                 if (objectRuleActive) {
                     Branch workingBranch =
-                            ObjectRuleBranchSelector.getInstance().selectWorkingBranch(candidateBranches);
+                            TestGenerationContext.getInstance()
+                                    .getObjectRuleRuntime()
+                                    .getBranchSelector()
+                                    .selectWorkingBranch(candidateBranches);
                     ObjectRuleSession session =
-                            TestGenerationContext.getInstance().getObjectRuleSession();
+                            TestGenerationContext.getInstance().getObjectRuleRuntime().getSession();
                     session.setWorkingTarget(
                             this.currentIteration,
                             workingBranch,
                             objectRuleWorkingGoals(workingBranch, uncoveredGoalsByBranch));
                     if (workingBranch == null
-                            && !ObjectRuleBranchSelector.getInstance()
+                            && !TestGenerationContext.getInstance()
+                                    .getObjectRuleRuntime()
+                                    .getBranchSelector()
                                     .hasPotentialCandidate(uncoveredBranches)) {
                         // The complete uncovered set, not merely the current DynaMOSA frontier,
                         // has now been classified and contains no usable graph. From this point on
@@ -743,7 +751,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * that work lazily in the first generation penalized graphless classes such as Event even
      * though no template was ever injected. The fitness functions are already installed when the
      * strategy invokes this hook, so they provide the complete branch search space without needing
-     * a population or archive state.</p>
+     * a population or archive state.
      */
     @Override
     public void prepareSearch() {
@@ -762,13 +770,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
 
         long started = System.currentTimeMillis();
-        ObjectRuleBranchSelector selector = ObjectRuleBranchSelector.getInstance();
+        ObjectRuleBranchSelector selector =
+                TestGenerationContext.getInstance().getObjectRuleRuntime().getBranchSelector();
         selector.prepareEligibility(branches);
         objectRulePermanentlyInert = !selector.hasPotentialCandidate(branches);
         long elapsed = System.currentTimeMillis() - started;
-        ObjectConstructionGraphDiagnostics.recordPreparationSummary(
-                branches.size(), selector.getEverEligibleCount(),
-                objectRulePermanentlyInert, elapsed);
         LoggingUtils.getEvoLogger().info(
                 "* Prepared EvoObj eligibility for {} branches in {} ms (eligible={}, inert={})",
                 branches.size(), elapsed, selector.getEverEligibleCount(), objectRulePermanentlyInert);
@@ -783,21 +789,17 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         return goals == null ? new ArrayList<>() : new ArrayList<>(goals);
     }
 
-    protected void recordObjectRuleTemplateSurvival() {
-        if (Properties.APPLY_OBJECT_RULE) {
-            ObjectRuleTelemetry.getInstance().recordPopulation(this.population, this.currentIteration);
-        }
-    }
-
     /**
-     * Apply mutation to offspring with optional disruption recording.
-     * Extracts the repeated mutation logic for offspring1 and offspring2.
-     * Records mutation event even when offspring is unchanged (fix: lost attempts).
+     * Apply mutation to offspring with optional disruption recording. Extracts the repeated
+     * mutation logic for offspring1 and offspring2. Records mutation event even when offspring is
+     * unchanged (fix: lost attempts).
      */
-    private void processOffspringMutation(TestChromosome offspring, TestChromosome parent,
-                                           List<TestChromosome> offspringPopulation,
-                                           BreedingDisruptionObserver observer,
-                                           boolean crossoverApplied) {
+    private void processOffspringMutation(
+            TestChromosome offspring,
+            TestChromosome parent,
+            List<TestChromosome> offspringPopulation,
+            BreedingDisruptionObserver observer,
+            boolean crossoverApplied) {
         int preMutStmts = observer.isEnabled() ? DisruptionHelper.statementCount(offspring) : 0;
 
         // Isolated probe: evaluate post-crossover state before mutation
@@ -870,21 +872,21 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Orphan tripwire. After all operators have run, scan the offspring for
-     * VariableReferences with no defining statement in the test case. Such
-     * chromosomes crash {@code TestCase.clone()} during fitness evaluation
-     * (most often inside {@code CoverageArchive.addToArchive}), which would
-     * tear down the entire search. Dropping the offspring here keeps the
-     * search alive at the cost of one wasted mutation.
+     * Orphan tripwire. After all operators have run, scan the offspring for VariableReferences with
+     * no defining statement in the test case. Such chromosomes crash {@code TestCase.clone()}
+     * during fitness evaluation (most often inside {@code CoverageArchive.addToArchive}), which
+     * would tear down the entire search. Dropping the offspring here keeps the search alive at the
+     * cost of one wasted mutation.
      *
-     * <p>The WARN log includes the operator flags and a snippet of parent /
-     * offspring code so the introducing operator can be identified offline
-     * without a deterministic repro. Counted via
+     * <p>The WARN log includes the operator flags and a snippet of parent / offspring code so the
+     * introducing operator can be identified offline without a deterministic repro. Counted via
      * {@link RuntimeVariable#Orphaned_Offspring_Dropped}.
      */
-    private boolean isOffspringOrphaned(TestChromosome offspring, TestChromosome parent,
-                                        boolean crossoverApplied,
-                                        OperatorAttemptResult mutResult) {
+    private boolean isOffspringOrphaned(
+            TestChromosome offspring,
+            TestChromosome parent,
+            boolean crossoverApplied,
+            OperatorAttemptResult mutResult) {
         List<String> orphans;
         try {
             orphans = TestParser.findOrphanedVariableReferences(offspring.getTestCase());
@@ -928,13 +930,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Select the second parent for crossover. When intra-species mating restriction
-     * is enabled and species information is available, parent2 is selected from the
-     * same species as parent1. Falls back to unrestricted selection if the species
-     * has fewer than 2 members or if parent1's species is unknown.
+     * Select the second parent for crossover. When intra-species mating restriction is enabled and
+     * species information is available, parent2 is selected from the same species as parent1. Falls
+     * back to unrestricted selection if the species has fewer than 2 members or if parent1's
+     * species is unknown.
      */
-    private TestChromosome selectParent2(TestChromosome parent1,
-                                          Map<TestChromosome, Integer> individualToSpecies) {
+    private TestChromosome selectParent2(
+            TestChromosome parent1, Map<TestChromosome, Integer> individualToSpecies) {
         if (individualToSpecies != null) {
             Integer speciesId = individualToSpecies.get(parent1);
             if (speciesId != null && currentSpeciesMap != null) {
@@ -949,9 +951,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Sets the previous generation's species map as context on the ranking function
-     * so that species-aware front-0 tiebreaking can be applied during ranking.
-     * Must be paired with {@link #clearSpeciesContextOnRanking()}.
+     * Sets the previous generation's species map as context on the ranking function so that
+     * species-aware front-0 tiebreaking can be applied during ranking. Must be paired with {@link
+     * #clearSpeciesContextOnRanking()}.
      */
     protected void setSpeciesContextOnRanking() {
         if (speciationEnabled && this.currentSpeciesMap != null
@@ -976,11 +978,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Fills a list of candidates from successive Pareto fronts, using crowding
-     * distance to break ties when the last front is too large.
+     * Fills a list of candidates from successive Pareto fronts, using crowding distance to break
+     * ties when the last front is too large.
      *
-     * @param union    the combined parent+offspring pool
-     * @param goals    the fitness goals used for crowding distance
+     * @param union the combined parent+offspring pool
+     * @param goals the fitness goals used for crowding distance
      * @param capacity maximum number of candidates to select
      * @return the ranked candidates (at most {@code capacity} individuals)
      */
@@ -1032,17 +1034,17 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Applies speciation-based survival selection. Front-0 members are always
-     * preserved; species caps are applied only to lower-front individuals.
+     * Applies speciation-based survival selection. Front-0 members are always preserved; species
+     * caps are applied only to lower-front individuals.
      *
-     * <p>On failure, falls back to filling the population from {@code rankedCandidates}
-     * in rank order.
+     * <p>On failure, falls back to filling the population from {@code rankedCandidates} in rank
+     * order.
      *
      * @param rankedCandidates the ranked candidate pool
-     * @param populationSize   desired population size
+     * @param populationSize desired population size
      */
-    protected void applySpeciationSurvival(List<TestChromosome> rankedCandidates,
-                                           int populationSize) {
+    protected void applySpeciationSurvival(
+            List<TestChromosome> rankedCandidates, int populationSize) {
         lastSpeciesQuotaProtectedCount = 0;
         lastSpeciesNewbornProtectedCount = 0;
         lastSpeciesIncubatorProtectedCount = 0;
@@ -1148,16 +1150,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Speciation-free incubation: for {@code LLM_LINEAGE_ELITISM_GENERATIONS}
-     * generations after injection, every injected lineage keeps its best
-     * member in the population. When survival selection dropped a whole
-     * active lineage, its best union member (raw candidate or brood variant —
-     * they share the lineage id) is re-inserted in place of the worst-ranked
-     * unprotected non-front-0 member. Total protected members never exceed
-     * {@code LLM_LINEAGE_ELITISM_MAX_FRACTION} of the population; youngest
-     * lineages are re-inserted first, so the oldest lose protection first at
-     * the cap. Independent of the speciation flags. On any failure the
-     * population is left exactly as survival selection produced it.
+     * Speciation-free incubation: for {@code LLM_LINEAGE_ELITISM_GENERATIONS} generations after
+     * injection, every injected lineage keeps its best member in the population. When survival
+     * selection dropped a whole active lineage, its best union member (raw candidate or brood
+     * variant — they share the lineage id) is re-inserted in place of the worst-ranked unprotected
+     * non-front-0 member. Total protected members never exceed {@code
+     * LLM_LINEAGE_ELITISM_MAX_FRACTION} of the population; youngest lineages are re-inserted first,
+     * so the oldest lose protection first at the cap. Independent of the speciation flags. On any
+     * failure the population is left exactly as survival selection produced it.
      *
      * @param union the ranked parent+offspring+injected union of this generation
      */
@@ -1242,10 +1242,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Index of the worst-ranked population member that is neither in front 0
-     * (rank 0 — never evicted) nor itself lineage-protected; -1 when nothing
-     * is evictable. Worst = highest rank, ties broken by smallest crowding
-     * distance.
+     * Index of the worst-ranked population member that is neither in front 0 (rank 0 — never
+     * evicted) nor itself lineage-protected; -1 when nothing is evictable. Worst = highest rank,
+     * ties broken by smallest crowding distance.
      */
     private int findLineageElitismEvictionIndex() {
         int worstIndex = -1;
@@ -1357,9 +1356,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Ensures that all preference-front members are present in the current
-     * population, trimming only non-front-0 individuals when target size
-     * constraints are exceeded.
+     * Ensures that all preference-front members are present in the current population, trimming
+     * only non-front-0 individuals when target size constraints are exceeded.
      */
     private void ensureFront0Preserved(List<TestChromosome> front0, int targetSize) {
         if (front0.isEmpty()) {
@@ -1394,11 +1392,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Emits per-generation metrics: parsed ratio, diversity, fronts count,
-     * and remaining/covered goal counts.
+     * Emits per-generation metrics: parsed ratio, diversity, fronts count, and remaining/covered
+     * goal counts.
      *
      * @param uncoveredGoalCount number of uncovered goals
-     * @param coveredGoalCount   number of covered goals
+     * @param coveredGoalCount number of covered goals
      */
     protected void emitGenerationMetrics(int uncoveredGoalCount, int coveredGoalCount) {
         ClientNodeLocal<TestChromosome> cn =
@@ -1462,11 +1460,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Fills {@link #lastGenOffspringSurvived}, {@link #lastGenPopNew} and
-     * {@link #lastGenAgePerSlot} from the post-selection population. Runs once
-     * per generation, before the timeline variables and sidecar row are emitted;
-     * refreshes {@link #prevPopulationIdentity} for the next generation's
-     * turnover computation.
+     * Fills {@link #lastGenOffspringSurvived}, {@link #lastGenPopNew} and {@link
+     * #lastGenAgePerSlot} from the post-selection population. Runs once per generation, before the
+     * timeline variables and sidecar row are emitted; refreshes {@link #prevPopulationIdentity} for
+     * the next generation's turnover computation.
      */
     private void computeBreedingSnapshotStats() {
         int survived = 0;
@@ -1492,13 +1489,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Records one row to the population species sidecar (if enabled) and ticks
-     * the stable assigner's dormancy bookkeeping. No-op when neither stable IDs
-     * nor the sidecar are active.
+     * Records one row to the population species sidecar (if enabled) and ticks the stable
+     * assigner's dormancy bookkeeping. No-op when neither stable IDs nor the sidecar are active.
      */
-    protected void recordPopulationSnapshot(int coveredGoalCount,
-                                            int uncoveredGoalCount,
-                                            double diversity) {
+    protected void recordPopulationSnapshot(
+            int coveredGoalCount, int uncoveredGoalCount, double diversity) {
         recordFreshInjectedSurvivorMetrics();
         SpeciesAssigner trackingAssigner = (speciesTrackingAssigner != null)
                 ? speciesTrackingAssigner : speciesAssigner;
@@ -1770,9 +1765,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Flushes the population species sidecar to disk. Called from MOSA variants'
-     * generateSolution() finally block so the file is written even if the search
-     * exits abnormally.
+     * Flushes the population species sidecar to disk. Called from MOSA variants' generateSolution()
+     * finally block so the file is written even if the search exits abnormally.
      */
     protected void flushPopulationSpeciesRecorder() {
         if (populationSpeciesRecorder != null) {
@@ -1781,8 +1775,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Flushes the objective coverage timeline sidecar to disk. Called from
-     * MOSA variants' {@code generateSolution()} finally block.
+     * Flushes the objective coverage timeline sidecar to disk. Called from MOSA variants' {@code
+     * generateSolution()} finally block.
      */
     protected void flushObjectiveCoverageRecorder() {
         if (objectiveCoverageRecorder != null) {
@@ -1791,8 +1785,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Flushes the fitness space snapshot sidecar to disk. Called from MOSA
-     * variants' {@code generateSolution()} finally block.
+     * Flushes the fitness space snapshot sidecar to disk. Called from MOSA variants' {@code
+     * generateSolution()} finally block.
      */
     protected void flushFitnessSpaceSnapshotRecorder() {
         if (fitnessSpaceSnapshotRecorder != null) {
@@ -1801,15 +1795,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Samples the problem-card type distribution over the remaining goals for
-     * the species timeline sidecar. Gated by
-     * {@link Properties#PROBLEM_CARD_TIMELINE_INTERVAL} (0 = disabled); on
-     * sampled generations, re-extraction is skipped when neither the covered
-     * goal count nor the population (by identity) changed since the last
-     * extraction — the extractor is deterministic over those inputs. Returns
-     * the most recent encoding ({@code TYPE:count} pairs sorted alphabetically,
-     * joined with {@code '|'}; empty until the first extraction), carried
-     * forward on non-sampled generations.
+     * Samples the problem-card type distribution over the remaining goals for the species timeline
+     * sidecar. Gated by {@link Properties#PROBLEM_CARD_TIMELINE_INTERVAL} (0 = disabled); on
+     * sampled generations, re-extraction is skipped when neither the covered goal count nor the
+     * population (by identity) changed since the last extraction — the extractor is deterministic
+     * over those inputs. Returns the most recent encoding ({@code TYPE:count} pairs sorted
+     * alphabetically, joined with {@code '|'}; empty until the first extraction), carried forward
+     * on non-sampled generations.
      */
     private String sampleProblemCardDistribution(int coveredGoalCount) {
         int interval = Properties.PROBLEM_CARD_TIMELINE_INTERVAL;
@@ -1852,8 +1844,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Flushes the population shape sidecar to disk. Called from MOSA
-     * variants' {@code generateSolution()} finally block.
+     * Flushes the population shape sidecar to disk. Called from MOSA variants' {@code
+     * generateSolution()} finally block.
      */
     protected void flushPopulationShapeRecorder() {
         if (populationShapeRecorder != null) {
@@ -1880,10 +1872,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Make a feature token safe to write as a single CSV cell joined by
-     * {@code '|'}: replace the CSV/list separators ({@code ','}, {@code '|'},
-     * {@code ';'}) and any line/tab breaks (literal string values can contain
-     * embedded newlines, which would otherwise split the row) with {@code '_'}.
+     * Make a feature token safe to write as a single CSV cell joined by {@code '|'}: replace the
+     * CSV/list separators ({@code ','}, {@code '|'}, {@code ';'}) and any line/tab breaks (literal
+     * string values can contain embedded newlines, which would otherwise split the row) with {@code
+     * '_'}.
      */
     private static String sanitizeCsvToken(String s) {
         return s.replace(',', '_').replace('|', '_').replace(';', '_')
@@ -1907,12 +1899,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Drains all registered {@link #externalCandidateSources}, evaluates
-     * fitness for each candidate, and appends them to the given union list.
+     * Drains all registered {@link #externalCandidateSources}, evaluates fitness for each
+     * candidate, and appends them to the given union list.
      *
-     * <p>This is the single integration point for all external candidates
-     * (island immigrants, LLM async producer, LLM stagnation, etc.).
-     * It also drains any pending LS-improved tests staged by
+     * <p>This is the single integration point for all external candidates (island immigrants, LLM
+     * async producer, LLM stagnation, etc.). It also drains any pending LS-improved tests staged by
      * {@link #applyLocalSearch(TestSuiteChromosome)}.
      *
      * @param union the parent+offspring union to extend
@@ -2147,15 +2138,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Renders the primitive/String literal values feeding the parameters of
-     * {@code statement}, so that two calls with the same target but different
-     * argument literals (e.g. the single-axis variants requested by
-     * diagnostic prompts) produce distinct dedup signatures. Parameters that
-     * are themselves the result of another statement (constructor/method
-     * return values) are not rendered here; their shape is already captured
-     * by that statement's own signature segment.
+     * Renders the primitive/String literal values feeding the parameters of {@code statement}, so
+     * that two calls with the same target but different argument literals (e.g. the single-axis
+     * variants requested by diagnostic prompts) produce distinct dedup signatures. Parameters that
+     * are themselves the result of another statement (constructor/method return values) are not
+     * rendered here; their shape is already captured by that statement's own signature segment.
      */
-    private String literalArgumentsSignature(TestCase testCase, EntityWithParametersStatement statement) {
+    private String literalArgumentsSignature(
+            TestCase testCase, EntityWithParametersStatement statement) {
         StringBuilder literals = new StringBuilder();
         for (VariableReference parameter : statement.getParameterReferences()) {
             int position = parameter.getStPosition();
@@ -2183,12 +2173,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Removes from {@code remainingUncovered} the goals newly covered by the
-     * candidate and returns them — the goal identities feed the problem-card
-     * log's COVERED_BY_INJECTION rows.
+     * Removes from {@code remainingUncovered} the goals newly covered by the candidate and returns
+     * them — the goal identities feed the problem-card log's COVERED_BY_INJECTION rows.
      */
-    private List<TestFitnessFunction> coveredGoalsAndRemoveList(TestChromosome candidate,
-                                                                Set<TestFitnessFunction> remainingUncovered) {
+    private List<TestFitnessFunction> coveredGoalsAndRemoveList(
+            TestChromosome candidate, Set<TestFitnessFunction> remainingUncovered) {
         if (candidate == null || remainingUncovered == null || remainingUncovered.isEmpty()) {
             return Collections.emptyList();
         }
@@ -2205,13 +2194,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * True when an injection's coverage gains should be attributed to
-     * problem-card types: the candidate came from a card-informed LLM call
-     * (SYNC stagnation or ASYNC producer) and its metadata names the cards.
-     * Package-visible for unit testing.
+     * True when an injection's coverage gains should be attributed to problem-card types: the
+     * candidate came from a card-informed LLM call (SYNC stagnation or ASYNC producer) and its
+     * metadata names the cards. Package-visible for unit testing.
      */
-    static boolean shouldAttributeDiagnostics(InjectionSource tag,
-                                              InjectionAttemptMetadata metadata) {
+    static boolean shouldAttributeDiagnostics(
+            InjectionSource tag, InjectionAttemptMetadata metadata) {
         return isLlmInjectionSource(tag)
                 && metadata != null
                 && metadata.getDiagnosticCardTypes() != null
@@ -2311,9 +2299,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Encodes this generation's per-channel union admissions for the species
-     * timeline sidecar, e.g. {@code raw:2|mut:1|xg:1|xt:0}. Empty when
-     * blending is disabled, so pre-blending rows stay unchanged.
+     * Encodes this generation's per-channel union admissions for the species timeline sidecar, e.g.
+     * {@code raw:2|mut:1|xg:1|xt:0}. Empty when blending is disabled, so pre-blending rows stay
+     * unchanged.
      */
     private String encodeBlendChannelAdmissions() {
         if (!Properties.LLM_BLEND_ENABLED) {
@@ -2326,14 +2314,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Counts a drained LLM_ASYNC candidate whose prompt-time target goals were
-     * all covered by the time it arrived. Supports the staleness analysis of
-     * async injection; sync candidates are exempt because their results land
-     * in the same generation that prompted them.
+     * Counts a drained LLM_ASYNC candidate whose prompt-time target goals were all covered by the
+     * time it arrived. Supports the staleness analysis of async injection; sync candidates are
+     * exempt because their results land in the same generation that prompted them.
      */
-    private void maybeRecordStaleTarget(InjectionSource tag,
-                                        InjectionAttemptMetadata metadata,
-                                        Set<TestFitnessFunction> remainingUncovered) {
+    private void maybeRecordStaleTarget(
+            InjectionSource tag,
+            InjectionAttemptMetadata metadata,
+            Set<TestFitnessFunction> remainingUncovered) {
         if (tag != InjectionSource.LLM_ASYNC || metadata == null
                 || metadata.getTargetGoals().isEmpty() || remainingUncovered == null) {
             return;
@@ -2349,23 +2337,22 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Breeds a brood of variants around a freshly admitted LLM candidate and
-     * admits the best few to the union ("evaluate broadly, admit narrowly").
+     * Breeds a brood of variants around a freshly admitted LLM candidate and admits the best few to
+     * the union ("evaluate broadly, admit narrowly").
      *
-     * <p>All variants are evaluated through {@link #calculateFitness}, so any
-     * goal a variant covers is banked in the archive at evaluation time —
-     * discarding a variant afterwards loses nothing. Variants share the raw
-     * candidate's injection lineage (no fresh lineage ids), so incubation,
-     * lineage elitism and attempt attribution treat raw + blends as one
-     * lineage.
+     * <p>All variants are evaluated through {@link #calculateFitness}, so any goal a variant covers
+     * is banked in the archive at evaluation time — discarding a variant afterwards loses nothing.
+     * Variants share the raw candidate's injection lineage (no fresh lineage ids), so incubation,
+     * lineage elitism and attempt attribution treat raw + blends as one lineage.
      */
-    private void blendInjectedCandidate(TestChromosome rawCandidate,
-                                        InjectionSource tag,
-                                        InjectionAttemptMetadata metadata,
-                                        List<TestChromosome> union,
-                                        Set<TestFitnessFunction> remainingUncovered,
-                                        Map<String, Integer> gainsByAttemptId,
-                                        Set<String> seenInjectedCallSignatures) {
+    private void blendInjectedCandidate(
+            TestChromosome rawCandidate,
+            InjectionSource tag,
+            InjectionAttemptMetadata metadata,
+            List<TestChromosome> union,
+            Set<TestFitnessFunction> remainingUncovered,
+            Map<String, Integer> gainsByAttemptId,
+            Set<String> seenInjectedCallSignatures) {
         if (blendEvalsSpentThisGen >= Properties.LLM_BLEND_MAX_EVALS_PER_GEN || this.isFinished()) {
             return;
         }
@@ -2543,14 +2530,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Re-tags a brood variant after clone() cleared all injection fields: same
-     * source and lineage as the raw candidate (no fresh lineage id), current
-     * generation, inherited card types, plus channel and descent marks.
+     * Re-tags a brood variant after clone() cleared all injection fields: same source and lineage
+     * as the raw candidate (no fresh lineage id), current generation, inherited card types, plus
+     * channel and descent marks.
      */
-    private TestChromosome prepareBlendVariant(TestChromosome variant,
-                                               TestChromosome rawCandidate,
-                                               TestChromosome partner,
-                                               BlendChannel channel) {
+    private TestChromosome prepareBlendVariant(
+            TestChromosome variant,
+            TestChromosome rawCandidate,
+            TestChromosome partner,
+            BlendChannel channel) {
         this.removeUnusedVariables(variant);
         variant.setInjectionSource(rawCandidate.getInjectionSource());
         variant.setInjectionLineageId(rawCandidate.getInjectionLineageId());
@@ -2597,14 +2585,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Resolves the goal a blend should optimize for: the candidate's
-     * closest-miss goal among the metadata target goals still uncovered,
-     * falling back to its closest miss over all remaining uncovered goals.
-     * Null when the candidate is equally far from everything (e.g. crashed).
+     * Resolves the goal a blend should optimize for: the candidate's closest-miss goal among the
+     * metadata target goals still uncovered, falling back to its closest miss over all remaining
+     * uncovered goals. Null when the candidate is equally far from everything (e.g. crashed).
      */
-    private TestFitnessFunction resolveBlendTargetGoal(TestChromosome rawCandidate,
-                                                       InjectionAttemptMetadata metadata,
-                                                       Set<TestFitnessFunction> remainingUncovered) {
+    private TestFitnessFunction resolveBlendTargetGoal(
+            TestChromosome rawCandidate,
+            InjectionAttemptMetadata metadata,
+            Set<TestFitnessFunction> remainingUncovered) {
         TestFitnessFunction best = null;
         double bestFitness = Double.MAX_VALUE;
         if (metadata != null) {
@@ -2637,10 +2625,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Population member with the lowest fitness on the target goal — the GA's
-     * best partial progress toward it. Excludes members that are themselves
-     * unproven injected material (LLM-tagged, incubating, or under lineage
-     * elitism). Ties broken by smaller test size.
+     * Population member with the lowest fitness on the target goal — the GA's best partial progress
+     * toward it. Excludes members that are themselves unproven injected material (LLM-tagged,
+     * incubating, or under lineage elitism). Ties broken by smaller test size.
      */
     private TestChromosome resolveGoalPartner(TestFitnessFunction goal) {
         TestChromosome best = null;
@@ -2694,9 +2681,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * True while an injected lineage member is within its lineage-elitism
-     * protection window (the speciation-free incubation analogue of
-     * {@link #isIncubatorActive}).
+     * True while an injected lineage member is within its lineage-elitism protection window (the
+     * speciation-free incubation analogue of {@link #isIncubatorActive}).
      */
     private boolean isLineageElitismActive(TestChromosome tc) {
         if (tc == null || Properties.LLM_LINEAGE_ELITISM_GENERATIONS <= 0) {
@@ -2729,13 +2715,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Registers external candidate sources shared by all MOSA variants
-     * (async producer, stagnation detector). Subclasses should override
-     * {@link #registerAdditionalCandidateSources()} to add variant-specific
-     * sources (e.g., island immigrants for MOSA).
+     * Registers external candidate sources shared by all MOSA variants (async producer, stagnation
+     * detector). Subclasses should override {@link #registerAdditionalCandidateSources()} to add
+     * variant-specific sources (e.g., island immigrants for MOSA).
      *
-     * @param coveredGoalCountSupplier  supplies the current covered goal count
-     * @param uncoveredGoalsSupplier    supplies the current uncovered goals
+     * @param coveredGoalCountSupplier supplies the current covered goal count
+     * @param uncoveredGoalsSupplier supplies the current uncovered goals
      */
     protected void registerExternalCandidateSources(
             java.util.function.IntSupplier coveredGoalCountSupplier,
@@ -2828,13 +2813,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Single drive step for the stagnation helper: snapshots the search state
-     * (covered count, uncovered goals, population), calls {@code maybeSubmit}
-     * so the helper can decide whether to fire (SYNC) or enqueue (ASYNC) an
-     * LLM call, and drains any tests ready to be merged into the current
-     * generation's union. Factored out of the lambda registered in
-     * {@link #registerExternalCandidateSources} so the snapshot logic lives
-     * in one named place — easier to extend (e.g., tracing) and to test.
+     * Single drive step for the stagnation helper: snapshots the search state (covered count,
+     * uncovered goals, population), calls {@code maybeSubmit} so the helper can decide whether to
+     * fire (SYNC) or enqueue (ASYNC) an LLM call, and drains any tests ready to be merged into the
+     * current generation's union. Factored out of the lambda registered in {@link
+     * #registerExternalCandidateSources} so the snapshot logic lives in one named place — easier to
+     * extend (e.g., tracing) and to test.
      */
     private List<TestChromosome> driveStagnationHelper(
             org.evosuite.llm.search.StagnationLlmHelper helper,
@@ -2848,8 +2832,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Hook for subclasses to register additional candidate sources beyond
-     * the shared LLM sources. Default is a no-op.
+     * Hook for subclasses to register additional candidate sources beyond the shared LLM sources.
+     * Default is a no-op.
      */
     protected void registerAdditionalCandidateSources() {
         // No-op by default
@@ -2880,9 +2864,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * This method checks whether the test has only primitive type statements. Indeed,
-     * crossover and mutation can lead to tests with no method calls (methods or constructors
-     * call), thus, when executed they will never cover something in the class under test.
+     * This method checks whether the test has only primitive type statements. Indeed, crossover and
+     * mutation can lead to tests with no method calls (methods or constructors call), thus, when
+     * executed they will never cover something in the class under test.
      *
      * @param test to check
      * @return true if the test has at least one method or constructor call (i.e., the test may
@@ -2909,8 +2893,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
     /**
      * This method clears the cached results for a specific chromosome (e.g., fitness function
-     * values computed in previous generations). Since a test case is changed via crossover
-     * and/or mutation, previous data must be recomputed.
+     * values computed in previous generations). Since a test case is changed via crossover and/or
+     * mutation, previous data must be recomputed.
      *
      * @param chromosome TestChromosome to clean
      */
@@ -2921,9 +2905,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * When a test case is changed via crossover and/or mutation, it can contains some
-     * primitive variables that are not used as input (or to store the output) of method calls.
-     * Thus, this method removes all these "trash" statements.
+     * When a test case is changed via crossover and/or mutation, it can contains some primitive
+     * variables that are not used as input (or to store the output) of method calls. Thus, this
+     * method removes all these "trash" statements.
      *
      * @param chromosome a {@link org.evosuite.testcase.TestChromosome} object.
      * @return true or false depending on whether "unused variables" are removed
@@ -2956,8 +2940,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * This method extracts non-dominated solutions (tests) according to all covered goal
-     * (e.g., branches).
+     * This method extracts non-dominated solutions (tests) according to all covered goal (e.g.,
+     * branches).
      *
      * @param solutions list of test cases to analyze with the "dominance" relationship
      * @return the non-dominated set of test cases
@@ -3092,8 +3076,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Generates a {@link org.evosuite.testsuite.TestSuiteChromosome} object with all test cases
-     * in the archive.
+     * Generates a {@link org.evosuite.testsuite.TestSuiteChromosome} object with all test cases in
+     * the archive.
      *
      * @return a {@link org.evosuite.testsuite.TestSuiteChromosome} object.
      */
@@ -3106,14 +3090,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     ///// ----------------------
 
     /**
-     * Some methods of the super class (i.e., {@link org.evosuite.ga.metaheuristics.GeneticAlgorithm}
-     * class) require a {@link org.evosuite.testsuite.TestSuiteChromosome} object. However, MOSA
-     * evolves {@link TestChromosome} objects. Therefore, we must override
-     * those methods and create a {@link org.evosuite.testsuite.TestSuiteChromosome} object with all
-     * the evolved {@link TestChromosome} objects (either in the population or
-     * in the {@link org.evosuite.ga.archive.Archive}.
+     * Some methods of the super class (i.e., {@link
+     * org.evosuite.ga.metaheuristics.GeneticAlgorithm} class) require a {@link
+     * org.evosuite.testsuite.TestSuiteChromosome} object. However, MOSA evolves {@link
+     * TestChromosome} objects. Therefore, we must override those methods and create a {@link
+     * org.evosuite.testsuite.TestSuiteChromosome} object with all the evolved {@link
+     * TestChromosome} objects (either in the population or in the {@link
+     * org.evosuite.ga.archive.Archive}.
      */
-
     @Override
     protected void notifySearchFinished() {
         // Flush disruption analysis sidecar before search listeners fire
@@ -3135,9 +3119,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Emit disruption analysis runtime variables to statistics.csv.
-     * Safe to call when disruption analysis is disabled (emits zeros/empty).
-     * Uses resolveSidecarPath() so the path is deterministic before flush.
+     * Emit disruption analysis runtime variables to statistics.csv. Safe to call when disruption
+     * analysis is disabled (emits zeros/empty). Uses resolveSidecarPath() so the path is
+     * deterministic before flush.
      */
     protected void emitDisruptionStats(ClientNodeLocal<?> clientNode) {
         if (DisruptionRecorder.isEnabled()) {
@@ -3168,24 +3152,23 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Evaluates all fitness functions on the given chromosome and updates the
-     * archive's coverage tracking.
+     * Evaluates all fitness functions on the given chromosome and updates the archive's coverage
+     * tracking.
      *
-     * <p><h3>Subclass contract</h3>
+     * <h3>Subclass contract</h3>
      *
-     * <p>This default implementation evaluates <em>every</em> fitness function
-     * registered via {@link #addFitnessFunction} against the chromosome.
-     * {@code MOSA} inherits this behavior (O(n × m) where n=chromosomes,
-     * m=all goals).
+     * <p>This default implementation evaluates <em>every</em> fitness function registered via
+     * {@link #addFitnessFunction} against the chromosome. {@code MOSA} inherits this behavior (O(n
+     * × m) where n=chromosomes, m=all goals).
      *
-     * <p>{@code DynaMOSA} <strong>overrides</strong> this method to delegate
-     * to {@link org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager#calculateFitness},
-     * which evaluates only the structurally reachable goals for the current
-     * generation. This is a key performance optimization for DynaMOSA.
+     * <p>{@code DynaMOSA} <strong>overrides</strong> this method to delegate to {@link
+     * org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager#calculateFitness}, which
+     * evaluates only the structurally reachable goals for the current generation. This is a key
+     * performance optimization for DynaMOSA.
      *
-     * <p>Callers in shared code (e.g., {@code breedNextGeneration()},
-     * {@code collectExternalCandidates()}) should be aware that the set of
-     * evaluated goals varies by subclass.
+     * <p>Callers in shared code (e.g., {@code breedNextGeneration()}, {@code
+     * collectExternalCandidates()}) should be aware that the set of evaluated goals varies by
+     * subclass.
      *
      * @param c the chromosome to evaluate
      */
@@ -3193,7 +3176,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected void calculateFitness(TestChromosome c) {
         this.fitnessFunctions.forEach(fitnessFunction -> fitnessFunction.getFitness(c));
 
-        // if one of the coverage criterion is Criterion.EXCEPTION, then we have to analyse the results
+        // if one of the coverage criterion is Criterion.EXCEPTION, then we have to analyse the
+        // results
         // of the execution to look for generated exceptions
         if (ArrayUtil.contains(Properties.CRITERION, Properties.Criterion.EXCEPTION)) {
             ExceptionCoverageSuiteFitness.calculateExceptionInfo(
@@ -3215,41 +3199,37 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Applies local search on a snapshot of archive solutions and persists
-     * improvements back into the MOSA search state.
+     * Applies local search on a snapshot of archive solutions and persists improvements back into
+     * the MOSA search state.
      *
      * <h3>Persistence semantics</h3>
      *
-     * <p>{@code testSuite} is a transient object built from
-     * {@link #generateSuite()}. The adapter delegates to
-     * {@link TestSuiteLocalSearch} which may modify or add test chromosomes
-     * in-place via AVM, DSE, or LLM search. Suite-level fitness functions
-     * called during that process already update the global {@link Archive}.
+     * <p>{@code testSuite} is a transient object built from {@link #generateSuite()}. The adapter
+     * delegates to {@link TestSuiteLocalSearch} which may modify or add test chromosomes in-place
+     * via AVM, DSE, or LLM search. Suite-level fitness functions called during that process already
+     * update the global {@link Archive}.
      *
-     * <p>However, MOSA/DynaMOSA also maintain per-goal fitness bookkeeping
-     * (e.g., {@code MultiCriteriaManager} in DynaMOSA) that is only updated
-     * through {@link #calculateFitness(TestChromosome)}. Therefore, after
-     * local search completes, we re-evaluate the suite's test chromosomes
-     * through the MOSA-specific fitness path so that:
+     * <p>However, MOSA/DynaMOSA also maintain per-goal fitness bookkeeping (e.g., {@code
+     * MultiCriteriaManager} in DynaMOSA) that is only updated through {@link
+     * #calculateFitness(TestChromosome)}. Therefore, after local search completes, we re-evaluate
+     * the suite's test chromosomes through the MOSA-specific fitness path so that:
+     *
      * <ul>
-     *   <li>The archive is confirmed up-to-date via test-level fitness.</li>
-     *   <li>DynaMOSA's goal manager unlocks structurally dependent goals.</li>
-     *   <li>The budget monitor records the coverage high-water mark.</li>
+     *   <li>The archive is confirmed up-to-date via test-level fitness.
+     *   <li>DynaMOSA's goal manager unlocks structurally dependent goals.
+     *   <li>The budget monitor records the coverage high-water mark.
      * </ul>
      *
-     * <p>Population injection is handled indirectly: LS-sourced tests are
-     * staged in {@link #pendingLsTests} and drained into the next
-     * generation's union by {@link #collectExternalCandidates}. Only
-     * truly LS-introduced tests (post-LS minus pre-LS delta) are staged,
-     * so unchanged archive snapshots are never injected.
+     * <p>Population injection is handled indirectly: LS-sourced tests are staged in {@link
+     * #pendingLsTests} and drained into the next generation's union by {@link
+     * #collectExternalCandidates}. Only truly LS-introduced tests (post-LS minus pre-LS delta) are
+     * staged, so unchanged archive snapshots are never injected.
      *
      * <h3>Conditional execution</h3>
      *
-     * <p>Re-evaluation only runs when {@link #shouldApplyLocalSearch()}
-     * returned true during the adapter's delegation (tracked via
-     * {@link #lastLocalSearchScheduled}). This avoids unnecessary fitness
-     * evaluations and budget consumption when LS is skipped due to
-     * rate/probability gating.
+     * <p>Re-evaluation only runs when {@link #shouldApplyLocalSearch()} returned true during the
+     * adapter's delegation (tracked via {@link #lastLocalSearchScheduled}). This avoids unnecessary
+     * fitness evaluations and budget consumption when LS is skipped due to rate/probability gating.
      *
      * @param testSuite the test suite (typically from {@link #generateSuite()})
      */
@@ -3279,14 +3259,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Stages LS-produced tests for injection into the next generation's union.
-     * Only tests that are new in the post-LS suite (not present in the pre-LS
-     * snapshot) and not already in the current population are staged.
-     * This prevents unchanged archive snapshot tests from being incorrectly
+     * Stages LS-produced tests for injection into the next generation's union. Only tests that are
+     * new in the post-LS suite (not present in the pre-LS snapshot) and not already in the current
+     * population are staged. This prevents unchanged archive snapshot tests from being incorrectly
      * treated as LS outputs.
      */
-    private void stageLsTestsForPersistence(List<TestChromosome> postLsTests,
-                                            Set<TestChromosome> preLsTests) {
+    private void stageLsTestsForPersistence(
+            List<TestChromosome> postLsTests, Set<TestChromosome> preLsTests) {
         pendingLsTests.clear();
         Set<TestChromosome> existing = Collections.newSetFromMap(new IdentityHashMap<>());
         existing.addAll(this.population);
@@ -3302,10 +3281,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Overrides the gating check to track whether local search was scheduled.
-     * The adapter delegates LS scheduling to this MOSA instance; the flag
-     * is read by {@link #applyLocalSearch(TestSuiteChromosome)} to decide
-     * whether post-LS re-evaluation is needed.
+     * Overrides the gating check to track whether local search was scheduled. The adapter delegates
+     * LS scheduling to this MOSA instance; the flag is read by {@link
+     * #applyLocalSearch(TestSuiteChromosome)} to decide whether post-LS re-evaluation is needed.
      */
     @Override
     protected boolean shouldApplyLocalSearch() {
