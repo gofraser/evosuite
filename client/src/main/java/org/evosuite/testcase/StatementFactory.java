@@ -236,10 +236,20 @@ public class StatementFactory {
 
     /**
      * Listeners notified the first time a class is registered as allocation-sensitive
-     * at runtime. The GA subscribes to chop existing tests in its current best
-     * suite/archive — by the time we learn a class is dangerous, the search may have
-     * already produced thousands of statements using it, which then dominate
-     * minimization runtime if left in place.
+     * at runtime.
+     *
+     * <p>Nothing subscribes, deliberately. A previous subscriber chopped every archived
+     * test at its first use of the newly registered class, which was wrong twice over:
+     * registration caps oversized <em>arguments</em>, not the call, so it deleted safe
+     * calls along with dangerous ones; and it mutated the archive's stored chromosomes
+     * in place without returning their goals to the uncovered set, so those goals stayed
+     * marked covered by tests that no longer covered them and could never be re-covered.
+     * Whole runs lost their coverage that way.
+     *
+     * <p>Nothing needs to react here: the caps in {@code ConstructorStatement} and
+     * {@code MethodStatement} reject an oversized call on every execution, including
+     * during minimization, at per-argument granularity. Any new subscriber must not
+     * mutate archived chromosomes.
      */
     private static final java.util.List<java.util.function.Consumer<String>>
             allocationSensitiveListeners = new java.util.concurrent.CopyOnWriteArrayList<>();

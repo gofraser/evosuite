@@ -287,7 +287,6 @@ public class TestSuiteGenerator {
         // criteria that this run is not going to use.
         dropCallGraphDependentCriteriaIfNoCallGraph();
         TestSuiteGeneratorHelper.printTestCriterion();
-        org.evosuite.testcase.AllocationSensitiveSuitePruner.install();
 
         if (Properties.CRITERION.length == 0) {
             return TestGenerationResultBuilder.buildErrorResult("No testable code found (no coverage goals)");
