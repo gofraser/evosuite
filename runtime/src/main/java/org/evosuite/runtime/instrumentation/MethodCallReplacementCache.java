@@ -37,7 +37,9 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -82,23 +84,23 @@ public class MethodCallReplacementCache {
             String headlessSwing = PackageInfo.getNameWithSlash(
                     org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class);
             addReplacementCall(new MethodCallReplacement("javax/swing/JList", "setDragEnabled",
-                    "(Z)V", Opcodes.INVOKESTATIC,
+                    "(Z)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setDragEnabled",
                     "(Ljavax/swing/JList;Z)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JTree", "setDragEnabled",
-                    "(Z)V", Opcodes.INVOKESTATIC,
+                    "(Z)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setDragEnabled",
                     "(Ljavax/swing/JTree;Z)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JTable", "setDragEnabled",
-                    "(Z)V", Opcodes.INVOKESTATIC,
+                    "(Z)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setDragEnabled",
                     "(Ljavax/swing/JTable;Z)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JFileChooser", "setDragEnabled",
-                    "(Z)V", Opcodes.INVOKESTATIC,
+                    "(Z)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setDragEnabled",
                     "(Ljavax/swing/JFileChooser;Z)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JComponent", "setDropTarget",
-                    "(Ljava/awt/dnd/DropTarget;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/awt/dnd/DropTarget;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setDropTarget",
                     "(Ljavax/swing/JComponent;Ljava/awt/dnd/DropTarget;)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JComboBox", "setSelectedItem",
@@ -147,7 +149,7 @@ public class MethodCallReplacementCache {
                     headlessSwing, "replacement_showColorDialog",
                     "(Ljava/awt/Component;Ljava/lang/String;Ljava/awt/Color;)Ljava/awt/Color;", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Component", "setMixingCutoutShape",
-                    "(Ljava/awt/Shape;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/awt/Shape;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setMixingCutoutShape",
                     "(Ljava/awt/Component;Ljava/awt/Shape;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "isDesktopSupported",
@@ -159,27 +161,27 @@ public class MethodCallReplacementCache {
                     headlessSwing, "replacement_getDesktop",
                     "()Ljava/awt/Desktop;", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "open",
-                    "(Ljava/io/File;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/io/File;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_desktopOpen",
                     "(Ljava/awt/Desktop;Ljava/io/File;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "edit",
-                    "(Ljava/io/File;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/io/File;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_desktopEdit",
                     "(Ljava/awt/Desktop;Ljava/io/File;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "print",
-                    "(Ljava/io/File;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/io/File;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_desktopPrint",
                     "(Ljava/awt/Desktop;Ljava/io/File;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "browse",
-                    "(Ljava/net/URI;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/net/URI;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_desktopBrowse",
                     "(Ljava/awt/Desktop;Ljava/net/URI;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "mail",
-                    "()V", Opcodes.INVOKESTATIC,
+                    "()V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_desktopMail",
                     "(Ljava/awt/Desktop;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Desktop", "mail",
-                    "(Ljava/net/URI;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/net/URI;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_desktopMail",
                     "(Ljava/awt/Desktop;Ljava/net/URI;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/SystemTray", "isSupported",
@@ -191,11 +193,11 @@ public class MethodCallReplacementCache {
                     headlessSwing, "replacement_getSystemTray",
                     "()Ljava/awt/SystemTray;", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/SystemTray", "add",
-                    "(Ljava/awt/TrayIcon;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/awt/TrayIcon;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_systemTrayAdd",
                     "(Ljava/awt/SystemTray;Ljava/awt/TrayIcon;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/SystemTray", "remove",
-                    "(Ljava/awt/TrayIcon;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/awt/TrayIcon;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_systemTrayRemove",
                     "(Ljava/awt/SystemTray;Ljava/awt/TrayIcon;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Robot", "<init>",
@@ -207,7 +209,7 @@ public class MethodCallReplacementCache {
                     headlessSwing, "replacement_newRobot",
                     "(Ljava/awt/GraphicsDevice;)Ljava/awt/Robot;", true, true));
             addReplacementCall(new MethodCallReplacement("java/awt/Robot", "createScreenCapture",
-                    "(Ljava/awt/Rectangle;)Ljava/awt/image/BufferedImage;", Opcodes.INVOKESTATIC,
+                    "(Ljava/awt/Rectangle;)Ljava/awt/image/BufferedImage;", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_robotCreateScreenCapture",
                     "(Ljava/awt/Robot;Ljava/awt/Rectangle;)Ljava/awt/image/BufferedImage;",
                     false, false));
@@ -234,7 +236,7 @@ public class MethodCallReplacementCache {
                     "replacement_getLocation",
                     "(Ljava/security/CodeSource;)Ljava/net/URL;", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Component", "setCursor",
-                    "(Ljava/awt/Cursor;)V", Opcodes.INVOKESTATIC,
+                    "(Ljava/awt/Cursor;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_setCursor",
                     "(Ljava/awt/Component;Ljava/awt/Cursor;)V", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/Container", "add",
@@ -639,6 +641,20 @@ public class MethodCallReplacementCache {
     // }
 
     /**
+     * All registered replacement calls, ie the ones dispatched with INVOKESTATIC. Exposed so that
+     * consistency of the table can be checked.
+     *
+     * @return a {@link java.util.Collection} object.
+     */
+    Collection<MethodCallReplacement> getAllReplacementCalls() {
+        List<MethodCallReplacement> all = new ArrayList<>();
+        for (Map<String, MethodCallReplacement> perClass : replacementCalls.values()) {
+            all.addAll(perClass.values());
+        }
+        return all;
+    }
+
+    /**
      * Ideally, all mocking should be handled by either OverrideMock or
      * StaticReplacementMock. However, even in such cases, we would not be able
      * to get mocks from classes that are not instrumented (eg, other Java API
@@ -912,8 +928,11 @@ public class MethodCallReplacementCache {
                         mockedArgumentTypes[i + 1] = argumentTypes[i];
                     }
                     String mockedDesc = Type.getMethodDescriptor(Type.getReturnType(m), mockedArgumentTypes);
+                    // Instance methods declared on an interface are called with INVOKEINTERFACE,
+                    // not INVOKEVIRTUAL (eg java.nio.file.Path, java.lang.ProcessHandle).
+                    int originalOpcode = target.isInterface() ? Opcodes.INVOKEINTERFACE : Opcodes.INVOKEVIRTUAL;
                     addReplacementCall(new MethodCallReplacement(target.getCanonicalName().replace('.', '/'),
-                            m.getName(), desc, Opcodes.INVOKEVIRTUAL, mockClass.getCanonicalName().replace('.', '/'),
+                            m.getName(), desc, originalOpcode, mockClass.getCanonicalName().replace('.', '/'),
                             m.getName(), mockedDesc, false, false));
                 } else {
                     logger.debug("Skipping non-static mock method: {}", mockMethod);

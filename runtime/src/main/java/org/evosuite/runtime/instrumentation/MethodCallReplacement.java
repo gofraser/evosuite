@@ -42,6 +42,11 @@ public class MethodCallReplacement {
 
     private final String methodName;
     private final String desc;
+
+    /**
+     * The opcode the original call is expected to be invoked with. This is documentation only:
+     * the opcode actually observed at the call site is what gets re-emitted.
+     */
     private final int origOpcode;
 
     private final String replacementClassName;
@@ -59,7 +64,8 @@ public class MethodCallReplacement {
      * @param className             the name of the class
      * @param methodName            the name of the method
      * @param desc                  the method descriptor
-     * @param opcode                the opcode
+     * @param opcode                the opcode the original call is expected to use. Advisory
+     *                              only: re-emission uses the opcode observed at the call site
      * @param replacementClassName  the replacement class name
      * @param replacementMethodName the replacement method name
      * @param replacementDesc       the replacement method descriptor
@@ -100,14 +106,25 @@ public class MethodCallReplacement {
     /**
      * <p>insertMethodCall.</p>
      *
-     * @param mv     a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementMethodAdapter} object.
-     * @param opcode a int.
+     * @param mv                  a {@link org.evosuite.runtime.instrumentation.MethodCallReplacementMethodAdapter}
+     *                            object.
+     * @param opcode              the opcode used to invoke the replacement method.
+     * @param originalOpcode      the opcode ASM reported for the call being replaced. This is used
+     *                            to re-emit the original call in the "mocking disabled" branch.
+     *                            The opcode stored in the replacement table is only advisory, so
+     *                            we always trust what we actually observed at the call site.
+     * @param originalIsInterface the {@code itf} flag ASM reported for the call being replaced.
+     * @param uninitialisedReferenceIsDuplicated whether the {@code NEW} of the object under
+     *                            construction was followed by a {@code DUP}. Only relevant for
+     *                            constructor-to-static-factory replacements.
      */
-    public void insertMethodCall(MethodCallReplacementMethodAdapter mv, int opcode) {
+    public void insertMethodCall(MethodCallReplacementMethodAdapter mv, int opcode, int originalOpcode,
+                                 boolean originalIsInterface, boolean uninitialisedReferenceIsDuplicated) {
         if (popUninitialisedReference) {
-            // Constructor-to-static-factory replacement:
-            // stack before invokespecial is [uninit, uninit, arg1..argN].
-            // We remove both uninitialized refs and invoke factory with args only.
+            // Constructor-to-static-factory replacement. javac emits either
+            //   NEW X; DUP; arg1..argN; INVOKESPECIAL X.<init>   if the new object is used, or
+            //   NEW X;      arg1..argN; INVOKESPECIAL X.<init>   if it is immediately discarded.
+            // Only the first shape leaves two uninitialized references on the stack.
             Type[] args = Type.getArgumentTypes(desc);
             Map<Integer, Integer> to = new HashMap<>();
             for (int i = args.length - 1; i >= 0; i--) {
@@ -117,7 +134,9 @@ public class MethodCallReplacement {
             }
 
             mv.pop(); // callee reference for invokespecial
-            mv.pop(); // duplicated uninitialized reference
+            if (uninitialisedReferenceIsDuplicated) {
+                mv.pop(); // duplicated uninitialized reference
+            }
 
             for (int i = 0; i < args.length; i++) {
                 mv.loadLocal(to.get(i));
@@ -125,6 +144,11 @@ public class MethodCallReplacement {
 
             mv.visitMethodInsn(Opcodes.INVOKESTATIC, replacementClassName, replacementMethodName,
                     replacementDesc, false);
+            if (!uninitialisedReferenceIsDuplicated) {
+                // Without the DUP the constructed object was discarded, so discard the
+                // factory result as well to keep the stack height unchanged.
+                mv.pop();
+            }
             return;
         }
 
@@ -170,7 +194,10 @@ public class MethodCallReplacement {
         }
         mv.visitJumpInsn(Opcodes.GOTO, afterOrigCallLabel);
         mv.visitLabel(origCallLabel);
-        mv.getNextVisitor().visitMethodInsn(origOpcode, className, methodName, desc, false); // TODO: What is itf here?
+        // Re-emit the original call exactly as it was observed. Using the opcode stored in the
+        // replacement table would be wrong whenever that entry is inaccurate, and a mismatching
+        // opcode makes the two branches of the diamond disagree on the stack height.
+        mv.getNextVisitor().visitMethodInsn(originalOpcode, className, methodName, desc, originalIsInterface);
         mv.visitLabel(afterOrigCallLabel);
     }
 
@@ -289,6 +316,24 @@ public class MethodCallReplacement {
 
     public String getReplacementMethodName() {
         return replacementMethodName;
+    }
+
+    /**
+     * <p>Getter for the field <code>desc</code>.</p>
+     *
+     * @return a {@link java.lang.String} object.
+     */
+    public String getDesc() {
+        return desc;
+    }
+
+    /**
+     * <p>Getter for the field <code>origOpcode</code>.</p>
+     *
+     * @return a int.
+     */
+    public int getOrigOpcode() {
+        return origOpcode;
     }
 
 }

@@ -21,9 +21,14 @@ package org.evosuite.runtime.instrumentation;
 
 
 import org.evosuite.PackageInfo;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.commons.GeneratorAdapter;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 /**
  * <p>
@@ -41,6 +46,19 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
     private boolean needToWaitForSuperConstructor = false;
 
     private boolean hasBeenInstrumented = false;
+
+    /**
+     * Objects whose {@code NEW} has been seen but whose constructor call has not. Needed because
+     * javac only emits a {@code DUP} after the {@code NEW} if the constructed object is actually
+     * used; when it is discarded there is a single uninitialized reference on the stack.
+     */
+    private final Deque<PendingNew> pendingNewInstances = new ArrayDeque<>();
+
+    /**
+     * True while the next instruction may still be the {@code DUP} belonging to the most recent
+     * {@code NEW}.
+     */
+    private boolean expectingDupAfterNew = false;
 
     /**
      * <p>
@@ -73,6 +91,127 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         return mv;
     }
 
+    /* The instruction visitors below only need to keep track of whether a NEW was immediately
+     * followed by a DUP. Anything else that is emitted ends the NEW/DUP window. */
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitTypeInsn(int opcode, String type) {
+        if (opcode == Opcodes.NEW) {
+            pendingNewInstances.push(new PendingNew(type));
+            super.visitTypeInsn(opcode, type);
+            expectingDupAfterNew = true;
+            return;
+        }
+        expectingDupAfterNew = false;
+        super.visitTypeInsn(opcode, type);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitInsn(int opcode) {
+        if (opcode == Opcodes.DUP && expectingDupAfterNew && !pendingNewInstances.isEmpty()) {
+            pendingNewInstances.peek().duplicated = true;
+        }
+        expectingDupAfterNew = false;
+        super.visitInsn(opcode);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitIntInsn(int opcode, int operand) {
+        expectingDupAfterNew = false;
+        super.visitIntInsn(opcode, operand);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitVarInsn(int opcode, int var) {
+        expectingDupAfterNew = false;
+        super.visitVarInsn(opcode, var);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitFieldInsn(int opcode, String owner, String name, String desc) {
+        expectingDupAfterNew = false;
+        super.visitFieldInsn(opcode, owner, name, desc);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitJumpInsn(int opcode, Label label) {
+        expectingDupAfterNew = false;
+        super.visitJumpInsn(opcode, label);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitLdcInsn(Object value) {
+        expectingDupAfterNew = false;
+        super.visitLdcInsn(value);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitIincInsn(int var, int increment) {
+        expectingDupAfterNew = false;
+        super.visitIincInsn(var, increment);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+        expectingDupAfterNew = false;
+        super.visitTableSwitchInsn(min, max, dflt, labels);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+        expectingDupAfterNew = false;
+        super.visitLookupSwitchInsn(dflt, keys, labels);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitMultiANewArrayInsn(String desc, int numDimensions) {
+        expectingDupAfterNew = false;
+        super.visitMultiANewArrayInsn(desc, numDimensions);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void visitInvokeDynamicInsn(String name, String desc, Handle bootstrapMethodHandle,
+                                       Object... bootstrapMethodArguments) {
+        expectingDupAfterNew = false;
+        super.visitInvokeDynamicInsn(name, desc, bootstrapMethodHandle, bootstrapMethodArguments);
+    }
+
     /* (non-Javadoc)
      * @see org.objectweb.asm.MethodVisitor#visitMethodInsn(int, java.lang.String, java.lang.String, java.lang.String)
      */
@@ -84,6 +223,16 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
     public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
 
         boolean isReplaced = false;
+
+        // Consume the matching pending NEW, if any. Constructor replacements need to know whether
+        // the uninitialized reference was duplicated. Default to true so that call shapes we
+        // cannot track (eg super()/this() calls, which have no NEW) keep the historic behaviour.
+        boolean uninitialisedReferenceIsDuplicated = true;
+        if (opcode == Opcodes.INVOKESPECIAL && "<init>".equals(name)
+                && !pendingNewInstances.isEmpty() && pendingNewInstances.peek().type.equals(owner)) {
+            uninitialisedReferenceIsDuplicated = pendingNewInstances.pop().duplicated;
+        }
+        expectingDupAfterNew = false;
 
         // Generic Swing/AWT fallbacks for methods not covered by the cache-based
         // replacements (e.g., subclass calls that don't match the exact owner).
@@ -315,7 +464,8 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
             MethodCallReplacement replacement = MethodCallReplacementCache.getInstance().getReplacementCall(owner,
                     name + desc);
             isReplaced = true;
-            replacement.insertMethodCall(this, Opcodes.INVOKESTATIC);
+            replacement.insertMethodCall(this, Opcodes.INVOKESTATIC, opcode, itf,
+                    uninitialisedReferenceIsDuplicated);
             hasBeenInstrumented = true;
         }
 
@@ -338,7 +488,8 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
                     if (replacement.getMethodName().equals("<init>")) {
                         replacement.insertConstructorCall(this, replacement, isSelf);
                     } else {
-                        replacement.insertMethodCall(this, Opcodes.INVOKESPECIAL);
+                        replacement.insertMethodCall(this, Opcodes.INVOKESPECIAL, opcode, itf,
+                                uninitialisedReferenceIsDuplicated);
                     }
                 }
             }
@@ -411,5 +562,19 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         }
         String ownerWithDots = owner.replace('/', '.');
         return ownerWithDots.equals(superClassName) || ownerWithDots.equals(className);
+    }
+
+    /**
+     * An object allocated by a {@code NEW} whose constructor has not been called yet.
+     */
+    private static final class PendingNew {
+
+        private final String type;
+
+        private boolean duplicated = false;
+
+        private PendingNew(String type) {
+            this.type = type;
+        }
     }
 }
