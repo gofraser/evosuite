@@ -93,6 +93,12 @@ public class PropertiesTest {
     }
 
     @Test
+    public void testObjectRuleIsEnabledByDefault() throws Exception {
+        Assertions.assertTrue(Properties.APPLY_OBJECT_RULE);
+        Assertions.assertTrue(Properties.getBooleanValue("apply_object_rule"));
+    }
+
+    @Test
     public void testReset() {
 
         final String defaultValue = Properties.TARGET_CLASS;

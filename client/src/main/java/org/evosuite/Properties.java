@@ -155,8 +155,8 @@ public class Properties {
     // --- EvoObj: graph-based seed object synthesis ---
 
     @Parameter(key = "apply_object_rule", group = "Test Creation",
-            description = "Apply graph-based seed object synthesis (EvoObj)")
-    public static boolean APPLY_OBJECT_RULE = false;
+            description = "Apply graph-based seed object synthesis (EvoObj); enabled by default")
+    public static boolean APPLY_OBJECT_RULE = true;
 
     @Parameter(key = "computation_graph_call_depth", group = "Test Creation",
             description = "How deep the call hierarchy is analyzed when constructing the object construction graph")
