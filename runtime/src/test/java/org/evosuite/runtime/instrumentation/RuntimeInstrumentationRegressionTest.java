@@ -22,6 +22,7 @@ package org.evosuite.runtime.instrumentation;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import org.evosuite.PackageInfo;
 import org.evosuite.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.AfterEach;
@@ -97,26 +98,48 @@ public class RuntimeInstrumentationRegressionTest {
                 () -> instrumentation.transformBytes(getClass().getClassLoader(), "sample/PopupSubclass", reader, false));
     }
 
+    /**
+     * EvoSuite's own mocking stack must never be instrumented, and it is already covered
+     * by the EvoSuite package rule rather than by the library-prefix list - which matters,
+     * because in the shaded jar the "org.mockito." literal is relocated and no longer
+     * matches anything the subject could load.
+     */
     @Test
-    public void testTargetPrefixActivatesMockitoAndByteBuddyExclusions() {
+    public void testEvoSuiteOwnPackagesAreNeverInstrumented() {
         RuntimeInstrumentation.setTargetClassPrefix("com.acme.");
 
         Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
-                "org.mockito.internal.creation.bytebuddy.MockMethodAdvice"));
+                PackageInfo.getEvoSuitePackage() + ".runtime.mock.java.lang.MockThrowable"));
         Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
-                "org.mockito.internal.creation.bytebuddy.inject.MockMethodDispatcher"));
-        Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
-                "net.bytebuddy.agent.ByteBuddyAgent"));
+                PackageInfo.getEvoSuitePackage() + ".shaded.org.mockito.Mockito"));
     }
 
+    /**
+     * A subject library must stay instrumentable during test generation. Excluding it
+     * would leave its loops without a loop counter, so a thread spinning inside it could
+     * no longer be terminated by the kill switch - which is what starved whole runs when
+     * the library list was activated for every target.
+     */
+    @Test
+    public void testSubjectLibrariesStayInstrumentableDuringGeneration() {
+        RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(false);
+        RuntimeInstrumentation.setTargetClassPrefix("com.acme.");
+
+        Assertions.assertTrue(RuntimeInstrumentation.checkIfCanInstrument("org.hsqldb.Log"));
+        Assertions.assertTrue(RuntimeInstrumentation.checkIfCanInstrument("org.hibernate.Session"));
+    }
+
+    /**
+     * The standalone shaded runtime still applies the library list, and still exempts the
+     * package the target itself lives in.
+     */
     @Test
     public void testTargetPackageIsExemptFromLibraryExclusions() {
-        RuntimeInstrumentation.setTargetClassPrefix("org.mockito.");
+        RuntimeInstrumentation.setAvoidInstrumentingShadedClasses(true);
+        RuntimeInstrumentation.setTargetClassPrefix("org.hsqldb.");
 
-        Assertions.assertTrue(RuntimeInstrumentation.checkIfCanInstrument(
-                "org.mockito.example.TargetClass"));
-        Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument(
-                "net.bytebuddy.agent.ByteBuddyAgent"));
+        Assertions.assertTrue(RuntimeInstrumentation.checkIfCanInstrument("org.hsqldb.Log"));
+        Assertions.assertFalse(RuntimeInstrumentation.checkIfCanInstrument("org.hibernate.Session"));
     }
 
     private static byte[] createSimpleClassBytes(String internalName) {

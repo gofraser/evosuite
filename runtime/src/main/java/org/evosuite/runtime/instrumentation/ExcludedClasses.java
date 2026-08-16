@@ -83,11 +83,12 @@ public class ExcludedClasses {
 
         // Libraries with singleton/factory patterns that cause ClassCastExceptions
         // when loaded by both the app classloader and InstrumentingClassLoader.
-        // Always excluded unless the target class is IN one of these packages
-        // (i.e., we are generating tests for that library itself).
+        // Only for the shaded standalone runtime; excluding them during test generation
+        // stops their classes being instrumented, which among other things means a loop
+        // inside them can no longer be terminated by the kill switch. Skipped when the
+        // target class is IN one of these packages, i.e. we are testing that library.
         String targetPrefix = RuntimeInstrumentation.getTargetClassPrefix();
-        boolean applyLibraryExclusions = RuntimeInstrumentation.getAvoidInstrumentingShadedClasses()
-                || targetPrefix != null;
+        boolean applyLibraryExclusions = RuntimeInstrumentation.getAvoidInstrumentingShadedClasses();
         if (applyLibraryExclusions) {
             for (String pkg : PROBLEMATIC_LIBRARY_PREFIXES) {
                 if (targetPrefix != null && targetPrefix.startsWith(pkg)) {
@@ -103,6 +104,15 @@ public class ExcludedClasses {
     /**
      * Library packages known to cause classloader conflicts due to
      * singleton/factory patterns when loaded by multiple classloaders.
+     *
+     * <p>Careful: these are string literals naming packages that the shaded build
+     * relocates, so maven-shade rewrites them. In the shaded jar "org.mockito."
+     * reads as "&lt;shaded prefix&gt;.org.mockito." and therefore matches EvoSuite's own
+     * bundled copy rather than anything on the subject's classpath. Only the entries
+     * EvoSuite does not bundle - hibernate, hsqldb, jboss, springframework - still
+     * match real subject code. Unit tests run unshaded and so do NOT see this; any
+     * test asserting that one of the relocated prefixes excludes subject code will
+     * pass while the shipped artifact behaves differently.
      */
     private static final List<String> PROBLEMATIC_LIBRARY_PREFIXES = Arrays.asList(
             "org.hibernate.", "org.hsqldb.", "org.jboss.",
