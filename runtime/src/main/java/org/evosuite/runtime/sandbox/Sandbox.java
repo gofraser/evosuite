@@ -270,12 +270,12 @@ public class Sandbox {
             logger.debug("Ignoring sandbox cleanup race while ending test case: {}", e.getMessage());
         } finally {
             // Safety net: the executingTestCase flag is global while the
-            // sandbox lock is per-thread reentrant. They can desync (e.g. a
-            // nested release clears the flag first, leaving the outer cleanup
-            // to see flag=false and skip goingToEndTestCase()). If the current
-            // thread still holds the lock here, drop it unconditionally —
+            // sandbox lock is owned by a single thread. They can desync (e.g. a
+            // release on another thread clears the flag first, leaving this
+            // cleanup to see flag=false and skip goingToEndTestCase()). If the
+            // current thread still owns the lock here, drop it unconditionally —
             // otherwise it leaks and every subsequent test execution on any
-            // thread deadlocks forever.
+            // thread stalls for the whole acquisition timeout.
             if (manager.isSandboxLockHeldByCurrentThread()) {
                 logger.warn("Force-releasing leaked sandbox lock on thread '{}'",
                         Thread.currentThread().getName());
@@ -283,6 +283,32 @@ public class Sandbox {
             }
             restorePrivilegedThreadIfDowngraded();
         }
+    }
+
+    /**
+     * Reclaims the sandbox execution lock if it is currently owned by the given
+     * thread.
+     *
+     * <p>Call this right after having killed or abandoned a thread that may have
+     * been inside the sandbox (e.g. a test execution thread force-stopped with
+     * {@code Thread.stop()}): such a thread never reaches
+     * {@link #doneWithExecutingSUTCode()}, so its lock would otherwise stay
+     * leaked until the next acquisition burns the whole timeout — and then every
+     * later one does too. Reclaiming proactively turns a minutes-long stall into
+     * a no-op.
+     *
+     * <p>Safe to call speculatively: it does nothing unless {@code lostOwner}
+     * really is the recorded owner.
+     *
+     * @param lostOwner the thread that was killed or abandoned
+     * @return true if a leaked lock was reclaimed
+     */
+    public static boolean reclaimSandboxLockOwnedBy(Thread lostOwner) {
+        MSecurityManager current = manager;
+        if (current == null || lostOwner == null) {
+            return false;
+        }
+        return current.reclaimSandboxLockOwnedBy(lostOwner);
     }
 
     private static void restorePrivilegedThreadIfDowngraded() {

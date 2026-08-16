@@ -824,13 +824,27 @@ public class TestCaseExecutor implements ThreadFactory {
                 // that don't respond to interrupt(). Deprecated but necessary —
                 // a leaked thread burns 100% CPU for the entire process lifetime.
                 if (currentThread != null && currentThread.isAlive()) {
+                    Thread stoppedThread = currentThread;
                     try {
                         logger.warn("Force-stopping stuck thread {} via Thread.stop()",
-                                currentThread.getName());
-                        currentThread.stop();
-                        currentThread.join(Properties.SHUTDOWN_TIMEOUT);
+                                stoppedThread.getName());
+                        stoppedThread.stop();
+                        stoppedThread.join(Properties.SHUTDOWN_TIMEOUT);
                     } catch (Throwable t) {
                         logger.info("Exception during Thread.stop() cleanup: {}", t.getMessage());
+                    }
+                    // Thread.stop() gives the victim no chance to run any finally
+                    // block, and on JDK 20+ it does not even stop it (it throws
+                    // UnsupportedOperationException instead). Either way we have
+                    // just given up on this thread, so if it was inside the
+                    // sandbox its lock is now leaked, and every later test
+                    // execution in this process would stall for the full sandbox
+                    // acquisition timeout before recovering. Hand the lock back
+                    // here instead of paying that timeout. No-op when the thread
+                    // did not own the lock, so it is safe to call unconditionally.
+                    if (Sandbox.reclaimSandboxLockOwnedBy(stoppedThread)) {
+                        logger.warn("Reclaimed the sandbox lock leaked by force-stopped thread {}",
+                                stoppedThread.getName());
                     }
                 }
                 ExecutionTracer.disable();

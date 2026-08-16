@@ -99,6 +99,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.jar.Attributes;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -697,12 +698,18 @@ public abstract class JUnitAnalyzer {
         // not just the first one — the previous submit(Thread::currentThread)
         // dance was fragile if the executor ever replaced the worker.
         boolean sandboxOn = Sandbox.isSecurityManagerInitialized();
+        // Remembered so that, if we end up abandoning this thread below, we can hand back the
+        // sandbox lock it may still be holding. The generated scaffolding enters the sandbox, and
+        // an abandoned runner never leaves it, which used to strand the lock for the rest of the
+        // process and fail every later test execution on the acquisition timeout.
+        AtomicReference<Thread> runnerThread = new AtomicReference<>();
         ExecutorService executor = Executors.newSingleThreadExecutor(r -> {
             Thread t = new Thread(r, "evosuite-junit-check-runner");
             t.setDaemon(true);
             if (sandboxOn) {
                 Sandbox.addPrivilegedThread(t);
             }
+            runnerThread.set(t);
             return t;
         });
         Future<JUnitResult> future = executor.submit(() -> {
@@ -742,6 +749,10 @@ public abstract class JUnitAnalyzer {
                         + "abandoning JUnit check and keeping the suite as-is. "
                         + "An orphan runner thread will continue until process exit.",
                         graceMs);
+                // The orphan keeps running, so it will never call goingToEndTestCase(). Take the
+                // sandbox lock back on its behalf now rather than making the next test execution
+                // discover the leak by burning its whole acquisition timeout.
+                Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
                 return JUnitResult.allPassed(testClasses.length);
             } catch (CancellationException ce) {
                 return JUnitResult.allFailed(testClasses.length, ce);

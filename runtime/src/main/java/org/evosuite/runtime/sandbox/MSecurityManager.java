@@ -50,8 +50,8 @@ import java.security.*;
 import java.sql.SQLPermission;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArraySet;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.FileHandler;
 import java.util.logging.LoggingPermission;
 
@@ -159,18 +159,63 @@ public class MSecurityManager extends SecurityManager {
      * paths (TestCaseExecutor, ClassReInitializeExecutor, CoverageAnalysis…),
      * but {@link #executingTestCase} is a single process-global flag, so
      * concurrent entry would otherwise be misdiagnosed as a re-entrant bug and
-     * throw {@link IllegalStateException}. The lock makes the second caller
+     * throw {@link IllegalStateException}. The permit makes the second caller
      * block until the first calls {@link #goingToEndTestCase()}.
+     *
+     * <p>This is deliberately <b>not</b> a {@code ReentrantLock}. The threads
+     * that enter the sandbox are exactly the threads EvoSuite kills or abandons
+     * asynchronously when they get stuck: {@code TestCaseExecutor} force-stops
+     * the test execution thread with {@code Thread.stop()}, and
+     * {@code JUnitAnalyzer} walks away from a wedged check runner once its
+     * watchdog fires. A {@code ReentrantLock} can only be unlocked by its owning
+     * thread, so such an owner orphans it <i>forever</i> and every later test
+     * execution in the process then dies on the acquisition timeout. A semaphore
+     * has no thread affinity: ownership is tracked explicitly in
+     * {@link #sandboxLockOwner}, and a permit belonging to a lost owner can be
+     * handed back by somebody else — see {@link #reclaimSandboxLockFrom(Thread)}.
+     *
+     * <p>Fair (FIFO) on purpose. The permit is held for the whole duration of a
+     * test execution, so the throughput cost of fairness is irrelevant here,
+     * while barging under an unfair semaphore could starve a waiter for the full
+     * acquisition timeout and produce exactly the spurious hard failure this
+     * class is trying to avoid. Fairness also makes the timeout meaningful: a
+     * waiter that times out really did wait behind somebody, rather than having
+     * been repeatedly overtaken.
      */
-    private final ReentrantLock sandboxLock = new ReentrantLock();
+    private final Semaphore sandboxLock = new Semaphore(1, true);
+
+    /**
+     * Thread that currently owns the {@link #sandboxLock} permit, or null when
+     * the permit is free.
+     *
+     * <p>Invariant: {@code sandboxLockOwner != null} if and only if the single
+     * permit is taken, and it was taken by that very thread. Every transition of
+     * this field happens inside {@link #sandboxLockOwnerMonitor} together with
+     * the matching acquire/release, which is what makes it impossible for two
+     * threads to hand back the same permit (a {@code Semaphore} would happily
+     * count up past 1 and stop excluding anything at all).
+     *
+     * <p>Volatile so that cheap observers ({@link #isSandboxLockHeldByCurrentThread()},
+     * diagnostics) can read it without contending on the monitor; such reads are
+     * always re-validated under the monitor before any state change.
+     */
+    private volatile Thread sandboxLockOwner;
+
+    /**
+     * Guards the {@link #sandboxLockOwner} bookkeeping. Never held while blocking
+     * on {@link #sandboxLock}, otherwise a thread trying to reclaim a leaked
+     * permit could not make progress while somebody is waiting for it.
+     */
+    private final Object sandboxLockOwnerMonitor = new Object();
 
     /**
      * Max time {@link #goingToExecuteTestCase()} will wait for the sandbox
-     * lock before failing fast. A stuck holder (e.g. a leaked release on a
-     * different code path, or an external dependency like a network call that
-     * holds the lock for too long) would otherwise deadlock every subsequent
-     * test execution forever. Five minutes is generous enough to ride out any
-     * legitimate slow test/timeout-cleanup cycle.
+     * lock before treating its owner as lost and reclaiming the permit. A stuck
+     * holder (e.g. a leaked release on a different code path, or an external
+     * dependency like a network call that holds the lock for too long) would
+     * otherwise deadlock every subsequent test execution forever. Five minutes
+     * is generous enough to ride out any legitimate slow test/timeout-cleanup
+     * cycle, so exceeding it really does mean the owner is gone.
      */
     private static volatile long sandboxLockAcquireTimeoutMs = TimeUnit.MINUTES.toMillis(5);
 
@@ -183,6 +228,16 @@ public class MSecurityManager extends SecurityManager {
         if (ms > 0) {
             sandboxLockAcquireTimeoutMs = ms;
         }
+    }
+
+    /**
+     * Current value of the sandbox lock acquisition timeout, in milliseconds.
+     * Mainly useful for tests that need to save/restore this global setting.
+     *
+     * @return the timeout in milliseconds
+     */
+    public static long getSandboxLockAcquireTimeoutMs() {
+        return sandboxLockAcquireTimeoutMs;
     }
 
 
@@ -423,69 +478,278 @@ public class MSecurityManager extends SecurityManager {
      *
      * @throws IllegalStateException if a test case is already being executed
      *                               on the current thread (re-entrant nesting,
-     *                               which is not supported)
+     *                               which is not supported), or if the lock
+     *                               could not be acquired within the timeout
      */
     public void goingToExecuteTestCase() throws IllegalStateException {
         long timeoutMs = sandboxLockAcquireTimeoutMs;
-        boolean acquired;
-        try {
-            acquired = sandboxLock.tryLock(timeoutMs, TimeUnit.MILLISECONDS);
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            throw new IllegalStateException("Interrupted while waiting for sandbox lock", ie);
+        Thread current = Thread.currentThread();
+
+        if (sandboxLockOwner == current) {
+            /*
+             * Re-entrant entry from the owner itself. The previous
+             * ReentrantLock-based implementation would take a second hold here;
+             * a semaphore has no notion of ownership, so a second acquire would
+             * simply deadlock this thread against itself for the whole timeout.
+             * Both re-entrant cases are therefore handled explicitly, and the
+             * permit is never taken twice — which is also why no hold count is
+             * needed: a thread owns at most one permit at any time.
+             */
+            if (executingTestCase) {
+                /*
+                 * Same outcome, and same message, as before: the old code took a
+                 * second hold, saw the flag, and gave that hold straight back
+                 * before throwing. Nesting test case executions is not supported.
+                 */
+                throw new IllegalStateException("Trying to set up the sandbox while executing a test case");
+            }
+            /*
+             * Flag/ownership divergence: somebody cleared the global flag while
+             * this thread still owned the permit. The old code took a second
+             * hold here which the single matching goingToEndTestCase() would
+             * never give back, i.e. it leaked the lock for the rest of the
+             * process lifetime. Re-arm the flag and keep the one hold we have.
+             */
+            logger.warn("Sandbox flag was cleared while thread '{}' still owned the sandbox lock; re-arming it",
+                    current.getName());
+            executingTestCase = true;
+            return;
         }
-        if (!acquired) {
-            // Lock holder is stuck (likely a leaked release on a different
-            // code path, or an external dependency that never returns). Surface
-            // this as a hard error so the search can recover rather than
-            // hanging forever; the holder thread name is the next breadcrumb
-            // for diagnosis.
-            String holder = describeSandboxLockHolder();
-            throw new IllegalStateException("Timed out after " + timeoutMs
-                    + "ms waiting for sandbox lock; suspected holder: " + holder);
+
+        if (!acquireSandboxLock(current, timeoutMs)) {
+            /*
+             * Nobody handed the permit back within the timeout. Before failing,
+             * check whether the recorded owner is still able to hand it back at
+             * all: TestCaseExecutor force-stops stuck test threads with
+             * Thread.stop(), and JUnitAnalyzer abandons a wedged check runner —
+             * neither will ever reach goingToEndTestCase(). Note that
+             * Thread.stop() is a no-op that throws UnsupportedOperationException
+             * on JDK 20+, so a lost owner may be dead *or* still alive and stuck;
+             * both are unrecoverable from its own thread.
+             */
+            Thread owner = sandboxLockOwner;
+            String description = describeSandboxLockHolder(owner);
+            if (owner == null) {
+                // The permit is free (or just became free) and we merely lost the
+                // race for it. Nothing to reclaim, so the retry below is simply a
+                // second chance.
+                logger.warn("Timed out after {}ms waiting for the sandbox lock, but nobody owns it; retrying. {}",
+                        timeoutMs, description);
+            } else if (owner.isAlive()) {
+                /*
+                 * The owner is alive but has made no progress for a whole timeout
+                 * window, so it has to be treated as lost as well. Reclaiming
+                 * trades the sandbox serialization guarantee for the ability to
+                 * finish the run at all, and that trade is worth it: refusing
+                 * here aborts the whole client, whereas the un-serialized
+                 * behaviour is simply what this class did before the lock was
+                 * introduced. Mutual exclusion of the permit itself is *not*
+                 * weakened — see reclaimSandboxLockFrom().
+                 */
+                logger.error("Sandbox lock still held after {}ms by a live thread that made no progress; "
+                        + "reclaiming it so the run can continue. {}", timeoutMs, description);
+            } else {
+                logger.warn("Sandbox lock was orphaned by dead thread '{}'; reclaiming it. {}",
+                        owner.getName(), description);
+            }
+            // Reclaim (a no-op when there is no owner to reclaim from, or when
+            // somebody else already did it) and retry exactly once. A reclaim
+            // makes a permit available, but with a fair semaphore an older waiter
+            // may legitimately get it first, in which case waiting again is the
+            // correct behaviour rather than a failure.
+            reclaimSandboxLockFrom(owner);
+            if (!acquireSandboxLock(current, timeoutMs)) {
+                throw new IllegalStateException("Timed out after " + timeoutMs
+                        + "ms waiting for sandbox lock, twice, even after reclaiming it; " + description);
+            }
         }
+
         if (executingTestCase) {
-            // Holding the lock should imply the previous holder has cleared the
+            // Owning the permit should imply the previous owner has cleared the
             // flag in goingToEndTestCase(). If we get here, something set the
-            // flag without going through the lock — release and surface as a bug.
-            sandboxLock.unlock();
+            // flag without going through the permit — release and surface as a bug.
+            releaseSandboxLockIfOwner();
             throw new IllegalStateException("Trying to set up the sandbox while executing a test case");
         }
         executingTestCase = true;
     }
 
     /**
-     * Returns true if the calling thread currently holds the sandbox lock.
-     * Used as a defensive check in cleanup paths where the global
-     * {@link #executingTestCase} flag and the lock ownership can diverge
-     * (e.g. nested acquire/release on the same thread, or a release path that
-     * cleared the flag without unlocking).
+     * Waits up to {@code timeoutMs} for the single {@link #sandboxLock} permit
+     * and, on success, records {@code current} as its owner.
+     *
+     * <p>The blocking wait happens <i>outside</i> {@link #sandboxLockOwnerMonitor}
+     * on purpose, so that a thread reclaiming a leaked permit can still get in.
+     * Recording the owner afterwards is safe: by the {@link #sandboxLockOwner}
+     * invariant, holding the permit implies no other thread is recorded as owner.
+     *
+     * @param current   the thread that will own the permit
+     * @param timeoutMs how long to wait
+     * @return true if the permit was acquired
+     * @throws IllegalStateException if the wait was interrupted
      */
-    public boolean isSandboxLockHeldByCurrentThread() {
-        return sandboxLock.isHeldByCurrentThread();
+    private boolean acquireSandboxLock(Thread current, long timeoutMs) throws IllegalStateException {
+        boolean acquired;
+        try {
+            acquired = sandboxLock.tryAcquire(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for sandbox lock", ie);
+        }
+        if (acquired) {
+            synchronized (sandboxLockOwnerMonitor) {
+                sandboxLockOwner = current;
+            }
+        }
+        return acquired;
     }
 
     /**
-     * Safety-net unlock: releases the sandbox lock if and only if the current
-     * thread holds it. Intended for cleanup paths that need to guarantee the
-     * lock is dropped without relying on {@link #executingTestCase} state.
+     * Hands the permit back if and only if the current thread is its recorded
+     * owner. This is the single voluntary release path, and the ownership
+     * hand-over is what authorizes the release: a thread that does not own the
+     * permit must never call {@code release()}, otherwise the permit count grows
+     * past 1 and the sandbox stops being serialized at all.
+     *
+     * @return true if this call actually released the permit
+     */
+    private boolean releaseSandboxLockIfOwner() {
+        Thread current = Thread.currentThread();
+        synchronized (sandboxLockOwnerMonitor) {
+            if (sandboxLockOwner != current) {
+                return false;
+            }
+            sandboxLockOwner = null;
+            sandboxLock.release();
+            return true;
+        }
+    }
+
+    /**
+     * Reclaims the permit on behalf of a thread that owns it but will never hand
+     * it back (killed with {@code Thread.stop()}, abandoned by a watchdog, …).
+     *
+     * <p>The ownership check and the release are atomic under
+     * {@link #sandboxLockOwnerMonitor}, and swapping {@code lostOwner} out of
+     * {@link #sandboxLockOwner} is what authorizes the release. That is the only
+     * thing standing between us and the classic semaphore hazard: two threads
+     * timing out on the same lost owner would otherwise release two permits,
+     * after which the "mutex" excludes nothing. The re-check inside the monitor
+     * is mandatory — callers necessarily read the owner without the monitor.
+     *
+     * @param lostOwner the thread whose permit should be reclaimed
+     * @return true if this call actually reclaimed the permit
+     */
+    private boolean reclaimSandboxLockFrom(Thread lostOwner) {
+        if (lostOwner == null) {
+            return false;
+        }
+        synchronized (sandboxLockOwnerMonitor) {
+            if (sandboxLockOwner != lostOwner) {
+                // Already reclaimed by somebody else, or the owner handed the
+                // permit back by itself in the meantime. Releasing here would
+                // inflate the permit count above 1.
+                return false;
+            }
+            sandboxLockOwner = null;
+            /*
+             * The lost owner set the flag on its way in and will never clear it;
+             * leaving it set would make the next acquirer fail with "Trying to
+             * set up the sandbox while executing a test case".
+             */
+            executingTestCase = false;
+            sandboxLock.release();
+            return true;
+        }
+    }
+
+    /**
+     * Reclaims the sandbox lock if, and only if, it is currently owned by the
+     * given thread.
+     *
+     * <p>Intended for callers that have just killed or abandoned a thread which
+     * may have been inside the sandbox: such a thread never reaches
+     * {@link #goingToEndTestCase()}, so without this its permit stays leaked
+     * until the next acquisition burns the whole timeout. Safe to call
+     * speculatively — it does nothing unless {@code lostOwner} really is the
+     * recorded owner.
+     *
+     * @param lostOwner the thread that was killed or abandoned
+     * @return true if a leaked permit was reclaimed
+     */
+    public boolean reclaimSandboxLockOwnedBy(Thread lostOwner) {
+        if (lostOwner == null || sandboxLockOwner != lostOwner) {
+            // Cheap pre-check only; reclaimSandboxLockFrom() re-checks under the
+            // monitor, which is where correctness actually comes from.
+            return false;
+        }
+        boolean reclaimed = reclaimSandboxLockFrom(lostOwner);
+        if (reclaimed) {
+            logger.warn("Reclaimed sandbox lock leaked by thread '{}' (alive={})",
+                    lostOwner.getName(), lostOwner.isAlive());
+        }
+        return reclaimed;
+    }
+
+    /**
+     * Returns true if the calling thread currently owns the sandbox lock.
+     * Used as a defensive check in cleanup paths where the global
+     * {@link #executingTestCase} flag and the lock ownership can diverge
+     * (e.g. a release path that cleared the flag without releasing the permit).
+     */
+    public boolean isSandboxLockHeldByCurrentThread() {
+        return sandboxLockOwner == Thread.currentThread();
+    }
+
+    /**
+     * Safety-net release: hands the sandbox lock back if and only if the current
+     * thread owns it. Intended for cleanup paths that need to guarantee the lock
+     * is dropped without relying on {@link #executingTestCase} state.
      */
     public void forceUnlockSandboxLockIfHeld() {
-        while (sandboxLock.isHeldByCurrentThread()) {
-            sandboxLock.unlock();
-        }
+        // No loop needed: a thread owns at most one permit, because
+        // goingToExecuteTestCase() never acquires re-entrantly.
+        releaseSandboxLockIfOwner();
         // Also clear the flag, since we got here only when the flag and the
         // lock state had already diverged.
         executingTestCase = false;
     }
 
-    private String describeSandboxLockHolder() {
-        // ReentrantLock doesn't expose its owner publicly; subclass the
-        // protected getOwner() via an anonymous accessor would help, but the
-        // straightforward thing is to scan privileged threads for one that
-        // matches. Fall back to "unknown" when we can't tell.
-        return "unknown (use jstack on this PID to find the holder of "
-                + "sandboxLock; grep for 'a java.util.concurrent.locks.ReentrantLock$NonfairSync')";
+    /**
+     * Human-readable description of the thread that owns the sandbox lock,
+     * including its stack trace. Diagnosing a leaked lock used to require
+     * attaching jstack to a process that was usually already gone by the time
+     * anybody looked at the logs.
+     *
+     * @param owner the recorded owner, possibly null
+     * @return a description suitable for a log message or an exception
+     */
+    private String describeSandboxLockHolder(Thread owner) {
+        if (owner == null) {
+            return "no thread is recorded as holder (the permit was just handed back)";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("holder is thread '").append(owner.getName())
+                .append("' [alive=").append(owner.isAlive())
+                .append(", state=").append(owner.getState()).append("]");
+        try {
+            /*
+             * RuntimePermission("getStackTrace") is unconditionally granted by
+             * allowPermission(), so this works even for a non-privileged caller.
+             * Still guarded: this runs on an error path, and the target thread
+             * can terminate while we walk it.
+             */
+            StackTraceElement[] stack = owner.getStackTrace();
+            if (stack.length == 0) {
+                sb.append("\n\t<no stack trace available, the thread has terminated>");
+            }
+            for (StackTraceElement e : stack) {
+                sb.append("\n\tat ").append(e);
+            }
+        } catch (Throwable t) {
+            sb.append("\n\t<could not collect the stack trace: ").append(t).append('>');
+        }
+        return sb.toString();
     }
 
     /**
@@ -503,14 +767,29 @@ public class MSecurityManager extends SecurityManager {
      * @throws IllegalStateException if no test case was being executed
      */
     public void goingToEndTestCase() throws IllegalStateException {
+        Thread current = Thread.currentThread();
+
         if (!executingTestCase) {
             // Should never happen if the caller paired goingToExecuteTestCase()
             // with goingToEndTestCase(). Release the lock defensively if this
-            // thread happens to hold it, otherwise it would leak.
-            if (sandboxLock.isHeldByCurrentThread()) {
-                sandboxLock.unlock();
-            }
+            // thread happens to own it, otherwise it would leak.
+            releaseSandboxLockIfOwner();
             throw new IllegalStateException("Trying to disable sandbox when not test case was run");
+        }
+
+        if (sandboxLockOwner != current) {
+            /*
+             * A test case is running, but not ours: either this thread never
+             * entered the sandbox, or its permit was reclaimed after it had been
+             * given up for lost and somebody else is inside the sandbox right
+             * now. Clearing the global flag here would desync it from that
+             * owner, which is precisely the divergence this class must not allow
+             * to happen silently. Report and touch nothing.
+             */
+            Thread owner = sandboxLockOwner;
+            throw new IllegalStateException("Thread '" + current.getName()
+                    + "' tried to end a test case owned by "
+                    + (owner == null ? "no thread" : "thread '" + owner.getName() + "'"));
         }
 
         // Always clear the flag and release the lock, even if cleanup throws.
@@ -518,7 +797,7 @@ public class MSecurityManager extends SecurityManager {
         // (e.g. a SecurityException on a non-privileged caller) would leave
         // executingTestCase stuck at true and the sandboxLock permanently
         // held, blocking every subsequent goingToExecuteTestCase() on any
-        // thread.
+        // thread until its acquisition timeout expires.
         try {
             /*
              * it is important to call this method here as soon as the test case
@@ -532,9 +811,7 @@ public class MSecurityManager extends SecurityManager {
             }
         } finally {
             executingTestCase = false;
-            if (sandboxLock.isHeldByCurrentThread()) {
-                sandboxLock.unlock();
-            }
+            releaseSandboxLockIfOwner();
         }
     }
 
