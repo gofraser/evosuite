@@ -21,7 +21,9 @@ package org.evosuite.instrumentation;
 
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
-import org.evosuite.testcase.execution.TestCaseExecutor;
+import org.evosuite.classpath.ResourceList;
+import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -40,6 +42,19 @@ import java.util.Map;
 public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
 
     /**
+     * Whether the array-size guard is emitted for this class at all.
+     *
+     * <p>{@code array_limit} bounds the array sizes a <em>test</em> can ask for, so it only makes
+     * sense where the size can come from a test input: the classes under analysis. Third-party
+     * library code sizes its own buffers from its own constants -- {@code jxl} allocates a
+     * 5 MB workbook buffer from {@code WorkbookSettings.initialFileSize}, five times the default
+     * limit -- and rejecting that is a false positive that kills every call into the library.
+     * EvoSuite 1.2.0 chained this adapter from {@code ExecutionPathClassAdapter} only, i.e. it
+     * had exactly this scope; it was later also chained from {@code NonTargetClassAdapter}.
+     */
+    private final boolean enabled;
+
+    /**
      * <p>Constructor for ArrayAllocationLimitMethodAdapter.</p>
      *
      * @param mv         a {@link org.objectweb.asm.MethodVisitor} object.
@@ -51,6 +66,44 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     public ArrayAllocationLimitMethodAdapter(MethodVisitor mv, String className,
                                              String methodName, int access, String desc) {
         super(Opcodes.ASM9, mv, access, methodName, desc);
+        this.enabled = appliesTo(className);
+    }
+
+    private static boolean appliesTo(String className) {
+        if (className == null) {
+            return false;
+        }
+        try {
+            return DependencyAnalysis.shouldAnalyze(
+                    ResourceList.getClassNameFromResourcePath(className));
+        } catch (Throwable t) {
+            // Analysis state not available (e.g. in isolated instrumentation tests): keep the
+            // guard rather than silently dropping it.
+            return true;
+        }
+    }
+
+
+    /**
+     * Emits {@code throw new TooManyResourcesException(message)}.
+     *
+     * <p>Refusing an allocation is <em>our</em> decision, not the execution watchdog firing, so
+     * it must not be reported as {@code TestCaseExecutor.TimeoutExceeded}: that marks the whole
+     * test as timed out, gives it worst-case fitness, feeds the "disable functional mocking after
+     * N consecutive timeouts" heuristic with timeouts that never happened, and makes the JUnit
+     * re-check drop the test as unstable. {@code TooManyResourcesException} already means "the
+     * test asked for more resources than we are willing to give it" and is understood end-to-end
+     * (assertion generation, JUnit re-checks, generated test code).
+     */
+    private void throwAllocationRejected(String message) {
+        super.visitTypeInsn(Opcodes.NEW,
+                PackageInfo.getNameWithSlash(TooManyResourcesException.class));
+        super.visitInsn(Opcodes.DUP);
+        super.visitLdcInsn(message);
+        super.visitMethodInsn(Opcodes.INVOKESPECIAL,
+                PackageInfo.getNameWithSlash(TooManyResourcesException.class),
+                "<init>", "(Ljava/lang/String;)V", false);
+        super.visitInsn(Opcodes.ATHROW);
     }
 
     /* (non-Javadoc)
@@ -62,19 +115,13 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      */
     @Override
     public void visitIntInsn(int opcode, int operand) {
-        if (opcode == Opcodes.NEWARRAY) {
+        if (enabled && opcode == Opcodes.NEWARRAY) {
             Label origTarget = new Label();
             visitInsn(Opcodes.DUP);
             visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
                     "ARRAY_LIMIT", "I");
             super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
-            super.visitTypeInsn(Opcodes.NEW,
-                    PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class));
-            super.visitInsn(Opcodes.DUP);
-            super.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                    PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class),
-                    "<init>", "()V", false);
-            super.visitInsn(Opcodes.ATHROW);
+            throwAllocationRejected("Array allocation exceeds the configured array_limit");
             super.visitLabel(origTarget);
 
         }
@@ -91,19 +138,13 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitTypeInsn(int opcode, String type) {
 
-        if (opcode == Opcodes.ANEWARRAY) {
+        if (enabled && opcode == Opcodes.ANEWARRAY) {
             Label origTarget = new Label();
             visitInsn(Opcodes.DUP);
             visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
                     "ARRAY_LIMIT", "I");
             super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
-            super.visitTypeInsn(Opcodes.NEW,
-                    PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class));
-            super.visitInsn(Opcodes.DUP);
-            super.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                    PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class),
-                    "<init>", "()V", false);
-            super.visitInsn(Opcodes.ATHROW);
+            throwAllocationRejected("Array allocation exceeds the configured array_limit");
             super.visitLabel(origTarget);
 
         }
@@ -118,21 +159,15 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
                                 boolean isInterface) {
-        if (shouldLimitSizeArg(opcode, owner, name, descriptor)) {
+        if (enabled && shouldLimitSizeArg(opcode, owner, name, descriptor)) {
             // Stack: ..., int(size)  →  clamp size to ARRAY_LIMIT
             Label ok = new Label();
             visitInsn(Opcodes.DUP);
             visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(Properties.class),
                     "ARRAY_LIMIT", "I");
             super.visitJumpInsn(Opcodes.IF_ICMPLE, ok);
-            // size > ARRAY_LIMIT → throw TimeoutExceeded
-            super.visitTypeInsn(Opcodes.NEW,
-                    PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class));
-            super.visitInsn(Opcodes.DUP);
-            super.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                    PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class),
-                    "<init>", "()V", false);
-            super.visitInsn(Opcodes.ATHROW);
+            // size > ARRAY_LIMIT → reject the allocation
+            throwAllocationRejected("Array allocation exceeds the configured array_limit");
             super.visitLabel(ok);
         }
         super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
@@ -164,6 +199,11 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      */
     @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
+
+        if (!enabled) {
+            super.visitMultiANewArrayInsn(desc, dims);
+            return;
+        }
 
         Label origTarget = new Label();
         Label errorTarget = new Label();
@@ -213,13 +253,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
 
         goTo(origTarget);
         super.visitLabel(errorTarget);
-        super.visitTypeInsn(Opcodes.NEW,
-                PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class));
-        super.visitInsn(Opcodes.DUP);
-        super.visitMethodInsn(Opcodes.INVOKESPECIAL,
-                PackageInfo.getNameWithSlash(TestCaseExecutor.TimeoutExceeded.class),
-                "<init>", "()V", false);
-        super.visitInsn(Opcodes.ATHROW);
+        throwAllocationRejected("Multi-dimensional array allocation exceeds the configured array_limit");
         super.visitLabel(origTarget);
 
         // Restore original dimensions

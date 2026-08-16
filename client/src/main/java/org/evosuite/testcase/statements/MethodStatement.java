@@ -27,8 +27,8 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.EvosuiteError;
+import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.testcase.execution.Scope;
-import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.UncompilableCodeException;
 import org.evosuite.testcase.variable.ArrayIndex;
 import org.evosuite.testcase.variable.ArrayReference;
@@ -479,6 +479,17 @@ public class MethodStatement extends EntityWithParametersStatement {
     }
 
     /**
+     * Message carried by the {@link TooManyResourcesException} that the allocation guards below
+     * raise. Refusing a call because its arguments would allocate an absurd amount of memory is
+     * a resource decision of ours, not the execution watchdog firing, so it must not be reported
+     * as {@code TestCaseExecutor.TimeoutExceeded}: that inflates the timeout statistics, trips
+     * the "disable functional mocking after N consecutive timeouts" heuristic, and makes the
+     * JUnit re-check drop the test as unstable.
+     */
+    private static final String ALLOCATION_REJECTED =
+            "EvoSuite refused this call: its arguments would allocate an excessive amount of memory";
+
+    /**
      * Sanity check for method calls on allocation-sensitive classes: rejects
      * individual int args ≥ ABSURD_INT_THRESHOLD, and rejects when the product
      * of all positive int args exceeds the threshold. Only applies to classes
@@ -502,7 +513,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                             method.getMethod().getDeclaringClass().getName(),
                             method.getName(), i, val);
                     throw new CodeUnderTestException(
-                            new TestCaseExecutor.TimeoutExceeded());
+                            new TooManyResourcesException(ALLOCATION_REJECTED));
                 }
                 if (val > 0) {
                     product *= val;
@@ -515,7 +526,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     method.getMethod().getDeclaringClass().getName(),
                     method.getName(), product, ABSURD_INT_THRESHOLD);
             throw new CodeUnderTestException(
-                    new TestCaseExecutor.TimeoutExceeded());
+                    new TooManyResourcesException(ALLOCATION_REJECTED));
         }
     }
 
@@ -547,7 +558,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     logger.info("Rejecting method {}.{}: int arg {} = {} exceeds limit {}",
                             declaringClass.getName(), methodName, i, val, limit);
                     throw new CodeUnderTestException(
-                            new TestCaseExecutor.TimeoutExceeded());
+                            new TooManyResourcesException(ALLOCATION_REJECTED));
                 }
                 if (val > 0) {
                     product *= val;
@@ -622,7 +633,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                             + "length {} exceeds limit {}",
                             className, methodName, i, len, byteLimit);
                     throw new CodeUnderTestException(
-                            new TestCaseExecutor.TimeoutExceeded());
+                            new TooManyResourcesException(ALLOCATION_REJECTED));
                 }
             } else if (stringLimit > 0 && arg instanceof String) {
                 int len = ((String) arg).length();
@@ -631,7 +642,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                             + "length {} exceeds limit {}",
                             className, methodName, i, len, stringLimit);
                     throw new CodeUnderTestException(
-                            new TestCaseExecutor.TimeoutExceeded());
+                            new TooManyResourcesException(ALLOCATION_REJECTED));
                 }
             } else if (byteLimit > 0 && arg instanceof java.io.InputStream) {
                 try {
@@ -641,7 +652,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                                 + "arg {} available {} exceeds byte limit {}",
                                 className, methodName, i, available, byteLimit);
                         throw new CodeUnderTestException(
-                                new TestCaseExecutor.TimeoutExceeded());
+                                new TooManyResourcesException(ALLOCATION_REJECTED));
                     }
                 } catch (java.io.IOException ignored) {
                     // can't bound it — let the method try
@@ -666,7 +677,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                     logger.info("Rejecting {}.{}: int arg {} = {} exceeds learned threshold {}",
                             className, methodName, i, val, threshold);
                     throw new CodeUnderTestException(
-                            new TestCaseExecutor.TimeoutExceeded());
+                            new TooManyResourcesException(ALLOCATION_REJECTED));
                 }
             }
         }
@@ -676,7 +687,7 @@ public class MethodStatement extends EntityWithParametersStatement {
                                long value, int limit) throws CodeUnderTestException {
         logger.info("Rejecting {}.{}: {} = {} exceeds limit {}",
                 cls.getName(), methodName, reason, value, limit);
-        throw new CodeUnderTestException(new TestCaseExecutor.TimeoutExceeded());
+        throw new CodeUnderTestException(new TooManyResourcesException(ALLOCATION_REJECTED));
     }
 
     /**
