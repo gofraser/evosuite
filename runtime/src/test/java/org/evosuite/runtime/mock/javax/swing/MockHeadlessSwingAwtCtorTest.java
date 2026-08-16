@@ -19,6 +19,7 @@
  */
 package org.evosuite.runtime.mock.javax.swing;
 
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -40,14 +41,21 @@ public class MockHeadlessSwingAwtCtorTest {
         private static final long serialVersionUID = 1L;
     }
 
+    private boolean defaultMockGui;
+
     @BeforeEach
     public void enableMocking() {
+        defaultMockGui = RuntimeSettings.mockGUI;
+        // GUI mocking needs both switches: the mock framework and mockGUI
+        // (-Dreplace_gui), which is what the replacements now honour.
+        RuntimeSettings.mockGUI = true;
         MockFramework.enable();
     }
 
     @AfterEach
     public void disableMocking() {
         MockFramework.disable();
+        RuntimeSettings.mockGUI = defaultMockGui;
     }
 
     @Test

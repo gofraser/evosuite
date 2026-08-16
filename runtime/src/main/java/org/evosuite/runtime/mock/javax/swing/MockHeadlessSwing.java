@@ -20,7 +20,10 @@
 package org.evosuite.runtime.mock.javax.swing;
 
 import org.evosuite.runtime.GuiSupport;
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.mock.MockFramework;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.swing.JComponent;
 import javax.swing.JFileChooser;
@@ -57,6 +60,7 @@ import java.awt.Desktop;
 import java.awt.DefaultKeyboardFocusManager;
 import java.awt.Dialog;
 import java.awt.Dimension;
+import java.awt.Font;
 import java.awt.Frame;
 import java.awt.GraphicsEnvironment;
 import java.awt.GraphicsConfiguration;
@@ -98,9 +102,20 @@ import java.util.Map;
  * HeadlessException when GUI setup is executed in headless CI.
  */
 public final class MockHeadlessSwing {
+
+    private static final Logger logger = LoggerFactory.getLogger(MockHeadlessSwing.class);
+
     private static final Dimension HEADLESS_SCREEN_SIZE = new Dimension(1024, 768);
     private static final GraphicsEnvironment HEADLESS_GRAPHICS_ENVIRONMENT =
             new HeadlessSafeGraphicsEnvironment();
+
+    /**
+     * Sticky positive result of {@link #isRealSwingUiUsable()}. Only a success is
+     * remembered; see there for why a failure must not be.
+     */
+    private static volatile boolean realSwingUiUsable;
+
+    private static volatile boolean realSwingUiFailureLogged;
 
     private MockHeadlessSwing() {
     }
@@ -125,7 +140,117 @@ public final class MockHeadlessSwing {
     }
 
     private static boolean isGuiMockingEnabled() {
-        return MockFramework.isEnabled();
+        // Both flags matter: the mock framework has to be active at all, and GUI
+        // mocking specifically has to be switched on (-Dreplace_gui, mirrored into
+        // RuntimeSettings.mockGUI by the client process and by the generated
+        // scaffolding). Ignoring mockGUI here made -Dreplace_gui=false a no-op.
+        return MockFramework.isEnabled() && RuntimeSettings.mockGUI;
+    }
+
+    /**
+     * Checks whether real Swing UI delegates can be installed in this JVM.
+     *
+     * <p>{@code -Djava.awt.headless=true} on a normal workstation still has a
+     * display and a font configuration underneath, and there real Swing installs
+     * fonts, carets and UI delegates just fine. A bare CI container may have
+     * neither, and building a UI delegate ends in font-metrics code that can then
+     * fail. So instead of assuming either way, build a throwaway real text area
+     * and menu bar and look at what came out.
+     *
+     * <p>Only a success is remembered: the very first probe can run in a
+     * temporarily hostile state, e.g. inside the sandbox while the SUT is
+     * executing, and caching that failure would silently degrade every GUI
+     * component for the rest of the JVM. Re-probing after a failure costs one
+     * throwaway component, and a broken environment fails it immediately.
+     *
+     * @return true if real UI delegates populate font and caret in this JVM
+     */
+    private static boolean isRealSwingUiUsable() {
+        if (realSwingUiUsable) {
+            return true;
+        }
+        try {
+            JTextArea probeArea = new JTextArea("x", 1, 1);
+            JMenuBar probeMenuBar = new JMenuBar();
+            if (probeArea.getFont() != null
+                    && probeArea.getCaret() != null
+                    && probeMenuBar.getFont() != null) {
+                realSwingUiUsable = true;
+                return true;
+            }
+            logRealSwingUiFailureOnce("font/caret stay unset");
+        } catch (Throwable t) {
+            logRealSwingUiFailureOnce(t.toString());
+        }
+        return false;
+    }
+
+    private static void logRealSwingUiFailureOnce(String reason) {
+        if (realSwingUiFailureLogged) {
+            return;
+        }
+        realSwingUiFailureLogged = true;
+        logger.debug("Real Swing UI delegates are unusable here,"
+                + " falling back to stub GUI components: {}", reason);
+    }
+
+    /**
+     * Runs the real {@code updateUI()} of a mocked GUI component if this JVM can
+     * support it. Callers must always patch up whatever is still missing
+     * afterwards: this is best effort, and the real delegate can also fail
+     * silently (UIManager only logs and hands back a null delegate when the look
+     * and feel has no class for the component).
+     *
+     * @param realUpdateUi the {@code super.updateUI()} of the calling component
+     */
+    private static void tryRealUpdateUI(Runnable realUpdateUi) {
+        if (!isRealSwingUiUsable()) {
+            return;
+        }
+        try {
+            realUpdateUi.run();
+        } catch (Throwable t) {
+            // A component can still fail individually, e.g. because the SUT
+            // installed its own look and feel. Never let that escape into the SUT.
+            logger.debug("Real UI delegate installation failed, using stub component: {}",
+                    t.toString());
+        }
+    }
+
+    /**
+     * Last-resort defaults for a text component whose real UI delegate could not
+     * be installed. Without a caret, {@code JTextArea(String, int, int)} throws an
+     * NPE from {@code select(0, 0)}, and without a font any SUT calling
+     * {@code getFont().getSize()} does too, so the stub has to supply both.
+     * Only fills in what the real UI delegate did not.
+     *
+     * @param component the text component to patch up
+     */
+    private static void installMinimalTextDefaults(JTextComponent component) {
+        try {
+            if (component.getCaret() == null) {
+                component.setCaret(new DefaultCaret());
+            }
+        } catch (Throwable t) {
+            logger.debug("Could not install minimal caret: {}", t.toString());
+        }
+        installMinimalFont(component);
+    }
+
+    /**
+     * Gives a mocked component a font if its UI delegate did not, so that SUT
+     * code doing {@code component.getFont().getSize()} keeps working.
+     *
+     * @param component the component to patch up
+     */
+    private static void installMinimalFont(Component component) {
+        try {
+            if (component.getFont() == null) {
+                component.setFont(new Font(Font.DIALOG, Font.PLAIN, 12));
+            }
+        } catch (Throwable t) {
+            logger.debug("Could not install minimal font: {}", t.toString());
+        }
     }
 
     private static boolean isHeadlessSafe() {
@@ -2316,11 +2441,12 @@ public final class MockHeadlessSwing {
 
         @Override
         public void updateUI() {
-            // Avoid platform UI delegate initialization in headless mode.
-            if (isGuiMockingEnabled()) {
-                return;
-            }
-            super.updateUI();
+            // Install the real UI delegate where the JVM supports it: it is what
+            // gives the component its font and caret, and SUTs read those from
+            // their own constructors. Skipping it unconditionally is what used to
+            // leave font/caret/ui null (see isRealSwingUiUsable).
+            tryRealUpdateUI(super::updateUI);
+            installMinimalTextDefaults(this);
         }
 
         @Override
@@ -2338,10 +2464,10 @@ public final class MockHeadlessSwing {
 
         @Override
         public void updateUI() {
-            if (isGuiMockingEnabled()) {
-                return;
-            }
-            super.updateUI();
+            // Same rationale as HeadlessSafeJTextField: prefer the real delegate,
+            // degrade to a bare component only where it cannot be installed.
+            tryRealUpdateUI(super::updateUI);
+            installMinimalFont(this);
         }
     }
 
@@ -2378,10 +2504,11 @@ public final class MockHeadlessSwing {
 
         @Override
         public void updateUI() {
-            if (isGuiMockingEnabled()) {
-                return;
-            }
-            super.updateUI();
+            // Same rationale as HeadlessSafeJTextField. Note that JTextArea's
+            // text constructors call select(0, 0), so a component that comes out
+            // of here without a caret throws an NPE before the SUT sees it.
+            tryRealUpdateUI(super::updateUI);
+            installMinimalTextDefaults(this);
         }
 
         @Override
