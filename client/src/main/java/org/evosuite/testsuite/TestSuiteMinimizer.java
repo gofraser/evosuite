@@ -79,6 +79,44 @@ public class TestSuiteMinimizer {
     private final PreflightExecutor preflightExecutor;
 
     /**
+     * Fraction of the previously covering tests that must still produce a
+     * non-empty execution trace after the pre-minimization
+     * {@code __STATIC_RESET()} sweep for minimization to be trusted.
+     *
+     * <p>The sweep replays every SUT class' {@code <clinit>}.  If one of those
+     * replays throws, the JVM marks that class — and everything whose own
+     * {@code <clinit>} touches it — erroneous for the rest of the process, so
+     * from that point on the tests execute nothing.  A single test that still
+     * happens to trace is not evidence that the suite survived, which is why
+     * this is a proportion and not an "at least one" check.</p>
+     *
+     * <p>One half is deliberately generous.  A healthy suite re-executes
+     * essentially all of its tests, whereas an observed poisoning collapsed 36
+     * covering tests down to a single survivor, so the two populations are not
+     * close to the boundary.  The asymmetry of the two mistakes also favours
+     * bailing out: the un-minimized suite covers a superset of the minimized
+     * one, so a false positive costs only suite size, while a false negative
+     * silently discards most of the coverage found during the search.</p>
+     */
+    private static final double MIN_REEXECUTION_SURVIVAL_RATIO = 0.5;
+
+    /**
+     * Fraction of the pre-minimization covered goals the minimized suite has to
+     * still cover for the minimization to be shipped.
+     *
+     * <p>In principle minimization must not lose coverage at all, but a small
+     * loss is normal in practice: tests whose coverage depends on timing, the
+     * environment or leftover state do not always reproduce it on
+     * re-execution, and a minimization that runs out of budget keeps only
+     * partial results.  Measured on 108_liferay: a healthy class went from 200
+     * to 194 covered goals (97%), while the class broken by a poisoned
+     * {@code __STATIC_RESET()} chain went from 36 to 5 (14%).  One half sits
+     * far from both, so it separates "a few flaky goals" from "the suite
+     * stopped working" without being tuned to either sample.</p>
+     */
+    private static final double MIN_COVERAGE_PRESERVATION_RATIO = 0.5;
+
+    /**
      * <p>
      * Constructor for TestSuiteMinimizer.
      * </p>
@@ -131,10 +169,11 @@ public class TestSuiteMinimizer {
         // Snapshot the input suite so that, if the inner work OOMs or otherwise throws,
         // we can revert to the pre-minimization suite. The un-minimized suite covers a
         // strict superset of the minimized one, so this preserves coverage at the cost
-        // of giving up on minimization for this run. (We intentionally do NOT revert
-        // when minimization legitimately produces an empty suite — e.g., when no
-        // statements covered any goal on re-execution — only when it throws.)
+        // of giving up on minimization for this run. The same snapshot backs the
+        // coverage-preservation check below, which reverts when the minimized suite
+        // ends up covering substantially fewer goals than the input did.
         final List<TestChromosome> snapshot = deepCloneTests(suite.tests);
+        final int coveredGoalsBefore = suite.getCoveredGoals().size();
         MinimizationStatus status = MinimizationStatus.COMPLETED;
 
         try {
@@ -152,6 +191,30 @@ public class TestSuiteMinimizer {
             System.gc();
         }
 
+        if (minimizePerTest && status != MinimizationStatus.FAILED
+                && shouldEnforceCoveragePreservation(coveredGoalsBefore)) {
+            int coveredGoalsAfter = suite.getCoveredGoals().size();
+            int coveredGoalsRequired = (int) Math.ceil(MIN_COVERAGE_PRESERVATION_RATIO * coveredGoalsBefore);
+            if (coveredGoalsAfter < coveredGoalsRequired) {
+                logger.error("Minimization lost coverage: {} covered goals before, {} after "
+                                + "(required at least {}). "
+                                + "Reverting to pre-minimization snapshot of {} tests.",
+                        coveredGoalsBefore, coveredGoalsAfter, coveredGoalsRequired, snapshot.size());
+                suite.tests.clear();
+                suite.tests.addAll(deepCloneTests(snapshot));
+                // Keep an already-reported timeout/low-memory status: it explains
+                // why coverage was lost and is more informative than the rollback
+                // itself. The rollback is recorded either way by the log above.
+                if (status == MinimizationStatus.COMPLETED) {
+                    status = MinimizationStatus.REEXECUTION_FAILED;
+                }
+            } else if (coveredGoalsAfter < coveredGoalsBefore) {
+                logger.warn("Minimization lost {} of {} covered goals, which is within tolerance; "
+                                + "keeping the minimized suite of {} tests.",
+                        coveredGoalsBefore - coveredGoalsAfter, coveredGoalsBefore, suite.size());
+            }
+        }
+
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Size,
                 suite.size());
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.Minimized_Length,
@@ -162,6 +225,24 @@ public class TestSuiteMinimizer {
                 System.currentTimeMillis() - startTime);
         publishResult(result);
         return result;
+    }
+
+    /**
+     * Whether the covered-goal count is a meaningful invariant for this run.
+     *
+     * <p>Per-test minimization re-derives the covered goals of every test it
+     * keeps, so the resulting suite should cover essentially the same goals as
+     * the input did; a large shortfall means the tests stopped reproducing
+     * their coverage rather than that minimization found something redundant.
+     * The check is skipped when {@code JUNIT} is set, because
+     * {@link #filterJUnitCoveredGoals} intentionally drops goals that the
+     * existing JUnit tests already cover, which legitimately lowers the count.
+     * It is also restricted to the per-test path: suite minimization deletes
+     * statements and re-derives coverage through the suite fitness functions,
+     * so the two counts are not comparable there.</p>
+     */
+    private boolean shouldEnforceCoveragePreservation(int coveredGoalsBefore) {
+        return coveredGoalsBefore > 0 && Properties.JUNIT.isEmpty();
     }
 
     private List<TestChromosome> deepCloneTests(List<TestChromosome> tests) {
@@ -241,13 +322,33 @@ public class TestSuiteMinimizer {
         // classes whose <clinit> depends on those leaf classes.
         ClassReInitializer.getInstance().resetAllInitializedClasses(2);
 
-        // Probe: re-execute all tests to verify they can still reproduce
-        // coverage.  If ALL tests produce empty traces (e.g., due to broken
-        // static state after ClassReInitializer's __STATIC_RESET()), skip
-        // minimization entirely and preserve the suite as-is — including
-        // the original covered goals from the search phase, so that
-        // downstream coverage analysis can still report them.
-        boolean allTracesEmpty = true;
+        // How many tests were actually contributing coverage before the reset.
+        // This is the population the probe below has to account for; tests that
+        // never covered anything are not evidence either way.
+        int testsCoveringGoalsBefore = 0;
+        for (TestChromosome test : suite.getTestChromosomes()) {
+            if (!test.getTestCase().getCoveredGoals().isEmpty()) {
+                testsCoveringGoalsBefore++;
+            }
+        }
+
+        // Without a baseline (no test recorded any covered goal, e.g. a freshly
+        // generated random suite) we can only fall back on the original
+        // all-or-nothing condition of requiring a single survivor.
+        final int survivorsRequired = testsCoveringGoalsBefore > 0
+                ? (int) Math.ceil(MIN_REEXECUTION_SURVIVAL_RATIO * testsCoveringGoalsBefore)
+                : 1;
+
+        // Probe: re-execute the tests to verify they can still reproduce
+        // coverage.  If the number that still trace anything has collapsed
+        // relative to the number that were covering goals beforehand (e.g.,
+        // due to broken static state after ClassReInitializer's
+        // __STATIC_RESET()), skip minimization entirely and preserve the suite
+        // as-is — including the original covered goals from the search phase,
+        // so that downstream coverage analysis can still report them.
+        // Once enough survivors have been seen the verdict can no longer
+        // change, so we stop re-executing rather than pay for the whole suite.
+        int testsWithTraces = 0;
         int testsWithExceptions = 0;
         String firstExceptionType = null;
         for (int i = 0; i < suite.getTestChromosomes().size(); i++) {
@@ -265,8 +366,11 @@ public class TestSuiteMinimizer {
                     || !result.getTrace().getCoveredBranchlessMethods().isEmpty()
                     || !result.getTrace().getCoveredMethods().isEmpty()
                     || !result.getTrace().getCoveredLines().isEmpty()) {
-                allTracesEmpty = false;
-                break; // At least one test has coverage — proceed with minimization
+                testsWithTraces++;
+                if (testsWithTraces >= survivorsRequired) {
+                    break;
+                }
+                continue;
             }
             if (!result.getAllThrownExceptions().isEmpty()) {
                 testsWithExceptions++;
@@ -281,12 +385,14 @@ public class TestSuiteMinimizer {
                 }
             }
         }
-        if (allTracesEmpty && !suite.getTestChromosomes().isEmpty()) {
-            logger.warn("ALL {} tests produced empty traces on re-execution "
-                    + "({} threw exceptions, first: {}). "
-                    + "Skipping minimization to preserve original archive tests.",
-                    suite.getTestChromosomes().size(), testsWithExceptions,
-                    firstExceptionType != null ? firstExceptionType : "none");
+        int probedTests = suite.getTestChromosomes().size();
+        if (probedTests > 0 && testsWithTraces < survivorsRequired) {
+            logger.warn("Only {}/{} tests produced non-empty traces on re-execution, "
+                            + "but {} tests were covering goals beforehand (required at least {}); "
+                            + "{} threw exceptions, first: {}. "
+                            + "Skipping minimization to preserve original archive tests.",
+                    testsWithTraces, probedTests, testsCoveringGoalsBefore, survivorsRequired,
+                    testsWithExceptions, firstExceptionType != null ? firstExceptionType : "none");
             return MinimizationStatus.REEXECUTION_FAILED;
         }
 

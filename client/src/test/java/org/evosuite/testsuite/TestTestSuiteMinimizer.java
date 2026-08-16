@@ -57,6 +57,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -673,6 +674,81 @@ public class TestTestSuiteMinimizer {
         assertLogMessage(Level.ERROR, "Minimization failed (RuntimeException)");
     }
 
+    @Test
+    public void perTestMinimizationReportsReexecutionFailedWhenMostTracesCollapse() {
+        TestFitnessFunction searchGoal = neverCoveredGoal();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        for (int i = 0; i < 4; i++) {
+            DefaultTestCase test = new DefaultTestCase();
+            test.addStatement(new IntPrimitiveStatement(test, i));
+            test.addCoveredGoal(searchGoal);
+            suite.addTest(test);
+        }
+
+        AtomicInteger probed = new AtomicInteger();
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(new BranchCoverageFactory()),
+                () -> MinimizationStopCause.NONE,
+                executedTest -> {
+                    ExecutionResult result = new ExecutionResult(executedTest);
+                    // Only the first test still traces anything, which is the
+                    // profile of a suite whose SUT classes were poisoned by the
+                    // pre-minimization __STATIC_RESET() sweep.
+                    result.setTrace(probed.getAndIncrement() == 0
+                            ? nonEmptyTrace()
+                            : new ExecutionTraceImpl());
+                    return result;
+                });
+        MinimizationResult result = minimizer.minimize(suite, true);
+
+        assertEquals(MinimizationStatus.REEXECUTION_FAILED, result.getStatus());
+        assertEquals(4, result.getOriginalTests());
+        assertEquals(4, result.getFinalTests());
+        assertEquals(4, suite.size());
+        assertLogMessage(Level.WARN, "Only 1/4 tests produced non-empty traces on re-execution");
+    }
+
+    @Test
+    public void perTestMinimizationRevertsWhenCoveredGoalsAreLost() {
+        TestFitnessFunction searchGoal = neverCoveredGoal();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        for (int i = 0; i < 2; i++) {
+            DefaultTestCase test = new DefaultTestCase();
+            test.addStatement(new IntPrimitiveStatement(test, i));
+            test.addCoveredGoal(searchGoal);
+            suite.addTest(test);
+        }
+
+        // The probe passes (every test still traces), but no test reproduces
+        // the goal, so minimization would ship an empty suite.
+        TestFitnessFactory<TestFitnessFunction> factory = new TestFitnessFactory<TestFitnessFunction>() {
+            @Override
+            public List<TestFitnessFunction> getCoverageGoals() {
+                return Collections.singletonList(searchGoal);
+            }
+
+            @Override
+            public double getFitness(TestSuiteChromosome suite) {
+                return 1.0;
+            }
+        };
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(factory),
+                () -> MinimizationStopCause.NONE,
+                executedTest -> {
+                    ExecutionResult result = new ExecutionResult(executedTest);
+                    result.setTrace(nonEmptyTrace());
+                    return result;
+                });
+        MinimizationResult result = minimizer.minimize(suite, true);
+
+        assertEquals(MinimizationStatus.REEXECUTION_FAILED, result.getStatus());
+        assertEquals(2, suite.size());
+        assertEquals(1, suite.getCoveredGoals().size());
+        assertLogMessage(Level.ERROR, "Minimization lost coverage: 1 covered goals before, 0 after");
+    }
+
     private void assertLogMessage(Level level, String message) {
         ILoggingEvent matchingEvent = null;
         for (ILoggingEvent event : minimizerLogAppender.list) {
@@ -684,6 +760,47 @@ public class TestTestSuiteMinimizer {
             }
         }
         assertNotNull(matchingEvent, "Missing expected minimizer log event: " + message);
+    }
+
+    private static TestFitnessFunction neverCoveredGoal() {
+        return new TestFitnessFunction() {
+            @Override
+            public double getFitness(TestChromosome individual, ExecutionResult result) {
+                return 1.0;
+            }
+
+            @Override
+            public ExecutionResult runTest(TestCase test) {
+                ExecutionResult result = new ExecutionResult(test);
+                result.setTrace(nonEmptyTrace());
+                return result;
+            }
+
+            @Override
+            public int compareTo(TestFitnessFunction other) {
+                return 0;
+            }
+
+            @Override
+            public int hashCode() {
+                return 2;
+            }
+
+            @Override
+            public boolean equals(Object other) {
+                return this == other;
+            }
+
+            @Override
+            public String getTargetClass() {
+                return "";
+            }
+
+            @Override
+            public String getTargetMethod() {
+                return "";
+            }
+        };
     }
 
     private static ExecutionTrace nonEmptyTrace() {

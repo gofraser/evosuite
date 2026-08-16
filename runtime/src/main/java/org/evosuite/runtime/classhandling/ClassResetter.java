@@ -217,6 +217,9 @@ public class ClassResetter {
             logger.error("" + e, e);
         } catch (NoClassDefFoundError e) {
             AtMostOnceLogger.error(logger, e.toString());
+            // The declaring class (or one its <clinit> depends on) is already
+            // erroneous, so every further reset attempt raises the same error.
+            markPoisoned(classNameWithDots);
         } catch (InvocationTargetException e) {
 
             Throwable cause = e.getCause();

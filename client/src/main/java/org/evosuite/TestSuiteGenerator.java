@@ -764,6 +764,16 @@ public class TestSuiteGenerator {
                 }
                 logSuiteDiagnostics("postProcess:afterMinimization", testSuite);
 
+                // Note: this guard cannot currently fire.  getFitness() only sums
+                // the fitness values already cached on the chromosome, and the
+                // per-test minimization used here never re-evaluates a suite
+                // fitness function, so `after` is by construction equal to
+                // `before` (and simply 0.0 for an archive-derived suite, whose
+                // cache is empty).  What actually protects coverage is the
+                // covered-goal check inside TestSuiteMinimizer.minimize(), which
+                // reverts to the pre-minimization suite rather than aborting the
+                // whole run.  Kept as a cheap assertion in case a future caller
+                // does keep the suite fitness up to date across minimization.
                 double after = testSuite.getFitness();
                 if (after > before + 0.01d) { // assume minimization
                     throw new Error("EvoSuite bug: minimization lead fitness from " + before + " to " + after);
