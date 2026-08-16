@@ -49,6 +49,26 @@ public class LoopCounter {
      */
     private final List<Long> counters;
 
+    /**
+     * How many interrupted back-edges we let pass between two stack walks, once we have
+     * established that we are inside a static initializer. The interrupt flag stays set
+     * until the thread is stopped, so from the first interrupted back-edge onwards
+     * <i>every</i> further call would otherwise pay for a full
+     * {@link #isInStaticInit()} stack walk. Re-checking only every so often keeps that
+     * cost bounded; the price is that for at most this many back-edges after the
+     * static initializer has returned we may still treat the loop as being inside
+     * &lt;clinit&gt;, which merely delays the interrupt-driven exception a little.
+     */
+    private static final int INTERRUPT_STATIC_INIT_RECHECK_INTERVAL = 1000;
+
+    /**
+     * Whether the last {@link #isInStaticInit()} stack walk done on an interrupted
+     * back-edge found a &lt;clinit&gt; frame, and how many interrupted back-edges have
+     * been seen since that walk. Only ever read/written on the (rare) interrupted path.
+     */
+    private boolean interruptedInStaticInit = false;
+    private int interruptedChecksSinceStackWalk = 0;
+
 
     private LoopCounter() {
         counters = new ArrayList<>();
@@ -62,6 +82,10 @@ public class LoopCounter {
      * Reset the loop counters.
      */
     public void reset() {
+        // The static-init memo belongs to this instance, and is used on the
+        // delegate fast path as well, so clear it in both cases.
+        interruptedInStaticInit = false;
+        interruptedChecksSinceStackWalk = 0;
         if (delegate != null) {
             invokeDelegate("reset");
             return;
@@ -122,7 +146,9 @@ public class LoopCounter {
         if (delegate != null) {
             // Check interrupt before delegating — the delegate runs via
             // reflection which is slow, and we want fast termination.
-            if (Thread.currentThread().isInterrupted()) {
+            // Never on an interrupt alone inside a static initializer though:
+            // see the comment at the interrupt check further down.
+            if (Thread.currentThread().isInterrupted() && !isInterruptInStaticInit()) {
                 throw new TooManyResourcesException(
                         "Loop terminated early: thread was interrupted (likely timeout)");
             }
@@ -160,7 +186,17 @@ public class LoopCounter {
         // iteration blocks in native code (e.g., file I/O, DNS lookup).
         // checkLoop() is called at the loop back-edge — the earliest point
         // we regain control after a native call returns.
-        if (Thread.currentThread().isInterrupted()) {
+        //
+        // Exception: inside a static initializer we must not throw on a mere
+        // interrupt. Any exception escaping a <clinit> makes the JVM mark the
+        // class erroneous for the lifetime of the classloader, so that class and
+        // everything that reads from it throw NoClassDefFoundError from then on —
+        // which silently zeroes the coverage of the whole run, not just this test.
+        // An interrupt only says "we would like to stop", so it is not worth that
+        // price. A truly stuck static initializer is still terminated: by the 10x
+        // clinit iteration limit below, and by the kill-switch probe backstop in
+        // ExecutionTracer.checkTimeout().
+        if (Thread.currentThread().isInterrupted() && !isInterruptInStaticInit()) {
             this.reset();
             throw new TooManyResourcesException(
                     "Loop terminated early: thread was interrupted (likely timeout)");
@@ -205,6 +241,29 @@ public class LoopCounter {
         }
     }
 
+
+    /**
+     * Called only when the current thread is already interrupted and we are about to
+     * throw because of it. Answers whether we are inside a static initializer, using a
+     * throttled stack walk so that a hot loop does not pay for
+     * {@link #isInStaticInit()} on every remaining back-edge.
+     *
+     * @return true if the interrupted loop is running inside a &lt;clinit&gt;
+     */
+    private boolean isInterruptInStaticInit() {
+        // Only a positive answer is memoized. Wrongly believing that we are *not*
+        // inside a <clinit> would reintroduce the very bug this guards against,
+        // whereas wrongly believing that we still are merely postpones termination
+        // to the iteration limit.
+        if (interruptedInStaticInit
+                && interruptedChecksSinceStackWalk < INTERRUPT_STATIC_INIT_RECHECK_INTERVAL) {
+            interruptedChecksSinceStackWalk++;
+            return true;
+        }
+        interruptedInStaticInit = isInStaticInit();
+        interruptedChecksSinceStackWalk = 1;
+        return interruptedInStaticInit;
+    }
 
     private boolean isInStaticInit() {
         for (StackTraceElement elem : new Throwable().getStackTrace()) {

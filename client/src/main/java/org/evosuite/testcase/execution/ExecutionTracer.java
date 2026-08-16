@@ -70,6 +70,19 @@ public class ExecutionTracer {
     private int clinitDepth = 0;
 
     /**
+     * Names of the classes whose static initializers are currently on the stack,
+     * innermost last, parallel to {@link #clinitDepth}. Purely for diagnostics: without
+     * it none of the timeout warnings can say <i>which</i> class was being initialized
+     * when it got killed. A plain array indexed by the depth keeps the bookkeeping on
+     * this hot path down to one store per &lt;clinit&gt; entry; deeper nestings than
+     * {@link #MAX_TRACKED_CLINIT_NAMES} are simply not recorded (the depth counter
+     * itself stays exact).
+     */
+    private static final int MAX_TRACKED_CLINIT_NAMES = 32;
+
+    private final String[] clinitClassNames = new String[MAX_TRACKED_CLINIT_NAMES];
+
+    /**
      * Maximum number of checkTimeout() calls inside &lt;clinit&gt; with kill
      * switch active before we force the timeout. This is a last resort to
      * prevent threads from being stuck forever in static initializers with
@@ -201,6 +214,7 @@ public class ExecutionTracer {
         BooleanHelper.clearStack();
         numStatements = 0;
         clinitDepth = 0;
+        java.util.Arrays.fill(clinitClassNames, null);
     }
 
     /**
@@ -399,9 +413,9 @@ public class ExecutionTracer {
         tracer.clinitKillSwitchCount++;
         if (tracer.clinitKillSwitchCount >= MAX_CLINIT_KILL_SWITCH_CHECKS) {
             tracer.clinitKillSwitchCount = 0;
-            logger.warn("Forcing timeout inside <clinit> after {} kill switch checks "
+            logger.warn("Forcing timeout inside <clinit> of {} after {} kill switch checks "
                     + "— static initializer appears stuck in an infinite loop",
-                    MAX_CLINIT_KILL_SWITCH_CHECKS);
+                    describeCurrentClassInit(), MAX_CLINIT_KILL_SWITCH_CHECKS);
             throw new TestCaseExecutor.TimeoutExceeded();
         }
     }
@@ -534,10 +548,42 @@ public class ExecutionTracer {
      * can cheaply detect whether we are inside a static initializer without
      * walking the stack trace.
      *
-     * @param className the name of the class (unused, kept for symmetry with exitClassInit).
+     * @param className the name of the class being initialized.
      */
     public static void enterClassInit(String className) {
-        getExecutionTracer().clinitDepth++;
+        ExecutionTracer tracer = getExecutionTracer();
+        if (tracer.clinitDepth < MAX_TRACKED_CLINIT_NAMES) {
+            tracer.clinitClassNames[tracer.clinitDepth] = className;
+        }
+        tracer.clinitDepth++;
+    }
+
+    /**
+     * Name of the class whose static initializer is currently innermost on the stack,
+     * for diagnostics in timeout handling.
+     *
+     * @return the class name, or null if we are not inside a tracked &lt;clinit&gt;
+     */
+    public static String getCurrentClassInitName() {
+        ExecutionTracer tracer = getExecutionTracer();
+        int depth = tracer.clinitDepth;
+        if (depth <= 0 || depth > MAX_TRACKED_CLINIT_NAMES) {
+            return null;
+        }
+        return tracer.clinitClassNames[depth - 1];
+    }
+
+    /**
+     * Like {@link #getCurrentClassInitName()}, but never null, for use in log messages.
+     * The name can be unknown when the static initializer belongs to a class that was
+     * not instrumented, or when the thread is stuck in class loading rather than in a
+     * &lt;clinit&gt; body.
+     *
+     * @return the class name, or a placeholder if it is not known.
+     */
+    public static String describeCurrentClassInit() {
+        String className = getCurrentClassInitName();
+        return className != null ? className : "<unknown class>";
     }
 
     /**
@@ -552,6 +598,9 @@ public class ExecutionTracer {
         ExecutionTracer tracer = getExecutionTracer();
         if (tracer.clinitDepth > 0) {
             tracer.clinitDepth--;
+            if (tracer.clinitDepth < MAX_TRACKED_CLINIT_NAMES) {
+                tracer.clinitClassNames[tracer.clinitDepth] = null;
+            }
         }
 
         tracer.trace.classInitialized(classNameWithDots);

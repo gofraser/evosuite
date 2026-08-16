@@ -694,7 +694,8 @@ public class TestCaseExecutor implements ThreadFactory {
             boolean initialInProtectedBootstrap = initialInStaticInit || initialInRuntimeBootstrap;
             ExecutionTracer.setKillSwitch(!initialInProtectedBootstrap);
             if (initialInStaticInit) {
-                logger.info("Timeout happened inside <clinit>; entering grace handling before kill switch.");
+                logger.info("Timeout happened inside <clinit> of {}; entering grace handling "
+                        + "before kill switch.", ExecutionTracer.describeCurrentClassInit());
             } else if (initialInRuntimeBootstrap) {
                 logger.info("Timeout happened during dynamic-runtime bootstrap; granting up to {}ms "
                                 + "of uninterrupted grace time.",
@@ -728,8 +729,12 @@ public class TestCaseExecutor implements ThreadFactory {
                 boolean loopCounter = LoopCounter.getInstance().isActivated();
                 boolean wasInStaticInit = false;
                 int clinitWaitAttempts = 0;
-                // Allow up to timeout ms for the static initializer to complete normally
-                int maxClinitWaitAttempts = (int) Math.max(1, timeout / Properties.SHUTDOWN_TIMEOUT);
+                // Allow up to CLINIT_GRACE_TIMEOUT ms for the static initializer to complete
+                // normally. This is deliberately not derived from the per-test timeout: a
+                // <clinit> runs once per class, and real ones (e.g. reading configuration
+                // files) legitimately take longer than a single test is allowed to.
+                int maxClinitWaitAttempts =
+                        (int) Math.max(1, Properties.CLINIT_GRACE_TIMEOUT / Properties.SHUTDOWN_TIMEOUT);
                 while (needsTimeoutCleanup(handler)
                         && currentThread != null
                         && currentThread.isAlive()
@@ -748,8 +753,10 @@ public class TestCaseExecutor implements ThreadFactory {
                 if (wasInStaticInit && needsTimeoutCleanup(handler) && isInStaticInit()) {
                     // Static initializer is still running after max wait — it's likely stuck.
                     // Re-enable kill switch and loop counter so the thread can be terminated.
-                    logger.warn("Static initializer still running after {}ms — re-enabling kill switch "
-                            + "to force termination.", clinitWaitAttempts * Properties.SHUTDOWN_TIMEOUT);
+                    logger.warn("Static initializer of {} still running after {}ms — re-enabling "
+                                    + "kill switch to force termination.",
+                            ExecutionTracer.describeCurrentClassInit(),
+                            clinitWaitAttempts * Properties.SHUTDOWN_TIMEOUT);
                     ExecutionTracer.setKillSwitch(true);
                     LoopCounter.getInstance().setActive(true);
                     waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);

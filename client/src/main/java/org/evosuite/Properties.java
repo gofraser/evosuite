@@ -3175,6 +3175,12 @@ public class Properties {
                     + "occurs inside a recognized dynamic-runtime bootstrap")
     public static int RUNTIME_BOOTSTRAP_GRACE_TIMEOUT = 10000;
 
+    @Parameter(key = "clinit_grace_timeout", group = "Test Execution",
+            description = "Milliseconds a static initializer is allowed to keep running after a "
+                    + "test timeout before it is forcibly terminated. A <clinit> is a one-off "
+                    + "per-class cost, so this is deliberately independent of the per-test timeout")
+    public static int CLINIT_GRACE_TIMEOUT = 10000;
+
     @Parameter(key = "timeout_reset", group = "Test Execution",
             description = "Milliseconds allowed to execute the static reset of a test")
     public static int TIMEOUT_RESET = 2000;
