@@ -54,6 +54,11 @@ public class TestGenerationResultBuilder {
      * @return the test generation result with error status
      */
     public static <T extends Chromosome<T>> TestGenerationResult<T> buildErrorResult(String errorMessage) {
+        // An error result means the run produced no test suite. Several call sites used to return
+        // one without saying anything, which made a class fail with exit code 0, no error line in
+        // the log, and empty coverage columns in statistics.csv. Log here so that no error result
+        // can ever be silent, no matter which call site produced it.
+        LoggingUtils.getEvoLogger().error("* Test generation failed: {}", errorMessage);
         TestGenerationResultImpl<T> result = new TestGenerationResultImpl<T>();
         result.setStatus(Status.ERROR);
         result.setErrorMessage(errorMessage);

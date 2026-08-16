@@ -283,6 +283,9 @@ public class TestSuiteGenerator {
         LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating tests for class "
                 + Properties.TARGET_CLASS);
         sanitizeDebugInfoDependentCriteria();
+        // Both sanitizers have to run before the criteria are printed, otherwise the log advertises
+        // criteria that this run is not going to use.
+        dropCallGraphDependentCriteriaIfNoCallGraph();
         TestSuiteGeneratorHelper.printTestCriterion();
         org.evosuite.testcase.AllocationSensitiveSuitePruner.install();
 
@@ -293,19 +296,6 @@ public class TestSuiteGenerator {
         if (!Properties.hasTargetClassBeenLoaded()) {
             // initialization failed, then build error message
             return TestGenerationResultBuilder.buildErrorResult("Could not load target class");
-        }
-
-        // Context-sensitive criteria (CBRANCH/IBRANCH) need the call graph. If dependency analysis
-        // failed for this class, the call graph was never built: the failure is logged and swallowed
-        // during setup (ClientNodeImpl.doDependencyAnalysis, TestGenerationContext.resetContext), so
-        // the class object loads yet getCallGraph() is null. Fail cleanly here rather than letting
-        // the goal factories dereference the null call graph mid-setup.
-        if ((ArrayUtil.contains(Properties.CRITERION, Criterion.CBRANCH)
-                || ArrayUtil.contains(Properties.CRITERION, Criterion.IBRANCH))
-                && DependencyAnalysis.getCallGraph() == null) {
-            return TestGenerationResultBuilder.buildErrorResult(
-                    "Dependency analysis did not produce a call graph for " + Properties.TARGET_CLASS
-                            + "; cannot compute context-sensitive coverage goals");
         }
 
         // Check if there are ANY goals across all criteria
@@ -576,6 +566,57 @@ public class TestSuiteGenerator {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "No test criteria left after removing debug-info-dependent criteria");
         }
+    }
+
+    static boolean isCallGraphDependentCriterion(Criterion criterion) {
+        return criterion == Criterion.CBRANCH || criterion == Criterion.IBRANCH;
+    }
+
+    static Criterion[] removeCallGraphDependentCriteria(Criterion[] criteria) {
+        return Arrays.stream(criteria)
+                .filter(c -> !isCallGraphDependentCriterion(c))
+                .toArray(Criterion[]::new);
+    }
+
+    /**
+     * Context-sensitive criteria (CBRANCH/IBRANCH) expand branch goals through the call graph of the
+     * target class. If dependency analysis failed for this class, the call graph was never built:
+     * the failure is logged and swallowed during setup (ClientNodeImpl.doDependencyAnalysis,
+     * TestGenerationContext.resetContext), so the class object loads yet getCallGraph() is null.
+     * Drop the affected criteria and carry on with whatever is left - losing context sensitivity is
+     * much better than producing no test suite at all.
+     *
+     * @return true if at least one criterion was dropped
+     */
+    boolean dropCallGraphDependentCriteriaIfNoCallGraph() {
+        if (Arrays.stream(Properties.CRITERION).noneMatch(TestSuiteGenerator::isCallGraphDependentCriterion)) {
+            return false;
+        }
+        if (DependencyAnalysis.getCallGraph() != null) {
+            return false;
+        }
+
+        String omittedCriteria = Arrays.stream(Properties.CRITERION)
+                .filter(TestSuiteGenerator::isCallGraphDependentCriterion)
+                .map(TestSuiteGeneratorHelper::getCriterionDisplayName)
+                .collect(java.util.stream.Collectors.joining(", "));
+        LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Dependency analysis did not produce a call graph for {}; omitting criterion during test "
+                + "generation: {}", Properties.TARGET_CLASS, omittedCriteria);
+
+        Properties.CRITERION = removeCallGraphDependentCriteria(Properties.CRITERION);
+        // requestedCriteria is replayed over Properties.CRITERION for the coverage-analysis phase,
+        // so it must not smuggle the dropped criteria back in: IBranchFitnessFactory would then
+        // dereference exactly the call graph that is missing.
+        if (requestedCriteria != null) {
+            requestedCriteria = removeCallGraphDependentCriteria(requestedCriteria);
+        }
+
+        if (Properties.CRITERION.length == 0) {
+            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "No test criteria left after removing call-graph-dependent criteria");
+        }
+        return true;
     }
 
     /**

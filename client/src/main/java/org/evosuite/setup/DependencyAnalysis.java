@@ -143,11 +143,28 @@ public class DependencyAnalysis {
         LoggingUtils.getEvoLogger().info("* Cached inheritance tree ({}) is out of sync with the running JVM; "
                 + "regenerating a fresh inheritance tree", Properties.INHERITANCE_FILE);
         List<String> classPath = inheritanceTreeClasspath;
+        String targetClass = Properties.TARGET_CLASS;
         callGraphs.clear();
         classCache.clear();
         dropInheritanceTree();
         Properties.INHERITANCE_FILE = "";
+        // Clearing INHERITANCE_FILE before rebuilding also makes this method a no-op if anything
+        // below re-enters it, so the regeneration cannot recurse.
         initInheritanceTree(classPath);
+        // The clear above threw away the call graph of the class we are currently analyzing, and
+        // unlike the recovery path in analyzeClass() nothing downstream rebuilds it: getCallGraph()
+        // would stay null for the rest of the run, leaving the context-sensitive criteria without a
+        // call graph. Rebuild it here. We are called from the middle of cluster generation, so a
+        // failure must not escape - the caller only asked whether the tree was refreshed, and a
+        // missing call graph is handled further downstream.
+        if (targetClass != null && !targetClass.isEmpty()) {
+            try {
+                initCallGraph(targetClass);
+            } catch (Throwable t) {
+                logger.warn("Could not rebuild call graph for {} after regenerating the inheritance tree: {}",
+                        targetClass, t.toString());
+            }
+        }
         return true;
     }
 
