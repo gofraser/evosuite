@@ -306,6 +306,12 @@ public class InstrumentingClassLoader extends ClassLoader {
             // We catch Throwable here because instrumentation or class definition might fail with
             // LinkageError or other unexpected errors, which we want to wrap as ClassNotFoundException
             // to conform to the ClassLoader contract and logging.
+            if (t instanceof BytecodeInstrumentation.TargetClassInstrumentationException) {
+                // The class exists and loaded fine; we refused to hand back uninstrumented bytecode
+                // for the class under test. Wrapping that in ClassNotFoundException would report a
+                // missing class, which is exactly the wrong diagnosis, so let it through unchanged.
+                throw (BytecodeInstrumentation.TargetClassInstrumentationException) t;
+            }
             if (isMissingClassError(t)) {
                 if (shouldWarnForMissingClass(fullyQualifiedTargetClass)) {
                     AtMostOnceLogger.warn(logger, "Error while loading class (one-time): " + t.getMessage());

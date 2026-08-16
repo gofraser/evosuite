@@ -162,6 +162,62 @@ public class BytecodeInstrumentation {
     }
 
     /**
+     * Check whether the given class is the class under test (CUT).
+     * <p>
+     * This uses the narrow CUT definition that the coverage goal factories use (see
+     * {@code AbstractFitnessFactory.isCUT} and {@code InstrumentingClassLoader.shouldWarnForMissingClass}):
+     * the target class itself plus its nested classes ({@code Foo$Bar}).  Nested classes
+     * count as CUT because their branches and lines are part of the target's coverage
+     * goals, so losing their probes degrades the reported coverage just as silently as
+     * losing the probes of the outer class.
+     * <p>
+     * The broader {@link org.evosuite.setup.TestCluster#isTargetClassName(String)} is
+     * deliberately NOT used here: it also matches every class below
+     * {@code TARGET_CLASS_PREFIX} and, with {@code INSTRUMENT_PARENT}, subclasses of the
+     * target.  Those are exactly the dependency classes that the instrumentation fallback
+     * ladder exists to rescue, and their behaviour must not change.
+     *
+     * @param classNameWithDots the class name in binary (dotted) form.
+     * @return true if the class is the class under test or one of its nested classes.
+     */
+    private boolean isClassUnderTest(String classNameWithDots) {
+        String targetClass = config.targetClass();
+        if (targetClass == null || targetClass.isEmpty()) {
+            return false;
+        }
+        return classNameWithDots.equals(targetClass)
+                || classNameWithDots.startsWith(targetClass + "$");
+    }
+
+    /**
+     * Abort instead of silently returning bytecode without coverage probes for the class
+     * under test.
+     * <p>
+     * The fallback rungs that stop emitting probes ({@link #transformBytesMinimal},
+     * {@link #transformBytesBarePassthrough} and {@link #copyOriginalBytecode}) are the
+     * right answer for dependency classes: the run continues and only loses instrumentation
+     * we do not measure anyway.  For the CUT they are the wrong answer: no probes means no
+     * branches and no lines are registered, so the run completes "successfully" while
+     * reporting exactly 0 coverage with nothing in the log marking the result as invalid.
+     * We log at ERROR and fail loudly instead.
+     *
+     * @param classNameWithDots the class name in binary (dotted) form.
+     * @param rung              description of the coverage-free fallback we were about to take.
+     * @param cause             the underlying instrumentation failure, may be null.
+     */
+    private void failIfClassUnderTest(String classNameWithDots, String rung, Throwable cause) {
+        if (!isClassUnderTest(classNameWithDots)) {
+            return;
+        }
+        String message = "Cannot instrument class under test " + classNameWithDots
+                + ": the remaining fallback (" + rung + ") emits no coverage probes, so the run"
+                + " would report 0 coverage without any coverage goals. Underlying failure: "
+                + (cause == null ? "unknown" : cause.toString());
+        logger.error(message, cause);
+        throw new TargetClassInstrumentationException(message, cause);
+    }
+
+    /**
      * <p>
      * transformBytes.
      * </p>
@@ -193,6 +249,7 @@ public class BytecodeInstrumentation {
                     ClassWriter.COMPUTE_FRAMES);
         } catch (RuntimeException | Error t) {
             if (isUnsupportedJsrRetFailure(t)) {
+                failIfClassUnderTest(classNameWithDots, "raw bytecode passthrough", t);
                 logger.warn("Retrying instrumentation of {} with raw bytecode passthrough "
                                 + "due to unsupported JSR/RET: {}",
                         classNameWithDots, t.getMessage());
@@ -262,7 +319,9 @@ public class BytecodeInstrumentation {
                     throw t4;
                 }
             }
-            // Retry 4: minimal (non-target) instrumentation.
+            // Retry 4: minimal (non-target) instrumentation.  From here on the fallbacks
+            // no longer emit coverage probes, so the CUT must not take them.
+            failIfClassUnderTest(classNameWithDots, "minimal (non-target) instrumentation", t);
             logger.warn("Retrying instrumentation of {} with minimal (non-target) instrumentation "
                     + "due to persistent ASM frame merge failure",
                     classNameWithDots);
@@ -276,12 +335,14 @@ public class BytecodeInstrumentation {
             // Retry 5: bare passthrough — only add the InstrumentedClass marker interface
             // without modifying any method bytecode.  We read with EXPAND_FRAMES to
             // preserve the original StackMapTable and avoid ASM frame recomputation.
+            failIfClassUnderTest(classNameWithDots, "bare passthrough (marker interface only)", t);
             logger.warn("Retrying instrumentation of {} with bare passthrough (no method-level changes) "
                     + "due to persistent ASM failure", classNameWithDots);
             try {
                 return transformBytesBarePassthrough(className, reader);
             } catch (RuntimeException | Error t6) {
                 if (isUnsupportedJsrRetFailure(t6)) {
+                    failIfClassUnderTest(classNameWithDots, "raw bytecode passthrough", t6);
                     logger.warn("Falling back to raw bytecode passthrough for {} "
                                     + "due to unsupported JSR/RET in bare passthrough: {}",
                             classNameWithDots, t6.getMessage());
@@ -469,7 +530,12 @@ public class BytecodeInstrumentation {
         }
 
         // Retry 2: use only the non-target adapter chain (NonTargetClassAdapter + mocking),
-        // which adds far fewer constant pool entries than the target chain.
+        // which adds far fewer constant pool entries than the target chain.  This drops the
+        // coverage probes, so the CUT must not take this rung: a class we cannot fit inside
+        // the JVM limits is still a class we cannot measure, and a silent 0 coverage result
+        // is worse than an explicit failure.
+        failIfClassUnderTest(classNameWithDots,
+                "minimal (non-target) instrumentation for an over-sized class", originalError);
         logger.warn("Class {} is still too large; retrying with minimal (non-target) instrumentation",
                 classNameWithDots);
         try {
@@ -481,6 +547,8 @@ public class BytecodeInstrumentation {
         }
 
         // Last resort: bare passthrough with no method-level changes.
+        failIfClassUnderTest(classNameWithDots,
+                "bare passthrough (marker interface only) for an over-sized class", originalError);
         logger.warn("Class {} is still too large; retrying with bare passthrough", classNameWithDots);
         return transformBytesBarePassthrough(className, reader);
     }
@@ -490,7 +558,7 @@ public class BytecodeInstrumentation {
      * This avoids the ClassNode roundtrip and the Comparison/String/Container transformations
      * that can inflate the constant pool beyond the JVM limit for very large classes.
      */
-    private byte[] transformBytesSkipTestability(ClassLoader classLoader, String className,
+    protected byte[] transformBytesSkipTestability(ClassLoader classLoader, String className,
                                                   String classNameWithDots, ClassReader reader, int readFlags) {
         ClassWriter writer = new ComputeClassWriter(ClassWriter.COMPUTE_FRAMES);
 
@@ -510,7 +578,7 @@ public class BytecodeInstrumentation {
      * This is the most minimal instrumentation that still allows the class to be loaded in
      * the EvoSuite runtime (InstrumentedClass interface, static reset, method call replacement).
      */
-    private byte[] transformBytesMinimal(ClassLoader classLoader, String className,
+    protected byte[] transformBytesMinimal(ClassLoader classLoader, String className,
                                           String classNameWithDots, ClassReader reader, int readFlags) {
         ClassWriter writer = new ComputeClassWriter(ClassWriter.COMPUTE_FRAMES);
 
@@ -737,6 +805,21 @@ public class BytecodeInstrumentation {
         EndOfClassInitializerVisitor exitClassInitAdapter = new EndOfClassInitializerVisitor(cv, className);
         cv = exitClassInitAdapter;
         return cv;
+    }
+
+    /**
+     * Thrown when the class under test could only be instrumented by a fallback that emits
+     * no coverage probes.  Such a run would report exactly 0 coverage and still look like a
+     * success, so we abort instead.  Dependency classes are unaffected: for them the
+     * fallbacks are taken as before.
+     */
+    public static class TargetClassInstrumentationException extends RuntimeException {
+
+        private static final long serialVersionUID = 6017281404946521264L;
+
+        public TargetClassInstrumentationException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
 }
