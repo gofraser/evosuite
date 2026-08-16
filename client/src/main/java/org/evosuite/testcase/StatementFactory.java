@@ -556,9 +556,13 @@ public class StatementFactory {
 
         try {
             if (!method.isStatic()) {
+                // A functional mock can never be a callee: mocking the receiver would both hide
+                // the real behaviour and short-circuit the lazy dependency resolution that pulls
+                // the receiver's own class (and its parameter types) into the test cluster.
                 VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
                         VariableResolutionConfig.defaultConfig())
                         .withAllowNull(false)
+                        .withCanUseMocks(false)
                         .build();
                 callee = testFactory.createOrReuseVariable(test, method.getOwnerType(), position,
                         context, nonNullCalleeConfig);
@@ -648,9 +652,13 @@ public class StatementFactory {
         List<VariableReference> parameters;
 
         if (!method.isStatic()) {
+            // A functional mock can never be a callee: mocking the receiver would both hide the
+            // real behaviour and short-circuit the lazy dependency resolution that pulls the
+            // receiver's own class (and its parameter types) into the test cluster.
             VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
                     VariableResolutionConfig.defaultConfig())
                     .withAllowNull(false)
+                    .withCanUseMocks(false)
                     .build();
             callee = testFactory.createOrReuseVariable(test, method.getOwnerType(), position,
                     context, nonNullCalleeConfig);
@@ -733,9 +741,13 @@ public class StatementFactory {
         int length = test.size();
 
         if (!field.isStatic()) {
+            // A functional mock can never be a callee: mocking the receiver would both hide the
+            // real behaviour and short-circuit the lazy dependency resolution that pulls the
+            // receiver's own class (and its parameter types) into the test cluster.
             VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
                     VariableResolutionConfig.defaultConfig())
                     .withAllowNull(false)
+                    .withCanUseMocks(false)
                     .build();
             callee = testFactory.createOrReuseVariable(test, field.getOwnerType(), position,
                     context, nonNullCalleeConfig);
@@ -784,9 +796,13 @@ public class StatementFactory {
         int length = test.size();
         VariableReference callee = null;
         if (!field.isStatic()) {
+            // A functional mock can never be a callee: mocking the receiver would both hide the
+            // real behaviour and short-circuit the lazy dependency resolution that pulls the
+            // receiver's own class (and its parameter types) into the test cluster.
             VariableResolutionConfig nonNullCalleeConfig = new VariableResolutionConfig.Builder(
                     VariableResolutionConfig.defaultConfig())
                     .withAllowNull(false)
+                    .withCanUseMocks(false)
                     .build();
             callee = testFactory.createOrReuseVariable(test, field.getOwnerType(), position,
                     context, nonNullCalleeConfig);

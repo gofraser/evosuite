@@ -144,15 +144,16 @@ public class TestFactory {
         try {
             if (call.isMethod()) {
                 GenericMethod method = (GenericMethod) call;
-                if (call.isStatic()) {
+                if (call.isStatic()
+                        || !MethodStatement.isCompatibleCalleeType(method, callee.getType())) {
 
                     // Static methods can be modifiers of the SUT if the SUT depends on static
-                    // fields
+                    // fields. The same holds for instance methods declared on a *different*
+                    // class than the callee (e.g. a setter on a holder class that writes the
+                    // static field the SUT reads): they need their own receiver, which
+                    // addMethod creates for us.
                     addMethod(test, method, position, context);
                 } else {
-                    if (!MethodStatement.isCompatibleCalleeType(method, callee.getType())) {
-                        throw new ConstructionFailedException("Cannot apply method to this callee");
-                    }
                     addMethodFor(test,
                             callee,
                             (GenericMethod) call.copyWithNewOwner(callee.getGenericClass()),
