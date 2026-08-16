@@ -746,7 +746,9 @@ public class TestTestSuiteMinimizer {
         assertEquals(MinimizationStatus.REEXECUTION_FAILED, result.getStatus());
         assertEquals(2, suite.size());
         assertEquals(1, suite.getCoveredGoals().size());
-        assertLogMessage(Level.ERROR, "Minimization lost coverage: 1 covered goals before, 0 after");
+        // The criterion is named in the message; this goal is an anonymous class, so it
+        // is labelled by its full name rather than an empty simple name.
+        assertLogMessage(Level.ERROR, "coverage: 1 covered goals before, 0 after");
     }
 
     private void assertLogMessage(Level level, String message) {

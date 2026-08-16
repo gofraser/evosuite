@@ -31,6 +31,7 @@ import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.ClientStateInformation;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -101,20 +102,25 @@ public class TestSuiteMinimizer {
     private static final double MIN_REEXECUTION_SURVIVAL_RATIO = 0.5;
 
     /**
-     * Fraction of the pre-minimization covered goals the minimized suite has to
-     * still cover for the minimization to be shipped.
+     * Minimization must not cost coverage in any criterion, so the covered goals
+     * are compared per criterion rather than pooled.
      *
-     * <p>In principle minimization must not lose coverage at all, but a small
-     * loss is normal in practice: tests whose coverage depends on timing, the
-     * environment or leftover state do not always reproduce it on
-     * re-execution, and a minimization that runs out of budget keeps only
-     * partial results.  Measured on 108_liferay: a healthy class went from 200
-     * to 194 covered goals (97%), while the class broken by a poisoned
-     * {@code __STATIC_RESET()} chain went from 36 to 5 (14%).  One half sits
-     * far from both, so it separates "a few flaky goals" from "the suite
-     * stopped working" without being tuned to either sample.</p>
+     * <p>A single ratio over all criteria at once does not work.  The pool is
+     * dominated by whichever criterion has the most goals - usually weak
+     * mutation and context branch - so a loss concentrated in the criteria the
+     * experiment actually reports disappears into it.  Measured on 96_heal
+     * EditCopyrightHolderAction: minimization lost 4 of 51 pooled goals, which
+     * is 92% retention and passes any pooled threshold worth setting, yet those
+     * four were 2 of 10 branch goals and 3 of 18 line goals, and the run
+     * reported 0.80 branch instead of 1.00.</p>
+     *
+     * <p>Comparing per criterion and refusing any loss is also what minimization
+     * is supposed to guarantee: it drops tests it has just re-executed and found
+     * redundant, so a goal that stops being covered means the re-execution was
+     * not faithful, not that the test was redundant.  The cost is that a suite
+     * whose coverage does not reproduce stays unminimized, which is the honest
+     * outcome but does make the JUnit check phase more expensive.</p>
      */
-    private static final double MIN_COVERAGE_PRESERVATION_RATIO = 0.5;
 
     /**
      * <p>
@@ -173,7 +179,7 @@ public class TestSuiteMinimizer {
         // coverage-preservation check below, which reverts when the minimized suite
         // ends up covering substantially fewer goals than the input did.
         final List<TestChromosome> snapshot = deepCloneTests(suite.tests);
-        final int coveredGoalsBefore = suite.getCoveredGoals().size();
+        final Map<String, Integer> coveredGoalsBefore = countCoveredGoalsPerCriterion(suite);
         MinimizationStatus status = MinimizationStatus.COMPLETED;
 
         try {
@@ -193,13 +199,15 @@ public class TestSuiteMinimizer {
 
         if (minimizePerTest && status != MinimizationStatus.FAILED
                 && shouldEnforceCoveragePreservation(coveredGoalsBefore)) {
-            int coveredGoalsAfter = suite.getCoveredGoals().size();
-            int coveredGoalsRequired = (int) Math.ceil(MIN_COVERAGE_PRESERVATION_RATIO * coveredGoalsBefore);
-            if (coveredGoalsAfter < coveredGoalsRequired) {
-                logger.error("Minimization lost coverage: {} covered goals before, {} after "
-                                + "(required at least {}). "
+            Map<String, Integer> coveredGoalsAfter = countCoveredGoalsPerCriterion(suite);
+            String lostCriterion = firstCriterionLosingGoals(coveredGoalsBefore, coveredGoalsAfter);
+            if (lostCriterion != null) {
+                logger.error("Minimization lost {} coverage: {} covered goals before, {} after. "
                                 + "Reverting to pre-minimization snapshot of {} tests.",
-                        coveredGoalsBefore, coveredGoalsAfter, coveredGoalsRequired, snapshot.size());
+                        lostCriterion,
+                        coveredGoalsBefore.get(lostCriterion),
+                        coveredGoalsAfter.getOrDefault(lostCriterion, 0),
+                        snapshot.size());
                 suite.tests.clear();
                 suite.tests.addAll(deepCloneTests(snapshot));
                 // Keep an already-reported timeout/low-memory status: it explains
@@ -208,10 +216,6 @@ public class TestSuiteMinimizer {
                 if (status == MinimizationStatus.COMPLETED) {
                     status = MinimizationStatus.REEXECUTION_FAILED;
                 }
-            } else if (coveredGoalsAfter < coveredGoalsBefore) {
-                logger.warn("Minimization lost {} of {} covered goals, which is within tolerance; "
-                                + "keeping the minimized suite of {} tests.",
-                        coveredGoalsBefore - coveredGoalsAfter, coveredGoalsBefore, suite.size());
             }
         }
 
@@ -241,8 +245,74 @@ public class TestSuiteMinimizer {
      * statements and re-derives coverage through the suite fitness functions,
      * so the two counts are not comparable there.</p>
      */
-    private boolean shouldEnforceCoveragePreservation(int coveredGoalsBefore) {
-        return coveredGoalsBefore > 0 && Properties.JUNIT.isEmpty();
+    private boolean shouldEnforceCoveragePreservation(Map<String, Integer> coveredGoalsBefore) {
+        // JUNIT is set only when goals are deliberately filtered down to what an
+        // existing suite covers, so a drop there is expected rather than a fault.
+        return !coveredGoalsBefore.isEmpty() && Properties.JUNIT.isEmpty();
+    }
+
+    /**
+     * Counts the goals the suite covers, split by the criterion that produced them.
+     * The fitness function's own type is the criterion here: line goals come from
+     * LineCoverageTestFitness, branch goals from BranchCoverageTestFitness, and so on.
+     *
+     * @param suite the suite to measure
+     * @return covered goals per criterion, keyed by the fitness function's simple name
+     */
+    private Map<String, Integer> countCoveredGoalsPerCriterion(TestSuiteChromosome suite) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (TestFitnessFunction goal : suite.getCoveredGoals()) {
+            if (isNonDeterministicCriterion(goal)) {
+                continue;
+            }
+            counts.merge(criterionNameOf(goal), 1, Integer::sum);
+        }
+        return counts;
+    }
+
+    /**
+     * Whether a goal belongs to a criterion that legitimately varies between runs of
+     * the same test, and so must not be allowed to block minimization.
+     *
+     * <p>Whether a call throws can depend on timing, the environment or leftover state,
+     * so an exception goal can disappear on re-execution without anything being wrong.
+     * Enforcing it cost 108_liferay Element its minimization entirely - one exception
+     * goal out of 25 went missing and the suite stayed at 332 tests instead of tens,
+     * with identical line and branch coverage either way.
+     *
+     * @param goal the covered goal
+     * @return true if the goal's criterion is not reproducible enough to enforce
+     */
+    private boolean isNonDeterministicCriterion(TestFitnessFunction goal) {
+        return goal instanceof ExceptionCoverageTestFitness;
+    }
+
+    /**
+     * Label for the criterion a goal belongs to. Anonymous fitness functions have an
+     * empty simple name, so fall back to the full name to keep the log readable.
+     *
+     * @param goal the covered goal
+     * @return a non-empty name for the goal's criterion
+     */
+    private String criterionNameOf(TestFitnessFunction goal) {
+        String simpleName = goal.getClass().getSimpleName();
+        return simpleName.isEmpty() ? goal.getClass().getName() : simpleName;
+    }
+
+    /**
+     * Finds the first criterion that covers fewer goals after minimization than before.
+     *
+     * @param before covered goals per criterion before minimization
+     * @param after  covered goals per criterion after minimization
+     * @return the criterion that lost goals, or null when none did
+     */
+    private String firstCriterionLosingGoals(Map<String, Integer> before, Map<String, Integer> after) {
+        for (Map.Entry<String, Integer> entry : before.entrySet()) {
+            if (after.getOrDefault(entry.getKey(), 0) < entry.getValue()) {
+                return entry.getKey();
+            }
+        }
+        return null;
     }
 
     private List<TestChromosome> deepCloneTests(List<TestChromosome> tests) {
