@@ -1238,10 +1238,23 @@ public class TestCluster {
                 return null;
             }
 
-            // Detect circular dependencies: if a generator for this type was already visited
-            // (i.e., the visited set excluded some generators for this type) and all remaining
-            // generators also require the target type as a parameter, bail out early instead of
-            // recursing through each one.
+            // Detect dead-end candidate sets up front, i.e. already on the very first attempt.
+            // A getter or field only hands out an instance somebody else constructed, so if the
+            // type it is declared on can itself only be constructed from a `clazz`, that getter
+            // can never yield anything but null. When every candidate is such a dead end there is
+            // no way to reach the type through generation at all, so report "no generator" and
+            // let the callers fall back to reusing an existing variable or to functional mocking.
+            // Without this the candidate set merely looks non-empty and the mock fallback in
+            // VariableResolver, which is guarded on "no generator", is never reached.
+            if (allCandidatesAreCircular(baseCandidates, clazz)) {
+                logger.debug("All candidate generators for {} require the target type to exist first; "
+                        + "reporting no generator so that mocking/reuse can take over", clazz);
+                return null;
+            }
+
+            // If a generator for this type was already visited (i.e., the visited set excluded
+            // some generators for this type) and all remaining generators also require the
+            // target type as a parameter, bail out instead of recursing through each one.
             boolean alreadyTriedGeneratorForThisType =
                     allGenerators.stream().anyMatch(excluded::contains);
             if (alreadyTriedGeneratorForThisType) {
@@ -1644,6 +1657,100 @@ public class TestCluster {
             }
         }
         return false;
+    }
+
+    /**
+     * Returns {@code true} if <b>none</b> of the given candidates can produce {@code clazz}
+     * without an instance of {@code clazz} already being available.
+     *
+     * <p>Such a candidate set is worthless: following any of its entries just leads back to the
+     * type we are trying to create. Reporting it as "no generator at all" lets the callers fall
+     * back to reusing an existing variable or to functional mocking, which is the only way to
+     * cover classes whose dependencies are not publicly constructible.
+     */
+    private boolean allCandidatesAreCircular(Set<GenericAccessibleObject<?>> candidates,
+                                             GenericClass<?> clazz) {
+        if (candidates.isEmpty()) {
+            return true;
+        }
+        Class<?> raw = clazz.getRawClass();
+        if (raw == null || raw == Object.class || raw.isPrimitive() || raw.isArray()) {
+            // For Object (and for primitives/arrays) practically every generator would look
+            // "circular", as every type is assignable to Object.
+            return false;
+        }
+
+        for (GenericAccessibleObject<?> candidate : candidates) {
+            if (!generatorNeedsTargetType(candidate, clazz)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Returns {@code true} if {@code generator} can only ever yield a {@code targetType} once one
+     * already exists.
+     *
+     * <p>This deliberately only covers the <em>indirect</em> case: a getter or field merely hands
+     * out an instance that somebody else created, and instances have to be <em>constructed</em>
+     * somewhere. So if every constructor and static factory of the declaring type takes a
+     * {@code targetType} itself, then any instance of that type we build ourselves was built from
+     * a target we do not have, and the getter can only ever return {@code null}. Other getters on
+     * the declaring type are not counted as a way out for the same reason -- they only move an
+     * existing object around.
+     *
+     * <p>The direct case -- the target type being a parameter of the generator -- is deliberately
+     * <em>not</em> treated as a dead end here. Such a generator is a perfectly good later option,
+     * because the parameter can be satisfied by reusing a variable that is already in the test.
+     * It keeps being pruned where it always was: once it has actually been tried and failed, in
+     * the {@code alreadyTriedGeneratorForThisType} branch of {@code getRandomGenerator}.
+     *
+     * <p>When the declaring type has no constructor or static factory in the cluster at all,
+     * nothing can be concluded and the generator is treated as usable, so that the behaviour of
+     * ordinary generation is left alone.
+     */
+    private boolean generatorNeedsTargetType(GenericAccessibleObject<?> generator,
+                                             GenericClass<?> targetType) {
+        if (generator.isConstructor() || generator.isStatic()) {
+            return false;
+        }
+        GenericClass<?> owner;
+        try {
+            owner = generator.getOwnerClass();
+        } catch (Throwable t) {
+            return false;
+        }
+        return owner != null && everyConstructionSiteNeedsType(owner, targetType);
+    }
+
+    /**
+     * Returns {@code true} if {@code owner} has at least one constructor or static factory in the
+     * cluster and every one of them requires a {@code targetType}.
+     */
+    private boolean everyConstructionSiteNeedsType(GenericClass<?> owner, GenericClass<?> targetType) {
+        try {
+            cacheGenerators(owner);
+        } catch (ConstructionFailedException | RuntimeException e) {
+            return false;
+        }
+        synchronized (generatorsLock) {
+            Set<GenericAccessibleObject<?>> ownerGenerators = generatorCache.get(owner);
+            if (ownerGenerators == null || ownerGenerators.isEmpty()) {
+                return false;
+            }
+            boolean sawConstructionSite = false;
+            for (GenericAccessibleObject<?> ownerGenerator : ownerGenerators) {
+                if (!ownerGenerator.isConstructor() && !ownerGenerator.isStatic()) {
+                    continue;
+                }
+                sawConstructionSite = true;
+                if (!generatorRequiresType(ownerGenerator, targetType)) {
+                    return false;
+                }
+            }
+            return sawConstructionSite;
+        }
     }
 
     private GenericAccessibleObject<?> instantiateGenerator(GenericAccessibleObject<?> generator,
