@@ -70,6 +70,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -1141,6 +1142,12 @@ public abstract class JUnitAnalyzer {
                     logger.error("Additional compiler diagnostics were omitted after {} entries",
                             MAX_STORED_COMPILER_DIAGNOSTICS);
                 }
+                String compilerOutput = attempt.getCompilerOutput();
+                if (compilerOutput != null && !compilerOutput.isEmpty()) {
+                    // Output javac would otherwise have written to its own out stream (distinct
+                    // from the diagnostics above), e.g. usage or internal-error messages.
+                    logger.error("Compiler output: {}", compilerOutput);
+                }
 
                 logGeneratedSourceExcerptsOnCompilationFailure(generated);
                 return null;
@@ -1181,23 +1188,30 @@ public abstract class JUnitAnalyzer {
                                                             Locale locale,
                                                             Charset charset) throws IOException {
         BoundedDiagnosticListener diagnostics = new BoundedDiagnosticListener(MAX_STORED_COMPILER_DIAGNOSTICS);
+        // A null Writer here would make javac fall back to System.err for the compiler's own
+        // output stream (e.g. usage/internal errors not routed through the DiagnosticListener
+        // above). A leaked class-under-test thread that holds the System.err monitor then blocks
+        // javac forever in Log.flush -> PrintStream.flush. Captured to a private buffer instead,
+        // so compilation can never deadlock on a shared stream; its contents are logged below
+        // alongside the diagnostics on failure so nothing is lost.
+        StringWriter compilerOutput = new StringWriter();
         try (StandardJavaFileManager fileManager = compiler.getStandardFileManager(diagnostics, locale, charset)) {
             Iterable<? extends JavaFileObject> compilationUnits = fileManager.getJavaFileObjectsFromFiles(generated);
             List<String> optionList = new ArrayList<>(Arrays.asList(
                     "-classpath", classpath,
                     "-proc:none"));
-            CompilationTask task = compiler.getTask(null, fileManager, diagnostics,
+            CompilationTask task = compiler.getTask(compilerOutput, fileManager, diagnostics,
                     optionList, null, compilationUnits);
             boolean compiled = task.call();
-            return CompilerAttemptResult.success(compiled, diagnostics);
+            return CompilerAttemptResult.success(compiled, diagnostics, compilerOutput.toString());
         } catch (RuntimeException e) {
             if (isJavacInfrastructureFailure(e)) {
-                return CompilerAttemptResult.infrastructureFailure(e, diagnostics);
+                return CompilerAttemptResult.infrastructureFailure(e, diagnostics, compilerOutput.toString());
             }
             throw e;
         } catch (Error e) {
             if (isJavacInfrastructureFailure(e)) {
-                return CompilerAttemptResult.infrastructureFailure(e, diagnostics);
+                return CompilerAttemptResult.infrastructureFailure(e, diagnostics, compilerOutput.toString());
             }
             throw e;
         }
@@ -1310,22 +1324,27 @@ public abstract class JUnitAnalyzer {
         private final boolean compiled;
         private final BoundedDiagnosticListener diagnostics;
         private final Throwable infrastructureFailure;
+        private final String compilerOutput;
 
         private CompilerAttemptResult(boolean compiled,
                                       BoundedDiagnosticListener diagnostics,
-                                      Throwable infrastructureFailure) {
+                                      Throwable infrastructureFailure,
+                                      String compilerOutput) {
             this.compiled = compiled;
             this.diagnostics = diagnostics;
             this.infrastructureFailure = infrastructureFailure;
+            this.compilerOutput = compilerOutput;
         }
 
-        private static CompilerAttemptResult success(boolean compiled, BoundedDiagnosticListener diagnostics) {
-            return new CompilerAttemptResult(compiled, diagnostics, null);
+        private static CompilerAttemptResult success(boolean compiled, BoundedDiagnosticListener diagnostics,
+                                                      String compilerOutput) {
+            return new CompilerAttemptResult(compiled, diagnostics, null, compilerOutput);
         }
 
         private static CompilerAttemptResult infrastructureFailure(Throwable failure,
-                                                                   BoundedDiagnosticListener diagnostics) {
-            return new CompilerAttemptResult(false, diagnostics, failure);
+                                                                   BoundedDiagnosticListener diagnostics,
+                                                                   String compilerOutput) {
+            return new CompilerAttemptResult(false, diagnostics, failure, compilerOutput);
         }
 
         private boolean isCompiled() {
@@ -1342,6 +1361,10 @@ public abstract class JUnitAnalyzer {
 
         private boolean hasInfrastructureFailure() {
             return infrastructureFailure != null;
+        }
+
+        private String getCompilerOutput() {
+            return compilerOutput;
         }
     }
 

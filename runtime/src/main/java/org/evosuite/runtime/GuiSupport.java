@@ -746,9 +746,13 @@ public class GuiSupport {
      * loaded before any AWT class is reachable, so this trivially returns
      * {@code true}. On macOS, {@link #disableHeadlessForMockConstruction()}
      * short-circuits via {@link #IS_MACOS} before consulting this probe, so
-     * its return value there does not matter. On Linux/Unix the probe is the
-     * only signal available — there is no public API to ask whether the
-     * X11 toolkit can be initialized.
+     * its return value there does not matter. On Linux/Unix, linking the
+     * toolkit library is necessary but not sufficient: container images
+     * commonly ship libX11/libXext/libXrender (needed for headless font and
+     * image rendering) without ever running an X server, so the library
+     * binds fine with no display behind it. The probe additionally requires
+     * a display to be reachable — see {@link #isDisplayReachable()} — before
+     * declaring it safe to leave headless mode.
      *
      * <p>Package-private so unit tests can read the probe's verdict.
      */
@@ -784,13 +788,80 @@ public class GuiSupport {
         // Linux / Unix / unknown: assume X11 toolkit and try to bind it.
         try {
             java.lang.System.loadLibrary("awt_xawt");
-            return true;
         } catch (Throwable t) {
             logger.warn("Cannot bind native AWT toolkit library 'awt_xawt' on this JVM ({}). "
                     + "EvoSuite will leave headless mode on during GUI test execution; SUTs "
                     + "extending Frame/JFrame/Window will throw HeadlessException instead of "
                     + "cascading into UnsatisfiedLinkError that would poison sun.awt.X11.XFramePeer "
                     + "for the rest of the run.", t.toString());
+            return false;
+        }
+        if (!isDisplayReachable()) {
+            // The library links, but nothing is listening on the other end: no
+            // DISPLAY/WAYLAND_DISPLAY, or a GraphicsEnvironment that reports zero
+            // screen devices. Flipping headless off here would install a real
+            // X11 Toolkit with no display to connect to, and every GUI
+            // constructor (java.awt.Component/Window/Frame/... subclasses) would
+            // then fail identically for the rest of the run instead of throwing
+            // the expected HeadlessException.
+            logger.warn("Native AWT toolkit library bound, but no display is reachable "
+                    + "(DISPLAY/WAYLAND_DISPLAY unset, or no screen device responded). "
+                    + "EvoSuite will leave headless mode on during GUI test execution.");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Best-effort check for whether a real display is reachable, used as the
+     * second gate in {@link #probeNativeAwtAvailability()} on Linux/Unix.
+     *
+     * <p>Requires {@code DISPLAY} or {@code WAYLAND_DISPLAY} to be set — a
+     * container that ships the X11 client libraries but runs no X server
+     * (e.g. no Xvfb) sets neither — and, where reflective access allows it,
+     * additionally asks the real platform {@link GraphicsEnvironment} for its
+     * screen devices.
+     *
+     * <p>That second check has to reach past the cached singleton: this probe
+     * always runs while the JVM is still headless (see
+     * {@link #disableHeadlessForMockConstruction()}), so
+     * {@link GraphicsEnvironment#getLocalGraphicsEnvironment()} returns a
+     * {@code sun.java2d.HeadlessGraphicsEnvironment} wrapper whose
+     * {@code getScreenDevices()} throws {@link java.awt.HeadlessException}
+     * unconditionally regardless of whether a display actually exists. We
+     * unwrap it the same way {@link #disableHeadlessForMockConstruction()}
+     * does (via {@link #headlessWrappedGeField}) to reach the real,
+     * already-instantiated platform environment underneath and ask it
+     * directly. If that reflective access is unavailable, the environment
+     * variable check above is the best signal we have.
+     */
+    private static boolean isDisplayReachable() {
+        String display = java.lang.System.getenv("DISPLAY");
+        String waylandDisplay = java.lang.System.getenv("WAYLAND_DISPLAY");
+        if ((display == null || display.isEmpty()) && (waylandDisplay == null || waylandDisplay.isEmpty())) {
+            return false;
+        }
+        if (!canSwapGe || geInstanceField == null) {
+            return true;
+        }
+        try {
+            Object cached = geInstanceField.get(null);
+            if (cached == null) {
+                return false;
+            }
+            Object real = cached;
+            if (headlessWrappedGeField != null
+                    && "sun.java2d.HeadlessGraphicsEnvironment".equals(cached.getClass().getName())) {
+                real = headlessWrappedGeField.get(cached);
+            }
+            if (!(real instanceof GraphicsEnvironment)) {
+                // Could not unwrap to the real environment; fall back to the
+                // environment variable signal already checked above.
+                return true;
+            }
+            GraphicsDevice[] devices = ((GraphicsEnvironment) real).getScreenDevices();
+            return devices != null && devices.length > 0;
+        } catch (Throwable t) {
             return false;
         }
     }
