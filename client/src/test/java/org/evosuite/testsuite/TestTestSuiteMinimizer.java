@@ -746,9 +746,65 @@ public class TestTestSuiteMinimizer {
         assertEquals(MinimizationStatus.REEXECUTION_FAILED, result.getStatus());
         assertEquals(2, suite.size());
         assertEquals(1, suite.getCoveredGoals().size());
-        // The criterion is named in the message; this goal is an anonymous class, so it
-        // is labelled by its full name rather than an empty simple name.
-        assertLogMessage(Level.ERROR, "coverage: 1 covered goals before, 0 after");
+        // Losing the suite's only covered goal is 0% retention, far below the
+        // repair threshold, so this reverts wholesale rather than repairing.
+        assertLogMessage(Level.ERROR, "Minimization lost 1 of 1 covered goals");
+    }
+
+    @Test
+    public void perTestMinimizationRepairsSmallCoverageLossInsteadOfReverting() {
+        // Three goals that genuinely reproduce on re-execution (one per test,
+        // matched by the test's own int value), and one that - like the
+        // poisoned __STATIC_RESET() case - was covered during the search
+        // phase but no longer reproduces once minimization re-executes it.
+        List<TestFitnessFunction> reproducibleGoals = new ArrayList<>();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        for (int i = 0; i < 3; i++) {
+            TestFitnessFunction goal = indexGoal(i);
+            reproducibleGoals.add(goal);
+            DefaultTestCase test = new DefaultTestCase();
+            test.addStatement(new IntPrimitiveStatement(test, i));
+            test.addCoveredGoal(goal);
+            suite.addTest(test);
+        }
+        TestFitnessFunction lostGoal = neverCoveredGoal();
+        DefaultTestCase lostTest = new DefaultTestCase();
+        lostTest.addStatement(new IntPrimitiveStatement(lostTest, 3));
+        lostTest.addCoveredGoal(lostGoal);
+        suite.addTest(lostTest);
+
+        List<TestFitnessFunction> allGoals = new ArrayList<>(reproducibleGoals);
+        allGoals.add(lostGoal);
+        TestFitnessFactory<TestFitnessFunction> factory = new TestFitnessFactory<TestFitnessFunction>() {
+            @Override
+            public List<TestFitnessFunction> getCoverageGoals() {
+                return allGoals;
+            }
+
+            @Override
+            public double getFitness(TestSuiteChromosome suite) {
+                return 1.0;
+            }
+        };
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(factory),
+                () -> MinimizationStopCause.NONE,
+                executedTest -> {
+                    ExecutionResult result = new ExecutionResult(executedTest);
+                    result.setTrace(nonEmptyTrace());
+                    return result;
+                });
+        MinimizationResult result = minimizer.minimize(suite, true);
+
+        // 3 of 4 covered goals (75%) survive minimization, well above the
+        // repair threshold, so the lost goal is restored by re-appending the
+        // one pre-minimization test that covered it rather than reverting
+        // the whole minimized suite.
+        assertEquals(MinimizationStatus.COMPLETED, result.getStatus());
+        assertEquals(4, suite.getCoveredGoals().size());
+        assertTrue(suite.getCoveredGoals().contains(lostGoal));
+        assertLogMessage(Level.WARN, "Minimization lost 1 of 4 covered goals");
     }
 
     private void assertLogMessage(Level level, String message) {
@@ -786,6 +842,61 @@ public class TestTestSuiteMinimizer {
             @Override
             public int hashCode() {
                 return 2;
+            }
+
+            @Override
+            public boolean equals(Object other) {
+                return this == other;
+            }
+
+            @Override
+            public String getTargetClass() {
+                return "";
+            }
+
+            @Override
+            public String getTargetMethod() {
+                return "";
+            }
+        };
+    }
+
+    /**
+     * A goal that genuinely reproduces on re-execution: covered by exactly the
+     * test whose first statement is the int primitive {@code index}, mirroring
+     * how minimization re-derives coverage rather than relying on a
+     * pre-recorded mark.
+     */
+    private static TestFitnessFunction indexGoal(int index) {
+        return new TestFitnessFunction() {
+            @Override
+            public double getFitness(TestChromosome individual, ExecutionResult result) {
+                // TestCaseMinimizer probes fitness on a statement-deleted clone
+                // to decide whether the deletion was safe, so an empty test
+                // must be handled (as simply not covering) rather than throw.
+                TestCase testCase = individual.getTestCase();
+                if (testCase.size() == 0) {
+                    return 1.0;
+                }
+                IntPrimitiveStatement statement = (IntPrimitiveStatement) testCase.getStatement(0);
+                return statement.getValue() == index ? 0.0 : 1.0;
+            }
+
+            @Override
+            public ExecutionResult runTest(TestCase test) {
+                ExecutionResult result = new ExecutionResult(test);
+                result.setTrace(nonEmptyTrace());
+                return result;
+            }
+
+            @Override
+            public int compareTo(TestFitnessFunction other) {
+                return 0;
+            }
+
+            @Override
+            public int hashCode() {
+                return 100 + index;
             }
 
             @Override
