@@ -136,7 +136,14 @@ public class MethodStatement extends EntityWithParametersStatement {
         // callee must be assignable to the reflective declaring class.
         if (!GenericClassUtils.isAssignable(method.getDeclaringClass(), calleeType)
                 && !isAssignableByName(method.getDeclaringClass(), calleeType)) {
-            return false;
+            // A receiver declared as a supertype of the declaring class is still usable:
+            // the generated code downcasts it (see TestCodeVisitor#visitMethodStatement),
+            // and execute() below rejects the statement if the downcast does not hold at
+            // runtime. This is the only way to reach classes that cannot be constructed
+            // directly and are exposed through a supertype-typed field or factory, such as
+            // the OAIVerb.IDENTIFY singleton of an OAI verb whose constructor always throws.
+            return GenericClassUtils.isAssignable(calleeType, method.getDeclaringClass())
+                    || isAssignableByName(calleeType, method.getDeclaringClass());
         }
 
         // First enforce compatibility with the method owner type, including generic arguments.
@@ -403,6 +410,21 @@ public class MethodStatement extends EntityWithParametersStatement {
                                 : callee.getObject(scope);
                         if (!method.isStatic() && calleeObject == null) {
                             throw new CodeUnderTestException(new NullPointerException());
+                        }
+                        if (calleeObject != null) {
+                            // The callee may be statically typed as a supertype of the
+                            // declaring class, in which case the generated code contains a
+                            // downcast. Report a downcast that does not hold the way the
+                            // compiled test would - as a ClassCastException - rather than
+                            // letting Method.invoke raise an IllegalArgumentException that
+                            // would be recorded as an exception thrown by the class under test.
+                            Class<?> declaringClass = method.getMethod().getDeclaringClass();
+                            if (!declaringClass.isInstance(calleeObject)
+                                    && !isAssignableByName(declaringClass, calleeObject.getClass())) {
+                                throw new CodeUnderTestException(new ClassCastException(
+                                        "Cannot cast " + calleeObject.getClass().getName()
+                                                + " to " + declaringClass.getName()));
+                            }
                         }
                     } catch (CodeUnderTestException e) {
                         throw e;

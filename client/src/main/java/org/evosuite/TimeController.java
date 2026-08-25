@@ -245,32 +245,86 @@ public class TimeController {
     public int calculateForHowLongClientWillRunInSeconds() {
         int time = Properties.EXTRA_TIMEOUT;
 
-        time += Properties.INITIALIZATION_TIMEOUT;
-
-        time += getSearchBudgetInSeconds();
-
-        if (Properties.MINIMIZE) {
-            time += Properties.MINIMIZATION_TIMEOUT;
-        }
-        if (Properties.ASSERTIONS) {
-            time += Properties.ASSERTION_TIMEOUT;
-        }
-        if (org.evosuite.llm.postprocess.LlmPostProcessor.isAnyFeatureEnabled()) {
-            time += getLlmPostProcessingTimeoutInSeconds();
-        }
-        if (Properties.TEST_FACTORY == TestFactory.JUNIT) {
-            time += Properties.CARVING_TIMEOUT;
-        }
-        if (Properties.JUNIT_TESTS) {
-            time += Properties.WRITE_JUNIT_TIMEOUT;
-            if (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE || (
-                    Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL
-                            && ClassPathHacker.isJunitCheckAvailable())) {
-                time += Properties.JUNIT_CHECK_TIMEOUT;
-            }
+        for (ClientState phase : ClientState.values()) {
+            time += getPlannedBudgetInSeconds(phase);
         }
 
         return time;
+    }
+
+    /**
+     * How many seconds of the overall client budget are planned for the given phase, based on
+     * the current configuration. Phases that are not run at all, and phases that have no budget
+     * of their own, contribute nothing. The sum over all phases plus {@code EXTRA_TIMEOUT} is
+     * what the master allows the client to run for before killing it.
+     *
+     * @param phase the phase to get the planned budget for
+     * @return the planned budget in seconds, 0 if the phase has none
+     */
+    private int getPlannedBudgetInSeconds(ClientState phase) {
+        switch (phase) {
+            case INITIALIZATION:
+                return Properties.INITIALIZATION_TIMEOUT;
+            case SEARCH:
+                return getSearchBudgetInSeconds();
+            case MINIMIZATION:
+                return Properties.MINIMIZE ? Properties.MINIMIZATION_TIMEOUT : 0;
+            case ASSERTION_GENERATION:
+                return Properties.ASSERTIONS ? Properties.ASSERTION_TIMEOUT : 0;
+            case LLM_POSTPROCESSING:
+                return org.evosuite.llm.postprocess.LlmPostProcessor.isAnyFeatureEnabled()
+                        ? getLlmPostProcessingTimeoutInSeconds() : 0;
+            case CARVING:
+                return Properties.TEST_FACTORY == TestFactory.JUNIT ? Properties.CARVING_TIMEOUT : 0;
+            case WRITING_TESTS:
+                return Properties.JUNIT_TESTS ? Properties.WRITE_JUNIT_TIMEOUT : 0;
+            case JUNIT_CHECK:
+                return Properties.JUNIT_TESTS && isJunitCheckRun() ? Properties.JUNIT_CHECK_TIMEOUT : 0;
+            default:
+                return 0;
+        }
+    }
+
+    private static boolean isJunitCheckRun() {
+        return Properties.JUNIT_CHECK == Properties.JUnitCheckValues.TRUE
+                || (Properties.JUNIT_CHECK == Properties.JUnitCheckValues.OPTIONAL
+                        && ClassPathHacker.isJunitCheckAvailable());
+    }
+
+    /**
+     * How much of the overall client budget belongs to phases that have not started yet.
+     *
+     * @return the reserved time in milliseconds
+     */
+    private long getBudgetReservedForLaterPhases() {
+        long reserved = 0;
+        for (ClientState phase : ClientState.values()) {
+            if (phase.getNumPhase() > state.getNumPhase()) {
+                reserved += 1000L * getPlannedBudgetInSeconds(phase);
+            }
+        }
+        return reserved;
+    }
+
+    /**
+     * How much time is left for a phase that has no timeout of its own.
+     * <p>
+     * The master kills the client once the overall budget is up, so whatever one phase spends is
+     * taken away from everything that follows it. A phase with a timeout is bounded by it; a
+     * phase without one - inlining, value minimization, coverage analysis - is bounded by nothing
+     * and is free to spend the budget that was planned for minimization, assertion generation and
+     * writing the tests out. Holding that budget back is what turns the plan into a limit.
+     * <p>
+     * Deliberately not applied to the phases that do have a timeout: reserving there would take
+     * an earlier phase's overrun out of the phase that follows it, which for a slow
+     * initialization means taking it out of the search - the opposite of what is wanted. Those
+     * phases keep spending against the overall budget in the order they run, so the search still
+     * gets its full budget whenever any of it is left at all.
+     *
+     * @return the remaining time in milliseconds
+     */
+    private long getLeftTimeBeforeEndOfUntimedPhase() {
+        return getLeftTimeBeforeEnd() - getBudgetReservedForLaterPhases();
     }
 
     private int getLlmPostProcessingTimeoutInSeconds() {
@@ -333,12 +387,13 @@ public class TimeController {
             return ms <= phaseLeft;
         }
 
-        return true;
+        return ms <= getLeftTimeBeforeEndOfUntimedPhase();
     }
 
     /**
-     * Get the remaining time in the current phase, in milliseconds.
-     * Returns 0 if there is no time left, or if the current phase has no timeout.
+     * Get the remaining time in the current phase, in milliseconds. Returns 0 if there is no time
+     * left. A phase without a timeout of its own is limited by what the overall budget leaves
+     * once the later phases have had their share held back.
      */
     public synchronized long getRemainingTimeInPhaseMs() {
         if (state.equals(ClientState.NOT_STARTED)) {
@@ -350,6 +405,8 @@ public class TimeController {
             long timeSincePhaseStarted = System.currentTimeMillis() - currentPhaseStartTime;
             long phaseLeft = timeoutInMs - timeSincePhaseStarted + timeLeftFromPreviousPhases;
             left = Math.min(left, phaseLeft);
+        } else {
+            left = getLeftTimeBeforeEndOfUntimedPhase();
         }
         return Math.max(0, left);
     }
@@ -361,7 +418,7 @@ public class TimeController {
      */
     private long getLeftTimeBeforeEnd() {
         long timeSinceStart = System.currentTimeMillis() - clientStartTime;
-        long totalTimeLimit = 1000 * calculateForHowLongClientWillRunInSeconds();
+        long totalTimeLimit = 1000L * calculateForHowLongClientWillRunInSeconds();
         return totalTimeLimit - timeSinceStart;
     }
 
