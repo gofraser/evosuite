@@ -21,6 +21,8 @@ package org.evosuite.runtime;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * In some cases, we can end up with infinite loops: eg due to a bug, a seeded mutation,
@@ -45,9 +47,30 @@ public class LoopCounter {
     private boolean activated = true;
 
     /**
-     * Number of iterations so far.
+     * Number of iterations so far, shared by whichever thread is currently the active
+     * test-execution worker. See {@link #protectedCounters} for why a thread that has
+     * been abandoned stops using this list.
      */
     private final List<Long> counters;
+
+    /**
+     * Snapshots of {@link #counters} for threads that {@link #protectFromReset(Thread)}
+     * has flagged as abandoned. TestCaseExecutor sometimes gives up on a thread without
+     * forcing it to stop — e.g. one still running a slow &lt;clinit&gt;, where forcing it
+     * would risk throwing out of the initializer and poisoning the class — and leaves it
+     * running in the background while the search moves on to a fresh thread.
+     *
+     * <p>Without this map, that abandoned thread keeps reading and writing the single
+     * shared {@link #counters} list, and every subsequent, unrelated test starting
+     * elsewhere calls {@link #reset()} and wipes it back to zero. A search that starts
+     * a new test every few milliseconds can then wipe the abandoned loop's progress
+     * far faster than it accumulates, so it never reaches either safety threshold in
+     * {@link #checkLoop(int)} and spins at 100% CPU — repeatedly re-triggering the
+     * interrupt-driven stack walk in {@link #isInterruptInStaticInit()} — for as long
+     * as the process runs. Once a thread is in this map it keeps counting on its own
+     * private copy instead, immune to resets made on behalf of other threads' tests.
+     */
+    private final Map<Thread, List<Long>> protectedCounters = new ConcurrentHashMap<>();
 
     /**
      * How many interrupted back-edges we let pass between two stack walks, once we have
@@ -62,16 +85,53 @@ public class LoopCounter {
     private static final int INTERRUPT_STATIC_INIT_RECHECK_INTERVAL = 1000;
 
     /**
-     * Whether the last {@link #isInStaticInit()} stack walk done on an interrupted
-     * back-edge found a &lt;clinit&gt; frame, and how many interrupted back-edges have
-     * been seen since that walk. Only ever read/written on the (rare) interrupted path.
+     * Per-thread memo of whether the last {@link #isInStaticInit()} stack walk done on
+     * an interrupted back-edge found a &lt;clinit&gt; frame, and how many interrupted
+     * back-edges have been seen since that walk. Thread-local — and deliberately not
+     * cleared by {@link #reset()} for any thread but the caller — for the same reason
+     * {@link #protectedCounters} exists: an abandoned thread must not have its memo
+     * wiped by an unrelated test's reset, or it pays for a full stack walk on every
+     * remaining back-edge instead of one every {@link #INTERRUPT_STATIC_INIT_RECHECK_INTERVAL}.
      */
-    private boolean interruptedInStaticInit = false;
-    private int interruptedChecksSinceStackWalk = 0;
+    private final ThreadLocal<InterruptMemo> interruptMemo = ThreadLocal.withInitial(InterruptMemo::new);
+
+    private static final class InterruptMemo {
+        boolean inStaticInit = false;
+        int checksSinceStackWalk = 0;
+    }
 
 
     private LoopCounter() {
         counters = new ArrayList<>();
+    }
+
+    /**
+     * Marks {@code thread} as abandoned: from now on, calls to {@link #checkLoop(int)}
+     * made by that thread track their iteration counts on a private copy — snapshotted
+     * from the shared {@link #counters} at the moment of this call — rather than on the
+     * list shared with whichever thread is currently active. See {@link #protectedCounters}
+     * for why this is necessary. A no-op if {@code thread} is null or already protected.
+     *
+     * @param thread the thread to protect from future {@link #reset()} calls
+     */
+    public void protectFromReset(Thread thread) {
+        if (thread == null) {
+            return;
+        }
+        // Opportunistic cleanup: a dead thread can never call checkLoop() again, so
+        // there is no point holding its snapshot for the rest of the process.
+        protectedCounters.keySet().removeIf(t -> !t.isAlive());
+        protectedCounters.putIfAbsent(thread, new ArrayList<>(counters));
+    }
+
+    /**
+     * The iteration-count list {@link #checkLoop(int)} should use for the calling
+     * thread: its own protected snapshot if it has been abandoned, otherwise the
+     * list shared with whichever thread is currently active.
+     */
+    private List<Long> activeCounters() {
+        List<Long> snapshot = protectedCounters.get(Thread.currentThread());
+        return snapshot != null ? snapshot : counters;
     }
 
     public static LoopCounter getInstance() {
@@ -79,13 +139,17 @@ public class LoopCounter {
     }
 
     /**
-     * Reset the loop counters.
+     * Reset the loop counters for the next test on the calling thread.
+     *
+     * <p>Only ever clears the <em>calling</em> thread's own interrupt memo — see
+     * {@link #interruptMemo} — and, on the non-delegate path, the shared
+     * {@link #counters} list. It deliberately never touches {@link #protectedCounters}:
+     * those belong to threads this instance was told to abandon via
+     * {@link #protectFromReset(Thread)}, and must keep counting undisturbed by a
+     * reset triggered on behalf of some other, unrelated test.
      */
     public void reset() {
-        // The static-init memo belongs to this instance, and is used on the
-        // delegate fast path as well, so clear it in both cases.
-        interruptedInStaticInit = false;
-        interruptedChecksSinceStackWalk = 0;
+        interruptMemo.remove();
         if (delegate != null) {
             invokeDelegate("reset");
             return;
@@ -202,19 +266,23 @@ public class LoopCounter {
                     "Loop terminated early: thread was interrupted (likely timeout)");
         }
 
+        // Use this thread's own protected snapshot if it has been abandoned (see
+        // protectedCounters), otherwise the list shared with the active thread.
+        List<Long> active = activeCounters();
+
         //first check initialization
-        int size = counters.size();
+        int size = active.size();
         if (index >= size) {
             for (int i = 0; i < 1 + (index - size); i++) {
-                counters.add(0L);
+                active.add(0L);
             }
         }
-        assert index < counters.size();
+        assert index < active.size();
 
         //do increment
         try {
-            long value = counters.get(index) + 1L;
-            counters.set(index, value);
+            long value = active.get(index) + 1L;
+            active.set(index, value);
 
             if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop) {
                 if (!isInStaticInit()) {
@@ -255,14 +323,14 @@ public class LoopCounter {
         // inside a <clinit> would reintroduce the very bug this guards against,
         // whereas wrongly believing that we still are merely postpones termination
         // to the iteration limit.
-        if (interruptedInStaticInit
-                && interruptedChecksSinceStackWalk < INTERRUPT_STATIC_INIT_RECHECK_INTERVAL) {
-            interruptedChecksSinceStackWalk++;
+        InterruptMemo memo = interruptMemo.get();
+        if (memo.inStaticInit && memo.checksSinceStackWalk < INTERRUPT_STATIC_INIT_RECHECK_INTERVAL) {
+            memo.checksSinceStackWalk++;
             return true;
         }
-        interruptedInStaticInit = isInStaticInit();
-        interruptedChecksSinceStackWalk = 1;
-        return interruptedInStaticInit;
+        memo.inStaticInit = isInStaticInit();
+        memo.checksSinceStackWalk = 1;
+        return memo.inStaticInit;
     }
 
     private boolean isInStaticInit() {
