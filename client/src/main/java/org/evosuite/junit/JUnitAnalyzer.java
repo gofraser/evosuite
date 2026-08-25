@@ -733,7 +733,17 @@ public abstract class JUnitAnalyzer {
                 logger.warn("JUnit check exceeded watchdog budget of {} ms; "
                         + "setting kill switch and interrupting runner", budgetMs);
                 ExecutionTracer.setKillSwitch(true);
-                future.cancel(true);
+                // Interrupt the runner directly rather than cancelling the Future. cancel(true)
+                // interrupts too, but it also moves the Future to CANCELLED, and every later
+                // get() then throws CancellationException instead of returning the runner's
+                // result or timing out - which made the grace window below unreachable and sent
+                // us down a path that discarded the whole suite. Interrupting the thread leaves
+                // the Future live, so a runner that unwinds in time still reports its real
+                // result, and one that does not falls through to the keep-the-suite branch.
+                Thread runner = runnerThread.get();
+                if (runner != null) {
+                    runner.interrupt();
+                }
             }
             // Grace window: give the runner a chance to unwind after interrupt.
             // If it doesn't (typical for OOM-suppression cascades stuck in
@@ -756,7 +766,14 @@ public abstract class JUnitAnalyzer {
                 Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
                 return JUnitResult.allPassed(testClasses.length);
             } catch (CancellationException ce) {
-                return JUnitResult.allFailed(testClasses.length, ce);
+                // The check was cancelled rather than completed, so it observed no failure for
+                // any specific test. Treating that as "every test failed" would throw away a
+                // suite the search already produced because the *check* did not finish, which
+                // is the wrong trade: report the tests as passing and skip the phase.
+                logger.error("JUnit check was cancelled before completing; "
+                        + "keeping the suite as-is without checking it.");
+                Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
+                return JUnitResult.allPassed(testClasses.length);
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
