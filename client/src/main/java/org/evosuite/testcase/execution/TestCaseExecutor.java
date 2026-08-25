@@ -112,6 +112,17 @@ public class TestCaseExecutor implements ThreadFactory {
     private final Set<Thread> stalledThreads = new HashSet<>();
 
     /**
+     * Stalled threads that were abandoned specifically because they were still inside a
+     * &lt;clinit&gt; when we gave up on them (see {@code abandonStuckStaticInit} in the
+     * timeout handler). Subset of {@link #stalledThreads}. {@link #getNumStalledThreads()}
+     * re-interrupts every other stalled thread on each call, on the theory that it may
+     * have swallowed an earlier interrupt while blocked on I/O — but re-interrupting one
+     * of these could just as easily be what throws it out of the initializer it is being
+     * left alone to finish, so they are excluded from that churn.
+     */
+    private final Set<Thread> clinitStuckThreads = new HashSet<>();
+
+    /**
      * Timestamp of the last executor rotation, used to enforce a cooldown
      * between rotations and prevent GC thrashing from rapid timeout cycling.
      */
@@ -124,6 +135,14 @@ public class TestCaseExecutor implements ThreadFactory {
      * a stack trace check sees the pool thread in a transient state.
      */
     private volatile boolean lastTaskStillRunning = false;
+
+    /**
+     * Set alongside {@link #lastTaskStillRunning} when the reason the task is still
+     * running is that its thread was still inside a &lt;clinit&gt; when the timeout
+     * handler gave up on it. Read by {@link #rotateExecutorAfterStalledTimeout()} to
+     * decide whether the abandoned thread belongs in {@link #clinitStuckThreads}.
+     */
+    private volatile boolean lastTimeoutWasStuckClinit = false;
 
     /**
      * Cumulative count of executor rotations. Unlike {@link #stalledThreads},
@@ -554,6 +573,7 @@ public class TestCaseExecutor implements ThreadFactory {
     @SuppressWarnings({"deprecation", "removal"})
     private ExecutionResult execute(TestCase tc, Scope scope, int timeout) {
         lastTaskStillRunning = false;
+        lastTimeoutWasStuckClinit = false;
         ExecutionTracer.getExecutionTracer().clear();
 
         int sanitizedLiterals = ConstantPoolManager.sanitizeTestCaseNumericLiterals(tc);
@@ -715,6 +735,12 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
 
+            // Set once we decide to give up on a thread that is still inside <clinit>
+            // after its grace period. From that point on we skip every remaining
+            // forcing step (kill switch, interrupt, Thread.stop()) for this thread —
+            // see the comment where it is set for why.
+            boolean abandonStuckStaticInit = false;
+
             if (needsTimeoutCleanup(handler)) {
                 if (initialInRuntimeBootstrap && Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT > 0) {
                     ExecutionTracer.setKillSwitch(false);
@@ -751,15 +777,34 @@ public class TestCaseExecutor implements ThreadFactory {
                 LoopCounter.getInstance().setActive(loopCounter);
 
                 if (wasInStaticInit && needsTimeoutCleanup(handler) && isInStaticInit()) {
-                    // Static initializer is still running after max wait — it's likely stuck.
-                    // Re-enable kill switch and loop counter so the thread can be terminated.
-                    logger.warn("Static initializer of {} still running after {}ms — re-enabling "
-                                    + "kill switch to force termination.",
+                    // Static initializer is still running after max wait. Do NOT force it:
+                    // every forcing step below (re-interrupt, FutureTask.cancel(true), and
+                    // ultimately Thread.stop()) either throws or injects ThreadDeath with no
+                    // regard for whether the target is inside a <clinit> frame, and any
+                    // exception escaping <clinit> makes the JVM mark that class — and anything
+                    // whose own <clinit> reads from it — erroneous for the rest of the process.
+                    // 2e066406d already taught LoopCounter's own interrupt-driven throw to
+                    // respect this, but that only protects one of the throw sites; the
+                    // Thread.stop() fallback a few steps below has no such awareness and is
+                    // what was actually poisoning classes in practice (see the WARN pair in
+                    // the 108_liferay ClassNameLocalServiceBaseImpl logs: "Force-stopping
+                    // stuck thread" immediately followed by "NoClassDefFoundError ...
+                    // __STATIC_RESET()" on every later test).
+                    //
+                    // Abandon the thread instead, the same way this method already abandons
+                    // an unkillable thread elsewhere: leave it running at background priority
+                    // and let the caller rotate to a fresh executor. A genuinely infinite loop
+                    // in the initializer is still bounded — LoopCounter's unconditional 10x
+                    // iteration cap and ExecutionTracer.checkTimeout()'s clinit kill-switch
+                    // ceiling both throw regardless of interrupt state — so this does not
+                    // reintroduce an unkillable-forever thread, it just stops us from being
+                    // the ones who force an early, poisoning exit for a <clinit> that is
+                    // merely slow rather than stuck.
+                    logger.warn("Static initializer of {} still running after {}ms — abandoning "
+                                    + "the thread instead of forcing it, to avoid poisoning the class.",
                             ExecutionTracer.describeCurrentClassInit(),
                             clinitWaitAttempts * Properties.SHUTDOWN_TIMEOUT);
-                    ExecutionTracer.setKillSwitch(true);
-                    LoopCounter.getInstance().setActive(true);
-                    waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
+                    abandonStuckStaticInit = true;
                 } else if (wasInStaticInit && needsTimeoutCleanup(handler)) {
                     // The initial timeout was consumed by classloading/static initialization.
                     // Give the actual test code a fresh timeout budget so it gets a fair chance.
@@ -769,10 +814,12 @@ public class TestCaseExecutor implements ThreadFactory {
                     waitForLastTask(handler, timeout);
                 }
 
-                ExecutionTracer.setKillSwitch(true);
+                if (!abandonStuckStaticInit) {
+                    ExecutionTracer.setKillSwitch(true);
+                }
             }
 
-            if (needsTimeoutCleanup(handler)) {
+            if (!abandonStuckStaticInit && needsTimeoutCleanup(handler)) {
                 logger.info("Cancelling thread:");
                 if (currentThread != null) {
                     for (StackTraceElement elem : currentThread.getStackTrace()) {
@@ -788,7 +835,7 @@ public class TestCaseExecutor implements ThreadFactory {
                 waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
             }
 
-            if (needsTimeoutCleanup(handler)) {
+            if (!abandonStuckStaticInit && needsTimeoutCleanup(handler)) {
                 // Last resort: cancel the task and wait once more
                 FutureTask<?> task = handler.getLastTask();
                 if (task != null) {
@@ -808,11 +855,13 @@ public class TestCaseExecutor implements ThreadFactory {
                 }
             }
 
-            waitForTimeoutExitGracePeriod(handler);
+            if (!abandonStuckStaticInit) {
+                waitForTimeoutExitGracePeriod(handler);
+            }
 
             boolean workerStillExecutingAfterCancellation = currentThread != null
                     && currentThread.isAlive() && isThreadStuckInSutCode(currentThread);
-            if (shouldForceStopAfterCancellation(needsTimeoutCleanup(handler),
+            if (!abandonStuckStaticInit && shouldForceStopAfterCancellation(needsTimeoutCleanup(handler),
                     workerStillExecutingAfterCancellation)) {
                 logger.warn("Run still not finished, thread {} is stuck at:",
                         currentThread == null ? "<null>" : currentThread.getName());
@@ -868,6 +917,7 @@ public class TestCaseExecutor implements ThreadFactory {
             lastTaskStillRunning = currentThread != null
                     && currentThread.isAlive()
                     && isThreadStuckInSutCode(currentThread);
+            lastTimeoutWasStuckClinit = abandonStuckStaticInit && lastTaskStillRunning;
 
             // TODO: If this is true, is this problematic?
             if (Sandbox.isOnAndExecutingSUTCode()) {
@@ -972,6 +1022,14 @@ public class TestCaseExecutor implements ThreadFactory {
             if (currentThread != null && currentThread.isAlive()) {
                 currentThread.setPriority(Thread.MIN_PRIORITY);
                 stalledThreads.add(currentThread);
+                // Protect its loop-iteration counts from being wiped by the reset()
+                // that every subsequent, unrelated test triggers — see the javadoc
+                // on LoopCounter.protectFromReset() for why an abandoned thread would
+                // otherwise never reach its own iteration-limit escape hatch.
+                LoopCounter.getInstance().protectFromReset(currentThread);
+                if (lastTimeoutWasStuckClinit) {
+                    clinitStuckThreads.add(currentThread);
+                }
             }
             return;
         }
@@ -989,6 +1047,10 @@ public class TestCaseExecutor implements ThreadFactory {
             logger.warn(sb.toString());
             currentThread.setPriority(Thread.MIN_PRIORITY);
             stalledThreads.add(currentThread);
+            LoopCounter.getInstance().protectFromReset(currentThread);
+            if (lastTimeoutWasStuckClinit) {
+                clinitStuckThreads.add(currentThread);
+            }
         }
         if (executor != null) {
             executor.shutdownNow();
@@ -1167,11 +1229,19 @@ public class TestCaseExecutor implements ThreadFactory {
     public int getNumStalledThreads() {
         // Re-interrupt stalled threads — they may have swallowed earlier
         // interrupts and gone back to blocking.  Also prune dead ones.
+        //
+        // Threads in clinitStuckThreads are excluded from the re-interrupt: they were
+        // deliberately left alone, not force-terminated, specifically so a still-running
+        // <clinit> does not see an interrupt it might propagate out and poison the class
+        // with. Re-interrupting them here on every call would undo that.
         stalledThreads.removeIf(t -> {
             if (!t.isAlive()) {
+                clinitStuckThreads.remove(t);
                 return true;
             }
-            t.interrupt();
+            if (!clinitStuckThreads.contains(t)) {
+                t.interrupt();
+            }
             return false;
         });
         return stalledThreads.size();
@@ -1185,6 +1255,7 @@ public class TestCaseExecutor implements ThreadFactory {
         if (currentThread != null && currentThread.isAlive()) {
             currentThread.setPriority(Thread.MIN_PRIORITY);
             stalledThreads.add(currentThread);
+            LoopCounter.getInstance().protectFromReset(currentThread);
             int numStalled = getNumStalledThreads();
             logger.info("Current number of stalled threads: " + numStalled);
             if (numStalled > 20) {
