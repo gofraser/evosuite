@@ -40,6 +40,30 @@ public class MethodStatementCompatibilityTest {
         // no-op
     }
 
+    /**
+     * The shape of a class that can only be obtained through a supertype-typed factory or field,
+     * such as {@code public static final OAIVerb IDENTIFY = new Identify()}.
+     */
+    public static class Base {
+        public static Base makeSub() {
+            return new Sub();
+        }
+
+        public static Base makeSibling() {
+            return new Sibling();
+        }
+    }
+
+    public static class Sub extends Base {
+        public String greet() {
+            return "sub";
+        }
+    }
+
+    public static class Sibling extends Base {
+        // no-op
+    }
+
     private static class PrimitiveTarget {
         private final boolean value;
 
@@ -58,6 +82,47 @@ public class MethodStatementCompatibilityTest {
         GenericMethod genericMethod = new GenericMethod(method, Object.class);
 
         Assertions.assertFalse(MethodStatement.isCompatibleCalleeType(genericMethod, UnrelatedType.class));
+    }
+
+    @Test
+    public void testSupertypeCalleeAcceptedBecauseGeneratedCodeDowncasts() throws Exception {
+        Method method = Sub.class.getDeclaredMethod("greet");
+        GenericMethod genericMethod = new GenericMethod(method, Sub.class);
+
+        Assertions.assertTrue(MethodStatement.isCompatibleCalleeType(genericMethod, Base.class));
+        Assertions.assertFalse(MethodStatement.isCompatibleCalleeType(genericMethod, UnrelatedType.class));
+    }
+
+    @Test
+    public void testDowncastThatDoesNotHoldIsReportedAsClassCastException() throws Exception {
+        TestCaseBuilder builder = new TestCaseBuilder();
+        // Statically a Base, so calling Sub.greet() on it is allowed and rendered as a downcast,
+        // but the object behind it is a Sibling and the downcast fails.
+        VariableReference callee = builder.appendMethod(null, Base.class.getMethod("makeSibling"));
+        builder.appendMethod(callee, Sub.class.getDeclaredMethod("greet"));
+
+        Scope scope = new Scope();
+        Throwable thrown = null;
+        for (Statement statement : builder.getDefaultTestCase()) {
+            thrown = statement.execute(scope, System.out);
+        }
+
+        Assertions.assertNotNull(thrown);
+        Assertions.assertInstanceOf(ClassCastException.class, thrown.getCause());
+    }
+
+    @Test
+    public void testDowncastThatHoldsExecutesTheMethod() throws Exception {
+        TestCaseBuilder builder = new TestCaseBuilder();
+        VariableReference callee = builder.appendMethod(null, Base.class.getMethod("makeSub"));
+        VariableReference ret = builder.appendMethod(callee, Sub.class.getDeclaredMethod("greet"));
+
+        Scope scope = new Scope();
+        for (Statement statement : builder.getDefaultTestCase()) {
+            Assertions.assertNull(statement.execute(scope, System.out));
+        }
+
+        Assertions.assertEquals("sub", ret.getObject(scope));
     }
 
     @Test

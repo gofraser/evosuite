@@ -1164,6 +1164,11 @@ public class TestCluster {
                 continue;
             }
             GenericAccessibleObject<?> instantiated = instantiateGenerator(candidate, clazz);
+            // Unlike the overload below, this keeps the strict requirement that the generator
+            // really produces clazz. Its only caller picks a random cast class as a way of
+            // producing some Object, so a generator that hands back a supertype instead buys
+            // nothing here, and letting one through would mean the method no longer returns a
+            // generator for the type it was asked about.
             if (instantiated != null && instantiated.getGeneratedClass().isAssignableTo(clazz)) {
                 compatible.add(instantiated);
             }
@@ -1297,8 +1302,16 @@ public class TestCluster {
 
         List<GenericAccessibleObject<?>> compatible = new ArrayList<>();
         for (GenericAccessibleObject<?> candidate : candidates) {
+            // No assignability filter here: a generator may legitimately produce a supertype
+            // of clazz. MemberAnalyzer registers a static field under the runtime type of the
+            // object it holds, so "public static final OAIVerb IDENTIFY = new Identify()" is
+            // the generator for Identify even though its declared type is OAIVerb. Requiring
+            // assignability drops exactly those generators, which for classes without a usable
+            // constructor leaves no way to obtain an instance at all. The generated code
+            // downcasts the receiver, and MethodStatement rejects the statement if the downcast
+            // does not hold at runtime.
             GenericAccessibleObject<?> instantiated = instantiateGenerator(candidate, clazz);
-            if (instantiated != null && instantiated.getGeneratedClass().isAssignableTo(clazz)) {
+            if (instantiated != null) {
                 compatible.add(instantiated);
             }
         }
@@ -1762,6 +1775,11 @@ public class TestCluster {
         }
         if (instantiated.hasTypeParameters()) {
             instantiated = instantiated.getGenericInstantiationFromReturnValue(target);
+            if (!instantiated.getGeneratedClass().isAssignableTo(target)) {
+                // The type variables could not be bound such that the generator actually
+                // produces the target type, so this generator is unusable for it.
+                return null;
+            }
         }
         return instantiated;
     }
