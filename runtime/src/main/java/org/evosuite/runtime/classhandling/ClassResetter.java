@@ -226,10 +226,18 @@ public class ClassResetter {
             if (cause instanceof TooManyResourcesException || cause instanceof NoClassDefFoundError) {
                 logWarn(classNameWithDots, e + ", caused by: " + cause);
             } else {
-                StringWriter errors = new StringWriter();
-                cause.printStackTrace(new PrintWriter(errors));
-                logWarn(classNameWithDots, e + ", caused by: " + cause + "\n" + errors);
-                // we are only interested in the stack trace of the cause
+                // Summarise at WARN and keep the stack trace for DEBUG. A replayed <clinit>
+                // failing is routine on subjects whose static state needs an environment the
+                // tests do not provide - 108_liferay alone hits this for over a hundred
+                // distinct classes in a single run, and a stack trace apiece dominated the
+                // run log without telling us anything the class name and cause do not.
+                logWarn(classNameWithDots, e + ", caused by: " + cause);
+                if (logger.isDebugEnabled()) {
+                    StringWriter errors = new StringWriter();
+                    // we are only interested in the stack trace of the cause
+                    cause.printStackTrace(new PrintWriter(errors));
+                    logger.debug("__STATIC_RESET() of {} failed: {}\n{}", classNameWithDots, cause, errors);
+                }
             }
             // __STATIC_RESET threw mid-replay. The class is now in a half-reset
             // state (fields zeroed by the prepended reset code, then the
