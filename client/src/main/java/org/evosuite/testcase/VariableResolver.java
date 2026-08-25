@@ -435,8 +435,17 @@ public class VariableResolver {
         // java.sql.Connection often fail at runtime, and mocking provides a reliable fallback.
         boolean isDeepFunctionalInterface = context.getDepth() > 0
                 && isFunctionalInterface(clazz.getRawClass());
+        // "mock_if_no_generator" promises to mock only when there is nothing else to call.
+        // Require that the cluster genuinely has no usable concrete generator for this type
+        // before boosting the mock probability below, instead of boosting for every
+        // abstract/interface dependency below the top level regardless of whether a concrete
+        // implementation exists. The unconditional boost was mocking types with perfectly
+        // usable generators, e.g. Scanner.Buffer in SF110's 102_squirrel-sql, whose
+        // FBuffer/SBuffer implementations are package-private but usable: branch coverage on
+        // Scanner rose from 0.277 to 0.457 (JDK 11, seed 1, same budget) once this was gated.
         boolean isDeepInterfaceOrAbstract = context.getDepth() > 0
-                && (clazz.getRawClass().isInterface() || clazz.isAbstract());
+                && (clazz.getRawClass().isInterface() || clazz.isAbstract())
+                && !TestCluster.getInstance().hasGenerator(clazz);
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
         if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {
