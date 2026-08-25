@@ -56,6 +56,19 @@ import java.util.Set;
  */
 public class ObjectRuleBranchSelector {
 
+    /**
+     * Share of the configured search budget that {@link #prepareEligibility(Collection)} may spend
+     * discovering eligibility before falling back to on-demand, per-generation discovery for the
+     * rest of the class. Sized from the release-corpus regression: with no aggregate budget,
+     * branch-heavy classes routed through inaccessible entry methods (for example
+     * {@code JVCParserTokenManager.jjMoveNfa_2}, 1180 branches) could spend the entire run
+     * classifying branches before generating a single test. A tenth of the budget is enough to
+     * fully classify most classes (their branch count times a cheap analysis is well under this)
+     * while capping the worst case for the branch-heavy outliers; the remainder falls back safely
+     * to {@link #selectWorkingBranch(Collection)}'s existing on-demand discovery.
+     */
+    private static final double PREPARE_ELIGIBILITY_BUDGET_FRACTION = 0.1;
+
     /** Cached "has a non-empty object graph" verdict per branch. */
     private final Map<Branch, Boolean> eligibilityCache = new LinkedHashMap<>();
 
@@ -71,6 +84,9 @@ public class ObjectRuleBranchSelector {
 
     /** Branches that have been eligible at least once in this run. */
     private final Set<Branch> everEligible = new LinkedHashSet<>();
+
+    /** How many branches the last {@link #prepareEligibility(Collection)} call left unclassified. */
+    private int skippedForBudget;
 
     /**
      * RNG used only to randomize lazy eligibility discovery. It must not consume EvoSuite's main
@@ -90,6 +106,7 @@ public class ObjectRuleBranchSelector {
         failedAttempts.clear();
         ineligible.clear();
         everEligible.clear();
+        skippedForBudget = 0;
         discoveryRandom = new Random(Properties.RANDOM_SEED == null ? 0L : Properties.RANDOM_SEED);
     }
 
@@ -131,11 +148,40 @@ public class ObjectRuleBranchSelector {
         if (branches == null || branches.isEmpty()) {
             return;
         }
+        long deadlineNanos = prepareEligibilityDeadlineNanos();
+        skippedForBudget = 0;
         for (Branch branch : branches) {
-            if (branch != null) {
-                isEligible(branch);
+            if (branch == null) {
+                continue;
             }
+            if (eligibilityCache.containsKey(branch) || ineligible.contains(branch)) {
+                // Already classified (for example by an earlier fallback discovery); does not
+                // count against the budget.
+                continue;
+            }
+            if (deadlineNanos != Long.MAX_VALUE && System.nanoTime() - deadlineNanos >= 0) {
+                skippedForBudget++;
+                continue;
+            }
+            isEligible(branch);
         }
+    }
+
+    /**
+     * The absolute deadline for one {@link #prepareEligibility(Collection)} call, derived from
+     * {@link #PREPARE_ELIGIBILITY_BUDGET_FRACTION} of the configured search budget. Branches left
+     * unclassified when the deadline passes are not marked ineligible: they simply have no cache
+     * entry yet, so {@link #selectWorkingBranch(Collection)} discovers them on demand, gated by the
+     * live {@link TimeController} check it already performs during the search proper.
+     */
+    private static long prepareEligibilityDeadlineNanos() {
+        int searchBudgetSeconds = TimeController.getSearchBudgetInSeconds();
+        if (searchBudgetSeconds <= 0) {
+            return Long.MAX_VALUE;
+        }
+        long budgetNanos =
+                (long) (searchBudgetSeconds * PREPARE_ELIGIBILITY_BUDGET_FRACTION * 1_000_000_000L);
+        return budgetNanos <= 0 ? Long.MAX_VALUE : System.nanoTime() + budgetNanos;
     }
 
     /**
@@ -357,6 +403,14 @@ public class ObjectRuleBranchSelector {
 
     public int getBlacklistedCount() {
         return ineligible.size();
+    }
+
+    /**
+     * How many branches the last {@link #prepareEligibility(Collection)} call left unclassified
+     * because the whole-class budget ran out.
+     */
+    public int getSkippedForBudgetCount() {
+        return skippedForBudget;
     }
 
 }
