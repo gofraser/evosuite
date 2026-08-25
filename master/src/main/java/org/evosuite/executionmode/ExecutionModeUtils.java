@@ -303,6 +303,16 @@ public final class ExecutionModeUtils {
         addOpen(cmdLine, "java.desktop/javax.swing=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/sun.java2d=ALL-UNNAMED");
         addOpen(cmdLine, "java.desktop/sun.awt=ALL-UNNAMED");
+        // GuiSupport's PeerCreationGuardToolkit implements sun.awt.ComponentFactory
+        // so that GUI peer-creation calls (createWindow/createFrame/createDialog/...)
+        // throw a clean HeadlessException instead of reaching a real toolkit whose
+        // native initialization never ran. Resolving that "implements" clause needs
+        // the package exported, not just opened -- --add-opens alone is not
+        // sufficient on every JDK build (verified empirically to vary by patch
+        // version). GuiSupport degrades gracefully if this export is missing
+        // (falls back to the pre-existing unwrapped-real-toolkit behavior), but the
+        // guard is inert without it.
+        addExport(cmdLine, "java.desktop/sun.awt=ALL-UNNAMED");
         // Internal JDK packages sometimes used by legacy dependencies
         addExport(cmdLine, "java.xml.crypto/org.jcp.xml.dsig.internal.dom=ALL-UNNAMED");
         addExport(cmdLine, "jdk.javadoc/jdk.javadoc.internal.api=ALL-UNNAMED");

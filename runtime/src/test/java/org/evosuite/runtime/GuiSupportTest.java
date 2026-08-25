@@ -29,7 +29,9 @@ import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 public class GuiSupportTest {
@@ -285,5 +287,108 @@ public class GuiSupportTest {
 
         GuiSupport.forceRestoreHeadlessAfterMockConstructionLeak();
         Assertions.assertTrue(GraphicsEnvironment.isHeadless());
+    }
+
+    /**
+     * Directly exercises {@code PeerCreationGuardToolkit} (the class {@code
+     * disableHeadlessForMockConstruction()} wraps the real toolkit in on
+     * Linux/Unix -- see its javadoc) rather than going through the public
+     * disable/restore API, because on macOS {@code disableHeadlessForMockConstruction()}
+     * is a deliberate no-op ({@link GuiSupport#isMacOsForTests()}) and never
+     * installs it. Constructed here purely via reflection, mirroring how
+     * {@code GuiSupport} itself builds it, so this test exercises the exact
+     * same code path in production regardless of platform.
+     *
+     * <p>Skips (rather than fails) when {@code sun.awt.ComponentFactory}
+     * cannot be resolved on this JVM launch (missing {@code --add-exports
+     * java.desktop/sun.awt=ALL-UNNAMED}) -- that is the documented graceful
+     * fallback, not a bug; {@code disableHeadlessForMockConstruction()} falls
+     * back to the pre-existing unwrapped-real-toolkit behavior in that case.
+     */
+    @Test
+    public void testPeerCreationGuardToolkitThrowsHeadlessExceptionFromPeerCreation() throws Exception {
+        Class<?> guardClass;
+        try {
+            guardClass = Class.forName("org.evosuite.runtime.PeerCreationGuardToolkit");
+        } catch (Throwable t) {
+            Assumptions.abort("PeerCreationGuardToolkit unavailable on this JDK: " + t);
+            return;
+        }
+
+        Class<?> componentFactoryClass;
+        try {
+            componentFactoryClass = Class.forName("sun.awt.ComponentFactory");
+        } catch (Throwable t) {
+            Assumptions.abort("sun.awt.ComponentFactory unavailable on this JDK: " + t);
+            return;
+        }
+
+        Toolkit real = Toolkit.getDefaultToolkit();
+        Object headless;
+        try {
+            headless = Class.forName("sun.awt.HeadlessToolkit").getConstructor(Toolkit.class).newInstance(real);
+        } catch (Throwable t) {
+            Assumptions.abort("sun.awt.HeadlessToolkit unavailable on this JDK: " + t);
+            return;
+        }
+        Constructor<?> ctor = guardClass.getDeclaredConstructor(Toolkit.class, Toolkit.class);
+        ctor.setAccessible(true);
+        Object guard;
+        try {
+            guard = ctor.newInstance(real, headless);
+        } catch (Throwable t) {
+            Assumptions.abort("Could not construct PeerCreationGuardToolkit on this JDK: " + t);
+            return;
+        }
+
+        Assertions.assertTrue(guard instanceof Toolkit);
+        Assertions.assertTrue(componentFactoryClass.isInstance(guard),
+                "PeerCreationGuardToolkit must implement sun.awt.ComponentFactory so that "
+                        + "Component.getComponentFactory() resolves it for both heavyweight "
+                        + "(Window/Frame/Dialog) and lightweight (JComponent) peer creation");
+
+        // java.awt.KeyboardFocusManager.initPeer() casts the default toolkit to
+        // sun.awt.KeyboardFocusManagerPeerProvider with no instanceof guard, and
+        // JComponent construction reaches it the first time a KeyboardFocusManager
+        // is created. A guard toolkit that does not implement it turns every
+        // JComponent SUT constructor run inside the flip window into a
+        // ClassCastException.
+        Class<?> kfmProviderClass = Class.forName("sun.awt.KeyboardFocusManagerPeerProvider");
+        Assertions.assertTrue(kfmProviderClass.isInstance(guard),
+                "PeerCreationGuardToolkit must implement sun.awt.KeyboardFocusManagerPeerProvider, "
+                        + "like every JDK toolkit including sun.awt.HeadlessToolkit, or "
+                        + "KeyboardFocusManager.initPeer() fails with ClassCastException");
+        Method getKfmPeer = kfmProviderClass.getMethod("getKeyboardFocusManagerPeer");
+        Object guardPeer = getKfmPeer.invoke(guard);
+        Assertions.assertNotNull(guardPeer);
+        Assertions.assertSame(getKfmPeer.invoke(headless), guardPeer,
+                "the guard must hand out HeadlessToolkit's no-op focus-manager peer, "
+                        + "never the real toolkit's native one");
+
+        // createFrame(Frame) is one of ComponentFactory's peer-creation methods.
+        // None of them are overridden by PeerCreationGuardToolkit, so calling any
+        // of them resolves to the interface's own default implementation, which
+        // throws HeadlessException -- verified here for createFrame and
+        // createWindow as representative samples of the family.
+        for (String methodName : new String[]{"createFrame", "createWindow", "createDialog"}) {
+            Class<?> targetType = "createFrame".equals(methodName) ? Frame.class
+                    : "createWindow".equals(methodName) ? Window.class
+                    : java.awt.Dialog.class;
+            Method peerMethod = componentFactoryClass.getMethod(methodName, targetType);
+            try {
+                peerMethod.invoke(guard, new Object[]{null});
+                Assertions.fail(methodName + " should have thrown HeadlessException");
+            } catch (InvocationTargetException e) {
+                Assertions.assertInstanceOf(HeadlessException.class, e.getCause(),
+                        methodName + " must throw HeadlessException, not reach the real "
+                                + "toolkit's native peer-creation path");
+            }
+        }
+
+        // The lightweight peer path used by JComponent/Swing must remain safe
+        // and must NOT throw -- it resolves to ComponentFactory's lightweight
+        // marker peer default, independent of the real toolkit entirely.
+        Method createComponent = componentFactoryClass.getMethod("createComponent", java.awt.Component.class);
+        Assertions.assertDoesNotThrow(() -> createComponent.invoke(guard, new Object[]{null}));
     }
 }
