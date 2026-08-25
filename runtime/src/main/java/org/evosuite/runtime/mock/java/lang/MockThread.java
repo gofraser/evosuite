@@ -76,9 +76,23 @@ public class MockThread extends Thread implements OverrideMock {
 
     /**
      * Maximum cumulative sleep time (in SUT-perceived milliseconds) before
-     * MockThread.sleep starts throwing InterruptedException.
+     * {@link #sleep(long)} gives up and throws {@link TooManyResourcesException}.
+     *
+     * <p>Because each call is already capped at 50ms of <em>real</em> sleep, this
+     * budget is also (approximately) how many real milliseconds a polling loop
+     * gets to burn before being cut off — 10_000 meant up to ~10 real seconds of
+     * wall-clock sleeping per test. That is cheap for one test, but a search
+     * evaluates thousands of individuals: on 66_openjms
+     * {@code ResourceManager}, whose {@code UUIDGenerator.createTimeUUIDChars}
+     * sleeps in a loop, every one of 10/10 seeds spent the entire run paying
+     * that cost and produced no output at all. 1.2.0 had no cumulative budget
+     * and relied solely on the per-test timeout, so a polling loop cost at most
+     * one test's timeout, not an accumulating multiple of it. Keep the budget
+     * (uninstrumented polling loops still need a way to terminate that
+     * {@link org.evosuite.runtime.LoopCounter} cannot reach) but shrink it so a
+     * loop that hits it pays milliseconds, not seconds.
      */
-    private static final long MAX_CUMULATIVE_SLEEP_MS = 10_000L;
+    private static final long MAX_CUMULATIVE_SLEEP_MS = 200L;
 
     public static void reset() {
         threadMap.clear();
