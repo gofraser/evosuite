@@ -42,6 +42,55 @@ public class InterproceduralGraphAnalysis {
     private static final Logger logger =
             LoggerFactory.getLogger(InterproceduralGraphAnalysis.class);
 
+    /**
+     * Physical methods ({@code className#methodName}, keyed on the branch's own containing method
+     * rather than the resolved accessible entry) that already blew their analysis budget in the
+     * current run. {@link #analyzeBranchOnDemand} caches per branch when a private method's graph
+     * is exposed through a nearest accessible caller, so that two private methods sharing one
+     * caller do not suppress each other's analysis (see the cache-key comment there). But that
+     * means every branch of the *same* expensive private method independently pays the full
+     * {@link Properties#OBJECT_RULE_ANALYSIS_TIMEOUT} budget with no memory of previous timeouts —
+     * measured as 154 repeated timeouts analyzing {@code JVCParserTokenManager.jjMoveNfa_2} and 132
+     * analyzing {@code LovinsStemmer.removeEnding} on the release corpus, enough on its own to
+     * starve those classes' searches. This map lets later branches of a method already known to be
+     * too expensive skip straight to the conservative "no graph" outcome.
+     *
+     * <p>This class only exposes static entry points, so it has no lifecycle hook of its own to
+     * clear the map on a fresh run or target class. Instead it follows the same reset-epoch pattern
+     * as {@code ObjectRuleEntryBuilder.synchronizeFailureCache}: the map is only ever read and
+     * written after checking it against the current {@link
+     * org.evosuite.testcase.factories.ObjectRuleRuntime#getResetEpoch()}, and is dropped whenever
+     * that epoch has moved on.
+     */
+    private static final Map<String, Boolean> timedOutMethods = new LinkedHashMap<>();
+
+    /** The reset epoch {@link #timedOutMethods} was last cleared for. */
+    private static volatile long timedOutMethodsEpoch = -1L;
+
+    /**
+     * Whether the physical method identified by {@code physicalMethodKey} (see {@link
+     * #timedOutMethods}) already blew its analysis budget in the current run.
+     */
+    private static boolean isMethodAnalysisTimedOut(String physicalMethodKey) {
+        synchronizeTimedOutMethods();
+        return timedOutMethods.containsKey(physicalMethodKey);
+    }
+
+    /** Records that the physical method identified by {@code physicalMethodKey} timed out. */
+    private static void markMethodAnalysisTimedOut(String physicalMethodKey) {
+        synchronizeTimedOutMethods();
+        timedOutMethods.put(physicalMethodKey, Boolean.TRUE);
+    }
+
+    private static void synchronizeTimedOutMethods() {
+        long currentEpoch =
+                TestGenerationContext.getInstance().getObjectRuleRuntime().getResetEpoch();
+        if (timedOutMethodsEpoch != currentEpoch) {
+            timedOutMethods.clear();
+            timedOutMethodsEpoch = currentEpoch;
+        }
+    }
+
     /** Clear the analysis state owned by the current run. */
     public static void clear() {
 
@@ -142,6 +191,16 @@ public class InterproceduralGraphAnalysis {
             return;
         }
 
+        String physicalMethodKey = className + "#" + methodName;
+        if (branchSpecificEntry && isMethodAnalysisTimedOut(physicalMethodKey)) {
+            // A previous branch of this same physical method already exhausted the analysis
+            // budget; inherit that outcome instead of re-running the same expensive search.
+            Map<Branch, Set<DepVariable>> failed = cached == null ? new LinkedHashMap<>() : cached;
+            failed.put(branch, new LinkedHashSet<>());
+            runtime.putBranchInterestedVars(cacheKey, failed);
+            return;
+        }
+
         InstrumentingClassLoader classLoader =
                 TestGenerationContext.getInstance().getClassLoaderForSUT();
         ActualControlFlowGraph cfg =
@@ -176,6 +235,9 @@ public class InterproceduralGraphAnalysis {
                     e.toString());
 
             if (branchSpecificEntry) {
+                if (e instanceof InterproceduralGraphAnalyzer.AnalysisTimeoutException) {
+                    markMethodAnalysisTimedOut(physicalMethodKey);
+                }
                 Map<Branch, Set<DepVariable>> failed =
                         cached == null ? new LinkedHashMap<>() : cached;
                 failed.put(branch, new LinkedHashSet<>());
