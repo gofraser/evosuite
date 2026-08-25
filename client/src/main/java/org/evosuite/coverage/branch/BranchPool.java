@@ -20,6 +20,7 @@
 package org.evosuite.coverage.branch;
 
 import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.LabelNode;
@@ -131,6 +132,17 @@ public class BranchPool {
         }
         if (!DependencyAnalysis.shouldInstrument(instruction.getClassName(),
                 instruction.getMethodName())) {
+            return;
+        }
+        if (CFGMethodAdapter.EXCLUDE.contains(instruction.getMethodName())) {
+            // A branch in <clinit> or __STATIC_RESET can never be covered by a generated
+            // test: both run on class initialization, outside the control of any test case.
+            // CFGMethodAdapter already refuses to instrument them for that reason, but it is
+            // not the only way instructions reach this pool - GraphPool.registerClass() walks
+            // every method of a class to build CFGs for interprocedural analysis, and that
+            // path would otherwise turn every static-initializer branch into a coverage goal
+            // nothing can satisfy. Enums are the common case, because the compiler-generated
+            // <clinit> that fills their values array is branch-heavy.
             return;
         }
 
