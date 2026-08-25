@@ -107,19 +107,23 @@ class TestUsageCheckerTest {
     }
 
     @Test
-    void testCompilerGeneratedEnumValuesExcluded() throws NoSuchMethodException {
+    void testCompilerGeneratedEnumValuesDetectedButUsable() throws NoSuchMethodException {
         Method values = PureEnumFixture.class.getDeclaredMethod("values");
 
+        // isCompilerGeneratedEnumMethod still identifies it (used to detect "pure"
+        // enums with no user-testable members), but canUse must keep admitting it:
+        // its coverage goals are not filtered anywhere, so excluding it from the
+        // cluster only made those goals permanently uncoverable.
         Assertions.assertTrue(TestUsageChecker.isCompilerGeneratedEnumMethod(values));
-        Assertions.assertFalse(TestUsageChecker.canUse(values, PureEnumFixture.class));
+        Assertions.assertTrue(TestUsageChecker.canUse(values, PureEnumFixture.class));
     }
 
     @Test
-    void testCompilerGeneratedEnumValueOfExcluded() throws NoSuchMethodException {
+    void testCompilerGeneratedEnumValueOfDetectedButUsable() throws NoSuchMethodException {
         Method valueOf = PureEnumFixture.class.getDeclaredMethod("valueOf", String.class);
 
         Assertions.assertTrue(TestUsageChecker.isCompilerGeneratedEnumMethod(valueOf));
-        Assertions.assertFalse(TestUsageChecker.canUse(valueOf, PureEnumFixture.class));
+        Assertions.assertTrue(TestUsageChecker.canUse(valueOf, PureEnumFixture.class));
     }
 
     @Test
