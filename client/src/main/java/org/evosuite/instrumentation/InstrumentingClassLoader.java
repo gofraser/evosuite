@@ -386,12 +386,47 @@ public class InstrumentingClassLoader extends ClassLoader {
         return false;
     }
 
+    /**
+     * Entry names of each classpath jar, keyed by jar path, built once on first use.
+     *
+     * <p>Without this, every resource lookup reopened and reparsed the central directory of
+     * every jar on the target classpath. SF110's 108_liferay has 309 of them, and a
+     * reflection-heavy static initializer (XStream probing for optional converters, say) issues
+     * hundreds of lookups in a row - enough to push a &lt;clinit&gt; past the executor's grace
+     * period, at which point the class is abandoned mid-initialization and stays erroneous for
+     * the rest of the JVM. The cost was never in the classes themselves, only in finding them.
+     *
+     * <p>Keyed by path rather than held as open {@link JarFile} handles so that the file
+     * descriptors are released immediately; a name set costs memory but no fd, and the target
+     * classpath does not change during a run.
+     */
+    private static final Map<String, Set<String>> JAR_ENTRY_NAMES = new ConcurrentHashMap<>();
+
+    private static Set<String> entryNamesOf(File jar) {
+        return JAR_ENTRY_NAMES.computeIfAbsent(jar.getAbsolutePath(), path -> {
+            Set<String> names = new HashSet<>();
+            try (JarFile jarFile = new JarFile(path)) {
+                Enumeration<JarEntry> entries = jarFile.entries();
+                while (entries.hasMoreElements()) {
+                    names.add(entries.nextElement().getName());
+                }
+            } catch (Exception ignored) {
+                // Best-effort fallback: an unreadable jar simply contributes no resources.
+            }
+            return names;
+        });
+    }
+
     private URL getResourceFromTargetClasspath(String name) {
-        List<URL> resources = getResourcesFromTargetClasspath(name);
+        List<URL> resources = collectResourcesFromTargetClasspath(name, true);
         return resources.isEmpty() ? null : resources.get(0);
     }
 
     private List<URL> getResourcesFromTargetClasspath(String name) {
+        return collectResourcesFromTargetClasspath(name, false);
+    }
+
+    private List<URL> collectResourcesFromTargetClasspath(String name, boolean firstMatchOnly) {
         String targetClasspath;
         try {
             targetClasspath = ClassPathHandler.getInstance().getTargetProjectClasspath();
@@ -422,18 +457,23 @@ public class InstrumentingClassLoader extends ClassLoader {
                         // Best-effort fallback.
                     }
                 }
+                if (firstMatchOnly && !resources.isEmpty()) {
+                    break;
+                }
                 continue;
             }
 
             String lower = cpEntry.getName().toLowerCase(Locale.ROOT);
             if (lower.endsWith(".jar") || lower.endsWith(".war")) {
-                try (JarFile jarFile = new JarFile(cpEntry)) {
-                    JarEntry jarEntry = jarFile.getJarEntry(name);
-                    if (jarEntry != null) {
+                if (entryNamesOf(cpEntry).contains(name)) {
+                    try {
                         resources.add(new URL("jar:" + cpEntry.toURI().toURL() + "!/" + name));
+                    } catch (Exception ignored) {
+                        // Best-effort fallback.
                     }
-                } catch (Exception ignored) {
-                    // Best-effort fallback.
+                }
+                if (firstMatchOnly && !resources.isEmpty()) {
+                    break;
                 }
             }
         }
