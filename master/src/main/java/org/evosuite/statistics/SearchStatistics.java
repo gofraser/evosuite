@@ -541,8 +541,31 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 }
             }
 
-            if (map == null && Properties.IGNORE_MISSING_STATISTICS) {
+            if (map == null) {
+                // Write the row anyway, with the unresolvable variables left empty. Refusing to
+                // write loses every variable we *did* compute, and with them the only evidence
+                // that this run happened at all - a failed run becomes indistinguishable from one
+                // that was never scheduled, which silently biases any average taken over the
+                // results. The bestIndividual == null branch above already writes a blank-filled
+                // row for exactly this reason; there is no argument for being stricter when we
+                // have an individual and merely could not measure one of its variables.
+                //
+                // On SF110 this is the terminal step of several unrelated failures - an
+                // OutOfMemoryError in the search, a NoClassDefFoundError from an incomplete
+                // project classpath, and TestSuiteWriter skipping the coverage re-execution under
+                // memory pressure all end here - so it accounts for a large share of the runs
+                // that produce no statistics.csv.
+                logger.error("Some statistics are missing; writing the row with empty values for them");
                 map = getOutputVariables(individual, true);
+                setGenerationStatus(TestGenerationResult.Status.ERROR.name());
+                if (map != null) {
+                    OutputVariable<?> status = map.get(RuntimeVariable.Test_Generation_Status.toString());
+                    if (status == null || !TestGenerationResult.Status.ERROR.name().equals(String.valueOf(status.getValue()))) {
+                        map.put(RuntimeVariable.Test_Generation_Status.toString(),
+                                new OutputVariable<>(RuntimeVariable.Test_Generation_Status.toString(),
+                                        TestGenerationResult.Status.ERROR.name()));
+                    }
+                }
             }
 
             if (map == null) {
