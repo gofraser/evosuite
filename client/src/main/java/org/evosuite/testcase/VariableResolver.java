@@ -435,17 +435,23 @@ public class VariableResolver {
         // java.sql.Connection often fail at runtime, and mocking provides a reliable fallback.
         boolean isDeepFunctionalInterface = context.getDepth() > 0
                 && isFunctionalInterface(clazz.getRawClass());
-        // "mock_if_no_generator" promises to mock only when there is nothing else to call.
-        // Require that the cluster genuinely has no usable concrete generator for this type
-        // before boosting the mock probability below, instead of boosting for every
-        // abstract/interface dependency below the top level regardless of whether a concrete
-        // implementation exists. The unconditional boost was mocking types with perfectly
-        // usable generators, e.g. Scanner.Buffer in SF110's 102_squirrel-sql, whose
-        // FBuffer/SBuffer implementations are package-private but usable: branch coverage on
-        // Scanner rose from 0.277 to 0.457 (JDK 11, seed 1, same budget) once this was gated.
+        // Do not gate this on whether the cluster has a generator for the type. It is
+        // tempting to, because "mock_if_no_generator" reads like a promise to mock only
+        // when there is nothing else to call, and gating it does help the case where a
+        // usable concrete implementation is being passed over in favour of a mock
+        // (102_squirrel-sql's Scanner, whose abstract Buffer parameter has working
+        // package-private FBuffer/SBuffer implementations, gains ~0.36 branch coverage).
+        // But P_FUNCTIONAL_MOCKING is 0.0 by default, so the boost below is the only thing
+        // that ever makes a deep interface/abstract dependency mockable at all: gating it
+        // does not reduce mocking for these types, it switches mocking off entirely and
+        // leaves the search with whatever concrete generator happens to exist, however
+        // badly it works. Plenty of them work badly - SharedORB.getInstance() throws
+        // ExportException outside an RMI call, so 66_openjms's JmsAdminConnectionImpl
+        // cannot be constructed at all without a mock ORB. Measured over SF110 (23,267
+        // classes, matched seeds, 120s budget), gating cost >0.20 branch coverage on 1213
+        // classes and gained it on at most 73, for -0.026 mean.
         boolean isDeepInterfaceOrAbstract = context.getDepth() > 0
-                && (clazz.getRawClass().isInterface() || clazz.isAbstract())
-                && !TestCluster.getInstance().hasGenerator(clazz);
+                && (clazz.getRawClass().isInterface() || clazz.isAbstract());
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
         if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {
