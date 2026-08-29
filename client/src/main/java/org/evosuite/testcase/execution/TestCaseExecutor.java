@@ -123,6 +123,18 @@ public class TestCaseExecutor implements ThreadFactory {
     private final Set<Thread> clinitStuckThreads = new HashSet<>();
 
     /**
+     * Classes whose &lt;clinit&gt; we have already waited out the full grace period for and
+     * then abandoned. A static initializer that did not finish within
+     * {@code clinit_grace_timeout} once will not finish any faster the next time a test
+     * touches the same class, so waiting again just donates another
+     * {@code clinit_grace_timeout} of the search budget for the same answer. 108_liferay
+     * is the case that made this visible: its service layer pulls in easyconf/XStream
+     * configuration loading almost everywhere, and a single 60s run could pay the grace
+     * period twice before the search had covered anything.
+     */
+    private final Set<String> abandonedClinitClasses = new HashSet<>();
+
+    /**
      * Timestamp of the last executor rotation, used to enforce a cooldown
      * between rotations and prevent GC thrashing from rapid timeout cycling.
      */
@@ -761,7 +773,15 @@ public class TestCaseExecutor implements ThreadFactory {
                 // files) legitimately take longer than a single test is allowed to.
                 int maxClinitWaitAttempts =
                         (int) Math.max(1, Properties.CLINIT_GRACE_TIMEOUT / Properties.SHUTDOWN_TIMEOUT);
-                while (needsTimeoutCleanup(handler)
+                // Only pay the grace period once per class: see abandonedClinitClasses.
+                String stuckClinitClass = currentStaticInitClass();
+                boolean alreadyAbandonedThisClass = stuckClinitClass != null
+                        && abandonedClinitClasses.contains(stuckClinitClass);
+                if (alreadyAbandonedThisClass) {
+                    wasInStaticInit = true;
+                }
+                while (!alreadyAbandonedThisClass
+                        && needsTimeoutCleanup(handler)
                         && currentThread != null
                         && currentThread.isAlive()
                         && isInStaticInit()
@@ -800,10 +820,19 @@ public class TestCaseExecutor implements ThreadFactory {
                     // reintroduce an unkillable-forever thread, it just stops us from being
                     // the ones who force an early, poisoning exit for a <clinit> that is
                     // merely slow rather than stuck.
-                    logger.warn("Static initializer of {} still running after {}ms — abandoning "
-                                    + "the thread instead of forcing it, to avoid poisoning the class.",
-                            ExecutionTracer.describeCurrentClassInit(),
-                            clinitWaitAttempts * Properties.SHUTDOWN_TIMEOUT);
+                    if (alreadyAbandonedThisClass) {
+                        logger.debug("Static initializer of {} was already abandoned once; "
+                                        + "abandoning again without re-waiting the grace period.",
+                                stuckClinitClass);
+                    } else {
+                        logger.warn("Static initializer of {} still running after {}ms — abandoning "
+                                        + "the thread instead of forcing it, to avoid poisoning the class.",
+                                ExecutionTracer.describeCurrentClassInit(),
+                                clinitWaitAttempts * Properties.SHUTDOWN_TIMEOUT);
+                    }
+                    if (stuckClinitClass != null) {
+                        abandonedClinitClasses.add(stuckClinitClass);
+                    }
                     abandonStuckStaticInit = true;
                 } else if (wasInStaticInit && needsTimeoutCleanup(handler)) {
                     // The initial timeout was consumed by classloading/static initialization.
@@ -1077,6 +1106,23 @@ public class TestCaseExecutor implements ThreadFactory {
                         + "Total rotations: {} (limit {}).",
                 totalRotationCount, numStalled, Properties.MAX_STALLED_THREADS,
                 totalRotationCount, Properties.MAX_TOTAL_ROTATIONS);
+    }
+
+    /**
+     * The class whose &lt;clinit&gt; the executing thread is currently inside, or null if it
+     * is not in one (or is stuck in class loading rather than in a &lt;clinit&gt; body, where
+     * there is no single class to name).
+     */
+    private String currentStaticInitClass() {
+        if (currentThread == null) {
+            return null;
+        }
+        for (StackTraceElement elem : currentThread.getStackTrace()) {
+            if (elem.getMethodName().equals("<clinit>")) {
+                return elem.getClassName();
+            }
+        }
+        return null;
     }
 
     private boolean isInStaticInit() {
