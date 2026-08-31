@@ -123,6 +123,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
             throwAllocationRejected("Array allocation exceeds the configured array_limit");
             super.visitLabel(origTarget);
+            emitCumulativeBudgetCheck();
 
         }
         super.visitIntInsn(opcode, operand);
@@ -146,9 +147,30 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
             throwAllocationRejected("Array allocation exceeds the configured array_limit");
             super.visitLabel(origTarget);
+            emitCumulativeBudgetCheck();
 
         }
         super.visitTypeInsn(opcode, type);
+    }
+
+    /**
+     * Emits a call that records the array size still sitting on top of the stack against
+     * the cumulative allocation budget, and rejects the allocation if that running total
+     * is now too high. Leaves the stack exactly as it found it (the size is duplicated,
+     * not consumed) so the NEWARRAY/ANEWARRAY that follows still sees its operand.
+     *
+     * <p>A single allocation passing the per-call {@code array_limit} check above says
+     * nothing about a loop that repeats such an allocation many times -- e.g. one chunk
+     * per iteration in a chunked-array growth method -- which is exactly the pattern that
+     * can exhaust the heap while every individual allocation looks legal. See
+     * {@link org.evosuite.runtime.ArrayAllocationBudget}.
+     */
+    private void emitCumulativeBudgetCheck() {
+        visitInsn(Opcodes.DUP);
+        visitInsn(Opcodes.I2L);
+        super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                PackageInfo.getNameWithSlash(org.evosuite.runtime.ArrayAllocationBudget.class),
+                "checkAndRecord", "(J)V", false);
     }
 
     /**

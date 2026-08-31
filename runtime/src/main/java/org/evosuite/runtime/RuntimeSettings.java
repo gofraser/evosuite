@@ -93,6 +93,19 @@ public class RuntimeSettings {
     public static long maxNumberOfIterationsPerLoop = 10_000;
 
     /**
+     * How many array elements, summed across every NEWARRAY/ANEWARRAY in the classes
+     * under analysis, is a single test execution allowed to allocate?.
+     *
+     * <p>{@link org.evosuite.runtime.ArrayAllocationBudget} enforces this. It exists
+     * because a loop that allocates many individually-legal-sized arrays -- e.g. one
+     * chunk per iteration in a chunked-array growth method -- is invisible to a
+     * per-allocation size check and can exhaust the heap long before the loop-iteration
+     * cap ({@link #maxNumberOfIterationsPerLoop}) is reached. A negative value disables
+     * the check.
+     */
+    public static long maxCumulativeArrayElements = 50_000_000L;
+
+    /**
      * Should tests be executed in a separate instrumenting class loader
      * or with the standard classloader and instrumentation via an agent?.
      */

@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.Criterion;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.TestSuiteGeneratorHelper;
+import org.evosuite.TimeController;
 import org.evosuite.coverage.ambiguity.AmbiguityCoverageSuiteFitness;
 import org.evosuite.coverage.rho.RhoCoverageSuiteFitness;
 import org.evosuite.rmi.ClientServices;
@@ -234,6 +235,15 @@ public class CoverageCriteriaAnalyzer {
         boolean recalculate = false;
 
         for (Properties.Criterion pc : criteria) {
+            // COVERAGE_ANALYSIS has no timeout of its own in TimeController, so nothing
+            // stops this loop unless it checks for itself. Bail between criteria, keeping
+            // whatever earlier criteria already tracked, rather than let a large suite run
+            // unbounded here.
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                logger.warn("Reached maximum time for coverage analysis; {} of {} criteria left unanalysed",
+                        criteria.length - Arrays.asList(criteria).indexOf(pc), criteria.length);
+                break;
+            }
             logger.debug("Coverage analysis for criterion {}", pc);
 
             analyzeCoverage(testSuite, pc, recalculate);
@@ -272,8 +282,20 @@ public class CoverageCriteriaAnalyzer {
 
         StringBuilder buffer = new StringBuilder(goals.size());
         int covered = 0;
+        boolean timedOut = false;
 
         for (TestFitnessFunction goal : goals) {
+            // Checking a goal against every test in the suite is O(goals x tests), and this
+            // phase has no timeout of its own in TimeController. A single criterion with a
+            // large goal set (eg weak mutation on a big suite) can be the whole cost, so the
+            // per-criterion check above is not enough by itself -- bail here too, mid
+            // criterion, rather than run unbounded. The goals already checked keep their
+            // real result; the rest are conservatively recorded as not (yet known) covered,
+            // same as a goal the search never reached.
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                timedOut = true;
+                break;
+            }
             if (goal.isCoveredBy(testSuiteCopy)) {
                 logger.debug("Goal {} is covered", goal);
                 covered++;
@@ -284,6 +306,18 @@ public class CoverageCriteriaAnalyzer {
                 if (Properties.PRINT_MISSED_GOALS) {
                     LoggingUtils.getEvoLogger().info(" - Missed goal {}", goal);
                 }
+            }
+        }
+
+        if (timedOut) {
+            int checked = buffer.length();
+            logger.warn("Reached maximum time for coverage analysis; {} of {} goals checked for criterion {}",
+                    checked, goals.size(), criterion);
+            // Pad the bit string out to the full goal count so consumers that assume its
+            // length matches getCoverageGoals().size() keep working; the padding goals are
+            // conservatively "not covered", matching a goal that was simply never reached.
+            for (int i = checked; i < goals.size(); i++) {
+                buffer.append("0");
             }
         }
 

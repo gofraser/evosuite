@@ -100,6 +100,7 @@ public class Runtime {
         }
 
         LoopCounter.getInstance().reset();
+        ArrayAllocationBudget.reset();
     }
 
     /**
