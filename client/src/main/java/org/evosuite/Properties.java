@@ -3201,6 +3201,13 @@ public class Properties {
             description = "Hard limit on array allocation in the code")
     public static int ARRAY_LIMIT = 1000000;
 
+    @Parameter(key = "cumulative_array_limit", group = "Test Execution",
+            description = "Hard limit on the total number of array elements a single test execution may "
+                    + "allocate across all NEWARRAY/ANEWARRAY sites in the analysed classes. Catches a loop "
+                    + "that allocates many individually-legal-sized arrays (each under array_limit) before "
+                    + "it can exhaust the heap. A negative value disables the check.")
+    public static long CUMULATIVE_ARRAY_LIMIT = 50_000_000L;
+
     @Parameter(key = "collection_capacity_limit", group = "Test Execution",
             description = "Hard limit on collection constructor capacity in the code")
     public static int COLLECTION_CAPACITY_LIMIT = 1000000;
