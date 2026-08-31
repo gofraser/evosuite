@@ -351,9 +351,52 @@ public class GuiSupport {
                 logger.debug("Could not preload {}: {}", name, t.toString());
             }
         }
+        disableSplashScreenClose();
         awtClassesPreloaded.set(true);
     }
 
+    /**
+     * Pre-consumes {@code java.awt.Window}'s one-shot {@code beforeFirstWindowShown}
+     * gate so that no code path ever calls the native {@code
+     * sun.awt.SunToolkit.closeSplashScreen()} during this JVM's life.
+     *
+     * <p>Unlike every other native call this class guards against,
+     * {@code closeSplashScreen()} is reached without going through the cached
+     * {@link Toolkit} singleton at all: {@code Window.closeSplashScreen()} calls
+     * it as a {@code static} method directly, and {@code Dialog.conditionalShow()}
+     * calls that <em>before</em> attempting peer creation — ahead of where
+     * {@link PeerCreationGuardToolkit} would otherwise catch it. On a JVM whose
+     * platform toolkit never completed native initialization (see {@link
+     * #initializeHeadlessToolkitIfNeeded()}), that native call fails with
+     * {@code UnsatisfiedLinkError} instead of the clean {@link HeadlessException}
+     * every other peer-creation path is guarded to produce.
+     *
+     * <p>{@code beforeFirstWindowShown} is a JVM-wide, one-shot {@link
+     * java.util.concurrent.atomic.AtomicBoolean} — not a per-window flag —
+     * consumed by the first {@code Window}/{@code Dialog} to attempt becoming
+     * visible, anywhere in the process. Flipping it here, while still headless
+     * and before any SUT ever runs, means every later attempt sees it already
+     * consumed and skips the native call entirely, rather than us needing to
+     * safely absorb the failure ourselves. There is no legitimate splash
+     * screen to close during EvoSuite test execution (the JVM was not started
+     * with {@code -splash:}), so skipping this native call has no observable
+     * effect beyond avoiding the crash.
+     *
+     * <p>Best-effort: failures are logged and swallowed like every other
+     * reflective access in this class.
+     */
+    private static void disableSplashScreenClose() {
+        try {
+            Field beforeFirstWindowShown = Window.class.getDeclaredField("beforeFirstWindowShown");
+            beforeFirstWindowShown.setAccessible(true);
+            Object flag = beforeFirstWindowShown.get(null);
+            if (flag instanceof AtomicBoolean) {
+                ((AtomicBoolean) flag).set(false);
+            }
+        } catch (Throwable t) {
+            logger.debug("Could not pre-consume Window.beforeFirstWindowShown: {}", t.getMessage());
+        }
+    }
 
     /**
      * Restore the original headless setting of when the JVM was started.
@@ -391,6 +434,14 @@ public class GuiSupport {
      * its {@code getDefaultScreenDevice()} throws unconditionally.  We therefore
      * also swap the cached singleton to the unwrapped real environment.
      *
+     * <p>The cached {@link Toolkit} singleton is swapped the same way, but not
+     * to the bare unwrapped real toolkit — it is wrapped in {@link
+     * PeerCreationGuardToolkit} first. See that class's javadoc for why: the
+     * real toolkit's peer-creation methods can crash native code and poison
+     * JDK peer classes for the rest of the JVM if actually invoked (e.g. by a
+     * {@code pack()}/{@code setVisible()} call still inside this disable
+     * window), which construction itself never needs.
+     *
      * <p>Must be paired with {@link #restoreHeadlessAfterMockConstruction()}.
      */
     public static void disableHeadlessForMockConstruction() {
@@ -407,11 +458,12 @@ public class GuiSupport {
         }
         if (!canFlipHeadlessSafely()) {
             // The native AWT toolkit library (libawt_xawt on Linux/X11) cannot
-            // be bound on this JVM. Flipping headless=false would then cause
-            // sun.awt.X11.XWindow.<clinit> to call native initIDs() with no
-            // backing symbol, failing with UnsatisfiedLinkError and leaving
-            // XFramePeer in <initializer-failed> state — which cascades into
-            // NoClassDefFoundError for every subsequent test in the suite.
+            // even be bound on this JVM. That is a harder failure than the peer
+            // -creation hazard PeerCreationGuardToolkit guards against below: it
+            // means the headless-guarded AWT classes we are about to preload
+            // (HEADLESS_GUARDED_AWT_CLASSES) cannot rely on the library being
+            // present at all, so flipping headless=false is not safe at any
+            // level, not just for peer creation.
             //
             // Stay headless instead: the mock super-constructor will throw
             // HeadlessException, which is caught as a per-test failure with
@@ -428,6 +480,25 @@ public class GuiSupport {
         ensureGraphicsEnvironmentAvailable();
         preloadHeadlessGuardedAwtClasses();
         initializeHeadlessToolkitIfNeeded();
+
+        // Capture the HeadlessToolkit wrapper now, before setHeadless(false)
+        // below can unwrap the cached Toolkit singleton to the real toolkit
+        // via syncToolkitWithHeadlessState(). We need this specific reference
+        // both to restore it in restoreHeadlessAfterMockConstruction() and to
+        // reach the real toolkit ourselves below, regardless of what
+        // setHeadless(false) already did to the cached field.
+        Toolkit headlessToolkitBeforeFlip = null;
+        if (canSwapToolkit) {
+            try {
+                Toolkit current = (Toolkit) toolkitField.get(null);
+                if (isHeadlessToolkit(current)) {
+                    headlessToolkitBeforeFlip = current;
+                }
+            } catch (Throwable t) {
+                logger.debug("Could not read cached Toolkit before flip: {}", t.getMessage());
+            }
+        }
+
         setHeadless(false);
         if (canSwapGe) {
             try {
@@ -463,13 +534,47 @@ public class GuiSupport {
         }
         if (canSwapToolkit) {
             try {
-                Toolkit current = (Toolkit) toolkitField.get(null);
-                if (current != null
-                        && "sun.awt.HeadlessToolkit".equals(current.getClass().getName())) {
-                    Toolkit real = (Toolkit) getUnderlyingToolkitMethod.invoke(current);
+                // syncToolkitWithHeadlessState(), called from setHeadless(false)
+                // above, may already have unwrapped the cached field to the real
+                // toolkit. Fall back to reading it directly if we did not manage
+                // to capture the HeadlessToolkit wrapper before the flip.
+                Toolkit headlessToolkit = headlessToolkitBeforeFlip;
+                if (headlessToolkit == null) {
+                    Toolkit current = (Toolkit) toolkitField.get(null);
+                    if (isHeadlessToolkit(current)) {
+                        headlessToolkit = current;
+                    }
+                }
+                if (headlessToolkit != null) {
+                    Toolkit real = (Toolkit) getUnderlyingToolkitMethod.invoke(headlessToolkit);
                     if (real != null) {
-                        savedHeadlessToolkit = current;
-                        toolkitField.set(null, real);
+                        savedHeadlessToolkit = headlessToolkit;
+                        // Wrap in PeerCreationGuardToolkit purely via reflection --
+                        // see that class's javadoc for why a typed `new
+                        // PeerCreationGuardToolkit(real)` expression here would be
+                        // unsafe: it would force this method's bytecode to resolve
+                        // sun.awt.ComponentFactory at verification time, which can
+                        // fail with an uncatchable-from-here IllegalAccessError on
+                        // a JDK/launch config that opens but does not export
+                        // sun.awt. Resolving and instantiating it purely by name
+                        // keeps that failure an ordinary, catchable exception at
+                        // this call site instead, with graceful fallback to the
+                        // unwrapped real toolkit exactly as before this guard
+                        // existed.
+                        Object installed = real;
+                        try {
+                            Class<?> guardClass =
+                                    Class.forName("org.evosuite.runtime.PeerCreationGuardToolkit",
+                                            true, GuiSupport.class.getClassLoader());
+                            java.lang.reflect.Constructor<?> ctor = guardClass.getDeclaredConstructor(Toolkit.class);
+                            ctor.setAccessible(true);
+                            installed = ctor.newInstance(real);
+                        } catch (Throwable t) {
+                            logger.debug("Could not build PeerCreationGuardToolkit; "
+                                    + "falling back to the unwrapped real toolkit: {}", t.getMessage());
+                            installed = real;
+                        }
+                        toolkitField.set(null, installed);
                     }
                 }
             } catch (Throwable t) {
@@ -747,12 +852,16 @@ public class GuiSupport {
      * {@code true}. On macOS, {@link #disableHeadlessForMockConstruction()}
      * short-circuits via {@link #IS_MACOS} before consulting this probe, so
      * its return value there does not matter. On Linux/Unix, linking the
-     * toolkit library is necessary but not sufficient: container images
+     * toolkit library is the only signal available — there is no public API
+     * to ask whether a display is actually reachable, and container images
      * commonly ship libX11/libXext/libXrender (needed for headless font and
-     * image rendering) without ever running an X server, so the library
-     * binds fine with no display behind it. The probe additionally requires
-     * a display to be reachable — see {@link #isDisplayReachable()} — before
-     * declaring it safe to leave headless mode.
+     * image rendering) without ever running an X server, so the library can
+     * bind fine with no display behind it. We accept that: the toolkit
+     * object this unlocks is only ever used for <em>construction</em> (see
+     * {@link #disableHeadlessForMockConstruction()}), which does not need a
+     * real display, and its peer-creation entry points — the only calls that
+     * would otherwise reach the unbound native display — are guarded so they
+     * throw a clean {@link HeadlessException} instead of touching native code.
      *
      * <p>Package-private so unit tests can read the probe's verdict.
      */
@@ -796,74 +905,7 @@ public class GuiSupport {
                     + "for the rest of the run.", t.toString());
             return false;
         }
-        if (!isDisplayReachable()) {
-            // The library links, but nothing is listening on the other end: no
-            // DISPLAY/WAYLAND_DISPLAY, or a GraphicsEnvironment that reports zero
-            // screen devices. Flipping headless off here would install a real
-            // X11 Toolkit with no display to connect to, and every GUI
-            // constructor (java.awt.Component/Window/Frame/... subclasses) would
-            // then fail identically for the rest of the run instead of throwing
-            // the expected HeadlessException.
-            logger.warn("Native AWT toolkit library bound, but no display is reachable "
-                    + "(DISPLAY/WAYLAND_DISPLAY unset, or no screen device responded). "
-                    + "EvoSuite will leave headless mode on during GUI test execution.");
-            return false;
-        }
         return true;
-    }
-
-    /**
-     * Best-effort check for whether a real display is reachable, used as the
-     * second gate in {@link #probeNativeAwtAvailability()} on Linux/Unix.
-     *
-     * <p>Requires {@code DISPLAY} or {@code WAYLAND_DISPLAY} to be set — a
-     * container that ships the X11 client libraries but runs no X server
-     * (e.g. no Xvfb) sets neither — and, where reflective access allows it,
-     * additionally asks the real platform {@link GraphicsEnvironment} for its
-     * screen devices.
-     *
-     * <p>That second check has to reach past the cached singleton: this probe
-     * always runs while the JVM is still headless (see
-     * {@link #disableHeadlessForMockConstruction()}), so
-     * {@link GraphicsEnvironment#getLocalGraphicsEnvironment()} returns a
-     * {@code sun.java2d.HeadlessGraphicsEnvironment} wrapper whose
-     * {@code getScreenDevices()} throws {@link java.awt.HeadlessException}
-     * unconditionally regardless of whether a display actually exists. We
-     * unwrap it the same way {@link #disableHeadlessForMockConstruction()}
-     * does (via {@link #headlessWrappedGeField}) to reach the real,
-     * already-instantiated platform environment underneath and ask it
-     * directly. If that reflective access is unavailable, the environment
-     * variable check above is the best signal we have.
-     */
-    private static boolean isDisplayReachable() {
-        String display = java.lang.System.getenv("DISPLAY");
-        String waylandDisplay = java.lang.System.getenv("WAYLAND_DISPLAY");
-        if ((display == null || display.isEmpty()) && (waylandDisplay == null || waylandDisplay.isEmpty())) {
-            return false;
-        }
-        if (!canSwapGe || geInstanceField == null) {
-            return true;
-        }
-        try {
-            Object cached = geInstanceField.get(null);
-            if (cached == null) {
-                return false;
-            }
-            Object real = cached;
-            if (headlessWrappedGeField != null
-                    && "sun.java2d.HeadlessGraphicsEnvironment".equals(cached.getClass().getName())) {
-                real = headlessWrappedGeField.get(cached);
-            }
-            if (!(real instanceof GraphicsEnvironment)) {
-                // Could not unwrap to the real environment; fall back to the
-                // environment variable signal already checked above.
-                return true;
-            }
-            GraphicsDevice[] devices = ((GraphicsEnvironment) real).getScreenDevices();
-            return devices != null && devices.length > 0;
-        } catch (Throwable t) {
-            return false;
-        }
     }
 
     private static boolean isHeadlessSafely() {
