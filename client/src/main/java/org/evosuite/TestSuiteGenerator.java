@@ -797,15 +797,26 @@ public class TestSuiteGenerator {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping coverage analysis because not enough time is left");
-            } else if (isMemoryTooLowForPhase("coverage analysis")) {
-                // skip — message already logged by the check
             } else {
+                // Deliberately not gated on isMemoryTooLowForPhase() like the heavier phases
+                // below: with the criteria unchanged since search (the common case here),
+                // analyzeCoverage() does not re-instrument or re-execute a single test, only
+                // clones the suite and reads already-cached results, so it does not need the
+                // same headroom minimization or JUnit checking do. Attempt it and only fall
+                // back if it actually runs out of memory -- each criterion's output variable
+                // is tracked as soon as that criterion's goals are checked, so a suite this
+                // large that OOMs partway through still leaves whatever was tracked before
+                // the failure, rather than reporting nothing at all.
                 Criterion[] originalCriteria = Properties.CRITERION;
                 if (requestedCriteria != null) {
                     Properties.CRITERION = requestedCriteria;
                 }
                 try {
                     CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
+                } catch (OutOfMemoryError e) {
+                    LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                            + "Coverage analysis ran out of memory partway through; "
+                            + "keeping whatever coverage numbers were already tracked");
                 } finally {
                     Properties.CRITERION = originalCriteria;
                 }
@@ -947,7 +958,7 @@ public class TestSuiteGenerator {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier() + "Generating assertions");
             // progressMonitor.setCurrentPhase("Generating assertions");
             ClientServices.getInstance().getClientNode().changeState(ClientState.ASSERTION_GENERATION);
-            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping assertion generation because not enough time is left");
             } else if (isMemoryTooLowForPhase("assertion generation")) {

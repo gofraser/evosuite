@@ -63,7 +63,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
         boolean timeIsShort = false;
 
         for (TestCase test : suite.getTests()) {
-            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.warn("Reached maximum time to generate assertions, aborting assertion generation");
                 break;
             }
@@ -161,7 +161,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
         for (Mutation m : executedMutants) {
 
             numExecutedMutants++;
-            if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.info("Reached maximum time to generate assertions!");
                 break;
             }
