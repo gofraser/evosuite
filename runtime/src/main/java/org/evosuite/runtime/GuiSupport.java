@@ -442,6 +442,18 @@ public class GuiSupport {
      * {@code pack()}/{@code setVisible()} call still inside this disable
      * window), which construction itself never needs.
      *
+     * <p>The flip and the guard are a single all-or-nothing decision: the
+     * guard toolkit is built <em>before</em> headless is ever flipped off, and
+     * if it cannot be built (missing/reshaped {@code sun.awt.ComponentFactory}
+     * on this JDK/launch config), headless is not flipped at all — this method
+     * becomes a no-op and mock super-constructors throw {@link
+     * java.awt.HeadlessException}, exactly as before this guard existed.
+     * Flipping off without the guard would install a bare, natively
+     * -uninitialized real toolkit, which is strictly worse than staying
+     * headless (see {@link PeerCreationGuardToolkit}'s javadoc), so that
+     * combination must never happen. Which mode was selected is logged once
+     * per JVM by {@link #logGuiHeadlessFlipModeOnce}.
+     *
      * <p>Must be paired with {@link #restoreHeadlessAfterMockConstruction()}.
      */
     public static void disableHeadlessForMockConstruction() {
@@ -473,7 +485,7 @@ public class GuiSupport {
             return;
         }
         // Force the <clinit> of Insets/Rectangle/Cursor/... to run while
-        // headless is still true.  Otherwise the upcoming setHeadless(false)
+        // headless is still true.  Otherwise a later setHeadless(false)
         // would expose them to a native initIDs() call that may be unbound
         // on a JVM started with -Djava.awt.headless=true, leaving the class
         // in failed-init state for the rest of the run.
@@ -481,23 +493,40 @@ public class GuiSupport {
         preloadHeadlessGuardedAwtClasses();
         initializeHeadlessToolkitIfNeeded();
 
-        // Capture the HeadlessToolkit wrapper now, before setHeadless(false)
-        // below can unwrap the cached Toolkit singleton to the real toolkit
-        // via syncToolkitWithHeadlessState(). We need this specific reference
-        // both to restore it in restoreHeadlessAfterMockConstruction() and to
-        // reach the real toolkit ourselves below, regardless of what
-        // setHeadless(false) already did to the cached field.
+        // The flip and the peer-creation guard are a single all-or-nothing
+        // decision, built here BEFORE any flip happens. Flipping headless off
+        // without successfully installing PeerCreationGuardToolkit around the
+        // real toolkit would leave a bare, natively-uninitialized real toolkit
+        // in place instead -- exactly the configuration that poisons
+        // sun.awt.X11.XFramePeer for the rest of the JVM if any later
+        // pack()/setVisible()/addNotify() call reaches it (see that class's
+        // javadoc). That failure mode is strictly worse than staying headless,
+        // not merely "no improvement", so if the guard cannot be built we must
+        // not flip at all -- staying in the same headless state, and giving
+        // the same HeadlessException-from-construction outcome, as the
+        // pre-existing (4d8f6531b) behavior for every GUI SUT.
         Toolkit headlessToolkitBeforeFlip = null;
+        Object guardToolkit = null;
         if (canSwapToolkit) {
             try {
                 Toolkit current = (Toolkit) toolkitField.get(null);
                 if (isHeadlessToolkit(current)) {
                     headlessToolkitBeforeFlip = current;
+                    Toolkit real = (Toolkit) getUnderlyingToolkitMethod.invoke(current);
+                    if (real != null) {
+                        guardToolkit = buildPeerCreationGuardToolkit(real);
+                    }
                 }
             } catch (Throwable t) {
                 logger.debug("Could not read cached Toolkit before flip: {}", t.getMessage());
             }
         }
+
+        if (guardToolkit == null) {
+            logGuiHeadlessFlipModeOnce(false);
+            return;
+        }
+        logGuiHeadlessFlipModeOnce(true);
 
         setHeadless(false);
         if (canSwapGe) {
@@ -532,54 +561,103 @@ public class GuiSupport {
                     + "(missing --add-opens java.desktop/sun.java2d=ALL-UNNAMED?). "
                     + "Mock constructors for Window/Frame/JFrame may throw HeadlessException.");
         }
-        if (canSwapToolkit) {
-            try {
-                // syncToolkitWithHeadlessState(), called from setHeadless(false)
-                // above, may already have unwrapped the cached field to the real
-                // toolkit. Fall back to reading it directly if we did not manage
-                // to capture the HeadlessToolkit wrapper before the flip.
-                Toolkit headlessToolkit = headlessToolkitBeforeFlip;
-                if (headlessToolkit == null) {
-                    Toolkit current = (Toolkit) toolkitField.get(null);
-                    if (isHeadlessToolkit(current)) {
-                        headlessToolkit = current;
-                    }
-                }
-                if (headlessToolkit != null) {
-                    Toolkit real = (Toolkit) getUnderlyingToolkitMethod.invoke(headlessToolkit);
-                    if (real != null) {
-                        savedHeadlessToolkit = headlessToolkit;
-                        // Wrap in PeerCreationGuardToolkit purely via reflection --
-                        // see that class's javadoc for why a typed `new
-                        // PeerCreationGuardToolkit(real)` expression here would be
-                        // unsafe: it would force this method's bytecode to resolve
-                        // sun.awt.ComponentFactory at verification time, which can
-                        // fail with an uncatchable-from-here IllegalAccessError on
-                        // a JDK/launch config that opens but does not export
-                        // sun.awt. Resolving and instantiating it purely by name
-                        // keeps that failure an ordinary, catchable exception at
-                        // this call site instead, with graceful fallback to the
-                        // unwrapped real toolkit exactly as before this guard
-                        // existed.
-                        Object installed = real;
-                        try {
-                            Class<?> guardClass =
-                                    Class.forName("org.evosuite.runtime.PeerCreationGuardToolkit",
-                                            true, GuiSupport.class.getClassLoader());
-                            java.lang.reflect.Constructor<?> ctor = guardClass.getDeclaredConstructor(Toolkit.class);
-                            ctor.setAccessible(true);
-                            installed = ctor.newInstance(real);
-                        } catch (Throwable t) {
-                            logger.debug("Could not build PeerCreationGuardToolkit; "
-                                    + "falling back to the unwrapped real toolkit: {}", t.getMessage());
-                            installed = real;
-                        }
-                        toolkitField.set(null, installed);
-                    }
-                }
-            } catch (Throwable t) {
-                logger.debug("Could not swap cached Toolkit: {}", t.getMessage());
+        try {
+            savedHeadlessToolkit = headlessToolkitBeforeFlip;
+            toolkitField.set(null, guardToolkit);
+        } catch (Throwable t) {
+            logger.debug("Could not install PeerCreationGuardToolkit: {}", t.getMessage());
+        }
+    }
+
+    // Cached resolution of PeerCreationGuardToolkit(Toolkit)'s constructor.
+    // Resolved at most once per JVM -- see resolvePeerGuardConstructor().
+    private static volatile java.lang.reflect.Constructor<?> peerGuardConstructor;
+    private static volatile boolean peerGuardConstructorResolved = false;
+
+    // One-shot latch so logGuiHeadlessFlipModeOnce() logs its verdict exactly
+    // once per JVM, no matter how many GUI constructors run.
+    private static final AtomicBoolean guiHeadlessFlipModeLogged = new AtomicBoolean(false);
+
+    /**
+     * Builds a {@code PeerCreationGuardToolkit} wrapping {@code real}, purely
+     * via reflection -- see that class's javadoc for why a typed {@code new
+     * PeerCreationGuardToolkit(real)} expression here would be unsafe. Returns
+     * {@code null} on any failure (missing/reshaped {@code
+     * sun.awt.ComponentFactory} on this JDK, construction failure, ...); the
+     * caller must treat that as "cannot build the guard" and, per this
+     * class's javadoc on {@link #disableHeadlessForMockConstruction()}, not
+     * flip headless off at all in that case.
+     */
+    private static Object buildPeerCreationGuardToolkit(Toolkit real) {
+        java.lang.reflect.Constructor<?> ctor = resolvePeerGuardConstructor();
+        if (ctor == null) {
+            return null;
+        }
+        try {
+            return ctor.newInstance(real);
+        } catch (Throwable t) {
+            logger.debug("Could not construct PeerCreationGuardToolkit: {}", t.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Resolves and caches {@code PeerCreationGuardToolkit}'s {@code
+     * (Toolkit)} constructor. Whether this succeeds is a JDK/module-launch
+     * property (does {@code sun.awt.ComponentFactory} resolve on this JVM?),
+     * not something that varies from call to call, so it is safe -- and much
+     * cheaper than repeating the {@code Class.forName} lookup on every GUI
+     * constructor -- to resolve it once and reuse the result for the life of
+     * the JVM.
+     */
+    private static java.lang.reflect.Constructor<?> resolvePeerGuardConstructor() {
+        if (peerGuardConstructorResolved) {
+            return peerGuardConstructor;
+        }
+        synchronized (GuiSupport.class) {
+            if (peerGuardConstructorResolved) {
+                return peerGuardConstructor;
             }
+            java.lang.reflect.Constructor<?> resolved;
+            try {
+                Class<?> guardClass = Class.forName("org.evosuite.runtime.PeerCreationGuardToolkit",
+                        true, GuiSupport.class.getClassLoader());
+                resolved = guardClass.getDeclaredConstructor(Toolkit.class);
+                resolved.setAccessible(true);
+            } catch (Throwable t) {
+                logger.debug("PeerCreationGuardToolkit unavailable on this JDK: {}", t.getMessage());
+                resolved = null;
+            }
+            peerGuardConstructor = resolved;
+            peerGuardConstructorResolved = true;
+            return resolved;
+        }
+    }
+
+    /**
+     * Logs, exactly once per JVM, which of the two all-or-nothing modes
+     * {@link #disableHeadlessForMockConstruction()} selected: the guarded
+     * flip (GUI SUTs get a chance to construct), or staying headless (GUI
+     * SUTs throw {@link HeadlessException} from construction, as before this
+     * guard existed). The cluster only returns statistics CSVs, not logs by
+     * default, but when logs are captured this gives a direct, greppable way
+     * to confirm which mode a run actually used instead of inferring it from
+     * coverage after the fact.
+     */
+    private static void logGuiHeadlessFlipModeOnce(boolean guardActive) {
+        if (!guiHeadlessFlipModeLogged.compareAndSet(false, true)) {
+            return;
+        }
+        if (guardActive) {
+            logger.info("GuiSupport: GUI-HEADLESS-FLIP=ACTIVE "
+                    + "(PeerCreationGuardToolkit installed; Window/Frame/Dialog "
+                    + "constructors may now succeed).");
+        } else {
+            logger.warn("GuiSupport: GUI-HEADLESS-FLIP=DISABLED "
+                    + "(PeerCreationGuardToolkit unavailable on this JDK/launch "
+                    + "config; staying headless for GUI mock construction -- "
+                    + "Window/Frame/Dialog constructors will throw HeadlessException, "
+                    + "matching pre-flip behavior).");
         }
     }
 
