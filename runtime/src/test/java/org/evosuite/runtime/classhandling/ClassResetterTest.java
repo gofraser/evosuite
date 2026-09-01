@@ -23,7 +23,10 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.examples.with.different.packagename.classhandling.MutableEnum;
+import com.examples.with.different.packagename.classhandling.ResourceScanNoRegistry;
+import com.examples.with.different.packagename.classhandling.RiskyRegistryClinit;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.instrumentation.CreateClassResetClassAdapter;
 import org.evosuite.runtime.instrumentation.EvoClassLoader;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -189,5 +192,89 @@ public class ClassResetterTest {
         // exception leak.
         Assertions.assertDoesNotThrow(
                 () -> ClassResetter.getInstance().reset("com.google.protobuf.SomethingThatDoesNotExist"));
+    }
+
+    /**
+     * Regression test for the CUT-bypass trap in {@code isSkippedByPrefix()}: the bypass
+     * that re-enables reset when the user is testing a skip-listed library must be scoped
+     * to the exact class under test, not the whole skip-listed prefix. Otherwise, setting
+     * {@code RuntimeSettings.className} to any class inside the prefix (e.g. because the CUT
+     * happens to live in the same package as a fragile skip-listed class) would silently
+     * re-enable replay for every sibling class in that package too.
+     */
+    @Test
+    public void testSkipPrefixBypassIsScopedToExactClassUnderTest() throws Exception {
+        java.lang.reflect.Method isSkippedByPrefix =
+                ClassResetter.class.getDeclaredMethod("isSkippedByPrefix", String.class);
+        isSkippedByPrefix.setAccessible(true);
+
+        String originalClassName = RuntimeSettings.className;
+        try {
+            // CUT is a *different* class under the same skip-listed prefix: must still skip.
+            RuntimeSettings.className = "com.google.protobuf.SomeOtherClass";
+            Assertions.assertTrue((Boolean) isSkippedByPrefix.invoke(null,
+                    "com.google.protobuf.SomeSiblingClass"));
+
+            // CUT is exactly this class: bypass applies, reset is attempted.
+            RuntimeSettings.className = "com.google.protobuf.SomeSiblingClass";
+            Assertions.assertFalse((Boolean) isSkippedByPrefix.invoke(null,
+                    "com.google.protobuf.SomeSiblingClass"));
+        } finally {
+            RuntimeSettings.className = originalClassName;
+        }
+    }
+
+    /**
+     * End-to-end check for {@link org.evosuite.runtime.instrumentation.ClinitResetSafetyAnalyzer}:
+     * a class whose {@code <clinit>} reaches a classpath-scan call and builds a {@code Map}
+     * registry (same shape as {@code org.firebirdsql.gds.impl.GDSFactory}) must not get a
+     * {@code __STATIC_RESET()} method generated at all.
+     */
+    @Test
+    public void testUnsafeClinitPatternGetsNoStaticResetMethod() throws Exception {
+        ClassLoader loader = new EvoClassLoader();
+        boolean resetValue = RuntimeSettings.resetStaticState;
+        RuntimeSettings.resetStaticState = true;
+        try {
+            ClassResetter.getInstance().setClassLoader(loader);
+
+            String cut = RiskyRegistryClinit.class.getName();
+            loader.loadClass(cut);
+
+            Assertions.assertNull(ClassResetter.getInstance().getResetMethod(cut),
+                    "unsafe <clinit> pattern must not get a __STATIC_RESET() method");
+            Assertions.assertTrue(CreateClassResetClassAdapter.unsafeClinitSkippedClasses.contains(cut));
+
+            // reset() must be a silent no-op rather than erroring.
+            Assertions.assertDoesNotThrow(() -> ClassResetter.getInstance().reset(cut));
+        } finally {
+            RuntimeSettings.resetStaticState = resetValue;
+            CreateClassResetClassAdapter.unsafeClinitSkippedClasses.clear();
+        }
+    }
+
+    /**
+     * Control for the above: a class whose {@code <clinit>} reaches the same
+     * classpath-scan call but builds no {@code Map}/{@code Collection} registry must still
+     * get a normal {@code __STATIC_RESET()} method - the rule must not fire on resource
+     * scanning alone.
+     */
+    @Test
+    public void testResourceScanWithoutRegistryStillGetsStaticReset() throws Exception {
+        ClassLoader loader = new EvoClassLoader();
+        boolean resetValue = RuntimeSettings.resetStaticState;
+        RuntimeSettings.resetStaticState = true;
+        try {
+            ClassResetter.getInstance().setClassLoader(loader);
+
+            String cut = ResourceScanNoRegistry.class.getName();
+            loader.loadClass(cut);
+
+            Assertions.assertNotNull(ClassResetter.getInstance().getResetMethod(cut),
+                    "resource scan alone (no registry field) must not suppress __STATIC_RESET()");
+            Assertions.assertFalse(CreateClassResetClassAdapter.unsafeClinitSkippedClasses.contains(cut));
+        } finally {
+            RuntimeSettings.resetStaticState = resetValue;
+        }
     }
 }

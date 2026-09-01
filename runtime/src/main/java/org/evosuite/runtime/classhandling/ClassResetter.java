@@ -20,9 +20,9 @@
 package org.evosuite.runtime.classhandling;
 
 import org.evosuite.runtime.LoopCounter;
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.agent.InstrumentingAgent;
-import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.AtMostOnceLogger;
 import org.slf4j.Logger;
@@ -257,14 +257,27 @@ public class ClassResetter {
     }
 
     private static boolean isSkippedByPrefix(String classNameWithDots) {
-        String targetPrefix = RuntimeInstrumentation.getTargetClassPrefix();
         for (String prefix : SKIP_RESET_PREFIXES) {
             if (classNameWithDots.startsWith(prefix)) {
-                // If the user is generating tests for a class in one of the
-                // skip-listed libraries itself, honor that intent and still
-                // attempt to reset. Mirrors the same bypass pattern used by
-                // ExcludedClasses.getPackagesShouldNotBeInstrumented().
-                if (targetPrefix != null && targetPrefix.startsWith(prefix)) {
+                // If the user is generating tests for this exact class (not
+                // merely some other class that happens to live in the same
+                // skip-listed package), honor that intent and still attempt
+                // to reset it.
+                //
+                // This must be scoped to the exact class under test, not
+                // the whole prefix: ExcludedClasses.
+                // getPackagesShouldNotBeInstrumented() bypasses its
+                // exclusion list for the CUT's entire package, which is
+                // correct there (it's about classloader conflicts - every
+                // class in the CUT's package needs consistent classloading).
+                // Here it would be wrong: a package-wide bypass would
+                // silently re-enable replay for every fragile sibling class
+                // in the skip-listed library whenever the CUT happens to
+                // live in the same package - e.g. com.liferay.portal.kernel.
+                // util. holds both ordinary target classes (like
+                // RandomAccessInputStream) and fragile singletons (like
+                // SystemProperties) side by side.
+                if (classNameWithDots.equals(RuntimeSettings.className)) {
                     return false;
                 }
                 return true;

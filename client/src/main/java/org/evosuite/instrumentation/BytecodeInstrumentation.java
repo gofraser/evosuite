@@ -370,7 +370,7 @@ public class BytecodeInstrumentation {
             cv = new TraceClassVisitor(cv, new PrintWriter(System.err));
         }
 
-        cv = createAdapterChain(cv, className, classNameWithDots, classLoader, enableLoopCounter);
+        cv = createAdapterChain(cv, className, classNameWithDots, classLoader, enableLoopCounter, reader);
 
         if (shouldApplyTestabilityTransformation(classNameWithDots)) {
             return applyTestabilityTransformation(reader, cv, writer, className, classNameWithDots,
@@ -382,7 +382,8 @@ public class BytecodeInstrumentation {
     }
 
     private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots,
-                                            ClassLoader classLoader, boolean enableLoopCounter) {
+                                            ClassLoader classLoader, boolean enableLoopCounter,
+                                            ClassReader reader) {
         if (config.resetStaticFields()) {
             cv = new StaticAccessClassAdapter(cv, className);
         }
@@ -409,7 +410,7 @@ public class BytecodeInstrumentation {
         cv = new PrimitiveClassAdapter(cv, className);
 
         if (config.resetStaticFields()) {
-            cv = handleStaticReset(className, cv);
+            cv = handleStaticReset(className, cv, reader);
         }
 
         // Mock instrumentation (eg File and TCP).
@@ -567,7 +568,7 @@ public class BytecodeInstrumentation {
             cv = new TraceClassVisitor(cv, new PrintWriter(System.err));
         }
 
-        cv = createAdapterChain(cv, className, classNameWithDots, classLoader, false);
+        cv = createAdapterChain(cv, className, classNameWithDots, classLoader, false, reader);
 
         reader.accept(cv, readFlags);
         return writer.toByteArray();
@@ -594,7 +595,7 @@ public class BytecodeInstrumentation {
         cv = new PrimitiveClassAdapter(cv, className);
 
         if (config.resetStaticFields()) {
-            cv = handleStaticReset(className, cv);
+            cv = handleStaticReset(className, cv, reader);
         }
 
         if (TestSuiteWriterUtils.needToUseAgent()) {
@@ -788,16 +789,18 @@ public class BytecodeInstrumentation {
      *
      * @param className a {@link java.lang.String} object.
      * @param cv a {@link org.objectweb.asm.ClassVisitor} object.
+     * @param reader a fresh {@link org.objectweb.asm.ClassReader} over the original,
+     *               uninstrumented bytecode, used to decide whether {@code <clinit>} is safe to replay.
      * @return a {@link org.objectweb.asm.ClassVisitor} object.
      */
-    private ClassVisitor handleStaticReset(String className, ClassVisitor cv) {
+    private ClassVisitor handleStaticReset(String className, ClassVisitor cv, ClassReader reader) {
         // Create a __STATIC_RESET() cloning the original <clinit> method or
         // create one by default
         final CreateClassResetClassAdapter resetClassAdapter;
         if (config.resetStaticFinalFields()) {
-            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, true);
+            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, true, reader);
         } else {
-            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, false);
+            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, false, reader);
         }
         cv = resetClassAdapter;
 

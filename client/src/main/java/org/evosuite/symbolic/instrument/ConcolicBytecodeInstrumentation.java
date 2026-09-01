@@ -68,7 +68,8 @@ public class ConcolicBytecodeInstrumentation {
         if (Properties.RESET_STATIC_FIELDS) {
             // Create a __STATIC_RESET() cloning the original <clinit> method or create one by default
             final CreateClassResetClassAdapter resetClassAdapter;
-            resetClassAdapter = new CreateClassResetClassAdapter(cv, className, Properties.RESET_STATIC_FINAL_FIELDS);
+            resetClassAdapter = new CreateClassResetClassAdapter(cv, className,
+                    Properties.RESET_STATIC_FINAL_FIELDS, reader);
             cv = resetClassAdapter;
             // Add a callback before leaving the <clinit> method
 
