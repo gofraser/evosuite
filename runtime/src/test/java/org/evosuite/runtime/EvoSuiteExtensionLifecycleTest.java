@@ -25,6 +25,7 @@ import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.thread.KillSwitchHandler;
+import org.evosuite.runtime.thread.ThreadStopper;
 import org.evosuite.runtime.util.JOptionPaneInputs;
 import org.evosuite.runtime.util.SystemInUtil;
 import org.evosuite.runtime.agent.InstrumentingAgent;
@@ -38,6 +39,7 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Optional;
@@ -238,12 +240,27 @@ public class EvoSuiteExtensionLifecycleTest {
     }
 
     @Test
-    public void shouldCleanupRuntimeStateEvenIfAfterEachFailsEarly() {
+    public void shouldCleanupRuntimeStateEvenIfAfterEachFailsEarly() throws Exception {
         EvoSuiteExtension extension = new EvoSuiteExtension(MockingAndResetting_ESTest.class);
         try (MockedStatic<InstrumentingAgent> mockedAgent = Mockito.mockStatic(InstrumentingAgent.class)) {
             mockedAgent.when(InstrumentingAgent::deactivate).thenCallRealMethod();
             extension.beforeAll(null);
+            // Run beforeEach() for real, exactly as JUnit5 always does before afterEach():
+            // this is what opens the sandbox "executing SUT code" window that
+            // ShutdownHookHandler.safeExecuteAddedHooks() (called from afterEach()) asserts
+            // it is running inside of. Skipping beforeEach() here would make afterEach()
+            // fail for a second, unrelated reason (that assertion), which is not a scenario
+            // JUnit5's lifecycle contract can actually produce: it never calls an
+            // extension's afterEach() without having first called that same extension's
+            // beforeEach().
+            extension.beforeEach(null);
             MockFramework.enable();
+            // Simulate "the first statement of afterEach() throws" the way it can genuinely
+            // happen in production: corrupt the thread bookkeeping ThreadStopper relies on,
+            // so killAndJoinClientThreads() throws IllegalStateException, while leaving
+            // every other piece of per-test state (sandbox tracking, mock framework) exactly
+            // as beforeEach() left it.
+            forceThreadStopperToFailOnNextKill(extension);
 
             Assertions.assertThrows(IllegalStateException.class, () -> extension.afterEach(null));
             Assertions.assertFalse(MockFramework.isEnabled());
@@ -251,6 +268,16 @@ public class EvoSuiteExtensionLifecycleTest {
             extension.afterAll(null);
             mockedAgent.verify(InstrumentingAgent::initialize);
         }
+    }
+
+    private static void forceThreadStopperToFailOnNextKill(EvoSuiteExtension extension) throws Exception {
+        Field threadStopperField = EvoSuiteExtension.class.getDeclaredField("threadStopper");
+        threadStopperField.setAccessible(true);
+        Object threadStopper = threadStopperField.get(extension);
+
+        Field currentRunningThreadsField = ThreadStopper.class.getDeclaredField("currentRunningThreads");
+        currentRunningThreadsField.setAccessible(true);
+        currentRunningThreadsField.set(threadStopper, null);
     }
 
     @Test
