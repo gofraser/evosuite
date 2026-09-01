@@ -191,7 +191,8 @@ public class RuntimeInstrumentation {
                  * FIXME: currently reset does add a new method, but that does no work
                  * when retransformingMode :(
                  */
-                CreateClassResetClassAdapter resetClassAdapter = new CreateClassResetClassAdapter(cv, className, true);
+                CreateClassResetClassAdapter resetClassAdapter =
+                        new CreateClassResetClassAdapter(cv, className, true, reader);
                 cv = resetClassAdapter;
             }
 

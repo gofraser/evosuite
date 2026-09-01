@@ -21,6 +21,7 @@ package org.evosuite.runtime.instrumentation;
 
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
@@ -32,8 +33,11 @@ import org.slf4j.LoggerFactory;
 import java.io.ObjectStreamClass;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -80,6 +84,16 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
      */
     public static List<String> staticClasses = new ArrayList<>();
 
+    /**
+     * Classes for which {@code __STATIC_RESET()} generation was skipped
+     * because {@link ClinitResetSafetyAnalyzer} judged their {@code
+     * <clinit>} unsafe to replay (classpath/resource scan building an
+     * identity-keyed or singleton registry). Visible for testing and for
+     * measuring how often the rule fires.
+     */
+    public static final Set<String> unsafeClinitSkippedClasses =
+            Collections.synchronizedSet(new LinkedHashSet<>());
+
     private static final Logger logger = LoggerFactory.getLogger(CreateClassResetClassAdapter.class);
 
     /**
@@ -120,6 +134,16 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
     private static final Pattern ANONYMOUS_MATCHER1 = Pattern.compile(".*\\$\\d+.*$");
 
     /**
+     * True if {@link ClinitResetSafetyAnalyzer} judged this class's {@code
+     * <clinit>} unsafe to replay. When true, no {@code __STATIC_RESET()} is
+     * generated at all for this class, so its static state simply persists
+     * across tests for the lifetime of the JVM - the same trade-off already
+     * made deliberately for {@code SKIP_RESET_PREFIXES} in {@link
+     * ClassResetter}.
+     */
+    private final boolean unsafeToReplayClinit;
+
+    /**
      * Creates a new <code>CreateClassResetClassAdapter</code> instance.
      *
      * @param visitor                           the visitor
@@ -129,9 +153,42 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
      */
     public CreateClassResetClassAdapter(ClassVisitor visitor, String className,
                                         boolean removeFinalModifierOnStaticFields) {
+        this(visitor, className, removeFinalModifierOnStaticFields, null);
+    }
+
+    /**
+     * Creates a new <code>CreateClassResetClassAdapter</code> instance.
+     *
+     * @param visitor                           the visitor
+     * @param className                         the class name to be visited
+     * @param removeFinalModifierOnStaticFields if this parameter is true, all final static fields are
+     *                                          translated into non-final static fields
+     * @param originalClassReader               a fresh {@link ClassReader} over the original,
+     *                                          uninstrumented bytecode of this class, used to decide
+     *                                          whether {@code <clinit>} is safe to replay. May be null,
+     *                                          in which case the safety check is skipped and {@code
+     *                                          __STATIC_RESET()} is always generated (previous behavior).
+     */
+    public CreateClassResetClassAdapter(ClassVisitor visitor, String className,
+                                        boolean removeFinalModifierOnStaticFields,
+                                        ClassReader originalClassReader) {
         super(Opcodes.ASM9, visitor);
         this.className = className;
         this.removeFinalModifierOnStaticFields = removeFinalModifierOnStaticFields;
+        boolean unsafe = false;
+        if (originalClassReader != null) {
+            try {
+                unsafe = ClinitResetSafetyAnalyzer.isUnsafeToReplayClinit(originalClassReader);
+            } catch (RuntimeException e) {
+                // Detection is a heuristic best-effort pass over the
+                // bytecode; if it fails for some reason, fall back to the
+                // previous behavior (generate the reset method) rather than
+                // letting a bug in the analyzer break instrumentation.
+                logger.debug("ClinitResetSafetyAnalyzer failed for {}: {}", className, e.toString());
+                unsafe = false;
+            }
+        }
+        this.unsafeToReplayClinit = unsafe;
     }
 
     /**
@@ -258,6 +315,25 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
 
         if (methodName.equals("<clinit>") && !isInterface && !isAnonymous && !resetMethodAdded) {
             clinitFound = true;
+            resetMethodAdded = true;
+
+            if (unsafeToReplayClinit) {
+                // Don't emit __STATIC_RESET() at all: replaying this
+                // <clinit> can succeed while rebuilding a registry wrong
+                // (e.g. an empty resource scan, or a freshly built object
+                // that no longer matches the identity used to key an
+                // existing map), which throws nothing and so is invisible
+                // to ClassResetter's poison-on-throw path. Leaving the
+                // class's static state as populated by its one real
+                // <clinit> run is the safer choice. See
+                // ClinitResetSafetyAnalyzer for the detection rule.
+                unsafeClinitSkippedClasses.add(className.replace('/', '.'));
+                logger.info("Skipping __STATIC_RESET generation for {}: <clinit> reaches a "
+                        + "classpath/resource-scan call and builds a registry field; replay is not "
+                        + "safe (idempotent)", className);
+                return mv;
+            }
+
             logger.info("Found static initializer in class " + className);
             // determineSerialisableUID();
 
@@ -271,8 +347,6 @@ public class CreateClassResetClassAdapter extends ClassVisitor {
 
             CreateClassResetMethodAdapter staticResetMethodAdapter = new CreateClassResetMethodAdapter(visitMethod,
                     className, this.staticFields, finalFields);
-
-            resetMethodAdded = true;
 
             if (this.removeUpdatesOnFinalFields) {
                 MethodVisitor mv2 = new RemoveFinalMethodAdapter(className, staticResetMethodAdapter, finalFields);
