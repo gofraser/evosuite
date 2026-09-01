@@ -20,12 +20,25 @@
 package org.evosuite.graphs.interprocedural;
 
 import org.evosuite.TestGenerationContext;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class DefUseAnalyzerTest {
+
+    @BeforeEach
+    void setUp() {
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
+    }
+
+    @AfterEach
+    void tearDown() {
+        ClassPathHandler.resetSingleton();
+    }
 
     @Test
     void getMethodNodeGracefullyHandlesMissingClassBytecode() {

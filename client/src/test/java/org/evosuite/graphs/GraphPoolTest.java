@@ -19,12 +19,25 @@
  */
 package org.evosuite.graphs;
 
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.graphs.cfg.RawControlFlowGraph;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class GraphPoolTest {
+
+    @BeforeEach
+    public void setUp() {
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        ClassPathHandler.resetSingleton();
+    }
 
     @Test
     public void testGetInstance() {

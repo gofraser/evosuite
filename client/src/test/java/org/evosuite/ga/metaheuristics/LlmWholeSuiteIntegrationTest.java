@@ -22,6 +22,7 @@ package org.evosuite.ga.metaheuristics;
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmSuiteInjectionPolicy;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.llm.search.AsyncLlmTestProducer;
@@ -70,6 +71,7 @@ class LlmWholeSuiteIntegrationTest {
         originalCriterion = Properties.CRITERION;
         originalSandbox = Properties.SANDBOX;
         Properties.SANDBOX = false;
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.TARGET_CLASS = FlagExample1.class.getName();
         Properties.resetTargetClass();
         assertNotNull(Properties.getTargetClassAndDontInitialise(),
@@ -85,6 +87,7 @@ class LlmWholeSuiteIntegrationTest {
         Properties.CRITERION = originalCriterion;
         Properties.SANDBOX = originalSandbox;
         Properties.resetTargetClass();
+        ClassPathHandler.resetSingleton();
     }
 
     @Test
