@@ -159,7 +159,16 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
         if (RuntimeSettings.mockJVMNonDeterminism) {
             ShutdownHookHandler.getInstance().initHandler();
         }
-        if (RuntimeSettings.resetStaticState) {
+        if (RuntimeSettings.resetStaticState || RuntimeSettings.mockJVMNonDeterminism) {
+            // Mark the sandbox as executing SUT code whenever shutdown hooks may later be
+            // drained in afterEach(): ShutdownHookHandler.safeExecuteAddedHooks() asserts
+            // that hooks only ever run from within this window while a security manager is
+            // active. Hook draining is gated purely on mockJVMNonDeterminism, independent of
+            // resetStaticState, so the sandbox window has to be independent too, or that
+            // assertion trips for the (legitimate, user-reachable) combination of
+            // mockJVMNonDeterminism=true with resetStaticState=false. This mirrors
+            // TestCaseExecutor, which brackets SUT execution unconditionally regardless of
+            // which mocking flags are enabled.
             Sandbox.goingToExecuteSUTCode();
         }
         Runtime.getInstance().resetRuntime();
@@ -186,6 +195,10 @@ public class EvoSuiteExtension implements TestInstanceFactory, BeforeAllCallback
             if (RuntimeSettings.resetStaticState) {
                 failure = recordFailureOrSuppress(failure, JDKClassResetter::reset);
                 failure = recordFailureOrSuppress(failure, this::resetDiscoveredClasses);
+            }
+            if (RuntimeSettings.resetStaticState || RuntimeSettings.mockJVMNonDeterminism) {
+                // Close out the sandbox window opened in beforeEach() (see the comment
+                // there); must stay in sync with that condition.
                 failure = recordFailureOrSuppress(failure, Sandbox::doneWithExecutingSUTCode);
             }
             if (needsAgentLifecycle()) {
