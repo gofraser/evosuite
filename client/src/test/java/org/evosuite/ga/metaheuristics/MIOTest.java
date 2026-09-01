@@ -21,6 +21,7 @@ package org.evosuite.ga.metaheuristics;
 
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.testcase.DefaultTestCase;
@@ -47,6 +48,7 @@ public class MIOTest {
         originalSelectionFunction = Properties.SELECTION_FUNCTION;
         originalSandbox = Properties.SANDBOX;
         Properties.SANDBOX = false;
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.TARGET_CLASS = FlagExample1.class.getName();
         Properties.resetTargetClass();
         Assertions.assertNotNull(Properties.getTargetClassAndDontInitialise(),
@@ -66,6 +68,7 @@ public class MIOTest {
         Properties.SELECTION_FUNCTION = originalSelectionFunction;
         Properties.SANDBOX = originalSandbox;
         Properties.resetTargetClass();
+        ClassPathHandler.resetSingleton();
     }
 
     @Test

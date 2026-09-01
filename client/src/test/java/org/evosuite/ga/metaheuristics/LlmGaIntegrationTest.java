@@ -21,6 +21,7 @@ package org.evosuite.ga.metaheuristics;
 
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.Properties;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.localsearch.LocalSearchObjective;
@@ -86,6 +87,7 @@ class LlmGaIntegrationTest {
         originalCriterion = Properties.CRITERION;
         originalSandbox = Properties.SANDBOX;
         Properties.SANDBOX = false;
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
         Properties.TARGET_CLASS = FlagExample1.class.getName();
         Properties.resetTargetClass();
         assertNotNull(Properties.getTargetClassAndDontInitialise(),
@@ -108,6 +110,7 @@ class LlmGaIntegrationTest {
         Properties.CRITERION = originalCriterion;
         Properties.SANDBOX = originalSandbox;
         Properties.resetTargetClass();
+        ClassPathHandler.resetSingleton();
         LlmService.resetInstanceForTesting();
     }
 
