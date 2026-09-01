@@ -80,6 +80,12 @@ public class JUnitAnalyzerTest {
     private static final String DEFAULT_TARGET_CLASS = Properties.TARGET_CLASS;
     private static final boolean DEFAULT_REPLACE_CALLS = Properties.REPLACE_CALLS;
     private static final boolean DEFAULT_REPLACE_GUI = Properties.REPLACE_GUI;
+    // Derived from TARGET_CLASS by Properties.setClassPrefix(). Restoring TARGET_CLASS
+    // alone does not recompute them, so a test that sets a target class leaves the
+    // prefixes pointing at it for every later test in this class.
+    private static final String DEFAULT_CLASS_PREFIX = Properties.CLASS_PREFIX;
+    private static final String DEFAULT_SUB_PREFIX = Properties.SUB_PREFIX;
+    private static final String DEFAULT_PROJECT_PREFIX = Properties.PROJECT_PREFIX;
 
     private File file = new File(OpenStream.FILE_NAME);
     private Logger analyzerLogger;
@@ -135,6 +141,9 @@ public class JUnitAnalyzerTest {
         Properties.TARGET_CLASS = DEFAULT_TARGET_CLASS;
         Properties.REPLACE_CALLS = DEFAULT_REPLACE_CALLS;
         Properties.REPLACE_GUI = DEFAULT_REPLACE_GUI;
+        Properties.CLASS_PREFIX = DEFAULT_CLASS_PREFIX;
+        Properties.SUB_PREFIX = DEFAULT_SUB_PREFIX;
+        Properties.PROJECT_PREFIX = DEFAULT_PROJECT_PREFIX;
     }
 
     @Test

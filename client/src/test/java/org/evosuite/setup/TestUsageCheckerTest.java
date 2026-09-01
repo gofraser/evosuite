@@ -26,6 +26,7 @@ import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.testdata.EvoSuiteFile;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.Opcodes;
@@ -218,8 +219,18 @@ class TestUsageCheckerTest {
     }
 
     @Test
-    void testPreviewListOfLazyIsRejected() throws NoSuchMethodException {
-        Method ofLazy = List.class.getMethod("ofLazy", int.class, IntFunction.class);
+    void testPreviewListOfLazyIsRejected() {
+        // List.ofLazy is a preview API that first appears in JDK 26. On an earlier JDK
+        // the lookup throws NoSuchMethodException, which says nothing about whether
+        // TestUsageChecker would reject it, so skip rather than fail.
+        Method ofLazy;
+        try {
+            ofLazy = List.class.getMethod("ofLazy", int.class, IntFunction.class);
+        } catch (NoSuchMethodException e) {
+            Assumptions.abort("List.ofLazy is not present on this JDK ("
+                    + System.getProperty("java.version") + "); it is a JDK 26 preview API");
+            return;
+        }
 
         Assertions.assertFalse(TestUsageChecker.canUse(ofLazy));
     }
