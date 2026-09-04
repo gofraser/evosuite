@@ -22,6 +22,7 @@ package org.evosuite.testcase.statements;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
+import org.evosuite.coverage.mutation.MutationObserver;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.runtime.FalsePositiveException;
@@ -1364,10 +1365,27 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
 
         Throwable exceptionThrown = null;
 
+        // A mutant active during this execution can change the SUT's control flow
+        // -- skipping or repeating a call to a mocked method -- so the invocation
+        // pattern this run observes need not match the one the real, unmutated run
+        // produced, which is the run the emitted assertions and this statement's
+        // persisted stub values are based on. TestCodeVisitor treats "listener" as
+        // the authoritative record of what to stub and silently rewrites the return
+        // values (falling back to defaults) whenever it looks stale, so letting a
+        // mutant's run update it desynchronizes the emitted stub from the emitted
+        // assertion and JUnitAnalyzer later discards the test as unstable. Keep the
+        // bookkeeping tied to real executions only.
+        final boolean executingUnderMutation = MutationObserver.activeMutation != -1;
+        final EvoInvocationListener listenerBeforeExecution = listener;
+
         try {
             return super.exceptionHandler(new MockStatementExecuter(scope));
         } catch (InvocationTargetException e) {
             exceptionThrown = e.getCause();
+        } finally {
+            if (executingUnderMutation) {
+                listener = listenerBeforeExecution;
+            }
         }
         return exceptionThrown;
     }
