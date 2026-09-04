@@ -402,8 +402,15 @@ public class TestClusterUtils {
             return clazz;
         } catch (ClassNotFoundException e) {
             return null;
-        } catch (NoClassDefFoundError e) {
-            // an ExceptionInInitializationError might have happened during class initialization.
+        } catch (ExceptionInInitializerError e) {
+            // Callers that want to know about failed static initialisers catch this
+            // themselves (TestClusterGenerator.initializeTargetMethods); keep it.
+            throw e;
+        } catch (LinkageError e) {
+            // NoClassDefFoundError (an ExceptionInInitializerError might have happened
+            // earlier), UnsatisfiedLinkError (a dependency's <clinit> loads a native
+            // library that is not available, e.g. JOAL), or a verifier error: none of
+            // these should abort test generation for the target class.
             return null;
         } finally {
             TestGenerationContext.getInstance().doneWithExecutingSUTCode();

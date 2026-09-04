@@ -1913,9 +1913,20 @@ public class TestCodeVisitor extends TestVisitor {
         // collecting declared methods so inherited non-public overloads are seen.
         // Over-inclusion is harmless: a spurious extra cast still compiles.
         Set<Method> candidates = new LinkedHashSet<>();
-        candidates.addAll(Arrays.asList(overloadOwner.getMethods()));
-        for (Class<?> c = overloadOwner; c != null && c != Object.class; c = c.getSuperclass()) {
-            candidates.addAll(Arrays.asList(c.getDeclaredMethods()));
+        try {
+            candidates.addAll(Arrays.asList(overloadOwner.getMethods()));
+            for (Class<?> c = overloadOwner; c != null && c != Object.class; c = c.getSuperclass()) {
+                candidates.addAll(Arrays.asList(c.getDeclaredMethods()));
+            }
+        } catch (LinkageError e) {
+            // Reflecting over the receiver's methods resolves every type in their
+            // signatures, and SF110-style projects routinely ship classes whose
+            // signatures mention optional dependencies that are not on the
+            // classpath (lwjgl, JSP EL, Axis, ...). This runs on the search path
+            // via getCode(), so it must not abort the run: without the overload
+            // list we simply do not cast the null, which is the pre-existing
+            // behaviour for these calls.
+            return false;
         }
         for (Method other : candidates) {
             if (other.equals(method) || Modifier.isPrivate(other.getModifiers())) {
