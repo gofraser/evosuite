@@ -282,6 +282,17 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     transient Type type = null;
 
     /**
+     * Memoized {@link #getTypeName()}. Rendering a deeply nested parameterized
+     * type is expensive, and {@link #hashCode()} calls it on every invocation --
+     * which the cast-class candidate pool does once per comparison on every sort.
+     * Cleared by the only two methods that mutate {@code type}/{@code rawClass}
+     * of an already-published instance, {@link #setType(Type)} and
+     * {@link #changeClassLoader(ClassLoader)}; every other assignment happens in
+     * a constructor or in readObject, before the instance escapes.
+     */
+    private transient String cachedTypeName = null;
+
+    /**
      * Generate a generic class by setting all generic parameters to their
      * parameter types.
      *
@@ -488,6 +499,10 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         } catch (SecurityException e) {
             logger.warn("Class not found: " + rawClass + " - keeping old class loader ",
                     e);
+        } finally {
+            // After every mutation above, not before: a getTypeName() call made
+            // part-way through would otherwise re-cache a half-updated name.
+            cachedTypeName = null;
         }
         return true;
     }
@@ -890,6 +905,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     @Override
     public GenericClass<?> setType(Type type) {
         this.type = type;
+        this.cachedTypeName = null;
         return this;
     }
 
@@ -1214,7 +1230,12 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return a {@link java.lang.String} object.
      */
     public String getTypeName() {
-        return GenericTypeReflector.getTypeName(type);
+        String cached = cachedTypeName;
+        if (cached == null) {
+            cached = GenericTypeReflector.getTypeName(type);
+            cachedTypeName = cached;
+        }
+        return cached;
     }
 
     private Map<TypeVariable<?>, Type> typeVariableMap = null;
