@@ -478,6 +478,16 @@ public class TestUsageChecker {
                 return true;
             } catch (NoSuchFieldException ignored) {
                 // not shadowed at this level
+            } catch (LinkageError e) {
+                // getDeclaredField resolves the types of *all* declared fields of
+                // the class, so a single field whose type is missing from the
+                // project classpath (e.g. an Eclipse ListenerList) throws
+                // NoClassDefFoundError here. This runs while the test cluster is
+                // being built, and the caller does not expect a LinkageError, so
+                // treat the field as not shadowed rather than abort the run.
+                logger.debug("Cannot inspect declared fields of {} while checking shadowing of {}: {}",
+                        current.getName(), f.getName(), e.toString());
+                return false;
             }
             current = current.getSuperclass();
         }
