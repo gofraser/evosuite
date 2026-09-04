@@ -514,7 +514,7 @@ public class GuiSupport {
                     headlessToolkitBeforeFlip = current;
                     Toolkit real = (Toolkit) getUnderlyingToolkitMethod.invoke(current);
                     if (real != null) {
-                        guardToolkit = buildPeerCreationGuardToolkit(real);
+                        guardToolkit = buildPeerCreationGuardToolkit(real, current);
                     }
                 }
             } catch (Throwable t) {
@@ -588,13 +588,13 @@ public class GuiSupport {
      * class's javadoc on {@link #disableHeadlessForMockConstruction()}, not
      * flip headless off at all in that case.
      */
-    private static Object buildPeerCreationGuardToolkit(Toolkit real) {
+    private static Object buildPeerCreationGuardToolkit(Toolkit real, Toolkit headless) {
         java.lang.reflect.Constructor<?> ctor = resolvePeerGuardConstructor();
         if (ctor == null) {
             return null;
         }
         try {
-            return ctor.newInstance(real);
+            return ctor.newInstance(real, headless);
         } catch (Throwable t) {
             logger.debug("Could not construct PeerCreationGuardToolkit: {}", t.getMessage());
             return null;
@@ -622,7 +622,7 @@ public class GuiSupport {
             try {
                 Class<?> guardClass = Class.forName("org.evosuite.runtime.PeerCreationGuardToolkit",
                         true, GuiSupport.class.getClassLoader());
-                resolved = guardClass.getDeclaredConstructor(Toolkit.class);
+                resolved = guardClass.getDeclaredConstructor(Toolkit.class, Toolkit.class);
                 resolved.setAccessible(true);
             } catch (Throwable t) {
                 logger.debug("PeerCreationGuardToolkit unavailable on this JDK: {}", t.getMessage());

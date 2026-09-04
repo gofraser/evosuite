@@ -324,11 +324,18 @@ public class GuiSupportTest {
         }
 
         Toolkit real = Toolkit.getDefaultToolkit();
-        Constructor<?> ctor = guardClass.getDeclaredConstructor(Toolkit.class);
+        Object headless;
+        try {
+            headless = Class.forName("sun.awt.HeadlessToolkit").getConstructor(Toolkit.class).newInstance(real);
+        } catch (Throwable t) {
+            Assumptions.abort("sun.awt.HeadlessToolkit unavailable on this JDK: " + t);
+            return;
+        }
+        Constructor<?> ctor = guardClass.getDeclaredConstructor(Toolkit.class, Toolkit.class);
         ctor.setAccessible(true);
         Object guard;
         try {
-            guard = ctor.newInstance(real);
+            guard = ctor.newInstance(real, headless);
         } catch (Throwable t) {
             Assumptions.abort("Could not construct PeerCreationGuardToolkit on this JDK: " + t);
             return;
@@ -339,6 +346,24 @@ public class GuiSupportTest {
                 "PeerCreationGuardToolkit must implement sun.awt.ComponentFactory so that "
                         + "Component.getComponentFactory() resolves it for both heavyweight "
                         + "(Window/Frame/Dialog) and lightweight (JComponent) peer creation");
+
+        // java.awt.KeyboardFocusManager.initPeer() casts the default toolkit to
+        // sun.awt.KeyboardFocusManagerPeerProvider with no instanceof guard, and
+        // JComponent construction reaches it the first time a KeyboardFocusManager
+        // is created. A guard toolkit that does not implement it turns every
+        // JComponent SUT constructor run inside the flip window into a
+        // ClassCastException.
+        Class<?> kfmProviderClass = Class.forName("sun.awt.KeyboardFocusManagerPeerProvider");
+        Assertions.assertTrue(kfmProviderClass.isInstance(guard),
+                "PeerCreationGuardToolkit must implement sun.awt.KeyboardFocusManagerPeerProvider, "
+                        + "like every JDK toolkit including sun.awt.HeadlessToolkit, or "
+                        + "KeyboardFocusManager.initPeer() fails with ClassCastException");
+        Method getKfmPeer = kfmProviderClass.getMethod("getKeyboardFocusManagerPeer");
+        Object guardPeer = getKfmPeer.invoke(guard);
+        Assertions.assertNotNull(guardPeer);
+        Assertions.assertSame(getKfmPeer.invoke(headless), guardPeer,
+                "the guard must hand out HeadlessToolkit's no-op focus-manager peer, "
+                        + "never the real toolkit's native one");
 
         // createFrame(Frame) is one of ComponentFactory's peer-creation methods.
         // None of them are overridden by PeerCreationGuardToolkit, so calling any

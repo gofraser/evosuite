@@ -20,6 +20,7 @@
 package org.evosuite.runtime;
 
 import sun.awt.ComponentFactory;
+import sun.awt.KeyboardFocusManagerPeerProvider;
 
 import java.awt.Dialog;
 import java.awt.Dimension;
@@ -37,6 +38,7 @@ import java.awt.im.InputMethodHighlight;
 import java.awt.image.ColorModel;
 import java.awt.image.ImageObserver;
 import java.awt.image.ImageProducer;
+import java.awt.peer.KeyboardFocusManagerPeer;
 import java.net.URL;
 import java.util.Map;
 import java.util.Properties;
@@ -120,12 +122,53 @@ import java.util.Properties;
  * call site, and {@code GuiSupport}'s own methods remain fully verifiable
  * and invocable regardless of whether this class can load on a given JDK.
  */
-final class PeerCreationGuardToolkit extends Toolkit implements ComponentFactory {
+final class PeerCreationGuardToolkit extends Toolkit
+        implements ComponentFactory, KeyboardFocusManagerPeerProvider {
 
     private final Toolkit real;
 
-    PeerCreationGuardToolkit(Toolkit real) {
+    /**
+     * The {@code sun.awt.HeadlessToolkit} this guard temporarily replaces in
+     * {@code Toolkit.toolkit}. Kept only to borrow its no-op
+     * {@link KeyboardFocusManagerPeer} -- see {@link #getKeyboardFocusManagerPeer()}.
+     */
+    private final Toolkit headless;
+
+    /**
+     * @param real     the unwrapped real platform toolkit (the one {@code
+     *                 sun.awt.HeadlessToolkit.getUnderlyingToolkit()} returns)
+     * @param headless the {@code sun.awt.HeadlessToolkit} that was installed
+     *                 before the flip and is being swapped out for this guard
+     */
+    PeerCreationGuardToolkit(Toolkit real, Toolkit headless) {
         this.real = real;
+        this.headless = headless;
+    }
+
+    // ── KeyboardFocusManagerPeerProvider: the one toolkit cast the JDK makes
+    // WITHOUT an instanceof guard on a Swing construction path.
+    // java.awt.KeyboardFocusManager.initPeer() does
+    //     (KeyboardFocusManagerPeerProvider) Toolkit.getDefaultToolkit()
+    // the first time a KeyboardFocusManager is created for the AppContext,
+    // which JComponent construction reaches (Container.<init> ->
+    // Component.getFocusTraversalKeys_NoIDCheck -> KeyboardFocusManager.
+    // getCurrentKeyboardFocusManager -> new DefaultKeyboardFocusManager()).
+    // Every JDK toolkit implements this interface -- the real platform
+    // toolkits and sun.awt.HeadlessToolkit alike -- so a toolkit that does
+    // not gets a ClassCastException there, and because the manager is only
+    // cached in the AppContext after a *successful* construction, the cast
+    // is retried (and fails again) on every later GUI constructor executed
+    // inside the flip window: an all-or-nothing failure of every JComponent
+    // SUT, not a one-off. Delegate to the HeadlessToolkit's peer, a no-op
+    // stub that never touches native code; the real toolkit's peer (e.g.
+    // XKeyboardFocusManagerPeer) would. ─────────────────────────────────
+
+    @Override
+    public KeyboardFocusManagerPeer getKeyboardFocusManagerPeer() {
+        if (headless instanceof KeyboardFocusManagerPeerProvider) {
+            return ((KeyboardFocusManagerPeerProvider) headless).getKeyboardFocusManagerPeer();
+        }
+        throw new HeadlessException();
     }
 
     // ── Toolkit's abstract methods: delegate to the real toolkit. None of
