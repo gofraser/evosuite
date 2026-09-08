@@ -88,7 +88,16 @@ public class TestRunnable implements InterfaceTestRunnable {
 
     private volatile int currentStatementIndex = -1;
 
-    private volatile String currentStatementCode;
+    /**
+     * The statement currently being executed, kept so that a timeout can report which
+     * one the worker was stuck on. Held as the statement rather than its rendered
+     * source: rendering builds a whole TestCodeVisitor and, for a method or constructor
+     * statement, reflects over the declaring class and every ancestor up to Object to
+     * decide whether a null argument needs a disambiguating cast. That is far too much
+     * work to do for every statement of every execution during the search, when the
+     * result is only ever read on the timeout path.
+     */
+    private volatile Statement currentStatement;
 
     private final Deque<DmonRollbackAction> dmonRollbackLog = new ArrayDeque<>();
 
@@ -425,7 +434,7 @@ public class TestRunnable implements InterfaceTestRunnable {
 
         for (Statement s : test) {
             currentStatementIndex = num.get();
-            currentStatementCode = s.getCode();
+            currentStatement = s;
 
             if (Thread.currentThread().isInterrupted() || Thread.interrupted()) {
                 logger.info("Thread interrupted at statement " + num + ": " + s.getCode());
@@ -587,7 +596,7 @@ public class TestRunnable implements InterfaceTestRunnable {
             num.incrementAndGet();
         } // end of loop
         currentStatementIndex = -1;
-        currentStatementCode = null;
+        currentStatement = null;
         informObservers_finished(result);
         //TODO
     }
@@ -1129,7 +1138,20 @@ public class TestRunnable implements InterfaceTestRunnable {
 
     @Override
     public String getCurrentStatementCode() {
-        return currentStatementCode;
+        Statement s = currentStatement;
+        if (s == null) {
+            return null;
+        }
+        try {
+            return s.getCode();
+        } catch (Throwable t) {
+            // Only ever called to describe a timeout. Rendering reflects over the
+            // statement's declaring class, which on a project with a broken classpath
+            // can throw a LinkageError; a diagnostic must not replace the timeout it
+            // is describing.
+            logger.debug("Could not render the statement the test timed out on", t);
+            return null;
+        }
     }
 
     /**
