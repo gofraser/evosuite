@@ -110,6 +110,21 @@ public class Prioritization<T> {
     }
 
     /**
+     * Collect the elements of {@code candidates} that this collection contains and for which
+     * {@code filter} evaluates to true, ordered as {@link #toSortedList(Predicate)} would order
+     * them. Use this when the candidates are known in advance, to avoid running an expensive
+     * filter over every element of the collection.
+     *
+     * @param candidates the elements to consider, may contain duplicates or elements not held here
+     * @param filter     the filter to apply
+     * @return an (ordered) list.
+     */
+    public List<T> toSortedList(Collection<T> candidates, Predicate<T> filter) {
+        return candidates.stream().distinct().filter(priorities::containsKey).filter(filter)
+                .sorted(comparator).collect(Collectors.toList());
+    }
+
+    /**
      * Check if this priority collection contains (at least) one element that matches {@code matcher}.
      *
      * @param matcher A predicate taking an element as input.

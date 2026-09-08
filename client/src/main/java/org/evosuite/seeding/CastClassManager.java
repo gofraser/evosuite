@@ -65,6 +65,14 @@ public class CastClassManager {
      */
     private final Set<String> failedBoundsKeys = new HashSet<>();
 
+    /**
+     * Every class ever put into the pool, in order. {@link #assignableAmongAdditions} reads the
+     * tail of this to learn what a single {@link #addAssignableClass} call added, which is not
+     * simply the class it returns: the wildcard overload also pools every bound candidate that
+     * has no type variables. Bounded by the size of the pool.
+     */
+    private final List<GenericClass<?>> poolAdditions = new ArrayList<>();
+
     // Private constructor due to singleton pattern, use getInstance() instead
     private CastClassManager() {
         initDefaultClasses();
@@ -249,12 +257,11 @@ public class CastClassManager {
 
         if (assignableClasses.isEmpty()) {
             logger.debug("No assignable classes found, attempting to add one for type variable {}", typeVariable);
+            final int mark = poolAdditions.size();
             GenericClass<?> genericClass = addAssignableClass(typeVariable, sanitizedOwnerVariableMap);
             if (genericClass != null) {
-                assignableClasses = getAssignableClasses(typeVariable, false, sanitizedOwnerVariableMap);
-                if (assignableClasses.isEmpty() && allowRecursion) {
-                    assignableClasses = getAssignableClasses(typeVariable, true, sanitizedOwnerVariableMap);
-                }
+                assignableClasses = assignableAmongAdditions(mark, gc ->
+                        gc.satisfiesBoundaries(typeVariable, sanitizedOwnerVariableMap), allowRecursion);
                 if (assignableClasses.isEmpty()) {
                     logger.warn("No assignable class found after adding {} for type variable {} with bounds {} "
                                     + "of declaration {}. Owner var map: {}",
@@ -309,13 +316,15 @@ public class CastClassManager {
         if (assignableClasses.isEmpty()) {
             logger.debug("No assignable classes found, attempting to add one for wildcard {}", wildcardType);
 
+            final int mark = poolAdditions.size();
             GenericClass<?> genericClass = addAssignableClass(wildcardType, ownerVariableMap);
             if (genericClass != null) {
-                assignableClasses = getAssignableClasses(wildcardType, allowRecursion, ownerVariableMap);
+                assignableClasses = assignableAmongAdditions(mark,
+                        gc -> gc.satisfiesBoundaries(wildcardType, ownerVariableMap), allowRecursion);
 
                 if (assignableClasses.isEmpty()) {
-                    List<GenericClass<?>> recursiveAssignable = getAssignableClasses(wildcardType, true,
-                            ownerVariableMap);
+                    List<GenericClass<?>> recursiveAssignable = assignableAmongAdditions(mark,
+                            gc -> gc.satisfiesBoundaries(wildcardType, ownerVariableMap), true);
                     if (!recursiveAssignable.isEmpty()) {
                         logger.debug("No non-recursive class assignable after adding {} for wildcard {}. "
                                         + "Using recursive assignable classes: {}",
@@ -358,6 +367,7 @@ public class CastClassManager {
     public void clear() {
         prioritization.clear();
         failedBoundsKeys.clear();
+        poolAdditions.clear();
         initDefaultClasses();
     }
 
@@ -851,8 +861,38 @@ public class CastClassManager {
         return prioritization.toSortedList(keepClass);
     }
 
+    /**
+     * The assignable set after {@link #addAssignableClass} has added to the pool.
+     *
+     * <p>Its callers reach this point only once a scan of the whole pool has come up empty, so
+     * anything assignable must be among the classes that call has just added. Scanning the pool
+     * again would run {@link GenericClass#satisfiesBoundaries} over every one of its several
+     * hundred members -- each one a substitution through the whole nested structure of a type --
+     * to rediscover the handful we already know about.
+     *
+     * <p>The additions still have to be checked rather than assumed: candidates are admitted as
+     * wildcard-typed versions of themselves, while what lands in the pool is the plain class.
+     *
+     * @param mark           {@link #poolAdditions} size taken before the call
+     * @param satisfiesBound whether a class satisfies the boundary being resolved
+     * @param allowRecursion whether a class that still contains wildcards or type variables counts
+     * @return the assignable additions, ordered as a pool scan would have ordered them
+     */
+    private List<GenericClass<?>> assignableAmongAdditions(final int mark,
+            final Predicate<GenericClass<?>> satisfiesBound, final boolean allowRecursion) {
+        if (mark >= poolAdditions.size()) {
+            return new ArrayList<>();
+        }
+        // Cheap structural test first: it rejects most candidates without a substitution.
+        final Predicate<GenericClass<?>> keep =
+                gc -> (allowRecursion || !gc.hasWildcardOrTypeVariables()) && satisfiesBound.test(gc);
+        return new ArrayList<>(prioritization.toSortedList(
+                poolAdditions.subList(mark, poolAdditions.size()), keep));
+    }
+
     private void putCastClass(GenericClass<?> clazz, int priority) {
         prioritization.add(clazz, priority);
+        poolAdditions.add(clazz);
     }
 
     /**
