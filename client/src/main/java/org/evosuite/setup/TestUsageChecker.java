@@ -217,7 +217,7 @@ public class TestUsageChecker {
 
         if (!Properties.USE_DEPRECATED) {
             try {
-                if (c.isAnnotationPresent(Deprecated.class)) {
+                if (c.isAnnotationPresent(Deprecated.class) && !isPlatformClass(c)) {
                     final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
 
                     if (Properties.hasTargetClassBeenLoaded() && !c.equals(targetClass)) {
@@ -334,6 +334,29 @@ public class TestUsageChecker {
     private static final Class<?> UNRESOLVABLE_OWNER_CLASS = UnresolvableOwnerClass.class;
 
     private static final class UnresolvableOwnerClass {
+    }
+
+    /**
+     * Whether a class comes from the JDK itself rather than from the code under test.
+     *
+     * <p>Platform classes are loaded by the bootstrap loader, so they have no defining
+     * class loader; anything the SUT brings with it is loaded by EvoSuite's own loader.
+     *
+     * <p>This matters for the {@code USE_DEPRECATED} filter. That option exists to stop
+     * us generating tests for API the project itself has deprecated, but several JDK
+     * types picked up a {@code @Deprecated} annotation after Java 8 -- {@code
+     * java.util.Observable} in Java 9, {@code org.xml.sax.AttributeList} long before
+     * that. Excluding those does not spare anyone a test of obsolete API: it makes the
+     * SUT's own undeprecated methods uncallable, because a method whose parameter type
+     * we refuse to use is dropped from the test cluster entirely. So a class like
+     * {@code nu.staldal.xmlutil.ContentHandlerAdapter}, whose whole contract is
+     * {@code startElement(String, AttributeList)}, loses the branches that matter.
+     *
+     * @param c the class to check
+     * @return true if {@code c} is a JDK platform class
+     */
+    private static boolean isPlatformClass(Class<?> c) {
+        return c.getClassLoader() == null;
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {
