@@ -29,13 +29,17 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Throwing out of a &lt;clinit&gt; makes the JVM mark the class erroneous forever, so
- * {@link LoopCounter#checkLoop(int)} must not turn a mere thread interrupt into a
- * {@link TooManyResourcesException} while a static initializer is on the stack.
- * A genuinely runaway static initializer must still be stopped by the iteration limit.
+ * {@link LoopCounter#checkLoop(int)} must not throw a {@link TooManyResourcesException}
+ * while a static initializer is on the stack -- neither for a mere thread interrupt nor
+ * for exceeding the iteration limit. Terminating a genuinely runaway static initializer
+ * is left to the two time-gated guards that fire only once the test has already run out
+ * of budget: the kill-switch probe in {@code ExecutionTracer.checkTimeout()} and the
+ * timed-out-class tracking in {@code ClassReInitializeExecutor}. Counting iterations
+ * cannot tell a stuck initializer from a slow but terminating one, and the price of
+ * guessing wrong is the whole class, for the rest of the run.
  */
 public class LoopCounterStaticInitTest {
 
@@ -90,19 +94,18 @@ public class LoopCounterStaticInitTest {
 
     @Test
     @Timeout(value = 30, unit = TimeUnit.SECONDS)
-    public void testInterruptedStaticInitIsStillTerminatedByIterationLimit() {
+    public void testStaticInitIsNotTerminatedByIterationLimit() {
         RuntimeSettings.maxNumberOfIterationsPerLoop = 5;
         probeIndex = LoopCounter.getInstance().getNewIndex();
 
-        // Triggers CountLimitClinitProbe.<clinit>
-        assertTrue(CountLimitClinitProbe.threw,
-                "the 10x clinit iteration limit must still terminate a runaway static initializer");
-        // The plain limit is 5, the clinit limit 10x that: we must get past the former
-        // and stop well before the probe's own upper bound.
-        assertTrue(CountLimitClinitProbe.completed >= 5,
-                "should have been allowed past the normal limit, was " + CountLimitClinitProbe.completed);
-        assertTrue(CountLimitClinitProbe.completed < CountLimitClinitProbe.MAX_ITERATIONS,
-                "should have been stopped by the clinit limit, was " + CountLimitClinitProbe.completed);
+        // Triggers CountLimitClinitProbe.<clinit>, which loops far past the limit set
+        // above. Building a large lookup table in a static initializer is ordinary
+        // code -- org.jmol.g3d.Normix3D needs more than 100,000 iterations -- and
+        // stopping it would cost every class that reads from it, for the whole run.
+        assertFalse(CountLimitClinitProbe.threw,
+                "the iteration limit must not terminate a static initializer");
+        assertEquals(CountLimitClinitProbe.MAX_ITERATIONS, CountLimitClinitProbe.completed,
+                "the static initializer should have run to completion");
     }
 
     @Test
@@ -161,8 +164,8 @@ public class LoopCounterStaticInitTest {
     }
 
     /**
-     * Static initializer that never stops looping, to show that declining to throw on
-     * the interrupt does not remove the iteration-limit escape hatch.
+     * Static initializer that loops well past the iteration limit, standing in for a
+     * legitimate one that builds a large table.
      */
     private static class CountLimitClinitProbe {
 
