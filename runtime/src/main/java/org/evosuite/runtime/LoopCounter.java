@@ -284,21 +284,21 @@ public class LoopCounter {
             long value = active.get(index) + 1L;
             active.set(index, value);
 
-            if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop) {
-                if (!isInStaticInit()) {
-                    this.reset();
-                    throw new TooManyResourcesException("Loop has been executed more times than the allowed "
-                            + RuntimeSettings.maxNumberOfIterationsPerLoop);
-                }
-                // In static initializers, allow a 10x higher limit before giving up.
-                // Throwing here will leave the class in a broken state (NoClassDefFoundError),
-                // but that's better than a permanently stalled thread consuming resources.
-                if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop * 10) {
-                    this.reset();
-                    throw new TooManyResourcesException("Loop in static initializer has been executed more "
-                            + "times than the allowed " + (RuntimeSettings.maxNumberOfIterationsPerLoop * 10)
-                            + " (10x clinit limit)");
-                }
+            // Static initializers are exempt from the iteration limit. A <clinit> that
+            // merely runs a long loop is not stuck: building a large lookup table is
+            // ordinary code, and some libraries need far more than the limit allows
+            // (org.jmol.g3d.Normix3D needs >100k). Throwing here would make the JVM
+            // mark the class erroneous for the lifetime of the classloader, so that
+            // class and every class reading from it fail with NoClassDefFoundError
+            // for the rest of the run — a permanent loss to buy a bounded saving.
+            // A genuinely stuck initializer is still terminated, by two time-gated
+            // guards that only fire once the test has already run out of budget:
+            // the kill-switch probe in ExecutionTracer.checkTimeout() and the
+            // timed-out-class tracking in ClassReInitializeExecutor.
+            if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInit()) {
+                this.reset();
+                throw new TooManyResourcesException("Loop has been executed more times than the allowed "
+                        + RuntimeSettings.maxNumberOfIterationsPerLoop);
             }
         } catch (TooManyResourcesException e) {
             throw e; // re-throw — must not be swallowed
