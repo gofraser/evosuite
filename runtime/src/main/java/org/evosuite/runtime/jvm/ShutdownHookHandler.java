@@ -166,7 +166,19 @@ public class ShutdownHookHandler {
             logger.debug("Shutdown hooks threw exception: " + t);
         } finally {
             if (!safe) {
-                Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
+                try {
+                    Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
+                } catch (IllegalStateException e) {
+                    // The sandbox tracks the thread running unsafe code in a single
+                    // field with a nesting count, and a shutdown hook belongs to the
+                    // SUT: if one of them leaves that count unbalanced, the state we
+                    // are trying to restore is already gone. Nothing useful is left
+                    // to do about it here, and letting it out would replace the test
+                    // result with a framework error -- which is how apbsmem's
+                    // JmolPanel lost its whole generated suite to a Jmol hook.
+                    logger.debug("Sandbox state was already reset while running "
+                            + "shutdown hooks: " + e);
+                }
             }
         }
         return n;
