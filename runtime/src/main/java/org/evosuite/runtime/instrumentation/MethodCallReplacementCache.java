@@ -70,6 +70,16 @@ public class MethodCallReplacementCache {
 
     private MethodCallReplacementCache() {
 
+        // Which replacements exist is decided here, once, and the instance is then reused for
+        // every class instrumented afterwards. A class loaded while a flag was still off keeps
+        // the instrumentation it got, so if these do not read as expected, look at what reset
+        // the singleton and when relative to the settings being applied. Runtime.resetRuntime()
+        // carries the matching caveat for mockJVMNonDeterminism.
+        logger.info("Building method call replacement cache: useVFS={} useVNET={} "
+                        + "mockJVMNonDeterminism={} mockGUI={}",
+                RuntimeSettings.useVFS, RuntimeSettings.useVNET,
+                RuntimeSettings.mockJVMNonDeterminism, RuntimeSettings.mockGUI);
+
         if (RuntimeSettings.mockJVMNonDeterminism) {
 
             // java.lang.*
