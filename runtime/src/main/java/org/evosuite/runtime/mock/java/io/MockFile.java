@@ -578,7 +578,44 @@ public class MockFile extends File implements OverrideMock {
             return super.getCanonicalPath();
         }
         VirtualFileSystem.getInstance().throwSimuledIOExceptionIfNeeded(getAbsolutePath());
-        return super.getCanonicalPath();
+        // Canonicalising through the JDK resolves the path against the real disk: it stats the
+        // real directories and follows real symlinks, for a file that only exists in the virtual
+        // file system. The virtual tree has no symlinks, so resolving "." and ".." in the
+        // absolute path gives the same answer without leaving the mock.
+        return canonicalise(getAbsolutePath());
+    }
+
+    /**
+     * Resolves {@code .} and {@code ..} in an absolute path, without touching the real disk.
+     *
+     * @param absolute an absolute path
+     * @return the path with redundant elements removed
+     */
+    private static String canonicalise(String absolute) {
+        String separator = java.io.File.separator;
+        if (absolute == null || !absolute.startsWith(separator)) {
+            // Not a shape this can reason about; leave it alone.
+            return absolute;
+        }
+        java.util.Deque<String> parts = new java.util.ArrayDeque<>();
+        for (String part : absolute.split(java.util.regex.Pattern.quote(separator))) {
+            if (part.isEmpty() || ".".equals(part)) {
+                continue;
+            }
+            if ("..".equals(part)) {
+                parts.pollLast();
+            } else {
+                parts.addLast(part);
+            }
+        }
+        if (parts.isEmpty()) {
+            return separator;
+        }
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            builder.append(separator).append(part);
+        }
+        return builder.toString();
     }
 
     @Override
