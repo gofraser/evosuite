@@ -21,6 +21,7 @@ package org.evosuite.runtime.mock.java.nio.file;
 
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.StaticReplacementMock;
+import org.evosuite.runtime.mock.java.io.MockFile;
 import org.evosuite.runtime.mock.java.io.MockIOException;
 
 import java.io.IOException;
@@ -37,6 +38,25 @@ public class MockNioPath implements StaticReplacementMock {
     @Override
     public String getMockedClassName() {
         return Path.class.getName();
+    }
+
+    /**
+     * Replacement for {@link Path#toFile()}.
+     *
+     * <p>The NIO mocks treat a {@link Path} as a carrier for its string form and route every
+     * operation back through {@link MockFile}, so a real {@code Path} is harmless as long as
+     * nothing performs I/O on it directly. {@code toFile()} breaks that: the JDK builds the
+     * {@link java.io.File} itself, so it is a plain one rather than a {@link MockFile}, and every
+     * call made on it afterwards goes to the real disk instead of the virtual file system.
+     *
+     * @param path the path to convert
+     * @return the path as a file backed by the virtual file system
+     */
+    public static java.io.File toFile(Path path) {
+        if (!MockFramework.isEnabled()) {
+            return path.toFile();
+        }
+        return new MockFile(path.toString());
     }
 
     public static WatchKey register(Path path, WatchService watcher, WatchEvent.Kind<?>... events)
