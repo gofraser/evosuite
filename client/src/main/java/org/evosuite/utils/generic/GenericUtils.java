@@ -30,9 +30,11 @@ import java.lang.reflect.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 
 public class GenericUtils {
 
@@ -141,6 +143,21 @@ public class GenericUtils {
      * {@link Properties#MAX_GENERIC_DEPTH}; that cap resets for every entry of {@code typeMap}, so
      * it is what protects against runaway recursion here rather than the size of {@code typeMap}.
      *
+     * <p>Before applying an entry, we check whether its replacement type is self-referential --
+     * whether it contains the very variable it is replacing, either directly (e.g. {@code T ->
+     * Sequence<T>}) or by following other entries of {@code typeMap} (e.g. {@code S -> Sequence<T>}
+     * with {@code T -> Something<S>}). F-bounded declarations such as {@code <T, S extends
+     * Sequence<T>, F extends FastaRecord<T,S>>} produce exactly this shape. Substituting the raw
+     * replacement in that case reintroduces the variable into {@code returnType}, so it stays
+     * eligible for substitution by a later entry (or a later call over the same map), and the type
+     * keeps growing every round instead of reaching a fixed point -- this is what previously drove
+     * >60-frame recursion in {@link org.evosuite.utils.generic.GenericClassImpl#satisfiesBoundaries(
+     * TypeVariable, Map)}'s {@code isConcreteType}/{@code hasWildcardOrTypeVariable} helpers. When
+     * that shape is detected we fall back to {@link #replaceTypeVariablesWithWildcards(Type)} for
+     * that entry's replacement, so the substitution result never grows beyond the original nesting
+     * plus one level. The normal, non-cyclic case is unaffected: the raw replacement is used exactly
+     * as before.
+     *
      * @param targetType the target type
      * @param typeMap    the map of type variables to types
      * @return the type with replaced variables
@@ -149,14 +166,85 @@ public class GenericUtils {
                                             Map<TypeVariable<?>, Type> typeMap) {
         Type returnType = targetType;
         for (Entry<TypeVariable<?>, Type> entry : typeMap.entrySet()) {
-            returnType = replaceTypeVariable(returnType, entry.getKey(), entry.getValue());
+            TypeVariable<?> variable = entry.getKey();
+            Type replacement = entry.getValue();
+            // A bare `variable -> variable` entry (e.g. a self-bounded type variable the map
+            // could not resolve further) is a no-op substitution, not a growth case: it is
+            // handled below by replaceTypeVariable's own "leave unresolved variables as-is"
+            // branch. Only a replacement that *contains* `variable` somewhere inside a larger
+            // structure re-introduces it into returnType, so exclude that trivial identity case
+            // from the growth check.
+            if (!replacement.equals(variable)
+                    && referencesVariable(replacement, variable, typeMap, new HashSet<>(), 0)) {
+                replacement = replaceTypeVariablesWithWildcards(replacement);
+            }
+            returnType = replaceTypeVariable(returnType, variable, replacement);
         }
-        //      for (TypeVariable<?> var : typeMap.keySet()) {
-        //          //logger.debug("Current variable: "+var+" of type "+typeMap.get(var)+" in "+returnType);
-        //          returnType = replaceTypeVariable(returnType, var, typeMap.get(var));
-        //      }
 
         return returnType;
+    }
+
+    /**
+     * Returns whether {@code type} contains {@code variable}, either directly or by following
+     * other type variables through {@code typeMap} (so e.g. with {@code typeMap = {S: Sequence<T>,
+     * T: Something<S>}}, {@code referencesVariable(Something<S>, T, typeMap, ...)} is {@code true}
+     * because {@code S} maps to something containing {@code T}). {@code visiting} guards against
+     * cycles purely among the map's own keys (e.g. {@code A -> B, B -> A}) that do not involve
+     * {@code variable}, and {@code depth} bounds the structural descent the same way {@link
+     * #replaceTypeVariable(Type, TypeVariable, Type, int)} does, in case the type itself is
+     * pathologically deep.
+     */
+    private static boolean referencesVariable(Type type, TypeVariable<?> variable,
+                                               Map<TypeVariable<?>, Type> typeMap,
+                                               Set<TypeVariable<?>> visiting, int depth) {
+        if (type == null || depth > Properties.MAX_GENERIC_DEPTH) {
+            return false;
+        }
+        if (type instanceof TypeVariable<?>) {
+            TypeVariable<?> current = (TypeVariable<?>) type;
+            if (current.equals(variable)) {
+                return true;
+            }
+            if (!visiting.add(current)) {
+                // Already following this variable elsewhere on the current chain: a cycle among
+                // other variables that does not (so far) lead back to `variable`.
+                return false;
+            }
+            try {
+                Type mapped = typeMap.get(current);
+                return mapped != null && referencesVariable(mapped, variable, typeMap, visiting, depth + 1);
+            } finally {
+                visiting.remove(current);
+            }
+        }
+        if (type instanceof ParameterizedType) {
+            ParameterizedType parameterizedType = (ParameterizedType) type;
+            for (Type argument : parameterizedType.getActualTypeArguments()) {
+                if (referencesVariable(argument, variable, typeMap, visiting, depth + 1)) {
+                    return true;
+                }
+            }
+            return referencesVariable(parameterizedType.getOwnerType(), variable, typeMap, visiting, depth + 1);
+        }
+        if (type instanceof GenericArrayType) {
+            return referencesVariable(((GenericArrayType) type).getGenericComponentType(), variable,
+                    typeMap, visiting, depth + 1);
+        }
+        if (type instanceof WildcardType) {
+            WildcardType wildcardType = (WildcardType) type;
+            for (Type bound : wildcardType.getUpperBounds()) {
+                if (referencesVariable(bound, variable, typeMap, visiting, depth + 1)) {
+                    return true;
+                }
+            }
+            for (Type bound : wildcardType.getLowerBounds()) {
+                if (referencesVariable(bound, variable, typeMap, visiting, depth + 1)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return false;
     }
 
     /**

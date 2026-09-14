@@ -1907,6 +1907,54 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     }
 
     /**
+     * Bounded LRU cache for {@link #satisfiesBoundaries(TypeVariable, Map)}.
+     *
+     * <p>{@code CastClassManager.getAssignableClasses} calls that method once per candidate in
+     * its (several-hundred-class) cast-class pool per instantiation, and each call substitutes
+     * through the whole nested structure of the type variable's bounds. {@code CastClassManager}
+     * has its own result cache ({@code assignableClassesCache}), but {@code putCastClass} clears
+     * it on every pool change -- which happens constantly during search -- so it rarely survives
+     * long enough to help here.
+     *
+     * <p>This cache is keyed on structural content (the candidate's {@code Type} string, the type
+     * variable being checked, and {@link GenericUtils#stableTypeVariableMapToString(Map)} of the
+     * owner variable map) built in {@link #satisfiesBoundariesCacheKey(TypeVariable, Map)} --
+     * not object identity and not {@code CastClassManager}'s pool state -- so it keeps paying off
+     * across pool changes and across the many pool candidates that share the same bound.
+     *
+     * <p>It is a plain (not synchronized) map: client-side test generation runs the search on a
+     * single GA thread, matching the rest of this class's and {@code CastClassManager}'s caches.
+     * {@code accessOrder = true} makes it evict least-recently-used entries once it grows past
+     * {@link #SATISFIES_BOUNDARIES_CACHE_CAPACITY}.
+     */
+    private static final int SATISFIES_BOUNDARIES_CACHE_CAPACITY = 20000;
+
+    private static final Map<String, Boolean> SATISFIES_BOUNDARIES_CACHE =
+            new LinkedHashMap<String, Boolean>(16, 0.75f, true) {
+                @Override
+                protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+                    return size() > SATISFIES_BOUNDARIES_CACHE_CAPACITY;
+                }
+            };
+
+    /**
+     * Clears {@link #SATISFIES_BOUNDARIES_CACHE}. Called from {@code TestGenerationContext
+     * #resetContext()} alongside the other per-run static caches (e.g. {@code
+     * CastClassManager.getInstance().clear()}): a reset installs a fresh class loader, so stale
+     * entries keyed on the old classes' {@code Type} strings would never be looked up again --
+     * but left uncleared they would grow unboundedly across runs sharing a JVM.
+     */
+    public static void clearSatisfiesBoundariesCache() {
+        SATISFIES_BOUNDARIES_CACHE.clear();
+    }
+
+    private String satisfiesBoundariesCacheKey(TypeVariable<?> typeVariable,
+                                                Map<TypeVariable<?>, Type> typeMap) {
+        return type + "||" + typeVariable.getGenericDeclaration() + "#" + typeVariable.getName()
+                + "||" + GenericUtils.stableTypeVariableMapToString(typeMap);
+    }
+
+    /**
      * Determine whether the boundaries of the type variable are satisfied by
      * this class.
      *
@@ -1914,6 +1962,18 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * @return boolean
      */
     public boolean satisfiesBoundaries(TypeVariable<?> typeVariable,
+                                       Map<TypeVariable<?>, Type> typeMap) {
+        String cacheKey = satisfiesBoundariesCacheKey(typeVariable, typeMap);
+        Boolean cached = SATISFIES_BOUNDARIES_CACHE.get(cacheKey);
+        if (cached != null) {
+            return cached;
+        }
+        boolean result = computeSatisfiesBoundaries(typeVariable, typeMap);
+        SATISFIES_BOUNDARIES_CACHE.put(cacheKey, result);
+        return result;
+    }
+
+    private boolean computeSatisfiesBoundaries(TypeVariable<?> typeVariable,
                                        Map<TypeVariable<?>, Type> typeMap) {
         // A bound that erases to a class can only be satisfied by a subtype of that class,
         // whatever its type arguments turn out to be. Checking that first spares the
@@ -2256,37 +2316,74 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
     }
 
     private static boolean isConcreteType(Type type) {
+        return isConcreteType(type, 0);
+    }
+
+    /**
+     * Depth-bounded implementation of {@link #isConcreteType(Type)}.
+     *
+     * <p>This descends into {@code type}'s nested ParameterizedType/GenericArrayType structure
+     * with no base case other than running out of structure. Types produced by chained
+     * F-bounded substitution (see {@code S extends Sequence<T>}, {@code F extends FastaRecord<T,S>}
+     * style bounds and {@link org.evosuite.utils.generic.GenericUtils#replaceTypeVariable(Type,
+     * TypeVariable, Type, int)}) can make that structure very deep, which showed up as >60-frame
+     * recursion here during {@code CastClassManager} cast-class pool scans (see
+     * {@link #satisfiesBoundaries(TypeVariable, Map)}). We cap the descent at
+     * {@link Properties#MAX_GENERIC_DEPTH} and, once exceeded, return the conservative answer for
+     * "is this concrete": {@code false} -- a type we can no longer fully inspect is treated as
+     * possibly still containing a wildcard or type variable, rather than risk wrongly asserting it
+     * is fully concrete.
+     */
+    private static boolean isConcreteType(Type type, int depth) {
+        if (depth > Properties.MAX_GENERIC_DEPTH) {
+            return false;
+        }
         if (type instanceof Class<?>) {
             return true;
         }
         if (type instanceof ParameterizedType) {
             for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
-                if (!isConcreteType(argument)) {
+                if (!isConcreteType(argument, depth + 1)) {
                     return false;
                 }
             }
             return true;
         }
         if (type instanceof GenericArrayType) {
-            return isConcreteType(((GenericArrayType) type).getGenericComponentType());
+            return isConcreteType(((GenericArrayType) type).getGenericComponentType(), depth + 1);
         }
         return false;
     }
 
     private static boolean hasWildcardOrTypeVariable(Type type) {
+        return hasWildcardOrTypeVariable(type, 0);
+    }
+
+    /**
+     * Depth-bounded implementation of {@link #hasWildcardOrTypeVariable(Type)}.
+     *
+     * <p>Same rationale and cap as {@link #isConcreteType(Type, int)} -- this is its sibling
+     * predicate on the same hot path. Once the cap is exceeded we return the conservative answer
+     * for "does this type still contain a wildcard or type variable": {@code true} -- we can no
+     * longer fully inspect the remaining structure, so we must not claim it is free of them.
+     */
+    private static boolean hasWildcardOrTypeVariable(Type type, int depth) {
+        if (depth > Properties.MAX_GENERIC_DEPTH) {
+            return true;
+        }
         if (type instanceof WildcardType || type instanceof TypeVariable || type instanceof CaptureType) {
             return true;
         }
         if (type instanceof ParameterizedType) {
             for (Type argument : ((ParameterizedType) type).getActualTypeArguments()) {
-                if (hasWildcardOrTypeVariable(argument)) {
+                if (hasWildcardOrTypeVariable(argument, depth + 1)) {
                     return true;
                 }
             }
             return false;
         }
         if (type instanceof GenericArrayType) {
-            return hasWildcardOrTypeVariable(((GenericArrayType) type).getGenericComponentType());
+            return hasWildcardOrTypeVariable(((GenericArrayType) type).getGenericComponentType(), depth + 1);
         }
         return false;
     }

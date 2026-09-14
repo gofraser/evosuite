@@ -24,13 +24,16 @@ import com.examples.with.different.packagename.generic.GuavaExample5;
 import com.googlecode.gentyref.GenericTypeReflector;
 import com.googlecode.gentyref.TypeToken;
 import org.apache.commons.lang3.reflect.TypeUtils;
+import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.seeding.CastClassManager;
 import org.evosuite.utils.generic.GenericClass;
 import org.evosuite.utils.generic.GenericArrayTypeImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
+import org.evosuite.utils.generic.GenericClassImpl;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericUtils;
 import org.evosuite.utils.generic.WildcardTypeImpl;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -1071,6 +1074,110 @@ public class TestGenericClassImpl {
         Assertions.assertTrue(candidate.satisfiesBoundaries(collectionType, typeMap));
     }
 
+    /**
+     * {@code isConcreteType(Type)}/{@code hasWildcardOrTypeVariable(Type)} (private statics on
+     * {@link GenericClassImpl}) descend into a type's nested structure with no base case other
+     * than running out of structure. They are capped at {@link Properties#MAX_GENERIC_DEPTH} and
+     * return the conservative answer once exceeded: "not concrete" / "still has a wildcard or type
+     * variable". This builds a {@code List<List<List<List<List<String>>>>>} (5 levels, deeper than
+     * the default cap of 3) that is structurally fully concrete and free of wildcards, and checks
+     * that both predicates report the conservative answer for it rather than inspecting past the
+     * cap -- while a shallow type within the cap still gets the correct, non-conservative answer.
+     */
+    @Test
+    public void testConcreteTypePredicatesReturnConservativeAnswerBeyondDepthCap() throws Exception {
+        Method isConcreteType = GenericClassImpl.class.getDeclaredMethod("isConcreteType", Type.class);
+        isConcreteType.setAccessible(true);
+        Method hasWildcardOrTypeVariable =
+                GenericClassImpl.class.getDeclaredMethod("hasWildcardOrTypeVariable", Type.class);
+        hasWildcardOrTypeVariable.setAccessible(true);
+
+        Type deep = String.class;
+        int nestingLevels = Properties.MAX_GENERIC_DEPTH + 2;
+        for (int i = 0; i < nestingLevels; i++) {
+            deep = new ParameterizedTypeImpl(List.class, new Type[]{deep}, null);
+        }
+
+        // Structurally this type is fully concrete (only Class/ParameterizedType, no
+        // wildcards/type variables anywhere) -- but it is deeper than the cap, so both
+        // predicates must fall back to their conservative answer instead of the true one.
+        Assertions.assertFalse((Boolean) isConcreteType.invoke(null, deep),
+                "isConcreteType should conservatively answer false past the depth cap");
+        Assertions.assertTrue((Boolean) hasWildcardOrTypeVariable.invoke(null, deep),
+                "hasWildcardOrTypeVariable should conservatively answer true past the depth cap");
+
+        // A shallow type well within the cap is unaffected and gets the real answer.
+        Type shallow = new ParameterizedTypeImpl(List.class, new Type[]{String.class}, null);
+        Assertions.assertTrue((Boolean) isConcreteType.invoke(null, shallow));
+        Assertions.assertFalse((Boolean) hasWildcardOrTypeVariable.invoke(null, shallow));
+    }
+
+    /**
+     * {@link GenericClassImpl#satisfiesBoundaries(TypeVariable, Map)} memoizes its result in a
+     * static cache keyed on structural content (see {@code GenericClassImpl
+     * #satisfiesBoundariesCacheKey}). This checks that a cached call returns the same answer as
+     * the uncached computation that populated the cache, and that clearing the cache and
+     * recomputing still agrees -- i.e. the memoization never masks a different, stale answer.
+     */
+    @Test
+    public void testSatisfiesBoundariesMemoizationMatchesUncachedResult() {
+        TypeVariable<?>[] parameters = FBoundedOps.class.getTypeParameters();
+        TypeVariable<?> elementType = parameters[0];
+        TypeVariable<?> collectionType = parameters[1];
+
+        Map<TypeVariable<?>, Type> typeMap = new HashMap<>();
+        typeMap.put(elementType, String.class);
+
+        Type concreteStringOps = TypeUtils.parameterize(ConcreteFBoundedOps.class, String.class);
+        GenericClass<?> candidate = GenericClassFactory.get(concreteStringOps);
+
+        GenericClassImpl.clearSatisfiesBoundariesCache();
+        boolean uncached = candidate.satisfiesBoundaries(collectionType, typeMap);
+        boolean cached = candidate.satisfiesBoundaries(collectionType, typeMap);
+        Assertions.assertEquals(uncached, cached, "cached call disagreed with the call that populated the cache");
+
+        GenericClassImpl.clearSatisfiesBoundariesCache();
+        boolean recomputed = candidate.satisfiesBoundaries(collectionType, typeMap);
+        Assertions.assertEquals(uncached, recomputed, "recomputation after clearing the cache disagreed");
+    }
+
+    /**
+     * F-bounded declarations such as {@code <T, S extends Sequence<T>, F extends FastaRecord<T,S>>}
+     * make {@link GenericUtils#replaceTypeVariables(Type, Map)}'s {@code typeMap} cyclic: here
+     * {@code T -> S} and {@code S -> Box<T>}, so resolving {@code T} eventually leads back through
+     * {@code S} to a type containing {@code T} again. Substituting the raw replacement at each step
+     * would keep reintroducing the variable being replaced, growing {@code Box<Box<Box<...>>>}
+     * without bound. This checks the result instead stays bounded to one extra level of nesting
+     * (via a wildcard, see {@link GenericUtils#replaceTypeVariablesWithWildcards(Type)}), and that
+     * doing so does not throw or hang.
+     */
+    @Test
+    public void testReplaceTypeVariablesStopsGrowthOnFBoundedCycle() {
+        TypeVariable<?> t = Pair.class.getTypeParameters()[0];
+        TypeVariable<?> s = Pair.class.getTypeParameters()[1];
+
+        Map<TypeVariable<?>, Type> typeMap = new LinkedHashMap<>();
+        typeMap.put(t, s);
+        typeMap.put(s, new ParameterizedTypeImpl(Box.class, new Type[]{t}, null));
+
+        Type target = new ParameterizedTypeImpl(Box.class, new Type[]{s}, null);
+
+        Type result = GenericUtils.replaceTypeVariables(target, typeMap);
+
+        Assertions.assertTrue(result instanceof ParameterizedType);
+        ParameterizedType outer = (ParameterizedType) result;
+        Assertions.assertEquals(Box.class, outer.getRawType());
+        Type outerArgument = outer.getActualTypeArguments()[0];
+
+        // Exactly one extra level of nesting (Box<Box<?>>), not an unbounded Box<Box<Box<...>>>
+        // chain: the inner Box's own type argument must be a wildcard, not another Box.
+        Assertions.assertTrue(outerArgument instanceof ParameterizedType);
+        ParameterizedType inner = (ParameterizedType) outerArgument;
+        Assertions.assertEquals(Box.class, inner.getRawType());
+        Assertions.assertTrue(inner.getActualTypeArguments()[0] instanceof WildcardType,
+                "substitution grew past one extra level instead of stopping at a wildcard: " + result);
+    }
+
     @Test
     public void testRejectsParameterizedBoundWithUnsatisfiedWildcardLowerBound() {
         TypeVariable<?>[] parameters = CollectionBuilderShape.class.getTypeParameters();
@@ -1150,6 +1257,12 @@ public class TestGenericClassImpl {
     }
 
     private interface FBoundedOps<A, CC extends FBoundedOps<A, CC>> {
+    }
+
+    private interface Box<X> {
+    }
+
+    private interface Pair<T, S extends Box<T>> {
     }
 
     public interface PropertyShape<T> {
