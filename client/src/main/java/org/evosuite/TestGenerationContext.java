@@ -240,6 +240,7 @@ public class TestGenerationContext {
         DependencyAnalysis.clear(true);
         TestCluster.reset();
         CastClassManager.getInstance().clear();
+        org.evosuite.utils.generic.GenericClassImpl.clearSatisfiesBoundariesCache();
         ConcreteClassAnalyzer.getInstance().clear();
         // This counts the current level of recursion during test generation
         org.evosuite.testcase.TestFactory.getInstance().reset();
