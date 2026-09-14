@@ -125,6 +125,22 @@ public class Prioritization<T> {
     }
 
     /**
+     * Sort {@code elements} with this collection's comparator, without filtering and without
+     * requiring the elements to belong to this collection's key set (though the comparator does
+     * require every element to have a stored priority, see {@link #getPriority}).
+     *
+     * <p>Use this to (re-)sort a previously filtered subset -- e.g. one cached from an earlier
+     * call to {@link #toSortedList(Predicate)} -- whose members' priorities may have changed since
+     * it was computed, without re-running the (possibly expensive) filter that produced it.
+     *
+     * @param elements the elements to sort
+     * @return a new sorted list
+     */
+    public List<T> sorted(Collection<T> elements) {
+        return elements.stream().sorted(comparator).collect(Collectors.toList());
+    }
+
+    /**
      * Check if this priority collection contains (at least) one element that matches {@code matcher}.
      *
      * @param matcher A predicate taking an element as input.

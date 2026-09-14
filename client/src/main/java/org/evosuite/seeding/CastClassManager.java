@@ -73,6 +73,73 @@ public class CastClassManager {
      */
     private final List<GenericClass<?>> poolAdditions = new ArrayList<>();
 
+    /**
+     * Bumped every time {@link #putCastClass} adds to the pool. Not read directly for
+     * invalidation -- {@link #putCastClass} clears {@link #assignableClassesCache} itself -- but
+     * kept around as a cheap diagnostic/testing hook for "has the pool changed".
+     */
+    private int poolVersion = 0;
+
+    /**
+     * Memoises, per (type variable/wildcard, allowRecursion, owner-variable-map) query, the
+     * subset of the cast-class pool that satisfies {@link GenericClass#satisfiesBoundaries}.
+     *
+     * <p>{@link #getAssignableClasses} sits on the hot path of random test-call insertion
+     * (every type variable of every generator considered by {@code TestCluster#getRandomTestCall}
+     * triggers a call). Evaluating {@code satisfiesBoundaries} -- which recursively substitutes
+     * type variables through a class's whole nested generic structure -- over the entire pool
+     * (several hundred classes for some CUTs) on every single call dominates search time for
+     * classes with multiple chained bounded type parameters. The pool changes rarely (see
+     * {@link #putCastClass}), so we cache the filtered set here and drop the whole cache whenever
+     * the pool changes, instead of re-scanning it on every query.
+     *
+     * <p>We cache the filtered set, not the final sorted list: {@link #putCastClass} can change
+     * the priority of a class already in the pool without changing pool membership (see
+     * {@code addCastClass} being called twice for the same class), which would make a cached
+     * sorted list stale without invalidating the cache. Re-sorting the (small) cached set on every
+     * call is cheap; re-filtering the whole pool is not.
+     */
+    private final Map<AssignableClassesCacheKey, List<GenericClass<?>>> assignableClassesCache = new HashMap<>();
+
+    /**
+     * Cache key for {@link #assignableClassesCache}: identifies one
+     * (type-variable-or-wildcard, allowRecursion, owner-variable-map) query. {@code queriedType}
+     * is either a {@link TypeVariable} or a {@link WildcardType}; both have well-defined
+     * {@code equals}/{@code hashCode} (see {@link org.evosuite.utils.generic.WildcardTypeImpl}),
+     * so using the type itself as part of the key is sound.
+     */
+    private static final class AssignableClassesCacheKey {
+        private final Object queriedType;
+        private final boolean allowRecursion;
+        private final String ownerVariableMapKey;
+
+        AssignableClassesCacheKey(Object queriedType, boolean allowRecursion,
+                                  Map<TypeVariable<?>, Type> ownerVariableMap) {
+            this.queriedType = queriedType;
+            this.allowRecursion = allowRecursion;
+            this.ownerVariableMapKey = GenericUtils.stableTypeVariableMapToString(ownerVariableMap);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof AssignableClassesCacheKey)) {
+                return false;
+            }
+            AssignableClassesCacheKey that = (AssignableClassesCacheKey) o;
+            return allowRecursion == that.allowRecursion
+                    && queriedType.equals(that.queriedType)
+                    && ownerVariableMapKey.equals(that.ownerVariableMapKey);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(queriedType, allowRecursion, ownerVariableMapKey);
+        }
+    }
+
     // Private constructor due to singleton pattern, use getInstance() instead
     private CastClassManager() {
         initDefaultClasses();
@@ -368,6 +435,8 @@ public class CastClassManager {
         prioritization.clear();
         failedBoundsKeys.clear();
         poolAdditions.clear();
+        assignableClassesCache.clear();
+        poolVersion = 0;
         initDefaultClasses();
     }
 
@@ -837,11 +906,16 @@ public class CastClassManager {
      */
     private List<GenericClass<?>> getAssignableClasses(final WildcardType wildcardType, final boolean allowRecursion,
             final Map<TypeVariable<?>, Type> ownerVariableMap) {
-        // Filter, whether a class is assignable.
-        Predicate<GenericClass<?>> keepClass =
-                gc -> gc.satisfiesBoundaries(wildcardType, ownerVariableMap)
-                        && (allowRecursion || !gc.hasWildcardOrTypeVariables());
-        return prioritization.toSortedList(keepClass);
+        AssignableClassesCacheKey key =
+                new AssignableClassesCacheKey(wildcardType, allowRecursion, ownerVariableMap);
+        List<GenericClass<?>> filtered = assignableClassesCache.computeIfAbsent(key, k -> {
+            // Filter, whether a class is assignable.
+            Predicate<GenericClass<?>> keepClass =
+                    gc -> gc.satisfiesBoundaries(wildcardType, ownerVariableMap)
+                            && (allowRecursion || !gc.hasWildcardOrTypeVariables());
+            return prioritization.getElements().stream().filter(keepClass).collect(Collectors.toList());
+        });
+        return prioritization.sorted(filtered);
     }
 
     /**
@@ -855,10 +929,15 @@ public class CastClassManager {
      */
     private List<GenericClass<?>> getAssignableClasses(final TypeVariable<?> typeVariable,
             final boolean allowRecursion, final Map<TypeVariable<?>, Type> ownerVariableMap) {
-        Predicate<GenericClass<?>> keepClass =
-                gc -> gc.satisfiesBoundaries(typeVariable, ownerVariableMap)
-                        && (allowRecursion || !gc.hasWildcardOrTypeVariables());
-        return prioritization.toSortedList(keepClass);
+        AssignableClassesCacheKey key =
+                new AssignableClassesCacheKey(typeVariable, allowRecursion, ownerVariableMap);
+        List<GenericClass<?>> filtered = assignableClassesCache.computeIfAbsent(key, k -> {
+            Predicate<GenericClass<?>> keepClass =
+                    gc -> gc.satisfiesBoundaries(typeVariable, ownerVariableMap)
+                            && (allowRecursion || !gc.hasWildcardOrTypeVariables());
+            return prioritization.getElements().stream().filter(keepClass).collect(Collectors.toList());
+        });
+        return prioritization.sorted(filtered);
     }
 
     /**
@@ -893,6 +972,11 @@ public class CastClassManager {
     private void putCastClass(GenericClass<?> clazz, int priority) {
         prioritization.add(clazz, priority);
         poolAdditions.add(clazz);
+        poolVersion++;
+        // The pool (or a priority within it) just changed: any cached getAssignableClasses()
+        // result may now be missing this class, or missing a class this call gave a new priority,
+        // so drop the whole cache rather than track which queries are affected.
+        assignableClassesCache.clear();
     }
 
     /**

@@ -26,7 +26,10 @@ import org.evosuite.utils.generic.WildcardTypeImpl;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.*;
 
@@ -212,5 +215,79 @@ public class TestCastClassManager {
         GenericClass<?> selected = instance.selectCastClass(wildcardType, false, new HashMap<>());
         assertNotNull(selected);
         assertTrue(selected.satisfiesBoundaries(wildcardType, new HashMap<>()));
+    }
+
+    // --- getAssignableClasses memoization tests ---
+
+    /**
+     * A type variable with a bound ({@code T extends Number}) to query {@code getAssignableClasses}
+     * with, so the test can distinguish "already in the default pool" (Integer) from "added later"
+     * (Double).
+     */
+    private static class NumberBox<T extends Number> {
+    }
+
+    private static Method getAssignableClassesMethod() throws NoSuchMethodException {
+        Method m = CastClassManager.class.getDeclaredMethod(
+                "getAssignableClasses", TypeVariable.class, boolean.class, Map.class);
+        m.setAccessible(true);
+        return m;
+    }
+
+    private static Map<?, ?> assignableClassesCache(CastClassManager instance) throws Exception {
+        Field f = CastClassManager.class.getDeclaredField("assignableClassesCache");
+        f.setAccessible(true);
+        return (Map<?, ?>) f.get(instance);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<GenericClass<?>> invokeGetAssignableClasses(CastClassManager instance, Method m,
+            TypeVariable<?> typeVariable, boolean allowRecursion, Map<TypeVariable<?>, Type> ownerVariableMap)
+            throws Exception {
+        return (List<GenericClass<?>>) m.invoke(instance, typeVariable, allowRecursion, ownerVariableMap);
+    }
+
+    @Test
+    public void testGetAssignableClassesReusesCachedEntryOnRepeatedQuery() throws Exception {
+        CastClassManager instance = CastClassManager.getInstance();
+        Method getAssignableClasses = getAssignableClassesMethod();
+        Map<?, ?> cache = assignableClassesCache(instance);
+        TypeVariable<?> typeVariable = NumberBox.class.getTypeParameters()[0];
+        Map<TypeVariable<?>, Type> ownerVariableMap = new HashMap<>();
+
+        assertEquals(0, cache.size());
+
+        List<GenericClass<?>> first = invokeGetAssignableClasses(instance, getAssignableClasses,
+                typeVariable, false, ownerVariableMap);
+        assertEquals(1, cache.size(), "First call should populate exactly one cache entry");
+
+        // Repeating the identical query must hit the same cache entry, not add a new one.
+        List<GenericClass<?>> second = invokeGetAssignableClasses(instance, getAssignableClasses,
+                typeVariable, false, ownerVariableMap);
+        assertEquals(1, cache.size(), "Repeated identical query must reuse the cached entry");
+        assertEquals(first, second);
+    }
+
+    @Test
+    public void testGetAssignableClassesCacheInvalidatedAfterAddingClass() throws Exception {
+        CastClassManager instance = CastClassManager.getInstance();
+        Method getAssignableClasses = getAssignableClassesMethod();
+        Map<?, ?> cache = assignableClassesCache(instance);
+        TypeVariable<?> typeVariable = NumberBox.class.getTypeParameters()[0];
+        Map<TypeVariable<?>, Type> ownerVariableMap = new HashMap<>();
+        GenericClass<?> doubleClass = GenericClassFactory.get(Double.class);
+
+        List<GenericClass<?>> before = invokeGetAssignableClasses(instance, getAssignableClasses,
+                typeVariable, false, ownerVariableMap);
+        assertFalse(before.contains(doubleClass), "Double is not in the pool yet");
+        assertEquals(1, cache.size());
+
+        instance.addCastClass(doubleClass, 5);
+        assertEquals(0, cache.size(), "Adding to the pool must drop the memoized query results");
+
+        List<GenericClass<?>> after = invokeGetAssignableClasses(instance, getAssignableClasses,
+                typeVariable, false, ownerVariableMap);
+        assertTrue(after.contains(doubleClass), "Newly added class must be visible after invalidation");
+        assertEquals(1, cache.size());
     }
 }
