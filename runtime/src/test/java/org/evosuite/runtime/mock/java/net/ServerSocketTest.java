@@ -157,4 +157,21 @@ public class ServerSocketTest {
 
         server.close();
     }
+    @Test
+    public void testIncomingConnectionOnDifferentLocalAddress() throws IOException {
+        // A server bound without an explicit address ends up on the virtual non-loopback
+        // interface, while a test that has not yet seen the SUT listen anywhere sends its
+        // simulated client to the loopback default. The client must still arrive.
+        MockServerSocket server = new MockServerSocket(42);
+
+        Assertions.assertTrue(NetworkHandling.sendMessageOnTcp(
+                new EvoSuiteLocalAddress("127.0.0.1", 8080), "hello"));
+
+        Socket socket = server.accept();
+        Assertions.assertTrue(socket.isConnected());
+        Scanner in = new Scanner(socket.getInputStream());
+        Assertions.assertEquals("hello", in.nextLine());
+
+        server.close();
+    }
 }
