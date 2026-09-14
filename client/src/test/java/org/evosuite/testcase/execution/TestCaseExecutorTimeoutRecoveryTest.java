@@ -41,4 +41,24 @@ public class TestCaseExecutorTimeoutRecoveryTest {
         assertTrue(TestCaseExecutor.reachedExecutorRotationLimit(1, 10, 50, 10));
         assertFalse(TestCaseExecutor.reachedExecutorRotationLimit(1, 1, 50, 10));
     }
+
+    @Test
+    public void fastEscalatesOnlyWhenStillRunningWithManyProbesOutsideProtectedBootstrap() {
+        // still running, well past the threshold, not in <clinit>/bootstrap: escalate
+        assertTrue(TestCaseExecutor.shouldFastEscalateAfterKillSwitch(false, true, 1500, 1000));
+
+        // inside <clinit> or the runtime-bootstrap grace path: never force it early,
+        // no matter how many probes have been seen
+        assertFalse(TestCaseExecutor.shouldFastEscalateAfterKillSwitch(true, true, 1_000_000, 1000));
+
+        // already finished by the time we checked: nothing to escalate
+        assertFalse(TestCaseExecutor.shouldFastEscalateAfterKillSwitch(false, false, 1500, 1000));
+
+        // below the threshold: could just be genuinely slow, give it the normal chain
+        assertFalse(TestCaseExecutor.shouldFastEscalateAfterKillSwitch(false, true, 500, 1000));
+
+        // exactly at the threshold is not yet "exceeds"
+        assertFalse(TestCaseExecutor.shouldFastEscalateAfterKillSwitch(false, true, 1000, 1000));
+        assertTrue(TestCaseExecutor.shouldFastEscalateAfterKillSwitch(false, true, 1001, 1000));
+    }
 }

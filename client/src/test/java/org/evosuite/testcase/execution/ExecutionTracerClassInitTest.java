@@ -112,4 +112,66 @@ public class ExecutionTracerClassInitTest {
 
         assertThrows(TestCaseExecutor.TimeoutExceeded.class, ExecutionTracer::checkTimeout);
     }
+
+    /**
+     * The probe counter that {@link TestCaseExecutor} uses to detect a thread that is
+     * swallowing {@code TimeoutExceeded}: it counts every checkTimeout() call seen while
+     * the kill switch is active, and is reset whenever the kill switch is (re)armed.
+     */
+    @Test
+    public void testKillSwitchProbeCountTracksCallsWhileArmed() {
+        ExecutionTracer.setKillSwitch(true);
+        assertEquals(0, ExecutionTracer.getKillSwitchProbeCount());
+
+        for (int i = 1; i <= 5; i++) {
+            // outside <clinit>, checkTimeout() throws every time — a SUT that swallows
+            // Throwable in a loop calls it again right away, which is exactly what we
+            // are counting here.
+            assertThrows(TestCaseExecutor.TimeoutExceeded.class, ExecutionTracer::checkTimeout);
+            assertEquals(i, ExecutionTracer.getKillSwitchProbeCount());
+        }
+    }
+
+    @Test
+    public void testKillSwitchProbeCountResetsWhenKillSwitchIsReArmed() {
+        ExecutionTracer.setKillSwitch(true);
+        assertThrows(TestCaseExecutor.TimeoutExceeded.class, ExecutionTracer::checkTimeout);
+        assertThrows(TestCaseExecutor.TimeoutExceeded.class, ExecutionTracer::checkTimeout);
+        assertEquals(2, ExecutionTracer.getKillSwitchProbeCount());
+
+        ExecutionTracer.setKillSwitch(false);
+        assertEquals(2, ExecutionTracer.getKillSwitchProbeCount(),
+                "disarming the kill switch should not itself reset the counter");
+
+        ExecutionTracer.setKillSwitch(true);
+        assertEquals(0, ExecutionTracer.getKillSwitchProbeCount(),
+                "re-arming the kill switch resets the counter for the new test");
+    }
+
+    @Test
+    public void testKillSwitchProbeCountDoesNotAdvanceWhileDisarmed() {
+        ExecutionTracer.setKillSwitch(true); // guarantees a known (zero) starting count
+        ExecutionTracer.setKillSwitch(false);
+
+        ExecutionTracer.checkTimeout();
+        ExecutionTracer.checkTimeout();
+        assertEquals(0, ExecutionTracer.getKillSwitchProbeCount());
+    }
+
+    /**
+     * Probes taken inside &lt;clinit&gt; count too: {@link TestCaseExecutor} only skips
+     * the fast-escalation path there because {@code initialInProtectedBootstrap} already
+     * excludes it, not because the counter stops moving.
+     */
+    @Test
+    public void testKillSwitchProbeCountAlsoCountsProbesInsideClassInit() {
+        ExecutionTracer.enterClassInit("com.example.Stuck");
+        ExecutionTracer.setKillSwitch(true);
+
+        for (int i = 0; i < 10; i++) {
+            ExecutionTracer.checkTimeout();
+        }
+
+        assertEquals(10, ExecutionTracer.getKillSwitchProbeCount());
+    }
 }
