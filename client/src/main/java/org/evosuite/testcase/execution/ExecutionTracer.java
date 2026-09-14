@@ -62,6 +62,19 @@ public class ExecutionTracer {
     private int clinitKillSwitchCount = 0;
 
     /**
+     * Counts how many times checkTimeout() has been called with the kill switch
+     * active, reset whenever the kill switch is (re)armed. Unlike
+     * {@link #clinitKillSwitchCount}, this counts every probe, not just the ones
+     * taken inside a static initializer: a thread that racks up a large number of
+     * these after being told to stop is not merely slow, it is looping through code
+     * (typically a {@code catch (Throwable)} block) that swallows
+     * {@link TestCaseExecutor.TimeoutExceeded}. {@link TestCaseExecutor} uses this to
+     * decide when to stop waiting through the graceful shutdown chain and escalate
+     * straight to {@code Thread.stop()}.
+     */
+    private int killSwitchProbeCount = 0;
+
+    /**
      * Tracks the nesting depth of &lt;clinit&gt; (static initializer) calls
      * on the current thread. Incremented by instrumented enterClassInit()
      * calls and decremented by exitClassInit(). Used to cheaply detect
@@ -148,7 +161,19 @@ public class ExecutionTracer {
         tracer.killSwitch = value;
         if (value) {
             tracer.clinitKillSwitchCount = 0;
+            tracer.killSwitchProbeCount = 0;
         }
+    }
+
+    /**
+     * Number of times {@link #checkTimeout()} has observed the kill switch active since
+     * it was last armed by {@link #setKillSwitch(boolean)}. See
+     * {@link #killSwitchProbeCount} for why this is useful.
+     *
+     * @return the current kill-switch probe count
+     */
+    public static int getKillSwitchProbeCount() {
+        return getExecutionTracer().killSwitchProbeCount;
     }
 
     /**
@@ -401,6 +426,7 @@ public class ExecutionTracer {
         if (!tracer.killSwitch) {
             return;
         }
+        tracer.killSwitchProbeCount++;
 
         if (!isInStaticInit()) {
             tracer.clinitKillSwitchCount = 0;

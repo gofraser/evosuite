@@ -182,6 +182,28 @@ public class TestCaseExecutor implements ThreadFactory {
     private static final int MOCK_DISABLE_RETRY_INTERVAL = 30;
 
     /**
+     * Kill-switch probe count above which a thread that is still running after the first
+     * post-kill-switch wait is treated as swallowing {@link TimeoutExceeded} rather than
+     * merely being slow.
+     *
+     * <p>Outside a static initializer, {@link ExecutionTracer#checkTimeout()} throws
+     * {@link TimeoutExceeded} on <em>every single call</em> once the kill switch is armed
+     * — it does not wait for a handful of probes first. So a thread that is still alive
+     * after the first grace wait AND has a nonzero probe count has, by construction,
+     * already thrown that exception at least once from instrumented code and kept running
+     * anyway: somewhere on its call stack is a {@code catch} block (commonly
+     * {@code catch (Throwable)}, but any sufficiently broad catch works) that swallowed
+     * it. That is conclusive regardless of how many times it happened, so the threshold is
+     * deliberately tiny rather than "a handful of times looks like a loop": measured
+     * against 104_vuze's accept_loop() (background: catch Throwable, log via an expensive
+     * VFS-backed diagnostics call, {@code Thread.sleep(500)}, retry), a single such cycle
+     * can easily take longer than one grace wait, so a threshold in the hundreds or
+     * thousands would rarely fire in practice and defeats the purpose of escalating
+     * quickly.
+     */
+    private static final int KILL_SWITCH_SWALLOW_PROBE_THRESHOLD = 0;
+
+    /**
      * Saved values of mocking properties before timeout-based disabling.
      * Used to restore them if the timeout pattern breaks (i.e., a test
      * succeeds without timeout after mocking was disabled).
@@ -747,13 +769,31 @@ public class TestCaseExecutor implements ThreadFactory {
             }
             waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
 
+            // A thread that is still running instrumented code well past the kill switch,
+            // with hundreds of checkTimeout() probes already seen and ignored, is not
+            // merely slow — it has demonstrably swallowed TimeoutExceeded (typically via a
+            // "catch (Throwable) { ...; continue; }" loop in the SUT) and will keep doing
+            // so no matter how long we wait through the graceful chain below. Detect that
+            // here and skip straight to the Thread.stop() last resort.
+            boolean sutSwallowsKillSwitch = shouldFastEscalateAfterKillSwitch(
+                    initialInProtectedBootstrap, needsTimeoutCleanup(handler),
+                    ExecutionTracer.getKillSwitchProbeCount(), KILL_SWITCH_SWALLOW_PROBE_THRESHOLD);
+            if (sutSwallowsKillSwitch) {
+                logger.info("Thread {} hit {} kill-switch probes after being told to stop — "
+                                + "it is looping through code that swallows TimeoutExceeded; "
+                                + "skipping the graceful shutdown chain and escalating straight "
+                                + "to Thread.stop().",
+                        currentThread == null ? "<null>" : currentThread.getName(),
+                        ExecutionTracer.getKillSwitchProbeCount());
+            }
+
             // Set once we decide to give up on a thread that is still inside <clinit>
             // after its grace period. From that point on we skip every remaining
             // forcing step (kill switch, interrupt, Thread.stop()) for this thread —
             // see the comment where it is set for why.
             boolean abandonStuckStaticInit = false;
 
-            if (needsTimeoutCleanup(handler)) {
+            if (!sutSwallowsKillSwitch && needsTimeoutCleanup(handler)) {
                 if (initialInRuntimeBootstrap && Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT > 0) {
                     ExecutionTracer.setKillSwitch(false);
                     waitForLastTask(handler, Properties.RUNTIME_BOOTSTRAP_GRACE_TIMEOUT);
@@ -848,7 +888,7 @@ public class TestCaseExecutor implements ThreadFactory {
                 }
             }
 
-            if (!abandonStuckStaticInit && needsTimeoutCleanup(handler)) {
+            if (!sutSwallowsKillSwitch && !abandonStuckStaticInit && needsTimeoutCleanup(handler)) {
                 logger.info("Cancelling thread:");
                 if (currentThread != null) {
                     for (StackTraceElement elem : currentThread.getStackTrace()) {
@@ -864,7 +904,7 @@ public class TestCaseExecutor implements ThreadFactory {
                 waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
             }
 
-            if (!abandonStuckStaticInit && needsTimeoutCleanup(handler)) {
+            if (!sutSwallowsKillSwitch && !abandonStuckStaticInit && needsTimeoutCleanup(handler)) {
                 // Last resort: cancel the task and wait once more
                 FutureTask<?> task = handler.getLastTask();
                 if (task != null) {
@@ -884,7 +924,7 @@ public class TestCaseExecutor implements ThreadFactory {
                 }
             }
 
-            if (!abandonStuckStaticInit) {
+            if (!sutSwallowsKillSwitch && !abandonStuckStaticInit) {
                 waitForTimeoutExitGracePeriod(handler);
             }
 
@@ -1176,6 +1216,35 @@ public class TestCaseExecutor implements ThreadFactory {
     static boolean shouldForceStopAfterCancellation(boolean futureTaskPending,
                                                      boolean workerStillExecutingSut) {
         return futureTaskPending || workerStillExecutingSut;
+    }
+
+    /**
+     * Decides whether to skip the graceful shutdown chain (re-interrupt-and-wait,
+     * {@code FutureTask.cancel(true)}-and-join, exit grace period) and escalate straight
+     * to the {@code Thread.stop()} last resort, right after the first post-kill-switch
+     * wait.
+     *
+     * <p>Never true while the timeout was taken inside a &lt;clinit&gt; or the dynamic
+     * runtime bootstrap grace path ({@code initialInProtectedBootstrap}): those have their
+     * own, deliberately patient, handling, and forcing them early risks poisoning a class
+     * (see the long comment on {@code abandonStuckStaticInit} in {@link #execute}).
+     *
+     * @param initialInProtectedBootstrap whether the timeout was first observed inside a
+     *                                     static initializer or the runtime bootstrap grace
+     *                                     path
+     * @param stillRunning whether the worker thread is still running after the first
+     *                     post-kill-switch wait
+     * @param killSwitchProbeCount how many times {@link ExecutionTracer#checkTimeout()} has
+     *                             observed the kill switch active since it was armed
+     * @param probeThreshold the probe count above which the thread is considered to be
+     *                       swallowing {@link TimeoutExceeded}
+     * @return {@code true} if the graceful shutdown chain should be skipped
+     */
+    static boolean shouldFastEscalateAfterKillSwitch(boolean initialInProtectedBootstrap,
+                                                       boolean stillRunning,
+                                                       int killSwitchProbeCount,
+                                                       int probeThreshold) {
+        return !initialInProtectedBootstrap && stillRunning && killSwitchProbeCount > probeThreshold;
     }
 
     static boolean reachedExecutorRotationLimit(int rotations, int stalledThreads,
