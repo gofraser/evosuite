@@ -453,9 +453,10 @@ public class VirtualNetwork {
      * Returns a TCP connection for the given local address if there is any inbound remote
      * connection to it.
      *
-     * <p>If no exact match (host + port) is found, this method will try to find a connection
-     * registered for the same host with any port. This allows tests where the port in the
-     * NetworkHandling.sendDataOnTcp() call doesn't exactly match the SUT's ServerSocket port.
+     * <p>If no exact match (host + port) is found, this method falls back to a connection
+     * registered for the same host with any port, and then to any pending incoming TCP
+     * connection at all. This allows tests where the address in the
+     * NetworkHandling.sendDataOnTcp() call doesn't exactly match the SUT's ServerSocket.
      *
      * @param localAddress the local address
      * @param localPort the local port
@@ -474,17 +475,31 @@ public class VirtualNetwork {
 
         // If no exact match, try host-only matching (ignore port)
         // This handles cases where the GA hasn't discovered the exact port yet
+        NativeTcp connection = pullTcpConnection(key -> key.getHost().equals(localAddress));
+        if (connection != null) {
+            return connection;
+        }
+
+        // Still nothing: hand over any pending incoming connection. The address a test
+        // sends to comes from the ports it has already seen the SUT listen on, or from a
+        // fixed loopback default when it has seen none; a server socket bound through
+        // anyLocalAddress() lives on the virtual non-loopback interface instead, so the
+        // host can differ as well as the port. The test wants *a* client to arrive at the
+        // server it is about to accept() on, and that is what it gets.
+        return pullTcpConnection(key -> true);
+    }
+
+    private NativeTcp pullTcpConnection(java.util.function.Predicate<EndPointInfo> matches) {
         for (EndPointInfo key : incomingConnections.keySet()) {
-            if (key.getType() == ConnectionType.TCP && key.getHost().equals(localAddress)) {
-                Queue<NativeTcp> hostQueue = incomingConnections.get(key);
-                if (hostQueue != null && !hostQueue.isEmpty()) {
-                    NativeTcp connection = hostQueue.poll();
+            if (key.getType() == ConnectionType.TCP && matches.test(key)) {
+                Queue<NativeTcp> queue = incomingConnections.get(key);
+                if (queue != null && !queue.isEmpty()) {
+                    NativeTcp connection = queue.poll();
                     openedTcpConnections.add(connection);
                     return connection;
                 }
             }
         }
-
         return null;
     }
 
