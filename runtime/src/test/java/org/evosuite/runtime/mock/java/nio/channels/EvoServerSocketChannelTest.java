@@ -166,4 +166,65 @@ public class EvoServerSocketChannelTest {
         Assertions.assertTrue(failure.get() instanceof java.nio.channels.AsynchronousCloseException,
                 String.valueOf(failure.get()));
     }
+
+    @Test
+    public void testChannelOpenedBeforeResetReportsClosedAfterward() throws IOException {
+        ServerSocketChannel channel = MockServerSocketChannel.open();
+        channel.socket().bind(new InetSocketAddress("127.0.0.1", 8082), 1024);
+
+        VirtualNetwork.getInstance().reset();
+
+        // The channel belongs to the generation that ended: any further use of it must
+        // behave as if it had been (asynchronously) closed, and use the exception this
+        // SUT already handles quietly rather than the generic ClosedChannelException.
+        Assertions.assertThrows(java.nio.channels.AsynchronousCloseException.class, channel::accept);
+        Assertions.assertFalse(channel.isOpen());
+    }
+
+    @Test
+    public void testServingThreadReleasedByNetworkReset() throws Exception {
+        ServerSocketChannel server = MockServerSocketChannel.open();
+        server.bind(new InetSocketAddress(4244));
+
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure = new java.util.concurrent.atomic.AtomicReference<>();
+        Thread serving = new Thread(() -> {
+            try {
+                server.accept();
+            } catch (Throwable t) {
+                failure.set(t);
+            }
+        });
+        serving.start();
+        serving.join(200);
+        Assertions.assertTrue(serving.isAlive(),
+                "a serving thread from an earlier test should still be waiting for a client");
+
+        // Simulate the next test starting: nothing explicitly closes the channel that the
+        // previous test's SUT is still serving on, so the reset itself must release it.
+        VirtualNetwork.getInstance().reset();
+
+        serving.join(5000);
+        Assertions.assertFalse(serving.isAlive(),
+                "the reset should unblock a serving thread within about one poll interval");
+        Assertions.assertTrue(failure.get() instanceof java.nio.channels.AsynchronousCloseException,
+                String.valueOf(failure.get()));
+        Assertions.assertFalse(server.isOpen());
+    }
+
+    @Test
+    public void testSocketChannelReadThrowsClosedChannelExceptionAfterReset() throws IOException {
+        ServerSocketChannel server = MockServerSocketChannel.open();
+        server.socket().setReuseAddress(true);
+        server.socket().bind(new InetSocketAddress("127.0.0.1", 8083), 1024);
+
+        Assertions.assertTrue(NetworkHandling.sendMessageOnTcp(
+                new EvoSuiteLocalAddress("127.0.0.1", 8083), "hello"));
+        SocketChannel accepted = server.accept();
+
+        VirtualNetwork.getInstance().reset();
+
+        Assertions.assertThrows(ClosedChannelException.class,
+                () -> accepted.read(ByteBuffer.allocate(16)));
+        Assertions.assertFalse(accepted.isOpen());
+    }
 }

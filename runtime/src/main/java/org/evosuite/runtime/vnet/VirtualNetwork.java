@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 
 /**
@@ -160,6 +161,14 @@ public class VirtualNetwork {
     private DNS dns;
 
     /**
+     * Bumped every time {@link #reset()} runs (ie once per test). Lets objects created
+     * against a previous generation of the network (eg mocked NIO channels serving on a
+     * background thread) notice that the test that opened them is over, even though
+     * nothing explicitly closed them. See {@link #getResetGeneration()}.
+     */
+    private final AtomicLong resetGeneration = new AtomicLong(0);
+
+    /**
      * Private, singleton constructor.
      */
     private VirtualNetwork() {
@@ -200,6 +209,8 @@ public class VirtualNetwork {
      * Resets the virtual network state.
      */
     public void reset() {
+        resetGeneration.incrementAndGet();
+
         dns = new DNS();
 
         incomingConnections.clear();
@@ -217,6 +228,19 @@ public class VirtualNetwork {
     }
 
     // -------  observers ----------------------
+
+    /**
+     * Returns the current reset generation of the virtual network: a counter bumped by
+     * every call to {@link #reset()}. Mocked network objects (eg
+     * {@code EvoServerSocketChannel}) record this value when they are created and can
+     * compare it later to notice that the network -- and with it the test that created
+     * them -- has moved on, even without being explicitly closed.
+     *
+     * @return the number of times {@link #reset()} has been called so far
+     */
+    public long getResetGeneration() {
+        return resetGeneration.get();
+    }
 
     public Set<String> getViewOfRemoteAccessedFiles() {
         return Collections.unmodifiableSet(remoteAccessedFiles);

@@ -20,6 +20,7 @@
 package org.evosuite.runtime.mock.java.nio.channels;
 
 import org.evosuite.runtime.mock.java.net.MockSocket;
+import org.evosuite.runtime.vnet.VirtualNetwork;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -58,6 +59,13 @@ public class EvoSocketChannel extends SocketChannel {
     private InputStream in;
     private OutputStream out;
 
+    /**
+     * The {@link VirtualNetwork} reset generation at the time this channel was created.
+     * See {@link EvoServerSocketChannel#staleGeneration()} for why this matters: once the
+     * network has moved past this generation, the test that owned this channel is over.
+     */
+    private final long openGeneration = VirtualNetwork.getInstance().getResetGeneration();
+
     EvoSocketChannel() {
         super(SelectorProvider.provider());
         this.socket = new MockSocket();
@@ -70,6 +78,23 @@ public class EvoSocketChannel extends SocketChannel {
 
     static EvoSocketChannel wrap(MockSocket accepted) {
         return new EvoSocketChannel(accepted);
+    }
+
+    /**
+     * Returns {@code true} if the virtual network has moved past the generation this
+     * channel was opened in, closing the channel as a side effect the first time this is
+     * detected (see {@link EvoServerSocketChannel#staleGeneration()}).
+     */
+    private boolean staleGeneration() {
+        if (VirtualNetwork.getInstance().getResetGeneration() != openGeneration) {
+            try {
+                close();
+            } catch (IOException ignored) {
+                // best effort; the channel is being reported as stale/closed regardless
+            }
+            return true;
+        }
+        return false;
     }
 
     private static Set<SocketOption<?>> supportedOptionsSet() {
@@ -250,7 +275,7 @@ public class EvoSocketChannel extends SocketChannel {
     }
 
     private void ensureOpenAndConnected() throws ClosedChannelException {
-        if (!isOpen()) {
+        if (staleGeneration() || !isOpen()) {
             throw new ClosedChannelException();
         }
         if (!isConnected()) {
