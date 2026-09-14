@@ -261,4 +261,17 @@ public class VirtualFileSystemTest {
         Assertions.assertFalse(folder.exists());
     }
 
+    @Test
+    public void testMkdirOnRelativePath() {
+        // The working directory exists in the virtual file system, so a directory
+        // created relative to it must work like it does on a real file system.
+        MockFile relative = new MockFile("relative_dir_" + java.lang.System.nanoTime());
+        Assertions.assertNull(relative.getParent());
+        Assertions.assertTrue(relative.mkdir(), "cannot create " + relative.getAbsolutePath());
+        Assertions.assertTrue(relative.isDirectory());
+
+        MockFile orphan = new MockFile("missing_parent_" + java.lang.System.nanoTime(), "child");
+        Assertions.assertFalse(orphan.mkdir());
+    }
+
 }
