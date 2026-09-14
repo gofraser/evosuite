@@ -66,22 +66,19 @@ public class MockChannelTest {
     }
 
     @Test
-    public void testOpenBlockedWhenMockingEnabled() throws Exception {
+    public void testOpenReturnsVirtualChannelWhenMockingEnabled() throws Exception {
         MockFramework.enable();
+        org.evosuite.runtime.vnet.VirtualNetwork.getInstance().reset();
 
-        try {
-            MockSocketChannel.open();
-            Assertions.fail("Expected mocked SocketChannel.open() to be blocked");
-        } catch (MockIOException expected) {
-            // expected
-        }
+        SocketChannel sc = MockSocketChannel.open();
+        Assertions.assertNotNull(sc);
+        Assertions.assertTrue(sc.isOpen());
+        sc.close();
 
-        try {
-            MockServerSocketChannel.open();
-            Assertions.fail("Expected mocked ServerSocketChannel.open() to be blocked");
-        } catch (MockIOException expected) {
-            // expected
-        }
+        ServerSocketChannel ssc = MockServerSocketChannel.open();
+        Assertions.assertNotNull(ssc);
+        Assertions.assertTrue(ssc.isOpen());
+        ssc.close();
 
         try {
             MockDatagramChannel.open();
