@@ -21,6 +21,7 @@ package org.evosuite.runtime.mock.java.nio.channels;
 
 import org.evosuite.runtime.mock.java.net.MockServerSocket;
 import org.evosuite.runtime.mock.java.net.MockSocket;
+import org.evosuite.runtime.vnet.VirtualNetwork;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -70,9 +71,37 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
     /** How long a serving thread waits between checks for a pending client, in ms. */
     private static final long ACCEPT_POLL_MS = 20L;
 
+    /**
+     * The {@link VirtualNetwork} reset generation at the time this channel was opened.
+     * Once {@link VirtualNetwork#reset()} has run again (ie the test that opened this
+     * channel is over), the channel is treated as closed: nothing else ever closes a
+     * channel handed to a background serving thread, so without this a thread stuck in
+     * {@link #awaitClient()} would poll forever, long after its test ended.
+     */
+    private final long openGeneration = VirtualNetwork.getInstance().getResetGeneration();
+
     EvoServerSocketChannel() throws IOException {
         super(SelectorProvider.provider());
         this.socket = new MockServerSocket();
+    }
+
+    /**
+     * Returns {@code true} if the virtual network has moved past the generation this
+     * channel was opened in. As a side effect, the first time this is detected the
+     * channel is actually closed, so that {@link #isOpen()} -- which is {@code final} in
+     * {@link java.nio.channels.spi.AbstractInterruptibleChannel} and only reflects the
+     * real closed flag -- starts reporting {@code false} too.
+     */
+    private boolean staleGeneration() {
+        if (VirtualNetwork.getInstance().getResetGeneration() != openGeneration) {
+            try {
+                close();
+            } catch (IOException ignored) {
+                // best effort; the channel is being reported as stale/closed regardless
+            }
+            return true;
+        }
+        return false;
     }
 
     private static Set<SocketOption<?>> supportedOptionsSet() {
@@ -129,6 +158,15 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
 
     @Override
     public SocketChannel accept() throws IOException {
+        if (staleGeneration()) {
+            // The network -- and the test that opened this channel -- has moved on.
+            // Throw the same exception a thread blocked in accept() gets when another
+            // thread closes the channel from under it: this SUT (and well-behaved NIO
+            // code in general) already handles AsynchronousCloseException quietly,
+            // where a generic ClosedChannelException would fall into an expensive
+            // catch-and-log-and-retry path.
+            throw new AsynchronousCloseException();
+        }
         if (!isOpen()) {
             throw new ClosedChannelException();
         }
@@ -169,7 +207,9 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
             if (Thread.currentThread().isInterrupted()) {
                 throw new ClosedByInterruptException();
             }
-            if (!isOpen()) {
+            // Checked every poll (ACCEPT_POLL_MS = 20ms) so a reset unblocks a serving
+            // thread promptly instead of leaving it polling forever after its test ended.
+            if (staleGeneration() || !isOpen()) {
                 throw new AsynchronousCloseException();
             }
             try {
