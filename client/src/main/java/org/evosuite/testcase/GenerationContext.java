@@ -37,10 +37,17 @@ public final class GenerationContext {
     private final int depth;
 
     /**
+     * True once the resolver has committed to building the current dependency chain with real
+     * (non-mock) objects. See {@link #withConcreteChain()} for why this exists and how it is
+     * used.
+     */
+    private final boolean concreteChain;
+
+    /**
      * Constructor for fresh context.
      */
     public GenerationContext() {
-        this(Collections.emptySet(), 0);
+        this(Collections.emptySet(), 0, false);
     }
 
     /**
@@ -49,25 +56,28 @@ public final class GenerationContext {
      * @return a new context.
      */
     public static GenerationContext fromDepth(int depth) {
-        return new GenerationContext(Collections.emptySet(), depth);
+        return new GenerationContext(Collections.emptySet(), depth, false);
     }
 
-    private GenerationContext(Set<GenericAccessibleObject<?>> visited, int depth) {
+    private GenerationContext(Set<GenericAccessibleObject<?>> visited, int depth, boolean concreteChain) {
         this.visited = Collections.unmodifiableSet(new LinkedHashSet<>(visited));
         this.depth = depth;
+        this.concreteChain = concreteChain;
     }
 
     /**
-     * Create a new context with increased depth.
+     * Create a new context with increased depth. The concrete-chain flag is carried along
+     * unchanged, since going one level deeper never undoes a commitment made higher up.
      *
      * @return a new context.
      */
     public GenerationContext deeper() {
-        return new GenerationContext(visited, depth + 1);
+        return new GenerationContext(visited, depth + 1, concreteChain);
     }
 
     /**
-     * Create a new context with added visited object.
+     * Create a new context with added visited object. The concrete-chain flag is carried along
+     * unchanged.
      *
      * @param o the object to add.
      * @return a new context.
@@ -78,7 +88,34 @@ public final class GenerationContext {
         }
         Set<GenericAccessibleObject<?>> nextVisited = new LinkedHashSet<>(visited);
         nextVisited.add(o);
-        return new GenerationContext(nextVisited, depth);
+        return new GenerationContext(nextVisited, depth, concreteChain);
+    }
+
+    /**
+     * Create a new context with the concrete-chain flag set. VariableResolver.createObject()
+     * calls this when it resolves a deep, non-functional interface/abstract dependency to a real
+     * generator instead of a mock: everything built to satisfy THAT generator's own parameters
+     * (depth+1, depth+2, ...) should keep being built concretely too, rather than each level
+     * re-rolling its own independent mock/concrete coin. See the comment on effectiveMockProb in
+     * VariableResolver for the full rationale.
+     *
+     * @return a new context with concreteChain set to true.
+     */
+    public GenerationContext withConcreteChain() {
+        if (concreteChain) {
+            return this;
+        }
+        return new GenerationContext(visited, depth, true);
+    }
+
+    /**
+     * Return true if this context is inside a dependency chain that the resolver has already
+     * committed to building with real objects rather than mocks.
+     *
+     * @return true if inside a concrete chain.
+     */
+    public boolean isConcreteChain() {
+        return concreteChain;
     }
 
     /**
