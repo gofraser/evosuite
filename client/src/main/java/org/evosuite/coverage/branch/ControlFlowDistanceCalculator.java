@@ -27,6 +27,7 @@ import org.evosuite.graphs.cfg.ControlDependency;
 import org.evosuite.graphs.cfg.ControlFlowEdge;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.MethodCall;
+import org.evosuite.testcase.execution.MethodCall.MinBranchDistances;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.objectweb.asm.Type;
@@ -126,14 +127,13 @@ public class ControlFlowDistanceCalculator {
             return getRootDistance(result, className, methodName);
         }
 
-        if (value) {
-            if (result.getTrace().getCoveredTrueBranches().contains(branch.getActualBranchId())) {
-                return new ControlFlowDistance(0, 0.0);
-            }
-        } else {
-            if (result.getTrace().getCoveredFalseBranches().contains(branch.getActualBranchId())) {
-                return new ControlFlowDistance(0, 0.0);
-            }
+        // Covered means a recorded distance of exactly 0; look it up directly instead of
+        // materialising the whole covered-branch set for every goal.
+        Map<Integer, Double> distances = value
+                ? result.getTrace().getTrueDistances() : result.getTrace().getFalseDistances();
+        Double recorded = distances.get(branch.getActualBranchId());
+        if (recorded != null && recorded == 0.0) {
+            return new ControlFlowDistance(0, 0.0);
         }
 
         ControlFlowDistance nonRootDistance = getNonRootDistance(result, branch, value);
@@ -249,22 +249,13 @@ public class ControlFlowDistanceCalculator {
         // execution trace.  Cache it so the BFS runs at most once per branch.
         CdgAncestorInfo ancestorInfo = getAncestorInfo(branch);
 
-        // Trace data may still be extended while fitness is computed in parallel.
-        // Iterate on a stable snapshot to avoid fail-fast iterator exceptions.
-        List<MethodCall> methodCalls = result.getTrace().getMethodCalls();
-        List<MethodCall> callsSnapshot;
-        synchronized (methodCalls) {
-            callsSnapshot = new ArrayList<>(methodCalls);
-        }
-        for (MethodCall call : callsSnapshot) {
-            if (call.className.equals(className) && call.methodName.equals(methodName)) {
-                Map<Integer, MinBranchDistances> branchTraceMinDistances =
-                        buildBranchTraceMinDistances(call);
-                ControlFlowDistance distance = lookupDistance(branch, value,
-                        ancestorInfo, branchTraceMinDistances);
-                if (distance != null && distance.compareTo(resultDistance) < 0) {
-                    resultDistance = distance;
-                }
+        // The trace indexes its calls by method, so only the calls of this goal's method
+        // are visited; the index is a snapshot, safe against the trace still growing.
+        for (MethodCall call : result.getTrace().getMethodCalls(className, methodName)) {
+            ControlFlowDistance distance = lookupDistance(branch, value,
+                    ancestorInfo, call.getMinBranchDistances());
+            if (distance != null && distance.compareTo(resultDistance) < 0) {
+                resultDistance = distance;
             }
         }
 
@@ -380,8 +371,14 @@ public class ControlFlowDistanceCalculator {
 
     /**
      * Looks up the minimum distance for the target branch using the cached
-     * ancestor info and the per-call traced branch distances.  Runs in
-     * O(traced_branches) time.
+     * ancestor info and the per-call traced branch distances.
+     *
+     * <p>A {@link ControlFlowDistance} is ordered by approach level first, so the
+     * ancestors are visited level by level and the search stops at the first level
+     * where the call executed one of them (or where the chain reaches a root). The
+     * direct control dependencies almost always settle it, which keeps this cheap even
+     * for a branch deep inside a loop over a large switch, whose ancestor set spans the
+     * whole method and would otherwise be walked once per goal per call.
      *
      * @return the minimum distance, or {@code null} if no path was found
      */
@@ -390,60 +387,45 @@ public class ControlFlowDistanceCalculator {
             CdgAncestorInfo ancestorInfo,
             Map<Integer, MinBranchDistances> branchTraceMinDistances) {
 
-        ControlFlowDistance best = null;
-
         // Level 0: check the target branch itself (only the desired value)
         MinBranchDistances targetTraced =
                 branchTraceMinDistances.get(branch.getActualBranchId());
         if (targetTraced != null) {
             double branchDist = value
-                    ? targetTraced.trueMinDistance : targetTraced.falseMinDistance;
+                    ? targetTraced.getTrueMinDistance() : targetTraced.getFalseMinDistance();
             if (branchDist < Double.MAX_VALUE) {
-                best = new ControlFlowDistance(0, branchDist);
+                return new ControlFlowDistance(0, branchDist);
             }
         }
 
-        // Levels 1+: check ancestor branches from CDG
-        for (Map.Entry<Integer, MinBranchDistances> entry :
-                branchTraceMinDistances.entrySet()) {
-            int branchId = entry.getKey();
-            MinBranchDistances distances = entry.getValue();
-
-            if (distances.trueMinDistance < Double.MAX_VALUE) {
-                Integer level = ancestorInfo.ancestorApproachLevels.get(
-                        toBranchOutcomeKey(branchId, true));
-                if (level != null) {
-                    ControlFlowDistance candidate =
-                            new ControlFlowDistance(level, distances.trueMinDistance);
-                    if (best == null || candidate.compareTo(best) < 0) {
-                        best = candidate;
-                    }
+        // Levels 1+: nearest level with an executed ancestor, or the terminal level
+        int maxLevel = Math.max(ancestorInfo.ancestorsByLevel.size() - 1,
+                ancestorInfo.terminalApproachLevel == Integer.MAX_VALUE ? 0 : ancestorInfo.terminalApproachLevel);
+        for (int level = 1; level <= maxLevel; level++) {
+            if (level == ancestorInfo.terminalApproachLevel) {
+                // Method was called but the chain leads to root/handler: distance 0 at
+                // this level beats any executed ancestor at the same level.
+                return new ControlFlowDistance(level, 0.0);
+            }
+            if (level >= ancestorInfo.ancestorsByLevel.size()) {
+                continue;
+            }
+            double bestDistance = Double.MAX_VALUE;
+            for (long key : ancestorInfo.ancestorsByLevel.get(level)) {
+                MinBranchDistances distances = branchTraceMinDistances.get((int) (key >> 1));
+                if (distances == null) {
+                    continue;
                 }
+                double distance = (key & 1L) == 1L
+                        ? distances.getTrueMinDistance() : distances.getFalseMinDistance();
+                bestDistance = Math.min(bestDistance, distance);
             }
-
-            if (distances.falseMinDistance < Double.MAX_VALUE) {
-                Integer level = ancestorInfo.ancestorApproachLevels.get(
-                        toBranchOutcomeKey(branchId, false));
-                if (level != null) {
-                    ControlFlowDistance candidate =
-                            new ControlFlowDistance(level, distances.falseMinDistance);
-                    if (best == null || candidate.compareTo(best) < 0) {
-                        best = candidate;
-                    }
-                }
+            if (bestDistance < Double.MAX_VALUE) {
+                return new ControlFlowDistance(level, bestDistance);
             }
         }
 
-        // Terminal path: method was called but the chain leads to root/handler
-        if (ancestorInfo.terminalApproachLevel < Integer.MAX_VALUE) {
-            ControlFlowDistance terminal =
-                    new ControlFlowDistance(ancestorInfo.terminalApproachLevel, 0.0);
-            if (best == null || terminal.compareTo(best) < 0) {
-                best = terminal;
-            }
-        }
-
-        return best;
+        return null;
     }
 
     /**
@@ -516,29 +498,8 @@ public class ControlFlowDistanceCalculator {
         }
     }
 
-    private static Map<Integer, MinBranchDistances> buildBranchTraceMinDistances(MethodCall call) {
-        Map<Integer, MinBranchDistances> minDistances = new HashMap<>();
-        List<Integer> path = call.branchTrace;
-        List<Double> trueDistances = call.trueDistanceTrace;
-        List<Double> falseDistances = call.falseDistanceTrace;
-        int maxPos = Math.min(path.size(), Math.min(trueDistances.size(), falseDistances.size()));
-        for (int pos = 0; pos < maxPos; pos++) {
-            int branchId = path.get(pos);
-            MinBranchDistances distances = minDistances.computeIfAbsent(branchId,
-                    ignored -> new MinBranchDistances());
-            distances.trueMinDistance = Math.min(distances.trueMinDistance, trueDistances.get(pos));
-            distances.falseMinDistance = Math.min(distances.falseMinDistance, falseDistances.get(pos));
-        }
-        return minDistances;
-    }
-
     private static long toBranchOutcomeKey(int branchId, boolean branchValue) {
         return (((long) branchId) << 1) | (branchValue ? 1L : 0L);
-    }
-
-    private static final class MinBranchDistances {
-        private double trueMinDistance = Double.MAX_VALUE;
-        private double falseMinDistance = Double.MAX_VALUE;
     }
 
     private static final class BfsEntry {
@@ -560,12 +521,22 @@ public class ControlFlowDistanceCalculator {
      * that reach a root-dependent or exception-handler node.
      */
     private static final class CdgAncestorInfo {
-        final Map<Long, Integer> ancestorApproachLevels;
+        /** Ancestor (branchId, value) keys grouped by approach level; index 0 is unused. */
+        final List<long[]> ancestorsByLevel;
         final int terminalApproachLevel;
 
         CdgAncestorInfo(Map<Long, Integer> ancestorApproachLevels,
                          int terminalApproachLevel) {
-            this.ancestorApproachLevels = ancestorApproachLevels;
+            int maxLevel = ancestorApproachLevels.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+            List<List<Long>> buckets = new ArrayList<>();
+            for (int level = 0; level <= maxLevel; level++) {
+                buckets.add(new ArrayList<>());
+            }
+            ancestorApproachLevels.forEach((key, level) -> buckets.get(level).add(key));
+            this.ancestorsByLevel = new ArrayList<>();
+            for (List<Long> bucket : buckets) {
+                this.ancestorsByLevel.add(bucket.stream().mapToLong(Long::longValue).toArray());
+            }
             this.terminalApproachLevel = terminalApproachLevel;
         }
     }

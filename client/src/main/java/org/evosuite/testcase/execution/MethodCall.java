@@ -20,7 +20,9 @@
 package org.evosuite.testcase.execution;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Represents a method call in an execution trace.
@@ -38,6 +40,32 @@ public class MethodCall implements Cloneable {
     public int methodId;
     public int callingObjectId;
     public int callDepth;
+
+    /**
+     * Per-branch summary of the distance traces, computed lazily by
+     * {@link #getMinBranchDistances()}. The trace lists are appended to while the
+     * test executes and trimmed by the def-use analysis, so the summary is tied to
+     * the trace length it was computed for and rebuilt when that changes.
+     */
+    private volatile Map<Integer, MinBranchDistances> minBranchDistances;
+    private volatile int minBranchDistancesTraceSize = -1;
+
+    /**
+     * The smallest true and false distance recorded for one branch over all the
+     * times it was executed in this call.
+     */
+    public static final class MinBranchDistances {
+        private double trueMinDistance = Double.MAX_VALUE;
+        private double falseMinDistance = Double.MAX_VALUE;
+
+        public double getTrueMinDistance() {
+            return trueMinDistance;
+        }
+
+        public double getFalseMinDistance() {
+            return falseMinDistance;
+        }
+    }
 
     /**
      * <p>Constructor for MethodCall.</p>
@@ -157,6 +185,37 @@ public class MethodCall implements Cloneable {
     /**
      * {@inheritDoc}
      */
+    /**
+     * Returns, for every branch executed in this call, the minimum true and false
+     * distance over all its executions.
+     *
+     * <p>The result depends only on the trace, not on the coverage goal asking for
+     * it, so it is computed once and shared by every goal's fitness evaluation. A
+     * test that drives a loop to the iteration limit leaves a trace of ~10^5 entries
+     * here; rebuilding this map per goal (hundreds of goals per test) used to eat the
+     * whole search budget on such classes.
+     *
+     * @return the per-branch minimum distances, keyed by actual branch id
+     */
+    public Map<Integer, MinBranchDistances> getMinBranchDistances() {
+        int size = Math.min(branchTrace.size(),
+                Math.min(trueDistanceTrace.size(), falseDistanceTrace.size()));
+        Map<Integer, MinBranchDistances> cached = minBranchDistances;
+        if (cached != null && minBranchDistancesTraceSize == size) {
+            return cached;
+        }
+        Map<Integer, MinBranchDistances> result = new HashMap<>();
+        for (int pos = 0; pos < size; pos++) {
+            MinBranchDistances distances = result.computeIfAbsent(branchTrace.get(pos),
+                    ignored -> new MinBranchDistances());
+            distances.trueMinDistance = Math.min(distances.trueMinDistance, trueDistanceTrace.get(pos));
+            distances.falseMinDistance = Math.min(distances.falseMinDistance, falseDistanceTrace.get(pos));
+        }
+        minBranchDistancesTraceSize = size;
+        minBranchDistances = result;
+        return result;
+    }
+
     @Override
     public MethodCall clone() {
         MethodCall copy = new MethodCall(className, methodName, methodId,

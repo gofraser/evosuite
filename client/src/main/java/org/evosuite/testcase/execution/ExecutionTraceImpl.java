@@ -261,6 +261,17 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     private final Map<Integer, Double> falseDistancesSum = Collections.synchronizedMap(new HashMap<>());
     // finished_calls;
     private List<MethodCall> finishedCalls = Collections.synchronizedList(new ArrayList<>());
+
+    /**
+     * {@link #finishedCalls} grouped by "className.methodName", built on demand by
+     * {@link #getMethodCalls(String, String)}. The list grows while the test runs and is
+     * replaced by {@link #clear()} and trimmed by the def-use analysis, so the index
+     * remembers which list object and length it was built from and is rebuilt when either
+     * changes.
+     */
+    private volatile Map<String, List<MethodCall>> callsByMethod;
+    private List<MethodCall> callsByMethodSource;
+    private int callsByMethodSize = -1;
     private Map<Integer, Object> knownCallerObjects = Collections.synchronizedMap(new HashMap<>());
     // to differentiate between different MethodCalls
     private int methodId = 0;
@@ -1159,6 +1170,30 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     @Override
     public List<MethodCall> getMethodCalls() {
         return finishedCalls;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<MethodCall> getMethodCalls(String className, String methodName) {
+        List<MethodCall> calls = finishedCalls;
+        Map<String, List<MethodCall>> index;
+        synchronized (calls) {
+            if (callsByMethod == null || callsByMethodSource != calls || callsByMethodSize != calls.size()) {
+                index = new HashMap<>();
+                for (MethodCall call : calls) {
+                    index.computeIfAbsent(call.className + "." + call.methodName, k -> new ArrayList<>()).add(call);
+                }
+                callsByMethodSource = calls;
+                callsByMethodSize = calls.size();
+                callsByMethod = index;
+            } else {
+                index = callsByMethod;
+            }
+        }
+        List<MethodCall> result = index.get(className + "." + methodName);
+        return result == null ? Collections.emptyList() : result;
     }
 
     /*

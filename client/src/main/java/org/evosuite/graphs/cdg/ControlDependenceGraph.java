@@ -143,37 +143,13 @@ public class ControlDependenceGraph extends EvoSuiteGraph<BasicBlock, ControlFlo
             return insBlock.getControlDependencies();
         }
 
-        Set<ControlDependency> direct = retrieveControlDependencies(insBlock, new LinkedHashSet<>());
-        if (direct.isEmpty()) {
-            return direct;
-        }
-
-        // Expand with transitive control dependencies (e.g., nested branches).
-        Set<ControlDependency> expanded = new LinkedHashSet<>(direct);
-        Set<BasicBlock> visited = new LinkedHashSet<>();
-        for (ControlDependency cd : direct) {
-            expandTransitiveDependencies(expanded,
-                    cd.getBranch().getInstruction().getBasicBlock(),
-                    visited);
-        }
-        return expanded;
-    }
-
-    private void expandTransitiveDependencies(Set<ControlDependency> out,
-                                              BasicBlock start,
-                                              Set<BasicBlock> visited) {
-        if (start == null || !visited.add(start)) {
-            return;
-        }
-
-        Set<ControlDependency> deps = retrieveControlDependencies(start, new LinkedHashSet<>());
-        for (ControlDependency cd : deps) {
-            if (out.add(cd)) {
-                expandTransitiveDependencies(out,
-                        cd.getBranch().getInstruction().getBasicBlock(),
-                        visited);
-            }
-        }
+        // Direct dependencies only. Every consumer -- approach levels in
+        // ControlFlowDistanceCalculator, DynaMOSA's goal graph, mutation and line
+        // fitness -- walks the chain itself and reads the distance to the target off
+        // the number of steps. Returning the transitive closure here put every ancestor
+        // one step away: approach levels collapsed to 1 (no guidance left towards deeply
+        // nested code) and each fitness lookup had to visit the whole method's branches.
+        return retrieveControlDependencies(insBlock, new LinkedHashSet<>());
     }
 
     private Set<ControlDependency> retrieveControlDependencies(BasicBlock insBlock,

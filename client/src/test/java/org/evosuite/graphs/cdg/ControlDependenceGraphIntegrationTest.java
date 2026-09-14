@@ -128,6 +128,31 @@ public class ControlDependenceGraphIntegrationTest {
     }
 
     /**
+     * Lines of every branch the block depends on directly or through the chain of
+     * control dependencies, i.e. what a walk up the CDG sees.
+     */
+    private Set<Integer> getTransitiveControllingBranchLines(ControlDependenceGraph cdg, BasicBlock block) {
+        Set<Integer> lines = new LinkedHashSet<>();
+        Set<BasicBlock> visited = new LinkedHashSet<>();
+        java.util.Deque<BasicBlock> pending = new java.util.ArrayDeque<>();
+        pending.add(block);
+        while (!pending.isEmpty()) {
+            BasicBlock current = pending.poll();
+            if (!visited.add(current)) {
+                continue;
+            }
+            for (ControlDependency cd : cdg.getControlDependentBranches(current)) {
+                BytecodeInstruction branchIns = cd.getBranch().getInstruction();
+                if (branchIns.hasLineNumberSet()) {
+                    lines.add(branchIns.getLineNumber());
+                }
+                pending.add(branchIns.getBasicBlock());
+            }
+        }
+        return lines;
+    }
+
+    /**
      * Dumps CDG structure for debugging purposes.
      */
     private String dumpCDG(ControlDependenceGraph cdg) {
@@ -422,21 +447,28 @@ public class ControlDependenceGraphIntegrationTest {
         assertNotNull(veryNegBlock, "Should find block for 'very-neg' (line 34): " + dump);
         assertNotNull(negBlock, "Should find block for 'neg' (line 36): " + dump);
 
+        // Direct dependencies are the innermost guards; the try guard at line 25 is
+        // reached through the chain, not reported as a direct dependency.
         Set<Integer> zeroDeps = getControllingBranchLines(cdg, zeroBlock);
-        assertTrue(zeroDeps.contains(25), "'zero' should depend on try guard (line 25): " + dump);
         assertTrue(zeroDeps.contains(28), "'zero' should depend on zero-check (line 28): " + dump);
+        assertFalse(zeroDeps.contains(25), "'zero' should not depend directly on the try guard: " + dump);
+        assertTrue(getTransitiveControllingBranchLines(cdg, zeroBlock).contains(25),
+                "'zero' should reach the try guard (line 25) through the chain: " + dump);
 
         Set<Integer> posDeps = getControllingBranchLines(cdg, posBlock);
-        assertTrue(posDeps.contains(25), "'pos' should depend on try guard (line 25): " + dump);
         assertTrue(posDeps.contains(28), "'pos' should depend on zero-check (line 28): " + dump);
+        assertTrue(getTransitiveControllingBranchLines(cdg, posBlock).contains(25),
+                "'pos' should reach the try guard (line 25) through the chain: " + dump);
 
         Set<Integer> veryNegDeps = getControllingBranchLines(cdg, veryNegBlock);
         assertTrue(veryNegDeps.contains(33), "'very-neg' should depend on catch guard (line 33): " + dump);
-        assertTrue(veryNegDeps.contains(25), "'very-neg' should depend on try guard (line 25): " + dump);
+        assertTrue(getTransitiveControllingBranchLines(cdg, veryNegBlock).contains(25),
+                "'very-neg' should reach the try guard (line 25) through the chain: " + dump);
 
         Set<Integer> negDeps = getControllingBranchLines(cdg, negBlock);
         assertTrue(negDeps.contains(33), "'neg' should depend on catch guard (line 33): " + dump);
-        assertTrue(negDeps.contains(25), "'neg' should depend on try guard (line 25): " + dump);
+        assertTrue(getTransitiveControllingBranchLines(cdg, negBlock).contains(25),
+                "'neg' should reach the try guard (line 25) through the chain: " + dump);
     }
 
     // ── Test: ImplicitExceptionControlFlow ─────────────────────────

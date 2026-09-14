@@ -367,6 +367,14 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
         return trace.getMethodCalls();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public List<MethodCall> getMethodCalls(String className, String methodName) {
+        return trace.getMethodCalls(className, methodName);
+    }
+
     /*
      * (non-Javadoc)
      *
