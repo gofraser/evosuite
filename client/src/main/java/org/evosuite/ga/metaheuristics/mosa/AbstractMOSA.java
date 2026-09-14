@@ -593,7 +593,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             if (llmCrossover != null) {
                 try {
                     crossoverResult = llmCrossover.tryCrossoverWithResult(
-                            offspring1, offspring2, getUncoveredGoals());
+                            offspring1, offspring2, getCurrentGoals());
                 } catch (Exception e) {
                     logger.debug("LLM crossover error; falling back to standard", e);
                     crossoverResult = OperatorAttemptResult.semanticFallback();
@@ -823,7 +823,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 OperatorAttemptResult.SkipReason.NOT_CONFIGURED);
         if (llmMutation != null) {
             try {
-                mutResult = llmMutation.tryMutateWithResult(offspring, getUncoveredGoals());
+                mutResult = llmMutation.tryMutateWithResult(offspring, getCurrentGoals());
             } catch (Exception e) {
                 logger.debug("LLM mutation error; falling back to standard", e);
                 mutResult = OperatorAttemptResult.semanticFallback();
@@ -2720,11 +2720,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * variant-specific sources (e.g., island immigrants for MOSA).
      *
      * @param coveredGoalCountSupplier supplies the current covered goal count
-     * @param uncoveredGoalsSupplier supplies the current uncovered goals
+     * @param currentGoalsSupplier supplies the goals LLM prompts should target
+     *                             (see {@link #getCurrentGoals()})
      */
     protected void registerExternalCandidateSources(
             java.util.function.IntSupplier coveredGoalCountSupplier,
-            java.util.function.Supplier<Set<TestFitnessFunction>> uncoveredGoalsSupplier) {
+            java.util.function.Supplier<Set<TestFitnessFunction>> currentGoalsSupplier) {
         // Snapshot the LLM helpers into final locals so that
         // shutdownLlmAssistance() (which nulls the fields) doesn't cause the
         // lambdas to NPE if collectExternalCandidates runs after teardown.
@@ -2774,7 +2775,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             externalCandidateSources.add(new ExternalCandidateSource() {
                 @Override
                 public List<TestChromosome> drain() {
-                    return driveStagnationHelper(helper, coveredGoalCountSupplier, uncoveredGoalsSupplier);
+                    return driveStagnationHelper(helper, coveredGoalCountSupplier, currentGoalsSupplier);
                 }
 
                 @Override
@@ -2823,11 +2824,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private List<TestChromosome> driveStagnationHelper(
             org.evosuite.llm.search.StagnationLlmHelper helper,
             java.util.function.IntSupplier coveredGoalCountSupplier,
-            java.util.function.Supplier<Set<TestFitnessFunction>> uncoveredGoalsSupplier) {
+            java.util.function.Supplier<Set<TestFitnessFunction>> currentGoalsSupplier) {
         int coveredCount = coveredGoalCountSupplier.getAsInt();
-        Set<TestFitnessFunction> uncovered = uncoveredGoalsSupplier.get();
+        int totalGoals = coveredCount + getNumberOfUncoveredGoals();
+        Set<TestFitnessFunction> targets = currentGoalsSupplier.get();
         List<TestChromosome> pop = new ArrayList<>(population);
-        helper.maybeSubmit(coveredCount, uncovered, pop);
+        helper.maybeSubmit(coveredCount, totalGoals, targets, pop);
         return helper.drain();
     }
 
@@ -3046,6 +3048,18 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      */
     protected Set<TestFitnessFunction> getUncoveredGoals() {
         return new LinkedHashSet<>(Archive.getArchiveInstance().getUncoveredTargets());
+    }
+
+    /**
+     * Returns the uncovered goals the search is targeting right now. This is what LLM prompts
+     * (operators, stagnation, async producer, seed factory) should list: goals whose control
+     * dependencies are still unmet cannot be reached directly and only inflate the prompt.
+     * MOSA targets every uncovered goal; DynaMOSA narrows this to its current frontier.
+     *
+     * @return a {@link java.util.Set} object.
+     */
+    protected Set<TestFitnessFunction> getCurrentGoals() {
+        return getUncoveredGoals();
     }
 
     /**

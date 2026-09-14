@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -641,6 +642,93 @@ class StagnationLlmHelperTest {
         } finally {
             Properties.LLM_STAGNATION_PROMPT = oldPromptMode;
             Properties.TARGET_CLASS = oldTargetClass;
+        }
+    }
+
+    @Test
+    void maybeSubmitFourArgPassesExplicitTotalGoalsToBuildPrompt() {
+        LlmStatistics.resetDiagnosticCardCounters();
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        AtomicInteger capturedTotalGoals = new AtomicInteger(-1);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get) {
+            @Override
+            public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                            List<TestChromosome> currentPopulation,
+                                            int totalGoals, int coveredGoalCount,
+                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                            boolean suppressInFlightRepeats) {
+                capturedTotalGoals.set(totalGoals);
+                return super.buildPrompt(uncoveredGoals, currentPopulation, totalGoals,
+                        coveredGoalCount, bestFitnessPerGoal, suppressInFlightRepeats);
+            }
+        };
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goal = makeGoal("g");
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+
+            // A frontier of one goal, but an explicit totalGoals far larger than
+            // coveredCount + goals.size() -- this can only reach buildPrompt if the
+            // 4-arg overload passes totalGoals through untouched.
+            helper.maybeSubmit(0, 99, Collections.singleton(goal), pop);  // not stagnant yet
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(0, 99, Collections.singleton(goal), pop);  // fires
+            helper.drain();
+
+            assertEquals(99, capturedTotalGoals.get(),
+                    "the 4-arg maybeSubmit must pass its explicit totalGoals through to buildPrompt");
+        } finally {
+            helper.shutdown();
+            service.close();
+        }
+    }
+
+    @Test
+    void maybeSubmitThreeArgDerivesTotalGoalsFromCoveredPlusGoalsSize() {
+        LlmStatistics.resetDiagnosticCardCounters();
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        model.enqueue(LlmFeature.STAGNATION, SIMPLE_JUNIT_RESPONSE);
+        LlmService service = createService(model, 2);
+        AtomicLong clock = new AtomicLong(0L);
+        AtomicInteger capturedTotalGoals = new AtomicInteger(-1);
+        StagnationDetector detector = new StagnationDetector(service, false, 1, 1, clock::get) {
+            @Override
+            public PromptResult buildPrompt(Collection<TestFitnessFunction> uncoveredGoals,
+                                            List<TestChromosome> currentPopulation,
+                                            int totalGoals, int coveredGoalCount,
+                                            Map<TestFitnessFunction, Double> bestFitnessPerGoal,
+                                            boolean suppressInFlightRepeats) {
+                capturedTotalGoals.set(totalGoals);
+                return super.buildPrompt(uncoveredGoals, currentPopulation, totalGoals,
+                        coveredGoalCount, bestFitnessPerGoal, suppressInFlightRepeats);
+            }
+        };
+        StagnationLlmHelper helper = new StagnationLlmHelper(
+                detector, LlmStagnationMode.SYNC, () -> -1L, 0);
+
+        try {
+            TestFitnessFunction goalA = makeGoal("a");
+            TestFitnessFunction goalB = makeGoal("b");
+            List<TestFitnessFunction> goals = java.util.Arrays.asList(goalA, goalB);
+            List<TestChromosome> pop = Collections.singletonList(new TestChromosome());
+            int coveredCount = 3;
+
+            // 3-arg overload: no explicit totalGoals.
+            helper.maybeSubmit(coveredCount, goals, pop);  // not stagnant yet
+            clock.addAndGet(TimeUnit.SECONDS.toNanos(2));
+            helper.maybeSubmit(coveredCount, goals, pop);  // fires
+            helper.drain();
+
+            assertEquals(coveredCount + goals.size(), capturedTotalGoals.get(),
+                    "the 3-arg maybeSubmit must derive totalGoals as coveredCount + goals.size()");
+        } finally {
+            helper.shutdown();
+            service.close();
         }
     }
 

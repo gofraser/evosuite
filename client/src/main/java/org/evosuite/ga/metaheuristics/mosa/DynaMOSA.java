@@ -121,12 +121,10 @@ public class DynaMOSA extends AbstractMOSA {
         // We are trying to optimize for multiple targets at the same time.
         this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
         try {
-            initializeLlmAssistance(() -> goalsManager == null
-                    ? Collections.emptySet()
-                    : goalsManager.getUncoveredGoals(), false);
+            initializeLlmAssistance(this::getCurrentGoals, false);
             registerExternalCandidateSources(
                     () -> goalsManager == null ? 0 : goalsManager.getCoveredGoals().size(),
-                    () -> goalsManager == null ? Collections.emptySet() : goalsManager.getUncoveredGoals());
+                    this::getCurrentGoals);
 
             LoggingUtils.getEvoLogger().info("* Initial Number of Goals in DynaMOSA = "
                     + this.goalsManager.getCurrentGoals().size() + " / " + this.getUncoveredGoals().size());
@@ -216,8 +214,18 @@ public class DynaMOSA extends AbstractMOSA {
         return testFitnessFunctions;
     }
 
-    /*
-     * Registers all external candidate sources for this DynaMOSA instance:
-     * LLM async producer and LLM stagnation detector.
+    /**
+     * {@inheritDoc}
+     *
+     * <p>DynaMOSA's frontier: uncovered goals whose control dependencies are already
+     * covered. Returned as a copy so no caller holds the goals manager's live set,
+     * which fitness evaluation rewrites every generation.
      */
+    @Override
+    protected Set<TestFitnessFunction> getCurrentGoals() {
+        if (goalsManager == null) {
+            return Collections.emptySet();
+        }
+        return new LinkedHashSet<>(goalsManager.getCurrentGoals());
+    }
 }

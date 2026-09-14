@@ -170,13 +170,33 @@ public final class StagnationLlmHelper {
     }
 
     /**
+     * As {@link #maybeSubmit(int, int, Collection, List)}, treating every
+     * uncovered goal as a prompt target.
+     */
+    public void maybeSubmit(int coveredCount,
+                            Collection<TestFitnessFunction> uncoveredGoals,
+                            List<TestChromosome> populationSnapshot) {
+        int totalGoals = coveredCount + (uncoveredGoals == null ? 0 : uncoveredGoals.size());
+        maybeSubmit(coveredCount, totalGoals, uncoveredGoals, populationSnapshot);
+    }
+
+    /**
      * Inspects stagnation state and, if triggered, runs the LLM call now (SYNC)
      * or submits it to the background worker (ASYNC). Non-blocking in ASYNC,
      * blocking-for-up-to-{@code llm_timeout_seconds × (1 + repairAttempts)} (worst case, full repair chain)
      * in SYNC. The {@code populationSnapshot} should be a defensive copy: it
      * is read from the worker thread in ASYNC mode.
+     *
+     * @param coveredCount       goals covered so far, drives stagnation detection
+     * @param totalGoals         all goals, covered or not; only the progress line in the
+     *                           prompt uses it, so it may exceed
+     *                           {@code coveredCount + uncoveredGoals.size()} when the
+     *                           caller narrows the targets to a frontier
+     * @param uncoveredGoals     goals the prompt should target
+     * @param populationSnapshot defensive copy of the population
      */
     public void maybeSubmit(int coveredCount,
+                            int totalGoals,
                             Collection<TestFitnessFunction> uncoveredGoals,
                             List<TestChromosome> populationSnapshot) {
         if (shutdown) {
@@ -243,7 +263,6 @@ public final class StagnationLlmHelper {
         }
         traceOutcome("fired:" + mode.name().toLowerCase(), coveredCount, uncoveredSize, -1L, 0);
 
-        int totalGoals = coveredCount + uncoveredGoals.size();
         Map<TestFitnessFunction, Double> bestFitness =
                 StagnationDetector.computeBestFitnessPerGoal(uncoveredGoals, populationSnapshot);
         PromptResult prompt = detector.buildPrompt(uncoveredGoals, populationSnapshot,

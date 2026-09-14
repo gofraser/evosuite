@@ -407,13 +407,23 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
     }
 
-    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+    /**
+     * Starts the LLM helpers that run alongside the search.
+     *
+     * @param currentGoalsSupplier the goals LLM prompts should target. Pass the goals the
+     *                             search is currently pursuing (DynaMOSA's frontier), not
+     *                             every uncovered goal: goals behind unmet control
+     *                             dependencies cannot be reached directly and only inflate
+     *                             prompts. Read from background threads, so it must return a
+     *                             snapshot.
+     */
+    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier,
                                            boolean maximizationObjective,
                                            LlmInjectionAdapter<T> injectionAdapter) {
         this.llmInjectionAdapter = injectionAdapter;
-        initializeAsyncProducer(uncoveredGoalsSupplier);
+        initializeAsyncProducer(currentGoalsSupplier);
         initializeStagnationDetector(maximizationObjective);
-        wireUncoveredGoalsIntoLlmTestFactory(uncoveredGoalsSupplier);
+        wireUncoveredGoalsIntoLlmTestFactory(currentGoalsSupplier);
     }
 
     /**
@@ -450,9 +460,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return null;
     }
 
-    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier,
+    protected void initializeLlmAssistance(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier,
                                            boolean maximizationObjective) {
-        initializeLlmAssistance(uncoveredGoalsSupplier, maximizationObjective, llmInjectionAdapter);
+        initializeLlmAssistance(currentGoalsSupplier, maximizationObjective, llmInjectionAdapter);
     }
 
     public void setLlmInjectionAdapter(LlmInjectionAdapter<T> injectionAdapter) {
