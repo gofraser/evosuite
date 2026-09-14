@@ -506,7 +506,10 @@ public class MockFile extends File implements OverrideMock {
         if (!MockFramework.isEnabled()) {
             return super.mkdir();
         }
-        String parent = this.getParent();
+        // Resolve against the working directory first: getParent() is null for a
+        // relative path such as new File("out"), whose parent is the working
+        // directory, and real File.mkdir() creates that just fine.
+        String parent = getAbsoluteFile().getParent();
         if (parent == null || !VirtualFileSystem.getInstance().exists(parent)) {
             return false;
         }
