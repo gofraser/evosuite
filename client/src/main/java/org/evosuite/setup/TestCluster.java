@@ -24,6 +24,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.TimeController;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.ga.archive.Archive;
+import org.evosuite.ga.operators.selection.RankSelection;
 import org.evosuite.junit.CoverageAnalysis;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -1367,9 +1368,22 @@ public class TestCluster {
     }
 
     /**
-     * Selects a generator from the compatible list using weighted random selection that favours
-     * generators whose parameters are easier to satisfy. This reduces wasted construction attempts
+     * Selects a generator from the compatible list using rank-based selection that favours
+     * generators whose parameters are easier to satisfy, reducing wasted construction attempts
      * compared to uniform random selection.
+     *
+     * <p>{@link #scoreGenerator} produces a multiplicative score that is only used here to
+     * <em>order</em> the candidates from most to least promising; the raw score is not used as a
+     * selection probability. Several of its factors stack (e.g. a parameter count penalty times a
+     * per-parameter penalty times an owner-has-no-generator penalty), so on constructors with a
+     * few object-typed parameters the raw score can end up one or two orders of magnitude below
+     * that of a trivial no-arg constructor. Sampling proportionally to that raw score effectively
+     * starves every generator but the cheapest one, which can make classes whose only useful
+     * construction path goes through a "harder" generator unreachable. Rank selection (the same
+     * mechanism {@link org.evosuite.ga.operators.selection.RankSelection} uses to pick
+     * individuals, with its own, generator-specific {@link Properties#GENERATOR_RANK_BIAS}) keeps
+     * the preference for easier generators while bounding the best-to-worst selection-probability
+     * ratio to roughly the configured bias, so harder-but-necessary generators stay reachable.
      */
     private GenericAccessibleObject<?> selectWeightedGenerator(
             List<GenericAccessibleObject<?>> compatible, GenericClass<?> targetType) {
@@ -1377,29 +1391,20 @@ public class TestCluster {
             return compatible.get(0);
         }
 
-        double[] weights = new double[compatible.size()];
-        for (int i = 0; i < compatible.size(); i++) {
-            weights[i] = scoreGenerator(compatible.get(i), targetType);
-        }
-
-        // Weighted random selection
-        double totalWeight = 0;
-        for (double w : weights) {
-            totalWeight += w;
-        }
-        if (totalWeight <= 0) {
+        double bias = Properties.GENERATOR_RANK_BIAS;
+        if (bias <= 1.0) {
             return Randomness.choice(compatible);
         }
 
-        double r = Randomness.nextDouble() * totalWeight;
-        double cumulative = 0;
-        for (int i = 0; i < compatible.size(); i++) {
-            cumulative += weights[i];
-            if (r <= cumulative) {
-                return compatible.get(i);
-            }
-        }
-        return compatible.get(compatible.size() - 1);
+        // Stable sort, best (highest score) first, so ties keep their original relative order
+        // and the result stays deterministic for a given input order and random seed.
+        List<GenericAccessibleObject<?>> ranked = new ArrayList<>(compatible);
+        ranked.sort(Comparator
+                .comparingDouble((GenericAccessibleObject<?> g) -> scoreGenerator(g, targetType))
+                .reversed());
+
+        int index = RankSelection.getIndex(ranked.size(), bias);
+        return ranked.get(index);
     }
 
     private boolean isHeadlessIncompatibleGenerator(GenericAccessibleObject<?> generator) {
@@ -1586,6 +1591,12 @@ public class TestCluster {
      * Scores a generator based on how likely it is to succeed. Higher is better. Considers: number
      * of parameters, whether parameters are primitive/simple, whether the generator is circular
      * (requires the target type), and whether parameter types have known generators.
+     *
+     * <p>The returned value is a multiplicative combination of several independent penalties, so
+     * it is only meaningful as an <em>ordering</em> over candidates for the same target type, not
+     * as an absolute probability or a value to compare across different target types. Callers that
+     * want to turn this ordering into a selection probability should use rank-based selection (see
+     * {@link #selectWeightedGenerator}) rather than sampling proportionally to the raw score.
      */
     private double scoreGenerator(
             GenericAccessibleObject<?> generator, GenericClass<?> targetType) {
