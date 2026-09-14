@@ -21,7 +21,6 @@ package org.evosuite.runtime.mock.java.nio.channels;
 
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.mock.StaticReplacementMock;
-import org.evosuite.runtime.mock.java.io.MockIOException;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -29,6 +28,13 @@ import java.nio.channels.ServerSocketChannel;
 
 /**
  * Static replacement for {@link ServerSocketChannel} entry points.
+ *
+ * <p>When the mock framework is enabled, {@link #open()} does not open a real listening
+ * socket (which the sandbox refuses anyway): it returns an {@link EvoServerSocketChannel},
+ * a channel backed by the EvoSuite virtual network. This keeps SUT code that calls
+ * {@code ServerSocketChannel.open()} inside a {@code catch (Throwable)} block (a common
+ * pattern) from having the channel object itself be {@code null}, which previously made
+ * every subsequent use of the channel (bind, accept, isOpen) unreachable.
  */
 public class MockServerSocketChannel implements StaticReplacementMock {
 
@@ -47,7 +53,7 @@ public class MockServerSocketChannel implements StaticReplacementMock {
         if (!MockFramework.isEnabled()) {
             return ServerSocketChannel.open();
         }
-        throw new MockIOException("NIO server socket channels are disabled in mocked execution");
+        return new EvoServerSocketChannel();
     }
 
     /**
@@ -59,10 +65,7 @@ public class MockServerSocketChannel implements StaticReplacementMock {
      * @throws IOException if an I/O error occurs
      */
     public static ServerSocketChannel bind(ServerSocketChannel channel, SocketAddress local) throws IOException {
-        if (!MockFramework.isEnabled()) {
-            return channel.bind(local);
-        }
-        throw new MockIOException("NIO server socket channels are disabled in mocked execution");
+        return channel.bind(local);
     }
 
     /**
@@ -76,9 +79,6 @@ public class MockServerSocketChannel implements StaticReplacementMock {
      */
     public static ServerSocketChannel bind(ServerSocketChannel channel, SocketAddress local, int backlog)
             throws IOException {
-        if (!MockFramework.isEnabled()) {
-            return channel.bind(local, backlog);
-        }
-        throw new MockIOException("NIO server socket channels are disabled in mocked execution");
+        return channel.bind(local, backlog);
     }
 }
