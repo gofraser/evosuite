@@ -28,11 +28,12 @@ import java.util.concurrent.atomic.AtomicLong;
  * Mock replacements for {@link Object#wait()}, {@link Object#notify()}, and
  * {@link Object#notifyAll()}.
  *
- * <p>When the mock framework is enabled, {@code wait()} calls are capped to a
- * maximum of 50ms per invocation (matching the {@link MockThread#sleep(long)}
- * strategy) and a cumulative time budget is enforced.  When the budget is
- * exceeded, {@link TooManyResourcesException} is thrown to break infinite
- * wait-loops in the SUT that would otherwise hang test generation.
+ * <p>When the mock framework is enabled, {@code wait()} calls advance the
+ * mocked clock (see {@link org.evosuite.runtime.System#advanceCurrentTimeMillis(long)})
+ * by at most 50ms per invocation, and a cumulative virtual-time budget is
+ * enforced.  When the budget is exceeded, {@link TooManyResourcesException}
+ * is thrown to break infinite wait-loops in the SUT that would otherwise hang
+ * test generation.
  *
  * <p>When the mock framework is disabled, all methods delegate directly to
  * the real {@link Object} monitor methods.
@@ -140,6 +141,11 @@ public class MockObjectWait {
         long effectiveMillis = (requestedMillis <= 0)
                 ? MAX_WAIT_PER_CALL_MS
                 : Math.min(requestedMillis, MAX_WAIT_PER_CALL_MS);
+
+        // Advance the mocked clock as if the wait had actually elapsed, so that
+        // SUT code comparing timestamps taken before/after the wait observes
+        // time having passed (see org.evosuite.runtime.System#advanceCurrentTimeMillis).
+        org.evosuite.runtime.System.advanceCurrentTimeMillis(effectiveMillis);
 
         long cumulative = cumulativeWaitRequested.addAndGet(effectiveMillis);
         if (cumulative > MAX_CUMULATIVE_WAIT_MS) {

@@ -49,29 +49,52 @@ public class SystemTimeBehaviorTest {
     }
 
     @Test
-    public void shouldIncreaseMockedCurrentTimeMillisDeterministically() {
+    public void shouldReturnSameMockedCurrentTimeMillisOnConsecutiveReads() {
         org.evosuite.runtime.System.resetRuntime();
 
         long t1 = org.evosuite.runtime.System.currentTimeMillis();
         long t2 = org.evosuite.runtime.System.currentTimeMillis();
         long t3 = org.evosuite.runtime.System.currentTimeMillis();
 
-        Assertions.assertEquals(t1 + 1L, t2);
-        Assertions.assertEquals(t2 + 1L, t3);
+        Assertions.assertEquals(t1, t2);
+        Assertions.assertEquals(t2, t3);
         Assertions.assertTrue(org.evosuite.runtime.System.wasTimeAccessed());
     }
 
     @Test
-    public void shouldIncreaseMockedNanoTimeDeterministically() {
+    public void shouldReturnSameMockedNanoTimeOnConsecutiveReads() {
         org.evosuite.runtime.System.resetRuntime();
 
         long n1 = org.evosuite.runtime.System.nanoTime();
         long n2 = org.evosuite.runtime.System.nanoTime();
         long n3 = org.evosuite.runtime.System.nanoTime();
 
-        Assertions.assertEquals(1000L, n2 - n1);
-        Assertions.assertEquals(1000L, n3 - n2);
+        Assertions.assertEquals(n1, n2);
+        Assertions.assertEquals(n2, n3);
         Assertions.assertTrue(org.evosuite.runtime.System.wasTimeAccessed());
+    }
+
+    @Test
+    public void shouldAdvanceMockedCurrentTimeMillisExplicitly() {
+        org.evosuite.runtime.System.resetRuntime();
+
+        long before = org.evosuite.runtime.System.currentTimeMillis();
+        org.evosuite.runtime.System.advanceCurrentTimeMillis(500L);
+        long after = org.evosuite.runtime.System.currentTimeMillis();
+
+        Assertions.assertEquals(before + 500L, after);
+    }
+
+    @Test
+    public void shouldIgnoreNonPositiveAdvance() {
+        org.evosuite.runtime.System.resetRuntime();
+
+        long before = org.evosuite.runtime.System.currentTimeMillis();
+        org.evosuite.runtime.System.advanceCurrentTimeMillis(0L);
+        org.evosuite.runtime.System.advanceCurrentTimeMillis(-100L);
+        long after = org.evosuite.runtime.System.currentTimeMillis();
+
+        Assertions.assertEquals(before, after);
     }
 
     @Test
@@ -89,19 +112,18 @@ public class SystemTimeBehaviorTest {
     }
 
     @Test
-    public void shouldIgnoreBackwardSetCurrentTimeMillis() {
+    public void shouldSetCurrentTimeMillisToAnyValue() {
         org.evosuite.runtime.System.resetRuntime();
 
-        long baseline = org.evosuite.runtime.System.currentTimeMillis();
+        // A test seeds the clock; a SUT comparing against a small constant needs it
+        // to go below the starting value as well as above.
+        org.evosuite.runtime.System.setCurrentTimeMillis(100L);
+        Assertions.assertEquals(100L, org.evosuite.runtime.System.currentTimeMillis());
 
-        org.evosuite.runtime.System.setCurrentTimeMillis(0L);
         org.evosuite.runtime.System.setCurrentTimeMillis(-123L);
+        Assertions.assertEquals(-123L, org.evosuite.runtime.System.currentTimeMillis());
 
-        long afterBackwardSet = org.evosuite.runtime.System.currentTimeMillis();
-        Assertions.assertEquals(baseline + 1L, afterBackwardSet);
-
-        org.evosuite.runtime.System.setCurrentTimeMillis(afterBackwardSet + 1000L);
-        long afterForwardSet = org.evosuite.runtime.System.currentTimeMillis();
-        Assertions.assertEquals(afterBackwardSet + 1000L, afterForwardSet);
+        org.evosuite.runtime.System.setCurrentTimeMillis(5000L);
+        Assertions.assertEquals(5000L, org.evosuite.runtime.System.currentTimeMillis());
     }
 }
