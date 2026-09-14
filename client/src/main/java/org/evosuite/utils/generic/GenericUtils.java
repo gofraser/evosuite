@@ -20,6 +20,7 @@
 package org.evosuite.utils.generic;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
+import org.evosuite.Properties;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -135,6 +136,11 @@ public class GenericUtils {
     /**
      * Replaces type variables in the target type using the provided map.
      *
+     * <p>Each substitution is applied via {@link #replaceTypeVariable(Type, TypeVariable, Type)},
+     * which bounds its own descent into {@code returnType}'s nested structure at
+     * {@link Properties#MAX_GENERIC_DEPTH}; that cap resets for every entry of {@code typeMap}, so
+     * it is what protects against runaway recursion here rather than the size of {@code typeMap}.
+     *
      * @param targetType the target type
      * @param typeMap    the map of type variables to types
      * @return the type with replaced variables
@@ -160,6 +166,26 @@ public class GenericUtils {
      * @return the type with wildcards
      */
     public static Type replaceTypeVariablesWithWildcards(Type targetType) {
+        return replaceTypeVariablesWithWildcards(targetType, 0);
+    }
+
+    /**
+     * Structural-recursion-bounded implementation of {@link #replaceTypeVariablesWithWildcards(Type)}.
+     *
+     * <p>Same rationale and cap as {@link #replaceTypeVariable(Type, TypeVariable, Type, int)}:
+     * this descends into {@code targetType}'s nested ParameterizedType structure (owner and actual
+     * type arguments) with no base case other than running out of structure, so a type built from
+     * chained bounded type parameters that reference each other (F-bounded polymorphism) can make
+     * that descent effectively unbounded. This is on the same hot path as that method --
+     * {@link org.evosuite.utils.generic.GenericClassImpl#satisfiesBoundaries(TypeVariable, Map)}
+     * calls it once per candidate while {@code CastClassManager} scans the cast-class pool -- so we
+     * cap it identically at {@link Properties#MAX_GENERIC_DEPTH}, returning the type as-is (type
+     * variables intact) once exceeded rather than recursing further.
+     */
+    private static Type replaceTypeVariablesWithWildcards(Type targetType, int depth) {
+        if (depth > Properties.MAX_GENERIC_DEPTH) {
+            return targetType;
+        }
         if (targetType instanceof TypeVariable) {
             TypeVariable<?> typeVariable = (TypeVariable<?>) targetType;
             return new WildcardTypeImpl(typeVariable.getBounds(), new Type[]{});
@@ -167,12 +193,12 @@ public class GenericUtils {
             ParameterizedType parameterizedType = (ParameterizedType) targetType;
             Type owner = null;
             if (parameterizedType.getOwnerType() != null) {
-                owner = replaceTypeVariablesWithWildcards(parameterizedType.getOwnerType());
+                owner = replaceTypeVariablesWithWildcards(parameterizedType.getOwnerType(), depth + 1);
             }
             Type[] currentParameters = parameterizedType.getActualTypeArguments();
             Type[] parameters = new Type[currentParameters.length];
             for (int i = 0; i < parameters.length; i++) {
-                parameters[i] = replaceTypeVariablesWithWildcards(currentParameters[i]);
+                parameters[i] = replaceTypeVariablesWithWildcards(currentParameters[i], depth + 1);
             }
             return new ParameterizedTypeImpl((Class<?>) parameterizedType.getRawType(),
                     parameters, owner);
@@ -190,12 +216,33 @@ public class GenericUtils {
      */
     public static Type replaceTypeVariable(Type targetType, TypeVariable<?> variable,
                                            Type variableType) {
+        return replaceTypeVariable(targetType, variable, variableType, 0);
+    }
+
+    /**
+     * Structural-recursion-bounded implementation of {@link #replaceTypeVariable(Type, TypeVariable, Type)}.
+     *
+     * <p>{@code depth} tracks how deep we have descended into {@code targetType}'s nested
+     * ParameterizedType/GenericArrayType/WildcardType structure for this single substitution.
+     * Self-referential / F-bounded type variables (e.g. {@code S extends Sequence<T>} chained with
+     * further bounded type parameters that reference {@code S} back) can make that structure
+     * effectively unbounded, which previously showed up as the GA thread recursing 10-15+ frames
+     * deep in this method. We cap the descent at {@link Properties#MAX_GENERIC_DEPTH}, the same
+     * constant {@link GenericClassImpl#getGenericInstantiation(Map, int)} uses to bound generic
+     * instantiation depth, and simply stop substituting (returning the type as-is, variables and
+     * wildcards intact) once it is exceeded, rather than recursing further.
+     */
+    private static Type replaceTypeVariable(Type targetType, TypeVariable<?> variable,
+                                            Type variableType, int depth) {
+        if (depth > Properties.MAX_GENERIC_DEPTH) {
+            return targetType;
+        }
         if (targetType instanceof Class<?>) {
             return targetType;
         } else if (targetType instanceof GenericArrayType) {
             GenericArrayType arrayType = (GenericArrayType) targetType;
             Type componentType = replaceTypeVariable(arrayType.getGenericComponentType(),
-                    variable, variableType);
+                    variable, variableType, depth + 1);
             return GenericArrayTypeImpl.createArrayType(componentType);
 
         } else if (targetType instanceof ParameterizedType) {
@@ -203,13 +250,13 @@ public class GenericUtils {
             Type ownerType = null;
             if (parameterizedType.getOwnerType() != null) {
                 ownerType = replaceTypeVariable(parameterizedType.getOwnerType(), variable,
-                        variableType);
+                        variableType, depth + 1);
             }
             Type[] originalParameterTypes = parameterizedType.getActualTypeArguments();
             Type[] parameterTypes = new Type[originalParameterTypes.length];
             for (int i = 0; i < originalParameterTypes.length; i++) {
                 parameterTypes[i] = replaceTypeVariable(originalParameterTypes[i],
-                        variable, variableType);
+                        variable, variableType, depth + 1);
             }
 
             /*
@@ -244,11 +291,11 @@ public class GenericUtils {
 
             for (int i = 0; i < originalUpperBounds.length; i++) {
                 upperBounds[i] = replaceTypeVariable(originalUpperBounds[i], variable,
-                        variableType);
+                        variableType, depth + 1);
             }
             for (int i = 0; i < originalLowerBounds.length; i++) {
                 lowerBounds[i] = replaceTypeVariable(originalLowerBounds[i], variable,
-                        variableType);
+                        variableType, depth + 1);
             }
 
             return new WildcardTypeImpl(upperBounds, lowerBounds);
