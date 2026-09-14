@@ -264,6 +264,19 @@ public interface ExecutionTrace {
     List<MethodCall> getMethodCalls();
 
     /**
+     * Returns the finished calls of one method, in execution order.
+     *
+     * <p>Fitness functions ask this once per coverage goal, and a trace can hold tens of
+     * thousands of calls when a test drives a loop that calls small helpers, so the
+     * implementation indexes the calls by method rather than scanning the whole list.
+     *
+     * @param className  the class name, with dots
+     * @param methodName the method name including its descriptor
+     * @return the calls of that method; empty if it was never called
+     */
+    List<MethodCall> getMethodCalls(String className, String methodName);
+
+    /**
      * Retrieve the names of all called methods.
      *
      * @return a {@link java.util.Set} object.
