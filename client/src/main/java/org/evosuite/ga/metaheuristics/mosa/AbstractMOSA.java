@@ -599,10 +599,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     crossoverResult = OperatorAttemptResult.semanticFallback();
                 }
             }
+            // The LLM child replaces offspring1 only; offspring2 stays a plain clone of
+            // parent2 and must be accounted (lineage, orphan check) as uncrossed.
+            boolean crossoverApplied2 = false;
             if (!crossoverResult.isAppliedSemantic() && Randomness.nextDouble() <= Properties.CROSSOVER_RATE) {
                 try {
                     this.crossoverFunction.crossOver(offspring1, offspring2);
                     crossoverApplied = true;
+                    crossoverApplied2 = true;
                 } catch (ConstructionFailedException e) {
                     logger.debug("CrossOver failed.");
                     lastGenOffspringDiscarded += 2;
@@ -612,8 +616,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 crossoverApplied = true;
             }
             if (crossoverApplied) {
-                // Crossover mixes material from both parents.
                 offspring1.addDescentLineages(parent2.effectiveLineages());
+            }
+            if (crossoverApplied2) {
                 offspring2.addDescentLineages(parent1.effectiveLineages());
             }
 
@@ -645,7 +650,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             processOffspringMutation(offspring1, parent1, offspringPopulation, observer,
                     crossoverApplied);
             processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
-                    crossoverApplied);
+                    crossoverApplied2);
         }
 
         // EvoObj: collect the uncovered branch goals once per generation (not per inserted test)
