@@ -36,7 +36,7 @@ class Phase5PropertyDefaultsTest {
         assertFalse(Properties.LLM_OPERATOR_ENABLED);
         assertEquals(0.1, Properties.LLM_MUTATION_PROBABILITY, 1e-9);
         assertEquals(0.1, Properties.LLM_CROSSOVER_PROBABILITY, 1e-9);
-        assertEquals(2, Properties.LLM_OPERATOR_MAX_ATTEMPTS);
+        assertEquals(0, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
     }
 
     @Test

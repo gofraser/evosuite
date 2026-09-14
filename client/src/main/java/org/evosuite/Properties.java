@@ -2716,10 +2716,11 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_CROSSOVER_PROBABILITY = 0.1;
 
-    @Parameter(key = "llm_operator_max_attempts", group = "LLM",
-            description = "Maximum LLM query attempts per operator invocation before falling back to standard operator")
-    @IntValue(min = 1)
-    public static int LLM_OPERATOR_MAX_ATTEMPTS = 2;
+    @Parameter(key = "llm_operator_repair_attempts", group = "LLM",
+            description = "Repair round-trips allowed for a malformed LLM operator response; "
+                    + "0 parses the first response only (llm_repair_attempts applies elsewhere)")
+    @IntValue(min = 0)
+    public static int LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
 
     // ---------------------------------------------------------------
     // Speciation / Diversity (LLM-independent)

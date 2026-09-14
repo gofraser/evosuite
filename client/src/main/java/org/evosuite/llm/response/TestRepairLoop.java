@@ -338,9 +338,19 @@ public class TestRepairLoop {
     }
 
     /**
-     * Creates a standard repair loop wired to the given LLM service and options.
+     * Creates a standard repair loop wired to the given LLM service and options,
+     * allowing {@link Properties#LLM_REPAIR_ATTEMPTS} repair round-trips.
      */
     public static TestRepairLoop createDefault(LlmService llmService, RepairOptions options) {
+        return createDefault(llmService, options, Properties.LLM_REPAIR_ATTEMPTS);
+    }
+
+    /**
+     * Creates a standard repair loop wired to the given LLM service and options
+     * with an explicit cap on repair round-trips.
+     */
+    public static TestRepairLoop createDefault(LlmService llmService, RepairOptions options,
+                                               int maxAttempts) {
         String systemPrompt = null;
         String sutContext = null;
         try {
@@ -365,7 +375,7 @@ public class TestRepairLoop {
                 new LlmResponseParser(),
                 new ClusterExpansionManager(),
                 new DefaultExecutor(),
-                Properties.LLM_REPAIR_ATTEMPTS,
+                maxAttempts,
                 systemPrompt,
                 sutContext,
                 options == null ? RepairOptions.defaults() : options);

@@ -48,6 +48,9 @@ public class LlmSemanticMutation {
 
     private final LlmService llmService;
 
+    /** Built lazily on first use; see {@link #repairLoop()}. */
+    private volatile TestRepairLoop cachedRepairLoop;
+
     public LlmSemanticMutation() {
         this(LlmService.getInstance());
     }
@@ -57,10 +60,13 @@ public class LlmSemanticMutation {
     }
 
     /**
-     * Attempt a semantic mutation of the given test chromosome.
+     * Attempt a semantic mutation of the given test chromosome. One LLM call
+     * (retries on transport failure are handled inside {@link LlmService});
+     * a malformed response gets at most
+     * {@link Properties#LLM_OPERATOR_REPAIR_ATTEMPTS} repair round-trips.
      *
      * @param test  the test to mutate
-     * @param goals uncovered goals for context
+     * @param goals current goals for context
      * @return the mutated chromosome, or null if LLM mutation failed
      */
     public TestChromosome mutateSemantically(TestChromosome test,
@@ -69,46 +75,59 @@ public class LlmSemanticMutation {
             return null;
         }
 
-        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
-        for (int attempt = 0; attempt < Properties.LLM_OPERATOR_MAX_ATTEMPTS; attempt++) {
-            try {
-                PromptResult prompt = new PromptBuilder()
-                        .withSystemPrompt()
-                        .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                        .withExistingTest(test.getTestCase())
-                        .withUncoveredGoals(goals)
-                        .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
-                        .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                        .withInstruction(
-                                "Produce a semantically mutated version of this test. "
-                                + "Make a meaningful behaviour or state change (not just renaming or "
-                                + "minor edits). Target the uncovered goals if possible. "
-                                + "Return exactly one complete JUnit test method."
-                                + LlmAssertionPolicyResolver.instructionSuffix(false))
-                        .buildWithMetadata();
+        try {
+            PromptResult prompt = new PromptBuilder()
+                    .withSystemPrompt()
+                    .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                    .withExistingTest(test.getTestCase())
+                    .withUncoveredGoals(goals)
+                    .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
+                    .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                    .withInstruction(
+                            "Produce a semantically mutated version of this test. "
+                            + "Make a meaningful behaviour or state change (not just renaming or "
+                            + "minor edits). Target the uncovered goals if possible. "
+                            + "Return exactly one complete JUnit test method."
+                            + LlmAssertionPolicyResolver.instructionSuffix(false))
+                    .buildWithMetadata();
 
-                String response = llmService.query(prompt, LlmFeature.SEMANTIC_MUTATION);
-                RepairResult result = TestRepairLoop
-                        .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
-                        .attemptParse(response, prompt.getMessages(), LlmFeature.SEMANTIC_MUTATION);
-                if (result.isSuccess() && !result.getTestCases().isEmpty()) {
-                    TestChromosome mutant = new TestChromosome();
-                    mutant.setTestCase(result.getTestCases().get(0));
-                    mutant.setChanged(true);
-                    return mutant;
-                }
-            } catch (LlmBudgetExceededException e) {
-                logger.debug("LLM semantic mutation budget exceeded");
-                return null;
-            } catch (LlmCallFailedException e) {
-                logger.debug("LLM semantic mutation call failed on attempt {}: {}",
-                        attempt, e.getMessage());
-            } catch (RuntimeException e) {
-                logger.debug("LLM semantic mutation error on attempt {}: {}",
-                        attempt, e.getMessage());
+            String response = llmService.query(prompt, LlmFeature.SEMANTIC_MUTATION);
+            RepairResult result = repairLoop()
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.SEMANTIC_MUTATION);
+            if (result.isSuccess() && !result.getTestCases().isEmpty()) {
+                TestChromosome mutant = new TestChromosome();
+                mutant.setTestCase(result.getTestCases().get(0));
+                mutant.setChanged(true);
+                return mutant;
             }
+        } catch (LlmBudgetExceededException e) {
+            logger.debug("LLM semantic mutation budget exceeded");
+        } catch (LlmCallFailedException e) {
+            logger.debug("LLM semantic mutation call failed: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            logger.debug("LLM semantic mutation error: {}", e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Lazily creates the repair loop once per operator instance: building it
+     * summarises the test cluster, which is too expensive to repeat per
+     * application. A benign race may initialise it twice; both instances are
+     * equivalent and {@link TestRepairLoop#attemptParse} resets per-call state.
+     *
+     * <p>Package-private for tests.
+     */
+    TestRepairLoop repairLoop() {
+        TestRepairLoop loop = cachedRepairLoop;
+        if (loop == null) {
+            boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
+            loop = TestRepairLoop.createDefault(llmService,
+                    TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions),
+                    Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
+            cachedRepairLoop = loop;
+        }
+        return loop;
     }
 
 }

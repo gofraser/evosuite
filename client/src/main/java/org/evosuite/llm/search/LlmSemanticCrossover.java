@@ -48,6 +48,9 @@ public class LlmSemanticCrossover {
 
     private final LlmService llmService;
 
+    /** Built lazily on first use; see {@link #repairLoop()}. */
+    private volatile TestRepairLoop cachedRepairLoop;
+
     public LlmSemanticCrossover() {
         this(LlmService.getInstance());
     }
@@ -57,11 +60,14 @@ public class LlmSemanticCrossover {
     }
 
     /**
-     * Attempt a semantic crossover of two parent test chromosomes.
+     * Attempt a semantic crossover of two parent test chromosomes. One LLM
+     * call (retries on transport failure are handled inside
+     * {@link LlmService}); a malformed response gets at most
+     * {@link Properties#LLM_OPERATOR_REPAIR_ATTEMPTS} repair round-trips.
      *
      * @param parent1 first parent
      * @param parent2 second parent
-     * @param goals   uncovered goals for context
+     * @param goals   current goals for context
      * @return the recombined chromosome, or null if LLM crossover failed
      */
     public TestChromosome crossoverSemantically(TestChromosome parent1,
@@ -72,48 +78,61 @@ public class LlmSemanticCrossover {
             return null;
         }
 
-        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
-        for (int attempt = 0; attempt < Properties.LLM_OPERATOR_MAX_ATTEMPTS; attempt++) {
-            try {
-                PromptResult prompt = new PromptBuilder()
-                        .withSystemPrompt()
-                        .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                        .withExistingTests(java.util.Arrays.asList(
-                                parent1.getTestCase(), parent2.getTestCase()))
-                        .withUncoveredGoals(goals)
-                        .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
-                        .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
-                        .withInstruction(
-                                "Produce a single new test that semantically recombines "
-                                + "the two given tests. Combine useful setup, method calls, "
-                                + "and behaviours from both parents into one coherent test. "
-                                + "Target the uncovered goals if possible. "
-                                + "Return exactly one complete JUnit test method."
-                                + LlmAssertionPolicyResolver.instructionSuffix(false))
-                        .buildWithMetadata();
+        try {
+            PromptResult prompt = new PromptBuilder()
+                    .withSystemPrompt()
+                    .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
+                    .withExistingTests(java.util.Arrays.asList(
+                            parent1.getTestCase(), parent2.getTestCase()))
+                    .withUncoveredGoals(goals)
+                    .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
+                    .withPromptTechnique(Properties.LLM_PROMPT_TECHNIQUE)
+                    .withInstruction(
+                            "Produce a single new test that semantically recombines "
+                            + "the two given tests. Combine useful setup, method calls, "
+                            + "and behaviours from both parents into one coherent test. "
+                            + "Target the uncovered goals if possible. "
+                            + "Return exactly one complete JUnit test method."
+                            + LlmAssertionPolicyResolver.instructionSuffix(false))
+                    .buildWithMetadata();
 
-                String response = llmService.query(prompt, LlmFeature.SEMANTIC_CROSSOVER);
-                RepairResult result = TestRepairLoop
-                        .createDefault(llmService, TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions))
-                        .attemptParse(response, prompt.getMessages(), LlmFeature.SEMANTIC_CROSSOVER);
-                if (result.isSuccess() && !result.getTestCases().isEmpty()) {
-                    TestChromosome child = new TestChromosome();
-                    child.setTestCase(result.getTestCases().get(0));
-                    child.setChanged(true);
-                    return child;
-                }
-            } catch (LlmBudgetExceededException e) {
-                logger.debug("LLM semantic crossover budget exceeded");
-                return null;
-            } catch (LlmCallFailedException e) {
-                logger.debug("LLM semantic crossover call failed on attempt {}: {}",
-                        attempt, e.getMessage());
-            } catch (RuntimeException e) {
-                logger.debug("LLM semantic crossover error on attempt {}: {}",
-                        attempt, e.getMessage());
+            String response = llmService.query(prompt, LlmFeature.SEMANTIC_CROSSOVER);
+            RepairResult result = repairLoop()
+                    .attemptParse(response, prompt.getMessages(), LlmFeature.SEMANTIC_CROSSOVER);
+            if (result.isSuccess() && !result.getTestCases().isEmpty()) {
+                TestChromosome child = new TestChromosome();
+                child.setTestCase(result.getTestCases().get(0));
+                child.setChanged(true);
+                return child;
             }
+        } catch (LlmBudgetExceededException e) {
+            logger.debug("LLM semantic crossover budget exceeded");
+        } catch (LlmCallFailedException e) {
+            logger.debug("LLM semantic crossover call failed: {}", e.getMessage());
+        } catch (RuntimeException e) {
+            logger.debug("LLM semantic crossover error: {}", e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Lazily creates the repair loop once per operator instance: building it
+     * summarises the test cluster, which is too expensive to repeat per
+     * application. A benign race may initialise it twice; both instances are
+     * equivalent and {@link TestRepairLoop#attemptParse} resets per-call state.
+     *
+     * <p>Package-private for tests.
+     */
+    TestRepairLoop repairLoop() {
+        TestRepairLoop loop = cachedRepairLoop;
+        if (loop == null) {
+            boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
+            loop = TestRepairLoop.createDefault(llmService,
+                    TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions),
+                    Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
+            cachedRepairLoop = loop;
+        }
+        return loop;
     }
 
 }
