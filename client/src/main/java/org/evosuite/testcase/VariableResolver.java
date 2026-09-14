@@ -55,6 +55,18 @@ import java.util.stream.Collectors;
  */
 public class VariableResolver {
 
+    /**
+     * Mock probability given to a deep interface or abstract dependency that is not a
+     * functional interface, independent of the generators known for it.
+     */
+    private static final double DEEP_MOCK_BOOST = 0.5;
+
+    /**
+     * The same, once the search has already decided to build the enclosing object
+     * concretely; see the comment in {@code createObject}.
+     */
+    private static final double CHAIN_MOCK_BOOST = 0.25;
+
     private static final Logger logger = LoggerFactory.getLogger(VariableResolver.class);
 
     private final TestFactory testFactory;
@@ -450,15 +462,40 @@ public class VariableResolver {
         // cannot be constructed at all without a mock ORB. Measured over SF110 (23,267
         // classes, matched seeds, 120s budget), gating cost >0.20 branch coverage on 1213
         // classes and gained it on at most 73, for -0.026 mean.
+        //
+        // The 0.5 boost is tossed independently at every depth, though, and that is its own
+        // problem for a class like 104_vuze's GenericMessageDecoder: reaching its decode
+        // branches requires Transport.read() to actually deliver bytes, which only happens
+        // along a concrete five-link chain (TCPTransportHelper -> TransportHelperFilter... ->
+        // LightweightTCPTransport). Each interface/abstract link on that chain independently
+        // survives the coin toss with probability 0.5, so the whole chain survives with
+        // probability ~0.5^k and almost never assembles. Once the search has committed to
+        // building a given deep interface/abstract dependency concretely (the coin came up
+        // "build a real one"), that decision should carry down into the dependencies of the
+        // chosen generator too: GenerationContext.concreteChain records that commitment and,
+        // below, lowers the boost to CHAIN_MOCK_BOOST for the rest of the chain instead of
+        // re-rolling 0.5 at every level. It is lowered, not removed: with 0 inside a chain
+        // GenericMessageDecoder went from 0.63 to 1.0 but freemind's ServerCommunication
+        // dropped from 0.86-0.91 to 0.64-0.68 on the same seeds, because a concrete link
+        // then drags every dependency below it into real construction, hopeless ones
+        // included; at 0.25 GenericMessageDecoder still reaches 1.0 on three seeds and
+        // ServerCommunication stays at 0.73-0.86. A "mock" outcome is unaffected: mocking a
+        // link still stops the chain there, exactly as before. Functional interfaces keep their 1.0 boost even inside a
+        // concrete chain (isDeepPlainInterfaceOrAbstract excludes them below) because they are
+        // almost never independently constructible (Comparator, Runnable, ...) - collapsing that
+        // boost to 0 would just trade "chain never assembles" for "functional dependency never
+        // resolves", which is a worse failure mode than an occasional over-eager mock.
         boolean isDeepInterfaceOrAbstract = context.getDepth() > 0
                 && (clazz.getRawClass().isInterface() || clazz.isAbstract());
+        boolean isDeepPlainInterfaceOrAbstract = isDeepInterfaceOrAbstract && !isDeepFunctionalInterface;
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
         if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {
             effectiveMockProb = 1.0;
             bypassTimeGate = true;
-        } else if (isDeepInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR) {
-            effectiveMockProb = Math.max(effectiveMockProb, 0.5);
+        } else if (isDeepPlainInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR) {
+            effectiveMockProb = Math.max(effectiveMockProb,
+                    context.isConcreteChain() ? CHAIN_MOCK_BOOST : DEEP_MOCK_BOOST);
             bypassTimeGate = true;
         }
 
@@ -488,6 +525,13 @@ public class VariableResolver {
             GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(
                     clazz, context.getVisited(), test, position, generatorRefToExclude, context.getDepth());
             GenerationContext nextContext = context.withVisited(o);
+            // The mock coin for this deep interface/abstract type came up "build a real one"
+            // (o != null and we did not take the mock branch above): commit the rest of this
+            // chain - o's own parameters - to concrete construction too. See the effectiveMockProb
+            // comment above for why per-dependency coin tosses defeat multi-link chains.
+            if (isDeepPlainInterfaceOrAbstract && o != null) {
+                nextContext = nextContext.withConcreteChain();
+            }
 
             if (o == null) {
                 if (config.isCanReuseExistingVariables()) {
