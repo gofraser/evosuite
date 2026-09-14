@@ -960,6 +960,11 @@ public class Properties {
             description = "Bias for better individuals in rank selection")
     public static double RANK_BIAS = 1.7;
 
+    @Parameter(key = "generator_rank_bias", group = "Test Creation",
+            description = "Rank-selection bias when choosing among the generators of a type "
+                    + "(1.0 = uniform)")
+    public static double GENERATOR_RANK_BIAS = 1.7;
+
     @Parameter(key = "chromosome_length", group = "Search Algorithm",
             description = "Maximum length of chromosomes during search")
     @IntValue(min = 1, max = 100000)

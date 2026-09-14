@@ -67,19 +67,41 @@ public class RankSelection<T extends Chromosome<T>> extends SelectionFunction<T>
      * @return the index
      */
     public static int getIdx(final List<?> list) {
-        double r = Randomness.nextDouble();
-        double d = Properties.RANK_BIAS
-                - Math.sqrt((Properties.RANK_BIAS * Properties.RANK_BIAS)
-                - (4.0 * (Properties.RANK_BIAS - 1.0) * r));
-        int length = list.size();
+        return getIndex(list.size(), Properties.RANK_BIAS);
+    }
 
-        d = d / 2.0 / (Properties.RANK_BIAS - 1.0);
+    /**
+     * Maps a uniform random draw to an index into a size-{@code size} list assumed sorted from
+     * best (index {@code 0}) to worst, using the classic rank-selection formula with bias
+     * {@code bias} (the {@code O(1)} GENITOR approximation described by Whitley, 1989). The best
+     * ranked element is selected roughly {@code bias} times as often as the worst one. A
+     * {@code bias} of {@code 1.0} or below degenerates to uniform selection over the list
+     * (and also avoids the division by zero the formula would otherwise hit at {@code bias == 1.0}).
+     *
+     * @param size the number of candidates to choose among
+     * @param bias the rank bias; {@code <= 1.0} means uniform
+     * @return the selected index, in {@code [0, size)}
+     */
+    public static int getIndex(final int size, final double bias) {
+        if (size <= 1) {
+            return 0;
+        }
+        if (bias <= 1.0) {
+            return Randomness.nextInt(size);
+        }
+
+        double r = Randomness.nextDouble();
+        double d = bias - Math.sqrt((bias * bias) - (4.0 * (bias - 1.0) * r));
+        d = d / 2.0 / (bias - 1.0);
 
         //this is not needed because population is sorted based on Maximization
         //if(maximize)
         //    d = 1.0 - d; // to do that if we want to have Maximisation
 
-        int index = (int) (length * d);
+        int index = (int) (size * d);
+        if (index >= size) {
+            index = size - 1;
+        }
         return index;
     }
 }
