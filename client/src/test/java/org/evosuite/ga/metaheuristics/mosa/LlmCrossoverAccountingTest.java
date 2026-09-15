@@ -346,6 +346,78 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
     }
 
     @Test
+    void isolatedProbesNeverGoThroughCalculateFitnessAndReuseTheSemanticSnapshot(@TempDir Path tempDir)
+            throws Exception {
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.METHOD};
+        boolean savedAnalysis = Properties.LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED;
+        String savedOutputDir = Properties.LLM_OPERATOR_DISRUPTION_OUTPUT_DIR;
+        boolean savedIsolated = Properties.LLM_OPERATOR_DISRUPTION_EVALUATE_ISOLATED;
+        Properties.LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED = true;
+        Properties.LLM_OPERATOR_DISRUPTION_OUTPUT_DIR = tempDir.toString();
+        Properties.LLM_OPERATOR_DISRUPTION_EVALUATE_ISOLATED = true;
+        DisruptionRecorder.resetInstance();
+        try {
+            AccountingDynaMOSA harness = new AccountingDynaMOSA();
+            harness.setSelectionFunction(new AlternatingSelection());
+            harness.setCrossOverFunction(new NoOpCrossOverFunction());
+            harness.syncTargetSelector = new OperatorTargetSelector(new RepeatedInjectionMemory());
+            TestFitnessFunction frontier1 = coveredAtStatements("frontier1", 2);
+            TestFitnessFunction frontier2 = coveredAtStatements("frontier2", 99);
+            harness.goalsManager.getCurrentGoals().add(frontier1);
+            harness.goalsManager.getCurrentGoals().add(frontier2);
+            harness.publishCurrentGoals();
+
+            LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+            when(mockSemanticCrossover.canCall()).thenReturn(true);
+            LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+            when(mockSemanticMutation.canCall()).thenReturn(true);
+            harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
+            harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
+            when(mockSemanticCrossover.crossover(any(OperatorTarget.class)))
+                    .thenAnswer(invocation -> freshChromosome(2));
+            when(mockSemanticMutation.mutate(any(OperatorTarget.class)))
+                    .thenAnswer(invocation -> freshChromosome(1));
+
+            TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
+            TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);
+            parent1.setFitness(frontier1, 0.2);
+            parent2.setFitness(frontier1, 0.2);
+            parent2.setFitness(frontier2, 0.2);
+            harness.seedPopulation(parent1, parent2);
+
+            List<TestChromosome> offspring = harness.breedNextGeneration();
+
+            assertEquals(offspring.size(), harness.fitnessEvaluations,
+                    "only the offspring that enter the population go through calculateFitness; "
+                            + "every sidecar probe is evaluated in isolation");
+            List<DisruptionEvent> events = DisruptionRecorder.getInstance().getEvents();
+            DisruptionEvent crossover = events.stream()
+                    .filter(e -> e.getOperatorKind() == DisruptionEvent.OperatorKind.CROSSOVER
+                            && e.getOperatorSource() == DisruptionEvent.OperatorSource.SEMANTIC)
+                    .findFirst().get();
+            assertTrue(crossover.isIsolatedProbe());
+            assertFalse(crossover.isProbeFailure());
+            assertEquals(crossover.getSemanticFitnessIsolated(), crossover.getIsolatedFitnessPostCrossover(),
+                    "the semantic snapshot is the post-crossover probe, not a second evaluation");
+            DisruptionEvent mutationOfSemanticChild = events.stream()
+                    .filter(e -> e.getOperatorKind() == DisruptionEvent.OperatorKind.MUTATION
+                            && e.getParent1Hash() == System.identityHashCode(parent1))
+                    .findFirst().get();
+            assertTrue(mutationOfSemanticChild.isIsolatedProbe());
+            assertEquals(crossover.getIsolatedFitnessPostCrossover(),
+                    mutationOfSemanticChild.getIsolatedFitnessPostCrossover(),
+                    "the mutation event of the same child records the same post-crossover probe");
+            assertTrue(harness.goalsManager.getCurrentGoals().contains(frontier1),
+                    "probes must not cover goals away from the search");
+        } finally {
+            Properties.LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED = savedAnalysis;
+            Properties.LLM_OPERATOR_DISRUPTION_OUTPUT_DIR = savedOutputDir;
+            Properties.LLM_OPERATOR_DISRUPTION_EVALUATE_ISOLATED = savedIsolated;
+            DisruptionRecorder.resetInstance();
+        }
+    }
+
+    @Test
     void standardCrossoverFallbackGivesBothOffspringBothLineages() throws Exception {
         AccountingDynaMOSA harness = new AccountingDynaMOSA();
         harness.setSelectionFunction(new AlternatingSelection());
@@ -502,9 +574,13 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             population.add(parent2);
         }
 
+        int fitnessEvaluations;
+
         @Override
         protected void calculateFitness(TestChromosome c) {
-            // no-op: fitness evaluation is irrelevant to lineage/goal accounting
+            // no-op apart from counting: fitness evaluation is irrelevant to lineage/goal
+            // accounting, and the count shows which evaluations reach the search
+            fitnessEvaluations++;
         }
     }
 }

@@ -55,6 +55,7 @@ import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.ExtractorTraceSink;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.IsolatedEvaluation;
+import org.evosuite.llm.search.IsolatedProbe;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.LlmSemanticCrossover;
@@ -649,40 +650,34 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 llmCrossover.recordOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance() == 0.0);
             }
 
+            // The post-crossover probe is sidecar-only, so it never goes through calculateFitness
+            // (archive, goal manager, listeners); a semantic child was already evaluated in
+            // isolation above and that snapshot serves both the crossover and the mutation event.
+            IsolatedProbe postCrossoverProbe1 = IsolatedProbe.NONE;
+            if (observer.isEnabled() && observer.isIsolatedProbeEnabled() && crossoverApplied) {
+                postCrossoverProbe1 = crossoverProbe.getSemanticSnapshot() != null
+                        ? IsolatedProbe.of(crossoverProbe.getSemanticSnapshot())
+                        : IsolatedProbe.run(offspring1, getCurrentGoals());
+            }
             // Record crossover disruption event
             if (observer.isEnabled() && (crossoverApplied || crossoverResult.isAttemptedSemantic())) {
-                TestChromosome probeSnapshot = null;
-                boolean probeFailure = false;
-                double isolatedFitness = Double.NaN;
-                if (observer.isIsolatedProbeEnabled() && crossoverApplied) {
-                    probeSnapshot = offspring1.clone();
-                    try {
-                        this.clearCachedResults(probeSnapshot);
-                        this.calculateFitness(probeSnapshot);
-                        isolatedFitness = DisruptionHelper.aggregateFitness(probeSnapshot);
-                    } catch (Exception e) {
-                        logger.debug("Disruption isolated crossover probe failed", e);
-                        probeFailure = true;
-                        probeSnapshot = null;
-                    }
-                }
                 // A semantic crossover recombined parent1 with the selector's partner, so that is
                 // the second parent on record; the breeding loop's parent2 contributed nothing.
                 TestChromosome recordedParent2 = crossoverResult.isAppliedSemantic()
                         ? crossoverResult.getTarget().getPartner().orElse(parent2) : parent2;
                 observer.recordCrossover(offspring1, parent1, recordedParent2,
                         preCrossStmts1, crossoverResult, crossoverApplied,
-                        this.currentIteration, isolatedFitness, probeFailure, probeSnapshot,
-                        crossoverResult.getTarget(), crossoverProbe);
+                        this.currentIteration, postCrossoverProbe1.getFitness(), postCrossoverProbe1.isFailure(),
+                        postCrossoverProbe1.getSnapshot(), crossoverResult.getTarget(), crossoverProbe);
             }
 
             this.removeUnusedVariables(offspring1);
             this.removeUnusedVariables(offspring2);
 
             processOffspringMutation(offspring1, parent1, offspringPopulation, observer,
-                    crossoverApplied, syncTargets);
+                    crossoverApplied, syncTargets, postCrossoverProbe1);
             processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
-                    crossoverApplied2, syncTargets);
+                    crossoverApplied2, syncTargets, IsolatedProbe.NONE);
         }
 
         // EvoObj: collect the uncovered branch goals once per generation (not per inserted test)
@@ -934,7 +929,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     /**
      * Apply mutation to offspring with optional disruption recording. Extracts the repeated
      * mutation logic for offspring1 and offspring2. Records mutation event even when offspring is
-     * unchanged (fix: lost attempts).
+     * unchanged (fix: lost attempts). {@code postCrossoverProbe} is the isolated view of the
+     * offspring as crossover left it when the caller already took one; otherwise it is taken
+     * here (sidecar-only, never through calculateFitness).
      */
     private void processOffspringMutation(
             TestChromosome offspring,
@@ -942,24 +939,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             List<TestChromosome> offspringPopulation,
             BreedingDisruptionObserver observer,
             boolean crossoverApplied,
-            SyncTargetPlan syncTargets) {
+            SyncTargetPlan syncTargets,
+            IsolatedProbe postCrossoverProbe) {
         int preMutStmts = observer.isEnabled() ? DisruptionHelper.statementCount(offspring) : 0;
 
-        // Isolated probe: evaluate post-crossover state before mutation
-        TestChromosome postCrossoverSnapshot = null;
-        boolean crossoverProbeFailure = false;
-        double isolatedFitnessPostCrossover = Double.NaN;
-        if (observer.isIsolatedProbeEnabled()) {
-            postCrossoverSnapshot = offspring.clone();
-            try {
-                this.clearCachedResults(postCrossoverSnapshot);
-                this.calculateFitness(postCrossoverSnapshot);
-                isolatedFitnessPostCrossover = DisruptionHelper.aggregateFitness(postCrossoverSnapshot);
-            } catch (Exception e) {
-                logger.debug("Disruption isolated post-crossover probe failed", e);
-                crossoverProbeFailure = true;
-                postCrossoverSnapshot = null;
-            }
+        if (!postCrossoverProbe.isTaken() && observer.isEnabled() && observer.isIsolatedProbeEnabled()) {
+            postCrossoverProbe = IsolatedProbe.run(offspring, getCurrentGoals());
         }
 
         OperatorAttemptResult mutResult = OperatorAttemptResult.standardOnly(
@@ -994,8 +979,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
-                        true, this.currentIteration, postCrossoverSnapshot,
-                        isolatedFitnessPostCrossover, crossoverProbeFailure,
+                        true, this.currentIteration, postCrossoverProbe.getSnapshot(),
+                        postCrossoverProbe.getFitness(), postCrossoverProbe.isFailure(),
                         mutResult.getTarget(), mutationProbe);
             }
 
@@ -1017,8 +1002,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             lastGenOffspringUnchanged++;
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
-                        false, this.currentIteration, postCrossoverSnapshot,
-                        isolatedFitnessPostCrossover, crossoverProbeFailure,
+                        false, this.currentIteration, postCrossoverProbe.getSnapshot(),
+                        postCrossoverProbe.getFitness(), postCrossoverProbe.isFailure(),
                         mutResult.getTarget(), SemanticProbeResult.NONE);
             }
         }

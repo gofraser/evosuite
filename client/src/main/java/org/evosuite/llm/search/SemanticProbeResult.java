@@ -37,8 +37,9 @@ public final class SemanticProbeResult {
 
     /** No isolated evaluation was taken. */
     public static final SemanticProbeResult NONE =
-            new SemanticProbeResult(false, Double.NaN, Double.NaN, false, false, false, Double.NaN, Double.NaN);
+            new SemanticProbeResult(null, false, Double.NaN, Double.NaN, false, false, false, Double.NaN, Double.NaN);
 
+    private final TestChromosome semanticSnapshot;
     private final boolean semanticEvaluated;
     private final double semanticFitness;
     private final double semanticTargetDistance;
@@ -48,9 +49,11 @@ public final class SemanticProbeResult {
     private final double twinFitness;
     private final double twinTargetDistance;
 
-    private SemanticProbeResult(boolean semanticEvaluated, double semanticFitness, double semanticTargetDistance,
+    private SemanticProbeResult(TestChromosome semanticSnapshot, boolean semanticEvaluated,
+                                double semanticFitness, double semanticTargetDistance,
                                 boolean twinEvaluated, boolean twinFailure, boolean twinChanged,
                                 double twinFitness, double twinTargetDistance) {
+        this.semanticSnapshot = semanticSnapshot;
         this.semanticEvaluated = semanticEvaluated;
         this.semanticFitness = semanticFitness;
         this.semanticTargetDistance = semanticTargetDistance;
@@ -63,7 +66,7 @@ public final class SemanticProbeResult {
 
     /** Only the semantic result was evaluated in isolation (paired probe off). */
     public static SemanticProbeResult semanticOnly(TestChromosome semanticSnapshot, TestFitnessFunction goal) {
-        return new SemanticProbeResult(true, DisruptionHelper.aggregateFitness(semanticSnapshot),
+        return new SemanticProbeResult(semanticSnapshot, true, DisruptionHelper.aggregateFitness(semanticSnapshot),
                 IsolatedEvaluation.distance(semanticSnapshot, goal),
                 false, false, false, Double.NaN, Double.NaN);
     }
@@ -71,7 +74,7 @@ public final class SemanticProbeResult {
     /** Both the semantic result and its standard-operator twin were evaluated against the same goals. */
     public static SemanticProbeResult withTwin(TestChromosome semanticSnapshot, TestChromosome evaluatedTwin,
                                                boolean twinChanged, TestFitnessFunction goal) {
-        return new SemanticProbeResult(true, DisruptionHelper.aggregateFitness(semanticSnapshot),
+        return new SemanticProbeResult(semanticSnapshot, true, DisruptionHelper.aggregateFitness(semanticSnapshot),
                 IsolatedEvaluation.distance(semanticSnapshot, goal),
                 true, false, twinChanged, DisruptionHelper.aggregateFitness(evaluatedTwin),
                 IsolatedEvaluation.distance(evaluatedTwin, goal));
@@ -79,9 +82,14 @@ public final class SemanticProbeResult {
 
     /** The semantic result was evaluated but the twin could not be built or evaluated. */
     public static SemanticProbeResult twinFailed(TestChromosome semanticSnapshot, TestFitnessFunction goal) {
-        return new SemanticProbeResult(true, DisruptionHelper.aggregateFitness(semanticSnapshot),
+        return new SemanticProbeResult(semanticSnapshot, true, DisruptionHelper.aggregateFitness(semanticSnapshot),
                 IsolatedEvaluation.distance(semanticSnapshot, goal),
                 false, true, false, Double.NaN, Double.NaN);
+    }
+
+    /** The semantic offspring as evaluated in isolation, or null when none was taken; reusable as the post-crossover probe. */
+    public TestChromosome getSemanticSnapshot() {
+        return semanticSnapshot;
     }
 
     public boolean isSemanticEvaluated() {
