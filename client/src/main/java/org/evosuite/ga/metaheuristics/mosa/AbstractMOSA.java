@@ -54,18 +54,20 @@ import org.evosuite.llm.search.DisruptionHelper;
 import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.ExtractorTraceSink;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
+import org.evosuite.llm.search.IsolatedEvaluation;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.LlmSemanticCrossover;
 import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.OperatorAttemptResult;
-import org.evosuite.llm.search.PairedProbeResult;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardExtractor;
 import org.evosuite.llm.search.ProblemCardLogRecorder;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.SemanticProbeResult;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
+import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.OperatorTargetSelector;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
 import org.evosuite.rmi.ClientServices;
@@ -639,6 +641,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 offspring2.addDescentLineages(parent1.effectiveLineages());
             }
 
+            // A semantic child is judged as the LLM left it: the mutation that follows must not
+            // create or destroy the target hit credited to the crossover.
+            SemanticProbeResult crossoverProbe = SemanticProbeResult.NONE;
+            if (crossoverResult.isAppliedSemantic()) {
+                crossoverProbe = probeSemanticResult(crossoverResult, offspring1, parent1, observer.isEnabled());
+                llmCrossover.recordOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance() == 0.0);
+            }
+
             // Record crossover disruption event
             if (observer.isEnabled() && (crossoverApplied || crossoverResult.isAttemptedSemantic())) {
                 TestChromosome probeSnapshot = null;
@@ -656,10 +666,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         probeSnapshot = null;
                     }
                 }
-                observer.recordCrossover(offspring1, parent1, parent2,
+                // A semantic crossover recombined parent1 with the selector's partner, so that is
+                // the second parent on record; the breeding loop's parent2 contributed nothing.
+                TestChromosome recordedParent2 = crossoverResult.isAppliedSemantic()
+                        ? crossoverResult.getTarget().getPartner().orElse(parent2) : parent2;
+                observer.recordCrossover(offspring1, parent1, recordedParent2,
                         preCrossStmts1, crossoverResult, crossoverApplied,
                         this.currentIteration, isolatedFitness, probeFailure, probeSnapshot,
-                        crossoverResult.getTarget(), probeStandardCrossoverTwin(crossoverResult));
+                        crossoverResult.getTarget(), crossoverProbe);
             }
 
             this.removeUnusedVariables(offspring1);
@@ -667,13 +681,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
             processOffspringMutation(offspring1, parent1, offspringPopulation, observer,
                     crossoverApplied, syncTargets);
-            // offspring1's fitness is cached and current only if it survived evaluation just now
-            // (isChanged() is cleared by fitness calculation); mutation may have re-evaluated it
-            // after crossover, so this is the earliest point the crossover attempt can be judged.
-            if (llmCrossover != null) {
-                llmCrossover.recordOutcome(crossoverResult,
-                        !offspring1.getFitnessValues().isEmpty() && !offspring1.isChanged() ? offspring1 : null);
-            }
             processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
                     crossoverApplied2, syncTargets);
         }
@@ -860,64 +867,68 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Whether the paired probe should run for a semantic result: only when disruption events are
-     * being recorded (the twin's numbers have nowhere else to go) and the LLM operator actually
-     * replaced the offspring.
+     * Isolated view of a semantic operator result for the disruption sidecar: the offspring as the
+     * LLM left it, evaluated against this generation's goals (plus the target) through {@link
+     * IsolatedEvaluation} so neither the archive nor the goal manager moves, and — with {@link
+     * Properties#LLM_OPERATOR_PAIRED_PROBE} on and events being recorded — the standard
+     * operator's twin from the same parent (or parent/partner pair), evaluated against the same
+     * frozen goals and then discarded. The semantic side is always evaluated when {@code
+     * forSidecar} is set or the result needs judging for the repeat memory; the twin only when
+     * its numbers have a sidecar row to go to.
      */
-    private static boolean pairedProbeWanted(OperatorAttemptResult result) {
-        return Properties.LLM_OPERATOR_PAIRED_PROBE && DisruptionRecorder.isEnabled()
-                && result.isAppliedSemantic() && result.getTarget() != null;
-    }
-
-    /**
-     * Paired probe for a semantic mutation: applies the standard mutation to a fresh clone of the
-     * same parent, evaluates the twin and reports its fitness and its distance to the target goal.
-     * The twin never enters the offspring population; its evaluation still feeds the archive and
-     * goal bookkeeping like every other evaluation, so paired-probe runs are read per event, not
-     * by final coverage.
-     */
-    private PairedProbeResult probeStandardMutationTwin(OperatorAttemptResult result,
-                                                        TestChromosome parent) {
-        if (!pairedProbeWanted(result)) {
-            return PairedProbeResult.NONE;
+    private SemanticProbeResult probeSemanticResult(OperatorAttemptResult result,
+                                                    TestChromosome semanticOffspring,
+                                                    TestChromosome parent,
+                                                    boolean forSidecar) {
+        if (!result.isAppliedSemantic() || result.getTarget() == null) {
+            return SemanticProbeResult.NONE;
+        }
+        OperatorTarget target = result.getTarget();
+        List<TestFitnessFunction> frozenGoals = new ArrayList<>(getCurrentGoals());
+        if (!frozenGoals.contains(target.getGoal())) {
+            frozenGoals.add(target.getGoal());
+        }
+        TestChromosome snapshot;
+        try {
+            snapshot = semanticOffspring.clone();
+            IsolatedEvaluation.evaluate(snapshot, frozenGoals);
+        } catch (Exception e) {
+            logger.debug("Isolated evaluation of the semantic result failed", e);
+            return SemanticProbeResult.NONE;
+        }
+        if (!forSidecar || !Properties.LLM_OPERATOR_PAIRED_PROBE || !DisruptionRecorder.isEnabled()) {
+            return SemanticProbeResult.semanticOnly(snapshot, target.getGoal());
         }
         try {
-            TestChromosome twin = parent.clone();
-            this.mutate(twin, parent);
-            if (!twin.isChanged()) {
-                return PairedProbeResult.NONE;
-            }
-            return evaluateTwin(twin, result);
+            TestChromosome twin = target.getKind() == OperatorTarget.Kind.CROSSOVER
+                    ? standardCrossoverTwin(target) : standardMutationTwin(parent);
+            boolean twinChanged = twin.isChanged();
+            IsolatedEvaluation.evaluate(twin, frozenGoals);
+            return SemanticProbeResult.withTwin(snapshot, twin, twinChanged, target.getGoal());
         } catch (Exception e) {
-            logger.debug("Paired mutation probe failed", e);
-            return PairedProbeResult.failed();
+            logger.debug("Paired probe twin failed", e);
+            return SemanticProbeResult.twinFailed(snapshot, target.getGoal());
         }
     }
 
-    /**
-     * Paired probe for a semantic crossover: the standard crossover applied to clones of the
-     * target parent and its partner, the parent-side twin evaluated (see {@link
-     * #probeStandardMutationTwin}).
-     */
-    private PairedProbeResult probeStandardCrossoverTwin(OperatorAttemptResult result) {
-        if (!pairedProbeWanted(result) || !result.getTarget().getPartner().isPresent()) {
-            return PairedProbeResult.NONE;
-        }
-        try {
-            TestChromosome twin = result.getTarget().getParent().clone();
-            TestChromosome partnerTwin = result.getTarget().getPartner().get().clone();
-            this.crossoverFunction.crossOver(twin, partnerTwin);
-            return evaluateTwin(twin, result);
-        } catch (Exception e) {
-            logger.debug("Paired crossover probe failed", e);
-            return PairedProbeResult.failed();
-        }
-    }
-
-    private PairedProbeResult evaluateTwin(TestChromosome twin, OperatorAttemptResult result) {
+    /** The standard mutation applied to a fresh clone of {@code parent}; unchanged clones are kept as such. */
+    private TestChromosome standardMutationTwin(TestChromosome parent) {
+        TestChromosome twin = parent.clone();
         this.clearCachedResults(twin);
-        this.calculateFitness(twin);
-        return PairedProbeResult.of(twin, result.getTarget().getGoal());
+        twin.setChanged(false); // so isChanged() afterwards reports what the mutation did
+        applyStandardMutation(twin, parent);
+        return twin;
+    }
+
+    /** The standard crossover applied to clones of the target parent and its partner; the parent-side child. */
+    private TestChromosome standardCrossoverTwin(OperatorTarget target) throws ConstructionFailedException {
+        TestChromosome twin = target.getParent().clone();
+        TestChromosome partnerTwin = target.getPartner()
+                .orElseThrow(() -> new IllegalStateException("crossover target without partner")).clone();
+        this.clearCachedResults(twin);
+        this.crossoverFunction.crossOver(twin, partnerTwin);
+        twin.setChanged(true);
+        return twin;
     }
 
     /**
@@ -972,6 +983,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 }
                 return;
             }
+            SemanticProbeResult mutationProbe = observer.isEnabled()
+                    ? probeSemanticResult(mutResult, offspring, parent, true) : SemanticProbeResult.NONE;
             this.clearCachedResults(offspring);
             offspring.updateAge(this.currentIteration);
             this.calculateFitness(offspring);
@@ -983,7 +996,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
                         true, this.currentIteration, postCrossoverSnapshot,
                         isolatedFitnessPostCrossover, crossoverProbeFailure,
-                        mutResult.getTarget(), probeStandardMutationTwin(mutResult, parent));
+                        mutResult.getTarget(), mutationProbe);
             }
 
             offspringPopulation.add(offspring);
@@ -1006,7 +1019,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
                         false, this.currentIteration, postCrossoverSnapshot,
                         isolatedFitnessPostCrossover, crossoverProbeFailure,
-                        mutResult.getTarget(), PairedProbeResult.NONE);
+                        mutResult.getTarget(), SemanticProbeResult.NONE);
             }
         }
     }
@@ -2988,6 +3001,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * @param parent    the parent chromosome that {@code offspring} was created from
      */
     private void mutate(TestChromosome offspring, TestChromosome parent) {
+        applyStandardMutation(offspring, parent);
+        this.notifyMutation(offspring);
+    }
+
+    /** The standard mutation without listener notification, shared with the paired-probe twin. */
+    private void applyStandardMutation(TestChromosome offspring, TestChromosome parent) {
         offspring.mutate();
         if (!offspring.isChanged()) {
             // if offspring is not changed, we try to mutate it once again.
@@ -3002,7 +3021,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
             offspring.setChanged(changed);
         }
-        this.notifyMutation(offspring);
     }
 
     /**

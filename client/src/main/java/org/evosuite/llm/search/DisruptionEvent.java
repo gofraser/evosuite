@@ -83,9 +83,12 @@ public class DisruptionEvent {
     private final double targetDistanceBefore;   // NaN if unavailable
     private final double targetDistanceAfter;    // NaN if unavailable
 
-    // ---- SYNC paired probe (twin evaluation) ----
+    // ---- Isolated view of the semantic result and its standard-operator twin ----
+    private final double semanticFitnessIsolated;         // NaN if unavailable
+    private final double semanticTargetDistanceIsolated;  // NaN if unavailable
     private final boolean pairedProbe;
     private final boolean pairedProbeFailure;
+    private final boolean twinChanged;
     private final double twinFitness;         // NaN if unavailable
     private final double twinTargetDistance;  // NaN if unavailable
 
@@ -120,8 +123,11 @@ public class DisruptionEvent {
         this.targetGoalId = b.targetGoalId;
         this.targetDistanceBefore = b.targetDistanceBefore;
         this.targetDistanceAfter = b.targetDistanceAfter;
+        this.semanticFitnessIsolated = b.semanticFitnessIsolated;
+        this.semanticTargetDistanceIsolated = b.semanticTargetDistanceIsolated;
         this.pairedProbe = b.pairedProbe;
         this.pairedProbeFailure = b.pairedProbeFailure;
+        this.twinChanged = b.twinChanged;
         this.twinFitness = b.twinFitness;
         this.twinTargetDistance = b.twinTargetDistance;
     }
@@ -138,7 +144,8 @@ public class DisruptionEvent {
             + "isolated_probe,probe_failure,"
             + "isolated_fitness_post_crossover,isolated_fitness_post_mutation,isolated_mutation_delta,"
             + "target_goal_id,target_distance_before,target_distance_after,"
-            + "paired_probe,paired_probe_failure,twin_fitness,twin_target_distance";
+            + "semantic_fitness_isolated,semantic_target_distance_isolated,"
+            + "paired_probe,paired_probe_failure,twin_changed,twin_fitness,twin_target_distance";
 
     /**
      * Converts the disruption event to a CSV row.
@@ -162,7 +169,8 @@ public class DisruptionEvent {
                 + formatDouble(isolatedMutationDelta) + ","
                 + formatCsvField(targetGoalId) + ","
                 + formatDouble(targetDistanceBefore) + "," + formatDouble(targetDistanceAfter) + ","
-                + pairedProbe + "," + pairedProbeFailure + ","
+                + formatDouble(semanticFitnessIsolated) + "," + formatDouble(semanticTargetDistanceIsolated) + ","
+                + pairedProbe + "," + pairedProbeFailure + "," + twinChanged + ","
                 + formatDouble(twinFitness) + "," + formatDouble(twinTargetDistance);
     }
 
@@ -303,8 +311,20 @@ public class DisruptionEvent {
         return targetDistanceAfter;
     }
 
+    public double getSemanticFitnessIsolated() {
+        return semanticFitnessIsolated;
+    }
+
+    public double getSemanticTargetDistanceIsolated() {
+        return semanticTargetDistanceIsolated;
+    }
+
     public boolean isPairedProbe() {
         return pairedProbe;
+    }
+
+    public boolean isTwinChanged() {
+        return twinChanged;
     }
 
     public boolean isPairedProbeFailure() {
@@ -356,8 +376,11 @@ public class DisruptionEvent {
         private String targetGoalId;
         private double targetDistanceBefore = Double.NaN;
         private double targetDistanceAfter = Double.NaN;
+        private double semanticFitnessIsolated = Double.NaN;
+        private double semanticTargetDistanceIsolated = Double.NaN;
         private boolean pairedProbe;
         private boolean pairedProbeFailure;
+        private boolean twinChanged;
         private double twinFitness = Double.NaN;
         private double twinTargetDistance = Double.NaN;
 
@@ -511,8 +534,23 @@ public class DisruptionEvent {
             return this;
         }
 
+        public Builder semanticFitnessIsolated(double v) {
+            semanticFitnessIsolated = v;
+            return this;
+        }
+
+        public Builder semanticTargetDistanceIsolated(double v) {
+            semanticTargetDistanceIsolated = v;
+            return this;
+        }
+
         public Builder pairedProbe(boolean v) {
             pairedProbe = v;
+            return this;
+        }
+
+        public Builder twinChanged(boolean v) {
+            twinChanged = v;
             return this;
         }
 

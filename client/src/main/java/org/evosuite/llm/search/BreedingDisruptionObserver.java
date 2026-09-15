@@ -70,7 +70,7 @@ public class BreedingDisruptionObserver {
      * @param probeFailure    true if isolated probe evaluation failed
      * @param probeSnapshot   the post-crossover snapshot (null if not probed)
      * @param target          selector target the semantic operator worked on (null if none)
-     * @param pairedProbe     SYNC paired-probe result (never null; {@link PairedProbeResult#NONE} if not run)
+     * @param probe           isolated view of the semantic result and its twin (never null; {@link SemanticProbeResult#NONE} if none)
      */
     public void recordCrossover(TestChromosome offspring,
                                 TestChromosome parent1,
@@ -83,7 +83,7 @@ public class BreedingDisruptionObserver {
                                 boolean probeFailure,
                                 TestChromosome probeSnapshot,
                                 OperatorTarget target,
-                                PairedProbeResult pairedProbe) {
+                                SemanticProbeResult probe) {
         if (recorder == null) {
             return;
         }
@@ -135,17 +135,10 @@ public class BreedingDisruptionObserver {
             if (target != null) {
                 builder.targetGoalId(GoalId.of(target.getGoal()));
                 builder.targetDistanceBefore(target.getDistance());
-                double targetDistanceAfter = Double.NaN;
-                if (probeSnapshot != null && !probeFailure) {
-                    Double v = probeSnapshot.getFitnessValues().get(target.getGoal());
-                    targetDistanceAfter = v == null ? Double.NaN : v;
-                }
-                builder.targetDistanceAfter(targetDistanceAfter);
+                // The semantic child is measured as the LLM left it, before mutation runs on it.
+                builder.targetDistanceAfter(probe.getSemanticTargetDistance());
             }
-            builder.pairedProbe(pairedProbe.isEvaluated());
-            builder.pairedProbeFailure(pairedProbe.isFailure());
-            builder.twinFitness(pairedProbe.getTwinFitness());
-            builder.twinTargetDistance(pairedProbe.getTwinTargetDistance());
+            appendProbe(builder, probe);
 
             recorder.record(builder.build());
         } catch (Exception e) {
@@ -166,7 +159,7 @@ public class BreedingDisruptionObserver {
      * @param isolatedFitnessPostCrossover isolated fitness after crossover (NaN if not probed)
      * @param crossoverProbeFailure        true if crossover probe failed
      * @param target                       selector target the semantic operator worked on (null if none)
-     * @param pairedProbe                  SYNC paired-probe result (never null; {@link PairedProbeResult#NONE} if not run)
+     * @param probe                        isolated view of the semantic result and its twin (never null; {@link SemanticProbeResult#NONE} if none)
      */
     public void recordMutation(TestChromosome offspring,
                                TestChromosome parent,
@@ -178,7 +171,7 @@ public class BreedingDisruptionObserver {
                                double isolatedFitnessPostCrossover,
                                boolean crossoverProbeFailure,
                                OperatorTarget target,
-                               PairedProbeResult pairedProbe) {
+                               SemanticProbeResult probe) {
         if (recorder == null) {
             return;
         }
@@ -244,10 +237,7 @@ public class BreedingDisruptionObserver {
                 }
                 builder.targetDistanceAfter(targetDistanceAfter);
             }
-            builder.pairedProbe(pairedProbe.isEvaluated());
-            builder.pairedProbeFailure(pairedProbe.isFailure());
-            builder.twinFitness(pairedProbe.getTwinFitness());
-            builder.twinTargetDistance(pairedProbe.getTwinTargetDistance());
+            appendProbe(builder, probe);
 
             recorder.record(builder.build());
         } catch (Exception e) {
@@ -258,6 +248,16 @@ public class BreedingDisruptionObserver {
     /**
      * Creates the appropriate observer based on current configuration.
      */
+    private static void appendProbe(DisruptionEvent.Builder builder, SemanticProbeResult probe) {
+        builder.semanticFitnessIsolated(probe.getSemanticFitness());
+        builder.semanticTargetDistanceIsolated(probe.getSemanticTargetDistance());
+        builder.pairedProbe(probe.isTwinEvaluated());
+        builder.pairedProbeFailure(probe.isTwinFailure());
+        builder.twinChanged(probe.isTwinChanged());
+        builder.twinFitness(probe.getTwinFitness());
+        builder.twinTargetDistance(probe.getTwinTargetDistance());
+    }
+
     public static BreedingDisruptionObserver create() {
         if (!DisruptionRecorder.isEnabled()) {
             return NO_OP;

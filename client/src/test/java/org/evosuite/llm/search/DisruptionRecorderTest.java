@@ -153,9 +153,9 @@ class DisruptionRecorderTest {
                 .build();
 
         String csv = event.toCsvRow();
-        // Verify all fields are present in CSV (34 columns now)
+        // Verify all fields are present in CSV (37 columns now)
         String[] parts = csv.split(",", -1);
-        assertEquals(34, parts.length, "CSV should have 34 columns: " + csv);
+        assertEquals(37, parts.length, "CSV should have 37 columns: " + csv);
         assertEquals("5", parts[0]);
         assertEquals("MUTATION", parts[2]);
         assertEquals("SEMANTIC", parts[3]);
@@ -192,7 +192,7 @@ class DisruptionRecorderTest {
 
         String[] headerParts = DisruptionEvent.CSV_HEADER.split(CSV_SPLIT_REGEX, -1);
         String[] rowParts = csv.split(CSV_SPLIT_REGEX, -1);
-        assertEquals(34, rowParts.length, "Quoted comma must not split into an extra column: " + csv);
+        assertEquals(37, rowParts.length, "Quoted comma must not split into an extra column: " + csv);
         assertEquals(headerParts.length, rowParts.length,
                 "Header column count must match row column count once the comma is quoted");
     }

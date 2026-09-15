@@ -26,6 +26,8 @@ import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
 import org.evosuite.ga.operators.selection.SelectionFunction;
+import org.evosuite.llm.search.DisruptionEvent;
+import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.LlmSemanticCrossover;
@@ -35,6 +37,7 @@ import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.OperatorTargetSelector;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -42,16 +45,24 @@ import org.evosuite.utils.generic.GenericConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
@@ -214,6 +225,127 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
     }
 
     @Test
+    void semanticCrossoverIsJudgedOnItsOwnResultBeforeAnyMutationRuns() throws Exception {
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.METHOD};
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+
+        AccountingDynaMOSA harness = new AccountingDynaMOSA();
+        harness.setSelectionFunction(new AlternatingSelection());
+        harness.setCrossOverFunction(new NoOpCrossOverFunction());
+        harness.syncTargetSelector = new OperatorTargetSelector(memory);
+
+        // Covered by any test with at least two statements: the LLM crossover child below has
+        // two, the parents and the LLM mutation child have one.
+        TestFitnessFunction frontier1 = coveredAtStatements("frontier1", 2);
+        TestFitnessFunction frontier2 = coveredAtStatements("frontier2", 99);
+        harness.goalsManager.getCurrentGoals().add(frontier1);
+        harness.goalsManager.getCurrentGoals().add(frontier2);
+        harness.publishCurrentGoals();
+
+        LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+        when(mockSemanticCrossover.canCall()).thenReturn(true);
+        LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+        when(mockSemanticMutation.canCall()).thenReturn(true);
+        harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, memory);
+        harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, memory);
+        when(mockSemanticCrossover.crossover(any(OperatorTarget.class)))
+                .thenAnswer(invocation -> freshChromosome(2));
+        when(mockSemanticMutation.mutate(any(OperatorTarget.class)))
+                .thenAnswer(invocation -> freshChromosome(1));
+
+        TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
+        TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);
+        parent1.setFitness(frontier1, 0.2);
+        parent2.setFitness(frontier1, 0.2);
+        parent2.setFitness(frontier2, 0.2);
+        harness.seedPopulation(parent1, parent2);
+
+        harness.breedNextGeneration();
+
+        // The crossover attempt is closed with a gain read from its own child, and before the
+        // breeding loop moves on to any mutation call.
+        InOrder inOrder = inOrder(memory, mockSemanticMutation);
+        inOrder.verify(memory).recordAttemptOutcome(any(String.class), eq(1));
+        inOrder.verify(mockSemanticMutation).mutate(any(OperatorTarget.class));
+        assertTrue(parent1.getFitnessValues().get(frontier1) == 0.2,
+                "isolated probes must not touch the parents' cached fitness");
+        assertTrue(harness.goalsManager.getCurrentGoals().contains(frontier1),
+                "isolated probes must not advance the goal manager");
+    }
+
+    @Test
+    void pairedProbeEvaluatesTheTwinInIsolationAndRecordsBothSides(@TempDir Path tempDir) throws Exception {
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.METHOD};
+        boolean savedAnalysis = Properties.LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED;
+        String savedOutputDir = Properties.LLM_OPERATOR_DISRUPTION_OUTPUT_DIR;
+        boolean savedPairedProbe = Properties.LLM_OPERATOR_PAIRED_PROBE;
+        Properties.LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED = true;
+        Properties.LLM_OPERATOR_DISRUPTION_OUTPUT_DIR = tempDir.toString();
+        Properties.LLM_OPERATOR_PAIRED_PROBE = true;
+        DisruptionRecorder.resetInstance();
+        try {
+            AccountingDynaMOSA harness = new AccountingDynaMOSA();
+            harness.setSelectionFunction(new AlternatingSelection());
+            harness.setCrossOverFunction(new NoOpCrossOverFunction());
+            harness.syncTargetSelector = new OperatorTargetSelector(new RepeatedInjectionMemory());
+            TestFitnessFunction frontier1 = coveredAtStatements("frontier1", 2);
+            TestFitnessFunction frontier2 = coveredAtStatements("frontier2", 99);
+            harness.goalsManager.getCurrentGoals().add(frontier1);
+            harness.goalsManager.getCurrentGoals().add(frontier2);
+            harness.publishCurrentGoals();
+
+            LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+            when(mockSemanticCrossover.canCall()).thenReturn(true);
+            LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+            when(mockSemanticMutation.canCall()).thenReturn(true);
+            harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
+            harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
+            when(mockSemanticCrossover.crossover(any(OperatorTarget.class)))
+                    .thenAnswer(invocation -> freshChromosome(2));
+            when(mockSemanticMutation.mutate(any(OperatorTarget.class)))
+                    .thenAnswer(invocation -> freshChromosome(1));
+
+            TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
+            TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);
+            parent1.setFitness(frontier1, 0.2);
+            parent2.setFitness(frontier1, 0.2);
+            parent2.setFitness(frontier2, 0.2);
+            harness.seedPopulation(parent1, parent2);
+
+            harness.breedNextGeneration();
+
+            List<DisruptionEvent> semantic = DisruptionRecorder.getInstance().getEvents().stream()
+                    .filter(e -> e.getOperatorSource() == DisruptionEvent.OperatorSource.SEMANTIC)
+                    .collect(Collectors.toList());
+            assertEquals(2, semantic.size(), "one semantic crossover and one semantic mutation event");
+            DisruptionEvent crossover = semantic.stream()
+                    .filter(e -> e.getOperatorKind() == DisruptionEvent.OperatorKind.CROSSOVER).findFirst().get();
+            DisruptionEvent mutation = semantic.stream()
+                    .filter(e -> e.getOperatorKind() == DisruptionEvent.OperatorKind.MUTATION).findFirst().get();
+
+            // Crossover: the two-statement LLM child covers frontier1; the no-op crossover twin
+            // (a clone of parent1, one statement) does not. The partner is parent2 on record.
+            assertEquals(0.0, crossover.getTargetDistanceAfter());
+            assertEquals(0.0, crossover.getSemanticTargetDistanceIsolated());
+            assertTrue(crossover.isPairedProbe());
+            assertEquals(1.0, crossover.getTwinTargetDistance());
+            assertEquals(System.identityHashCode(parent2), crossover.getParent2Hash());
+            // Mutation: neither the LLM child nor the unchanged standard twin covers frontier2.
+            assertTrue(mutation.isPairedProbe());
+            assertFalse(mutation.isTwinChanged(), "a standard mutation that changed nothing is still a twin");
+            assertEquals(1.0, mutation.getSemanticTargetDistanceIsolated());
+            assertEquals(1.0, mutation.getTwinTargetDistance());
+            assertTrue(harness.goalsManager.getCurrentGoals().contains(frontier1),
+                    "probes must not cover goals away from the search");
+        } finally {
+            Properties.LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED = savedAnalysis;
+            Properties.LLM_OPERATOR_DISRUPTION_OUTPUT_DIR = savedOutputDir;
+            Properties.LLM_OPERATOR_PAIRED_PROBE = savedPairedProbe;
+            DisruptionRecorder.resetInstance();
+        }
+    }
+
+    @Test
     void standardCrossoverFallbackGivesBothOffspringBothLineages() throws Exception {
         AccountingDynaMOSA harness = new AccountingDynaMOSA();
         harness.setSelectionFunction(new AlternatingSelection());
@@ -255,13 +387,66 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
     }
 
     private static TestChromosome freshChromosome() {
+        return freshChromosome(1);
+    }
+
+    private static TestChromosome freshChromosome(int statements) {
         try {
             TestChromosome tc = new TestChromosome();
-            tc.setTestCase(testCaseWithMethodCall());
+            TestCase testCase = testCaseWithMethodCall();
+            for (int i = 1; i < statements; i++) {
+                TestFactory.getInstance().addConstructor(testCase,
+                        new GenericConstructor(Object.class.getDeclaredConstructor(), Object.class), i, 0);
+            }
+            tc.setTestCase(testCase);
             return tc;
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    /** Goal that is covered (distance 0) by any test with at least {@code statements} statements. */
+    private static TestFitnessFunction coveredAtStatements(String name, int statements) {
+        return new TestFitnessFunction() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public double getFitness(TestChromosome individual, ExecutionResult result) {
+                double fitness = individual.getTestCase().size() >= statements ? 0.0 : 1.0;
+                updateIndividual(individual, fitness);
+                return fitness;
+            }
+
+            @Override
+            public int compareTo(TestFitnessFunction o) {
+                return 0;
+            }
+
+            @Override
+            public String getTargetClass() {
+                return "Test";
+            }
+
+            @Override
+            public String getTargetMethod() {
+                return name;
+            }
+
+            @Override
+            public int hashCode() {
+                return name.hashCode();
+            }
+
+            @Override
+            public boolean equals(Object other) {
+                return this == other;
+            }
+
+            @Override
+            public String toString() {
+                return name;
+            }
+        };
     }
 
     /**
