@@ -436,4 +436,85 @@ class OperatorTargetSelectorTest {
             Randomness.restore(savedRandomState);
         }
     }
+
+    // --- cache-only selection ------------------------------------------------------------
+
+    @Test
+    void selectionNeverReEvaluatesFitness() {
+        AtomicInteger evaluations = new AtomicInteger();
+        TestFitnessFunction goalA = new CountingStubGoal("A", evaluations);
+        TestFitnessFunction goalB = new CountingStubGoal("B", evaluations);
+
+        TestChromosome closeToA = chromosome(1);
+        closeToA.setFitness(goalA, 0.2);
+        closeToA.setFitness(goalB, 0.9);
+        closeToA.setChanged(true);
+        TestChromosome closeToB = chromosome(2);
+        closeToB.setFitness(goalA, 0.95);
+        closeToB.setFitness(goalB, 0.5);
+        closeToB.setChanged(true);
+
+        int evaluationsBeforeA = closeToA.getNumberOfEvaluations();
+        int evaluationsBeforeB = closeToB.getNumberOfEvaluations();
+
+        OperatorTargetSelector selector = new OperatorTargetSelector(null, noCards());
+        List<OperatorTarget> result = selector.select(
+                Arrays.asList(closeToA, closeToB), Arrays.asList(goalA, goalB), 2);
+
+        assertEquals(2, result.size());
+        assertEquals(goalA, result.get(0).getGoal());
+        assertEquals(goalB, result.get(1).getGoal());
+        assertEquals(0, evaluations.get(), "select() must never call TestFitnessFunction.getFitness(TestChromosome, ExecutionResult)");
+        assertEquals(evaluationsBeforeA, closeToA.getNumberOfEvaluations());
+        assertEquals(evaluationsBeforeB, closeToB.getNumberOfEvaluations());
+    }
+
+    /** Stub goal that counts calls to {@link #getFitness(TestChromosome, ExecutionResult)} and fails the test if it is ever executed. */
+    private static final class CountingStubGoal extends TestFitnessFunction {
+        private static final long serialVersionUID = 1L;
+        private final String name;
+        private final AtomicInteger evaluations;
+
+        CountingStubGoal(String name, AtomicInteger evaluations) {
+            this.name = name;
+            this.evaluations = evaluations;
+        }
+
+        @Override
+        public double getFitness(TestChromosome individual, ExecutionResult result) {
+            evaluations.incrementAndGet();
+            return individual.getFitnessValues().getOrDefault(this, 1.0);
+        }
+
+        @Override
+        public ExecutionResult runTest(org.evosuite.testcase.TestCase test) {
+            throw new AssertionError("selection must not execute the test");
+        }
+
+        @Override
+        public int compareTo(TestFitnessFunction other) {
+            return other instanceof CountingStubGoal
+                    ? name.compareTo(((CountingStubGoal) other).name) : compareClassName(other);
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            return this == other || (other instanceof CountingStubGoal && name.equals(((CountingStubGoal) other).name));
+        }
+
+        @Override
+        public String getTargetClass() {
+            return "example.Target";
+        }
+
+        @Override
+        public String getTargetMethod() {
+            return name;
+        }
+    }
 }

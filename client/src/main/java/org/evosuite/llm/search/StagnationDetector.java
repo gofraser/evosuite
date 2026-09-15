@@ -400,9 +400,12 @@ public class StagnationDetector {
     }
 
     /**
-     * Returns the per-goal best fitness over the given population. Computed on
-     * the caller's thread because it iterates the live population and computes
-     * fitness against each goal.
+     * Returns the per-goal best fitness over the given population. Reads each
+     * individual's cached fitness for the goal via {@link
+     * TestChromosome#getFitness(org.evosuite.ga.FitnessFunction)} and only
+     * falls back to computing it (which may execute the test) when no cached
+     * value is present. Computed on the caller's thread because it iterates
+     * the live population.
      */
     public static Map<TestFitnessFunction, Double> computeBestFitnessPerGoal(
             Collection<TestFitnessFunction> uncoveredGoals,
@@ -415,7 +418,7 @@ public class StagnationDetector {
             double best = Double.MAX_VALUE;
             if (population != null) {
                 for (TestChromosome tc : population) {
-                    double f = goal.getFitness(tc);
+                    double f = tc.getFitness(goal);
                     if (f < best) {
                         best = f;
                     }

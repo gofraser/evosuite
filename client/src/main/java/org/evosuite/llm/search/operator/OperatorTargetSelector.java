@@ -24,7 +24,6 @@ import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardExtractor;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
-import org.evosuite.llm.search.StagnationDetector;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.Randomness;
@@ -50,11 +49,13 @@ import java.util.Set;
  * the per-individual hot path and lets one batch of targets be reused by
  * every operator invocation in that generation.
  *
- * <p>Selection never executes a test beyond what {@link
- * StagnationDetector#computeBestFitnessPerGoal} already does on already
- * evaluated individuals: it otherwise reads only {@link
- * TestChromosome#getFitnessValues()} caches and {@link
- * org.evosuite.testcase.TestCase#getCoveredGoals()}.
+ * <p>Selection is strictly cache-only: it never calls a {@link
+ * TestFitnessFunction#getFitness} overload, only ever reads {@link
+ * TestChromosome#getFitnessValues()} and {@link
+ * org.evosuite.testcase.TestCase#getCoveredGoals()}. It therefore never
+ * executes a test, never bumps an evaluation counter, and never triggers a
+ * DMoN promotion. A goal with no cached fitness value on any individual this
+ * generation is simply not targetable this generation.
  *
  * <p>Branches on {@link Properties#LLM_OPERATOR_TARGETING}: {@code DIRECTED}
  * ranks candidates by closeness to an uncovered goal (with a stall-priority
@@ -125,13 +126,17 @@ public class OperatorTargetSelector {
 
     private static Map<TestFitnessFunction, Double> keptGoalsWithBestDistance(
             Collection<TestFitnessFunction> currentGoals, List<TestChromosome> population) {
-        Map<TestFitnessFunction, Double> best =
-                StagnationDetector.computeBestFitnessPerGoal(currentGoals, population);
         Map<TestFitnessFunction, Double> kept = new LinkedHashMap<>();
-        for (Map.Entry<TestFitnessFunction, Double> entry : best.entrySet()) {
-            double distance = entry.getValue();
-            if (Double.isFinite(distance) && distance > 0.0 && distance < 1.0) {
-                kept.put(entry.getKey(), distance);
+        for (TestFitnessFunction goal : currentGoals) {
+            double best = Double.POSITIVE_INFINITY;
+            for (TestChromosome tc : population) {
+                Double cached = tc.getFitnessValues().get(goal);
+                if (cached != null && Double.isFinite(cached) && cached < best) {
+                    best = cached;
+                }
+            }
+            if (Double.isFinite(best) && best > 0.0 && best < 1.0) {
+                kept.put(goal, best);
             }
         }
         return kept;
