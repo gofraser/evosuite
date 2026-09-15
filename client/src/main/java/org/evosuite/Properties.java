@@ -2745,6 +2745,39 @@ public class Properties {
     @IntValue(min = 0)
     public static int LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
 
+    /**
+     * How {@code (parent, goal)} pairs are chosen for LLM variation operators.
+     */
+    public enum LlmOperatorTargeting {
+        /** Ranks (parent, goal) pairs by closeness to an uncovered goal. */
+        DIRECTED,
+        /** Pairs random individuals with random current goals, as a control arm. */
+        RANDOM
+    }
+
+    @Parameter(key = "llm_operator_targeting", group = "LLM",
+            description = "How LLM operator targets are chosen: DIRECTED ranks (parent, goal) "
+                    + "pairs by closeness to an uncovered goal; RANDOM pairs random individuals "
+                    + "with random current goals as a control")
+    public static LlmOperatorTargeting LLM_OPERATOR_TARGETING = LlmOperatorTargeting.DIRECTED;
+
+    @Parameter(key = "llm_operator_crossover", group = "LLM",
+            description = "Allow LLM operator targets to include a crossover partner test "
+                    + "alongside the mutation parent")
+    public static boolean LLM_OPERATOR_CROSSOVER = true;
+
+    @Parameter(key = "llm_operator_stall_generations", group = "LLM",
+            description = "Number of consecutive selections with an unchanged best distance "
+                    + "before a goal is considered stalled and its target priority is boosted 1.5x")
+    @IntValue(min = 1)
+    public static int LLM_OPERATOR_STALL_GENERATIONS = 3;
+
+    @Parameter(key = "llm_operator_partner_min_new_goals", group = "LLM",
+            description = "Minimum number of goals a crossover partner must cover beyond the "
+                    + "mutation parent to be eligible as a crossover target")
+    @IntValue(min = 0)
+    public static int LLM_OPERATOR_PARTNER_MIN_NEW_GOALS = 1;
+
     // ---------------------------------------------------------------
     // Speciation / Diversity (LLM-independent)
 
