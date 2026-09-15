@@ -35,6 +35,7 @@ import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationTestFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.TestFitnessFunction;
 
 /**
@@ -66,12 +67,13 @@ public final class GoalId {
         }
         if (goal instanceof IBranchTestFitness) {
             IBranchTestFitness f = (IBranchTestFitness) goal;
-            return format(goal, branchDiscriminator(f.getBranch(), f.getValue()));
+            // IBranch, like CBranch, is scoped to a call context: two IBranch goals on the same
+            // branch/polarity but different call sites are different goals and need different ids.
+            return format(goal, branchDiscriminator(f.getBranch(), f.getValue()) + contextSuffix(f.getContext()));
         }
         if (goal instanceof CBranchTestFitness) {
             CBranchTestFitness f = (CBranchTestFitness) goal;
-            String ctx = f.getContext() == null ? "" : f.getContext().toString();
-            return format(goal, branchDiscriminator(f.getBranch(), f.getValue()) + "|ctx=" + ctx);
+            return format(goal, branchDiscriminator(f.getBranch(), f.getValue()) + contextSuffix(f.getContext()));
         }
         if (goal instanceof LineCoverageTestFitness) {
             return format(goal, "line=" + ((LineCoverageTestFitness) goal).getLine());
@@ -108,6 +110,10 @@ public final class GoalId {
     private static String branchDiscriminator(Branch branch, boolean value) {
         String branchPart = branch == null ? "root" : String.valueOf(branch.getActualBranchId());
         return "branch=" + branchPart + ":" + value;
+    }
+
+    private static String contextSuffix(CallContext context) {
+        return "|ctx=" + (context == null ? "" : context.toString());
     }
 
     private static String format(TestFitnessFunction goal, String discriminator) {

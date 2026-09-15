@@ -90,7 +90,8 @@ class GoalIdTest {
                 GoalId.of(onlyBranch));
 
         IBranchTestFitness ibranch = new IBranchTestFitness(goal, new CallContext());
-        assertEquals("IBranch|" + CLASS_NAME + "|" + METHOD_NAME + "|branch=root:true", GoalId.of(ibranch));
+        assertEquals("IBranch|" + CLASS_NAME + "|" + METHOD_NAME + "|branch=root:true|ctx=",
+                GoalId.of(ibranch));
     }
 
     @Test
@@ -102,6 +103,24 @@ class GoalIdTest {
         String expected = "CBranch|" + CLASS_NAME + "|" + METHOD_NAME
                 + "|branch=root:true|ctx=" + context;
         assertEquals(expected, GoalId.of(cBranch));
+    }
+
+    @Test
+    void iBranchGoalsWithDifferentContextsHaveDifferentIds() {
+        BranchCoverageGoal goal = new BranchCoverageGoal(null, true, CLASS_NAME, METHOD_NAME, 10);
+        IBranchTestFitness first = new IBranchTestFitness(goal, new CallContext("com.example.CallerA", "a()V"));
+        IBranchTestFitness second = new IBranchTestFitness(goal, new CallContext("com.example.CallerB", "b()V"));
+
+        assertNotEquals(GoalId.of(first), GoalId.of(second));
+    }
+
+    @Test
+    void iBranchGoalsWithTheSameContextHaveTheSameId() {
+        BranchCoverageGoal goal = new BranchCoverageGoal(null, true, CLASS_NAME, METHOD_NAME, 10);
+        IBranchTestFitness first = new IBranchTestFitness(goal, new CallContext("com.example.Caller", "caller()V"));
+        IBranchTestFitness second = new IBranchTestFitness(goal, new CallContext("com.example.Caller", "caller()V"));
+
+        assertEquals(GoalId.of(first), GoalId.of(second));
     }
 
     @Test
