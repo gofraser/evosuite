@@ -2716,6 +2716,12 @@ public class Properties {
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_CROSSOVER_PROBABILITY = 0.1;
 
+    @Parameter(key = "llm_prompt_cache_static_context", group = "LLM",
+            description = "Render the SUT context and test-cluster summary once per run into the "
+                    + "system message so providers can cache the prompt prefix; when false they "
+                    + "are rebuilt into every user message")
+    public static boolean LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+
     @Parameter(key = "llm_operator_repair_attempts", group = "LLM",
             description = "Repair round-trips allowed for a malformed LLM operator response; "
                     + "0 parses the first response only (llm_repair_attempts applies elsewhere)")
