@@ -336,7 +336,7 @@ public class LlmService implements AutoCloseable {
     }
 
     public String query(List<LlmMessage> messages, LlmFeature feature) {
-        return queryInternal(messages, feature, new QueryOptions());
+        return queryInternal(messages, feature, new QueryOptions()).getText();
     }
 
     /**
@@ -345,7 +345,7 @@ public class LlmService implements AutoCloseable {
     public String query(List<LlmMessage> messages, LlmFeature feature,
                         long deadlineNanos) {
         return queryInternal(messages, feature,
-                new QueryOptions().withDeadlineNanos(deadlineNanos));
+                new QueryOptions().withDeadlineNanos(deadlineNanos)).getText();
     }
 
     /**
@@ -356,7 +356,7 @@ public class LlmService implements AutoCloseable {
      * @param repairAttempt the 1-based repair attempt number (1 = initial, 2+ = repair)
      */
     public String query(List<LlmMessage> messages, LlmFeature feature, int repairAttempt) {
-        return queryInternal(messages, feature, new QueryOptions().withRepairAttempt(repairAttempt));
+        return queryInternal(messages, feature, new QueryOptions().withRepairAttempt(repairAttempt)).getText();
     }
 
     /**
@@ -371,7 +371,7 @@ public class LlmService implements AutoCloseable {
                         List<String> expandedClasses) {
         return queryInternal(messages, feature, new QueryOptions()
                 .withRepairAttempt(repairAttempt)
-                .withExpansion(expansionAttempted, expandedClasses));
+                .withExpansion(expansionAttempted, expandedClasses)).getText();
     }
 
     /**
@@ -384,7 +384,7 @@ public class LlmService implements AutoCloseable {
         return queryInternal(messages, feature, new QueryOptions()
                 .withRepairAttempt(repairAttempt)
                 .withExpansion(expansionAttempted, expandedClasses)
-                .withDeadlineNanos(deadlineNanos));
+                .withDeadlineNanos(deadlineNanos)).getText();
     }
 
     /**
@@ -396,7 +396,7 @@ public class LlmService implements AutoCloseable {
             throw new IllegalArgumentException("promptResult must not be null");
         }
         return queryInternal(promptResult.getMessages(), feature,
-                QueryOptions.fromPromptResult(promptResult));
+                QueryOptions.fromPromptResult(promptResult)).getText();
     }
 
     /**
@@ -410,7 +410,21 @@ public class LlmService implements AutoCloseable {
         }
         return queryInternal(promptResult.getMessages(), feature,
                 QueryOptions.fromPromptResult(promptResult)
-                        .withDeadlineNanos(deadlineNanos));
+                        .withDeadlineNanos(deadlineNanos)).getText();
+    }
+
+    /**
+     * Same as {@link #query(PromptResult, LlmFeature)}, but also returns the
+     * token usage and latency of the successful call so the caller can credit
+     * them to whatever the response produced (e.g. one row per operator
+     * target sharing a single batched call).
+     */
+    public QueryResult queryWithUsage(PromptResult promptResult, LlmFeature feature) {
+        if (promptResult == null) {
+            throw new IllegalArgumentException("promptResult must not be null");
+        }
+        return queryInternal(promptResult.getMessages(), feature,
+                QueryOptions.fromPromptResult(promptResult));
     }
 
     /**
@@ -464,7 +478,7 @@ public class LlmService implements AutoCloseable {
         }
     }
 
-    private String queryInternal(List<LlmMessage> messages, LlmFeature feature, QueryOptions options) {
+    private QueryResult queryInternal(List<LlmMessage> messages, LlmFeature feature, QueryOptions options) {
         if (!available) {
             throw new LlmCallFailedException("LLM service is unavailable",
                     new IllegalStateException("LLM provider is not configured"), false);
@@ -497,7 +511,8 @@ public class LlmService implements AutoCloseable {
                 safeRecordTrace(feature, messages, response.getText(), response.getInputTokens(),
                         response.getCachedInputTokens(), response.getOutputTokens(), latency, status,
                         options.repairAttempt, options.expansionAttempted, safeExpandedClasses, "", options);
-                return response.getText();
+                return new QueryResult(response.getText(), response.getInputTokens(),
+                        response.getCachedInputTokens(), response.getOutputTokens(), latency);
             } catch (Exception e) {
                 lastError = unwrap(e);
                 long latency = System.currentTimeMillis() - start;
@@ -1194,6 +1209,47 @@ public class LlmService implements AutoCloseable {
 
         public int getOutputTokens() {
             return outputTokens;
+        }
+    }
+
+    /**
+     * Text plus the token usage and latency of the call that produced it.
+     * Returned by {@link #queryWithUsage(PromptResult, LlmFeature)} for
+     * callers that need to attribute usage rather than just consume the text.
+     */
+    public static final class QueryResult {
+        private final String text;
+        private final int inputTokens;
+        private final int cachedInputTokens;
+        private final int outputTokens;
+        private final long latencyMs;
+
+        public QueryResult(String text, int inputTokens, int cachedInputTokens, int outputTokens, long latencyMs) {
+            this.text = text;
+            this.inputTokens = inputTokens;
+            this.cachedInputTokens = cachedInputTokens;
+            this.outputTokens = outputTokens;
+            this.latencyMs = latencyMs;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public int getInputTokens() {
+            return inputTokens;
+        }
+
+        public int getCachedInputTokens() {
+            return cachedInputTokens;
+        }
+
+        public int getOutputTokens() {
+            return outputTokens;
+        }
+
+        public long getLatencyMs() {
+            return latencyMs;
         }
     }
 }
