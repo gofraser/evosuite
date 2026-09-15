@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 /**
@@ -78,6 +79,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     private volatile Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
     private volatile Supplier<List<TestChromosome>> populationSupplier;
     private volatile OperatorTargetSelector targetSelector;
+    private volatile LongSupplier generationSupplier = () -> 0L;
 
     public LlmTestChromosomeFactory(ChromosomeFactory<TestChromosome> fallback) {
         this(fallback, LlmService.getInstance(), Collections::emptyList);
@@ -97,6 +99,15 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
 
     public ChromosomeFactory<TestChromosome> getFallbackFactory() {
         return fallback;
+    }
+
+    /** Overrides the generation number passed to {@link #targetSelector}. */
+    void setGenerationSupplier(LongSupplier generationSupplier) {
+        this.generationSupplier = generationSupplier == null ? () -> 0L : generationSupplier;
+    }
+
+    private long generation() {
+        return generationSupplier.getAsLong();
     }
 
     /**
@@ -172,7 +183,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         List<OperatorTarget> targets = (population == null || population.isEmpty()
                 || goals == null || goals.isEmpty())
                 ? Collections.emptyList()
-                : targetSelector.select(population, goals, 1);
+                : targetSelector.select(population, goals, 1, generation(), false);
         if (!targets.isEmpty()) {
             return targetedPromptFactory.buildGenerate(targets.get(0));
         }

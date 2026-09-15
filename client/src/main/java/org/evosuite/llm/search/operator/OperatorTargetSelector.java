@@ -33,7 +33,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -42,9 +41,21 @@ import java.util.Set;
 
 /**
  * Chooses the {@code (parent, goal)} pairs, and optional crossover partners,
- * that LLM variation operators act on. Called once per generation on the
- * search thread, never inside the mutation/crossover operators themselves, so
- * one batch of targets can be reused by every operator invocation.
+ * that LLM variation operators act on. Called on the search thread, never
+ * inside the mutation/crossover operators themselves, so one batch of targets
+ * can be reused by every operator invocation.
+ *
+ * <p>A caller passes the search {@code generation} the population snapshot
+ * belongs to; see {@link GoalStallTracker#stallCountsForGeneration} for how
+ * this lets a caller such as the per-individual seed factory invoke {@code
+ * select} several times within one generation without inflating the stall
+ * history.
+ *
+ * <p>{@code allowCrossover} additionally gates whether a crossover partner is
+ * ever picked: with {@code false}, every returned target is a {@link
+ * OperatorTarget.Kind#MUTATION} target regardless of {@link
+ * Properties#LLM_OPERATOR_CROSSOVER}; a caller that only ever mutates a single
+ * parent (e.g. a seed prompt) passes {@code false}.
  *
  * <p>Selection is strictly cache-only: it never calls a {@link
  * TestFitnessFunction#getFitness} overload, only reads {@link
@@ -61,9 +72,9 @@ import java.util.Set;
  * goal still worth targeting (cached best distance in {@code (0,1)}), parent
  * = the individual closest to that best distance, then ranks by priority
  * (stall-boosted closeness) capped to one target per parent; {@code RANDOM}
- * samples distinct random individuals paired with a random goal from those
- * same targetable goals, keeping sampling order (same per-parent cap) instead
- * of ranking by priority.
+ * samples uniformly from the valid {@code (parent, goal)} pairs for those
+ * same targetable goals, never reusing a parent, instead of ranking by
+ * priority.
  */
 public class OperatorTargetSelector {
 
@@ -94,22 +105,28 @@ public class OperatorTargetSelector {
         this.cardSource = cardSource == null ? new ProblemCardExtractor()::extract : cardSource;
     }
 
-    /** Selects up to {@code k} operator targets for this generation's snapshot. */
+    /**
+     * Selects up to {@code k} operator targets for this generation's
+     * snapshot. See the class javadoc for how {@code generation} governs
+     * stall tracking and {@code allowCrossover} gates crossover partners.
+     */
     public List<OperatorTarget> select(List<TestChromosome> population,
-                                       Collection<TestFitnessFunction> currentGoals, int k) {
+                                       Collection<TestFitnessFunction> currentGoals, int k,
+                                       long generation, boolean allowCrossover) {
         if (population == null || population.isEmpty()
                 || currentGoals == null || currentGoals.isEmpty() || k <= 0) {
             return Collections.emptyList();
         }
         return Properties.LLM_OPERATOR_TARGETING == Properties.LlmOperatorTargeting.RANDOM
-                ? selectRandom(population, currentGoals, k)
-                : selectDirected(population, currentGoals, k);
+                ? selectRandom(population, currentGoals, k, generation, allowCrossover)
+                : selectDirected(population, currentGoals, k, generation, allowCrossover);
     }
 
     private List<OperatorTarget> selectDirected(List<TestChromosome> population,
-                                                Collection<TestFitnessFunction> currentGoals, int k) {
+                                                Collection<TestFitnessFunction> currentGoals, int k,
+                                                long generation, boolean allowCrossover) {
         Map<TestFitnessFunction, Double> kept = keptGoalsWithBestDistance(currentGoals, population);
-        Map<TestFitnessFunction, Integer> stallCounts = recordStallCounts(kept);
+        Map<TestFitnessFunction, Integer> stallCounts = stallTracker.stallCountsForGeneration(generation, kept);
         Map<TestFitnessFunction, ProblemCard> cardsByGoal =
                 ProblemCardGoalIndex.build(cardSource, currentGoals, population, MAX_CARDS, logger);
 
@@ -123,7 +140,7 @@ public class OperatorTargetSelector {
             }
             boolean stalled = stallCounts.getOrDefault(goal, 0) >= Properties.LLM_OPERATOR_STALL_GENERATIONS;
             OperatorTarget target = buildTarget(population, parent, goal, best, best, stalled,
-                    CrossoverPartnerFinder::directed, cardsByGoal);
+                    CrossoverPartnerFinder::directed, cardsByGoal, allowCrossover);
             if (target != null) {
                 candidates.add(target);
             }
@@ -132,36 +149,39 @@ public class OperatorTargetSelector {
     }
 
     private List<OperatorTarget> selectRandom(List<TestChromosome> population,
-                                              Collection<TestFitnessFunction> currentGoals, int k) {
+                                              Collection<TestFitnessFunction> currentGoals, int k,
+                                              long generation, boolean allowCrossover) {
         Map<TestFitnessFunction, Double> kept = keptGoalsWithBestDistance(currentGoals, population);
         if (kept.isEmpty()) {
             return Collections.emptyList();
         }
-        Map<TestFitnessFunction, Integer> stallCounts = recordStallCounts(kept);
+        Map<TestFitnessFunction, Integer> stallCounts = stallTracker.stallCountsForGeneration(generation, kept);
         Map<TestFitnessFunction, ProblemCard> cardsByGoal =
                 ProblemCardGoalIndex.build(cardSource, currentGoals, population, MAX_CARDS, logger);
-        List<TestFitnessFunction> keptGoals = new ArrayList<>(kept.keySet());
 
-        List<TestChromosome> shuffled = new ArrayList<>(population);
-        Randomness.shuffle(shuffled);
-        int count = Math.min(k, shuffled.size());
-        List<OperatorTarget> candidates = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
-            TestChromosome parent = shuffled.get(i);
-            TestFitnessFunction goal = Randomness.choice(keptGoals);
-            Double distance = parent.getFitnessValues().get(goal);
-            if (distance == null || !Double.isFinite(distance)) {
+        List<RandomPairSampler.Pair> pairs = RandomPairSampler.validPairs(population, kept);
+        Randomness.shuffle(pairs);
+
+        List<OperatorTarget> result = new ArrayList<>();
+        Set<TestChromosome> usedParents = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (RandomPairSampler.Pair pair : pairs) {
+            if (result.size() >= k) {
+                break;
+            }
+            if (usedParents.contains(pair.parent)) {
                 continue;
             }
-            double best = kept.get(goal);
-            boolean stalled = stallCounts.getOrDefault(goal, 0) >= Properties.LLM_OPERATOR_STALL_GENERATIONS;
-            OperatorTarget target = buildTarget(population, parent, goal, distance, best, stalled,
-                    CrossoverPartnerFinder::random, cardsByGoal);
-            if (target != null) {
-                candidates.add(target);
+            double best = kept.get(pair.goal);
+            boolean stalled = stallCounts.getOrDefault(pair.goal, 0) >= Properties.LLM_OPERATOR_STALL_GENERATIONS;
+            OperatorTarget target = buildTarget(population, pair.parent, pair.goal, pair.distance, best, stalled,
+                    CrossoverPartnerFinder::random, cardsByGoal, allowCrossover);
+            if (target == null) {
+                continue;
             }
+            usedParents.add(pair.parent);
+            result.add(target);
         }
-        return capOnePerParent(candidates, k);
+        return result;
     }
 
     /**
@@ -187,25 +207,12 @@ public class OperatorTargetSelector {
         return kept;
     }
 
-    /**
-     * Records this generation's best distance for every kept goal, first
-     * forgetting any tracked goal not kept this generation so a goal that
-     * briefly leaves the kept set does not inherit a stale stall count.
-     */
-    private Map<TestFitnessFunction, Integer> recordStallCounts(Map<TestFitnessFunction, Double> kept) {
-        stallTracker.forgetGoalsNotIn(kept.keySet());
-        Map<TestFitnessFunction, Integer> stallCounts = new HashMap<>();
-        for (Map.Entry<TestFitnessFunction, Double> entry : kept.entrySet()) {
-            stallCounts.put(entry.getKey(), stallTracker.record(entry.getKey(), entry.getValue()));
-        }
-        return stallCounts;
-    }
-
     /** Builds one enriched candidate: crossover partner, stall-boosted priority, repeated-injection adjustment, card. Null if suppressed. */
     private OperatorTarget buildTarget(List<TestChromosome> population, TestChromosome parent,
                                        TestFitnessFunction goal, double distance, double best, boolean stalled,
-                                       PartnerPicker partnerPicker, Map<TestFitnessFunction, ProblemCard> cardsByGoal) {
-        TestChromosome partner = Properties.LLM_OPERATOR_CROSSOVER
+                                       PartnerPicker partnerPicker, Map<TestFitnessFunction, ProblemCard> cardsByGoal,
+                                       boolean allowCrossover) {
+        TestChromosome partner = allowCrossover && Properties.LLM_OPERATOR_CROSSOVER
                 ? partnerPicker.pick(population, parent, goal, best) : null;
         double basePriority = (1.0 - distance) * (stalled ? 1.5 : 1.0);
         OperatorTarget.Builder builder = OperatorTarget.builder(parent, goal)
