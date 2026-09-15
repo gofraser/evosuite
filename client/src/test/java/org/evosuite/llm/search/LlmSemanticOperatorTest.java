@@ -203,8 +203,10 @@ class LlmSemanticOperatorTest {
         OperatorTarget crossover = OperatorTarget.builder(makeChromosome(), makeGoal("g"))
                 .partner(makeChromosome()).build();
 
-        assertThrows(IllegalArgumentException.class, () -> new LlmSemanticMutation(llmService).mutate(crossover));
-        assertThrows(IllegalArgumentException.class, () -> new LlmSemanticCrossover(llmService).crossover(mutation));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LlmSemanticMutation(llmService).applyMapped(Collections.singletonList(crossover)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new LlmSemanticCrossover(llmService).applyMapped(Collections.singletonList(mutation)));
         verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
     }
 }

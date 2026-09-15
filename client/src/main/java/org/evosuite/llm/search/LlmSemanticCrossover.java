@@ -23,10 +23,6 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.TargetedPromptFactory;
 import org.evosuite.llm.search.operator.OperatorTarget;
-import org.evosuite.testcase.TestChromosome;
-
-import java.util.Collections;
-import java.util.List;
 
 /**
  * LLM-driven semantic crossover: asks the LLM to produce a recombination
@@ -46,12 +42,8 @@ public class LlmSemanticCrossover extends LlmSemanticOperator {
         super(llmService, LlmFeature.SEMANTIC_CROSSOVER, promptFactory);
     }
 
-    /** Recombines the target's parent and partner towards the target's goal. */
-    public TestChromosome crossover(OperatorTarget target) {
-        if (target != null && target.getKind() != OperatorTarget.Kind.CROSSOVER) {
-            throw new IllegalArgumentException("LlmSemanticCrossover cannot crossover " + target.getKind() + " target");
-        }
-        List<TestChromosome> result = apply(Collections.singletonList(target));
-        return result.isEmpty() ? null : result.get(0);
+    @Override
+    protected OperatorTarget.Kind kind() {
+        return OperatorTarget.Kind.CROSSOVER;
     }
 }

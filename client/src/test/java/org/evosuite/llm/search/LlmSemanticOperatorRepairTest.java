@@ -26,12 +26,14 @@ import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.testcase.DefaultTestCase;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -133,7 +135,7 @@ class LlmSemanticOperatorRepairTest {
                 .thenReturn(new LlmService.QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
-        TestChromosome result = mutation.mutate(mutationTarget());
+        TestCase result = mutation.applyMapped(Collections.singletonList(mutationTarget())).forTarget(1).orElse(null);
 
         assertNull(result, "a malformed response with no repair budget must not produce a mutant");
         verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
@@ -151,7 +153,7 @@ class LlmSemanticOperatorRepairTest {
                 .thenReturn(new LlmService.QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
-        TestChromosome result = crossover.crossover(crossoverTarget());
+        TestCase result = crossover.applyMapped(Collections.singletonList(crossoverTarget())).forTarget(1).orElse(null);
 
         assertNull(result, "a malformed response with no repair budget must not produce a child");
         verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
@@ -170,7 +172,7 @@ class LlmSemanticOperatorRepairTest {
                 .thenReturn(MALFORMED_RESPONSE);
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
-        TestChromosome result = mutation.mutate(mutationTarget());
+        TestCase result = mutation.applyMapped(Collections.singletonList(mutationTarget())).forTarget(1).orElse(null);
 
         assertNull(result);
         verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));

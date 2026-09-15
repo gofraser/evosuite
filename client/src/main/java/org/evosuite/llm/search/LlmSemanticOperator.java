@@ -113,11 +113,23 @@ public abstract class LlmSemanticOperator {
      * owns those chromosomes, never on a background worker.
      *
      * @throws IllegalArgumentException when {@code targets} is empty, as
-     *     {@link TargetedPromptFactory#build} requires
+     *     {@link TargetedPromptFactory#build} requires, or when one of them
+     *     is not this operator's {@link #kind()}
      */
     public PromptResult prepare(List<OperatorTarget> targets) {
+        if (targets != null) {
+            for (OperatorTarget target : targets) {
+                if (target != null && target.getKind() != kind()) {
+                    throw new IllegalArgumentException(
+                            getClass().getSimpleName() + " cannot process " + target.getKind() + " target");
+                }
+            }
+        }
         return promptFactory.build(targets);
     }
+
+    /** The only {@link OperatorTarget.Kind} this operator accepts. */
+    protected abstract OperatorTarget.Kind kind();
 
     /**
      * Makes the LLM call for an already-rendered prompt and maps the response
