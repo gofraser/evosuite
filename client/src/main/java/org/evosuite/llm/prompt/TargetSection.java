@@ -26,11 +26,12 @@ import org.evosuite.testcase.statements.Statement;
 import java.util.List;
 
 /**
- * Renders the detail lines a prompt attaches to one thing the model should
- * act on: evidence, concrete examples (exemplar tests) and the suggested
- * action. Diagnostic problem cards and operator targets share this block, so
- * the two prompt shapes describe a goal the same way and the wording lives
- * in one place.
+ * Renders the block a prompt devotes to one thing the model should act on:
+ * a heading, then evidence, concrete examples (exemplar tests), the suggested
+ * action and finally any lines saying how to proceed (which test to start
+ * from, what each parent covers). Diagnostic problem cards and operator
+ * targets both render through {@link #appendBlock}, so the two prompt shapes
+ * describe a goal in the same order and the wording lives in one place.
  */
 public final class TargetSection {
 
@@ -44,16 +45,30 @@ public final class TargetSection {
     private TargetSection() {}
 
     /**
-     * Appends the detail lines: up to {@code maxEvidence} evidence lines, every
+     * Appends one complete block: the heading line, then the detail lines in
+     * their fixed order — up to {@code maxEvidence} evidence lines, every
      * concrete example (as a reference to an existing test when it is one of
-     * {@code existingTests}, otherwise inlined and truncated), and the action
-     * hint when non-empty.
+     * {@code existingTests}, otherwise inlined and truncated), the action hint
+     * when non-empty, and last the {@code howToProceed} lines.
      */
-    public static void appendDetails(StringBuilder sb,
-                                     List<String> evidence, int maxEvidence,
-                                     List<ProblemCard.ConcreteExample> examples,
-                                     List<TestCase> existingTests,
-                                     String actionHint) {
+    public static void appendBlock(StringBuilder sb, String heading,
+                                   List<String> evidence, int maxEvidence,
+                                   List<ProblemCard.ConcreteExample> examples,
+                                   List<TestCase> existingTests,
+                                   String actionHint,
+                                   List<String> howToProceed) {
+        sb.append(heading).append('\n');
+        appendDetails(sb, evidence, maxEvidence, examples, existingTests, actionHint);
+        for (String line : howToProceed) {
+            sb.append(DETAIL_PREFIX).append(line).append('\n');
+        }
+    }
+
+    static void appendDetails(StringBuilder sb,
+                              List<String> evidence, int maxEvidence,
+                              List<ProblemCard.ConcreteExample> examples,
+                              List<TestCase> existingTests,
+                              String actionHint) {
         int emitted = 0;
         for (String line : evidence) {
             if (emitted++ >= maxEvidence) {

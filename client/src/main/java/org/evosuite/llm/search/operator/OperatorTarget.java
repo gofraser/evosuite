@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.search.operator;
 
+import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.TargetSection;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
@@ -69,7 +70,8 @@ public final class OperatorTarget {
      * goal to target it with (the breeding-loop hooks {@code mutateSemantically}
      * and {@code crossoverSemantically}); population-wide selection across many
      * individuals is {@link OperatorTargetSelector}. Picks the goal with the
-     * smallest finite cached fitness strictly greater than 0 on {@code parent}
+     * smallest cached fitness in {@code (0, ExemplarAttacher.MAX_EXEMPLAR_DISTANCE)}
+     * on {@code parent} — the same "worth targeting" range the selector uses
      * (cached only: {@link TestChromosome#getFitnessValues()}, never
      * {@link TestFitnessFunction#getFitness}, so this never re-executes the
      * test); when no goal has such a cached value, falls back to a random goal
@@ -85,7 +87,8 @@ public final class OperatorTarget {
         double bestDistance = Double.POSITIVE_INFINITY;
         for (TestFitnessFunction goal : goals) {
             Double value = parent.getFitnessValues().get(goal);
-            if (value != null && Double.isFinite(value) && value > 0.0 && value < bestDistance) {
+            if (value != null && value > 0.0 && value < ExemplarAttacher.MAX_EXEMPLAR_DISTANCE
+                    && value < bestDistance) {
                 bestDistance = value;
                 bestGoal = goal;
             }

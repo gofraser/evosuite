@@ -40,11 +40,13 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 /**
@@ -255,6 +257,33 @@ class LlmSemanticOperatorTest {
         assertNotNull(target);
         assertTrue(target.getGoal() == a || target.getGoal() == b);
         assertTrue(Double.isNaN(target.getDistance()));
+    }
+
+    @Test
+    void closestGoalTreatsDistancesAtOrAboveOneAsUnknown() {
+        TestChromosome parent = makeChromosome();
+        TestFitnessFunction atOne = makeGoal("atOne");
+        TestFitnessFunction huge = makeGoal("huge");
+        parent.setFitness(atOne, 1.0);
+        parent.setFitness(huge, Double.MAX_VALUE);
+
+        OperatorTarget target = OperatorTarget.closestGoal(parent, null, Arrays.asList(atOne, huge));
+
+        assertNotNull(target);
+        assertTrue(Double.isNaN(target.getDistance()),
+                "a best distance of 1 or more means no test gets near the goal; fall back to the unknown-distance path");
+    }
+
+    @Test
+    void mutateRejectsCrossoverTargetAndCrossoverRejectsMutationTarget() {
+        LlmService llmService = mockAvailableService();
+        OperatorTarget mutation = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
+        OperatorTarget crossover = OperatorTarget.builder(makeChromosome(), makeGoal("g"))
+                .partner(makeChromosome()).build();
+
+        assertThrows(IllegalArgumentException.class, () -> new LlmSemanticMutation(llmService).mutate(crossover));
+        assertThrows(IllegalArgumentException.class, () -> new LlmSemanticCrossover(llmService).crossover(mutation));
+        verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
     }
 
     @Test

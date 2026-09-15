@@ -104,9 +104,10 @@ public final class ExemplarAttacher {
      * closest test to count as an exemplar. Normalised fitness below 1 means
      * some test already reaches the goal's controlling predicate or method;
      * at or above 1 the "closest" test is an arbitrary member of the
-     * population and would only mislead the model.
+     * population and would only mislead the model. The same bound decides
+     * which goals are worth targeting at all ({@code OperatorTarget}).
      */
-    static final double MAX_EXEMPLAR_DISTANCE = 1.0;
+    public static final double MAX_EXEMPLAR_DISTANCE = 1.0;
 
     /**
      * Returns the card's related goal with the smallest best distance in

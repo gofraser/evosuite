@@ -67,6 +67,9 @@ public class LlmSemanticMutation extends LlmSemanticOperator {
 
     /** Mutates the target's parent towards its goal. */
     public TestChromosome mutate(OperatorTarget target) {
+        if (target != null && target.getKind() != OperatorTarget.Kind.MUTATION) {
+            throw new IllegalArgumentException("LlmSemanticMutation cannot mutate " + target.getKind() + " target");
+        }
         List<TestChromosome> result = apply(Collections.singletonList(target));
         return result.isEmpty() ? null : result.get(0);
     }

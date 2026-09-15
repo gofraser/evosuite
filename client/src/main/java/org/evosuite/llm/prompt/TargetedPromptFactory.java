@@ -109,10 +109,17 @@ public final class TargetedPromptFactory {
         return build(targets, instruction.toString());
     }
 
-    /** Seeding prompt: generate one new test for a single target (the parent is shown as the starting point). */
+    /**
+     * Seeding prompt: generate one new test for a single-parent target (the
+     * parent is shown as the starting point). A crossover target is rejected:
+     * the generate instruction speaks of one existing test.
+     */
     public PromptResult buildGenerate(OperatorTarget target) {
         if (target == null) {
             throw new IllegalArgumentException("target must not be null");
+        }
+        if (target.getKind() != OperatorTarget.Kind.MUTATION) {
+            throw new IllegalArgumentException("generate-for-target needs a single-parent target, got " + target.getKind());
         }
         return build(Collections.singletonList(target), GENERATE_SENTENCE);
     }
@@ -143,7 +150,6 @@ public final class TargetedPromptFactory {
         PromptResult prompt = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
-                .withTestClusterContext(Properties.TARGET_CLASS, TestCluster.getInstance())
                 .withExistingTests(existingTests)
                 .withInstruction(section.toString().trim())
                 .withFewShotSnippets(FewShotExampleProvider.collectSnippetsIfFewShot(goals, null))
@@ -168,35 +174,32 @@ public final class TargetedPromptFactory {
 
     private void appendTarget(StringBuilder sb, int index, OperatorTarget target,
                               List<TestCase> existingTests, Map<TestCase, Integer> testIndex) {
-        sb.append(String.format(Locale.ROOT, TARGET_HEADING_FORMAT, index,
+        StringBuilder heading = new StringBuilder(String.format(Locale.ROOT, TARGET_HEADING_FORMAT, index,
                 goalDescriptionMapper.describe(target.getGoal())));
         if (Double.isFinite(target.getDistance())) {
-            sb.append(String.format(Locale.ROOT, DISTANCE_FORMAT, target.getDistance()));
+            heading.append(String.format(Locale.ROOT, DISTANCE_FORMAT, target.getDistance()));
         }
-        sb.append('\n');
+        List<String> howToProceed = new ArrayList<>();
         int parentIndex = testIndex.get(target.getParent().getTestCase());
         if (target.getPartner().isPresent()) {
             TestCase partner = target.getPartner().get().getTestCase();
-            sb.append(TargetSection.DETAIL_PREFIX)
-                    .append(String.format(Locale.ROOT, COMBINE_FORMAT, parentIndex, testIndex.get(partner)))
-                    .append('\n');
-            appendComplementarity(sb, "A", target.getParent().getTestCase(), partner);
-            appendComplementarity(sb, "B", partner, target.getParent().getTestCase());
+            howToProceed.add(String.format(Locale.ROOT, COMBINE_FORMAT, parentIndex, testIndex.get(partner)));
+            complementarity(howToProceed, "A", target.getParent().getTestCase(), partner);
+            complementarity(howToProceed, "B", partner, target.getParent().getTestCase());
         } else {
-            sb.append(TargetSection.DETAIL_PREFIX)
-                    .append(String.format(Locale.ROOT, START_FROM_FORMAT, parentIndex))
-                    .append('\n');
+            howToProceed.add(String.format(Locale.ROOT, START_FROM_FORMAT, parentIndex));
         }
-        if (target.getCard().isPresent()) {
-            ProblemCard card = target.getCard().get();
-            TargetSection.appendDetails(sb, card.getEvidence(), MAX_EVIDENCE_LINES,
-                    card.getConcreteExamples(), existingTests,
-                    card.getType() == null ? "" : card.getType().getActionHint());
-        }
+        ProblemCard card = target.getCard().orElse(null);
+        String actionHint = card != null && card.getType() != null && !card.getType().getActionHint().isEmpty()
+                ? card.getType().getActionHint() : GoalActionHint.forGoal(target.getGoal());
+        TargetSection.appendBlock(sb, heading.toString(),
+                card == null ? Collections.<String>emptyList() : card.getEvidence(), MAX_EVIDENCE_LINES,
+                card == null ? Collections.<ProblemCard.ConcreteExample>emptyList() : card.getConcreteExamples(),
+                existingTests, actionHint, howToProceed);
     }
 
-    /** One line naming what only {@code test} covers relative to {@code other}; nothing when the sets do not differ. */
-    private void appendComplementarity(StringBuilder sb, String label, TestCase test, TestCase other) {
+    /** Adds one line naming what only {@code test} covers relative to {@code other}; nothing when the sets do not differ. */
+    private void complementarity(List<String> lines, String label, TestCase test, TestCase other) {
         Set<TestFitnessFunction> only = new LinkedHashSet<>(coveredGoals(test));
         only.removeAll(coveredGoals(other));
         if (only.isEmpty()) {
@@ -213,9 +216,7 @@ public final class TargetedPromptFactory {
         if (only.size() > names.size()) {
             joined += String.format(Locale.ROOT, ClusterGrowthDelta.TRUNCATION_FORMAT, only.size() - names.size());
         }
-        sb.append(TargetSection.DETAIL_PREFIX)
-                .append(String.format(Locale.ROOT, ONLY_COVERS_FORMAT, label, joined))
-                .append('\n');
+        lines.add(String.format(Locale.ROOT, ONLY_COVERS_FORMAT, label, joined));
     }
 
     private static Set<TestFitnessFunction> coveredGoals(TestCase test) {

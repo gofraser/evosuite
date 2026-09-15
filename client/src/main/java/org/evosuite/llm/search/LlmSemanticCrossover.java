@@ -72,6 +72,9 @@ public class LlmSemanticCrossover extends LlmSemanticOperator {
 
     /** Recombines the target's parent and partner towards the target's goal. */
     public TestChromosome crossover(OperatorTarget target) {
+        if (target != null && target.getKind() != OperatorTarget.Kind.CROSSOVER) {
+            throw new IllegalArgumentException("LlmSemanticCrossover cannot crossover " + target.getKind() + " target");
+        }
         List<TestChromosome> result = apply(Collections.singletonList(target));
         return result.isEmpty() ? null : result.get(0);
     }

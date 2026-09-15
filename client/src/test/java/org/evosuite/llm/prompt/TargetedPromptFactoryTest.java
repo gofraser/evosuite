@@ -279,6 +279,39 @@ class TargetedPromptFactoryTest {
         assertTrue(user.contains("desc" + String.format(TargetSection.SEE_EXISTING_TEST_FORMAT, 1)));
     }
 
+    @Test
+    void cardDetailsPrecedeHowToProceedLinesAndCardHintWinsOverGoalHint() {
+        TestChromosome parent = chromosome(1);
+        ProblemCard card = ProblemCard.builder(ProblemCardType.UNREACHED_METHOD)
+                .title("t").evidence(Collections.singletonList("ev1"))
+                .impact(1.0).blockage(1.0).confidence(1.0).build();
+        OperatorTarget target = OperatorTarget.builder(parent, goal("g")).card(card).build();
+
+        String user = userText(new TargetedPromptFactory().build(Collections.singletonList(target)));
+
+        int evidence = user.indexOf("ev1");
+        int action = user.indexOf(TargetSection.SUGGESTED_ACTION_PREFIX);
+        int startFrom = user.indexOf(String.format(TargetedPromptFactory.START_FROM_FORMAT, 1));
+        assertTrue(evidence >= 0 && action > evidence && startFrom > action,
+                "evidence, then suggested action, then how to proceed: " + user);
+        assertFalse(user.contains(GoalActionHint.DEFAULT), "the card's hint replaces the goal-family hint");
+    }
+
+    @Test
+    void targetWithoutCardStillCarriesAGoalFamilyActionHint() {
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+
+        String user = userText(new TargetedPromptFactory().build(Collections.singletonList(target)));
+
+        assertTrue(user.contains(TargetSection.SUGGESTED_ACTION_PREFIX + GoalActionHint.forGoal(target.getGoal())));
+    }
+
+    @Test
+    void buildGenerateRejectsCrossoverTarget() {
+        OperatorTarget crossover = OperatorTarget.builder(chromosome(1), goal("g")).partner(chromosome(2)).build();
+        assertThrows(IllegalArgumentException.class, () -> new TargetedPromptFactory().buildGenerate(crossover));
+    }
+
     // ---- metadata -------------------------------------------------------------------
 
     @Test

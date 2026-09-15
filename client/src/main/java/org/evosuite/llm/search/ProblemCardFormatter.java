@@ -54,19 +54,13 @@ public final class ProblemCardFormatter {
             if (card == null) {
                 continue;
             }
-            sb.append(index++)
-                    .append(". [")
-                    .append(card.getType().name())
-                    .append("] ")
-                    .append(card.getTitle())
-                    .append(" (priority=")
-                    .append(String.format(Locale.ROOT, "%.3f", card.getPriority()))
-                    .append(", goals=")
-                    .append(card.getRelatedGoals().size())
-                    .append(")\n");
-            TargetSection.appendDetails(sb, card.getEvidence(), Integer.MAX_VALUE,
+            String heading = index++ + ". [" + card.getType().name() + "] " + card.getTitle()
+                    + " (priority=" + String.format(Locale.ROOT, "%.3f", card.getPriority())
+                    + ", goals=" + card.getRelatedGoals().size() + ")";
+            TargetSection.appendBlock(sb, heading, card.getEvidence(), Integer.MAX_VALUE,
                     card.getConcreteExamples(), existingTests,
-                    card.getType() == null ? "" : card.getType().getActionHint());
+                    card.getType() == null ? "" : card.getType().getActionHint(),
+                    Collections.<String>emptyList());
         }
         return sb.toString().trim();
     }
