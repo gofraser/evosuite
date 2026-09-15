@@ -26,13 +26,11 @@ import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.llm.search.LlmSemanticCrossover;
 import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.LlmSemanticOperator;
-import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,7 +42,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutorService;
@@ -177,7 +174,7 @@ public final class LlmOperatorExecutor {
             return false;
         }
         List<RepeatedInjectionTarget> repeatedTargets = new ArrayList<>(batch.size());
-        BatchAttribution attribution = new BatchAttribution(batch.size());
+        OperatorBatchAttribution attribution = new OperatorBatchAttribution(batch.size());
         for (OperatorTarget target : batch) {
             repeatedTargets.add(target.toRepeatedInjectionTarget());
             attribution.add(target);
@@ -204,9 +201,9 @@ public final class LlmOperatorExecutor {
 
     /** Worker-thread body: makes the LLM call, then publishes the resulting candidates. */
     private void runBatch(LlmSemanticOperator operator, PromptResult prompt, String attemptId,
-                          BatchAttribution attribution) {
+                          OperatorBatchAttribution attribution) {
         try {
-            TargetedResponse mapped = operator.complete(prompt, attribution.snapshots.size());
+            TargetedResponse mapped = operator.complete(prompt, attribution.size());
             if (shutDown) {
                 return; // shutdown() releases this attempt; do not publish or close it here.
             }
@@ -221,31 +218,32 @@ public final class LlmOperatorExecutor {
         }
     }
 
-    private void publish(TargetedResponse mapped, String attemptId, BatchAttribution attribution) {
+    private void publish(TargetedResponse mapped, String attemptId, OperatorBatchAttribution attribution) {
         if (mapped == null || mapped.isEmpty()) {
             closeAttempt(attemptId, 0);
             return;
         }
         int produced = 0;
-        for (int i = 1; i <= attribution.snapshots.size(); i++) {
+        for (int i = 1; i <= attribution.size(); i++) {
             TestCase test = mapped.forTarget(i).orElse(null);
             if (test == null) {
                 continue;
             }
-            TargetSnapshot snapshot = attribution.snapshots.get(i - 1);
-            List<ProblemCardType> cardTypes = snapshot.cardType == null
-                    ? Collections.<ProblemCardType>emptyList() : Collections.singletonList(snapshot.cardType);
+            OperatorBatchAttribution.TargetSnapshot snapshot = attribution.snapshot(i - 1);
+            List<ProblemCardType> cardTypes = snapshot.getCardType() == null
+                    ? Collections.<ProblemCardType>emptyList()
+                    : Collections.singletonList(snapshot.getCardType());
             InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
-                    attemptId, cardTypes, Collections.singletonList(snapshot.goal));
-            if (!offer(newChromosome(test, snapshot.lineages), metadata)) {
+                    attemptId, cardTypes, Collections.singletonList(snapshot.getGoal()));
+            if (!offer(newChromosome(test, snapshot.getLineages()), metadata)) {
                 return;
             }
             produced++;
         }
         for (TestCase test : mapped.unmatched()) {
             InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
-                    attemptId, attribution.cardTypes, new LinkedHashSet<>(attribution.goals));
-            if (!offer(newChromosome(test, attribution.lineages), metadata)) {
+                    attemptId, attribution.getCardTypes(), new LinkedHashSet<>(attribution.getGoals()));
+            if (!offer(newChromosome(test, attribution.getLineages()), metadata)) {
                 return;
             }
             produced++;
@@ -349,45 +347,5 @@ public final class LlmOperatorExecutor {
         openAttemptIds.clear();
         queue.clear();
         pendingMetadata.clear();
-    }
-
-    /** Per-target attribution captured on the search thread before the call goes out. */
-    private static final class TargetSnapshot {
-        private final Set<Long> lineages;
-        private final TestFitnessFunction goal;
-        private final ProblemCardType cardType;
-
-        private TargetSnapshot(Set<Long> lineages, TestFitnessFunction goal, ProblemCardType cardType) {
-            this.lineages = lineages;
-            this.goal = goal;
-            this.cardType = cardType;
-        }
-    }
-
-    /**
-     * Accumulates per-target {@link TargetSnapshot}s plus the batch-wide union
-     * of lineages/card types/goals used to attribute an unmatched response.
-     */
-    private static final class BatchAttribution {
-        private final List<TargetSnapshot> snapshots;
-        private final Set<Long> lineages = new TreeSet<>();
-        private final List<ProblemCardType> cardTypes = new ArrayList<>();
-        private final List<TestFitnessFunction> goals = new ArrayList<>();
-
-        private BatchAttribution(int size) {
-            snapshots = new ArrayList<>(size);
-        }
-
-        private void add(OperatorTarget target) {
-            Set<Long> targetLineages = new TreeSet<>(target.getParent().effectiveLineages());
-            target.getPartner().ifPresent(partner -> targetLineages.addAll(partner.effectiveLineages()));
-            ProblemCardType cardType = target.getCard().map(ProblemCard::getType).orElse(null);
-            snapshots.add(new TargetSnapshot(targetLineages, target.getGoal(), cardType));
-            lineages.addAll(targetLineages);
-            if (cardType != null) {
-                cardTypes.add(cardType);
-            }
-            goals.add(target.getGoal());
-        }
     }
 }
