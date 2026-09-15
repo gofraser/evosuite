@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -216,6 +217,30 @@ class LlmSemanticOperatorRepairTest {
         assertNotNull(onOtherThread.get());
         assertNotSame(onThisThread, onOtherThread.get(),
                 "each thread must build and keep its own repair loop");
+    }
+
+    @Test
+    void mutationRepairLoopIsParseOnly() {
+        Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
+        LlmSemanticMutation mutation = new LlmSemanticMutation(mock(LlmService.class));
+
+        boolean executeParsedTests = mutation.repairLoop().getRepairOptions().isExecuteParsedTests();
+
+        assertFalse(executeParsedTests,
+                "an operator's repair loop runs on a background worker and must not "
+                        + "execute candidates itself; the GA evaluates every drained candidate");
+    }
+
+    @Test
+    void crossoverRepairLoopIsParseOnly() {
+        Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
+        LlmSemanticCrossover crossover = new LlmSemanticCrossover(mock(LlmService.class));
+
+        boolean executeParsedTests = crossover.repairLoop().getRepairOptions().isExecuteParsedTests();
+
+        assertFalse(executeParsedTests,
+                "an operator's repair loop runs on a background worker and must not "
+                        + "execute candidates itself; the GA evaluates every drained candidate");
     }
 
     @Test

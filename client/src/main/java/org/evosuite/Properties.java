@@ -2784,7 +2784,9 @@ public class Properties {
 
     @Parameter(key = "llm_operator_repair_attempts", group = "LLM",
             description = "Repair round-trips allowed for a malformed LLM operator response; "
-                    + "0 parses the first response only (llm_repair_attempts applies elsewhere)")
+                    + "0 parses the first response only. These turns react to parse and compile "
+                    + "diagnostics only: operator responses are executed by the search, not by the "
+                    + "repair loop (llm_repair_attempts applies elsewhere)")
     @IntValue(min = 0)
     public static int LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
 

@@ -119,7 +119,9 @@ public abstract class LlmSemanticOperator {
     /**
      * Makes the LLM call for an already-rendered prompt and maps the response
      * back to targets. Safe to run on a background worker: it touches no
-     * chromosome state, only the prompt built by {@link #prepare(List)}.
+     * chromosome state, only the prompt built by {@link #prepare(List)}; the
+     * repair loop it uses is parse-only, so the returned tests are executed
+     * by the search, never by this call.
      *
      * @param targetCount the number of targets the prompt was built for
      */
@@ -156,7 +158,7 @@ public abstract class LlmSemanticOperator {
     private TestRepairLoop newRepairLoop() {
         boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         return TestRepairLoop.createDefault(llmService,
-                TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions),
+                TestRepairLoop.RepairOptions.parseOnly(keepAssertions),
                 Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
     }
 }

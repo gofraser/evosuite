@@ -474,6 +474,84 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void parseOnlyOptionsNeverInvokeExecutorAndStillSucceed() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "kept"));
+            }
+        };
+
+        AtomicInteger executions = new AtomicInteger();
+        TestRepairLoop.TestExecutor executor = testCase -> {
+            executions.incrementAndGet();
+            return new ExecutionResult(testCase);
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                executor,
+                1,
+                null,
+                null,
+                TestRepairLoop.RepairOptions.parseOnly(false));
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        assertEquals(1, result.getParseResults().size());
+        assertEquals(0, executions.get(),
+                "a parse-only loop must never touch the test executor; "
+                        + "the caller evaluates the returned tests itself");
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void defaultOptionsStillExecuteParsedTests() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "kept"));
+            }
+        };
+
+        AtomicInteger executions = new AtomicInteger();
+        TestRepairLoop.TestExecutor executor = testCase -> {
+            executions.incrementAndGet();
+            return new ExecutionResult(testCase);
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                executor,
+                1);
+
+        RepairResult result = loop.attemptParse(
+                "```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        assertEquals(1, executions.get(),
+                "the default options must keep executing parsed tests (existing behaviour)");
+    }
+
+    @Test
     void parserExceptionIsCapturedAndRepairAttempted() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))

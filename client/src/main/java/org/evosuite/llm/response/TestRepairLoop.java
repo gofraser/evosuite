@@ -315,21 +315,45 @@ public class TestRepairLoop {
         private final boolean keepAssertionsInParsedTests;
         private final boolean repairOnAssertionFailures;
         private final boolean instructRepairToAvoidAssertions;
+        private final boolean executeParsedTests;
 
         public static RepairOptions defaults() {
-            return new RepairOptions(true, true, false);
+            return new RepairOptions(true, true, false, true);
         }
 
         public static RepairOptions forAssertionPolicy(boolean keepAssertions) {
-            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions);
+            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions, true);
+        }
+
+        /**
+         * Options for callers that will evaluate the parsed tests themselves
+         * (e.g. a genetic-algorithm operator running on a worker thread) and
+         * must not touch {@link org.evosuite.testcase.execution.TestCaseExecutor}
+         * from the repair loop. With this option, {@link #attemptParse} never
+         * executes a parsed test: it only compile-checks candidates, and later
+         * repair turns react to parse/compile diagnostics rather than runtime
+         * failures. The execution-based brute-force salvage is skipped as well,
+         * since it would otherwise execute the failed test directly.
+         */
+        public static RepairOptions parseOnly(boolean keepAssertions) {
+            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions, false);
         }
 
         public RepairOptions(boolean keepAssertionsInParsedTests,
                              boolean repairOnAssertionFailures,
                              boolean instructRepairToAvoidAssertions) {
+            this(keepAssertionsInParsedTests, repairOnAssertionFailures,
+                    instructRepairToAvoidAssertions, true);
+        }
+
+        public RepairOptions(boolean keepAssertionsInParsedTests,
+                             boolean repairOnAssertionFailures,
+                             boolean instructRepairToAvoidAssertions,
+                             boolean executeParsedTests) {
             this.keepAssertionsInParsedTests = keepAssertionsInParsedTests;
             this.repairOnAssertionFailures = repairOnAssertionFailures;
             this.instructRepairToAvoidAssertions = instructRepairToAvoidAssertions;
+            this.executeParsedTests = executeParsedTests;
         }
 
         public boolean isKeepAssertionsInParsedTests() {
@@ -342,6 +366,16 @@ public class TestRepairLoop {
 
         public boolean isInstructRepairToAvoidAssertions() {
             return instructRepairToAvoidAssertions;
+        }
+
+        /**
+         * Whether {@link #attemptParse} is allowed to execute parsed tests via
+         * {@link org.evosuite.testcase.execution.TestCaseExecutor}. When {@code false},
+         * the caller is responsible for evaluating the returned tests itself, and the
+         * repair loop only reacts to parse/compile diagnostics on later repair turns.
+         */
+        public boolean isExecuteParsedTests() {
+            return executeParsedTests;
         }
     }
 
@@ -456,6 +490,11 @@ public class TestRepairLoop {
         this.systemPrompt = systemPrompt;
         this.sutContextSummary = sutContextSummary;
         this.repairOptions = repairOptions == null ? RepairOptions.defaults() : repairOptions;
+    }
+
+    /** Returns the {@link RepairOptions} this loop was configured with. */
+    public RepairOptions getRepairOptions() {
+        return repairOptions;
     }
 
     /** Attempts to parse the LLM response and repair it iteratively if parsing fails. */
@@ -697,18 +736,25 @@ public class TestRepairLoop {
             }
 
             // Execute valid tests and split into executable (kept) and dropped-at-execution.
+            // When execution is disabled, every compile-checked test is trusted as-is:
+            // the caller (e.g. a GA operator evaluating candidates itself) is responsible
+            // for running it, and the repair loop must not touch TestCaseExecutor.
             List<ParseResult> finalTests = new ArrayList<>();
             List<ParseResult> droppedAtExecution = new ArrayList<>();
             Map<ParseResult, ExecutionFailureContext> executionErrorByTest = new LinkedHashMap<>();
-            for (ParseResult pr : validTests) {
-                ExecutionFailureContext failure = checkExecution(pr, repairOptions);
-                if (failure == null) {
-                    finalTests.add(pr);
-                } else {
-                    droppedAtExecution.add(pr);
-                    executionErrorByTest.put(pr, failure);
-                    diagnostics.add(failure.errorMessage);
+            if (repairOptions.isExecuteParsedTests()) {
+                for (ParseResult pr : validTests) {
+                    ExecutionFailureContext failure = checkExecution(pr, repairOptions);
+                    if (failure == null) {
+                        finalTests.add(pr);
+                    } else {
+                        droppedAtExecution.add(pr);
+                        executionErrorByTest.put(pr, failure);
+                        diagnostics.add(failure.errorMessage);
+                    }
                 }
+            } else {
+                finalTests.addAll(validTests);
             }
 
             // Record any executable tests we have so far so they survive later repair turns.
@@ -739,7 +785,9 @@ public class TestRepairLoop {
                     conversation, currentResponse, feature, expandedClasses,
                     executionErrorByTest, repairDeadlineNanos);
             if (next == null) {
-                if (repairOptions.isKeepAssertionsInParsedTests()) {
+                if (!repairOptions.isExecuteParsedTests()) {
+                    diagnostics.add("Skipped execution-based salvage: parse-only mode");
+                } else if (repairOptions.isKeepAssertionsInParsedTests()) {
                     diagnostics.add("Skipped assertion-stripping brute-force salvage "
                             + "because assertions must be preserved.");
                 } else {
