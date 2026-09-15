@@ -32,7 +32,6 @@ import java.util.Collections;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -83,7 +82,7 @@ class SeedAttemptLedgerTest {
     }
 
     @Test
-    void suiteEvaluationClosesTheAttemptsOfItsTests() {
+    void suiteNotificationWithoutEvidenceStaysPendingThenRecordsGainOnceCovered() {
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         SeedAttemptLedger ledger = new SeedAttemptLedger(memory);
@@ -93,9 +92,43 @@ class SeedAttemptLedgerTest {
         TestSuiteChromosome suite = new TestSuiteChromosome();
         suite.addTest(seeded);
 
+        // First criterion's suite fitness function runs; it leaves neither a
+        // fitness value nor a covered-goal entry for the target goal, so this
+        // is not yet evidence of anything.
         ledger.evaluated(suite, 1L);
 
-        verify(memory).recordAttemptOutcome(eq(id), anyInt());
+        verify(memory, never()).recordAttemptOutcome(any(String.class), anyInt());
+        assertEquals(1, ledger.openAttempts());
+
+        // The target goal's own criterion now runs and covers it.
+        seeded.getTestCase().addCoveredGoal(goal);
+        ledger.evaluated(suite, 1L);
+
+        verify(memory).recordAttemptOutcome(id, 1);
+    }
+
+    @Test
+    void suiteNotificationsWithoutEvidenceRecordNoGainOnceTheGenerationHasMovedOn() {
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        SeedAttemptLedger ledger = new SeedAttemptLedger(memory);
+        TestChromosome seeded = test();
+        String id = register(memory);
+        ledger.open(seeded, id, goal, 1L);
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(seeded);
+
+        // Every criterion of generation 1 runs without ever covering the goal.
+        ledger.evaluated(suite, 1L);
+
+        verify(memory, never()).recordAttemptOutcome(any(String.class), anyInt());
+        assertEquals(1, ledger.openAttempts());
+
+        // A notification for generation 2 proves generation 1 is fully done.
+        ledger.evaluated(suite, 2L);
+
+        verify(memory).recordAttemptOutcome(id, 0);
+        assertEquals(0, ledger.openAttempts());
     }
 
     @Test

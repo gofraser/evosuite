@@ -36,7 +36,26 @@ import java.util.Map;
  * evaluated. The factory must not execute the test itself (that would run it
  * outside the GA's evaluation lifecycle, with its archive and budget
  * accounting), so the attempt stays open until the GA evaluates the individual
- * and reports it here; the outcome is then read from the cached fitness values.
+ * and reports it here; the outcome is then read from the evidence the GA left
+ * behind on the test.
+ *
+ * <p>Two evaluation paths feed {@link #evaluated}, and they leave different
+ * evidence:
+ * <ul>
+ * <li>Test-level GAs (MOSA/DynaMOSA) compute every current goal's fitness on
+ * the test in one pass and notify listeners once afterwards, so the target
+ * goal's fitness value is on the test by the time this ledger is told; a
+ * value of {@code 0.0} is a direct verdict.</li>
+ * <li>Suite-level GAs notify listeners once per criterion, and a suite
+ * fitness function does not write per-goal fitness values onto its member
+ * tests — the only trace a criterion leaves on a test is an entry in its
+ * covered goals once that criterion has run. So a suite notification that
+ * finds neither a fitness value nor a covered-goal entry is not evidence of
+ * "not covered", only evidence that the target goal's criterion has not run
+ * yet; the attempt must stay open until either the goal turns up covered, or
+ * a later generation proves every criterion of the opening generation has
+ * already run without covering it.</li>
+ * </ul>
  *
  * <p>A test the GA discards before evaluating (orphaned, or never inserted)
  * would otherwise keep its target in flight forever, so entries older than
@@ -73,18 +92,19 @@ final class SeedAttemptLedger {
 
     /**
      * Closes the attempt behind {@code individual} — a test, or a suite whose
-     * tests are checked one by one — judging it by whether the target goal is
-     * now covered. Individuals with no open attempt are ignored.
+     * tests are checked one by one — if the notification carries evidence
+     * about the target goal; otherwise the attempt is left pending for a
+     * later notification. Individuals with no open attempt are ignored.
      */
     synchronized void evaluated(Chromosome<?> individual, long generation) {
         if (pending.isEmpty()) {
             return;
         }
         if (individual instanceof TestChromosome) {
-            close((TestChromosome) individual);
+            close((TestChromosome) individual, generation);
         } else if (individual instanceof TestSuiteChromosome) {
             for (TestChromosome test : new ArrayList<>(((TestSuiteChromosome) individual).getTestChromosomes())) {
-                close(test);
+                close(test, generation);
             }
         }
         expire(generation);
@@ -94,15 +114,31 @@ final class SeedAttemptLedger {
         return pending.size();
     }
 
-    private void close(TestChromosome test) {
-        Pending entry = pending.remove(test);
+    private void close(TestChromosome test, long generation) {
+        Pending entry = pending.get(test);
         if (entry == null) {
             return;
         }
         Double distance = test.getFitnessValues().get(entry.goal);
-        boolean covered = (distance != null && distance == 0.0)
-                || test.getTestCase().getCoveredGoals().contains(entry.goal);
-        memory.recordAttemptOutcome(entry.attemptId, covered ? 1 : 0);
+        if (distance != null) {
+            // Test-level path: the goal's fitness was computed on this test in
+            // this very evaluation, so the value is a direct verdict.
+            pending.remove(test);
+            memory.recordAttemptOutcome(entry.attemptId, distance == 0.0 ? 1 : 0);
+        } else if (test.getTestCase().getCoveredGoals().contains(entry.goal)) {
+            // Suite-level path: the goal's own criterion has run and covered it.
+            pending.remove(test);
+            memory.recordAttemptOutcome(entry.attemptId, 1);
+        } else if (generation > entry.generation) {
+            // Suite-level path, no evidence: every criterion of the opening
+            // generation has certainly run by now (this notification belongs
+            // to a later generation) without covering the goal, so the
+            // absence of a covered-goal entry is finally a verdict.
+            pending.remove(test);
+            memory.recordAttemptOutcome(entry.attemptId, 0);
+        }
+        // Otherwise the goal's criterion within the opening generation may not
+        // have run yet — no evidence either way, so the attempt stays open.
     }
 
     private void expire(long generation) {
