@@ -68,23 +68,69 @@ public final class BranchOperands {
         return new BranchOperands(0, 0, render(value), null, false, false, opcode);
     }
 
+    /**
+     * Builds a snapshot from text a {@link BranchOperandSlot} already rendered, so a slot's
+     * object comparisons are not run through {@link #render(Object)} a second time when the
+     * snapshot is taken.
+     */
+    static BranchOperands ofRendered(String leftRendered, String rightRendered, boolean hasRight, int opcode) {
+        return new BranchOperands(0, 0, leftRendered, rightRendered, false, hasRight, opcode);
+    }
+
+    /** Max SOURCE characters kept; the escaped output can be longer (each can become 2 chars). */
+    private static final int MAX_RENDERED_CHARS = 40;
+
     static String render(Object value) {
         if (value == null) {
             return "null";
         }
         if (value instanceof String) {
-            String s = (String) value;
-            s = s.replace("\n", "\\n").replace("\"", "\\\"");
-            if (s.length() > 40) {
-                s = s.substring(0, 40) + "...";
-            }
-            return "\"" + s + "\"";
+            return renderString((String) value);
         }
         if (isBoxedPrimitive(value)) {
             return value.toString();
         }
         String simpleName = value.getClass().getSimpleName();
         return simpleName.isEmpty() ? value.getClass().getName() : simpleName;
+    }
+
+    /**
+     * Escapes and truncates in a single bounded pass so a huge SUT string costs at most one
+     * small allocation, rather than several full-size ones (replace/substring over the whole
+     * string) before truncation ever kicks in. Truncation counts source characters, not the
+     * (possibly longer, once escaped) output.
+     */
+    private static String renderString(String s) {
+        int length = Math.min(s.length(), MAX_RENDERED_CHARS);
+        StringBuilder sb = new StringBuilder(MAX_RENDERED_CHARS + 8);
+        sb.append('"');
+        for (int i = 0; i < length; i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '\\':
+                    sb.append("\\\\");
+                    break;
+                case '"':
+                    sb.append("\\\"");
+                    break;
+                case '\n':
+                    sb.append("\\n");
+                    break;
+                case '\r':
+                    sb.append("\\r");
+                    break;
+                case '\t':
+                    sb.append("\\t");
+                    break;
+                default:
+                    sb.append(c);
+            }
+        }
+        if (s.length() > MAX_RENDERED_CHARS) {
+            sb.append("...");
+        }
+        sb.append('"');
+        return sb.toString();
     }
 
     /** Only the JDK's own boxes are rendered through toString(): a SUT Number subclass could run arbitrary code. */

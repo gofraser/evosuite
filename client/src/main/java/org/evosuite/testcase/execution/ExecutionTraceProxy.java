@@ -80,9 +80,36 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
      * {@inheritDoc}
      */
     @Override
-    public void branchOperandsSeen(int branch, BranchOperands operands) {
+    public void branchOperandsSeen(int branch, int left, int right, int opcode) {
         copyOnWrite();
-        trace.branchOperandsSeen(branch, operands);
+        trace.branchOperandsSeen(branch, left, right, opcode);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, int value, int opcode) {
+        copyOnWrite();
+        trace.branchOperandsSeen(branch, value, opcode);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, Object left, Object right, int opcode) {
+        copyOnWrite();
+        trace.branchOperandsSeen(branch, left, right, opcode);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, Object value, int opcode) {
+        copyOnWrite();
+        trace.branchOperandsSeen(branch, value, opcode);
     }
 
     /*

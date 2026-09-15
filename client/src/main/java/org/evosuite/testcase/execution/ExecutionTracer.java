@@ -545,7 +545,7 @@ public class ExecutionTracer {
 
         // Add current branch to control trace
         if (Properties.LLM_BRANCH_OPERAND_HINTS) {
-            tracer.trace.branchOperandsSeen(branch, BranchOperands.ofInt(val, opcode));
+            tracer.trace.branchOperandsSeen(branch, val, opcode);
         }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
@@ -732,7 +732,7 @@ public class ExecutionTracer {
 
         // Add current branch to control trace
         if (Properties.LLM_BRANCH_OPERAND_HINTS) {
-            tracer.trace.branchOperandsSeen(branch, BranchOperands.ofInts(val1, val2, opcode));
+            tracer.trace.branchOperandsSeen(branch, val1, val2, opcode);
         }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
         // tracer.trace.branchPassed(branch, distance_true, distance_false);
@@ -781,7 +781,7 @@ public class ExecutionTracer {
 
         // Add current branch to control trace
         if (Properties.LLM_BRANCH_OPERAND_HINTS) {
-            tracer.trace.branchOperandsSeen(branch, BranchOperands.ofObjects(val1, val2, opcode));
+            tracer.trace.branchOperandsSeen(branch, val1, val2, opcode);
         }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
@@ -826,7 +826,7 @@ public class ExecutionTracer {
 
         // Add current branch to control trace
         if (Properties.LLM_BRANCH_OPERAND_HINTS) {
-            tracer.trace.branchOperandsSeen(branch, BranchOperands.ofObject(val, opcode));
+            tracer.trace.branchOperandsSeen(branch, val, opcode);
         }
         tracer.trace.branchPassed(branch, bytecodeId, distanceTrue, distanceFalse);
     }
