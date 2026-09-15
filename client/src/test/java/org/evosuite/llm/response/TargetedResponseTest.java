@@ -227,6 +227,90 @@ class TargetedResponseTest {
         assertEquals(TargetedResponse.Status.FAILED, response.getStatus());
     }
 
+    // ---- repair turns / parse status / usage -----------------------------------------
+
+    @Test
+    void mapCarriesRepairTurnsAndParseSucceededFromASuccessfulResult() {
+        RepairResult result = RepairResult.success(
+                Collections.singletonList(parsed(testCase(1), "test_target_1")),
+                Collections.emptyList(), 3, Collections.emptyList());
+
+        TargetedResponse response = TargetedResponse.map(result, 1);
+
+        assertEquals(3, response.getRepairTurns());
+        assertTrue(response.isParseSucceeded());
+    }
+
+    @Test
+    void mapCarriesRepairTurnsButNotParseSucceededFromAFailedResult() {
+        RepairResult failure = RepairResult.failure(Collections.singletonList("boom"), 2, Collections.emptyList());
+
+        TargetedResponse response = TargetedResponse.map(failure, 1);
+
+        assertEquals(2, response.getRepairTurns());
+        assertFalse(response.isParseSucceeded());
+    }
+
+    @Test
+    void mapOfNullResultHasZeroRepairTurnsAndNoParseSuccess() {
+        TargetedResponse response = TargetedResponse.map(null, 1);
+
+        assertEquals(0, response.getRepairTurns());
+        assertFalse(response.isParseSucceeded());
+    }
+
+    @Test
+    void noBudgetAndFailedCarryZeroRepairTurnsAndNoUsage() {
+        assertEquals(0, TargetedResponse.noBudget().getRepairTurns());
+        assertFalse(TargetedResponse.noBudget().isParseSucceeded());
+        assertEquals(TargetedResponse.CallUsage.NONE, TargetedResponse.noBudget().getUsage());
+
+        assertEquals(0, TargetedResponse.failed().getRepairTurns());
+        assertFalse(TargetedResponse.failed().isParseSucceeded());
+        assertEquals(TargetedResponse.CallUsage.NONE, TargetedResponse.failed().getUsage());
+    }
+
+    @Test
+    void twoArgMapDelegatesToThreeArgMapWithNoUsage() {
+        RepairResult result = RepairResult.success(
+                Collections.singletonList(parsed(testCase(1), "test_target_1")),
+                Collections.emptyList(), 1, Collections.emptyList());
+
+        TargetedResponse response = TargetedResponse.map(result, 1);
+
+        assertEquals(TargetedResponse.CallUsage.NONE, response.getUsage());
+    }
+
+    @Test
+    void threeArgMapCarriesUsageThrough() {
+        RepairResult result = RepairResult.success(
+                Collections.singletonList(parsed(testCase(1), "test_target_1")),
+                Collections.emptyList(), 1, Collections.emptyList());
+        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(10, 4, 20, 123L);
+
+        TargetedResponse response = TargetedResponse.map(result, 1, usage);
+
+        assertSame(usage, response.getUsage());
+    }
+
+    @Test
+    void callUsageNoneIsAllZero() {
+        TargetedResponse.CallUsage none = TargetedResponse.CallUsage.NONE;
+        assertEquals(0, none.getInputTokens());
+        assertEquals(0, none.getCachedInputTokens());
+        assertEquals(0, none.getOutputTokens());
+        assertEquals(0L, none.getLatencyMs());
+    }
+
+    @Test
+    void callUsageExposesConstructorValues() {
+        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(1, 2, 3, 4L);
+        assertEquals(1, usage.getInputTokens());
+        assertEquals(2, usage.getCachedInputTokens());
+        assertEquals(3, usage.getOutputTokens());
+        assertEquals(4L, usage.getLatencyMs());
+    }
+
     // ---- targetIndex direct cases ---------------------------------------------------
 
     @Test

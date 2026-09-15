@@ -133,9 +133,12 @@ public abstract class LlmSemanticOperator {
             return TargetedResponse.noBudget();
         }
         try {
-            String response = llmService.query(prompt, feature);
-            RepairResult result = repairLoop().attemptParse(response, prompt.getMessages(), feature);
-            return TargetedResponse.map(result, targetCount);
+            LlmService.QueryResult queryResult = llmService.queryWithUsage(prompt, feature);
+            RepairResult result = repairLoop().attemptParse(queryResult.getText(), prompt.getMessages(), feature);
+            TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
+                    queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
+                    queryResult.getOutputTokens(), queryResult.getLatencyMs());
+            return TargetedResponse.map(result, targetCount, usage);
         } catch (LlmBudgetExceededException e) {
             logger.debug("LLM {} budget exceeded", feature);
             return TargetedResponse.noBudget();

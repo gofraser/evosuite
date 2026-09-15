@@ -52,27 +52,34 @@ public final class TargetedResponse {
     private final Map<Integer, TestCase> matched;
     private final List<TestCase> unmatched;
     private final Status status;
+    private final int repairTurns;
+    private final boolean parseSucceeded;
+    private final CallUsage usage;
 
-    private TargetedResponse(Map<Integer, TestCase> matched, List<TestCase> unmatched, Status status) {
+    private TargetedResponse(Map<Integer, TestCase> matched, List<TestCase> unmatched, Status status,
+                             int repairTurns, boolean parseSucceeded, CallUsage usage) {
         this.matched = Collections.unmodifiableMap(matched);
         this.unmatched = Collections.unmodifiableList(unmatched);
         this.status = status;
+        this.repairTurns = repairTurns;
+        this.parseSucceeded = parseSucceeded;
+        this.usage = usage;
     }
 
     /**
-     * Assigns each parsed test to the first target (1..{@code targetCount})
-     * whose method name it carries; a second test claiming the same target,
-     * or a test with any other name, is unmatched. A failed result maps to
-     * nothing, and so does an empty test: the parser synthesises an empty
-     * method for a response without code (typically a truncated one), which
-     * must not replace an offspring or seed the population. Always {@link
-     * Status#DELIVERED}: the call went through, whatever came back of it.
+     * Same as {@link #map(RepairResult, int)}, but also carries the token
+     * usage and latency of the call that produced {@code result} so a caller
+     * that shares one call across several targets (e.g. a batched operator
+     * prompt) can record it against each of them.
      */
-    public static TargetedResponse map(RepairResult result, int targetCount) {
+    public static TargetedResponse map(RepairResult result, int targetCount, CallUsage usage) {
         Map<Integer, TestCase> matched = new TreeMap<>();
         List<TestCase> unmatched = new ArrayList<>();
+        int repairTurns = result == null ? 0 : result.getAttemptsUsed();
+        boolean parseSucceeded = result != null && result.isSuccess();
+        CallUsage safeUsage = usage == null ? CallUsage.NONE : usage;
         if (result == null || !result.isSuccess()) {
-            return new TargetedResponse(matched, unmatched, Status.DELIVERED);
+            return new TargetedResponse(matched, unmatched, Status.DELIVERED, repairTurns, parseSucceeded, safeUsage);
         }
         for (ParseResult parsed : result.getParseResults()) {
             TestCase test = parsed.getTestCase();
@@ -86,21 +93,51 @@ public final class TargetedResponse {
                 unmatched.add(test);
             }
         }
-        return new TargetedResponse(matched, unmatched, Status.DELIVERED);
+        return new TargetedResponse(matched, unmatched, Status.DELIVERED, repairTurns, parseSucceeded, safeUsage);
+    }
+
+    /**
+     * Assigns each parsed test to the first target (1..{@code targetCount})
+     * whose method name it carries; a second test claiming the same target,
+     * or a test with any other name, is unmatched. A failed result maps to
+     * nothing, and so does an empty test: the parser synthesises an empty
+     * method for a response without code (typically a truncated one), which
+     * must not replace an offspring or seed the population. Always {@link
+     * Status#DELIVERED}: the call went through, whatever came back of it.
+     */
+    public static TargetedResponse map(RepairResult result, int targetCount) {
+        return map(result, targetCount, CallUsage.NONE);
     }
 
     /** An empty, {@link Status#NO_BUDGET} response: no call was made, budget ran out first. */
     public static TargetedResponse noBudget() {
-        return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(), Status.NO_BUDGET);
+        return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(),
+                Status.NO_BUDGET, 0, false, CallUsage.NONE);
     }
 
     /** An empty, {@link Status#FAILED} response: the call went out but never came back. */
     public static TargetedResponse failed() {
-        return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(), Status.FAILED);
+        return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(),
+                Status.FAILED, 0, false, CallUsage.NONE);
     }
 
     public Status getStatus() {
         return status;
+    }
+
+    /** The repair loop's attempt count ({@link RepairResult#getAttemptsUsed()}); 0 when no call was delivered. */
+    public int getRepairTurns() {
+        return repairTurns;
+    }
+
+    /** Whether the delivered response was successfully parsed; {@code false} when no call was delivered. */
+    public boolean isParseSucceeded() {
+        return parseSucceeded;
+    }
+
+    /** Token usage and latency of the call behind this response; {@link CallUsage#NONE} when there was none. */
+    public CallUsage getUsage() {
+        return usage;
     }
 
     /** The 1-based target number encoded in {@code methodName}, or 0 when it names no target in range. */
@@ -136,5 +173,43 @@ public final class TargetedResponse {
 
     public boolean isEmpty() {
         return matched.isEmpty() && unmatched.isEmpty();
+    }
+
+    /**
+     * Token usage and latency of one LLM call, shared across every target of
+     * the batch that produced it. Immutable.
+     */
+    public static final class CallUsage {
+
+        /** All-zero usage, for a response with no underlying call. */
+        public static final CallUsage NONE = new CallUsage(0, 0, 0, 0L);
+
+        private final int inputTokens;
+        private final int cachedInputTokens;
+        private final int outputTokens;
+        private final long latencyMs;
+
+        public CallUsage(int inputTokens, int cachedInputTokens, int outputTokens, long latencyMs) {
+            this.inputTokens = inputTokens;
+            this.cachedInputTokens = cachedInputTokens;
+            this.outputTokens = outputTokens;
+            this.latencyMs = latencyMs;
+        }
+
+        public int getInputTokens() {
+            return inputTokens;
+        }
+
+        public int getCachedInputTokens() {
+            return cachedInputTokens;
+        }
+
+        public int getOutputTokens() {
+            return outputTokens;
+        }
+
+        public long getLatencyMs() {
+            return latencyMs;
+        }
     }
 }

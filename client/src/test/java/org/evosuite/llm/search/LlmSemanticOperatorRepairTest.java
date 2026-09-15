@@ -129,14 +129,14 @@ class LlmSemanticOperatorRepairTest {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
 
         LlmService llmService = mockAvailableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(MALFORMED_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         TestChromosome result = mutation.mutate(mutationTarget());
 
         assertNull(result, "a malformed response with no repair budget must not produce a mutant");
-        verify(llmService, times(1)).query(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
         verify(llmService, never())
                 .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
     }
@@ -147,14 +147,14 @@ class LlmSemanticOperatorRepairTest {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
 
         LlmService llmService = mockAvailableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(MALFORMED_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
 
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
         TestChromosome result = crossover.crossover(crossoverTarget());
 
         assertNull(result, "a malformed response with no repair budget must not produce a child");
-        verify(llmService, times(1)).query(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
         verify(llmService, never())
                 .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
     }
@@ -164,8 +164,8 @@ class LlmSemanticOperatorRepairTest {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 1;
 
         LlmService llmService = mockAvailableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(MALFORMED_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(MALFORMED_RESPONSE, 0, 0, 0, 0L));
         when(llmService.query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList()))
                 .thenReturn(MALFORMED_RESPONSE);
 
@@ -173,7 +173,7 @@ class LlmSemanticOperatorRepairTest {
         TestChromosome result = mutation.mutate(mutationTarget());
 
         assertNull(result);
-        verify(llmService, times(1)).query(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
         verify(llmService, times(1))
                 .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
     }

@@ -109,8 +109,8 @@ class LlmSemanticOperatorTest {
     @Test
     void applyMapsTwoMutationTargetsInTargetOrder() {
         LlmService llmService = mockAvailableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(MULTI_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
 
         OperatorTarget target1 = OperatorTarget.builder(makeChromosome(), makeGoal("g1")).build();
         OperatorTarget target2 = OperatorTarget.builder(makeChromosome(), makeGoal("g2")).build();
@@ -151,15 +151,15 @@ class LlmSemanticOperatorTest {
     @Test
     void mutationPromptContainsTargetHeadingAndStartFromWording() {
         LlmService llmService = mockAvailableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(MULTI_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
         ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         mutation.apply(Collections.singletonList(target));
 
-        verify(llmService).query(promptCaptor.capture(), any(LlmFeature.class));
+        verify(llmService).queryWithUsage(promptCaptor.capture(), any(LlmFeature.class));
         String userText = userText(promptCaptor.getValue());
 
         assertTrue(userText.contains("Target #1"), userText);
@@ -170,8 +170,8 @@ class LlmSemanticOperatorTest {
     @Test
     void crossoverPromptContainsCombineAndRecombineWording() {
         LlmService llmService = mockAvailableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(MULTI_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(MULTI_TARGET_RESPONSE, 0, 0, 0, 0L));
         ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
 
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g"))
@@ -179,7 +179,7 @@ class LlmSemanticOperatorTest {
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
         crossover.apply(Collections.singletonList(target));
 
-        verify(llmService).query(promptCaptor.capture(), any(LlmFeature.class));
+        verify(llmService).queryWithUsage(promptCaptor.capture(), any(LlmFeature.class));
         String userText = userText(promptCaptor.getValue());
 
         assertTrue(userText.contains("Combine Existing test #1 (A) with Existing test #2 (B)."), userText);
@@ -205,6 +205,6 @@ class LlmSemanticOperatorTest {
 
         assertThrows(IllegalArgumentException.class, () -> new LlmSemanticMutation(llmService).mutate(crossover));
         assertThrows(IllegalArgumentException.class, () -> new LlmSemanticCrossover(llmService).crossover(mutation));
-        verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
     }
 }

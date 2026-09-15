@@ -72,7 +72,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
         assertTrue(mutation.applyMapped(null).isEmpty());
         assertTrue(mutation.applyMapped(Collections.emptyList()).isEmpty());
-        verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
     }
 
     @Test
@@ -85,7 +85,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         TargetedResponse response = mutation.applyMapped(Collections.singletonList(target));
         assertTrue(response.isEmpty());
         assertEquals(TargetedResponse.Status.NO_BUDGET, response.getStatus());
-        verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, never()).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
     }
 
     @Test
@@ -105,7 +105,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
                 .thenThrow(new LlmBudgetExceededException("no budget left"));
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -120,7 +120,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
                 .thenThrow(new LlmCallFailedException("boom", null, false));
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -135,7 +135,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
                 .thenThrow(new IllegalStateException("unexpected"));
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
@@ -150,16 +150,18 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
         when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(
-                "```java\n"
-                        + "import org.junit.Test;\n"
-                        + "public class GeneratedLlmTest {\n"
-                        + "  @Test\n"
-                        + "  public void test_target_1() {\n"
-                        + "    int one = 1;\n"
-                        + "  }\n"
-                        + "}\n"
-                        + "```");
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(
+                new LlmService.QueryResult(
+                        "```java\n"
+                                + "import org.junit.Test;\n"
+                                + "public class GeneratedLlmTest {\n"
+                                + "  @Test\n"
+                                + "  public void test_target_1() {\n"
+                                + "    int one = 1;\n"
+                                + "  }\n"
+                                + "}\n"
+                                + "```",
+                        0, 0, 0, 0L));
 
         List<OperatorTarget> targets = Collections.singletonList(
                 OperatorTarget.builder(makeChromosome(), makeGoal("g")).build());

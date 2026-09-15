@@ -154,7 +154,7 @@ class LlmOperatorExecutorTest {
     @Test
     void oneMutationTargetProducesOneChromosomeWithAttribution() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(SINGLE_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
 
@@ -189,7 +189,7 @@ class LlmOperatorExecutorTest {
     @Test
     void threeMutationTargetsWithBatchSizeTwoMakeTwoCalls() {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(SINGLE_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         LlmOperatorExecutor executor = newExecutor(llmService, null, -1L, 0, 3, 2);
 
         List<OperatorTarget> targets = Arrays.asList(
@@ -208,7 +208,7 @@ class LlmOperatorExecutorTest {
     @Test
     void mixedKindsNeverMixButSameKindCombinesAcrossNonAdjacentPositions() {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(SINGLE_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         LlmOperatorExecutor executor = newExecutor(llmService, null, -1L, 0, 3, 3);
 
         OperatorTarget mutationA = OperatorTarget.builder(chromosome(), goal("g1")).build();
@@ -229,7 +229,7 @@ class LlmOperatorExecutorTest {
     @Test
     void callBudgetOfOneSubmitsOnlyTheEarliestFormingBatch() {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(SINGLE_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 3, 3);
 
@@ -251,7 +251,7 @@ class LlmOperatorExecutorTest {
     @Test
     void callBudgetOfTwoAlsoSubmitsTheRemainingOpenBatch() {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(SINGLE_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 3, 3);
 
@@ -274,9 +274,9 @@ class LlmOperatorExecutorTest {
     void inFlightCapDropsSecondSubmission() throws Exception {
         LlmService llmService = availableService();
         CountDownLatch latch = new CountDownLatch(1);
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenAnswer(invocation -> {
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenAnswer(invocation -> {
             awaitLatch(latch);
-            return SINGLE_TARGET_RESPONSE;
+            return new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L);
         });
         LlmOperatorExecutor executor = newExecutor(llmService, null, -1L, 0, 1, 1);
 
@@ -319,7 +319,7 @@ class LlmOperatorExecutorTest {
     @Test
     void timeGuardDropsWhenTooLittleTimeRemains() {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(SINGLE_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
 
         LlmOperatorExecutor tight = newExecutor(llmService, null, 10L, 45, 2, 1);
         OperatorTarget target1 = OperatorTarget.builder(chromosome(), goal("g1")).build();
@@ -342,7 +342,7 @@ class LlmOperatorExecutorTest {
     @Test
     void budgetExceededDuringTheCallReleasesRatherThanRecordsTheAttempt() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
                 .thenThrow(new LlmBudgetExceededException("exhausted mid-flight"));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
@@ -372,7 +372,7 @@ class LlmOperatorExecutorTest {
     @Test
     void callFailureReleasesRatherThanRecordsTheAttempt() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
                 .thenThrow(new LlmCallFailedException("boom", null, false));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
@@ -401,8 +401,8 @@ class LlmOperatorExecutorTest {
     @Test
     void missingTargetIsClosedImmediatelyWhileMatchedStaysOpenAndUnmatchedGetsNoAttemptId() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(ONE_MATCH_ONE_UNMATCHED_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(ONE_MATCH_ONE_UNMATCHED_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 2);
 
@@ -441,7 +441,7 @@ class LlmOperatorExecutorTest {
     @Test
     void twoTargetBatchFullyMatchedProducesTwoIndependentlyTrackedAttempts() throws Exception {
         LlmService llmService = availableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(TWO_TARGET_RESPONSE);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenReturn(new LlmService.QueryResult(TWO_TARGET_RESPONSE, 0, 0, 0, 0L));
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 2);
 
@@ -474,10 +474,10 @@ class LlmOperatorExecutorTest {
         LlmService llmService = availableService();
         CountDownLatch latch = new CountDownLatch(1);
         AtomicInteger calls = new AtomicInteger();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenAnswer(invocation -> {
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class))).thenAnswer(invocation -> {
             calls.incrementAndGet();
             awaitLatch(latch);
-            return SINGLE_TARGET_RESPONSE;
+            return new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L);
         });
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 1, 1);
