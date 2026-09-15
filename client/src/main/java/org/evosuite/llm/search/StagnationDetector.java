@@ -296,7 +296,7 @@ public class StagnationDetector {
         if (prompt == null) {
             return Collections.emptyList();
         }
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+        if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.STAGNATION)) {
             return Collections.emptyList();
         }
         try {
@@ -355,7 +355,7 @@ public class StagnationDetector {
                                             List<TestChromosome> currentPopulation,
                                             int totalGoals, int coveredGoalCount,
                                             Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-        if (!llmService.isAvailable() || !llmService.hasBudget()) {
+        if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.STAGNATION)) {
             return Collections.emptyList();
         }
         if (uncoveredGoals == null || uncoveredGoals.isEmpty()) {

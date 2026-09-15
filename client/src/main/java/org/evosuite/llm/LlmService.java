@@ -301,7 +301,14 @@ public class LlmService implements AutoCloseable {
         return available;
     }
 
-    /** Returns true if the service has remaining LLM call budget. */
+    /**
+     * Returns true if the service has remaining LLM call budget, as seen
+     * globally across all features. Coordinators that partition the budget
+     * (see {@link LlmBudgetCoordinator.FeatureShare}) can have this return
+     * true while a specific feature's own quota is exhausted, so call gates
+     * should use {@link #hasBudget(LlmFeature)} instead; this global view
+     * remains for tests and statistics reporting.
+     */
     public boolean hasBudget() {
         if (!available) {
             return false;

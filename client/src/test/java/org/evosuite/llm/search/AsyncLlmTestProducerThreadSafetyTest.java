@@ -20,6 +20,7 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TestRepairLoop;
@@ -42,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -88,6 +90,7 @@ class AsyncLlmTestProducerThreadSafetyTest {
         LlmService service = mock(LlmService.class);
         when(service.isAvailable()).thenReturn(true);
         when(service.hasBudget()).thenReturn(true);
+        when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
         TestFitnessFunction goal = new FixedFitnessGoal("example.Target", "method()V", 1.0);
         AtomicInteger snapshots = new AtomicInteger();
         AsyncLlmTestProducer producer = new StubProducingAsyncLlmTestProducer(
@@ -119,6 +122,7 @@ class AsyncLlmTestProducerThreadSafetyTest {
         LlmService service = mock(LlmService.class);
         when(service.isAvailable()).thenReturn(true);
         when(service.hasBudget()).thenReturn(true);
+        when(service.hasBudget(any(LlmFeature.class))).thenReturn(true);
         CountDownLatch requestEntered = new CountDownLatch(1);
         CountDownLatch releaseRequest = new CountDownLatch(1);
         CountDownLatch requestReturned = new CountDownLatch(1);

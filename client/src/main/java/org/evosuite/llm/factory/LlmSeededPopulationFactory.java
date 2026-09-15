@@ -253,7 +253,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
                     + "(check LLM provider configuration and JDK compiler availability)");
             return Collections.emptyList();
         }
-        if (!llmService.hasBudget()) {
+        if (!llmService.hasBudget(LlmFeature.SEEDING)) {
             LoggingUtils.getEvoLogger().info("* LLM seeding skipped: call budget exhausted");
             return Collections.emptyList();
         }

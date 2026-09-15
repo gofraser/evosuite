@@ -82,7 +82,7 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
      */
     public CompletableFuture<R> enrichAsync(String className, TestCluster cluster) {
         return CompletableFuture.supplyAsync(() -> {
-            if (!llmService.isAvailable() || !llmService.hasBudget()) {
+            if (!llmService.isAvailable() || !llmService.hasBudget(feature)) {
                 logger.debug("LLM not available or no budget for {}", feature);
                 return createSkippedResult("LLM unavailable or no budget");
             }

@@ -95,7 +95,7 @@ class LlmTestChromosomeFactoryFrontierWiringTest extends MosaTestSupport {
 
         LlmService mockLlmService = mock(LlmService.class);
         when(mockLlmService.isAvailable()).thenReturn(true);
-        when(mockLlmService.hasBudget()).thenReturn(true);
+        when(mockLlmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(mockLlmService.query(any(PromptResult.class), eq(LlmFeature.TEST_FACTORY)))
                 .thenReturn("not valid java, forces the fallback path");
 
@@ -134,7 +134,7 @@ class LlmTestChromosomeFactoryFrontierWiringTest extends MosaTestSupport {
     void beforeWiringTheFactoryPromptsWithNoGoalsAtAll() {
         LlmService mockLlmService = mock(LlmService.class);
         when(mockLlmService.isAvailable()).thenReturn(true);
-        when(mockLlmService.hasBudget()).thenReturn(true);
+        when(mockLlmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(mockLlmService.query(any(PromptResult.class), eq(LlmFeature.TEST_FACTORY)))
                 .thenReturn("not valid java, forces the fallback path");
 

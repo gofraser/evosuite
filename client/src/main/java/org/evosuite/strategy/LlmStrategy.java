@@ -328,7 +328,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                 break;
             }
 
-            if (!llmService.isAvailable() || !llmService.hasBudget()) {
+            if (!llmService.isAvailable() || !llmService.hasBudget(LlmFeature.ITERATIVE_STRATEGY)) {
                 iteration--;
                 LoggingUtils.getEvoLogger().info(
                         "* LLM budget exhausted after {} iterations", iteration);
@@ -685,7 +685,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             LoggingUtils.getEvoLogger().info("* LLM broad-coverage query skipped: service is not available");
             return QueryOutcome.failure("LLM service not available");
         }
-        if (!llmService.hasBudget()) {
+        if (!llmService.hasBudget(LlmFeature.ITERATIVE_STRATEGY)) {
             LoggingUtils.getEvoLogger().info("* LLM broad-coverage query skipped: call budget exhausted");
             return QueryOutcome.failure("LLM call budget exhausted");
         }

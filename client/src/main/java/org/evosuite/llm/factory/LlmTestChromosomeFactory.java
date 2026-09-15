@@ -188,7 +188,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         if (!Properties.LLM_TEST_FACTORY || !llmService.isAvailable()) {
             return false;
         }
-        if (!llmService.hasBudget()) {
+        if (!llmService.hasBudget(LlmFeature.TEST_FACTORY)) {
             return false;
         }
         double probability = Math.max(0.0d, Math.min(1.0d, Properties.LLM_TEST_FACTORY_PROBABILITY));

@@ -21,6 +21,7 @@ package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmStagnationMode;
+import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmWaitBudget;
 import org.evosuite.llm.prompt.PromptResult;
@@ -218,7 +219,8 @@ public final class StagnationLlmHelper {
             }
             return;
         }
-        if (!detector.getLlmService().isAvailable() || !detector.getLlmService().hasBudget()) {
+        if (!detector.getLlmService().isAvailable()
+                || !detector.getLlmService().hasBudget(LlmFeature.STAGNATION)) {
             traceOutcome("skipped:unavailable", coveredCount, uncoveredSize, targetCount, -1L, 0);
             return;
         }

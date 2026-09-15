@@ -227,7 +227,7 @@ public class AsyncLlmTestProducer {
                 recordStopReason(StopReason.LLM_UNAVAILABLE);
                 break;
             }
-            if (!llmService.hasBudget()) {
+            if (!llmService.hasBudget(LlmFeature.ASYNC_PRODUCER)) {
                 recordStopReason(StopReason.BUDGET_EXHAUSTED);
                 break;
             }
