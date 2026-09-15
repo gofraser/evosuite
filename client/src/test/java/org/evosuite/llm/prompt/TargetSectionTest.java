@@ -231,6 +231,67 @@ class TargetSectionTest {
         assertEquals("", TargetSection.canonicalCode(null));
     }
 
+    @Test
+    void canonicalCodeDistinguishesStringLiteralsDifferingOnlyByInnerWhitespace() {
+        TestCase singleSpace = testCase("a b");
+        TestCase doubleSpace = testCase("a  b");
+
+        assertFalse(TargetSection.canonicalCode(singleSpace).equals(TargetSection.canonicalCode(doubleSpace)),
+                "tests whose only difference is whitespace inside a string literal must not collide");
+    }
+
+    // ---- normaliseWhitespaceOutsideLiterals -------------------------------------
+
+    @Test
+    void normaliseCollapsesWhitespaceOutsideLiterals() {
+        assertEquals("int x = 1;",
+                TargetSection.normaliseWhitespaceOutsideLiterals("int  x =\n 1;"));
+    }
+
+    @Test
+    void normalisePreservesInnerWhitespaceOfStringLiterals() {
+        assertEquals("\"a b\"", TargetSection.normaliseWhitespaceOutsideLiterals("\"a b\""));
+        assertEquals("\"a  b\"", TargetSection.normaliseWhitespaceOutsideLiterals("\"a  b\""));
+    }
+
+    @Test
+    void normaliseKeepsEscapedQuoteInsideStringLiteralAndResumesAfterClosingQuote() {
+        String input = "\"say \\\"hi  there\\\"\"  int  x = 1;";
+        String expected = "\"say \\\"hi  there\\\"\" int x = 1;";
+
+        assertEquals(expected, TargetSection.normaliseWhitespaceOutsideLiterals(input));
+    }
+
+    @Test
+    void normalisePreservesSpaceInsideCharLiteral() {
+        assertEquals("' '", TargetSection.normaliseWhitespaceOutsideLiterals("' '"));
+    }
+
+    @Test
+    void normaliseHandlesBackslashEscapedBackslashBeforeClosingQuote() {
+        String input = "\"x\\\\\"";
+
+        assertEquals(input, TargetSection.normaliseWhitespaceOutsideLiterals(input));
+    }
+
+    @Test
+    void normaliseCollapsesTabsAndNewlinesOutsideLiterals() {
+        assertEquals("a b c",
+                TargetSection.normaliseWhitespaceOutsideLiterals("a\tb\n\nc"));
+    }
+
+    @Test
+    void canonicalCodeTrimsLeadingAndTrailingWhitespace() {
+        assertEquals("x", TargetSection.normaliseWhitespaceOutsideLiterals("  x  ").trim());
+    }
+
+    @Test
+    void normaliseCopiesUnterminatedLiteralVerbatimToTheEnd() {
+        String input = "int x = \"unterminated  literal";
+
+        assertEquals(input, TargetSection.normaliseWhitespaceOutsideLiterals(input));
+    }
+
     // ---- ProblemCardFormatter full-text rendering --------------------------------
 
     @Test

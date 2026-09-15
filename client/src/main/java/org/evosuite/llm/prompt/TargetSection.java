@@ -137,9 +137,74 @@ public final class TargetSection {
             return "";
         }
         try {
-            return test.toCode().replaceAll("\\s+", " ").trim();
+            return normaliseWhitespaceOutsideLiterals(test.toCode()).trim();
         } catch (RuntimeException e) {
             return "id_" + System.identityHashCode(test);
         }
+    }
+
+    /**
+     * Collapses every run of whitespace (space, tab, CR, LF, form feed) outside
+     * string ({@code "..."}) and character ({@code '...'}) literals to a single
+     * space, while copying literals verbatim so that whitespace inside them
+     * (e.g. {@code "a  b"} vs. {@code "a b"}) is preserved and keeps tests with
+     * otherwise-identical code distinguishable. Backslash escapes inside a
+     * literal (e.g. {@code \"}, {@code \\}, {@code \'}) are copied along with
+     * the character they escape so an escaped quote does not end the literal.
+     * An unterminated literal is copied verbatim to the end of the input. Text
+     * blocks ({@code """..."""}) cannot appear in {@link TestCase#toCode()}
+     * output at the Java 8 source level this project targets, so they are not
+     * handled.
+     */
+    static String normaliseWhitespaceOutsideLiterals(String code) {
+        StringBuilder out = new StringBuilder(code.length());
+        int i = 0;
+        int length = code.length();
+        boolean lastWasSpace = false;
+        while (i < length) {
+            char c = code.charAt(i);
+            if (c == '"' || c == '\'') {
+                i = copyLiteral(code, i, c, out);
+                lastWasSpace = false;
+                continue;
+            }
+            if (isWhitespace(c)) {
+                if (!lastWasSpace) {
+                    out.append(' ');
+                    lastWasSpace = true;
+                }
+                i++;
+                continue;
+            }
+            out.append(c);
+            lastWasSpace = false;
+            i++;
+        }
+        return out.toString();
+    }
+
+    /** Copies the literal delimited by {@code quote} starting at {@code start} verbatim into {@code out}; returns the index past its closing delimiter, or the input length when it is unterminated. */
+    private static int copyLiteral(String code, int start, char quote, StringBuilder out) {
+        int length = code.length();
+        out.append(quote);
+        int i = start + 1;
+        while (i < length) {
+            char c = code.charAt(i);
+            out.append(c);
+            if (c == '\\' && i + 1 < length) {
+                out.append(code.charAt(i + 1));
+                i += 2;
+                continue;
+            }
+            if (c == quote) {
+                return i + 1;
+            }
+            i++;
+        }
+        return length;
+    }
+
+    private static boolean isWhitespace(char c) {
+        return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f';
     }
 }
