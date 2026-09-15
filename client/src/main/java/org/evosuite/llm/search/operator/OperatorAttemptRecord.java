@@ -159,15 +159,21 @@ final class OperatorAttemptRecord {
         this.admittedOffspring = offspring;
     }
 
-    /** Resolves the survival horizons reached by {@code generation}, if any; identity-based. */
+    /**
+     * Resolves the survival horizons reached by the post-selection scan of {@code generation};
+     * identity-based. {@code survived_plus<n>} means the offspring is in the population that
+     * breeds generation {@code admitted + n}, i.e. it outlived the selection of generation
+     * {@code admitted + n - 1}; {@code survived_plus1} therefore resolves at the admission
+     * generation's own scan, the same moment {@code LLM_Injected_Candidates_Survived} counts.
+     */
     void applySurvivorScan(Set<TestChromosome> presentByIdentity, int generation) {
         if (admittedOffspring == null || admittedGeneration == null) {
             return;
         }
-        if (generation == admittedGeneration + 1) {
+        if (generation == admittedGeneration) {
             survivedPlus1 = presentByIdentity.contains(admittedOffspring);
         }
-        if (generation == admittedGeneration + 5) {
+        if (generation == admittedGeneration + 4) {
             survivedPlus5 = presentByIdentity.contains(admittedOffspring);
         }
     }

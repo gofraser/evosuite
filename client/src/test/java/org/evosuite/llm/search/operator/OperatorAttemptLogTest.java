@@ -106,8 +106,8 @@ class OperatorAttemptLogTest {
         log.recordResponse("a1", TargetedResponse.Status.DELIVERED, true, true, 1, usage, offspringTestCase);
         log.recordEvaluated("a1", 1.0, true);
         log.recordAdmitted("a1", offspring, 3);
-        log.recordSurvivors(Collections.singletonList(offspring), 4);
-        log.recordSurvivors(Collections.singletonList(offspring), 8);
+        log.recordSurvivors(Collections.singletonList(offspring), 3);
+        log.recordSurvivors(Collections.singletonList(offspring), 7);
 
         OperatorAttemptRecord record = log.recordFor("a1");
         String[] c = cols(record);
@@ -316,8 +316,8 @@ class OperatorAttemptLogTest {
         assertEquals(1, log.getTargetImproved(), "only A improved (1.0 < 2.0)");
         assertEquals(0, log.getOffspringSurvived(), "no survivor scan has run yet");
 
-        log.recordSurvivors(Collections.singletonList(offspringA), 2);
-        assertEquals(1, log.getOffspringSurvived(), "A survives generation admitted+1");
+        log.recordSurvivors(Collections.singletonList(offspringA), 1);
+        assertEquals(1, log.getOffspringSurvived(), "A outlives the selection of its admission generation");
     }
 
     // ---- flush ------------------------------------------------------------------------------

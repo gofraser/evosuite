@@ -138,8 +138,9 @@ public final class OperatorAttemptLog {
     /**
      * Scans {@code population} once per generation, after environmental
      * selection, for admitted offspring still present by identity: sets
-     * {@code survived_plus1}/{@code survived_plus5} on any record whose
-     * admission-plus-1/plus-5 generation has just been reached.
+     * {@code survived_plus1} on records admitted in this generation and
+     * {@code survived_plus5} on records admitted four generations ago (the
+     * offspring then sits in the population that breeds admission + 1 / + 5).
      */
     public synchronized void recordSurvivors(Collection<TestChromosome> population, int generation) {
         Set<TestChromosome> presentByIdentity = Collections.newSetFromMap(new IdentityHashMap<>());
