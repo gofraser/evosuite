@@ -57,6 +57,7 @@ import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.OperatorAttemptResult;
+import org.evosuite.llm.search.PairedProbeResult;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardExtractor;
 import org.evosuite.llm.search.ProblemCardLogRecorder;
@@ -641,7 +642,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 }
                 observer.recordCrossover(offspring1, parent1, parent2,
                         preCrossStmts1, crossoverResult, crossoverApplied,
-                        this.currentIteration, isolatedFitness, probeFailure, probeSnapshot);
+                        this.currentIteration, isolatedFitness, probeFailure, probeSnapshot,
+                        null, PairedProbeResult.NONE);
             }
 
             this.removeUnusedVariables(offspring1);
@@ -849,7 +851,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
                         true, this.currentIteration, postCrossoverSnapshot,
-                        isolatedFitnessPostCrossover, crossoverProbeFailure);
+                        isolatedFitnessPostCrossover, crossoverProbeFailure,
+                        null, PairedProbeResult.NONE);
             }
 
             offspringPopulation.add(offspring);
@@ -871,7 +874,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
                         false, this.currentIteration, postCrossoverSnapshot,
-                        isolatedFitnessPostCrossover, crossoverProbeFailure);
+                        isolatedFitnessPostCrossover, crossoverProbeFailure,
+                        null, PairedProbeResult.NONE);
             }
         }
     }

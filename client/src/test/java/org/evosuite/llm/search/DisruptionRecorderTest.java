@@ -153,9 +153,9 @@ class DisruptionRecorderTest {
                 .build();
 
         String csv = event.toCsvRow();
-        // Verify all fields are present in CSV (27 columns now)
+        // Verify all fields are present in CSV (34 columns now)
         String[] parts = csv.split(",", -1);
-        assertEquals(27, parts.length, "CSV should have 27 columns: " + csv);
+        assertEquals(34, parts.length, "CSV should have 34 columns: " + csv);
         assertEquals("5", parts[0]);
         assertEquals("MUTATION", parts[2]);
         assertEquals("SEMANTIC", parts[3]);
@@ -173,6 +173,28 @@ class DisruptionRecorderTest {
         String[] rowParts = event.toCsvRow().split(",", -1);
         assertEquals(headerParts.length, rowParts.length,
                 "Header column count must match row column count");
+    }
+
+    /** A comma-outside-quotes splitter, good enough to sanity-check a single CSV row. */
+    private static final String CSV_SPLIT_REGEX = ",(?=(?:[^\"]*\"[^\"]*\")*[^\"]*$)";
+
+    @Test
+    void targetGoalWithCommaIsQuoted() {
+        DisruptionEvent event = DisruptionEvent.builder()
+                .eventIndex(0)
+                .operatorKind(OperatorKind.MUTATION)
+                .operatorSource(OperatorSource.SEMANTIC)
+                .targetGoal("a, b")
+                .build();
+
+        String csv = event.toCsvRow();
+        assertTrue(csv.contains("\"a, b\""), "target_goal containing a comma should be quoted: " + csv);
+
+        String[] headerParts = DisruptionEvent.CSV_HEADER.split(CSV_SPLIT_REGEX, -1);
+        String[] rowParts = csv.split(CSV_SPLIT_REGEX, -1);
+        assertEquals(34, rowParts.length, "Quoted comma must not split into an extra column: " + csv);
+        assertEquals(headerParts.length, rowParts.length,
+                "Header column count must match row column count once the comma is quoted");
     }
 
     @Test

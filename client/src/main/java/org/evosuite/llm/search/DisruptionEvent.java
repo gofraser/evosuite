@@ -78,6 +78,17 @@ public class DisruptionEvent {
     private final double isolatedFitnessPostMutation;   // NaN if unavailable
     private final double isolatedMutationDelta;          // NaN if unavailable
 
+    // ---- Selector target ----
+    private final String targetGoal;             // null if no selector target
+    private final double targetDistanceBefore;   // NaN if unavailable
+    private final double targetDistanceAfter;    // NaN if unavailable
+
+    // ---- SYNC paired probe (twin evaluation) ----
+    private final boolean pairedProbe;
+    private final boolean pairedProbeFailure;
+    private final double twinFitness;         // NaN if unavailable
+    private final double twinTargetDistance;  // NaN if unavailable
+
     private DisruptionEvent(Builder b) {
         this.generation = b.generation;
         this.eventIndex = b.eventIndex;
@@ -106,6 +117,13 @@ public class DisruptionEvent {
         this.isolatedFitnessPostCrossover = b.isolatedFitnessPostCrossover;
         this.isolatedFitnessPostMutation = b.isolatedFitnessPostMutation;
         this.isolatedMutationDelta = b.isolatedMutationDelta;
+        this.targetGoal = b.targetGoal;
+        this.targetDistanceBefore = b.targetDistanceBefore;
+        this.targetDistanceAfter = b.targetDistanceAfter;
+        this.pairedProbe = b.pairedProbe;
+        this.pairedProbeFailure = b.pairedProbeFailure;
+        this.twinFitness = b.twinFitness;
+        this.twinTargetDistance = b.twinTargetDistance;
     }
 
     // ---- CSV header/row ----
@@ -118,7 +136,9 @@ public class DisruptionEvent {
             + "branch_jaccard_distance,line_jaccard_distance,goal_jaccard_distance,speciation_metric_distance,"
             + "accepted_into_offspring,survives_to_next_generation,"
             + "isolated_probe,probe_failure,"
-            + "isolated_fitness_post_crossover,isolated_fitness_post_mutation,isolated_mutation_delta";
+            + "isolated_fitness_post_crossover,isolated_fitness_post_mutation,isolated_mutation_delta,"
+            + "target_goal,target_distance_before,target_distance_after,"
+            + "paired_probe,paired_probe_failure,twin_fitness,twin_target_distance";
 
     /**
      * Converts the disruption event to a CSV row.
@@ -139,11 +159,26 @@ public class DisruptionEvent {
                 + isolatedProbe + "," + probeFailure + ","
                 + formatDouble(isolatedFitnessPostCrossover) + ","
                 + formatDouble(isolatedFitnessPostMutation) + ","
-                + formatDouble(isolatedMutationDelta);
+                + formatDouble(isolatedMutationDelta) + ","
+                + formatCsvField(targetGoal) + ","
+                + formatDouble(targetDistanceBefore) + "," + formatDouble(targetDistanceAfter) + ","
+                + pairedProbe + "," + pairedProbeFailure + ","
+                + formatDouble(twinFitness) + "," + formatDouble(twinTargetDistance);
     }
 
     private static String formatDouble(double v) {
         return Double.isNaN(v) ? "" : String.valueOf(v);
+    }
+
+    /** Quote free-text CSV fields (target_goal) that contain a comma, quote or line break. */
+    private static String formatCsvField(String s) {
+        if (s == null) {
+            return "";
+        }
+        if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0) {
+            return '"' + s.replace("\"", "\"\"") + '"';
+        }
+        return s;
     }
 
     // ---- Getters ----
@@ -256,6 +291,34 @@ public class DisruptionEvent {
         return isolatedMutationDelta;
     }
 
+    public String getTargetGoal() {
+        return targetGoal;
+    }
+
+    public double getTargetDistanceBefore() {
+        return targetDistanceBefore;
+    }
+
+    public double getTargetDistanceAfter() {
+        return targetDistanceAfter;
+    }
+
+    public boolean isPairedProbe() {
+        return pairedProbe;
+    }
+
+    public boolean isPairedProbeFailure() {
+        return pairedProbeFailure;
+    }
+
+    public double getTwinFitness() {
+        return twinFitness;
+    }
+
+    public double getTwinTargetDistance() {
+        return twinTargetDistance;
+    }
+
     // ---- Builder ----
 
     public static Builder builder() {
@@ -290,6 +353,13 @@ public class DisruptionEvent {
         private double isolatedFitnessPostCrossover = Double.NaN;
         private double isolatedFitnessPostMutation = Double.NaN;
         private double isolatedMutationDelta = Double.NaN;
+        private String targetGoal;
+        private double targetDistanceBefore = Double.NaN;
+        private double targetDistanceAfter = Double.NaN;
+        private boolean pairedProbe;
+        private boolean pairedProbeFailure;
+        private double twinFitness = Double.NaN;
+        private double twinTargetDistance = Double.NaN;
 
         public Builder generation(int v) {
             generation = v;
@@ -423,6 +493,41 @@ public class DisruptionEvent {
 
         public Builder isolatedMutationDelta(double v) {
             isolatedMutationDelta = v;
+            return this;
+        }
+
+        public Builder targetGoal(String v) {
+            targetGoal = v;
+            return this;
+        }
+
+        public Builder targetDistanceBefore(double v) {
+            targetDistanceBefore = v;
+            return this;
+        }
+
+        public Builder targetDistanceAfter(double v) {
+            targetDistanceAfter = v;
+            return this;
+        }
+
+        public Builder pairedProbe(boolean v) {
+            pairedProbe = v;
+            return this;
+        }
+
+        public Builder pairedProbeFailure(boolean v) {
+            pairedProbeFailure = v;
+            return this;
+        }
+
+        public Builder twinFitness(double v) {
+            twinFitness = v;
+            return this;
+        }
+
+        public Builder twinTargetDistance(double v) {
+            twinTargetDistance = v;
             return this;
         }
 

@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.testcase.TestChromosome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,6 +69,8 @@ public class BreedingDisruptionObserver {
      * @param isolatedFitness isolated probe fitness (NaN if not probed)
      * @param probeFailure    true if isolated probe evaluation failed
      * @param probeSnapshot   the post-crossover snapshot (null if not probed)
+     * @param target          selector target the semantic operator worked on (null if none)
+     * @param pairedProbe     SYNC paired-probe result (never null; {@link PairedProbeResult#NONE} if not run)
      */
     public void recordCrossover(TestChromosome offspring,
                                 TestChromosome parent1,
@@ -78,7 +81,9 @@ public class BreedingDisruptionObserver {
                                 int generation,
                                 double isolatedFitness,
                                 boolean probeFailure,
-                                TestChromosome probeSnapshot) {
+                                TestChromosome probeSnapshot,
+                                OperatorTarget target,
+                                PairedProbeResult pairedProbe) {
         if (recorder == null) {
             return;
         }
@@ -127,6 +132,21 @@ public class BreedingDisruptionObserver {
                 }
             }
 
+            if (target != null) {
+                builder.targetGoal(target.getGoal().toString());
+                builder.targetDistanceBefore(target.getDistance());
+                double targetDistanceAfter = Double.NaN;
+                if (probeSnapshot != null && !probeFailure) {
+                    Double v = probeSnapshot.getFitnessValues().get(target.getGoal());
+                    targetDistanceAfter = v == null ? Double.NaN : v;
+                }
+                builder.targetDistanceAfter(targetDistanceAfter);
+            }
+            builder.pairedProbe(pairedProbe.isEvaluated());
+            builder.pairedProbeFailure(pairedProbe.isFailure());
+            builder.twinFitness(pairedProbe.getTwinFitness());
+            builder.twinTargetDistance(pairedProbe.getTwinTargetDistance());
+
             recorder.record(builder.build());
         } catch (Exception e) {
             logger.debug("Failed to record crossover disruption event", e);
@@ -145,6 +165,8 @@ public class BreedingDisruptionObserver {
      * @param postCrossoverSnapshot        post-crossover snapshot for isolated probe (null if not probed)
      * @param isolatedFitnessPostCrossover isolated fitness after crossover (NaN if not probed)
      * @param crossoverProbeFailure        true if crossover probe failed
+     * @param target                       selector target the semantic operator worked on (null if none)
+     * @param pairedProbe                  SYNC paired-probe result (never null; {@link PairedProbeResult#NONE} if not run)
      */
     public void recordMutation(TestChromosome offspring,
                                TestChromosome parent,
@@ -154,7 +176,9 @@ public class BreedingDisruptionObserver {
                                int generation,
                                TestChromosome postCrossoverSnapshot,
                                double isolatedFitnessPostCrossover,
-                               boolean crossoverProbeFailure) {
+                               boolean crossoverProbeFailure,
+                               OperatorTarget target,
+                               PairedProbeResult pairedProbe) {
         if (recorder == null) {
             return;
         }
@@ -209,6 +233,21 @@ public class BreedingDisruptionObserver {
                     builder.probeFailure(true);
                 }
             }
+
+            if (target != null) {
+                builder.targetGoal(target.getGoal().toString());
+                builder.targetDistanceBefore(target.getDistance());
+                double targetDistanceAfter = Double.NaN;
+                if (accepted) {
+                    Double v = offspring.getFitnessValues().get(target.getGoal());
+                    targetDistanceAfter = v == null ? Double.NaN : v;
+                }
+                builder.targetDistanceAfter(targetDistanceAfter);
+            }
+            builder.pairedProbe(pairedProbe.isEvaluated());
+            builder.pairedProbeFailure(pairedProbe.isFailure());
+            builder.twinFitness(pairedProbe.getTwinFitness());
+            builder.twinTargetDistance(pairedProbe.getTwinTargetDistance());
 
             recorder.record(builder.build());
         } catch (Exception e) {
