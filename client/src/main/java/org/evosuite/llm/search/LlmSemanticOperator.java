@@ -89,7 +89,7 @@ public abstract class LlmSemanticOperator {
 
     /** Whether a call could go out right now: the service is configured and has budget left. */
     public boolean canCall() {
-        return llmService.isAvailable() && llmService.hasBudget();
+        return llmService.isAvailable() && llmService.hasBudget(feature);
     }
 
     /**

@@ -310,6 +310,20 @@ public class LlmService implements AutoCloseable {
         return remaining < 0 || remaining > 0;
     }
 
+    /**
+     * Returns true if the service has remaining LLM call budget for the given
+     * feature. Coordinators that partition the budget (see
+     * {@link LlmBudgetCoordinator.FeatureShare}) report the feature-specific
+     * quota here; others fall back to the global budget.
+     */
+    public boolean hasBudget(LlmFeature feature) {
+        if (!available) {
+            return false;
+        }
+        long remaining = budgetCoordinator.getRemaining(feature);
+        return remaining < 0 || remaining > 0;
+    }
+
     public LlmStatistics getStatistics() {
         return statistics;
     }
@@ -455,7 +469,7 @@ public class LlmService implements AutoCloseable {
 
         for (int attempt = 1; attempt <= maxTries; attempt++) {
             ensureBeforeDeadline(options.deadlineNanos);
-            if (!budgetCoordinator.tryAcquire()) {
+            if (!budgetCoordinator.tryAcquire(feature)) {
                 throw new LlmBudgetExceededException("LLM call budget exhausted on attempt " + attempt);
             }
             long start = System.currentTimeMillis();
