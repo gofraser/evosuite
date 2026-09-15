@@ -31,6 +31,7 @@ import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
+import org.evosuite.llm.prompt.TargetSection;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.prompt.TestRelevanceRanker;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
@@ -531,16 +532,7 @@ public class StagnationDetector {
             builder.withExistingTests(existingTests);
         }
         PromptResult prompt = builder.buildWithMetadata();
-        return new PromptResult.Builder()
-                .messages(prompt.getMessages())
-                .sutContextMode(prompt.getSutContextMode())
-                .contextUnavailable(prompt.isContextUnavailable())
-                .contextTruncated(prompt.isContextTruncated())
-                .contextCommentsStripped(prompt.isContextCommentsStripped())
-                .contextSelectivelyTruncated(prompt.isContextSelectivelyTruncated())
-                .clusterSummaryTruncated(prompt.isClusterSummaryTruncated())
-                .clusterSummaryChars(prompt.getClusterSummaryChars())
-                .dependencySummaryMetadata(prompt.getDependencySummaryMetadata())
+        return prompt.toBuilder()
                 .diagnosticCardTypes(extractCardTypes(cards))
                 .diagnosticCards(cards)
                 .repeatedInjectionTargets(extractRepeatedTargets(cards))
@@ -692,7 +684,7 @@ public class StagnationDetector {
         List<TestCase> existingTests = collectPinnedTests(cards, EXISTING_TESTS_CONTEXT_MAX);
         Set<String> seen = new LinkedHashSet<>();
         for (TestCase pinned : existingTests) {
-            seen.add(canonicalTestKey(pinned));
+            seen.add(TargetSection.canonicalCode(pinned));
         }
         if (existingTests.size() >= EXISTING_TESTS_CONTEXT_MAX) {
             return existingTests;
@@ -700,7 +692,7 @@ public class StagnationDetector {
         for (TestChromosome selectedChromosome : selected) {
             if (selectedChromosome != null && selectedChromosome.getTestCase() != null) {
                 TestCase test = selectedChromosome.getTestCase();
-                if (seen.add(canonicalTestKey(test))) {
+                if (seen.add(TargetSection.canonicalCode(test))) {
                     existingTests.add(test);
                     if (existingTests.size() >= EXISTING_TESTS_CONTEXT_MAX) {
                         break;
@@ -723,7 +715,7 @@ public class StagnationDetector {
             }
             for (ProblemCard.ConcreteExample example : card.getConcreteExamples()) {
                 TestCase test = example.getTestCase();
-                if (test != null && seen.add(canonicalTestKey(test))) {
+                if (test != null && seen.add(TargetSection.canonicalCode(test))) {
                     pinned.add(test);
                     if (pinned.size() >= maxCount) {
                         return pinned;
@@ -748,7 +740,7 @@ public class StagnationDetector {
             if (chromosome == null || chromosome.getTestCase() == null) {
                 continue;
             }
-            String key = canonicalTestKey(chromosome.getTestCase());
+            String key = TargetSection.canonicalCode(chromosome.getTestCase());
             if (seen.add(key)) {
                 unique.add(chromosome);
             }
@@ -807,13 +799,6 @@ public class StagnationDetector {
         return diversified;
     }
 
-    private String canonicalTestKey(TestCase testCase) {
-        try {
-            return testCase.toCode().replaceAll("\\s+", " ").trim();
-        } catch (RuntimeException e) {
-            return "id_" + System.identityHashCode(testCase);
-        }
-    }
 
     private String buildPoolInstruction(int totalGoals, int coveredGoalCount) {
         StringBuilder sb = new StringBuilder();
