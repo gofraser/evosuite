@@ -170,6 +170,9 @@ public final class PromptResult {
 
         public Builder messages(List<LlmMessage> messages) {
             this.messages = messages;
+            // A new set of messages invalidates any hash computed (or copied via
+            // toBuilder()) for the old ones; build() recomputes it from these.
+            this.prefixHash = null;
             return this;
         }
 
@@ -348,6 +351,11 @@ public final class PromptResult {
         return prefixHash;
     }
 
+    /**
+     * Returns a builder seeded with this result's fields. Does not copy
+     * {@link #prefixHash}: a caller that replaces {@link Builder#messages} must
+     * get a hash recomputed from the new messages, not this result's stale one.
+     */
     public Builder toBuilder() {
         return new Builder()
                 .messages(messages)
@@ -361,7 +369,6 @@ public final class PromptResult {
                 .dependencySummaryMetadata(dependencySummaryMetadata)
                 .diagnosticCardTypes(diagnosticCardTypes)
                 .diagnosticCards(diagnosticCards)
-                .repeatedInjectionTargets(repeatedInjectionTargets)
-                .prefixHash(prefixHash);
+                .repeatedInjectionTargets(repeatedInjectionTargets);
     }
 }
