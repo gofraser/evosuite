@@ -161,6 +161,21 @@ class TargetedResponseTest {
         assertEquals(1, response.all().size());
     }
 
+    @Test
+    void emptyTestCaseIsSkippedEntirely() {
+        // The response parser synthesises an empty method for a code-less
+        // (typically truncated) response; it must credit no target and never
+        // reach the population as an "unmatched" test.
+        RepairResult result = RepairResult.success(
+                Arrays.asList(parsed(new DefaultTestCase(), "test_target_1"), parsed(new DefaultTestCase(), "generatedTest")),
+                Collections.emptyList(), 0, Collections.emptyList());
+
+        TargetedResponse response = TargetedResponse.map(result, 1);
+
+        assertTrue(response.isEmpty());
+        assertFalse(response.forTarget(1).isPresent());
+    }
+
     // ---- failure / null result ------------------------------------------------------
 
     @Test

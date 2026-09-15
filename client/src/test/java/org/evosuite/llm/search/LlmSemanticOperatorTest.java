@@ -55,16 +55,18 @@ import static org.mockito.Mockito.when;
  */
 class LlmSemanticOperatorTest {
 
-    /** Two @Test methods, out of target order, each with a trivially parseable body. */
+    /** Two @Test methods, out of target order, each with one statement (an empty test would be dropped as a code-less response). */
     private static final String MULTI_TARGET_RESPONSE =
             "```java\n"
                     + "import org.junit.Test;\n"
                     + "public class GeneratedLlmTest {\n"
                     + "  @Test\n"
                     + "  public void test_target_2() {\n"
+                    + "    int two = 2;\n"
                     + "  }\n"
                     + "  @Test\n"
                     + "  public void test_target_1() {\n"
+                    + "    int one = 1;\n"
                     + "  }\n"
                     + "}\n"
                     + "```";

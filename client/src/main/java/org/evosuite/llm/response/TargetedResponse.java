@@ -50,7 +50,9 @@ public final class TargetedResponse {
      * Assigns each parsed test to the first target (1..{@code targetCount})
      * whose method name it carries; a second test claiming the same target,
      * or a test with any other name, is unmatched. A failed result maps to
-     * nothing.
+     * nothing, and so does an empty test: the parser synthesises an empty
+     * method for a response without code (typically a truncated one), which
+     * must not replace an offspring or seed the population.
      */
     public static TargetedResponse map(RepairResult result, int targetCount) {
         Map<Integer, TestCase> matched = new TreeMap<>();
@@ -60,7 +62,7 @@ public final class TargetedResponse {
         }
         for (ParseResult parsed : result.getParseResults()) {
             TestCase test = parsed.getTestCase();
-            if (test == null) {
+            if (test == null || test.isEmpty()) {
                 continue;
             }
             int index = targetIndex(parsed.getOriginalMethodName(), targetCount);
