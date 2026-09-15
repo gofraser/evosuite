@@ -25,6 +25,7 @@ import org.evosuite.llm.provider.AnthropicChatModel;
 import org.evosuite.llm.provider.LlmHttpException;
 import org.evosuite.llm.provider.LlmProtocolException;
 import org.evosuite.llm.provider.OpenAiCompatibleChatModel;
+import org.evosuite.llm.provider.RequestCancellation;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -551,6 +552,7 @@ public class LlmService implements AutoCloseable {
                                           long deadlineNanos) throws Exception {
         ExecutorService runner = executorService;
         ChatLanguageModel snapshot = model;
+        RequestCancellation cancellation = new RequestCancellation();
         AtomicBoolean workerEntered = new AtomicBoolean();
         CountDownLatch workerExited = new CountDownLatch(1);
         Future<LlmResponse> future = runner.submit(new Callable<LlmResponse>() {
@@ -558,7 +560,7 @@ public class LlmService implements AutoCloseable {
             public LlmResponse call() throws Exception {
                 workerEntered.set(true);
                 try {
-                    return snapshot.generate(messages, feature);
+                    return snapshot.generate(messages, feature, cancellation);
                 } finally {
                     workerExited.countDown();
                 }
@@ -582,11 +584,13 @@ public class LlmService implements AutoCloseable {
             // notice sooner if it happens to be at an interruptible point.
             future.cancel(true);
             // Future.cancel(true) cannot interrupt a thread blocked inside
-            // HttpURLConnection I/O, so ask the model to force its
+            // HttpURLConnection I/O, so force this specific request's
             // connection closed directly; that turns the blocked read into
             // an IOException immediately instead of waiting for the read
-            // timeout, which is a much coarser bound than this deadline.
-            snapshot.cancelInFlight();
+            // timeout, which is a much coarser bound than this deadline. Only
+            // this call's own connection is affected — other concurrent calls
+            // sharing the same model are untouched.
+            cancellation.abort();
             if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
                 // Worker is still running — the read timeout hasn't elapsed yet
                 // and the socket read isn't interruptible on this JVM. Drop the
@@ -601,9 +605,10 @@ public class LlmService implements AutoCloseable {
         } catch (InterruptedException e) {
             // Cancelling is just as important for caller interruption as for a
             // timeout: otherwise a completed request can mutate state after a
-            // search worker has been stopped.
+            // search worker has been stopped. As above, only this call's own
+            // connection is aborted.
             future.cancel(true);
-            snapshot.cancelInFlight();
+            cancellation.abort();
             if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
                 logger.warn("LLM worker did not terminate after caller interruption; replacing executor");
                 replaceExecutorService(runner);
@@ -1091,14 +1096,20 @@ public class LlmService implements AutoCloseable {
         LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws Exception;
 
         /**
-         * Best-effort abort of any request this model currently has in
-         * flight, called after {@code Future.cancel(true)} fails to stop a
-         * worker blocked in a non-interruptible read. Providers backed by
-         * {@link org.evosuite.llm.provider.JsonHttpClient} override this to
-         * force the underlying connection closed; models with nothing to
-         * abort (e.g. test doubles) can rely on this no-op default.
+         * Same as {@link #generate(List, LlmFeature)}, but with a {@link
+         * RequestCancellation} handle scoped to this one call. Providers
+         * backed by {@link org.evosuite.llm.provider.JsonHttpClient} attach
+         * the handle to their connection so that if {@code Future.cancel(true)}
+         * fails to stop a worker blocked in a non-interruptible read,
+         * {@code invokeWithTimeout} can force just this request's connection
+         * closed — without disturbing any other request the model may have
+         * in flight concurrently. The default implementation ignores the
+         * handle and delegates to the 2-arg overload, which is enough for
+         * models with nothing to abort (e.g. test doubles).
          */
-        default void cancelInFlight() {
+        default LlmResponse generate(List<LlmMessage> messages, LlmFeature feature,
+                                     RequestCancellation cancellation) throws Exception {
+            return generate(messages, feature);
         }
     }
 

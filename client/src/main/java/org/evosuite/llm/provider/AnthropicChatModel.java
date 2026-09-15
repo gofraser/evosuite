@@ -84,19 +84,21 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
 
     @Override
     public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws IOException {
+        return generate(messages, feature, null);
+    }
+
+    @Override
+    public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature,
+                                           RequestCancellation cancellation) throws IOException {
         String requestBody = buildRequestBody(messages);
         Map<String, String> headers = new LinkedHashMap<>();
         headers.put("x-api-key", apiKey);
         headers.put("anthropic-version", ANTHROPIC_VERSION);
         int readTimeoutMs = JsonHttpClient.boundedReadTimeoutMillis(timeoutSeconds);
         int connectTimeoutMs = JsonHttpClient.connectTimeoutMillis(readTimeoutMs);
-        String responseBody = httpClient.postJson(endpoint, headers, requestBody, connectTimeoutMs, readTimeoutMs);
+        String responseBody = httpClient.postJson(endpoint, headers, requestBody, connectTimeoutMs, readTimeoutMs,
+                cancellation);
         return parseResponse(responseBody);
-    }
-
-    @Override
-    public void cancelInFlight() {
-        httpClient.abortInFlight();
     }
 
     private String buildRequestBody(List<LlmMessage> messages) {

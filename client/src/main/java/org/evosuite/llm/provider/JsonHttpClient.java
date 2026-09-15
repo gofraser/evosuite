@@ -26,10 +26,7 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Minimal JSON-over-HTTP client built on {@link HttpURLConnection}. Kept
@@ -47,11 +44,6 @@ public class JsonHttpClient {
      */
     static final int MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 
-    // Connections currently sending a request or reading a response, so a
-    // caller that gives up on a call (timeout, interruption) can force the
-    // underlying socket closed. Future.cancel(true) alone cannot interrupt a
-    // thread blocked in HttpURLConnection I/O.
-    private final Set<HttpURLConnection> inFlight = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final int maxResponseBytes;
 
     public JsonHttpClient() {
@@ -82,7 +74,9 @@ public class JsonHttpClient {
 
     /**
      * Sends {@code body} as a JSON POST to {@code url} and returns the
-     * response body as a UTF-8 string.
+     * response body as a UTF-8 string. Equivalent to calling the 6-argument
+     * overload with a {@code null} cancellation handle, i.e. the request
+     * cannot be aborted before its read timeout elapses.
      *
      * @throws LlmHttpException if the server responds with a non-2xx status
      * @throws IOException      on any other transport failure (including a
@@ -91,8 +85,34 @@ public class JsonHttpClient {
      */
     public String postJson(String url, Map<String, String> headers, String body,
                            int connectTimeoutMs, int readTimeoutMs) throws IOException {
+        return postJson(url, headers, body, connectTimeoutMs, readTimeoutMs, null);
+    }
+
+    /**
+     * Sends {@code body} as a JSON POST to {@code url} and returns the
+     * response body as a UTF-8 string.
+     *
+     * <p>If {@code cancellation} is non-null, it is {@link
+     * RequestCancellation#attach(Runnable) attached} to this specific
+     * connection right after it is opened, so a caller that gives up on this
+     * one request (a phase deadline, or the caller thread being interrupted)
+     * can force just this connection closed — turning a blocked socket read
+     * into an {@link IOException} immediately instead of waiting for the
+     * read timeout, without touching any other request the client may have
+     * in flight concurrently.
+     *
+     * @throws LlmHttpException if the server responds with a non-2xx status
+     * @throws IOException      on any other transport failure (including a
+     *                          timeout or an interruption of the underlying
+     *                          socket read, which is left to propagate as-is)
+     */
+    public String postJson(String url, Map<String, String> headers, String body,
+                           int connectTimeoutMs, int readTimeoutMs,
+                           RequestCancellation cancellation) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
-        inFlight.add(connection);
+        if (cancellation != null) {
+            cancellation.attach(connection::disconnect);
+        }
         try {
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
@@ -118,25 +138,7 @@ public class JsonHttpClient {
             }
             return readStream(connection, connection.getInputStream());
         } finally {
-            inFlight.remove(connection);
             connection.disconnect();
-        }
-    }
-
-    /**
-     * Forces every connection this client currently has in flight closed.
-     * Called when a caller gives up on an outstanding request (a phase
-     * deadline or the caller thread being interrupted): it turns a blocked
-     * socket read into an {@link IOException} immediately instead of leaving
-     * it to the read timeout, which is typically a much coarser bound.
-     */
-    public void abortInFlight() {
-        for (HttpURLConnection connection : inFlight) {
-            try {
-                connection.disconnect();
-            } catch (Throwable ignored) {
-                // Best effort: the connection is being discarded either way.
-            }
         }
     }
 
