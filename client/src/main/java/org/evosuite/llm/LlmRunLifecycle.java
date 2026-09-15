@@ -4,6 +4,7 @@
 package org.evosuite.llm;
 
 import org.evosuite.llm.prompt.DecompiledContextProvider;
+import org.evosuite.llm.prompt.StaticPromptContext;
 import org.evosuite.llm.prompt.SutContextProviderFactory;
 import org.evosuite.llm.response.TestRepairLoop;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ public final class LlmRunLifecycle {
     public static void completeRun() {
         cleanup("service", LlmService::closeAndResetForRunCompletion);
         cleanup("SUT context cache", SutContextProviderFactory::resetForRunCompletion);
+        cleanup("static prompt context cache", StaticPromptContext::resetForRunCompletion);
         cleanup("decompiler worker", DecompiledContextProvider::resetForRunCompletion);
         cleanup("parse-compile worker", TestRepairLoop::resetForRunCompletion);
     }

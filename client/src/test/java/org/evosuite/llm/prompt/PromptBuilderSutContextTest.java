@@ -22,6 +22,7 @@ package org.evosuite.llm.prompt;
 import org.evosuite.Properties;
 import org.evosuite.Properties.LlmSutContextMode;
 import org.evosuite.llm.LlmMessage;
+import org.evosuite.llm.prompt.StaticPromptContext;
 import org.evosuite.setup.TestCluster;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,7 @@ class PromptBuilderSutContextTest {
     private int originalClusterDynamicMaxChars;
     private int originalClusterAbsoluteOverride;
     private String originalTargetClass;
+    private boolean originalPromptCacheStaticContext;
 
     @BeforeEach
     void saveProperties() {
@@ -66,6 +68,14 @@ class PromptBuilderSutContextTest {
         originalClusterDynamicMaxChars = Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS;
         originalClusterAbsoluteOverride = Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS;
         originalTargetClass = Properties.TARGET_CLASS;
+        originalPromptCacheStaticContext = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
+        // Most tests here assert where sections land in the *user* message;
+        // the static-context cache (tested separately) moves them into the
+        // system message instead. Individual tests that exercise the cache
+        // opt back in explicitly.
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = false;
+        StaticPromptContext.resetInstanceForTesting();
+        SutContextProviderFactory.resetInstanceForTesting();
     }
 
     @AfterEach
@@ -80,6 +90,9 @@ class PromptBuilderSutContextTest {
         Properties.LLM_CLUSTER_SUMMARY_DYNAMIC_MAX_CHARS = originalClusterDynamicMaxChars;
         Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS = originalClusterAbsoluteOverride;
         Properties.TARGET_CLASS = originalTargetClass;
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = originalPromptCacheStaticContext;
+        StaticPromptContext.resetInstanceForTesting();
+        SutContextProviderFactory.resetInstanceForTesting();
     }
 
     @Test
@@ -108,6 +121,39 @@ class PromptBuilderSutContextTest {
         String userPrompt = messages.get(1).getContent();
         assertTrue(userPrompt.contains("BYTECODE_DISASSEMBLED context:"));
         assertTrue(userPrompt.contains("bytecode content"));
+    }
+
+    @Test
+    void withSutContextStaticCacheEnabledPlacesSectionInSystemMessage() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.BYTECODE_DISASSEMBLED;
+        Properties.LLM_CONTEXT_FALLBACK_ENABLED = true;
+
+        SutContextProvider stubProvider = new StubSutContextProvider("bytecode content");
+        SutContextProviderFactory factory = new SutContextProviderFactory(
+                stubProvider, stubProvider, stubProvider, stubProvider);
+
+        PromptBuilder builder = new PromptBuilder(
+                new SystemPromptProvider(),
+                new TestClusterSummarizer(),
+                new SourceCodeProvider(),
+                new CoverageGoalFormatter(),
+                new TestCaseFormatter(),
+                factory);
+
+        List<LlmMessage> messages = builder
+                .withSystemPrompt()
+                .withSutContext("com.example.Foo", null)
+                .withInstruction("Generate tests.")
+                .build();
+
+        String systemMessage = messages.get(0).getContent();
+        String userPrompt = messages.get(1).getContent();
+        assertTrue(systemMessage.contains("CLASS UNDER TEST (SUT): com.example.Foo"));
+        assertTrue(systemMessage.contains("BYTECODE_DISASSEMBLED context:"));
+        assertTrue(systemMessage.contains("bytecode content"));
+        assertFalse(userPrompt.contains("bytecode content"),
+                "Static SUT context should not also be duplicated into the user message");
     }
 
     @Test

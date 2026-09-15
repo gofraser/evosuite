@@ -151,6 +151,7 @@ public final class PromptResult {
     private final List<ProblemCardType> diagnosticCardTypes;
     private final List<ProblemCard> diagnosticCards;
     private final List<RepeatedInjectionTarget> repeatedInjectionTargets;
+    private final String prefixHash;
 
     public static final class Builder {
         private List<LlmMessage> messages = Collections.emptyList();
@@ -165,6 +166,7 @@ public final class PromptResult {
         private List<ProblemCardType> diagnosticCardTypes = Collections.emptyList();
         private List<ProblemCard> diagnosticCards = Collections.emptyList();
         private List<RepeatedInjectionTarget> repeatedInjectionTargets = Collections.emptyList();
+        private String prefixHash;
 
         public Builder messages(List<LlmMessage> messages) {
             this.messages = messages;
@@ -226,6 +228,16 @@ public final class PromptResult {
             return this;
         }
 
+        /**
+         * Explicitly sets the prefix hash. Optional — when not called,
+         * {@link #build()} computes it from the SYSTEM-role content of
+         * {@link #messages}.
+         */
+        public Builder prefixHash(String prefixHash) {
+            this.prefixHash = prefixHash;
+            return this;
+        }
+
         public PromptResult build() {
             return new PromptResult(this);
         }
@@ -253,6 +265,7 @@ public final class PromptResult {
         this.repeatedInjectionTargets = builder.repeatedInjectionTargets == null
                 ? Collections.<RepeatedInjectionTarget>emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(builder.repeatedInjectionTargets));
+        this.prefixHash = builder.prefixHash != null ? builder.prefixHash : PrefixHash.of(this.messages);
     }
 
     public List<LlmMessage> getMessages() {
@@ -325,6 +338,16 @@ public final class PromptResult {
         return repeatedInjectionTargets;
     }
 
+    /**
+     * Lowercase hex SHA-256 of the system message content (empty-string hash
+     * if there is none). Prompts that share a cacheable prefix (see
+     * {@code Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT}) produce the same
+     * value here regardless of what differs in the user message.
+     */
+    public String getPrefixHash() {
+        return prefixHash;
+    }
+
     public Builder toBuilder() {
         return new Builder()
                 .messages(messages)
@@ -338,6 +361,7 @@ public final class PromptResult {
                 .dependencySummaryMetadata(dependencySummaryMetadata)
                 .diagnosticCardTypes(diagnosticCardTypes)
                 .diagnosticCards(diagnosticCards)
-                .repeatedInjectionTargets(repeatedInjectionTargets);
+                .repeatedInjectionTargets(repeatedInjectionTargets)
+                .prefixHash(prefixHash);
     }
 }

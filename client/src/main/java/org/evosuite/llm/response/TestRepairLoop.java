@@ -36,6 +36,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.StaticPromptContext;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
 import org.evosuite.runtime.GuiSupport;
@@ -1659,12 +1660,24 @@ public class TestRepairLoop {
                                  int repairAttempt,
                                  Map<ParseResult, ExecutionFailureContext> executionFailures,
                                  long repairDeadlineNanos) {
-        // Ensure system prompt is at the front of the conversation
+        // Ensure a system message is at the front of the conversation. The
+        // conversation seeded from the original prompt already carries one
+        // (possibly longer than `systemPrompt`, e.g. with the cached static
+        // SUT/dependency context appended) — only prepend when none is there.
         if (systemPrompt != null && !systemPrompt.isEmpty()
                 && (conversation.isEmpty()
-                    || !conversation.get(0).getContent().equals(systemPrompt))) {
+                    || conversation.get(0).getRole() != LlmMessage.Role.SYSTEM)) {
             conversation.add(0, LlmMessage.system(systemPrompt));
         }
+
+        // When the conversation's system message already carries the cached
+        // dependency-type catalogue (rendered once into the system message by
+        // PromptBuilder), don't re-append the bulk catalogue below — the model
+        // already has it in the cacheable prefix.
+        boolean sutContextSummaryAlreadyInSystemMessage = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT
+                && !conversation.isEmpty()
+                && conversation.get(0).getRole() == LlmMessage.Role.SYSTEM
+                && StaticPromptContext.containsDependencyContext(conversation.get(0).getContent());
 
         // Add the assistant's last response to the conversation
         if (previousResponse != null && !previousResponse.isEmpty()) {
@@ -1719,7 +1732,8 @@ public class TestRepairLoop {
         // seed, 2 = first repair). On later turns the LLM already has it in
         // its conversation history, and re-emitting tens of KB of catalog text
         // dilutes the failure-specific hints that should drive the repair.
-        if (sutContextSummary != null && !sutContextSummary.isEmpty() && repairAttempt <= 2) {
+        if (sutContextSummary != null && !sutContextSummary.isEmpty() && repairAttempt <= 2
+                && !sutContextSummaryAlreadyInSystemMessage) {
             repairMessage.append("\n\nFor reference, here are the available constructors and methods:\n")
                          .append(sutContextSummary);
         }

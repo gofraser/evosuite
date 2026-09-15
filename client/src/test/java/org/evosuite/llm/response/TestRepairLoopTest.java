@@ -83,6 +83,7 @@ class TestRepairLoopTest {
 
     private final boolean originalTruncationRecovery = Properties.LLM_ENABLE_TRUNCATION_RECOVERY;
     private final String originalTargetClass = Properties.TARGET_CLASS;
+    private final boolean originalPromptCacheStaticContext = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
     private Logger testRepairLoopLogger;
     private Logger decompiledContextLogger;
     private Logger evoLogger;
@@ -131,6 +132,7 @@ class TestRepairLoopTest {
         evoLogger.setAdditive(evoLoggerAdditive);
         Properties.LLM_ENABLE_TRUNCATION_RECOVERY = originalTruncationRecovery;
         Properties.TARGET_CLASS = originalTargetClass;
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = originalPromptCacheStaticContext;
         TestRepairLoop.resetForRunCompletion();
     }
 
@@ -4607,6 +4609,149 @@ class TestRepairLoopTest {
         assertFalse(result.getDiagnostics().stream()
                 .anyMatch(d -> d.contains("recurrent access violations")),
                 "Non-access errors should not trigger access violation tracking: " + result.getDiagnostics());
+    }
+
+    @Test
+    void requestRepairKeepsExistingLeadingSystemMessageInsteadOfPrependingAnother() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1,
+                "loop-provided-system-prompt",
+                null);
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Arrays.asList(LlmMessage.system("original-prompt-system-message"), LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+
+        long systemMessageCount = sentConversation.stream()
+                .filter(m -> m.getRole() == LlmMessage.Role.SYSTEM)
+                .count();
+        assertEquals(1, systemMessageCount, "Exactly one system message should be sent: " + sentConversation);
+        assertEquals(LlmMessage.Role.SYSTEM, sentConversation.get(0).getRole());
+        assertEquals("original-prompt-system-message", sentConversation.get(0).getContent(),
+                "The conversation's own leading system message must be kept, not replaced");
+    }
+
+    @Test
+    void sutContextSummaryOmittedFromRepairMessageWhenSystemMessageAlreadyHasDependencyContext() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        String systemMessageWithDependencyContext = "You are a test generator.\n\n"
+                + org.evosuite.llm.prompt.StaticPromptContext.DEPENDENCY_SECTION_HEADER
+                + "\nFoo(): void bar()";
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1,
+                "loop-provided-system-prompt",
+                "CATALOG-TEXT-MARKER-of-constructors-and-methods");
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Arrays.asList(LlmMessage.system(systemMessageWithDependencyContext), LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String repairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+
+        assertFalse(repairMessage.contains("CATALOG-TEXT-MARKER-of-constructors-and-methods"),
+                "The bulk catalogue is already in the cached system message and should not be duplicated");
+    }
+
+    @Test
+    void sutContextSummaryIncludedInRepairMessageWhenSystemMessageHasNoDependencyContext() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("```java\nbroken\n```");
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "syntax error", 1, "broken"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                1,
+                "loop-provided-system-prompt",
+                "CATALOG-TEXT-MARKER-of-constructors-and-methods");
+
+        RepairResult result = loop.attemptParse(
+                "broken",
+                Arrays.asList(LlmMessage.system("You are a test generator, no dependency catalogue here."),
+                        LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String repairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+
+        assertTrue(repairMessage.contains("CATALOG-TEXT-MARKER-of-constructors-and-methods"),
+                "Without a cached dependency section, the catalogue must still be re-appended as before");
     }
 
     private static void assertLogMessage(ListAppender<ILoggingEvent> appender, String message) {
