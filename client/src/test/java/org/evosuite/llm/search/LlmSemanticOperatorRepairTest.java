@@ -24,13 +24,14 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -104,6 +105,20 @@ class LlmSemanticOperatorRepairTest {
         return tc;
     }
 
+    private TestFitnessFunction makeGoal() {
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn("goal");
+        return goal;
+    }
+
+    private OperatorTarget mutationTarget() {
+        return OperatorTarget.builder(makeChromosome(), makeGoal()).build();
+    }
+
+    private OperatorTarget crossoverTarget() {
+        return OperatorTarget.builder(makeChromosome(), makeGoal()).partner(makeChromosome()).build();
+    }
+
     @Test
     void mutationWithNoRepairBudgetQueriesOnce() {
         // Deliberately set LLM_REPAIR_ATTEMPTS higher than LLM_OPERATOR_REPAIR_ATTEMPTS
@@ -116,7 +131,7 @@ class LlmSemanticOperatorRepairTest {
                 .thenReturn(MALFORMED_RESPONSE);
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
-        TestChromosome result = mutation.mutateSemantically(makeChromosome(), Collections.emptySet());
+        TestChromosome result = mutation.mutate(mutationTarget());
 
         assertNull(result, "a malformed response with no repair budget must not produce a mutant");
         verify(llmService, times(1)).query(any(PromptResult.class), any(LlmFeature.class));
@@ -134,8 +149,7 @@ class LlmSemanticOperatorRepairTest {
                 .thenReturn(MALFORMED_RESPONSE);
 
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(llmService);
-        TestChromosome result = crossover.crossoverSemantically(
-                makeChromosome(), makeChromosome(), Collections.emptySet());
+        TestChromosome result = crossover.crossover(crossoverTarget());
 
         assertNull(result, "a malformed response with no repair budget must not produce a child");
         verify(llmService, times(1)).query(any(PromptResult.class), any(LlmFeature.class));
@@ -154,7 +168,7 @@ class LlmSemanticOperatorRepairTest {
                 .thenReturn(MALFORMED_RESPONSE);
 
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
-        TestChromosome result = mutation.mutateSemantically(makeChromosome(), Collections.emptySet());
+        TestChromosome result = mutation.mutate(mutationTarget());
 
         assertNull(result);
         verify(llmService, times(1)).query(any(PromptResult.class), any(LlmFeature.class));
