@@ -63,6 +63,8 @@ import org.evosuite.llm.search.ProblemCardExtractor;
 import org.evosuite.llm.search.ProblemCardLogRecorder;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
+import org.evosuite.llm.search.operator.OperatorTargetSelector;
+import org.evosuite.llm.search.operator.SyncTargetPlan;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeLocal;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -181,6 +183,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * LLM-based crossover operator. Initialized lazily when LLM operators are enabled.
      */
     protected transient LanguageModelCrossover llmCrossover;
+
+    /**
+     * Selector supplying this generation's targets for the SYNC hooks ({@link #llmMutation},
+     * {@link #llmCrossover}). Set when {@link Properties#LLM_OPERATOR_MODE} is {@code SYNC}; tests
+     * may assign it directly.
+     */
+    protected transient OperatorTargetSelector syncTargetSelector;
 
     /**
      * Species map from the most recent generation's speciation assignment. Used during breeding for
@@ -561,6 +570,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         lastGenOffspringRandomNew = 0;
         lastGenOffspringIdentity = Collections.newSetFromMap(new IdentityHashMap<>());
 
+        final SyncTargetPlan syncTargets = selectSyncTargets();
+
         // Build identity-based reverse lookup for intra-species mating restriction.
         Map<TestChromosome, Integer> individualToSpecies = null;
         if (Properties.SPECIES_RESTRICT_MATING && currentSpeciesMap != null) {
@@ -594,7 +605,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             if (llmCrossover != null) {
                 try {
                     crossoverResult = llmCrossover.tryCrossoverWithResult(
-                            offspring1, offspring2, getCurrentGoals());
+                            offspring1, parent1, syncTargets);
                 } catch (Exception e) {
                     logger.debug("LLM crossover error; falling back to standard", e);
                     crossoverResult = OperatorAttemptResult.semanticFallback();
@@ -617,7 +628,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 crossoverApplied = true;
             }
             if (crossoverApplied) {
-                offspring1.addDescentLineages(parent2.effectiveLineages());
+                // A semantic crossover recombines parent1 with the target's partner, which need
+                // not be parent2; a standard crossover always recombines parent1 with parent2.
+                if (crossoverResult.isAppliedSemantic() && crossoverResult.getTarget().getPartner().isPresent()) {
+                    offspring1.addDescentLineages(crossoverResult.getTarget().getPartner().get().effectiveLineages());
+                } else {
+                    offspring1.addDescentLineages(parent2.effectiveLineages());
+                }
             }
             if (crossoverApplied2) {
                 offspring2.addDescentLineages(parent1.effectiveLineages());
@@ -650,9 +667,16 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.removeUnusedVariables(offspring2);
 
             processOffspringMutation(offspring1, parent1, offspringPopulation, observer,
-                    crossoverApplied);
+                    crossoverApplied, syncTargets);
+            // offspring1's fitness is cached and current only if it survived evaluation just now
+            // (isChanged() is cleared by fitness calculation); mutation may have re-evaluated it
+            // after crossover, so this is the earliest point the crossover attempt can be judged.
+            if (llmCrossover != null) {
+                llmCrossover.recordOutcome(crossoverResult,
+                        !offspring1.getFitnessValues().isEmpty() && !offspring1.isChanged() ? offspring1 : null);
+            }
             processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
-                    crossoverApplied2);
+                    crossoverApplied2, syncTargets);
         }
 
         // EvoObj: collect the uncovered branch goals once per generation (not per inserted test)
@@ -727,6 +751,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
         logger.debug("Number of offsprings = {}", offspringPopulation.size());
         return offspringPopulation;
+    }
+
+    /** Selector targets for this generation's SYNC hooks; empty when the hooks are off. */
+    private SyncTargetPlan selectSyncTargets() {
+        if (syncTargetSelector == null || (llmMutation == null && llmCrossover == null)) {
+            return SyncTargetPlan.EMPTY;
+        }
+        return new SyncTargetPlan(syncTargetSelector.select(this.population, getCurrentGoals(),
+                this.population.size(), this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER));
     }
 
     protected List<Branch> objectRuleCandidateBranches() {
@@ -806,7 +839,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             TestChromosome parent,
             List<TestChromosome> offspringPopulation,
             BreedingDisruptionObserver observer,
-            boolean crossoverApplied) {
+            boolean crossoverApplied,
+            SyncTargetPlan syncTargets) {
         int preMutStmts = observer.isEnabled() ? DisruptionHelper.statementCount(offspring) : 0;
 
         // Isolated probe: evaluate post-crossover state before mutation
@@ -830,7 +864,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 OperatorAttemptResult.SkipReason.NOT_CONFIGURED);
         if (llmMutation != null) {
             try {
-                mutResult = llmMutation.tryMutateWithResult(offspring, getCurrentGoals());
+                mutResult = llmMutation.tryMutateWithResult(offspring, parent, syncTargets);
             } catch (Exception e) {
                 logger.debug("LLM mutation error; falling back to standard", e);
                 mutResult = OperatorAttemptResult.semanticFallback();
@@ -842,11 +876,17 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         if (offspring.isChanged()) {
             if (isOffspringOrphaned(offspring, parent, crossoverApplied, mutResult)) {
                 lastGenOffspringDiscarded++;
+                if (llmMutation != null) {
+                    llmMutation.recordOutcome(mutResult, null);
+                }
                 return;
             }
             this.clearCachedResults(offspring);
             offspring.updateAge(this.currentIteration);
             this.calculateFitness(offspring);
+            if (llmMutation != null) {
+                llmMutation.recordOutcome(mutResult, offspring);
+            }
 
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,

@@ -39,9 +39,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -53,7 +51,7 @@ import static org.mockito.Mockito.when;
  * Verifies {@link LlmSemanticOperator} (via its {@link LlmSemanticMutation} and
  * {@link LlmSemanticCrossover} subclasses) renders a batch of targets through
  * {@code TargetedPromptFactory}, makes a single LLM call, and maps the parsed
- * response back to targets by method name; and verifies {@link OperatorTarget#closestGoal}.
+ * response back to targets by method name.
  */
 class LlmSemanticOperatorTest {
 
@@ -184,26 +182,6 @@ class LlmSemanticOperatorTest {
         assertTrue(userText.contains("combines the setup from"), userText);
     }
 
-    @Test
-    void mutateSemanticallySelectsCachedGoalAndReportsItsDistance() {
-        LlmService llmService = mockAvailableService();
-        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(MULTI_TARGET_RESPONSE);
-        ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
-
-        TestChromosome parent = makeChromosome();
-        TestFitnessFunction g = makeGoal("g");
-        parent.setFitness(g, 0.25);
-
-        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
-        mutation.mutateSemantically(parent, Collections.singletonList(g));
-
-        verify(llmService).query(promptCaptor.capture(), any(LlmFeature.class));
-        String userText = userText(promptCaptor.getValue());
-
-        assertTrue(userText.contains("fitness distance 0.2500"), userText);
-    }
-
     private static String userText(PromptResult prompt) {
         StringBuilder sb = new StringBuilder();
         for (LlmMessage message : prompt.getMessages()) {
@@ -212,66 +190,6 @@ class LlmSemanticOperatorTest {
             }
         }
         return sb.toString();
-    }
-
-    // --- OperatorTarget.closestGoal --------------------------------------------
-
-    @Test
-    void closestGoalPicksSmallestPositiveCachedFitness() {
-        TestChromosome parent = makeChromosome();
-        TestFitnessFunction near = makeGoal("near");
-        TestFitnessFunction far = makeGoal("far");
-        parent.setFitness(far, 0.8);
-        parent.setFitness(near, 0.2);
-
-        OperatorTarget target = OperatorTarget.closestGoal(parent, null, Arrays.asList(near, far));
-
-        assertNotNull(target);
-        assertEquals(near, target.getGoal());
-        assertEquals(0.2, target.getDistance(), 1e-9);
-    }
-
-    @Test
-    void closestGoalIgnoresZeroFitnessGoals() {
-        TestChromosome parent = makeChromosome();
-        TestFitnessFunction covered = makeGoal("covered");
-        TestFitnessFunction uncovered = makeGoal("uncovered");
-        parent.setFitness(covered, 0.0);
-        parent.setFitness(uncovered, 0.4);
-
-        OperatorTarget target = OperatorTarget.closestGoal(parent, null, Arrays.asList(covered, uncovered));
-
-        assertNotNull(target);
-        assertEquals(uncovered, target.getGoal());
-        assertEquals(0.4, target.getDistance(), 1e-9);
-    }
-
-    @Test
-    void closestGoalFallsBackToRandomGoalWithNaNDistanceWhenNothingCached() {
-        TestChromosome parent = makeChromosome();
-        TestFitnessFunction a = makeGoal("a");
-        TestFitnessFunction b = makeGoal("b");
-
-        OperatorTarget target = OperatorTarget.closestGoal(parent, null, Arrays.asList(a, b));
-
-        assertNotNull(target);
-        assertTrue(target.getGoal() == a || target.getGoal() == b);
-        assertTrue(Double.isNaN(target.getDistance()));
-    }
-
-    @Test
-    void closestGoalTreatsDistancesAtOrAboveOneAsUnknown() {
-        TestChromosome parent = makeChromosome();
-        TestFitnessFunction atOne = makeGoal("atOne");
-        TestFitnessFunction huge = makeGoal("huge");
-        parent.setFitness(atOne, 1.0);
-        parent.setFitness(huge, Double.MAX_VALUE);
-
-        OperatorTarget target = OperatorTarget.closestGoal(parent, null, Arrays.asList(atOne, huge));
-
-        assertNotNull(target);
-        assertTrue(Double.isNaN(target.getDistance()),
-                "a best distance of 1 or more means no test gets near the goal; fall back to the unknown-distance path");
     }
 
     @Test
@@ -284,15 +202,5 @@ class LlmSemanticOperatorTest {
         assertThrows(IllegalArgumentException.class, () -> new LlmSemanticMutation(llmService).mutate(crossover));
         assertThrows(IllegalArgumentException.class, () -> new LlmSemanticCrossover(llmService).crossover(mutation));
         verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
-    }
-
-    @Test
-    void closestGoalReturnsNullForEmptyGoals() {
-        assertNull(OperatorTarget.closestGoal(makeChromosome(), null, Collections.emptyList()));
-    }
-
-    @Test
-    void closestGoalReturnsNullForNullParent() {
-        assertNull(OperatorTarget.closestGoal(null, null, Collections.singletonList(makeGoal("g"))));
     }
 }

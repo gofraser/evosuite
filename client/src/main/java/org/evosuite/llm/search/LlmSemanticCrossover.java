@@ -24,9 +24,7 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.TargetedPromptFactory;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.testcase.TestChromosome;
-import org.evosuite.testcase.TestFitnessFunction;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -46,28 +44,6 @@ public class LlmSemanticCrossover extends LlmSemanticOperator {
 
     public LlmSemanticCrossover(LlmService llmService, TargetedPromptFactory promptFactory) {
         super(llmService, LlmFeature.SEMANTIC_CROSSOVER, promptFactory);
-    }
-
-    /**
-     * Attempt a semantic crossover of two parent test chromosomes, targeting
-     * whichever goal is closest to being covered on {@code parent1} (see
-     * {@link OperatorTarget#closestGoal}).
-     *
-     * @param parent1 first parent
-     * @param parent2 second parent
-     * @param goals   current goals for context
-     * @return the recombined chromosome, or null if LLM crossover failed
-     */
-    public TestChromosome crossoverSemantically(TestChromosome parent1, TestChromosome parent2,
-                                                Collection<TestFitnessFunction> goals) {
-        if (parent2 == null) {
-            return null;
-        }
-        OperatorTarget target = OperatorTarget.closestGoal(parent1, parent2, goals);
-        if (target == null) {
-            return null;
-        }
-        return crossover(target);
     }
 
     /** Recombines the target's parent and partner towards the target's goal. */

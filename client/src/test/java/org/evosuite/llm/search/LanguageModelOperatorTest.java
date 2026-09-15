@@ -20,6 +20,8 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.search.operator.OperatorTarget;
+import org.evosuite.llm.search.operator.SyncTargetPlan;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -28,13 +30,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for LanguageModelMutation and LanguageModelCrossover operator wrappers.
+ * Tests for {@link LanguageModelMutation} and {@link LanguageModelCrossover}: the SYNC hooks take
+ * their target from a {@link SyncTargetPlan} rather than choosing a goal themselves.
  */
 class LanguageModelOperatorTest {
 
@@ -56,54 +60,135 @@ class LanguageModelOperatorTest {
         Properties.LLM_CROSSOVER_PROBABILITY = prevCrossProb;
     }
 
+    private static TestChromosome makeChromosome() {
+        TestChromosome tc = new TestChromosome();
+        tc.setTestCase(new DefaultTestCase());
+        return tc;
+    }
+
+    private static TestFitnessFunction makeGoal(String name) {
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        when(goal.toString()).thenReturn(name);
+        return goal;
+    }
+
+    private static OperatorTarget mutationTarget(TestChromosome parent, TestFitnessFunction goal) {
+        return OperatorTarget.builder(parent, goal).distance(0.5).build();
+    }
+
+    private static OperatorTarget crossoverTarget(TestChromosome parent, TestFitnessFunction goal,
+                                                  TestChromosome partner) {
+        return OperatorTarget.builder(parent, goal).distance(0.5).partner(partner).build();
+    }
+
+    // --- mode / probability / target gating (shared shape, exercised via mutation) --------------
+
     @Test
-    void mutationDisabledReturnsFalse() {
+    void modeOffSkipsAndNeverTouchesSemanticOrPlan() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
 
-        TestChromosome tc = makeChromosome();
-        assertFalse(mutation.tryMutate(tc, Collections.emptySet()));
-        assertEquals(0, mutation.getAppliedCount());
+        TestChromosome parent = makeChromosome();
+        SyncTargetPlan plan = new SyncTargetPlan(
+                Collections.singletonList(mutationTarget(parent, makeGoal("g"))));
+
+        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        assertEquals(OperatorAttemptResult.SkipReason.DISABLED, result.getSkipReason());
+        assertFalse(result.isAttemptedSemantic());
+        assertEquals(1, plan.remaining(), "target must be untouched when the mode is off");
         verifyNoInteractions(mockSemantic);
     }
 
     @Test
-    void mutationSuccessReplacesTestCase() {
+    void probabilityGateRejectsBeforeTakingTarget() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
-        Properties.LLM_MUTATION_PROBABILITY = 1.0; // always try
-
-        TestChromosome original = makeChromosome();
-        TestChromosome mutant = makeChromosome();
-        mutant.setTestCase(new DefaultTestCase()); // different test case
-
+        Properties.LLM_MUTATION_PROBABILITY = 0.0;
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
-        when(mockSemantic.mutateSemantically(eq(original), anyCollection()))
-                .thenReturn(mutant);
-
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
-        boolean result = mutation.tryMutate(original, Collections.emptySet());
 
-        assertTrue(result);
-        assertEquals(1, mutation.getAppliedCount());
-        assertEquals(0, mutation.getFallbackCount());
+        TestChromosome parent = makeChromosome();
+        SyncTargetPlan plan = new SyncTargetPlan(
+                Collections.singletonList(mutationTarget(parent, makeGoal("g"))));
+
+        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        assertEquals(OperatorAttemptResult.SkipReason.PROBABILITY, result.getSkipReason());
+        assertEquals(1, plan.remaining(),
+                "a rejected parent must keep its target for a later selection this generation");
+        verifyNoInteractions(mockSemantic);
     }
 
     @Test
-    void mutationFailureFallsBack() {
+    void noTargetForParentSkipsWithNoTargetReason() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
+
+        OperatorAttemptResult result =
+                mutation.tryMutateWithResult(makeChromosome(), makeChromosome(), SyncTargetPlan.EMPTY);
+
+        assertEquals(OperatorAttemptResult.SkipReason.NO_TARGET, result.getSkipReason());
+        verifyNoInteractions(mockSemantic);
+    }
+
+    // --- mutation: applied / fallback / exception -------------------------------------------
+
+    @Test
+    void appliedMutationReplacesOffspringAndCarriesTargetAndAttemptId() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 1.0;
 
+        TestChromosome parent = makeChromosome();
+        OperatorTarget target = mutationTarget(parent, makeGoal("g"));
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        TestChromosome offspring = makeChromosome();
+        TestChromosome mutant = makeChromosome();
+        mutant.setTestCase(new DefaultTestCase());
+
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
-        when(mockSemantic.mutateSemantically(any(), anyCollection())).thenReturn(null);
+        when(mockSemantic.mutate(target)).thenReturn(mutant);
 
-        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
-        TestChromosome tc = makeChromosome();
-        boolean result = mutation.tryMutate(tc, Collections.emptySet());
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
 
-        assertFalse(result);
+        OperatorAttemptResult result = mutation.tryMutateWithResult(offspring, parent, plan);
+
+        assertTrue(result.isAppliedSemantic());
+        assertSame(target, result.getTarget());
+        assertNotNull(result.getAttemptId());
+        assertSame(mutant.getTestCase(), offspring.getTestCase());
+        assertTrue(offspring.isChanged());
+        assertEquals(1, mutation.getAppliedCount());
+        assertEquals(0, mutation.getFallbackCount());
+        assertEquals(0, plan.remaining(), "the target must be consumed on a successful attempt");
+    }
+
+    @Test
+    void invokeReturningNullFallsBackAndRecordsNoGain() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+
+        TestChromosome parent = makeChromosome();
+        OperatorTarget target = mutationTarget(parent, makeGoal("g"));
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.mutate(target)).thenReturn(null);
+
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+
+        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        assertFalse(result.isAppliedSemantic());
+        assertTrue(result.isFallbackUsed());
         assertEquals(0, mutation.getAppliedCount());
         assertEquals(1, mutation.getFallbackCount());
+        verify(memory).recordAttemptOutcome(anyString(), eq(0));
     }
 
     @Test
@@ -111,48 +196,105 @@ class LanguageModelOperatorTest {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 1.0;
 
+        TestChromosome parent = makeChromosome();
+        OperatorTarget target = mutationTarget(parent, makeGoal("g"));
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
-        when(mockSemantic.mutateSemantically(any(), anyCollection()))
-                .thenThrow(new RuntimeException("boom"));
+        when(mockSemantic.mutate(target)).thenThrow(new RuntimeException("boom"));
 
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
-        TestChromosome tc = makeChromosome();
-        boolean result = mutation.tryMutate(tc, Collections.emptySet());
+        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
 
-        assertFalse(result);
+        assertFalse(result.isAppliedSemantic());
+        assertTrue(result.isFallbackUsed());
         assertEquals(1, mutation.getFallbackCount());
     }
 
-    @Test
-    void crossoverDisabledReturnsFalse() {
-        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
-        LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
-        LanguageModelCrossover crossover = new LanguageModelCrossover(mockSemantic);
+    // --- recordOutcome -------------------------------------------------------------------------
 
-        assertFalse(crossover.tryCrossover(makeChromosome(), makeChromosome(), Collections.emptySet()));
-        verifyNoInteractions(mockSemantic);
+    @Test
+    void recordOutcomeCreditsGainWhenEvaluatedOffspringCoversTheGoal() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+
+        TestChromosome parent = makeChromosome();
+        TestFitnessFunction goal = makeGoal("g");
+        OperatorTarget target = mutationTarget(parent, goal);
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        TestChromosome mutant = makeChromosome();
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.mutate(target)).thenReturn(mutant);
+
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        TestChromosome evaluatedOffspring = makeChromosome();
+        evaluatedOffspring.setFitness(goal, 0.0);
+        mutation.recordOutcome(result, evaluatedOffspring);
+
+        verify(memory).recordAttemptOutcome(result.getAttemptId(), 1);
     }
 
     @Test
-    void crossoverSuccessReplacesOffspring() {
+    void recordOutcomeRecordsNoGainWhenOffspringIsNull() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+
+        TestChromosome parent = makeChromosome();
+        TestFitnessFunction goal = makeGoal("g");
+        OperatorTarget target = mutationTarget(parent, goal);
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        TestChromosome mutant = makeChromosome();
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.mutate(target)).thenReturn(mutant);
+
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        mutation.recordOutcome(result, null);
+
+        verify(memory).recordAttemptOutcome(result.getAttemptId(), 0);
+    }
+
+    // --- crossover: only takes CROSSOVER-kind targets --------------------------------------------
+
+    @Test
+    void crossoverTakesOnlyCrossoverKindTargets() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
 
+        TestChromosome parent1 = makeChromosome();
+        TestChromosome mutationOnlyParent = makeChromosome();
+        // A mutation-kind target for a different parent must be left untouched.
+        OperatorTarget mutationOnly = mutationTarget(mutationOnlyParent, makeGoal("m"));
+        OperatorTarget crossover = crossoverTarget(parent1, makeGoal("g"), makeChromosome());
+        SyncTargetPlan plan = new SyncTargetPlan(java.util.Arrays.asList(mutationOnly, crossover));
+
         TestChromosome offspring1 = makeChromosome();
-        TestChromosome offspring2 = makeChromosome();
         TestChromosome child = makeChromosome();
         child.setTestCase(new DefaultTestCase());
 
         LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
-        when(mockSemantic.crossoverSemantically(eq(offspring1), eq(offspring2), anyCollection()))
-                .thenReturn(child);
+        when(mockSemantic.crossover(crossover)).thenReturn(child);
 
-        LanguageModelCrossover crossover = new LanguageModelCrossover(mockSemantic);
-        boolean result = crossover.tryCrossover(offspring1, offspring2, Collections.emptySet());
+        LanguageModelCrossover crossoverHook = new LanguageModelCrossover(mockSemantic);
+        OperatorAttemptResult result = crossoverHook.tryCrossoverWithResult(offspring1, parent1, plan);
 
-        assertTrue(result);
-        assertEquals(1, crossover.getAppliedCount());
-        assertEquals(0, crossover.getFallbackCount());
+        assertTrue(result.isAppliedSemantic());
+        assertSame(crossover, result.getTarget());
+        assertSame(child.getTestCase(), offspring1.getTestCase());
+        assertEquals(1, crossoverHook.getAppliedCount());
+        assertEquals(1, plan.remaining(), "the untouched mutation-kind target must remain in the plan");
+
+        OperatorAttemptResult secondAttempt =
+                crossoverHook.tryCrossoverWithResult(makeChromosome(), mutationOnlyParent, plan);
+        assertEquals(OperatorAttemptResult.SkipReason.NO_TARGET, secondAttempt.getSkipReason(),
+                "a mutation-kind target must never be handed to the crossover hook");
     }
 
     @Test
@@ -160,56 +302,18 @@ class LanguageModelOperatorTest {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
 
-        LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
-        when(mockSemantic.crossoverSemantically(any(), any(), anyCollection())).thenReturn(null);
-
-        LanguageModelCrossover crossover = new LanguageModelCrossover(mockSemantic);
-        boolean result = crossover.tryCrossover(makeChromosome(), makeChromosome(), Collections.emptySet());
-
-        assertFalse(result);
-        assertEquals(1, crossover.getFallbackCount());
-    }
-
-    @Test
-    void crossoverExceptionFallsBackGracefully() {
-        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
-        Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
+        TestChromosome parent1 = makeChromosome();
+        OperatorTarget target = crossoverTarget(parent1, makeGoal("g"), makeChromosome());
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
         LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
-        when(mockSemantic.crossoverSemantically(any(), any(), anyCollection()))
-                .thenThrow(new RuntimeException("oops"));
+        when(mockSemantic.crossover(target)).thenReturn(null);
 
-        LanguageModelCrossover crossover = new LanguageModelCrossover(mockSemantic);
-        boolean result = crossover.tryCrossover(makeChromosome(), makeChromosome(), Collections.emptySet());
+        LanguageModelCrossover crossoverHook = new LanguageModelCrossover(mockSemantic);
+        OperatorAttemptResult result = crossoverHook.tryCrossoverWithResult(makeChromosome(), parent1, plan);
 
-        assertFalse(result);
-        assertEquals(1, crossover.getFallbackCount());
-    }
-
-    @Test
-    void zeroProbabilityNeverTriesLlm() {
-        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
-        Properties.LLM_MUTATION_PROBABILITY = 0.0;
-        Properties.LLM_CROSSOVER_PROBABILITY = 0.0;
-
-        LlmSemanticMutation mockMut = mock(LlmSemanticMutation.class);
-        LlmSemanticCrossover mockCross = mock(LlmSemanticCrossover.class);
-
-        LanguageModelMutation mutation = new LanguageModelMutation(mockMut);
-        LanguageModelCrossover crossover = new LanguageModelCrossover(mockCross);
-
-        for (int i = 0; i < 100; i++) {
-            assertFalse(mutation.tryMutate(makeChromosome(), Collections.emptySet()));
-            assertFalse(crossover.tryCrossover(
-                    makeChromosome(), makeChromosome(), Collections.emptySet()));
-        }
-        verifyNoInteractions(mockMut);
-        verifyNoInteractions(mockCross);
-    }
-
-    private TestChromosome makeChromosome() {
-        TestChromosome tc = new TestChromosome();
-        tc.setTestCase(new DefaultTestCase());
-        return tc;
+        assertFalse(result.isAppliedSemantic());
+        assertTrue(result.isFallbackUsed());
+        assertEquals(1, crossoverHook.getFallbackCount());
     }
 }

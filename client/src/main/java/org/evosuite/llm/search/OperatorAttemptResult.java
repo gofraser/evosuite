@@ -19,6 +19,8 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.llm.search.operator.OperatorTarget;
+
 /**
  * Result of an LLM operator attempt (mutation or crossover).
  * Tracks whether the semantic path was attempted, applied, or fell back,
@@ -31,35 +33,51 @@ public class OperatorAttemptResult {
         NONE,           // semantic was attempted
         DISABLED,       // llm_operator_mode is not SYNC
         PROBABILITY,    // probability gate rejected
-        NOT_CONFIGURED  // operator wrapper is null
+        NOT_CONFIGURED, // operator wrapper is null
+        NO_TARGET       // probability gate passed, but the selector gave this parent no target
     }
 
     private final boolean attemptedSemantic;
     private final boolean appliedSemantic;
     private final boolean fallbackUsed;
     private final SkipReason skipReason;
+    private final OperatorTarget target;
+    private final String attemptId;
 
     private OperatorAttemptResult(boolean attemptedSemantic, boolean appliedSemantic,
-                                  boolean fallbackUsed, SkipReason skipReason) {
+                                  boolean fallbackUsed, SkipReason skipReason,
+                                  OperatorTarget target, String attemptId) {
         this.attemptedSemantic = attemptedSemantic;
         this.appliedSemantic = appliedSemantic;
         this.fallbackUsed = fallbackUsed;
         this.skipReason = skipReason;
+        this.target = target;
+        this.attemptId = attemptId;
     }
 
-    /** Semantic path was attempted and successfully applied. */
+    /** Semantic path was attempted and successfully applied, with no target/attempt tracking. */
     public static OperatorAttemptResult semanticApplied() {
-        return new OperatorAttemptResult(true, true, false, SkipReason.NONE);
+        return new OperatorAttemptResult(true, true, false, SkipReason.NONE, null, null);
+    }
+
+    /** Semantic path was attempted and successfully applied for {@code target}, under {@code attemptId} (nullable). */
+    public static OperatorAttemptResult semanticApplied(OperatorTarget target, String attemptId) {
+        return new OperatorAttemptResult(true, true, false, SkipReason.NONE, target, attemptId);
     }
 
     /** Semantic path was attempted but failed; standard fallback was used. */
     public static OperatorAttemptResult semanticFallback() {
-        return new OperatorAttemptResult(true, false, true, SkipReason.NONE);
+        return new OperatorAttemptResult(true, false, true, SkipReason.NONE, null, null);
+    }
+
+    /** Semantic path was attempted for {@code target} but failed; standard fallback was used. */
+    public static OperatorAttemptResult semanticFallback(OperatorTarget target) {
+        return new OperatorAttemptResult(true, false, true, SkipReason.NONE, target, null);
     }
 
     /** Semantic path was not attempted; standard operator used directly. */
     public static OperatorAttemptResult standardOnly(SkipReason reason) {
-        return new OperatorAttemptResult(false, false, false, reason);
+        return new OperatorAttemptResult(false, false, false, reason, null, null);
     }
 
     public boolean isAttemptedSemantic() {
@@ -76,6 +94,16 @@ public class OperatorAttemptResult {
 
     public SkipReason getSkipReason() {
         return skipReason;
+    }
+
+    /** The selector target this attempt used, or null when none was involved. */
+    public OperatorTarget getTarget() {
+        return target;
+    }
+
+    /** The repeated-injection attempt id this outcome should be recorded under, or null. */
+    public String getAttemptId() {
+        return attemptId;
     }
 
     /**

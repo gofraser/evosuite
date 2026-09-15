@@ -1,0 +1,132 @@
+/*
+ * Copyright (C) 2010-2026 Gordon Fraser, Andrea Arcuri and EvoSuite
+ * contributors
+ *
+ * This file is part of EvoSuite.
+ *
+ * EvoSuite is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as published
+ * by the Free Software Foundation, either version 3.0 of the License, or
+ * (at your option) any later version.
+ *
+ * EvoSuite is distributed in the hope that it will be useful, but
+ * WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with EvoSuite. If not, see http://www.gnu.org/licenses/.
+ */
+package org.evosuite.llm.search;
+
+import org.evosuite.Properties;
+import org.evosuite.llm.search.operator.OperatorTarget;
+import org.evosuite.llm.search.operator.SyncTargetPlan;
+import org.evosuite.testcase.TestChromosome;
+import org.evosuite.utils.Randomness;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Collections;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * Shared machinery behind {@link LanguageModelMutation} and
+ * {@link LanguageModelCrossover}: gate on {@link Properties#LLM_OPERATOR_MODE}
+ * and the subclass's probability, take a target from this generation's
+ * {@link SyncTargetPlan}, register the attempt with a {@link
+ * RepeatedInjectionMemory} (if any), make the one LLM call, and replace the
+ * offspring's test case on success.
+ */
+abstract class SyncOperatorHook {
+
+    private static final Logger logger = LoggerFactory.getLogger(SyncOperatorHook.class);
+
+    private final RepeatedInjectionMemory memory;
+    private final AtomicInteger appliedCount = new AtomicInteger(0);
+    private final AtomicInteger fallbackCount = new AtomicInteger(0);
+
+    protected SyncOperatorHook(RepeatedInjectionMemory memory) {
+        this.memory = memory;
+    }
+
+    /** The probability gate this hook applies once it has passed the mode check. */
+    protected abstract double probability();
+
+    /** Takes this hook's kind of target for {@code parent} from {@code plan}, or null. */
+    protected abstract OperatorTarget take(SyncTargetPlan plan, TestChromosome parent);
+
+    /** Makes the one LLM call for {@code target}; null when nothing usable came back. */
+    protected abstract TestChromosome invoke(OperatorTarget target);
+
+    /**
+     * Attempts this hook's semantic operator on {@code offspring}, whose
+     * parent is {@code parent}, using this generation's {@code plan}. The
+     * probability gate runs before the target is taken, so a rejected parent
+     * keeps its target available for a later selection this generation.
+     */
+    public final OperatorAttemptResult tryApply(TestChromosome offspring, TestChromosome parent,
+                                                SyncTargetPlan plan) {
+        if (Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.SYNC) {
+            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.DISABLED);
+        }
+        if (Randomness.nextDouble() > probability()) {
+            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.PROBABILITY);
+        }
+        OperatorTarget target = take(plan, parent);
+        if (target == null) {
+            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.NO_TARGET);
+        }
+
+        RepeatedInjectionMemory.PromptAttemptRegistration registration = memory == null
+                ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
+                : memory.registerAttempt(Collections.singletonList(target.toRepeatedInjectionTarget()), false);
+
+        TestChromosome result;
+        try {
+            result = invoke(target);
+        } catch (RuntimeException e) {
+            logger.debug("LLM operator call failed unexpectedly: {}", e.getMessage());
+            result = null;
+        }
+        if (result != null) {
+            offspring.setTestCase(result.getTestCase());
+            offspring.setChanged(true);
+            appliedCount.incrementAndGet();
+            // The attempt stays open; recordOutcome() closes it once the GA
+            // has evaluated (or dropped) this offspring.
+            return OperatorAttemptResult.semanticApplied(target,
+                    registration.isEmpty() ? null : registration.getAttemptId());
+        }
+        if (!registration.isEmpty()) {
+            memory.recordAttemptOutcome(registration.getAttemptId(), 0);
+        }
+        fallbackCount.incrementAndGet();
+        return OperatorAttemptResult.semanticFallback(target);
+    }
+
+    /**
+     * Closes the repeated-injection attempt opened by a successful {@link
+     * #tryApply}, crediting it with a gain when {@code evaluatedOffspring}'s
+     * cached fitness for the target's goal is exactly 0.0. Null means the GA
+     * dropped the offspring before it could be evaluated. No-op unless this
+     * result carries an open attempt id.
+     */
+    public final void recordOutcome(OperatorAttemptResult result, TestChromosome evaluatedOffspring) {
+        if (memory == null || result == null || result.getAttemptId() == null) {
+            return;
+        }
+        Double value = evaluatedOffspring == null ? null
+                : evaluatedOffspring.getFitnessValues().get(result.getTarget().getGoal());
+        int gained = value != null && value == 0.0 ? 1 : 0;
+        memory.recordAttemptOutcome(result.getAttemptId(), gained);
+    }
+
+    public int getAppliedCount() {
+        return appliedCount.get();
+    }
+
+    public int getFallbackCount() {
+        return fallbackCount.get();
+    }
+}
