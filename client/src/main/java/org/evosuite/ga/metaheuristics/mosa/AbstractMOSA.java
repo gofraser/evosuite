@@ -56,12 +56,15 @@ import org.evosuite.llm.search.ExtractorTraceSink;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LanguageModelCrossover;
 import org.evosuite.llm.search.LanguageModelMutation;
+import org.evosuite.llm.search.LlmSemanticCrossover;
+import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.OperatorAttemptResult;
 import org.evosuite.llm.search.PairedProbeResult;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardExtractor;
 import org.evosuite.llm.search.ProblemCardLogRecorder;
 import org.evosuite.llm.search.ProblemCardType;
+import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.llm.search.operator.OperatorTargetSelector;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
@@ -175,12 +178,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected final BudgetConsumptionMonitor budgetMonitor;
 
     /**
-     * LLM-based mutation operator. Initialized lazily when LLM operators are enabled.
+     * SYNC breeding-loop mutation hook; created by {@link #initializeSyncOperators()} when {@link
+     * Properties#LLM_OPERATOR_MODE} is {@code SYNC}. Tests may assign it directly.
      */
     protected transient LanguageModelMutation llmMutation;
 
     /**
-     * LLM-based crossover operator. Initialized lazily when LLM operators are enabled.
+     * SYNC breeding-loop crossover hook; created alongside {@link #llmMutation}.
      */
     protected transient LanguageModelCrossover llmCrossover;
 
@@ -438,11 +442,6 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                             + "' selection function. You may want to consider using it.");
         }
 
-        if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.SYNC) {
-            this.llmMutation = new LanguageModelMutation();
-            this.llmCrossover = new LanguageModelCrossover();
-        }
-
         // The population-species sidecar requires stable IDs to be meaningful;
         // force them on when the sidecar is enabled even if the property was
         // left false explicitly.
@@ -660,7 +659,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 observer.recordCrossover(offspring1, parent1, parent2,
                         preCrossStmts1, crossoverResult, crossoverApplied,
                         this.currentIteration, isolatedFitness, probeFailure, probeSnapshot,
-                        null, PairedProbeResult.NONE);
+                        crossoverResult.getTarget(), probeStandardCrossoverTwin(crossoverResult));
             }
 
             this.removeUnusedVariables(offspring1);
@@ -753,6 +752,32 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         return offspringPopulation;
     }
 
+    @Override
+    protected void initializeLlmAssistance(
+            java.util.function.Supplier<java.util.Collection<TestFitnessFunction>> currentGoalsSupplier,
+            boolean maximizationObjective) {
+        super.initializeLlmAssistance(currentGoalsSupplier, maximizationObjective);
+        initializeSyncOperators();
+    }
+
+    /**
+     * Creates the SYNC breeding-loop hooks and their target selector when {@link
+     * Properties#LLM_OPERATOR_MODE} asks for them. They share the GA's {@link
+     * org.evosuite.llm.search.RepeatedInjectionMemory} so a (parent, goal) pair that just went out
+     * is not re-targeted by the next generation, the seed factory or the stagnation prompt.
+     */
+    private void initializeSyncOperators() {
+        if (Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.SYNC) {
+            return;
+        }
+        if (repeatedInjectionMemory == null) {
+            repeatedInjectionMemory = new RepeatedInjectionMemory();
+        }
+        syncTargetSelector = new OperatorTargetSelector(repeatedInjectionMemory);
+        llmMutation = new LanguageModelMutation(new LlmSemanticMutation(), repeatedInjectionMemory);
+        llmCrossover = new LanguageModelCrossover(new LlmSemanticCrossover(), repeatedInjectionMemory);
+    }
+
     /** Selector targets for this generation's SYNC hooks; empty when the hooks are off. */
     private SyncTargetPlan selectSyncTargets() {
         if (syncTargetSelector == null || (llmMutation == null && llmCrossover == null)) {
@@ -830,6 +855,67 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
+     * Whether the paired probe should run for a semantic result: only when disruption events are
+     * being recorded (the twin's numbers have nowhere else to go) and the LLM operator actually
+     * replaced the offspring.
+     */
+    private static boolean pairedProbeWanted(OperatorAttemptResult result) {
+        return Properties.LLM_OPERATOR_PAIRED_PROBE && DisruptionRecorder.isEnabled()
+                && result.isAppliedSemantic() && result.getTarget() != null;
+    }
+
+    /**
+     * Paired probe for a semantic mutation: applies the standard mutation to a fresh clone of the
+     * same parent, evaluates the twin and reports its fitness and its distance to the target goal.
+     * The twin never enters the offspring population; its evaluation still feeds the archive and
+     * goal bookkeeping like every other evaluation, so paired-probe runs are read per event, not
+     * by final coverage.
+     */
+    private PairedProbeResult probeStandardMutationTwin(OperatorAttemptResult result,
+                                                        TestChromosome parent) {
+        if (!pairedProbeWanted(result)) {
+            return PairedProbeResult.NONE;
+        }
+        try {
+            TestChromosome twin = parent.clone();
+            this.mutate(twin, parent);
+            if (!twin.isChanged()) {
+                return PairedProbeResult.NONE;
+            }
+            return evaluateTwin(twin, result);
+        } catch (Exception e) {
+            logger.debug("Paired mutation probe failed", e);
+            return PairedProbeResult.failed();
+        }
+    }
+
+    /**
+     * Paired probe for a semantic crossover: the standard crossover applied to clones of the
+     * target parent and its partner, the parent-side twin evaluated (see {@link
+     * #probeStandardMutationTwin}).
+     */
+    private PairedProbeResult probeStandardCrossoverTwin(OperatorAttemptResult result) {
+        if (!pairedProbeWanted(result) || !result.getTarget().getPartner().isPresent()) {
+            return PairedProbeResult.NONE;
+        }
+        try {
+            TestChromosome twin = result.getTarget().getParent().clone();
+            TestChromosome partnerTwin = result.getTarget().getPartner().get().clone();
+            this.crossoverFunction.crossOver(twin, partnerTwin);
+            return evaluateTwin(twin, result);
+        } catch (Exception e) {
+            logger.debug("Paired crossover probe failed", e);
+            return PairedProbeResult.failed();
+        }
+    }
+
+    private PairedProbeResult evaluateTwin(TestChromosome twin, OperatorAttemptResult result) {
+        this.clearCachedResults(twin);
+        this.calculateFitness(twin);
+        return PairedProbeResult.of(twin, result.getTarget().getGoal());
+    }
+
+    /**
      * Apply mutation to offspring with optional disruption recording. Extracts the repeated
      * mutation logic for offspring1 and offspring2. Records mutation event even when offspring is
      * unchanged (fix: lost attempts).
@@ -892,7 +978,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
                         true, this.currentIteration, postCrossoverSnapshot,
                         isolatedFitnessPostCrossover, crossoverProbeFailure,
-                        null, PairedProbeResult.NONE);
+                        mutResult.getTarget(), probeStandardMutationTwin(mutResult, parent));
             }
 
             offspringPopulation.add(offspring);
@@ -915,7 +1001,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
                         false, this.currentIteration, postCrossoverSnapshot,
                         isolatedFitnessPostCrossover, crossoverProbeFailure,
-                        null, PairedProbeResult.NONE);
+                        mutResult.getTarget(), PairedProbeResult.NONE);
             }
         }
     }
