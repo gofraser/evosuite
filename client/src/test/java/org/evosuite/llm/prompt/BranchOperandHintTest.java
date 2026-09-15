@@ -22,7 +22,9 @@ package org.evosuite.llm.prompt;
 import org.evosuite.Properties;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.coverage.branch.BranchCoverageTestFitness;
+import org.evosuite.coverage.cbranch.CBranchTestFitness;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.BranchOperands;
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.InsnNode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -74,6 +77,31 @@ class BranchOperandHintTest {
         when(goal.getBranch()).thenReturn(branch);
         when(goal.getValue()).thenReturn(value);
         return goal;
+    }
+
+    private static CBranchTestFitness cBranchGoal(Branch branch, boolean value, CallContext context) {
+        CBranchTestFitness goal = mock(CBranchTestFitness.class);
+        when(goal.getBranch()).thenReturn(branch);
+        when(goal.getValue()).thenReturn(value);
+        when(goal.getContext()).thenReturn(context);
+        return goal;
+    }
+
+    private static Branch switchCaseBranch(int id, BytecodeInstruction instruction) {
+        Branch branch = mock(Branch.class);
+        when(branch.getActualBranchId()).thenReturn(id);
+        when(branch.isDefaultCase()).thenReturn(false);
+        when(branch.isSwitchCaseBranch()).thenReturn(true);
+        when(branch.getInstruction()).thenReturn(instruction);
+        return branch;
+    }
+
+    private static BytecodeInstruction compareResultSource(int compareOpcode) {
+        // A real (concrete) ASM node rather than a mock: AbstractInsnNode is not mock-friendly,
+        // and a plain InsnNode already reports its opcode without any stubbing.
+        BytecodeInstruction source = mock(BytecodeInstruction.class);
+        when(source.getASMNode()).thenReturn(new InsnNode(compareOpcode));
+        return source;
     }
 
     private static ExecutionTrace traceWith(int branchId, BranchOperands operands) {
@@ -254,6 +282,77 @@ class BranchOperandHintTest {
 
         assertEquals("Last evaluation: 0 (IFEQ); need != 0",
                 BranchOperandHint.forGoal(goal(branch, false), trace));
+    }
+
+    // ---- switch-case branches -----------------------------------------------------
+
+    @Test
+    void switchCaseNamesOnlyTheSelectorNotTheCaseConstant() {
+        BytecodeInstruction jump = mock(BytecodeInstruction.class);
+        BytecodeInstruction selectorSource = fieldUseSource("com.example.Foo.code");
+        when(jump.getSourceOfStackInstruction(0)).thenReturn(selectorSource);
+        Branch branch = switchCaseBranch(1, jump);
+        ExecutionTrace trace = traceWith(1, BranchOperands.ofInts(3, 5, Opcodes.IF_ICMPEQ));
+
+        assertEquals("Last evaluation: code=3 vs 5 (IF_ICMPEQ); need code == 5",
+                BranchOperandHint.forGoal(goal(branch, true), trace));
+        assertEquals("Last evaluation: code=3 vs 5 (IF_ICMPEQ); need code != 5",
+                BranchOperandHint.forGoal(goal(branch, false), trace));
+    }
+
+    @Test
+    void switchCaseWithoutResolvableSelectorNameUsesGenericWords() {
+        BytecodeInstruction jump = mock(BytecodeInstruction.class);
+        Branch branch = switchCaseBranch(1, jump);
+        ExecutionTrace trace = traceWith(1, BranchOperands.ofInts(3, 5, Opcodes.IF_ICMPEQ));
+
+        assertEquals("Last evaluation: 3 vs 5 (IF_ICMPEQ); need left == right",
+                BranchOperandHint.forGoal(goal(branch, true), trace));
+    }
+
+    // ---- context-sensitive goals ----------------------------------------------------
+
+    @Test
+    void cBranchWithNonEmptyContextReturnsNull() {
+        Branch branch = branch(1, false, null);
+        CallContext context = new CallContext("com.example.Caller", "caller()V");
+        ExecutionTrace trace = traceWith(1, BranchOperands.ofInts(1, 2, Opcodes.IF_ICMPLT));
+
+        assertNull(BranchOperandHint.forGoal(cBranchGoal(branch, true, context), trace));
+    }
+
+    @Test
+    void cBranchWithEmptyContextStillYieldsAHint() {
+        Branch branch = branch(1, false, null);
+        ExecutionTrace trace = traceWith(1, BranchOperands.ofInts(1, 2, Opcodes.IF_ICMPLT));
+
+        assertEquals("Last evaluation: 1 vs 2 (IF_ICMPLT); need left < right",
+                BranchOperandHint.forGoal(cBranchGoal(branch, true, new CallContext()), trace));
+    }
+
+    // ---- long/float/double compare sentinel ------------------------------------------
+
+    @Test
+    void longCompareSentinelYieldsNoHint() {
+        BytecodeInstruction jump = mock(BytecodeInstruction.class);
+        BytecodeInstruction source = compareResultSource(Opcodes.LCMP);
+        when(jump.getSourceOfStackInstruction(0)).thenReturn(source);
+        Branch branch = branch(1, false, jump);
+        ExecutionTrace trace = traceWith(1, BranchOperands.ofInt(1, Opcodes.IFLE));
+
+        assertNull(BranchOperandHint.forGoal(goal(branch, true), trace));
+    }
+
+    @Test
+    void oneOperandFromAFieldStillYieldsAHint() {
+        BytecodeInstruction jump = mock(BytecodeInstruction.class);
+        BytecodeInstruction source = fieldUseSource("com.example.Foo.count");
+        when(jump.getSourceOfStackInstruction(0)).thenReturn(source);
+        Branch branch = branch(1, false, jump);
+        ExecutionTrace trace = traceWith(1, BranchOperands.ofInt(1, Opcodes.IFLE));
+
+        assertEquals("Last evaluation: count=1 (IFLE); need count <= 0",
+                BranchOperandHint.forGoal(goal(branch, true), trace));
     }
 
     // ---- unsupported opcode --------------------------------------------------------

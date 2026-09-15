@@ -26,6 +26,7 @@ import org.evosuite.coverage.branch.OnlyBranchCoverageTestFitness;
 import org.evosuite.coverage.cbranch.CBranchTestFitness;
 import org.evosuite.coverage.ibranch.IBranchTestFitness;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
+import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.BranchOperands;
@@ -91,11 +92,50 @@ public final class BranchOperandHint {
         if (branch == null || branch.isDefaultCase()) {
             return null;
         }
+        // The trace keeps only the globally-last evaluation per branch id; for a context-scoped
+        // goal (a specific call site) that evaluation may belong to a different call altogether.
+        if (hasNonEmptyContext(goal)) {
+            return null;
+        }
         BranchOperands operands = trace.getLastBranchOperands().get(branch.getActualBranchId());
         if (operands == null) {
             return null;
         }
-        return render(operands, valueOf(goal), branch.getInstruction());
+        BytecodeInstruction jump = branch.getInstruction();
+        if (isCompareResultSentinel(operands, jump)) {
+            return null;
+        }
+        return render(branch, operands, valueOf(goal));
+    }
+
+    /** Whether {@code goal} carries a non-empty {@link CallContext}; only CBranch/IBranch goals ever do. */
+    private static boolean hasNonEmptyContext(TestFitnessFunction goal) {
+        CallContext context = goal instanceof CBranchTestFitness ? ((CBranchTestFitness) goal).getContext()
+                : goal instanceof IBranchTestFitness ? ((IBranchTestFitness) goal).getContext()
+                : null;
+        return context != null && !context.isEmpty();
+    }
+
+    /**
+     * Whether {@code operands}' single value is the -1/0/1 result of a long/float/double compare
+     * (LCMP/FCMPL/FCMPG/DCMPL/DCMPG) rather than an operand of the predicate itself; rendering it
+     * as if it were the compared value (e.g. "1 (IFLE); need &lt;= 0") would mislead.
+     */
+    private static boolean isCompareResultSentinel(BranchOperands operands, BytecodeInstruction jump) {
+        if (operands.hasRight() || jump == null) {
+            return false;
+        }
+        try {
+            BytecodeInstruction source = jump.getSourceOfStackInstruction(0);
+            if (source == null) {
+                return false;
+            }
+            int opcode = source.getASMNode().getOpcode();
+            return opcode == Opcodes.LCMP || opcode == Opcodes.FCMPL || opcode == Opcodes.FCMPG
+                    || opcode == Opcodes.DCMPL || opcode == Opcodes.DCMPG;
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     /** The branch of one of the four branch goal types, or null for any other goal (or a branchless-method root goal). */
@@ -115,24 +155,29 @@ public final class BranchOperandHint {
                 : ((IBranchTestFitness) goal).getValue();
     }
 
-    private static String render(BranchOperands operands, boolean truePolarity, BytecodeInstruction jump) {
+    private static String render(Branch branch, BranchOperands operands, boolean truePolarity) {
+        BytecodeInstruction jump = branch.getInstruction();
         int opcode = operands.getOpcode();
         String relation = TRUE_RELATIONS.get(opcode);
         if (relation != null && !truePolarity) {
             relation = negate(relation);
         }
         StringBuilder sb = new StringBuilder(LAST_EVALUATION_PREFIX);
-        if (operands.hasRight()) {
-            renderTwoOperands(sb, operands, relation, opcode, jump);
+        if (branch.isSwitchCaseBranch()) {
+            // The switch instruction has one stack operand (the selector, recorded as the left
+            // operand by the switch instrumentation); the case constant is a bytecode literal,
+            // never a named source, so only the left side is ever looked up.
+            renderTwoOperands(sb, operands, relation, opcode, nameFor(jump, 0), null);
+        } else if (operands.hasRight()) {
+            renderTwoOperands(sb, operands, relation, opcode, nameFor(jump, 1), nameFor(jump, 0));
         } else {
             renderOneOperand(sb, operands, relation, opcode, jump);
         }
         return sb.toString();
     }
 
-    private static void renderTwoOperands(StringBuilder sb, BranchOperands operands, String relation, int opcode, BytecodeInstruction jump) {
-        String leftName = nameFor(jump, 1);
-        String rightName = nameFor(jump, 0);
+    private static void renderTwoOperands(StringBuilder sb, BranchOperands operands, String relation, int opcode,
+                                           String leftName, String rightName) {
         sb.append(display(leftName, operands.getLeft())).append(VS)
                 .append(display(rightName, operands.getRight()))
                 .append(" (").append(operands.getOpcodeName()).append(')');
