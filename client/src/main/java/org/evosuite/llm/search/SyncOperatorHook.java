@@ -20,8 +20,11 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.response.TargetedResponse;
+import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.utils.Randomness;
 import org.slf4j.Logger;
@@ -35,8 +38,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * {@link LanguageModelCrossover}: gate on {@link Properties#LLM_OPERATOR_MODE}
  * and the subclass's probability, take a target from this generation's
  * {@link SyncTargetPlan}, register the attempt with a {@link
- * RepeatedInjectionMemory} (if any), make the one LLM call, and replace the
- * offspring's test case on success.
+ * RepeatedInjectionMemory} (if any) and the {@link OperatorAttemptLog}, make
+ * the one LLM call, and replace the offspring's test case on success.
  */
 abstract class SyncOperatorHook {
 
@@ -59,8 +62,8 @@ abstract class SyncOperatorHook {
     /** Takes this hook's kind of target for {@code parent} from {@code plan}, or null. */
     protected abstract OperatorTarget take(SyncTargetPlan plan, TestChromosome parent);
 
-    /** Makes the one LLM call for {@code target}; null when nothing usable came back. */
-    protected abstract TestChromosome invoke(OperatorTarget target);
+    /** Makes the one LLM call for {@code target}, mapped back to this single target. */
+    protected abstract TargetedResponse invoke(OperatorTarget target);
 
     /**
      * Attempts this hook's semantic operator on {@code offspring}, whose
@@ -89,23 +92,35 @@ abstract class SyncOperatorHook {
         RepeatedInjectionMemory.PromptAttemptRegistration registration = memory == null
                 ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
                 : memory.registerAttempt(Collections.singletonList(target.toRepeatedInjectionTarget()), true);
+        String attemptId = registration.isEmpty() ? null : registration.getAttemptId();
+        OperatorAttemptLog.getInstance().open(attemptId, plan.getGeneration(), target, "SYNC", 1);
 
-        TestChromosome result;
+        TargetedResponse response;
         try {
-            result = invoke(target);
+            response = invoke(target);
         } catch (RuntimeException e) {
             logger.debug("LLM operator call failed unexpectedly: {}", e.getMessage());
-            result = null;
+            OperatorAttemptLog.getInstance().recordResponse(attemptId, TargetedResponse.Status.FAILED,
+                    false, false, 0, TargetedResponse.CallUsage.NONE, null);
+            return fallback(target, registration);
         }
-        if (result != null) {
-            offspring.setTestCase(result.getTestCase());
+
+        TestCase test = response.forTarget(1).orElse(null);
+        OperatorAttemptLog.getInstance().recordResponse(attemptId, response.getStatus(),
+                response.isParseSucceeded(), test != null, response.getRepairTurns(), response.getUsage(), test);
+        if (test != null) {
+            offspring.setTestCase(test);
             offspring.setChanged(true);
             appliedCount.incrementAndGet();
             // The attempt stays open; recordOutcome() closes it once the GA
             // has evaluated (or dropped) this offspring.
-            return OperatorAttemptResult.semanticApplied(target,
-                    registration.isEmpty() ? null : registration.getAttemptId());
+            return OperatorAttemptResult.semanticApplied(target, attemptId, plan.getGeneration());
         }
+        return fallback(target, registration);
+    }
+
+    private OperatorAttemptResult fallback(OperatorTarget target,
+                                           RepeatedInjectionMemory.PromptAttemptRegistration registration) {
         if (!registration.isEmpty()) {
             memory.recordAttemptOutcome(registration.getAttemptId(), 0);
         }
@@ -117,24 +132,44 @@ abstract class SyncOperatorHook {
      * Closes the repeated-injection attempt opened by a successful {@link
      * #tryApply}, crediting it with a gain when {@code evaluatedOffspring}'s
      * cached fitness for the target's goal is exactly 0.0. Null means the GA
-     * dropped the offspring before it could be evaluated. No-op unless this
-     * result carries an open attempt id.
+     * dropped the offspring before it could be evaluated: the repeat-memory
+     * outcome is still recorded (as no gain, same as before), but the attempt
+     * log's evaluation/admission are skipped since nothing was actually
+     * judged. No-op unless this result carries an open attempt id.
      */
     public final void recordOutcome(OperatorAttemptResult result, TestChromosome evaluatedOffspring) {
-        Double value = evaluatedOffspring == null || result == null || result.getTarget() == null ? null
+        if (result == null || result.getAttemptId() == null) {
+            return;
+        }
+        if (evaluatedOffspring == null) {
+            if (memory != null) {
+                memory.recordAttemptOutcome(result.getAttemptId(), 0);
+            }
+            return;
+        }
+        Double value = result.getTarget() == null ? null
                 : evaluatedOffspring.getFitnessValues().get(result.getTarget().getGoal());
-        recordOutcome(result, value != null && value == 0.0);
+        recordOutcome(result, value == null ? Double.NaN : value, evaluatedOffspring);
     }
 
     /**
-     * Closes the attempt with a coverage verdict the caller established itself, e.g. from an
-     * isolated evaluation of the semantic result taken before later operators changed it.
+     * Closes the attempt with a target distance the caller established itself, e.g. from an
+     * isolated evaluation of the semantic result taken before later operators changed it —
+     * crediting a gain when {@code targetDistance} is exactly 0.0. {@code offspring} is recorded
+     * as admitted regardless of the outcome: a crossover's {@code offspring1} always goes on to
+     * the mutation step and the offspring population, so it counts as admitted even if it is
+     * later discarded — its survival scan then simply never finds it.
      */
-    public final void recordOutcome(OperatorAttemptResult result, boolean targetCovered) {
-        if (memory == null || result == null || result.getAttemptId() == null) {
+    public final void recordOutcome(OperatorAttemptResult result, double targetDistance, TestChromosome offspring) {
+        if (result == null || result.getAttemptId() == null) {
             return;
         }
-        memory.recordAttemptOutcome(result.getAttemptId(), targetCovered ? 1 : 0);
+        boolean covered = targetDistance == 0.0;
+        if (memory != null) {
+            memory.recordAttemptOutcome(result.getAttemptId(), covered ? 1 : 0);
+        }
+        OperatorAttemptLog.getInstance().recordEvaluated(result.getAttemptId(), targetDistance, covered);
+        OperatorAttemptLog.getInstance().recordAdmitted(result.getAttemptId(), offspring, result.getGeneration());
     }
 
     public int getAppliedCount() {

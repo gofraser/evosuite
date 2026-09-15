@@ -108,6 +108,14 @@ class SyncTargetPlanTest {
         assertNull(SyncTargetPlan.EMPTY.takeMutation(chromosome()));
         assertNull(SyncTargetPlan.EMPTY.takeCrossover(chromosome()));
         assertEquals(0, SyncTargetPlan.EMPTY.remaining());
+        assertEquals(-1, SyncTargetPlan.EMPTY.getGeneration());
+    }
+
+    @Test
+    void generationDefaultsToMinusOneUnlessGiven() {
+        OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g")).build();
+        assertEquals(-1, new SyncTargetPlan(Collections.singletonList(target)).getGeneration());
+        assertEquals(5, new SyncTargetPlan(Collections.singletonList(target), 5).getGeneration());
     }
 
     @Test

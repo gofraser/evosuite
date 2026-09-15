@@ -123,7 +123,7 @@ public final class LlmOperatorExecutor {
      *
      * @return the number of calls actually submitted
      */
-    public int submit(List<OperatorTarget> targets, int maxCalls) {
+    public int submit(List<OperatorTarget> targets, int maxCalls, int generation) {
         if (shutDown || targets == null || targets.isEmpty() || maxCalls <= 0) {
             return 0;
         }
@@ -146,7 +146,7 @@ public final class LlmOperatorExecutor {
                     break;
                 }
             }
-            if (submitBatch(operator, batch)) {
+            if (submitBatch(operator, batch, generation)) {
                 submitted++;
             }
         }
@@ -154,7 +154,7 @@ public final class LlmOperatorExecutor {
     }
 
     /** Renders the prompt, registers one attempt per target on the calling thread, then submits the call. */
-    private boolean submitBatch(LlmSemanticOperator operator, List<OperatorTarget> batch) {
+    private boolean submitBatch(LlmSemanticOperator operator, List<OperatorTarget> batch, int generation) {
         PromptResult prompt;
         try {
             prompt = operator.prepare(batch);
@@ -166,6 +166,7 @@ public final class LlmOperatorExecutor {
         for (OperatorTarget target : batch) {
             String attemptId = registerAttempt(target);
             attribution.add(target, attemptId);
+            OperatorAttemptLog.getInstance().open(attemptId, generation, target, "ASYNC", batch.size());
         }
 
         inFlight.incrementAndGet();
@@ -173,6 +174,7 @@ public final class LlmOperatorExecutor {
             pool.execute(() -> runBatch(operator, prompt, attribution));
         } catch (RuntimeException e) {
             inFlight.decrementAndGet();
+            recordUndeliveredBatch(attribution);
             release(attribution);
             return false;
         }
@@ -203,10 +205,12 @@ public final class LlmOperatorExecutor {
             switch (response.getStatus()) {
                 case NO_BUDGET:
                     droppedBudget.incrementAndGet();
+                    recordBatchResponse(response, attribution);
                     release(attribution);
                     break;
                 case FAILED:
                     failedCalls.incrementAndGet();
+                    recordBatchResponse(response, attribution);
                     release(attribution);
                     break;
                 case DELIVERED:
@@ -217,10 +221,12 @@ public final class LlmOperatorExecutor {
         } catch (RuntimeException e) {
             logger.debug("LLM operator call failed: {}", e.getMessage());
             if (!shutDown) {
+                recordUndeliveredBatch(attribution);
                 release(attribution);
             }
         } catch (Error e) {
             if (!shutDown) {
+                recordUndeliveredBatch(attribution);
                 release(attribution);
             }
             throw e;
@@ -242,12 +248,29 @@ public final class LlmOperatorExecutor {
         }
     }
 
+    /** Records a NO_BUDGET/FAILED response against every target of the batch. */
+    private static void recordBatchResponse(TargetedResponse response, OperatorBatchAttribution attribution) {
+        for (String attemptId : attribution.getAttemptIds()) {
+            OperatorAttemptLog.getInstance().recordResponse(attemptId, response.getStatus(), false, false,
+                    response.getRepairTurns(), response.getUsage(), null);
+        }
+    }
+
+    /** Records every target of the batch as released without ever getting a response. */
+    private static void recordUndeliveredBatch(OperatorBatchAttribution attribution) {
+        for (String attemptId : attribution.getAttemptIds()) {
+            OperatorAttemptLog.getInstance().recordUndelivered(attemptId);
+        }
+    }
+
     private void publish(TargetedResponse mapped, OperatorBatchAttribution attribution) {
         int produced = 0;
         for (int i = 1; i <= attribution.size(); i++) {
             OperatorBatchAttribution.TargetSnapshot snapshot = attribution.snapshot(i - 1);
             String attemptId = snapshot.getAttemptId();
             TestCase test = mapped.forTarget(i).orElse(null);
+            OperatorAttemptLog.getInstance().recordResponse(attemptId, mapped.getStatus(),
+                    mapped.isParseSucceeded(), test != null, mapped.getRepairTurns(), mapped.getUsage(), test);
             if (test == null) {
                 // Target i is not in the response: judged now, not credited to any candidate.
                 closeAttempt(attemptId, 0);
@@ -361,8 +384,9 @@ public final class LlmOperatorExecutor {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        if (memory != null) {
-            for (String attemptId : openAttemptIds) {
+        for (String attemptId : openAttemptIds) {
+            OperatorAttemptLog.getInstance().recordUndelivered(attemptId);
+            if (memory != null) {
                 memory.releaseUndeliveredAttempt(attemptId);
             }
         }

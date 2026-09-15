@@ -26,6 +26,9 @@ import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.ga.operators.crossover.CrossOverFunction;
 import org.evosuite.ga.operators.selection.SelectionFunction;
+import org.evosuite.llm.prompt.TargetedPromptFactory;
+import org.evosuite.llm.response.RepairResult;
+import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.DisruptionEvent;
 import org.evosuite.llm.search.DisruptionRecorder;
 import org.evosuite.llm.search.LanguageModelCrossover;
@@ -33,6 +36,7 @@ import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.LlmSemanticCrossover;
 import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.OperatorTargetSelector;
 import org.evosuite.testcase.DefaultTestCase;
@@ -41,6 +45,7 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testparser.ParseResult;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +64,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.spy;
@@ -118,6 +124,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         savedTargeting = Properties.LLM_OPERATOR_TARGETING;
         savedTargetClass = Properties.TARGET_CLASS;
         Archive.getArchiveInstance().reset();
+        OperatorAttemptLog.resetInstance();
 
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
@@ -151,6 +158,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         Properties.LLM_OPERATOR_TARGETING = savedTargeting;
         Properties.TARGET_CLASS = savedTargetClass;
         Archive.getArchiveInstance().reset();
+        OperatorAttemptLog.resetInstance();
     }
 
     @Test
@@ -183,10 +191,10 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
         harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
 
-        when(mockSemanticCrossover.crossover(any(OperatorTarget.class)))
-                .thenAnswer(invocation -> freshChromosome());
-        when(mockSemanticMutation.mutate(any(OperatorTarget.class)))
-                .thenAnswer(invocation -> freshChromosome());
+        when(mockSemanticCrossover.applyMapped(anyList()))
+                .thenAnswer(invocation -> freshResponse());
+        when(mockSemanticMutation.applyMapped(anyList()))
+                .thenAnswer(invocation -> freshResponse());
 
         TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
         TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);
@@ -213,15 +221,17 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         // Goal accounting: every semantic call must have seen a frontier goal and never the
         // archive-only goal (which is structurally impossible here since the selector only ever
         // sees goalsManager.getCurrentGoals(), but is asserted directly for regression safety).
-        ArgumentCaptor<OperatorTarget> crossoverTargets = ArgumentCaptor.forClass(OperatorTarget.class);
-        verify(mockSemanticCrossover, times(1)).crossover(crossoverTargets.capture());
-        assertEquals(frontier1, crossoverTargets.getValue().getGoal());
-        assertNotEquals(archiveOnlyGoal, crossoverTargets.getValue().getGoal());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<OperatorTarget>> crossoverTargets = ArgumentCaptor.forClass(List.class);
+        verify(mockSemanticCrossover, times(1)).applyMapped(crossoverTargets.capture());
+        assertEquals(frontier1, crossoverTargets.getValue().get(0).getGoal());
+        assertNotEquals(archiveOnlyGoal, crossoverTargets.getValue().get(0).getGoal());
 
-        ArgumentCaptor<OperatorTarget> mutationTargets = ArgumentCaptor.forClass(OperatorTarget.class);
-        verify(mockSemanticMutation, times(1)).mutate(mutationTargets.capture());
-        assertEquals(frontier2, mutationTargets.getValue().getGoal());
-        assertNotEquals(archiveOnlyGoal, mutationTargets.getValue().getGoal());
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<OperatorTarget>> mutationTargets = ArgumentCaptor.forClass(List.class);
+        verify(mockSemanticMutation, times(1)).applyMapped(mutationTargets.capture());
+        assertEquals(frontier2, mutationTargets.getValue().get(0).getGoal());
+        assertNotEquals(archiveOnlyGoal, mutationTargets.getValue().get(0).getGoal());
     }
 
     @Test
@@ -248,10 +258,10 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         when(mockSemanticMutation.canCall()).thenReturn(true);
         harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover, memory);
         harness.llmMutation = new LanguageModelMutation(mockSemanticMutation, memory);
-        when(mockSemanticCrossover.crossover(any(OperatorTarget.class)))
-                .thenAnswer(invocation -> freshChromosome(2));
-        when(mockSemanticMutation.mutate(any(OperatorTarget.class)))
-                .thenAnswer(invocation -> freshChromosome(1));
+        when(mockSemanticCrossover.applyMapped(anyList()))
+                .thenAnswer(invocation -> freshResponse(2));
+        when(mockSemanticMutation.applyMapped(anyList()))
+                .thenAnswer(invocation -> freshResponse(1));
 
         TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
         TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);
@@ -266,7 +276,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         // breeding loop moves on to any mutation call.
         InOrder inOrder = inOrder(memory, mockSemanticMutation);
         inOrder.verify(memory).recordAttemptOutcome(any(String.class), eq(1));
-        inOrder.verify(mockSemanticMutation).mutate(any(OperatorTarget.class));
+        inOrder.verify(mockSemanticMutation).applyMapped(anyList());
         assertTrue(parent1.getFitnessValues().get(frontier1) == 0.2,
                 "isolated probes must not touch the parents' cached fitness");
         assertTrue(harness.goalsManager.getCurrentGoals().contains(frontier1),
@@ -300,10 +310,10 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             when(mockSemanticMutation.canCall()).thenReturn(true);
             harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
             harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
-            when(mockSemanticCrossover.crossover(any(OperatorTarget.class)))
-                    .thenAnswer(invocation -> freshChromosome(2));
-            when(mockSemanticMutation.mutate(any(OperatorTarget.class)))
-                    .thenAnswer(invocation -> freshChromosome(1));
+            when(mockSemanticCrossover.applyMapped(anyList()))
+                .thenAnswer(invocation -> freshResponse(2));
+            when(mockSemanticMutation.applyMapped(anyList()))
+                .thenAnswer(invocation -> freshResponse(1));
 
             TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
             TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);
@@ -373,10 +383,10 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
             when(mockSemanticMutation.canCall()).thenReturn(true);
             harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
             harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
-            when(mockSemanticCrossover.crossover(any(OperatorTarget.class)))
-                    .thenAnswer(invocation -> freshChromosome(2));
-            when(mockSemanticMutation.mutate(any(OperatorTarget.class)))
-                    .thenAnswer(invocation -> freshChromosome(1));
+            when(mockSemanticCrossover.applyMapped(anyList()))
+                .thenAnswer(invocation -> freshResponse(2));
+            when(mockSemanticMutation.applyMapped(anyList()))
+                .thenAnswer(invocation -> freshResponse(1));
 
             TestChromosome parent1 = lineageParent(PARENT1_LINEAGE);
             TestChromosome parent2 = lineageParent(PARENT2_LINEAGE);
@@ -447,8 +457,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
                     "standard crossover recombines both parents, so both offspring must "
                             + "carry both lineages: " + child.effectiveLineages());
         }
-        verify(mockSemanticCrossover, never()).crossover(any());
-        verify(mockSemanticMutation, never()).mutate(any());
+        verify(mockSemanticCrossover, never()).applyMapped(any());
+        verify(mockSemanticMutation, never()).applyMapped(any());
     }
 
     private static TestChromosome lineageParent(long lineageId) throws Exception {
@@ -456,6 +466,19 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         tc.setTestCase(testCaseWithMethodCall());
         tc.setInjectionLineageId(lineageId);
         return tc;
+    }
+
+    private static TargetedResponse freshResponse() {
+        return freshResponse(1);
+    }
+
+    /** A delivered, matched response wrapping a fresh test case, mirroring {@link #freshChromosome(int)}. */
+    private static TargetedResponse freshResponse(int statements) {
+        TestCase test = freshChromosome(statements).getTestCase();
+        ParseResult parsed = new ParseResult(test, TargetedPromptFactory.testMethodName(1));
+        RepairResult repair = RepairResult.success(Collections.singletonList(parsed),
+                Collections.<String>emptyList(), 1, Collections.<String>emptyList());
+        return TargetedResponse.map(repair, 1);
     }
 
     private static TestChromosome freshChromosome() {

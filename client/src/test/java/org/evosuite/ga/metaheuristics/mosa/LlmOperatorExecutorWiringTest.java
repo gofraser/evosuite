@@ -23,11 +23,18 @@ import org.evosuite.Properties;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
+import org.evosuite.llm.search.LanguageModelCrossover;
+import org.evosuite.llm.search.LanguageModelMutation;
 import org.evosuite.llm.search.operator.LlmOperatorExecutor;
+import org.evosuite.llm.search.operator.OperatorAttemptLog;
+import org.evosuite.llm.search.operator.OperatorTarget;
+import org.evosuite.rmi.service.ClientNodeLocal;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -46,6 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
@@ -77,6 +85,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         savedBatchSize = Properties.LLM_OPERATOR_BATCH_SIZE;
         savedProvider = Properties.LLM_PROVIDER;
         Archive.getArchiveInstance().reset();
+        OperatorAttemptLog.resetInstance();
     }
 
     @AfterEach
@@ -86,6 +95,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         Properties.LLM_OPERATOR_BATCH_SIZE = savedBatchSize;
         Properties.LLM_PROVIDER = savedProvider;
         Archive.getArchiveInstance().reset();
+        OperatorAttemptLog.resetInstance();
     }
 
     @Test
@@ -157,7 +167,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         assertEquals(InjectionSource.LLM_OPERATOR, candidate1.getInjectionSource());
         assertEquals(InjectionSource.LLM_OPERATOR, candidate2.getInjectionSource());
         verify(mockExecutor, times(1)).reportAttemptOutcome(eq("attempt-1"), eq(0));
-        verify(mockExecutor).submit(anyList(), anyInt());
+        verify(mockExecutor).submit(anyList(), anyInt(), anyInt());
     }
 
     @Test
@@ -208,7 +218,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         harness.collectExternalCandidates(new ArrayList<>());
 
-        verify(mockExecutor, never()).submit(anyList(), anyInt());
+        verify(mockExecutor, never()).submit(anyList(), anyInt(), anyInt());
     }
 
     @Test
@@ -226,7 +236,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         harness.collectExternalCandidates(new ArrayList<>());
 
-        verify(mockExecutor, never()).submit(anyList(), anyInt());
+        verify(mockExecutor, never()).submit(anyList(), anyInt(), anyInt());
     }
 
     @Test
@@ -271,6 +281,110 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
                 "the byte-identical duplicate must be counted as deduplicated");
     }
 
+    @Test
+    void driveOperatorExecutorSubmitsWithTheCurrentGeneration() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
+        Properties.LLM_OPERATOR_CALLS_PER_GENERATION = 1;
+        Properties.LLM_OPERATOR_BATCH_SIZE = 1;
+
+        LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
+        when(mockExecutor.hasCapacity()).thenReturn(true);
+        when(mockExecutor.drain()).thenReturn(Collections.emptyList());
+        OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
+        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        harness.setCurrentIterationForTest(5);
+
+        harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
+        harness.collectExternalCandidates(new ArrayList<>());
+
+        verify(mockExecutor).submit(anyList(), anyInt(), eq(5));
+    }
+
+    @Test
+    void emitOperatorStatsTracksAllNineteenOperatorVariables() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
+        LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
+        when(mockExecutor.getDroppedBudget()).thenReturn(1L);
+        when(mockExecutor.getDroppedInFlight()).thenReturn(2L);
+        when(mockExecutor.getDroppedTime()).thenReturn(3L);
+        when(mockExecutor.getFailedCalls()).thenReturn(4L);
+        when(mockExecutor.getInFlightGenerations()).thenReturn(5L);
+        OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
+        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+        // ASYNC mode leaves the SYNC hooks null; set them directly too, so the four
+        // pre-existing LLM_Semantic_* counters are exercised in the same pass.
+        harness.llmMutation = new LanguageModelMutation();
+        harness.llmCrossover = new LanguageModelCrossover();
+
+        @SuppressWarnings("unchecked")
+        ClientNodeLocal<TestChromosome> clientNode = mock(ClientNodeLocal.class);
+        harness.emitOperatorStats(clientNode);
+
+        RuntimeVariable[] expected = {
+                RuntimeVariable.LLM_Semantic_Mutations,
+                RuntimeVariable.LLM_Semantic_Mutation_Fallbacks,
+                RuntimeVariable.LLM_Semantic_Crossovers,
+                RuntimeVariable.LLM_Semantic_Crossover_Fallbacks,
+                RuntimeVariable.LLM_Operator_Targets_Selected,
+                RuntimeVariable.LLM_Operator_Targets_Mutation,
+                RuntimeVariable.LLM_Operator_Targets_Crossover,
+                RuntimeVariable.LLM_Operator_Calls_Dropped_Budget,
+                RuntimeVariable.LLM_Operator_Calls_Dropped_InFlight,
+                RuntimeVariable.LLM_Operator_Calls_Dropped_Time,
+                RuntimeVariable.LLM_Operator_Calls_Failed,
+                RuntimeVariable.LLM_Operator_InFlight_Generations,
+                RuntimeVariable.LLM_Operator_Offspring_Parsed,
+                RuntimeVariable.LLM_Operator_Offspring_Admitted,
+                RuntimeVariable.LLM_Operator_Offspring_Survived,
+                RuntimeVariable.LLM_Operator_Target_Hits,
+                RuntimeVariable.LLM_Operator_Target_Improved,
+                RuntimeVariable.LLM_Operator_Candidates_StaleTarget,
+                RuntimeVariable.LLM_Operator_Sidecar_Path,
+        };
+        assertEquals(19, expected.length);
+        for (RuntimeVariable variable : expected) {
+            verify(clientNode).trackOutputVariable(eq(variable), any());
+        }
+        verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_Budget, 1L);
+        verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_InFlight, 2L);
+        verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_Time, 3L);
+        verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Failed, 4L);
+        verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_InFlight_Generations, 5L);
+    }
+
+    @Test
+    void collectExternalCandidatesRecordsEvaluationAndAdmissionInTheAttemptLog() throws Exception {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
+        Properties.LLM_OPERATOR_CALLS_PER_GENERATION = 1;
+        Properties.LLM_OPERATOR_BATCH_SIZE = 1;
+
+        LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
+        when(mockExecutor.hasCapacity()).thenReturn(true);
+        OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
+        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+
+        TestChromosome parent = arrayListConstructorChromosome(1);
+        TestChromosome candidate = arrayListConstructorChromosome(2);
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        OperatorTarget target = OperatorTarget.builder(parent, goal).build();
+        OperatorAttemptLog.getInstance().open("attempt-log-1", 0, target, "ASYNC", 1);
+
+        when(mockExecutor.drain()).thenReturn(Collections.singletonList(candidate));
+        InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
+                "attempt-log-1", Collections.emptyList(), Collections.singletonList(goal));
+        when(mockExecutor.consumeAttemptMetadata(candidate)).thenReturn(metadata);
+
+        harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
+        List<TestChromosome> union = new ArrayList<>();
+        harness.collectExternalCandidates(union);
+
+        assertTrue(union.contains(candidate));
+        // The mocked goal reports a default (unstubbed) fitness of 0.0, i.e. a hit, once
+        // calculateFitness (a no-op in this harness) has "run".
+        assertEquals(1, OperatorAttemptLog.getInstance().getTargetHits());
+        assertEquals(1, OperatorAttemptLog.getInstance().getOffspringAdmitted());
+    }
+
     /** Builds a one-statement {@code new ArrayList<>(capacity)} test chromosome. */
     private static TestChromosome arrayListConstructorChromosome(int capacity) throws Exception {
         TestCase test = new DefaultTestCase();
@@ -311,6 +425,11 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         void callShutdownLlmAssistance() {
             shutdownLlmAssistance();
+        }
+
+        /** Sets the generation {@link #driveOperatorExecutor} reads via {@code currentIteration}. */
+        void setCurrentIterationForTest(int generation) {
+            this.currentIteration = generation;
         }
 
         @Override

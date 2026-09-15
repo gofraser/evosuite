@@ -42,6 +42,7 @@ import java.util.List;
  *   n_injected_post_incubator,injection_source,
  *   n_injected_attempts,injection_attempt_source,
  *   n_injected_attempts_llm_stagnation,n_injected_attempts_llm_async,
+ *   n_injected_attempts_llm_operator,
  *   n_injected_attempts_island_immigrant,n_injected_attempts_local_search,
  *   covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,
  *   diversity,largest_species_share,n_quota_protected,n_newborn_protected,
@@ -68,6 +69,7 @@ public final class PopulationSpeciesRecorder {
             + "n_injected_incubator,n_injected_post_incubator,"
             + "injection_source,n_injected_attempts,injection_attempt_source,"
             + "n_injected_attempts_llm_stagnation,n_injected_attempts_llm_async,"
+            + "n_injected_attempts_llm_operator,"
             + "n_injected_attempts_island_immigrant,n_injected_attempts_local_search,"
             + "covered_goals,remaining_goals,n_fronts,best_fitness,mean_fitness,"
             + "diversity,largest_species_share,n_quota_protected,n_newborn_protected,"
@@ -189,6 +191,7 @@ public final class PopulationSpeciesRecorder {
         public final InjectionSource dominantAttemptSource;
         public final int nInjectedAttemptsLlmStagnation;
         public final int nInjectedAttemptsLlmAsync;
+        public final int nInjectedAttemptsLlmOperator;
         public final int nInjectedAttemptsIslandImmigrant;
         public final int nInjectedAttemptsLocalSearch;
         public final int coveredGoals;
@@ -220,6 +223,7 @@ public final class PopulationSpeciesRecorder {
                                   InjectionSource dominantAttemptSource,
                                   int nInjectedAttemptsLlmStagnation,
                                   int nInjectedAttemptsLlmAsync,
+                                  int nInjectedAttemptsLlmOperator,
                                   int nInjectedAttemptsIslandImmigrant,
                                   int nInjectedAttemptsLocalSearch,
                                   int coveredGoals,
@@ -240,7 +244,8 @@ public final class PopulationSpeciesRecorder {
             this(gen, elapsedMs, popSize, nSpecies, nInjected, nInjectedIncubator,
                     nInjectedPostIncubator, dominantInjectionSource, nInjectedAttempts,
                     dominantAttemptSource, nInjectedAttemptsLlmStagnation,
-                    nInjectedAttemptsLlmAsync, nInjectedAttemptsIslandImmigrant,
+                    nInjectedAttemptsLlmAsync, nInjectedAttemptsLlmOperator,
+                    nInjectedAttemptsIslandImmigrant,
                     nInjectedAttemptsLocalSearch, coveredGoals, remainingGoals, nFronts,
                     bestFitness, meanFitness, diversity, largestSpeciesShare,
                     nQuotaProtected, nNewbornProtected, nIncubatorProtected,
@@ -260,6 +265,7 @@ public final class PopulationSpeciesRecorder {
                                   InjectionSource dominantAttemptSource,
                                   int nInjectedAttemptsLlmStagnation,
                                   int nInjectedAttemptsLlmAsync,
+                                  int nInjectedAttemptsLlmOperator,
                                   int nInjectedAttemptsIslandImmigrant,
                                   int nInjectedAttemptsLocalSearch,
                                   int coveredGoals,
@@ -290,6 +296,7 @@ public final class PopulationSpeciesRecorder {
             this.dominantAttemptSource = dominantAttemptSource;
             this.nInjectedAttemptsLlmStagnation = nInjectedAttemptsLlmStagnation;
             this.nInjectedAttemptsLlmAsync = nInjectedAttemptsLlmAsync;
+            this.nInjectedAttemptsLlmOperator = nInjectedAttemptsLlmOperator;
             this.nInjectedAttemptsIslandImmigrant = nInjectedAttemptsIslandImmigrant;
             this.nInjectedAttemptsLocalSearch = nInjectedAttemptsLocalSearch;
             this.coveredGoals = coveredGoals;
@@ -325,6 +332,7 @@ public final class PopulationSpeciesRecorder {
               .append(dominantAttemptSource == null ? "" : dominantAttemptSource.name()).append(',')
               .append(nInjectedAttemptsLlmStagnation).append(',')
               .append(nInjectedAttemptsLlmAsync).append(',')
+              .append(nInjectedAttemptsLlmOperator).append(',')
               .append(nInjectedAttemptsIslandImmigrant).append(',')
               .append(nInjectedAttemptsLocalSearch).append(',')
               .append(coveredGoals).append(',')

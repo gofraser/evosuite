@@ -20,9 +20,12 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
 import org.evosuite.testcase.TestChromosome;
+
+import java.util.Collections;
 
 /**
  * MOSA-level LLM crossover operator. The target — which parent, its crossover
@@ -77,7 +80,7 @@ public class LanguageModelCrossover extends SyncOperatorHook {
     }
 
     @Override
-    protected TestChromosome invoke(OperatorTarget target) {
-        return semanticCrossover.crossover(target);
+    protected TargetedResponse invoke(OperatorTarget target) {
+        return semanticCrossover.applyMapped(Collections.singletonList(target));
     }
 }

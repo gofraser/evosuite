@@ -44,41 +44,51 @@ public class OperatorAttemptResult {
     private final SkipReason skipReason;
     private final OperatorTarget target;
     private final String attemptId;
+    private final int generation;
 
     private OperatorAttemptResult(boolean attemptedSemantic, boolean appliedSemantic,
                                   boolean fallbackUsed, SkipReason skipReason,
-                                  OperatorTarget target, String attemptId) {
+                                  OperatorTarget target, String attemptId, int generation) {
         this.attemptedSemantic = attemptedSemantic;
         this.appliedSemantic = appliedSemantic;
         this.fallbackUsed = fallbackUsed;
         this.skipReason = skipReason;
         this.target = target;
         this.attemptId = attemptId;
+        this.generation = generation;
     }
 
     /** Semantic path was attempted and successfully applied, with no target/attempt tracking. */
     public static OperatorAttemptResult semanticApplied() {
-        return new OperatorAttemptResult(true, true, false, SkipReason.NONE, null, null);
+        return new OperatorAttemptResult(true, true, false, SkipReason.NONE, null, null, -1);
     }
 
     /** Semantic path was attempted and successfully applied for {@code target}, under {@code attemptId} (nullable). */
     public static OperatorAttemptResult semanticApplied(OperatorTarget target, String attemptId) {
-        return new OperatorAttemptResult(true, true, false, SkipReason.NONE, target, attemptId);
+        return semanticApplied(target, attemptId, -1);
+    }
+
+    /**
+     * Semantic path was attempted and successfully applied for {@code target}, under {@code
+     * attemptId} (nullable), from the {@code generation} the target's plan was built for.
+     */
+    public static OperatorAttemptResult semanticApplied(OperatorTarget target, String attemptId, int generation) {
+        return new OperatorAttemptResult(true, true, false, SkipReason.NONE, target, attemptId, generation);
     }
 
     /** Semantic path was attempted but failed; standard fallback was used. */
     public static OperatorAttemptResult semanticFallback() {
-        return new OperatorAttemptResult(true, false, true, SkipReason.NONE, null, null);
+        return new OperatorAttemptResult(true, false, true, SkipReason.NONE, null, null, -1);
     }
 
     /** Semantic path was attempted for {@code target} but failed; standard fallback was used. */
     public static OperatorAttemptResult semanticFallback(OperatorTarget target) {
-        return new OperatorAttemptResult(true, false, true, SkipReason.NONE, target, null);
+        return new OperatorAttemptResult(true, false, true, SkipReason.NONE, target, null, -1);
     }
 
     /** Semantic path was not attempted; standard operator used directly. */
     public static OperatorAttemptResult standardOnly(SkipReason reason) {
-        return new OperatorAttemptResult(false, false, false, reason, null, null);
+        return new OperatorAttemptResult(false, false, false, reason, null, null, -1);
     }
 
     public boolean isAttemptedSemantic() {
@@ -105,6 +115,11 @@ public class OperatorAttemptResult {
     /** The repeated-injection attempt id this outcome should be recorded under, or null. */
     public String getAttemptId() {
         return attemptId;
+    }
+
+    /** The generation the target's {@code SyncTargetPlan} was built for; {@code -1} when not tracked. */
+    public int getGeneration() {
+        return generation;
     }
 
     /**

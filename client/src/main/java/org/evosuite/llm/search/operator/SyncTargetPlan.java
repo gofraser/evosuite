@@ -40,6 +40,7 @@ public final class SyncTargetPlan {
     public static final SyncTargetPlan EMPTY = new SyncTargetPlan(null);
 
     private final Map<TestChromosome, OperatorTarget> byParent;
+    private final int generation;
 
     /**
      * @param targets one target per parent; the selector already caps one per
@@ -47,12 +48,23 @@ public final class SyncTargetPlan {
      *                one encountered is kept.
      */
     public SyncTargetPlan(List<OperatorTarget> targets) {
+        this(targets, -1);
+    }
+
+    /** Same as {@link #SyncTargetPlan(List)}, tagged with the generation it was built for. */
+    public SyncTargetPlan(List<OperatorTarget> targets, int generation) {
+        this.generation = generation;
         this.byParent = new IdentityHashMap<>();
         if (targets != null) {
             for (OperatorTarget target : targets) {
                 byParent.putIfAbsent(target.getParent(), target);
             }
         }
+    }
+
+    /** The generation this plan's targets were selected for; {@code -1} when not tracked. */
+    public int getGeneration() {
+        return generation;
     }
 
     /**

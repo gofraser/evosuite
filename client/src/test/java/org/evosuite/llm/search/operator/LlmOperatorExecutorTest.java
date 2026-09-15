@@ -32,6 +32,8 @@ import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -63,6 +65,16 @@ import static org.mockito.Mockito.when;
  * release-vs-record behaviour, and shutdown semantics.
  */
 class LlmOperatorExecutorTest {
+
+    @BeforeEach
+    void resetAttemptLog() {
+        OperatorAttemptLog.resetInstance();
+    }
+
+    @AfterEach
+    void resetAttemptLogAfter() {
+        OperatorAttemptLog.resetInstance();
+    }
 
     private static final String SINGLE_TARGET_RESPONSE =
             "```java\n"
@@ -164,7 +176,7 @@ class LlmOperatorExecutorTest {
         OperatorTarget target = OperatorTarget.builder(parent, goal).build();
 
         try {
-            assertEquals(1, executor.submit(Collections.singletonList(target), 1));
+            assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
             List<TestChromosome> produced = awaitDrain(executor, 5);
             assertEquals(1, produced.size());
 
@@ -198,7 +210,7 @@ class LlmOperatorExecutorTest {
                 OperatorTarget.builder(chromosome(), goal("g3")).build());
 
         try {
-            assertEquals(2, executor.submit(targets, 2));
+            assertEquals(2, executor.submit(targets, 2, 0));
             assertEquals(2, executor.getSubmittedCalls());
         } finally {
             executor.shutdown();
@@ -219,7 +231,7 @@ class LlmOperatorExecutorTest {
             // batchSize=3 never forces a seal here, so the two (non-adjacent) mutation targets
             // combine into one call while the crossover target gets its own — two calls total,
             // never a call mixing both kinds.
-            assertEquals(2, executor.submit(Arrays.asList(mutationA, crossover, mutationB), 10));
+            assertEquals(2, executor.submit(Arrays.asList(mutationA, crossover, mutationB), 10, 0));
             assertEquals(2, executor.getSubmittedCalls());
         } finally {
             executor.shutdown();
@@ -241,7 +253,7 @@ class LlmOperatorExecutorTest {
         try {
             // [M, C, M], batchSize=3, calls=1: the two mutations combine into the earliest-forming
             // (rank 0) batch; the crossover target is simply not used this generation.
-            assertEquals(1, executor.submit(targets, 1));
+            assertEquals(1, executor.submit(targets, 1, 0));
             verify(memory, times(2)).registerAttempt(anyList(), eq(true));
         } finally {
             executor.shutdown();
@@ -263,7 +275,7 @@ class LlmOperatorExecutorTest {
         try {
             // [M, C, M], batchSize=3, calls=2: both the combined mutation batch and the
             // crossover's own batch are submitted.
-            assertEquals(2, executor.submit(targets, 2));
+            assertEquals(2, executor.submit(targets, 2, 0));
             verify(memory, times(3)).registerAttempt(anyList(), eq(true));
         } finally {
             executor.shutdown();
@@ -284,8 +296,8 @@ class LlmOperatorExecutorTest {
         OperatorTarget second = OperatorTarget.builder(chromosome(), goal("g2")).build();
 
         try {
-            assertEquals(1, executor.submit(Collections.singletonList(first), 1));
-            assertEquals(0, executor.submit(Collections.singletonList(second), 1));
+            assertEquals(1, executor.submit(Collections.singletonList(first), 1, 0));
+            assertEquals(0, executor.submit(Collections.singletonList(second), 1, 0));
             assertEquals(1, executor.getDroppedInFlight());
             assertFalse(executor.hasCapacity());
 
@@ -308,7 +320,7 @@ class LlmOperatorExecutorTest {
         OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
 
         try {
-            assertEquals(0, executor.submit(Collections.singletonList(target), 1));
+            assertEquals(0, executor.submit(Collections.singletonList(target), 1, 0));
             assertEquals(1, executor.getDroppedBudget());
             assertFalse(memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).isSuppressed());
         } finally {
@@ -324,7 +336,7 @@ class LlmOperatorExecutorTest {
         LlmOperatorExecutor tight = newExecutor(llmService, null, 10L, 45, 2, 1);
         OperatorTarget target1 = OperatorTarget.builder(chromosome(), goal("g1")).build();
         try {
-            assertEquals(0, tight.submit(Collections.singletonList(target1), 1));
+            assertEquals(0, tight.submit(Collections.singletonList(target1), 1, 0));
             assertEquals(1, tight.getDroppedTime());
         } finally {
             tight.shutdown();
@@ -333,7 +345,7 @@ class LlmOperatorExecutorTest {
         LlmOperatorExecutor unguarded = newExecutor(llmService, null, 10L, 0, 2, 1);
         OperatorTarget target2 = OperatorTarget.builder(chromosome(), goal("g2")).build();
         try {
-            assertEquals(1, unguarded.submit(Collections.singletonList(target2), 1));
+            assertEquals(1, unguarded.submit(Collections.singletonList(target2), 1, 0));
         } finally {
             unguarded.shutdown();
         }
@@ -352,12 +364,18 @@ class LlmOperatorExecutorTest {
         try {
             // canCall() passed the pre-flight check (hasBudget() stubbed true); the race is
             // simulated by the service itself throwing once the call actually goes out.
-            assertEquals(1, executor.submit(Collections.singletonList(target), 1));
+            assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
             awaitInFlightZero(executor, 5);
             assertTrue(executor.drain().isEmpty());
             assertEquals(1, executor.getDroppedBudget());
             assertEquals(0, executor.getFailedCalls());
             assertEquals(0, executor.getProducedCandidates());
+
+            // The attempt log still gets a row for the target, with a NO_BUDGET parse status.
+            OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
+            assertNotNull(record);
+            assertTrue(record.toCsvRow().contains(",NO_BUDGET,"),
+                    "expected a NO_BUDGET parse status: " + record.toCsvRow());
 
             // Released, not recorded as a zero-gain outcome: once the next selection round
             // begins, the target is not suppressed at all, in particular not cooled down the
@@ -380,7 +398,7 @@ class LlmOperatorExecutorTest {
         OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
 
         try {
-            assertEquals(1, executor.submit(Collections.singletonList(target), 1));
+            assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
             awaitInFlightZero(executor, 5);
             assertTrue(executor.drain().isEmpty());
             assertEquals(0, executor.getProducedCandidates());
@@ -410,7 +428,7 @@ class LlmOperatorExecutorTest {
         OperatorTarget target2 = OperatorTarget.builder(chromosome(), goal("g2")).build();
 
         try {
-            assertEquals(1, executor.submit(Arrays.asList(target1, target2), 1));
+            assertEquals(1, executor.submit(Arrays.asList(target1, target2), 1, 0));
             List<TestChromosome> produced = awaitDrain(executor, 5, 2);
             assertEquals(2, produced.size());
 
@@ -449,13 +467,24 @@ class LlmOperatorExecutorTest {
         OperatorTarget target2 = OperatorTarget.builder(chromosome(), goal("g2")).build();
 
         try {
-            assertEquals(1, executor.submit(Arrays.asList(target1, target2), 1));
+            assertEquals(1, executor.submit(Arrays.asList(target1, target2), 1, 3));
             List<TestChromosome> produced = awaitDrain(executor, 5, 2);
             assertEquals(2, produced.size());
 
             InjectionAttemptMetadata firstMetadata = executor.consumeAttemptMetadata(produced.get(0));
             InjectionAttemptMetadata secondMetadata = executor.consumeAttemptMetadata(produced.get(1));
             assertNotEquals(firstMetadata.getAttemptId(), secondMetadata.getAttemptId());
+
+            // Both targets of the delivered batch get a PARSED row, tagged with this generation
+            // and the batch size the call actually went out with.
+            assertEquals(2, OperatorAttemptLog.getInstance().getAttempts());
+            assertEquals(2, OperatorAttemptLog.getInstance().getOffspringParsed());
+            OperatorAttemptRecord firstRecord = OperatorAttemptLog.getInstance().recordFor(firstMetadata.getAttemptId());
+            assertNotNull(firstRecord);
+            String row = firstRecord.toCsvRow();
+            assertTrue(row.startsWith("3,"), "generation should be recorded: " + row);
+            assertTrue(row.contains(",ASYNC,MUTATION,2,"), "mode/kind/batch_size should be recorded: " + row);
+            assertTrue(row.contains(",PARSED,"), "parse status should be PARSED: " + row);
 
             // Reporting one target's outcome must not affect the other's: both started in
             // flight, and only the reported one should close.
@@ -483,7 +512,7 @@ class LlmOperatorExecutorTest {
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 1, 1);
 
         OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
-        assertEquals(1, executor.submit(Collections.singletonList(target), 1));
+        assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
 
         executor.shutdown();
         latch.countDown();
@@ -494,7 +523,14 @@ class LlmOperatorExecutorTest {
         assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                 memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
         assertEquals(0, executor.submit(Collections.singletonList(
-                OperatorTarget.builder(chromosome(), goal("g2")).build()), 1));
+                OperatorTarget.builder(chromosome(), goal("g2")).build()), 1, 0));
+
+        // The attempt log records the never-answered attempt as UNDELIVERED rather than
+        // silently dropping it or leaving it looking like a genuine (zero-gain) response.
+        OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
+        assertNotNull(record);
+        assertTrue(record.toCsvRow().contains(",UNDELIVERED,"),
+                "expected an UNDELIVERED parse status: " + record.toCsvRow());
     }
 
     private static void awaitLatch(CountDownLatch latch) {

@@ -20,9 +20,12 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
+import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
 import org.evosuite.testcase.TestChromosome;
+
+import java.util.Collections;
 
 /**
  * MOSA-level LLM mutation operator. The target — which parent, which goal,
@@ -77,7 +80,7 @@ public class LanguageModelMutation extends SyncOperatorHook {
     }
 
     @Override
-    protected TestChromosome invoke(OperatorTarget target) {
-        return semanticMutation.mutate(target);
+    protected TargetedResponse invoke(OperatorTarget target) {
+        return semanticMutation.applyMapped(Collections.singletonList(target));
     }
 }

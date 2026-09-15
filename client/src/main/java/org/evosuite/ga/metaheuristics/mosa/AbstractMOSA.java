@@ -70,6 +70,7 @@ import org.evosuite.llm.search.SemanticProbeResult;
 import org.evosuite.llm.search.StagnationLlmHelper;
 import org.evosuite.llm.search.TestChromosomeInjectionAdapter;
 import org.evosuite.llm.search.operator.LlmOperatorExecutor;
+import org.evosuite.llm.search.operator.OperatorAttemptLog;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.OperatorTargetSelector;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
@@ -376,6 +377,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     protected transient int lastGenAttemptsLlmStagnationCount;
 
     protected transient int lastGenAttemptsLlmAsyncCount;
+    protected transient int lastGenAttemptsLlmOperatorCount;
     protected transient int lastGenAttemptsIslandImmigrantCount;
     protected transient int lastGenAttemptsLocalSearchCount;
     protected transient int lastGenInjectedCandidatesOrphanFilteredCount;
@@ -418,6 +420,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private transient long llmBlendGoalPartnerResolvedTotal;
     private transient long llmBlendGoalPartnerFallbackTotal;
     private transient long llmAsyncStaleTargetTotal;
+    private transient long llmOperatorStaleTargetTotal;
     private transient long llmLineageElitismReinsertedTotal;
 
     /**
@@ -659,7 +662,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             SemanticProbeResult crossoverProbe = SemanticProbeResult.NONE;
             if (crossoverResult.isAppliedSemantic()) {
                 crossoverProbe = probeSemanticResult(crossoverResult, offspring1, parent1, observer.isEnabled());
-                llmCrossover.recordOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance() == 0.0);
+                llmCrossover.recordOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance(), offspring1);
             }
 
             // The post-crossover probe is sidecar-only, so it never goes through calculateFitness
@@ -785,6 +788,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.OFF) {
             return;
         }
+        // Fresh run, fresh attempt log: nothing else resets this singleton before a row could
+        // be opened (ProblemCardLogRecorder/DisruptionRecorder have the same gap, closed only
+        // by their tests).
+        OperatorAttemptLog.resetInstance();
         if (repeatedInjectionMemory == null) {
             repeatedInjectionMemory = new RepeatedInjectionMemory();
         }
@@ -819,7 +826,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             return SyncTargetPlan.EMPTY;
         }
         return new SyncTargetPlan(operatorTargetSelector.select(this.population, getCurrentGoals(),
-                this.population.size(), this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER));
+                this.population.size(), this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER),
+                this.currentIteration);
     }
 
     /**
@@ -1770,6 +1778,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                                 lastGenDominantAttemptSource,
                                 lastGenAttemptsLlmStagnationCount,
                                 lastGenAttemptsLlmAsyncCount,
+                                lastGenAttemptsLlmOperatorCount,
                                 lastGenAttemptsIslandImmigrantCount,
                                 lastGenAttemptsLocalSearchCount,
                                 coveredGoalCount,
@@ -2111,6 +2120,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         lastGenDominantAttemptSource = null;
         lastGenAttemptsLlmStagnationCount = 0;
         lastGenAttemptsLlmAsyncCount = 0;
+        lastGenAttemptsLlmOperatorCount = 0;
         lastGenAttemptsIslandImmigrantCount = 0;
         lastGenAttemptsLocalSearchCount = 0;
         lastGenInjectedCandidatesOrphanFilteredCount = 0;
@@ -2199,6 +2209,14 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         }
                         maybeRecordStaleTarget(tag, metadata, remainingUncoveredBeforeInjection);
                         this.calculateFitness(candidate);
+                        if (tag == InjectionSource.LLM_OPERATOR && metadata != null
+                                && !metadata.getAttemptId().isEmpty()) {
+                            List<TestFitnessFunction> targetGoals = metadata.getTargetGoals();
+                            double distanceAfter = targetGoals.isEmpty()
+                                    ? Double.NaN : candidate.getFitness(targetGoals.get(0));
+                            OperatorAttemptLog.getInstance().recordEvaluated(
+                                    metadata.getAttemptId(), distanceAfter, distanceAfter == 0.0);
+                        }
                         List<TestFitnessFunction> coveredNow =
                                 coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
                         int gained = coveredNow.size();
@@ -2223,6 +2241,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         }
                         if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
                             union.add(candidate);
+                            if (tag == InjectionSource.LLM_OPERATOR && metadata != null
+                                    && !metadata.getAttemptId().isEmpty()) {
+                                OperatorAttemptLog.getInstance().recordAdmitted(
+                                        metadata.getAttemptId(), candidate, this.currentIteration);
+                            }
                             if (isLlmInjectionSource(tag)) {
                                 lastGenInjectedCandidatesAdmittedCount++;
                                 llmInjectedCandidatesAdmittedTotal++;
@@ -2277,6 +2300,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 InjectionSource.LLM_STAGNATION, 0);
         lastGenAttemptsLlmAsyncCount = attemptCounts.getOrDefault(
                 InjectionSource.LLM_ASYNC, 0);
+        lastGenAttemptsLlmOperatorCount = attemptCounts.getOrDefault(
+                InjectionSource.LLM_OPERATOR, 0);
         lastGenAttemptsIslandImmigrantCount = attemptCounts.getOrDefault(
                 InjectionSource.ISLAND_IMMIGRANT, 0);
         lastGenAttemptsLocalSearchCount = attemptCounts.getOrDefault(
@@ -2431,6 +2456,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             return;
         }
         lastRecordedInjectedSurvivorGeneration = this.currentIteration;
+        if (Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.OFF) {
+            OperatorAttemptLog.getInstance().recordSurvivors(this.population, this.currentIteration);
+        }
         int llmSurvivors = 0;
         int blendSurvivors = 0;
         int mutantSurvivors = 0;
@@ -2512,15 +2540,16 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Counts a drained LLM_ASYNC candidate whose prompt-time target goals were all covered by the
-     * time it arrived. Supports the staleness analysis of async injection; sync candidates are
-     * exempt because their results land in the same generation that prompted them.
+     * Counts a drained LLM_ASYNC or LLM_OPERATOR candidate whose prompt-time target goals were
+     * all covered by the time it arrived, into that source's own total. Supports the staleness
+     * analysis of asynchronous injection; sync candidates are exempt because their results land
+     * in the same generation that prompted them.
      */
     private void maybeRecordStaleTarget(
             InjectionSource tag,
             InjectionAttemptMetadata metadata,
             Set<TestFitnessFunction> remainingUncovered) {
-        if (tag != InjectionSource.LLM_ASYNC || metadata == null
+        if ((tag != InjectionSource.LLM_ASYNC && tag != InjectionSource.LLM_OPERATOR) || metadata == null
                 || metadata.getTargetGoals().isEmpty() || remainingUncovered == null) {
             return;
         }
@@ -2529,9 +2558,15 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 return;
             }
         }
-        llmAsyncStaleTargetTotal++;
-        ClientServices.track(RuntimeVariable.LLM_Async_Candidates_StaleTarget,
-                llmAsyncStaleTargetTotal);
+        if (tag == InjectionSource.LLM_ASYNC) {
+            llmAsyncStaleTargetTotal++;
+            ClientServices.track(RuntimeVariable.LLM_Async_Candidates_StaleTarget,
+                    llmAsyncStaleTargetTotal);
+        } else {
+            llmOperatorStaleTargetTotal++;
+            ClientServices.track(RuntimeVariable.LLM_Operator_Candidates_StaleTarget,
+                    llmOperatorStaleTargetTotal);
+        }
     }
 
     /**
@@ -3065,7 +3100,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 int k = callsPerGeneration * Properties.LLM_OPERATOR_BATCH_SIZE;
                 List<OperatorTarget> ranked = operatorTargetSelector.select(this.population, getCurrentGoals(), k,
                         this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER);
-                executor.submit(ranked, callsPerGeneration);
+                executor.submit(ranked, callsPerGeneration, this.currentIteration);
             } catch (RuntimeException e) {
                 logger.debug("LLM operator target selection/submission failed; skipping this generation", e);
             }
@@ -3394,6 +3429,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 logger.warn("Failed to flush problem card log", e);
             }
         }
+        try {
+            OperatorAttemptLog.getInstance().flush();
+        } catch (Exception e) {
+            logger.warn("Failed to flush operator attempt log", e);
+        }
         super.notifySearchFinished();
     }
 
@@ -3595,7 +3635,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     }
 
     /**
-     * Emit LLM operator statistics to the client node.
+     * Emit LLM operator statistics to the client node: the four SYNC-hook counters (unchanged),
+     * plus the {@code LLM_Operator_*} per-target counters kept by {@link OperatorAttemptLog} and
+     * the ASYNC-only counters kept by {@link #operatorExecutor} — always published, zero when the
+     * corresponding hook/executor/log has nothing to report.
      */
     protected void emitOperatorStats(ClientNodeLocal<?> clientNode) {
         if (llmMutation != null) {
@@ -3610,6 +3653,33 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             clientNode.trackOutputVariable(RuntimeVariable.LLM_Semantic_Crossover_Fallbacks,
                     llmCrossover.getFallbackCount());
         }
+
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Selected, log.getAttempts());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Mutation,
+                log.getAttempts(OperatorTarget.Kind.MUTATION));
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Crossover,
+                log.getAttempts(OperatorTarget.Kind.CROSSOVER));
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_Budget,
+                operatorExecutor == null ? 0L : operatorExecutor.getDroppedBudget());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_InFlight,
+                operatorExecutor == null ? 0L : operatorExecutor.getDroppedInFlight());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Dropped_Time,
+                operatorExecutor == null ? 0L : operatorExecutor.getDroppedTime());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Calls_Failed,
+                operatorExecutor == null ? 0L : operatorExecutor.getFailedCalls());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_InFlight_Generations,
+                operatorExecutor == null ? 0L : operatorExecutor.getInFlightGenerations());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Parsed, log.getOffspringParsed());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Admitted, log.getOffspringAdmitted());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Survived, log.getOffspringSurvived());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Target_Hits, log.getTargetHits());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Target_Improved, log.getTargetImproved());
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Candidates_StaleTarget,
+                llmOperatorStaleTargetTotal);
+        clientNode.trackOutputVariable(RuntimeVariable.LLM_Operator_Sidecar_Path,
+                OperatorAttemptLog.isSidecarEnabled() && log.getAttempts() > 0
+                        ? OperatorAttemptLog.resolveSidecarPath() : "");
     }
 
     /**
