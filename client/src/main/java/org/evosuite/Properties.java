@@ -2826,7 +2826,10 @@ public class Properties {
     @Parameter(key = "llm_operator_call_share", group = "LLM",
             description = "Share of llm_max_calls reserved for LLM operator calls when stagnation "
                     + "assistance is also on; the other LLM features draw from the rest. Ignored "
-                    + "when llm_max_calls is 0 (unlimited) or stagnation is off")
+                    + "when llm_max_calls is 0 (unlimited), stagnation is off, or the operators "
+                    + "cannot actually spend a call (llm_operator_mode is OFF, ASYNC with "
+                    + "llm_operator_calls_per_generation=0, or SYNC with both "
+                    + "llm_mutation_probability and llm_crossover_probability at 0)")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_OPERATOR_CALL_SHARE = 0.5;
     @Parameter(key = "llm_operator_calls_per_generation", group = "LLM",

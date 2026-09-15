@@ -38,6 +38,9 @@ class LlmBudgetCoordinatorFeatureShareTest {
     private final double savedShare = Properties.LLM_OPERATOR_CALL_SHARE;
     private final boolean savedStagnation = Properties.LLM_ON_STAGNATION;
     private final Properties.LlmOperatorMode savedOperatorMode = Properties.LLM_OPERATOR_MODE;
+    private final int savedCallsPerGeneration = Properties.LLM_OPERATOR_CALLS_PER_GENERATION;
+    private final double savedMutationProbability = Properties.LLM_MUTATION_PROBABILITY;
+    private final double savedCrossoverProbability = Properties.LLM_CROSSOVER_PROBABILITY;
 
     @AfterEach
     void restoreProperties() {
@@ -45,6 +48,9 @@ class LlmBudgetCoordinatorFeatureShareTest {
         Properties.LLM_OPERATOR_CALL_SHARE = savedShare;
         Properties.LLM_ON_STAGNATION = savedStagnation;
         Properties.LLM_OPERATOR_MODE = savedOperatorMode;
+        Properties.LLM_OPERATOR_CALLS_PER_GENERATION = savedCallsPerGeneration;
+        Properties.LLM_MUTATION_PROBABILITY = savedMutationProbability;
+        Properties.LLM_CROSSOVER_PROBABILITY = savedCrossoverProbability;
     }
 
     @Test
@@ -152,7 +158,36 @@ class LlmBudgetCoordinatorFeatureShareTest {
         Properties.LLM_MAX_CALLS = 10;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_ON_STAGNATION = true;
+        Properties.LLM_MUTATION_PROBABILITY = 0.1;
+        Properties.LLM_CROSSOVER_PROBABILITY = 0.1;
 
         assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.FeatureShare);
+    }
+
+    @Test
+    void fromPropertiesReturnsLocalWhenAsyncOperatorsCannotSpendAnyCall() {
+        Properties.LLM_MAX_CALLS = 10;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
+        Properties.LLM_ON_STAGNATION = true;
+        Properties.LLM_OPERATOR_CALLS_PER_GENERATION = 0;
+
+        // Reserving half the budget for an executor that never submits a call would just
+        // strand it, unreachable by stagnation or any other LLM feature.
+        assertFalse(LlmBudgetCoordinator.operatorsCanSpend());
+        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
+    }
+
+    @Test
+    void fromPropertiesReturnsLocalWhenSyncOperatorProbabilitiesAreBothZero() {
+        Properties.LLM_MAX_CALLS = 10;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_ON_STAGNATION = true;
+        Properties.LLM_MUTATION_PROBABILITY = 0.0;
+        Properties.LLM_CROSSOVER_PROBABILITY = 0.0;
+
+        // Neither breeding-loop hook can ever fire, so the SYNC operators can never spend
+        // their reserved share either.
+        assertFalse(LlmBudgetCoordinator.operatorsCanSpend());
+        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
     }
 }

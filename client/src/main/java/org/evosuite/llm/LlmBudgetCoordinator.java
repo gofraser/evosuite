@@ -79,12 +79,32 @@ public interface LlmBudgetCoordinator {
      */
     static LlmBudgetCoordinator fromProperties() {
         Local total = new Local(Properties.LLM_MAX_CALLS);
-        if (Properties.LLM_MAX_CALLS > 0
-                && Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.OFF
-                && Properties.LLM_ON_STAGNATION) {
+        if (Properties.LLM_MAX_CALLS > 0 && Properties.LLM_ON_STAGNATION && operatorsCanSpend()) {
             return new FeatureShare(total, Properties.LLM_MAX_CALLS, Properties.LLM_OPERATOR_CALL_SHARE);
         }
         return total;
+    }
+
+    /**
+     * Whether the current {@link Properties#LLM_OPERATOR_MODE} configuration could actually spend
+     * an operator call this run: {@code ASYNC} needs a positive {@link
+     * Properties#LLM_OPERATOR_CALLS_PER_GENERATION}, {@code SYNC} needs a positive {@link
+     * Properties#LLM_MUTATION_PROBABILITY} or {@link Properties#LLM_CROSSOVER_PROBABILITY}, and
+     * {@code OFF} never can. Reserving a share of the budget for operators that cannot spend it
+     * (see {@link #fromProperties()}) would just strand it, unreachable by every other feature.
+     *
+     * <p>Package-private for tests.
+     */
+    static boolean operatorsCanSpend() {
+        switch (Properties.LLM_OPERATOR_MODE) {
+            case ASYNC:
+                return Properties.LLM_OPERATOR_CALLS_PER_GENERATION > 0;
+            case SYNC:
+                return Properties.LLM_MUTATION_PROBABILITY > 0 || Properties.LLM_CROSSOVER_PROBABILITY > 0;
+            case OFF:
+            default:
+                return false;
+        }
     }
 
     /**
