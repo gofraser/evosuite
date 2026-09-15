@@ -3071,6 +3071,10 @@ public class Properties {
             description = "Enable per-operator disruption event recording for standard vs semantic operators")
     public static boolean LLM_OPERATOR_DISRUPTION_ANALYSIS_ENABLED = false;
 
+    @Parameter(key = "llm_operator_attempt_log_enabled", group = "LLM",
+            description = "Write one CSV row per LLM operator target (operator_attempts_<class>.csv in report_dir)")
+    public static boolean LLM_OPERATOR_ATTEMPT_LOG_ENABLED = false;
+
     @Parameter(key = "llm_operator_disruption_evaluate_isolated", group = "LLM",
             description = "When disruption analysis is enabled, run isolated intermediate fitness probes "
                     + "post-crossover (pre-mutation) and post-mutation in MOSA/DynaMOSA")

@@ -48,6 +48,7 @@ class Phase5PropertyDefaultsTest {
         assertEquals(2, Properties.LLM_OPERATOR_MAX_INFLIGHT);
         assertEquals(1, Properties.LLM_OPERATOR_BATCH_SIZE);
         assertEquals(Properties.LlmExemplarScope.ALL_CARD_TYPES, Properties.LLM_STAGNATION_EXEMPLAR_SCOPE);
+        assertFalse(Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED);
     }
 
     @Test
