@@ -2291,6 +2291,23 @@ public class Properties {
                     + "available.")
     public static LlmStagnationPromptMode LLM_STAGNATION_PROMPT = LlmStagnationPromptMode.DIAGNOSTIC;
 
+    /**
+     * Which problem cards receive a concrete exemplar (the population test
+     * closest to one of the card's related goals) in the diagnostic prompt.
+     */
+    public enum LlmExemplarScope {
+        /** Only branch-polarity cards, as in the original diagnostic prompt. */
+        BRANCH_POLARITY_GAP,
+        /** Every card type whose related goals have a closest test. */
+        ALL_CARD_TYPES
+    }
+
+    @Parameter(key = "llm_stagnation_exemplar_scope", group = "LLM",
+            description = "Which problem cards in the diagnostic stagnation prompt carry the "
+                    + "closest existing test as an exemplar: BRANCH_POLARITY_GAP only, or "
+                    + "ALL_CARD_TYPES")
+    public static LlmExemplarScope LLM_STAGNATION_EXEMPLAR_SCOPE = LlmExemplarScope.ALL_CARD_TYPES;
+
     // ---- LLM injection blending (brood recombination + lineage elitism) ----
 
     @Parameter(key = "llm_blend_enabled", group = "LLM",

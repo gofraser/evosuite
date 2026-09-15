@@ -27,6 +27,7 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmStatistics;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.CoverageGoalFormatter;
+import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.GoalDescriptionMapper;
 import org.evosuite.llm.prompt.PromptBuilder;
@@ -81,6 +82,7 @@ public class StagnationDetector {
     private final DiagnosticCardSelector diagnosticCardSelector = new DiagnosticCardSelector();
     private final ExceptionBarrierTracker exceptionBarrierTracker = new ExceptionBarrierTracker();
     private final GoalDescriptionMapper goalDescriptionMapper = new GoalDescriptionMapper();
+    private final ExemplarAttacher exemplarAttacher = new ExemplarAttacher(goalDescriptionMapper);
     private final RepeatedInjectionMemory repeatedInjectionMemory;
     /**
      * Volatile: in ASYNC stagnation mode, {@link #consumeWindow()} is called
@@ -498,7 +500,7 @@ public class StagnationDetector {
         if (cards.isEmpty()) {
             return null;
         }
-        cards = attachClosestBranchExamples(cards, currentPopulation, bestFitnessPerGoal);
+        cards = exemplarAttacher.attach(cards, currentPopulation, bestFitnessPerGoal);
         LlmStatistics.recordDiagnosticCardsExtracted(extractedCards);
         LlmStatistics.recordDiagnosticCardsSelected(cards);
         LlmStatistics.recordDiagnosticCardsDiscarded(selection.getDiscardedCards());
@@ -727,68 +729,6 @@ public class StagnationDetector {
             }
         }
         return pinned;
-    }
-
-    private List<ProblemCard> attachClosestBranchExamples(
-            List<ProblemCard> cards,
-            List<TestChromosome> population,
-            Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
-        if (cards == null || cards.isEmpty() || population == null || population.isEmpty()
-                || bestFitnessPerGoal == null || bestFitnessPerGoal.isEmpty()) {
-            return cards;
-        }
-        List<ProblemCard> enriched = new ArrayList<>(cards.size());
-        for (ProblemCard card : cards) {
-            if (card == null || card.getType() != ProblemCardType.BRANCH_POLARITY_GAP) {
-                enriched.add(card);
-                continue;
-            }
-            TestFitnessFunction closestGoal = null;
-            double closestDistance = Double.POSITIVE_INFINITY;
-            for (TestFitnessFunction goal : card.getRelatedGoals()) {
-                Double distance = bestFitnessPerGoal.get(goal);
-                if (distance != null && Double.isFinite(distance) && distance > 0.0
-                        && distance < closestDistance) {
-                    closestGoal = goal;
-                    closestDistance = distance;
-                }
-            }
-            TestCase closestTest = findClosestTest(population, closestGoal, closestDistance);
-            if (closestTest == null) {
-                enriched.add(card);
-                continue;
-            }
-            String description = String.format(Locale.ROOT,
-                    "Closest near-miss for %s has branch distance %.4f; flip the condition",
-                    goalDescriptionMapper.describe(closestGoal), closestDistance);
-            enriched.add(card.withConcreteExample(closestTest, description));
-        }
-        return enriched;
-    }
-
-    private TestCase findClosestTest(List<TestChromosome> population,
-                                     TestFitnessFunction goal,
-                                     double expectedDistance) {
-        if (goal == null) {
-            return null;
-        }
-        TestCase closest = null;
-        double smallestDelta = Double.POSITIVE_INFINITY;
-        for (TestChromosome chromosome : population) {
-            if (chromosome == null || chromosome.getTestCase() == null) {
-                continue;
-            }
-            Double distance = chromosome.getFitnessValues().get(goal);
-            if (distance == null || !Double.isFinite(distance)) {
-                continue;
-            }
-            double delta = Math.abs(distance - expectedDistance);
-            if (delta < smallestDelta) {
-                smallestDelta = delta;
-                closest = chromosome.getTestCase();
-            }
-        }
-        return closest;
     }
 
     private boolean shouldDiversifyExistingTestsBySpecies() {
