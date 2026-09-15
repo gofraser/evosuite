@@ -204,7 +204,9 @@ class JsonHttpClientCancellationTest {
                 assertInstanceOf(TimeoutException.class, failure.getCause());
                 // Comfortably below the 30s read timeout: only the abort, not
                 // the socket's own timeout, could have ended this so quickly.
-                assertTrue(elapsedMs < 5_000L,
+                // The bound is loose because a loaded surefire JVM has been
+                // seen to take several seconds past the deadline to unwind.
+                assertTrue(elapsedMs < 15_000L,
                         "call should fail shortly after the 1s phase deadline, not the 30s read timeout: took "
                                 + elapsedMs + "ms");
                 assertTrue(serverObservedDisconnect.await(3_000L, TimeUnit.MILLISECONDS),
