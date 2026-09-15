@@ -154,6 +154,30 @@ class ExemplarAttacherTest {
         assertNull(ExemplarAttacher.closestRelatedGoal(card, best));
     }
 
+    @Test
+    void closestRelatedGoalRejectsDistancesAtOrAboveOne() {
+        TestFitnessFunction atBound = goal("com.example.Target", "atBound()V");
+        TestFitnessFunction farAway = goal("com.example.Target", "farAway()V");
+        TestFitnessFunction justBelow = goal("com.example.Target", "justBelow()V");
+
+        Map<TestFitnessFunction, Double> best = new LinkedHashMap<>();
+        best.put(atBound, ExemplarAttacher.MAX_EXEMPLAR_DISTANCE);
+        best.put(farAway, Double.MAX_VALUE);
+
+        ProblemCard card = ProblemCard.builder(ProblemCardType.TYPE_NEVER_ATTEMPTED)
+                .title("card")
+                .relatedGoals(Arrays.asList(atBound, farAway))
+                .build();
+        assertNull(ExemplarAttacher.closestRelatedGoal(card, best));
+
+        best.put(justBelow, Math.nextDown(ExemplarAttacher.MAX_EXEMPLAR_DISTANCE));
+        ProblemCard withNearMiss = ProblemCard.builder(ProblemCardType.TYPE_NEVER_ATTEMPTED)
+                .title("card")
+                .relatedGoals(Arrays.asList(atBound, farAway, justBelow))
+                .build();
+        assertSame(justBelow, ExemplarAttacher.closestRelatedGoal(withNearMiss, best));
+    }
+
     // ---- attach: scope ALL_CARD_TYPES ---------------------------------------
 
     @Test

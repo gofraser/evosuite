@@ -100,9 +100,19 @@ public final class ExemplarAttacher {
     }
 
     /**
-     * Returns the card's related goal with the smallest positive finite best
-     * distance, or null when none qualifies (covered goals have distance 0 and
-     * need no exemplar; unreached ones have no meaningful closest test).
+     * Upper bound (exclusive) on the best distance a goal may have for its
+     * closest test to count as an exemplar. Normalised fitness below 1 means
+     * some test already reaches the goal's controlling predicate or method;
+     * at or above 1 the "closest" test is an arbitrary member of the
+     * population and would only mislead the model.
+     */
+    static final double MAX_EXEMPLAR_DISTANCE = 1.0;
+
+    /**
+     * Returns the card's related goal with the smallest best distance in
+     * {@code (0, MAX_EXEMPLAR_DISTANCE)}, or null when none qualifies (covered
+     * goals have distance 0 and need no exemplar; goals no test gets near
+     * have no meaningful closest test).
      */
     public static TestFitnessFunction closestRelatedGoal(ProblemCard card,
                                                          Map<TestFitnessFunction, Double> bestFitnessPerGoal) {
@@ -113,7 +123,7 @@ public final class ExemplarAttacher {
         double closestDistance = Double.POSITIVE_INFINITY;
         for (TestFitnessFunction goal : card.getRelatedGoals()) {
             Double distance = bestFitnessPerGoal.get(goal);
-            if (distance != null && Double.isFinite(distance) && distance > 0.0
+            if (distance != null && distance > 0.0 && distance < MAX_EXEMPLAR_DISTANCE
                     && distance < closestDistance) {
                 closestGoal = goal;
                 closestDistance = distance;
