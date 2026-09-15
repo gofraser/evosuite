@@ -112,14 +112,6 @@ public class JsonHttpClient {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         boolean attachedBeforeAbort = cancellation == null || cancellation.attach(connection::disconnect);
         try {
-            if (!attachedBeforeAbort) {
-                // abort() ran before attach() could register connection::disconnect
-                // on it, so that disconnect() call happened on a connection that
-                // was not yet open — a no-op that would otherwise let the request
-                // below go out anyway. Fail here instead of configuring or sending
-                // anything.
-                throw new RequestCancelledBeforeSendException();
-            }
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
             connection.setConnectTimeout(connectTimeoutMs);
@@ -134,25 +126,14 @@ public class JsonHttpClient {
 
             byte[] payload = body.getBytes(StandardCharsets.UTF_8);
             connection.setFixedLengthStreamingMode(payload.length);
-            if (cancellation != null && cancellation.isAborted()) {
-                // Re-checking here (rather than trusting the attach() above)
-                // closes the window between a successful attach() and this
-                // point: an abort() landing in that window already ran
-                // connection::disconnect() on a connection that had not
-                // started connecting yet, which — like the attach-time case —
-                // is a harmless no-op, so it would not by itself have stopped
-                // the request below from going out. This explicit check is
-                // what catches that case instead. What remains after this
-                // check is only the gap between reading isAborted() here and
-                // entering getOutputStream() just below: by the time an
-                // abort() lands there, the connection is actively connecting
-                // or connected, so its disconnect() call tears down a live
-                // socket instead of a no-op one — which the JDK turns into an
-                // IOException out of the blocked write/read, the same
-                // mechanism already covered by the blocked-read cancellation
-                // test in JsonHttpClientCancellationTest. So every point in
-                // time is covered: before this check by the check itself,
-                // from here on by disconnect() actually doing something.
+            // An abort() that landed before attach(), or between attach() and
+            // here, ran disconnect() on a connection that had not started
+            // connecting — a no-op that would let the request go out anyway.
+            // Fail before any I/O in both cases. From getOutputStream() on the
+            // connection is live, so a later abort() tears down a real socket
+            // and the blocked write/read fails with an IOException (covered by
+            // the blocked-read test in JsonHttpClientCancellationTest).
+            if (!attachedBeforeAbort || (cancellation != null && cancellation.isAborted())) {
                 throw new RequestCancelledBeforeSendException();
             }
             try (OutputStream out = connection.getOutputStream()) {
