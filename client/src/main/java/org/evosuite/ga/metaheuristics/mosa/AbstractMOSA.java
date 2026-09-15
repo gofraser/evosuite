@@ -2141,20 +2141,29 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         }
 
         for (ExternalCandidateSource source : externalCandidateSources) {
+            List<TestChromosome> candidates;
+            InjectionSource tag;
+            Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate;
             try {
-                List<TestChromosome> candidates = source.drain();
+                candidates = source.drain();
                 if (candidates == null || candidates.isEmpty()) {
                     continue;
                 }
-                attempts += candidates.size();
-                InjectionSource tag = source.injectionSource();
-                if (tag != null) {
-                    attemptCounts.merge(tag, candidates.size(), Integer::sum);
-                }
-                Map<TestChromosome, InjectionAttemptMetadata> attemptMetadataByCandidate =
-                        source.consumeAttemptMetadata(candidates);
-                Map<String, Integer> gainsByAttemptId =
-                        initializeAttemptOutcomeMap(attemptMetadataByCandidate);
+                tag = source.injectionSource();
+                // Consumes the source's metadata for these candidates; from here on an attempt
+                // outcome is owed for each of them, however processing goes, so the report below
+                // must run in a finally.
+                attemptMetadataByCandidate = source.consumeAttemptMetadata(candidates);
+            } catch (Exception e) {
+                logger.debug("External candidate source failed while draining; skipping", e);
+                continue;
+            }
+            attempts += candidates.size();
+            if (tag != null) {
+                attemptCounts.merge(tag, candidates.size(), Integer::sum);
+            }
+            Map<String, Integer> gainsByAttemptId = initializeAttemptOutcomeMap(attemptMetadataByCandidate);
+            try {
                 List<TestChromosome> safe = filterOrphanedTestChromosomes(
                         candidates, "external candidate source " + source.getClass().getSimpleName());
                 if (isLlmInjectionSource(tag)) {
@@ -2167,77 +2176,86 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     }
                 }
                 for (TestChromosome candidate : safe) {
-                    boolean enableLlmDedup = isLlmInjectionSource(tag);
-                    if (enableLlmDedup) {
-                        String candidateSignature = injectedCallSequenceSignature(candidate);
-                        if (!candidateSignature.isEmpty()
-                                && !seenInjectedCallSignatures.add(candidateSignature)) {
-                            deduplicatedInjectedCandidates++;
-                            lastGenInjectedCandidatesDeduplicatedCount++;
-                            llmInjectedCandidatesDeduplicatedTotal++;
-                            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Deduplicated,
-                                    llmInjectedCandidatesDeduplicatedTotal);
-                            continue;
+                    try {
+                        boolean enableLlmDedup = isLlmInjectionSource(tag);
+                        if (enableLlmDedup) {
+                            String candidateSignature = injectedCallSequenceSignature(candidate);
+                            if (!candidateSignature.isEmpty()
+                                    && !seenInjectedCallSignatures.add(candidateSignature)) {
+                                deduplicatedInjectedCandidates++;
+                                lastGenInjectedCandidatesDeduplicatedCount++;
+                                llmInjectedCandidatesDeduplicatedTotal++;
+                                ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Deduplicated,
+                                        llmInjectedCandidatesDeduplicatedTotal);
+                                continue;
+                            }
                         }
-                    }
-                    InjectionAttemptMetadata metadata = attemptMetadataByCandidate.get(candidate);
-                    candidate.setDiagnosticCardTypes(metadata == null
-                            ? Collections.<ProblemCardType>emptyList()
-                            : metadata.getDiagnosticCardTypes());
-                    if (tag != null) {
-                        tagInjectedCandidate(candidate, tag);
-                    }
-                    maybeRecordStaleTarget(tag, metadata, remainingUncoveredBeforeInjection);
-                    this.calculateFitness(candidate);
-                    List<TestFitnessFunction> coveredNow =
-                            coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
-                    int gained = coveredNow.size();
-                    maybeRecordDiagnosticAttribution(tag, metadata, gained);
-                    if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
-                            && ProblemCardLogRecorder.isEnabled()) {
-                        try {
-                            ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
-                                    metadata.getAttemptId(), tag, this.currentIteration, coveredNow);
-                        } catch (Exception e) {
-                            logger.debug("Failed to log injection coverage for attempt {}",
-                                    metadata.getAttemptId(), e);
+                        InjectionAttemptMetadata metadata = attemptMetadataByCandidate.get(candidate);
+                        candidate.setDiagnosticCardTypes(metadata == null
+                                ? Collections.<ProblemCardType>emptyList()
+                                : metadata.getDiagnosticCardTypes());
+                        if (tag != null) {
+                            tagInjectedCandidate(candidate, tag);
                         }
-                    }
-                    if (metadata != null && metadata.getAttemptId() != null
-                            && !metadata.getAttemptId().trim().isEmpty()) {
-                        gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
-                    }
-                    boolean blendingActive = Properties.LLM_BLEND_ENABLED && isLlmInjectionSource(tag);
-                    if (blendingActive) {
-                        candidate.setBlendChannel(BlendChannel.RAW);
-                    }
-                    if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
-                        union.add(candidate);
-                        if (isLlmInjectionSource(tag)) {
-                            lastGenInjectedCandidatesAdmittedCount++;
-                            llmInjectedCandidatesAdmittedTotal++;
-                            ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
-                                    llmInjectedCandidatesAdmittedTotal);
+                        maybeRecordStaleTarget(tag, metadata, remainingUncoveredBeforeInjection);
+                        this.calculateFitness(candidate);
+                        List<TestFitnessFunction> coveredNow =
+                                coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
+                        int gained = coveredNow.size();
+                        maybeRecordDiagnosticAttribution(tag, metadata, gained);
+                        if (gained > 0 && shouldAttributeDiagnostics(tag, metadata)
+                                && ProblemCardLogRecorder.isEnabled()) {
+                            try {
+                                ProblemCardLogRecorder.getInstance().recordCoveredByInjection(
+                                        metadata.getAttemptId(), tag, this.currentIteration, coveredNow);
+                            } catch (Exception e) {
+                                logger.debug("Failed to log injection coverage for attempt {}",
+                                        metadata.getAttemptId(), e);
+                            }
                         }
-                        if (isLlmInjectionSource(tag) && metadata != null) {
-                            org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesAdmitted(
-                                    metadata.getDiagnosticCardTypes(), 1);
+                        if (metadata != null && metadata.getAttemptId() != null
+                                && !metadata.getAttemptId().trim().isEmpty()) {
+                            gainsByAttemptId.merge(metadata.getAttemptId(), gained, Integer::sum);
                         }
-                    }
-                    if (blendingActive) {
-                        try {
-                            blendInjectedCandidate(candidate, tag, metadata, union,
-                                    remainingUncoveredBeforeInjection, gainsByAttemptId,
-                                    seenInjectedCallSignatures);
-                        } catch (Exception e) {
-                            logger.debug("Blending failed for injected candidate; "
-                                    + "raw admission unaffected", e);
+                        boolean blendingActive = Properties.LLM_BLEND_ENABLED && isLlmInjectionSource(tag);
+                        if (blendingActive) {
+                            candidate.setBlendChannel(BlendChannel.RAW);
                         }
+                        if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
+                            union.add(candidate);
+                            if (isLlmInjectionSource(tag)) {
+                                lastGenInjectedCandidatesAdmittedCount++;
+                                llmInjectedCandidatesAdmittedTotal++;
+                                ClientServices.track(RuntimeVariable.LLM_Injected_Candidates_Admitted,
+                                        llmInjectedCandidatesAdmittedTotal);
+                            }
+                            if (isLlmInjectionSource(tag) && metadata != null) {
+                                org.evosuite.llm.LlmStatistics.recordDiagnosticCandidatesAdmitted(
+                                        metadata.getDiagnosticCardTypes(), 1);
+                            }
+                        }
+                        if (blendingActive) {
+                            try {
+                                blendInjectedCandidate(candidate, tag, metadata, union,
+                                        remainingUncoveredBeforeInjection, gainsByAttemptId,
+                                        seenInjectedCallSignatures);
+                            } catch (Exception e) {
+                                logger.debug("Blending failed for injected candidate; "
+                                        + "raw admission unaffected", e);
+                            }
+                        }
+                    } catch (Exception e) {
+                        // This candidate's attempt keeps the 0 already seeded by
+                        // initializeAttemptOutcomeMap; move on so one bad candidate cannot sink
+                        // the rest of the batch (or, worse, the source's outcome report below).
+                        logger.debug("Failed to process an injected candidate from {}; skipping",
+                                source.getClass().getSimpleName(), e);
                     }
                 }
-                source.reportAttemptOutcomes(gainsByAttemptId);
             } catch (Exception e) {
                 logger.debug("External candidate source failed; skipping", e);
+            } finally {
+                source.reportAttemptOutcomes(gainsByAttemptId);
             }
         }
         if (deduplicatedInjectedCandidates > 0) {

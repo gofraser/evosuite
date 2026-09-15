@@ -42,6 +42,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -160,6 +161,39 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
     }
 
     @Test
+    void aCandidateThatThrowsDuringFitnessDoesNotPreventTheOthersFromBeingReportedOrAdmitted() throws Exception {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
+        Properties.LLM_OPERATOR_CALLS_PER_GENERATION = 1;
+        Properties.LLM_OPERATOR_BATCH_SIZE = 1;
+
+        LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
+        when(mockExecutor.hasCapacity()).thenReturn(true);
+        OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
+        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+
+        TestChromosome candidate1 = arrayListConstructorChromosome(1);
+        TestChromosome candidate2 = arrayListConstructorChromosome(2);
+        harness.throwOnFitness = candidate1;
+        when(mockExecutor.drain()).thenReturn(Arrays.asList(candidate1, candidate2));
+        InjectionAttemptMetadata metadata1 = new InjectionAttemptMetadata("attempt-1", Collections.emptyList());
+        InjectionAttemptMetadata metadata2 = new InjectionAttemptMetadata("attempt-2", Collections.emptyList());
+        when(mockExecutor.consumeAttemptMetadata(candidate1)).thenReturn(metadata1);
+        when(mockExecutor.consumeAttemptMetadata(candidate2)).thenReturn(metadata2);
+
+        harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
+        List<TestChromosome> union = new ArrayList<>();
+        harness.collectExternalCandidates(union);
+
+        assertFalse(union.contains(candidate1),
+                "the candidate whose fitness evaluation threw must not be admitted");
+        assertTrue(union.contains(candidate2), "the other candidate must still be admitted");
+        // Both attempts must still be reported (from the finally), including the one whose
+        // candidate never got past calculateFitness — it keeps the 0 seeded up front.
+        verify(mockExecutor).reportAttemptOutcome(eq("attempt-1"), eq(0));
+        verify(mockExecutor).reportAttemptOutcome(eq("attempt-2"), eq(0));
+    }
+
+    @Test
     void submitIsSkippedWithoutCapacity() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
         Properties.LLM_OPERATOR_CALLS_PER_GENERATION = 1;
@@ -261,6 +295,9 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         private final LlmOperatorExecutor stubExecutor;
 
+        /** When set, {@link #calculateFitness} throws for this one candidate instead of no-op'ing. */
+        private TestChromosome throwOnFitness;
+
         OperatorExecutorHarness(LlmOperatorExecutor stubExecutor) {
             super(TestChromosome::new);
             this.goalsManager = new MultiCriteriaManager(Collections.emptyList());
@@ -278,7 +315,10 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
 
         @Override
         protected void calculateFitness(TestChromosome c) {
-            // No-op: this harness only exercises wiring, never real coverage evaluation.
+            if (c == throwOnFitness) {
+                throw new IllegalStateException("simulated fitness evaluation failure");
+            }
+            // No-op otherwise: this harness only exercises wiring, never real coverage evaluation.
         }
     }
 }
