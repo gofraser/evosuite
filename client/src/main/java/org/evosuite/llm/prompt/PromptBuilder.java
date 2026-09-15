@@ -165,36 +165,24 @@ public class PromptBuilder {
     public PromptBuilder withSutContext(String className, TestCluster cluster,
                                         boolean includeTestGenerationReminders,
                                         boolean includeDependencyContext) {
-        if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
-            StaticPromptContext.SutEntry entry = StaticPromptContext.sutEntry(className,
-                    includeTestGenerationReminders,
-                    () -> renderSutEntry(className, cluster, includeTestGenerationReminders));
-            this.sutContextModeUsed = entry.getModeUsed();
-            this.sutContextUnavailable = entry.isUnavailable();
-            this.sutContextTruncated = entry.isTruncated();
-            this.sutContextCommentsStripped = entry.isCommentsStripped();
-            this.sutContextSelectivelyTruncated = entry.isSelectivelyTruncated();
-            if (entry.getSectionText() != null) {
-                List<String> parts = new ArrayList<>();
-                parts.add(entry.getSectionText());
-                parts.addAll(entry.getReminderTexts());
+        boolean cached = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
+        StaticPromptContext.SutEntry entry = cached
+                ? StaticPromptContext.sutEntry(className, includeTestGenerationReminders,
+                        () -> renderSutEntry(className, cluster, includeTestGenerationReminders))
+                : renderSutEntry(className, cluster, includeTestGenerationReminders);
+        this.sutContextModeUsed = entry.getModeUsed();
+        this.sutContextUnavailable = entry.isUnavailable();
+        this.sutContextTruncated = entry.isTruncated();
+        this.sutContextCommentsStripped = entry.isCommentsStripped();
+        this.sutContextSelectivelyTruncated = entry.isSelectivelyTruncated();
+        if (entry.getSectionText() != null) {
+            List<String> parts = new ArrayList<>();
+            parts.add(entry.getSectionText());
+            parts.addAll(entry.getReminderTexts());
+            if (cached) {
                 this.staticSutSectionText = String.join("\n\n", parts);
-            }
-        } else {
-            SutContextProviderFactory.ContextResult result =
-                    sutContextProviderFactory.getContext(className, cluster);
-            this.sutContextModeUsed = result.getModeUsed();
-            this.sutContextUnavailable = result.isContextUnavailable();
-            this.sutContextTruncated = result.isContextTruncated();
-            this.sutContextCommentsStripped = result.isCommentsStripped();
-            this.sutContextSelectivelyTruncated = result.isSelectivelyTruncated();
-            String text = result.getText();
-            if (text != null && !text.trim().isEmpty()) {
-                userSections.add("CLASS UNDER TEST (SUT): " + className + "\n\n" + result.getModeUsed().name() + " context:\n```\n" + text + "\n```");
-                if (includeTestGenerationReminders) {
-                    userSections.add(REMINDER_GENERIC_TYPES);
-                    userSections.add(REMINDER_VISIBILITY);
-                }
+            } else {
+                userSections.addAll(parts);
             }
         }
         if (includeDependencyContext) {
@@ -204,8 +192,8 @@ public class PromptBuilder {
     }
 
     /**
-     * Renders the SUT-context section from scratch (via {@link #sutContextProviderFactory})
-     * for the {@link StaticPromptContext} memo. Called at most once per
+     * Renders the SUT-context section (via {@link #sutContextProviderFactory}). With prompt
+     * caching on, {@link StaticPromptContext} calls this at most once per
      * {@code (className, includeReminders)} pair per run.
      */
     private StaticPromptContext.SutEntry renderSutEntry(String className, TestCluster cluster,
@@ -250,68 +238,43 @@ public class PromptBuilder {
         }
         String targetClassName = className == null ? "" : className;
 
-        if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
-            StaticPromptContext.DependencyEntry entry = StaticPromptContext.dependencyEntry(
-                    targetClassName, () -> renderDependencyEntry(targetClassName, cluster));
-            this.clusterSummaryTruncated = entry.isTruncated();
-            this.clusterSummaryChars = entry.getTotalCharsBeforeTruncation();
-            this.clusterSummaryBudgetMode = entry.getBudgetMode();
-            this.dependencySummaryMetadata = entry.getMetadata();
-            if (entry.getSectionText() != null) {
-                this.staticDependencySectionText =
-                        entry.getSectionText() + "\n\n" + REMINDER_CONCRETE_TYPES;
-                dependencyContextAdded = true;
+        boolean cached = Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT;
+        StaticPromptContext.DependencyEntry entry = cached
+                ? StaticPromptContext.dependencyEntry(targetClassName,
+                        () -> renderDependencyEntry(targetClassName, cluster))
+                : renderDependencyEntry(targetClassName, cluster);
+        this.clusterSummaryTruncated = entry.isTruncated();
+        this.clusterSummaryChars = entry.getTotalCharsBeforeTruncation();
+        this.clusterSummaryBudgetMode = entry.getBudgetMode();
+        this.dependencySummaryMetadata = entry.getMetadata();
+        if (entry.getSectionText() == null) {
+            return;
+        }
+        dependencyContextAdded = true;
+        if (!cached) {
+            userSections.add(entry.getSectionText());
+            userSections.add(REMINDER_CONCRETE_TYPES);
+            return;
+        }
+        this.staticDependencySectionText = entry.getSectionText() + "\n\n" + REMINDER_CONCRETE_TYPES;
 
-                // The dependency entry may have been served from an earlier
-                // prompt's render; if cluster expansion has since added classes
-                // the cached summary never saw, surface them dynamically so the
-                // system-message prefix itself never changes.
-                Set<String> currentClassNames = StaticPromptContext.clusterClassNames(cluster);
-                Set<String> addedClassNames = new TreeSet<>(currentClassNames);
-                addedClassNames.removeAll(entry.getClusterClassNamesAtRender());
-                if (!addedClassNames.isEmpty()) {
-                    userSections.add("Dependency types added to the test cluster after the summary "
-                            + "in the system message (usable like the ones listed there):\n"
-                            + String.join(", ", addedClassNames));
-                }
-            }
-        } else {
-            BudgetDecision budgetDecision = resolveDependencySummaryBudget();
-            int dependencyBudget = budgetDecision.budgetChars;
-            this.clusterSummaryBudgetMode = budgetDecision.mode;
-            TestClusterSummarizer.DependencySummaryResult result =
-                    testClusterSummarizer.summarizeDependencies(
-                            cluster, targetClassName, dependencyBudget);
-            this.clusterSummaryTruncated = result.isTruncated();
-            this.clusterSummaryChars = result.getTotalCharsBeforeTruncation();
-            this.dependencySummaryMetadata = new PromptResult.DependencySummaryMetadata(
-                    result.getBudgetCharsUsed(),
-                    result.getPerClassSoftCapUsed(),
-                    result.isPerClassSoftCapAuto(),
-                    result.isCompactSignaturesUsed(),
-                    clusterSummaryBudgetMode,
-                    result.getCandidateClasses(),
-                    result.getEmittedClasses(),
-                    result.getEmittedTier1Classes(),
-                    result.getEmittedTier2Classes(),
-                    result.getEmittedTier3Classes(),
-                    result.getEmittedInstantiators(),
-                    result.getEmittedModifiers(),
-                    result.getDroppedByPerClassCap(),
-                    result.getDroppedByGlobalBudget());
-            String summary = result.getText();
-            if (summary != null && !summary.trim().isEmpty()) {
-                userSections.add(StaticPromptContext.DEPENDENCY_SECTION_HEADER + "\n" + summary);
-                userSections.add(REMINDER_CONCRETE_TYPES);
-                dependencyContextAdded = true;
-            }
+        // The dependency entry may have been served from an earlier prompt's
+        // render; if cluster expansion has since added classes the cached
+        // summary never saw, surface them dynamically so the system-message
+        // prefix itself never changes.
+        Set<String> addedClassNames = new TreeSet<>(StaticPromptContext.clusterClassNames(cluster));
+        addedClassNames.removeAll(entry.getClusterClassNamesAtRender());
+        if (!addedClassNames.isEmpty()) {
+            userSections.add("Dependency types added to the test cluster after the summary "
+                    + "in the system message (usable like the ones listed there):\n"
+                    + String.join(", ", addedClassNames));
         }
     }
 
     /**
-     * Renders the dependency-summary section from scratch (the expensive
-     * reflective cluster walk) for the {@link StaticPromptContext} memo.
-     * Called at most once per {@code className} per run.
+     * Renders the dependency-summary section (the expensive reflective cluster walk).
+     * With prompt caching on, {@link StaticPromptContext} calls this at most once per
+     * {@code className} per run.
      */
     private StaticPromptContext.DependencyEntry renderDependencyEntry(String targetClassName, TestCluster cluster) {
         BudgetDecision budgetDecision = resolveDependencySummaryBudget();
