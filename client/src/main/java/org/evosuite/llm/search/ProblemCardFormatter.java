@@ -19,15 +19,16 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.llm.prompt.TargetSection;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.statements.Statement;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
 /**
- * Renders problem cards into compact prompt text.
+ * Renders problem cards into compact prompt text; the detail lines under each
+ * card come from {@link TargetSection}, shared with operator targets.
  */
 public final class ProblemCardFormatter {
 
@@ -63,76 +64,10 @@ public final class ProblemCardFormatter {
                     .append(", goals=")
                     .append(card.getRelatedGoals().size())
                     .append(")\n");
-            for (String evidence : card.getEvidence()) {
-                sb.append("   - ").append(evidence).append('\n');
-            }
-            appendConcreteExamples(sb, card, existingTests);
-            String actionHint = card.getType() == null ? "" : card.getType().getActionHint();
-            if (!actionHint.isEmpty()) {
-                sb.append("   - Suggested action: ").append(actionHint).append('\n');
-            }
+            TargetSection.appendDetails(sb, card.getEvidence(), Integer.MAX_VALUE,
+                    card.getConcreteExamples(), existingTests,
+                    card.getType() == null ? "" : card.getType().getActionHint());
         }
         return sb.toString().trim();
-    }
-
-    private static void appendConcreteExamples(StringBuilder sb,
-                                               ProblemCard card,
-                                               List<TestCase> existingTests) {
-        for (ProblemCard.ConcreteExample example : card.getConcreteExamples()) {
-            int existingIndex = indexOfTest(existingTests, example.getTestCase());
-            if (existingIndex >= 0) {
-                sb.append("   - ").append(example.getDescription())
-                        .append(": see Existing test #").append(existingIndex + 1).append(".\n");
-                continue;
-            }
-            sb.append("   - ").append(example.getDescription())
-                    .append(" (inline, first 8 statements):\n")
-                    .append("```java\n")
-                    .append(renderStatements(example.getTestCase(), 8))
-                    .append("\n```\n");
-        }
-    }
-
-    private static int indexOfTest(List<TestCase> tests, TestCase target) {
-        if (tests == null || target == null) {
-            return -1;
-        }
-        String targetCode = safeCode(target);
-        for (int i = 0; i < tests.size(); i++) {
-            TestCase candidate = tests.get(i);
-            if (candidate == target || safeCode(candidate).equals(targetCode)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private static String renderStatements(TestCase test, int maxStatements) {
-        if (test == null || maxStatements <= 0) {
-            return "";
-        }
-        StringBuilder code = new StringBuilder();
-        int count = Math.min(test.size(), maxStatements);
-        for (int i = 0; i < count; i++) {
-            Statement statement = test.getStatement(i);
-            if (statement != null) {
-                code.append(statement.getCode()).append('\n');
-            }
-        }
-        if (test.size() > count) {
-            code.append("// ... (truncated)");
-        }
-        return code.toString().trim();
-    }
-
-    private static String safeCode(TestCase test) {
-        if (test == null) {
-            return "";
-        }
-        try {
-            return test.toCode().replaceAll("\\s+", " ").trim();
-        } catch (RuntimeException e) {
-            return "id_" + System.identityHashCode(test);
-        }
     }
 }
