@@ -76,6 +76,15 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
         trace.branchPassed(branch, bytecodeId, trueDistance, falseDistance);
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, BranchOperands operands) {
+        copyOnWrite();
+        trace.branchOperandsSeen(branch, operands);
+    }
+
     /*
      * (non-Javadoc)
      *
@@ -549,6 +558,14 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
     @Override
     public Map<Integer, Double> getTrueDistances() {
         return trace.getTrueDistances();
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Map<Integer, BranchOperands> getLastBranchOperands() {
+        return trace.getLastBranchOperands();
     }
 
     /*

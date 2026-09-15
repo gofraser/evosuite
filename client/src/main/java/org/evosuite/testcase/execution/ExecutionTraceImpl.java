@@ -305,6 +305,8 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
 
     private final Map<Integer, Double> trueDistancesSum = Collections.synchronizedMap(new HashMap<>());
 
+    private Map<Integer, BranchOperands> lastBranchOperands = Collections.synchronizedMap(new HashMap<>());
+
     private static Set<Integer> gradientBranches = Collections.synchronizedSet(new HashSet<>());
 
     private static Set<Integer> gradientBranchesCoveredTrue = Collections.synchronizedSet(new HashSet<>());
@@ -576,6 +578,14 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     }
 
     /**
+     * {@inheritDoc}
+     */
+    @Override
+    public void branchOperandsSeen(int branch, BranchOperands operands) {
+        lastBranchOperands.put(branch, operands);
+    }
+
+    /**
      * Track reach/coverage of branch based on it's underlying opcode during
      * execution.
      *
@@ -643,6 +653,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         knownCallerObjects = new HashMap<>();
         trueDistances = new HashMap<>();
         falseDistances = new HashMap<>();
+        lastBranchOperands = new HashMap<>();
         mutantDistances = new HashMap<>();
         touchedMutants = new HashSet<>();
         coveredMethods = new HashMap<>();
@@ -699,6 +710,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
          */
         copy.trueDistances.putAll(trueDistances);
         copy.falseDistances.putAll(falseDistances);
+        copy.lastBranchOperands.putAll(lastBranchOperands);
         copy.coveredMethods.putAll(coveredMethods);
         copy.coveredBranchlessMethods.putAll(coveredBranchlessMethods);
         copy.coveredPredicates.putAll(coveredPredicates);
@@ -1482,6 +1494,14 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     @Override
     public Map<Integer, Double> getTrueDistances() {
         return trueDistances;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public Map<Integer, BranchOperands> getLastBranchOperands() {
+        return Collections.unmodifiableMap(lastBranchOperands);
     }
 
     /*

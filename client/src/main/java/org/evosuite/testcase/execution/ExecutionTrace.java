@@ -46,6 +46,16 @@ public interface ExecutionTrace {
     void branchPassed(int branch, int bytecodeId, double trueDistance, double falseDistance);
 
     /**
+     * Records the operands of the evaluation of {@code branch} that just happened; a later
+     * evaluation replaces an earlier one. Only called when
+     * {@link org.evosuite.Properties#LLM_BRANCH_OPERAND_HINTS} is on.
+     *
+     * @param branch   a int.
+     * @param operands a {@link org.evosuite.testcase.execution.BranchOperands} object.
+     */
+    void branchOperandsSeen(int branch, BranchOperands operands);
+
+    /**
      * Retrieve minimum branch distance to false branch.
      *
      * @param branchId a int.
@@ -153,6 +163,14 @@ public interface ExecutionTrace {
      * @return a {@link java.util.Map} object.
      */
     Map<Integer, Map<CallContext, Double>> getFalseDistancesContext();
+
+    /**
+     * Branch id &rarr; operands of the last evaluation of that predicate in this execution;
+     * empty unless operand recording is on.
+     *
+     * @return a {@link java.util.Map} object.
+     */
+    Map<Integer, BranchOperands> getLastBranchOperands();
 
     /**
      * Retrieve map of all context method counts.

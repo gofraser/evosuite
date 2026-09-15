@@ -2758,6 +2758,12 @@ public class Properties {
                     + "alongside the semantic offspring's, then discard the twin")
     public static boolean LLM_OPERATOR_PAIRED_PROBE = false;
 
+    @Parameter(key = "llm_branch_operand_hints", group = "LLM",
+            description = "Record the operands of the last evaluation of every executed branch "
+                    + "predicate so LLM prompts can show what a near-miss test compared "
+                    + "(e.g. 50 vs 0 with IF_ICMPLE) and what the target branch needs")
+    public static boolean LLM_BRANCH_OPERAND_HINTS = false;
+
     @Parameter(key = "llm_mutation_probability", group = "LLM",
             description = "Probability of applying LLM semantic mutation instead of standard mutation (0.0-1.0)")
     @DoubleValue(min = 0.0, max = 1.0)
