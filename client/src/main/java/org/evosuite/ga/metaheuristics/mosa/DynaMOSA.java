@@ -53,6 +53,13 @@ public class DynaMOSA extends AbstractMOSA {
     protected MultiCriteriaManager goalsManager = null;
 
     /**
+     * Immutable copy of the goals manager's frontier, published by the search thread at the
+     * points where the frontier is stable (see {@link #publishCurrentGoals()}). LLM helpers read
+     * it from background threads, which must never touch the manager's live set.
+     */
+    private transient volatile Set<TestFitnessFunction> currentGoalsSnapshot = Collections.emptySet();
+
+    /**
      * Constructor based on the abstract class. {@link AbstractMOSA}.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
@@ -66,6 +73,7 @@ public class DynaMOSA extends AbstractMOSA {
      */
     @Override
     protected void evolve() {
+        publishCurrentGoals();
         // Generate offspring, compute their fitness, update the archive and coverage goals.
         List<TestChromosome> offspringPopulation = this.breedNextGeneration();
 
@@ -104,6 +112,8 @@ public class DynaMOSA extends AbstractMOSA {
         emitGenerationMetrics(goalsManager.getUncoveredGoals().size(),
                 goalsManager.getCoveredGoals().size());
 
+        publishCurrentGoals();
+
         this.currentIteration++;
         logger.debug("Covered goals = {}", goalsManager.getCoveredGoals().size());
         logger.debug("Current goals = {}", goalsManager.getCurrentGoals().size());
@@ -120,6 +130,7 @@ public class DynaMOSA extends AbstractMOSA {
         // Set up the targets to cover, which are initially free of any control dependencies.
         // We are trying to optimize for multiple targets at the same time.
         this.goalsManager = new MultiCriteriaManager(this.fitnessFunctions);
+        publishCurrentGoals();
         try {
             initializeLlmAssistance(this::getCurrentGoals, false);
             registerExternalCandidateSources(
@@ -135,6 +146,7 @@ public class DynaMOSA extends AbstractMOSA {
                 // Initialize the population by creating solutions at random.
                 this.initializePopulation();
             }
+            publishCurrentGoals();
 
             // Compute the fitness for each population member, update the coverage information and
             // the
@@ -215,17 +227,26 @@ public class DynaMOSA extends AbstractMOSA {
     }
 
     /**
+     * Copies the goals manager's frontier into {@link #currentGoalsSnapshot}. Call only from the
+     * search thread, and only when no fitness evaluation is rewriting the frontier: before and
+     * after each generation, and after the initial population has been evaluated.
+     */
+    protected void publishCurrentGoals() {
+        currentGoalsSnapshot = goalsManager == null
+                ? Collections.emptySet()
+                : Collections.unmodifiableSet(new LinkedHashSet<>(goalsManager.getCurrentGoals()));
+    }
+
+    /**
      * {@inheritDoc}
      *
-     * <p>DynaMOSA's frontier: uncovered goals whose control dependencies are already
-     * covered. Returned as a copy so no caller holds the goals manager's live set,
-     * which fitness evaluation rewrites every generation.
+     * <p>DynaMOSA's frontier: uncovered goals whose control dependencies are already covered,
+     * as last published by {@link #publishCurrentGoals()}. Immutable and safe to read from any
+     * thread; at most one generation behind the goals manager.
      */
     @Override
     protected Set<TestFitnessFunction> getCurrentGoals() {
-        if (goalsManager == null) {
-            return Collections.emptySet();
-        }
-        return new LinkedHashSet<>(goalsManager.getCurrentGoals());
+        Set<TestFitnessFunction> snapshot = currentGoalsSnapshot;
+        return snapshot == null ? Collections.emptySet() : snapshot;
     }
 }

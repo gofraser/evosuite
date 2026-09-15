@@ -48,8 +48,8 @@ public class LlmSemanticMutation {
 
     private final LlmService llmService;
 
-    /** Built lazily on first use; see {@link #repairLoop()}. */
-    private volatile TestRepairLoop cachedRepairLoop;
+    /** One loop per calling thread; see {@link #repairLoop()}. */
+    private final ThreadLocal<TestRepairLoop> repairLoops = ThreadLocal.withInitial(this::newRepairLoop);
 
     public LlmSemanticMutation() {
         this(LlmService.getInstance());
@@ -111,23 +111,22 @@ public class LlmSemanticMutation {
     }
 
     /**
-     * Lazily creates the repair loop once per operator instance: building it
+     * Returns this thread's repair loop, building it on first use: construction
      * summarises the test cluster, which is too expensive to repeat per
-     * application. A benign race may initialise it twice; both instances are
-     * equivalent and {@link TestRepairLoop#attemptParse} resets per-call state.
+     * application, while {@link TestRepairLoop#attemptParse} keeps per-call
+     * conversation state in the instance, so threads must not share one.
      *
      * <p>Package-private for tests.
      */
     TestRepairLoop repairLoop() {
-        TestRepairLoop loop = cachedRepairLoop;
-        if (loop == null) {
-            boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
-            loop = TestRepairLoop.createDefault(llmService,
-                    TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions),
-                    Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
-            cachedRepairLoop = loop;
-        }
-        return loop;
+        return repairLoops.get();
+    }
+
+    private TestRepairLoop newRepairLoop() {
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
+        return TestRepairLoop.createDefault(llmService,
+                TestRepairLoop.RepairOptions.forAssertionPolicy(keepAssertions),
+                Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
     }
 
 }

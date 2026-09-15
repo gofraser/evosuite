@@ -40,6 +40,11 @@ import static org.mockito.Mockito.mock;
  * Verifies {@code AbstractMOSA.getCurrentGoals()} / {@code DynaMOSA.getCurrentGoals()}:
  * the set of goals LLM prompts (operators, stagnation, async producer, seed factory)
  * should target.
+ *
+ * <p>DynaMOSA's frontier is published, not read live: changes to {@code
+ * goalsManager.getCurrentGoals()} become visible through {@code getCurrentGoals()} only
+ * after {@code publishCurrentGoals()} runs, and the returned snapshot is immutable and
+ * independent of whatever the manager does afterwards.
  */
 class CurrentGoalsSupplierTest extends MosaTestSupport {
 
@@ -63,6 +68,7 @@ class CurrentGoalsSupplierTest extends MosaTestSupport {
 
         TestFitnessFunction frontierGoal = simpleGoal("frontier");
         dynaMosa.goalsManager.getCurrentGoals().add(frontierGoal);
+        dynaMosa.publishCurrentGoals();
 
         TestFitnessFunction archiveOnlyGoal = mock(MethodCoverageTestFitness.class);
         Archive.getArchiveInstance().addTarget(archiveOnlyGoal);
@@ -78,15 +84,63 @@ class CurrentGoalsSupplierTest extends MosaTestSupport {
     }
 
     @Test
-    void dynaMosaCurrentGoalsReturnsACopy() {
+    void dynaMosaCurrentGoalsIsEmptyBeforeThePublishThatWouldIncludeIt() {
         DynaMOSA dynaMosa = new DynaMOSA(TestChromosome::new);
         dynaMosa.goalsManager = new MultiCriteriaManager(Collections.emptyList());
 
-        Set<TestFitnessFunction> current = dynaMosa.getCurrentGoals();
-        current.add(simpleGoal("added-after-the-fact"));
+        dynaMosa.goalsManager.getCurrentGoals().add(simpleGoal("not-yet-published"));
 
-        assertTrue(dynaMosa.goalsManager.getCurrentGoals().isEmpty(),
-                "mutating the returned set must not affect the goals manager's live set");
+        assertTrue(dynaMosa.getCurrentGoals().isEmpty(),
+                "a goal added to the manager's live set must not be visible until "
+                        + "publishCurrentGoals() runs");
+    }
+
+    @Test
+    void dynaMosaCurrentGoalsIsUnmodifiable() {
+        DynaMOSA dynaMosa = new DynaMOSA(TestChromosome::new);
+        dynaMosa.goalsManager = new MultiCriteriaManager(Collections.emptyList());
+        dynaMosa.goalsManager.getCurrentGoals().add(simpleGoal("g"));
+        dynaMosa.publishCurrentGoals();
+
+        Set<TestFitnessFunction> current = dynaMosa.getCurrentGoals();
+        assertThrows(UnsupportedOperationException.class,
+                () -> current.add(simpleGoal("added-after-the-fact")),
+                "the published snapshot must be unmodifiable");
+    }
+
+    @Test
+    void dynaMosaCurrentGoalsIsNotTheManagersLiveSet() {
+        DynaMOSA dynaMosa = new DynaMOSA(TestChromosome::new);
+        dynaMosa.goalsManager = new MultiCriteriaManager(Collections.emptyList());
+        dynaMosa.goalsManager.getCurrentGoals().add(simpleGoal("g"));
+        dynaMosa.publishCurrentGoals();
+
+        Set<TestFitnessFunction> snapshot = dynaMosa.getCurrentGoals();
+
+        // Mutating the manager's live set after the snapshot was taken must not be
+        // observable through the already-published snapshot.
+        dynaMosa.goalsManager.getCurrentGoals().add(simpleGoal("added-after-the-fact"));
+
+        assertEquals(1, snapshot.size(),
+                "the snapshot must be independent of the manager's live set");
+        assertNotSame(dynaMosa.goalsManager.getCurrentGoals(), snapshot,
+                "getCurrentGoals() must never return the manager's live set");
+    }
+
+    @Test
+    void aLaterPublishReflectsManagerChanges() {
+        DynaMOSA dynaMosa = new DynaMOSA(TestChromosome::new);
+        dynaMosa.goalsManager = new MultiCriteriaManager(Collections.emptyList());
+
+        dynaMosa.publishCurrentGoals();
+        assertTrue(dynaMosa.getCurrentGoals().isEmpty());
+
+        TestFitnessFunction goal = simpleGoal("later");
+        dynaMosa.goalsManager.getCurrentGoals().add(goal);
+        dynaMosa.publishCurrentGoals();
+
+        assertEquals(Collections.singleton(goal), dynaMosa.getCurrentGoals(),
+                "a fresh publish must reflect goals added to the manager since the last one");
     }
 
     @Test
@@ -110,7 +164,7 @@ class CurrentGoalsSupplierTest extends MosaTestSupport {
                 "MOSA does not narrow the frontier: current goals are all uncovered goals");
     }
 
-    private static TestFitnessFunction simpleGoal(String name) {
+    static TestFitnessFunction simpleGoal(String name) {
         return new TestFitnessFunction() {
             @Override
             public double getFitness(TestChromosome individual, ExecutionResult result) {

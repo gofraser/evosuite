@@ -423,7 +423,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         this.llmInjectionAdapter = injectionAdapter;
         initializeAsyncProducer(currentGoalsSupplier);
         initializeStagnationDetector(maximizationObjective);
-        wireUncoveredGoalsIntoLlmTestFactory(currentGoalsSupplier);
+        wireCurrentGoalsIntoLlmTestFactory(currentGoalsSupplier);
     }
 
     /**
@@ -433,14 +433,14 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
      * wrappers before the GA exists, so this is the earliest moment we can
      * bind real goal feedback into per-individual LLM prompts.
      */
-    private void wireUncoveredGoalsIntoLlmTestFactory(
-            Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
-        if (uncoveredGoalsSupplier == null) {
+    private void wireCurrentGoalsIntoLlmTestFactory(
+            Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier) {
+        if (currentGoalsSupplier == null) {
             return;
         }
         LlmTestChromosomeFactory factory = findLlmTestChromosomeFactory(chromosomeFactory);
         if (factory != null) {
-            factory.setUncoveredGoalsSupplier(uncoveredGoalsSupplier);
+            factory.setUncoveredGoalsSupplier(currentGoalsSupplier);
         }
     }
 
@@ -473,8 +473,8 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         return llmInjectionAdapter;
     }
 
-    protected void initializeAsyncProducer(Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
-        if (!Properties.LLM_ASYNC_PRODUCER || uncoveredGoalsSupplier == null) {
+    protected void initializeAsyncProducer(Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier) {
+        if (!Properties.LLM_ASYNC_PRODUCER || currentGoalsSupplier == null) {
             return;
         }
         if (repeatedInjectionMemory == null) {
@@ -482,7 +482,7 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         }
         Supplier<List<TestChromosome>> popSupplier = Properties.LLM_ASYNC_PRODUCER_INCLUDE_TESTS
                 ? this::getPopulationAsTestChromosomes : null;
-        asyncProducer = new AsyncLlmTestProducer(uncoveredGoalsSupplier, popSupplier,
+        asyncProducer = new AsyncLlmTestProducer(currentGoalsSupplier, popSupplier,
                 org.evosuite.llm.LlmService.getInstance(),
                 Properties.LLM_ASYNC_PRODUCER_QUEUE_SIZE,
                 Properties.LLM_ASYNC_PRODUCER_REFRESH_INTERVAL,

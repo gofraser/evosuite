@@ -31,8 +31,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
@@ -50,6 +52,11 @@ import static org.mockito.Mockito.when;
  * single LLM call per application and delegate repair of a malformed response to a
  * {@link TestRepairLoop} capped by {@link Properties#LLM_OPERATOR_REPAIR_ATTEMPTS}
  * rather than {@link Properties#LLM_REPAIR_ATTEMPTS}.
+ *
+ * <p>Also verifies the memoisation of {@code repairLoop()}: each operator instance keeps
+ * one {@link TestRepairLoop} per calling thread (a {@code ThreadLocal}), since {@link
+ * TestRepairLoop#attemptParse} keeps per-call conversation state in the instance and
+ * threads must not share one.
  */
 class LlmSemanticOperatorRepairTest {
 
@@ -156,7 +163,7 @@ class LlmSemanticOperatorRepairTest {
     }
 
     @Test
-    void mutationRepairLoopIsCachedPerOperatorInstance() {
+    void mutationRepairLoopIsReusedOnTheSameThread() {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
         LlmSemanticMutation mutation = new LlmSemanticMutation(mock(LlmService.class));
 
@@ -164,11 +171,11 @@ class LlmSemanticOperatorRepairTest {
         TestRepairLoop second = mutation.repairLoop();
 
         assertNotNull(first);
-        assertSame(first, second, "the repair loop must be built once and reused");
+        assertSame(first, second, "the calling thread must get the same repair loop back");
     }
 
     @Test
-    void crossoverRepairLoopIsCachedPerOperatorInstance() {
+    void crossoverRepairLoopIsReusedOnTheSameThread() {
         Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
         LlmSemanticCrossover crossover = new LlmSemanticCrossover(mock(LlmService.class));
 
@@ -176,6 +183,40 @@ class LlmSemanticOperatorRepairTest {
         TestRepairLoop second = crossover.repairLoop();
 
         assertNotNull(first);
-        assertSame(first, second, "the repair loop must be built once and reused");
+        assertSame(first, second, "the calling thread must get the same repair loop back");
+    }
+
+    @Test
+    void mutationRepairLoopDiffersAcrossThreads() throws InterruptedException {
+        Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
+        LlmSemanticMutation mutation = new LlmSemanticMutation(mock(LlmService.class));
+
+        TestRepairLoop onThisThread = mutation.repairLoop();
+
+        AtomicReference<TestRepairLoop> onOtherThread = new AtomicReference<>();
+        Thread other = new Thread(() -> onOtherThread.set(mutation.repairLoop()));
+        other.start();
+        other.join();
+
+        assertNotNull(onOtherThread.get());
+        assertNotSame(onThisThread, onOtherThread.get(),
+                "each thread must build and keep its own repair loop");
+    }
+
+    @Test
+    void crossoverRepairLoopDiffersAcrossThreads() throws InterruptedException {
+        Properties.LLM_OPERATOR_REPAIR_ATTEMPTS = 0;
+        LlmSemanticCrossover crossover = new LlmSemanticCrossover(mock(LlmService.class));
+
+        TestRepairLoop onThisThread = crossover.repairLoop();
+
+        AtomicReference<TestRepairLoop> onOtherThread = new AtomicReference<>();
+        Thread other = new Thread(() -> onOtherThread.set(crossover.repairLoop()));
+        other.start();
+        other.join();
+
+        assertNotNull(onOtherThread.get());
+        assertNotSame(onThisThread, onOtherThread.get(),
+                "each thread must build and keep its own repair loop");
     }
 }
