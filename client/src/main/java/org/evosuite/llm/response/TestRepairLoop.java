@@ -36,6 +36,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.ClusterGrowthDelta;
 import org.evosuite.llm.prompt.StaticPromptContext;
 import org.evosuite.llm.prompt.SystemPromptProvider;
 import org.evosuite.llm.prompt.TestClusterSummarizer;
@@ -75,6 +76,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -237,6 +239,20 @@ public class TestRepairLoop {
     private final DependencyCodeContextResolver dependencyCodeResolver = new DependencyCodeContextResolver();
     private final RepairHintResolver repairHintResolver = new RepairHintResolver();
     private boolean expansionAttempted;
+    /** Signature summarizer for {@link #describedDependencyClasses}'s cluster-growth delta. */
+    private final TestClusterSummarizer dependencyGrowthSummarizer = new TestClusterSummarizer();
+    /**
+     * Test-only seam: overrides the {@code TestCluster.getInstance()} used to render
+     * the cluster-growth signature delta, since the real test cluster is a global
+     * singleton that is awkward to control from a unit test.
+     */
+    private Supplier<TestCluster> testClusterSupplier = TestCluster::getInstance;
+    /**
+     * Classes whose dependency signatures have already been sent to the model this
+     * repair conversation (cluster-growth delta). Conversation-scoped like
+     * {@link #expansionAttempted}: reset per {@link #attemptParse} call, never static.
+     */
+    private final Set<String> describedDependencyClasses = new LinkedHashSet<>();
     /** FQCNs whose static initializer has failed during this repair conversation. */
     private final Set<String> poisonedClasses = new LinkedHashSet<>();
     /** Hint-id -> last repair attempt where it was emitted, for cooldown/dedup. */
@@ -489,6 +505,7 @@ public class TestRepairLoop {
         identicalErrorEscalated = false;
         pendingTopOfMessageEscalationHint = null;
         expansionAttempted = false;
+        describedDependencyClasses.clear();
         boolean observedExecutionDrop = false;
         boolean strictContractReaskUsed = false;
         String previousError = null;
@@ -1694,6 +1711,22 @@ public class TestRepairLoop {
         if (!expandedClasses.isEmpty()) {
             repairMessage.append("Note: The test cluster has been expanded with newly resolved classes: ")
                          .append(expandedClasses).append("\n\n");
+            // The names above are not enough for the model to actually use the
+            // new classes (no constructors/methods). When the dependency
+            // catalogue lives in the cached system message, render a bounded
+            // signature delta here instead — once per class per conversation.
+            if (Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT) {
+                Set<String> newlyDescribed = new LinkedHashSet<>(expandedClasses);
+                newlyDescribed.removeAll(describedDependencyClasses);
+                if (!newlyDescribed.isEmpty()) {
+                    String growthDelta = ClusterGrowthDelta.render(dependencyGrowthSummarizer,
+                            testClusterSupplier.get(), Properties.TARGET_CLASS, newlyDescribed);
+                    if (growthDelta != null) {
+                        repairMessage.append(growthDelta).append("\n\n");
+                    }
+                    describedDependencyClasses.addAll(newlyDescribed);
+                }
+            }
         }
         repairMessage.append("The following issue was found in the generated tests:\n")
                      .append(error);
@@ -4730,6 +4763,11 @@ public class TestRepairLoop {
             parseCompileExecutor = executor;
             previous.shutdownNow();
         }
+    }
+
+    /** Test-only seam: see {@link #testClusterSupplier}. */
+    void setTestClusterSupplierForTesting(Supplier<TestCluster> supplier) {
+        this.testClusterSupplier = supplier == null ? TestCluster::getInstance : supplier;
     }
 
     private String runRenderedCompilationCheck(String methodName, String source) throws Exception {

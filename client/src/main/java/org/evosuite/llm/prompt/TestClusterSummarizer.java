@@ -315,6 +315,21 @@ public class TestClusterSummarizer {
      * @return result containing the formatted summary and truncation metadata
      */
     public DependencySummaryResult summarizeDependencies(TestCluster cluster, String targetClassName, int maxChars) {
+        return summarizeDependencies(cluster, targetClassName, maxChars, null);
+    }
+
+    /**
+     * Variant of {@link #summarizeDependencies(TestCluster, String, int)} restricted to a
+     * specific subset of dependency types. Used to render a bounded signature delta for
+     * classes added to the test cluster after the full summary was already rendered
+     * (e.g. on-demand cluster expansion during LLM test repair).
+     *
+     * @param onlyClassNames when non-null, only generator types whose raw class name is in
+     *                       this set are considered; when null, every eligible type is (same
+     *                       as {@link #summarizeDependencies(TestCluster, String, int)})
+     */
+    public DependencySummaryResult summarizeDependencies(TestCluster cluster, String targetClassName, int maxChars,
+                                                         Set<String> onlyClassNames) {
         if (cluster == null) {
             return new DependencySummaryResult.Builder()
                     .text("")
@@ -365,6 +380,9 @@ public class TestClusterSummarizer {
                 continue;
             }
             if (!isSourceAccessibleFromTargetPackage(rawClass, targetPackageName)) {
+                continue;
+            }
+            if (onlyClassNames != null && !onlyClassNames.contains(className)) {
                 continue;
             }
 

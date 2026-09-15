@@ -247,7 +247,28 @@ public class PromptBuilder {
         this.clusterSummaryChars = entry.getTotalCharsBeforeTruncation();
         this.clusterSummaryBudgetMode = entry.getBudgetMode();
         this.dependencySummaryMetadata = entry.getMetadata();
+
+        // The dependency entry may have been served from an earlier prompt's
+        // render; if cluster expansion has since added classes the cached
+        // summary never saw, render their signatures dynamically so the
+        // system-message prefix itself never changes. Computed before the
+        // sectionText==null check below so the delta still surfaces even when
+        // the cluster had nothing to summarize at render time. Only meaningful
+        // on the cached path — the uncached path re-renders the full summary
+        // (including any newly added classes) on every call.
+        String growthDelta = null;
+        if (cached) {
+            Set<String> addedClassNames = new TreeSet<>(StaticPromptContext.clusterClassNames(cluster));
+            addedClassNames.removeAll(entry.getClusterClassNamesAtRender());
+            growthDelta = ClusterGrowthDelta.render(testClusterSummarizer, cluster, targetClassName, addedClassNames);
+        }
+
         if (entry.getSectionText() == null) {
+            if (growthDelta == null) {
+                return;
+            }
+            dependencyContextAdded = true;
+            userSections.add(growthDelta);
             return;
         }
         dependencyContextAdded = true;
@@ -257,17 +278,8 @@ public class PromptBuilder {
             return;
         }
         this.staticDependencySectionText = entry.getSectionText() + "\n\n" + REMINDER_CONCRETE_TYPES;
-
-        // The dependency entry may have been served from an earlier prompt's
-        // render; if cluster expansion has since added classes the cached
-        // summary never saw, surface them dynamically so the system-message
-        // prefix itself never changes.
-        Set<String> addedClassNames = new TreeSet<>(StaticPromptContext.clusterClassNames(cluster));
-        addedClassNames.removeAll(entry.getClusterClassNamesAtRender());
-        if (!addedClassNames.isEmpty()) {
-            userSections.add("Dependency types added to the test cluster after the summary "
-                    + "in the system message (usable like the ones listed there):\n"
-                    + String.join(", ", addedClassNames));
+        if (growthDelta != null) {
+            userSections.add(growthDelta);
         }
     }
 
@@ -304,7 +316,8 @@ public class PromptBuilder {
                 StaticPromptContext.clusterClassNames(cluster));
     }
 
-    private BudgetDecision resolveDependencySummaryBudget() {
+    /** Package-private (not private) so {@link ClusterGrowthDelta} can size its own budget off the same logic. */
+    static BudgetDecision resolveDependencySummaryBudget() {
         int absoluteOverride = Properties.LLM_CLUSTER_SUMMARY_ABSOLUTE_OVERRIDE_CHARS;
         if (absoluteOverride > 0) {
             return new BudgetDecision(absoluteOverride, "absolute_override");
@@ -332,7 +345,7 @@ public class PromptBuilder {
         return new BudgetDecision(bounded, "dynamic_scaled");
     }
 
-    private static class BudgetDecision {
+    static class BudgetDecision {
         final int budgetChars;
         final String mode;
 

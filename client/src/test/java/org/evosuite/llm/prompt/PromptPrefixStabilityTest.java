@@ -234,10 +234,57 @@ class PromptPrefixStabilityTest {
                 "Memoised system message must not change when the cluster grows");
         assertEquals(prefixHash1, result2.getPrefixHash(),
                 "Prefix hash must not change when the cluster grows");
-        assertTrue(userMessage2.contains(newType.getClassName()),
-                "Newly added dependency class should be named in the user message");
+        assertTrue(userMessage2.contains(ClusterGrowthDelta.HEADER),
+                "Growth-delta header should introduce the newly added dependency class");
+        assertTrue(userMessage2.contains(newType.getClassName())
+                        || userMessage2.contains(newType.getRawClass().getSimpleName() + "("),
+                "Newly added dependency class should be named or signatured in the user message");
+        assertTrue(userMessage2.contains("TestCaseFormatter()"),
+                "Growth delta should include the added class' constructor signature: " + userMessage2);
         assertFalse(systemMessage2.contains(newType.getClassName()),
                 "Newly added dependency class must not leak into the cached system message");
+    }
+
+    @Test
+    void clusterGrowthSurfacesEvenWhenInitialDependencySummaryWasEmpty() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        SutContextProviderFactory factory = stubFactory("public class Foo {}");
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType())
+                .thenReturn(Collections.<GenericClass<?>, Set<GenericAccessibleObject<?>>>emptyMap());
+
+        PromptResult result1 = newBuilder(factory)
+                .withSystemPrompt()
+                .withSutContext("com.example.Foo", cluster)
+                .buildWithMetadata();
+        String systemMessage1 = result1.getMessages().get(0).getContent();
+        String prefixHash1 = result1.getPrefixHash();
+        assertFalse(systemMessage1.contains(StaticPromptContext.DEPENDENCY_SECTION_HEADER),
+                "No dependency section should be cached when the cluster starts with nothing to summarize");
+
+        // Simulate cluster expansion adding a class, even though the memoised
+        // (empty) summary never produced a dependency section at all.
+        GenericClass<?> newType = GenericClassFactory.get(TestCaseFormatter.class);
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> grown = new LinkedHashMap<>();
+        grown.put(newType, Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(grown);
+
+        PromptResult result2 = newBuilder(factory)
+                .withSystemPrompt()
+                .withSutContext("com.example.Foo", cluster)
+                .buildWithMetadata();
+        String systemMessage2 = result2.getMessages().get(0).getContent();
+        String userMessage2 = result2.getMessages().get(1).getContent();
+
+        assertEquals(systemMessage1, systemMessage2,
+                "Memoised (empty) system message must stay empty of dependency context");
+        assertEquals(prefixHash1, result2.getPrefixHash(),
+                "Prefix hash must not change when the cluster grows");
+        assertTrue(userMessage2.contains(ClusterGrowthDelta.HEADER),
+                "Growth delta must appear even though the initial summary was empty: " + userMessage2);
+        assertTrue(userMessage2.contains("TestCaseFormatter()"),
+                "Growth delta should include the added class' constructor signature: " + userMessage2);
     }
 
     private static final class CountingSummarizer extends TestClusterSummarizer {

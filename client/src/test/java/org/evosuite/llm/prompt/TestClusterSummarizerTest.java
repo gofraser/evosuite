@@ -335,6 +335,43 @@ class TestClusterSummarizerTest {
     }
 
     @Test
+    void summarizeDependenciesWithOnlyClassNamesEmitsOnlyThoseTypes() {
+        TestCluster cluster = mock(TestCluster.class);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(GenericClassFactory.get(BreadthDepA.class), Collections.<GenericAccessibleObject<?>>emptySet());
+        generators.put(GenericClassFactory.get(BreadthDepB.class), Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.<GenericAccessibleObject<?>>emptySet());
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        TestClusterSummarizer.DependencySummaryResult result = summarizer.summarizeDependencies(
+                cluster, BreadthCut.class.getName(), 10_000,
+                Collections.singleton(BreadthDepA.class.getName()));
+
+        String text = result.getText();
+        assertTrue(text.contains("BreadthDepA("), "Requested type should be summarized: " + text);
+        assertFalse(text.contains("BreadthDepB"), "Non-requested type must be omitted: " + text);
+    }
+
+    @Test
+    void summarizeDependenciesThreeArgOverloadDelegatesWithNoFilter() {
+        TestCluster cluster = mock(TestCluster.class);
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(GenericClassFactory.get(BreadthDepA.class), Collections.<GenericAccessibleObject<?>>emptySet());
+        generators.put(GenericClassFactory.get(BreadthDepB.class), Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.<GenericAccessibleObject<?>>emptySet());
+
+        TestClusterSummarizer summarizer = new TestClusterSummarizer();
+        String text = summarizer.summarizeDependencies(cluster, BreadthCut.class.getName(), 10_000).getText();
+
+        assertTrue(text.contains("BreadthDepA("), text);
+        assertTrue(text.contains("BreadthDepB("), text);
+    }
+
+    @Test
     void summarizeDependenciesSortsSutBeforeThirdParty() {
         TestCluster cluster = mock(TestCluster.class);
 

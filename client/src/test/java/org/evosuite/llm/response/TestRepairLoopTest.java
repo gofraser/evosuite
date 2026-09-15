@@ -27,6 +27,11 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.DecompiledContextProvider;
+import org.evosuite.llm.prompt.StaticPromptContext;
+import org.evosuite.setup.TestCluster;
+import org.evosuite.utils.generic.GenericAccessibleObject;
+import org.evosuite.utils.generic.GenericClass;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestCodeVisitor;
@@ -60,6 +65,7 @@ import org.slf4j.LoggerFactory;
 
 import java.awt.AWTError;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -4752,6 +4758,160 @@ class TestRepairLoopTest {
 
         assertTrue(repairMessage.contains("CATALOG-TEXT-MARKER-of-constructors-and-methods"),
                 "Without a cached dependency section, the catalogue must still be re-appended as before");
+    }
+
+    @Test
+    void repairMessageIncludesGrowthDeltaForExpandedClassOnceWhenCacheEnabled() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        // Same package as GrowthDep's (package-private) enclosing test class, so
+        // TestClusterSummarizer's source-accessibility check does not filter it out.
+        Properties.TARGET_CLASS = "org.evosuite.llm.response.SomeCut";
+
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("response-A", "response-B");
+
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        when(expansionManager.tryExpandFrom(anyList())).thenReturn(true);
+        when(expansionManager.getLastExpandedClasses())
+                .thenReturn(Collections.singletonList(GrowthDep.class.getName()));
+
+        AtomicInteger calls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                int n = calls.getAndIncrement();
+                if (n == 0) {
+                    ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                    error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                            "cannot find symbol " + GrowthDep.class.getSimpleName(), 1,
+                            "GrowthDep dep = new GrowthDep();"));
+                    return Collections.singletonList(error);
+                }
+                if (n == 1) {
+                    throw new RuntimeException("first unrelated parser failure");
+                }
+                if (n == 2) {
+                    throw new RuntimeException("second unrelated parser failure");
+                }
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                5);
+        loop.setTestClusterSupplierForTesting(() -> clusterWithDependency(GrowthDep.class));
+
+        String systemMessageWithDependencyContext = "You are a test generator.\n\n"
+                + StaticPromptContext.DEPENDENCY_SECTION_HEADER + "\nsome cached catalogue";
+
+        RepairResult result = loop.attemptParse("initial",
+                Arrays.asList(LlmMessage.system(systemMessageWithDependencyContext), LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(2)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> finalConversation = conversationCaptor.getValue();
+        List<String> userMessages = new ArrayList<>();
+        for (LlmMessage message : finalConversation) {
+            if (message.getRole() == LlmMessage.Role.USER) {
+                userMessages.add(message.getContent());
+            }
+        }
+        assertEquals(3, userMessages.size(), "seed + two repair turns: " + userMessages);
+        String firstRepairMessage = userMessages.get(1);
+        String secondRepairMessage = userMessages.get(2);
+
+        assertTrue(firstRepairMessage.contains("Additional dependency types now available in the test cluster:"),
+                firstRepairMessage);
+        assertTrue(firstRepairMessage.contains("GrowthDep("), firstRepairMessage);
+        assertFalse(secondRepairMessage.contains("Additional dependency types now available in the test cluster:"),
+                "Growth delta for an already-described class must not repeat: " + secondRepairMessage);
+    }
+
+    @Test
+    void repairMessageOmitsGrowthDeltaWhenPromptCacheDisabled() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = false;
+        // Same package as GrowthDep's (package-private) enclosing test class, so
+        // TestClusterSummarizer's source-accessibility check does not filter it out.
+        Properties.TARGET_CLASS = "org.evosuite.llm.response.SomeCut";
+
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))
+                .thenReturn("response-A");
+
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        when(expansionManager.tryExpandFrom(anyList())).thenReturn(true);
+        when(expansionManager.getLastExpandedClasses())
+                .thenReturn(Collections.singletonList(GrowthDep.class.getName()));
+
+        AtomicInteger calls = new AtomicInteger();
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                int n = calls.getAndIncrement();
+                if (n == 0) {
+                    ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                    error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                            "cannot find symbol " + GrowthDep.class.getSimpleName(), 1,
+                            "GrowthDep dep = new GrowthDep();"));
+                    return Collections.singletonList(error);
+                }
+                if (n == 1) {
+                    throw new RuntimeException("unrelated parser failure");
+                }
+                return Collections.singletonList(new ParseResult(new DefaultTestCase(), "test"));
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                5);
+        loop.setTestClusterSupplierForTesting(() -> clusterWithDependency(GrowthDep.class));
+
+        RepairResult result = loop.attemptParse("initial",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertTrue(result.isSuccess());
+        ArgumentCaptor<List> conversationCaptor = ArgumentCaptor.forClass(List.class);
+        verify(llmService, times(1)).query(conversationCaptor.capture(), eq(LlmFeature.TEST_REPAIR),
+                anyInt(), anyBoolean(), anyList());
+
+        @SuppressWarnings("unchecked")
+        List<LlmMessage> sentConversation = conversationCaptor.getValue();
+        String repairMessage = sentConversation.get(sentConversation.size() - 1).getContent();
+
+        assertTrue(repairMessage.contains("Note: The test cluster has been expanded"), repairMessage);
+        assertFalse(repairMessage.contains("Additional dependency types now available in the test cluster:"),
+                "Growth delta must not be rendered when static-context caching is disabled: " + repairMessage);
+    }
+
+    private static TestCluster clusterWithDependency(Class<?> dependencyClass) {
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getModifiers()).thenReturn(Collections.<GenericAccessibleObject<?>>emptySet());
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generatorsByType = new LinkedHashMap<>();
+        generatorsByType.put(GenericClassFactory.get(dependencyClass), Collections.<GenericAccessibleObject<?>>emptySet());
+        when(cluster.getGeneratorsByType()).thenReturn(generatorsByType);
+        return cluster;
+    }
+
+    public static class GrowthDep {
+        public GrowthDep() {
+        }
     }
 
     private static void assertLogMessage(ListAppender<ILoggingEvent> appender, String message) {
