@@ -82,7 +82,7 @@ class LlmOperatorExecutorTest {
     private static LlmService availableService() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
-        when(llmService.hasBudget()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         return llmService;
     }
 
@@ -208,7 +208,7 @@ class LlmOperatorExecutorTest {
     void unavailableServiceDropsUnderBudgetCounter() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
-        when(llmService.hasBudget()).thenReturn(false);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(false);
         RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
 

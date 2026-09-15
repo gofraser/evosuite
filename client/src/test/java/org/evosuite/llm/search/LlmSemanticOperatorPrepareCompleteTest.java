@@ -64,7 +64,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
     void applyMappedIsEmptyForNullOrEmptyTargetsWithoutCallingTheService() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
-        when(llmService.hasBudget()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
 
         assertTrue(mutation.applyMapped(null).isEmpty());
@@ -87,7 +87,7 @@ class LlmSemanticOperatorPrepareCompleteTest {
     void applyMappedMatchesCompleteOfPrepareOnceGatesAreClear() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.isAvailable()).thenReturn(true);
-        when(llmService.hasBudget()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
         when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(
                 "```java\n"
                         + "import org.junit.Test;\n"

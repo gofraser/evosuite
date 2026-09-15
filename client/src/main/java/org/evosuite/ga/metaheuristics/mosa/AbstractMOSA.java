@@ -3029,7 +3029,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * future drain.
      *
      * <p>The selector sees {@code this.population} as it stands right now, i.e. the parent
-     * population: offspring have not been bred yet this generation. The GA evaluates the
+     * population: this generation's offspring are already bred but still only in the union
+     * being assembled by the caller. The GA evaluates the
      * candidates returned here immediately afterwards, in {@link #collectExternalCandidates}, which
      * then reports each one's coverage gain back to {@code executor} via {@link
      * ExternalCandidateSource#reportAttemptOutcomes}.
