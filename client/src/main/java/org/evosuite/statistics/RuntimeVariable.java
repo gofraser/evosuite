@@ -1180,6 +1180,120 @@ public enum RuntimeVariable {
     LLM_Async_Candidates_StaleTarget,
 
     /**
+     * Operator targets actually prompted (an attempt was registered for them).
+     */
+    LLM_Operator_Targets_Selected,
+
+    /**
+     * Operator targets actually prompted for a mutation call.
+     */
+    LLM_Operator_Targets_Mutation,
+
+    /**
+     * Operator targets actually prompted for a crossover call.
+     */
+    LLM_Operator_Targets_Crossover,
+
+    /**
+     * LLM calls made by the semantic mutation and crossover operators combined
+     * (retries included), counted the same way as {@link #LLM_Calls}.
+     */
+    LLM_Operator_Calls,
+
+    /**
+     * Operator calls the asynchronous executor dropped because the operator's
+     * budget was exhausted. Always 0 in synchronous mode.
+     */
+    LLM_Operator_Calls_Dropped_Budget,
+
+    /**
+     * Operator calls the asynchronous executor dropped because the in-flight
+     * call cap was reached. Always 0 in synchronous mode.
+     */
+    LLM_Operator_Calls_Dropped_InFlight,
+
+    /**
+     * Operator calls the asynchronous executor dropped because too little
+     * search time remained. Always 0 in synchronous mode.
+     */
+    LLM_Operator_Calls_Dropped_Time,
+
+    /**
+     * Operator calls that failed in the asynchronous executor. Always 0 in
+     * synchronous mode.
+     */
+    LLM_Operator_Calls_Failed,
+
+    /**
+     * Operator targets whose response was successfully parsed into an offspring.
+     */
+    LLM_Operator_Offspring_Parsed,
+
+    /**
+     * Operator-produced offspring admitted into the union/offspring set of
+     * their generation.
+     */
+    LLM_Operator_Offspring_Admitted,
+
+    /**
+     * Admitted operator offspring still present (by identity) five generations
+     * after admission.
+     */
+    LLM_Operator_Offspring_Survived,
+
+    /**
+     * Operator targets whose targeted goal was covered after evaluation.
+     */
+    LLM_Operator_Target_Hits,
+
+    /**
+     * Operator targets whose distance to the targeted goal improved after
+     * evaluation.
+     */
+    LLM_Operator_Target_Improved,
+
+    /**
+     * Generations during which the asynchronous operator executor had at
+     * least one call in flight. Always 0 in synchronous mode.
+     */
+    LLM_Operator_InFlight_Generations,
+
+    /**
+     * Asynchronous operator candidates whose targeted goal was already covered
+     * on arrival. Always 0 in synchronous mode.
+     */
+    LLM_Operator_Candidates_StaleTarget,
+
+    /**
+     * Input tokens spent by the semantic mutation and crossover operators
+     * combined.
+     */
+    LLM_Operator_Input_Tokens,
+
+    /**
+     * Portion of {@link #LLM_Operator_Input_Tokens} served from a provider-side
+     * prompt cache.
+     */
+    LLM_Operator_Cached_Input_Tokens,
+
+    /**
+     * Output tokens produced by the semantic mutation and crossover operators
+     * combined.
+     */
+    LLM_Operator_Output_Tokens,
+
+    /**
+     * Wall-clock time spent in semantic mutation and crossover operator calls
+     * combined.
+     */
+    LLM_Operator_Latency_Millis,
+
+    /**
+     * Path of the operator-attempt sidecar CSV, or empty when it was not written.
+     */
+    LLM_Operator_Sidecar_Path,
+
+    /**
      * Total number of diagnostic problem cards extracted before prompt selection.
      */
     LLM_Diagnostic_Cards_Extracted,
