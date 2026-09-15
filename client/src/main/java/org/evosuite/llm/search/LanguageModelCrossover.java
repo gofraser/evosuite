@@ -67,6 +67,11 @@ public class LanguageModelCrossover extends SyncOperatorHook {
     }
 
     @Override
+    protected boolean canCall() {
+        return semanticCrossover.canCall();
+    }
+
+    @Override
     protected OperatorTarget take(SyncTargetPlan plan, TestChromosome parent) {
         return plan.takeCrossover(parent);
     }

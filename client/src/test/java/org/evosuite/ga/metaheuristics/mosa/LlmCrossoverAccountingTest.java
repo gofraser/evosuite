@@ -54,7 +54,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 /**
@@ -166,7 +166,9 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         Archive.getArchiveInstance().addTarget(archiveOnlyGoal);
 
         LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+        when(mockSemanticCrossover.canCall()).thenReturn(true);
         LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+        when(mockSemanticMutation.canCall()).thenReturn(true);
         harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
         harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
 
@@ -222,7 +224,9 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         harness.publishCurrentGoals();
 
         LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
+        when(mockSemanticCrossover.canCall()).thenReturn(true);
         LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);
+        when(mockSemanticMutation.canCall()).thenReturn(true);
         harness.llmCrossover = new LanguageModelCrossover(mockSemanticCrossover);
         harness.llmMutation = new LanguageModelMutation(mockSemanticMutation);
 
@@ -239,8 +243,8 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
                     "standard crossover recombines both parents, so both offspring must "
                             + "carry both lineages: " + child.effectiveLineages());
         }
-        verifyNoInteractions(mockSemanticCrossover);
-        verifyNoInteractions(mockSemanticMutation);
+        verify(mockSemanticCrossover, never()).crossover(any());
+        verify(mockSemanticMutation, never()).mutate(any());
     }
 
     private static TestChromosome lineageParent(long lineageId) throws Exception {

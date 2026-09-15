@@ -53,6 +53,9 @@ abstract class SyncOperatorHook {
     /** The probability gate this hook applies once it has passed the mode check. */
     protected abstract double probability();
 
+    /** Whether the underlying operator could place a call right now (service up, budget left). */
+    protected abstract boolean canCall();
+
     /** Takes this hook's kind of target for {@code parent} from {@code plan}, or null. */
     protected abstract OperatorTarget take(SyncTargetPlan plan, TestChromosome parent);
 
@@ -69,6 +72,11 @@ abstract class SyncOperatorHook {
                                                 SyncTargetPlan plan) {
         if (Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.SYNC) {
             return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.DISABLED);
+        }
+        if (!canCall()) {
+            // Once the budget is spent every attempt would fall back; skipping here keeps the
+            // remaining generations out of the semantic-attempt statistics and the repeat memory.
+            return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.NO_BUDGET);
         }
         if (Randomness.nextDouble() > probability()) {
             return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.PROBABILITY);

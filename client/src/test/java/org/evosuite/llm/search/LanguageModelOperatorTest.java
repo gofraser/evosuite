@@ -87,6 +87,7 @@ class LanguageModelOperatorTest {
     void modeOffSkipsAndNeverTouchesSemanticOrPlan() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
 
         TestChromosome parent = makeChromosome();
@@ -98,7 +99,7 @@ class LanguageModelOperatorTest {
         assertEquals(OperatorAttemptResult.SkipReason.DISABLED, result.getSkipReason());
         assertFalse(result.isAttemptedSemantic());
         assertEquals(1, plan.remaining(), "target must be untouched when the mode is off");
-        verifyNoInteractions(mockSemantic);
+        verify(mockSemantic, never()).mutate(any());
     }
 
     @Test
@@ -106,6 +107,7 @@ class LanguageModelOperatorTest {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 0.0;
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
 
         TestChromosome parent = makeChromosome();
@@ -117,7 +119,28 @@ class LanguageModelOperatorTest {
         assertEquals(OperatorAttemptResult.SkipReason.PROBABILITY, result.getSkipReason());
         assertEquals(1, plan.remaining(),
                 "a rejected parent must keep its target for a later selection this generation");
-        verifyNoInteractions(mockSemantic);
+        verify(mockSemantic, never()).mutate(any());
+    }
+
+    @Test
+    void spentBudgetSkipsBeforeTakingTarget() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(false);
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
+
+        TestChromosome parent = makeChromosome();
+        SyncTargetPlan plan = new SyncTargetPlan(
+                Collections.singletonList(mutationTarget(parent, makeGoal("g"))));
+
+        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        assertEquals(OperatorAttemptResult.SkipReason.NO_BUDGET, result.getSkipReason());
+        assertFalse(result.isAttemptedSemantic());
+        assertEquals(1, plan.remaining());
+        assertEquals(0, mutation.getFallbackCount(), "a skipped call is not a fallback");
+        verify(mockSemantic, never()).mutate(any());
     }
 
     @Test
@@ -125,13 +148,14 @@ class LanguageModelOperatorTest {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 1.0;
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
 
         OperatorAttemptResult result =
                 mutation.tryMutateWithResult(makeChromosome(), makeChromosome(), SyncTargetPlan.EMPTY);
 
         assertEquals(OperatorAttemptResult.SkipReason.NO_TARGET, result.getSkipReason());
-        verifyNoInteractions(mockSemantic);
+        verify(mockSemantic, never()).mutate(any());
     }
 
     // --- mutation: applied / fallback / exception -------------------------------------------
@@ -150,6 +174,7 @@ class LanguageModelOperatorTest {
         mutant.setTestCase(new DefaultTestCase());
 
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.mutate(target)).thenReturn(mutant);
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
@@ -177,6 +202,7 @@ class LanguageModelOperatorTest {
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.mutate(target)).thenReturn(null);
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
@@ -201,6 +227,7 @@ class LanguageModelOperatorTest {
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.mutate(target)).thenThrow(new RuntimeException("boom"));
 
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
@@ -225,6 +252,7 @@ class LanguageModelOperatorTest {
 
         TestChromosome mutant = makeChromosome();
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.mutate(target)).thenReturn(mutant);
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
@@ -250,6 +278,7 @@ class LanguageModelOperatorTest {
 
         TestChromosome mutant = makeChromosome();
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.mutate(target)).thenReturn(mutant);
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
@@ -280,6 +309,7 @@ class LanguageModelOperatorTest {
         child.setTestCase(new DefaultTestCase());
 
         LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.crossover(crossover)).thenReturn(child);
 
         LanguageModelCrossover crossoverHook = new LanguageModelCrossover(mockSemantic);
@@ -307,6 +337,7 @@ class LanguageModelOperatorTest {
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
         LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
+        when(mockSemantic.canCall()).thenReturn(true);
         when(mockSemantic.crossover(target)).thenReturn(null);
 
         LanguageModelCrossover crossoverHook = new LanguageModelCrossover(mockSemantic);

@@ -34,6 +34,7 @@ public class OperatorAttemptResult {
         DISABLED,       // llm_operator_mode is not SYNC
         PROBABILITY,    // probability gate rejected
         NOT_CONFIGURED, // operator wrapper is null
+        NO_BUDGET,      // the LLM service is unavailable or its call budget is spent
         NO_TARGET       // probability gate passed, but the selector gave this parent no target
     }
 

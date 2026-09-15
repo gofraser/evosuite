@@ -67,6 +67,11 @@ public class LanguageModelMutation extends SyncOperatorHook {
     }
 
     @Override
+    protected boolean canCall() {
+        return semanticMutation.canCall();
+    }
+
+    @Override
     protected OperatorTarget take(SyncTargetPlan plan, TestChromosome parent) {
         return plan.takeMutation(parent);
     }

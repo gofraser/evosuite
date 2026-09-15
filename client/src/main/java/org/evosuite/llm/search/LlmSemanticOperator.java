@@ -87,13 +87,18 @@ public abstract class LlmSemanticOperator {
         return result;
     }
 
+    /** Whether a call could go out right now: the service is configured and has budget left. */
+    public boolean canCall() {
+        return llmService.isAvailable() && llmService.hasBudget();
+    }
+
     /**
      * Same as {@link #apply(List)} but exposes the {@link TargetedResponse}
      * so a caller can credit individual targets rather than just consuming
      * the flat chromosome list.
      */
     protected TargetedResponse applyMapped(List<OperatorTarget> targets) {
-        if (targets == null || targets.isEmpty() || !llmService.isAvailable() || !llmService.hasBudget()) {
+        if (targets == null || targets.isEmpty() || !canCall()) {
             return TargetedResponse.map(null, 0);
         }
         try {
