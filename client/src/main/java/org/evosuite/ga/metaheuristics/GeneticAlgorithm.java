@@ -456,6 +456,9 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         // creation/replacement), so reading the live population here is safe.
         factory.setSearchState(currentGoalsSupplier, this::getPopulationAsTestChromosomes,
                 () -> currentIteration, repeatedInjectionMemory);
+        // The factory never executes its own tests; the GA's evaluation of
+        // the new individual closes the prompt attempt behind it.
+        addListener(factory.evaluationListener());
     }
 
     private static LlmTestChromosomeFactory findLlmTestChromosomeFactory(ChromosomeFactory<?> root) {

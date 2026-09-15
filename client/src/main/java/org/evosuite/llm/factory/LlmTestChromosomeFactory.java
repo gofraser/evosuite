@@ -20,7 +20,10 @@
 package org.evosuite.llm.factory;
 
 import org.evosuite.Properties;
+import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.ga.metaheuristics.GeneticAlgorithm;
+import org.evosuite.ga.metaheuristics.SearchListener;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
@@ -56,10 +59,11 @@ import java.util.function.Supplier;
  * <p>During search, each call seeds toward one {@link OperatorTargetSelector}
  * target: the new individual starts from the population member closest to a
  * goal that is still worth targeting, rendered through the same {@link
- * TargetedPromptFactory} block used by the LLM variation operators. Before a
- * population exists (e.g. the initial population, or once search state has
- * not yet been wired in), the factory falls back to the generic goal-list
- * prompt below.
+ * TargetedPromptFactory} block used by the LLM variation operators; when the
+ * selector offers no eligible target the call is not made and the non-LLM
+ * fallback produces the test. Before a population exists (the initial
+ * population, or search state not yet wired in), the factory uses the generic
+ * goal-list prompt below instead.
  */
 public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosome> {
 
@@ -82,6 +86,8 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     private volatile LongSupplier generationSupplier = () -> 0L;
     /** Shared with the other LLM features; null until the GA wires it in (then no attempt bookkeeping). */
     private volatile RepeatedInjectionMemory repeatedInjectionMemory;
+    /** Attempts waiting for the GA to evaluate their test; null while there is no memory. */
+    private volatile SeedAttemptLedger attemptLedger;
 
     public LlmTestChromosomeFactory(ChromosomeFactory<TestChromosome> fallback) {
         this(fallback, LlmService.getInstance(), Collections::emptyList);
@@ -120,7 +126,42 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         this.populationSupplier = population == null ? Collections::emptyList : population;
         this.generationSupplier = generation == null ? () -> 0L : generation;
         this.repeatedInjectionMemory = memory;
+        this.attemptLedger = memory == null ? null : new SeedAttemptLedger(memory);
         this.targetSelector = new OperatorTargetSelector(memory);
+    }
+
+    /**
+     * Listener the GA registers so that every fitness evaluation closes the
+     * attempt behind a test this factory produced (see {@link SeedAttemptLedger}).
+     */
+    public <T extends Chromosome<T>> SearchListener<T> evaluationListener() {
+        return new SearchListener<T>() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public void fitnessEvaluation(T individual) {
+                SeedAttemptLedger ledger = attemptLedger;
+                if (ledger != null) {
+                    ledger.evaluated(individual, generationSupplier.getAsLong());
+                }
+            }
+
+            @Override
+            public void searchStarted(GeneticAlgorithm<T> algorithm) {
+            }
+
+            @Override
+            public void iteration(GeneticAlgorithm<T> algorithm) {
+            }
+
+            @Override
+            public void searchFinished(GeneticAlgorithm<T> algorithm) {
+            }
+
+            @Override
+            public void modification(T individual) {
+            }
+        };
     }
 
     @Override
@@ -157,22 +198,36 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     /**
      * One LLM call, framed as one repeated-injection attempt when the prompt
      * has a target: the attempt is registered before the call and closed on
-     * every exit — with the outcome (target goal covered or not) once a test
-     * came back, with no gain when the response yielded nothing, and released
-     * without judgement when the call never went out (budget exhausted) — so
-     * the shared memory's cooldown and no-gain counters reflect this factory's
-     * prompts like every other feature's.
+     * every exit — with no gain when the response yielded nothing, released
+     * without judgement when the call never went out (budget exhausted), and
+     * otherwise left open in the {@link SeedAttemptLedger} until the GA has
+     * evaluated the new test — so the shared memory's cooldown and no-gain
+     * counters reflect this factory's prompts like every other feature's.
+     *
+     * <p>Returns null, so the caller uses the non-LLM fallback, when a
+     * population exists but the selector offers no eligible target: a goal on
+     * cooldown or in flight must not be re-prompted through the generic
+     * goal-list prompt, which only serves seeding before a population exists.
      */
     private TestChromosome generateViaLlm() {
         boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
-        OperatorTarget target = selectTarget();
-        PromptResult prompt = target != null ? targetedPromptFactory.buildGenerate(target) : buildGoalListPrompt();
+        OperatorTarget target = null;
+        PromptResult prompt;
+        List<TestChromosome> population = populationSupplier.get();
+        if (population == null || population.isEmpty()) {
+            prompt = buildGoalListPrompt();
+        } else {
+            target = selectTarget(population);
+            if (target == null) {
+                return null;
+            }
+            prompt = targetedPromptFactory.buildGenerate(target);
+        }
         RepeatedInjectionMemory memory = repeatedInjectionMemory;
         RepeatedInjectionMemory.PromptAttemptRegistration registration = memory == null
                 ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
-                : memory.registerAttempt(prompt.getRepeatedInjectionTargets(), false);
-        TestChromosome chromosome = null;
-        int gained = 0;
+                : memory.registerAttempt(prompt.getRepeatedInjectionTargets(), true);
+        boolean handedToLedger = false;
         try {
             String response = llmService.query(prompt, LlmFeature.TEST_FACTORY);
             RepairResult repairResult = TestRepairLoop
@@ -184,11 +239,13 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
             if (testCase == null) {
                 return null;
             }
-            chromosome = new TestChromosome();
+            TestChromosome chromosome = new TestChromosome();
             chromosome.setTestCase(testCase);
-            // Judged now, on the search thread: the GA re-executes the new
-            // individual anyway, so this costs one extra run of a single test.
-            gained = target != null && target.getGoal().isCovered(chromosome) ? 1 : 0;
+            if (!registration.isEmpty() && target != null) {
+                attemptLedger.open(chromosome, registration.getAttemptId(), target.getGoal(),
+                        generationSupplier.getAsLong());
+                handedToLedger = true;
+            }
             return chromosome;
         } catch (LlmBudgetExceededException e) {
             if (!registration.isEmpty()) {
@@ -197,17 +254,16 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
             }
             throw e;
         } finally {
-            if (!registration.isEmpty()) {
-                memory.recordAttemptOutcome(registration.getAttemptId(), gained);
+            if (!registration.isEmpty() && !handedToLedger) {
+                memory.recordAttemptOutcome(registration.getAttemptId(), 0);
             }
         }
     }
 
-    /** The single-parent target this call seeds toward, or null before a population exists. */
-    private OperatorTarget selectTarget() {
+    /** The single-parent target this call seeds toward, or null when nothing is eligible. */
+    private OperatorTarget selectTarget(List<TestChromosome> population) {
         Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
-        List<TestChromosome> population = populationSupplier.get();
-        if (population == null || population.isEmpty() || goals == null || goals.isEmpty()) {
+        if (goals == null || goals.isEmpty()) {
             return null;
         }
         List<OperatorTarget> targets = targetSelector.select(population, goals, 1, generationSupplier.getAsLong(), false);
