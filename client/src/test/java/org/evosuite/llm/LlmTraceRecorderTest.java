@@ -78,7 +78,9 @@ class LlmTraceRecorderTest {
         assertTrue(content.contains("\"expanded_classes\":[\"java.util.ArrayList\"]"));
         assertTrue(content.contains("\"input_tokens\":12"));
         assertTrue(content.contains("\"cached_input_tokens\":5"));
-        assertTrue(content.contains("\"prefix_hash\":"));
+        assertTrue(content.contains("\"prefix_hash\":\""
+                + org.evosuite.llm.prompt.PrefixHash.ofText("system") + "\""),
+                "trace prefix_hash must equal PromptResult.getPrefixHash() for the same system message");
     }
 
     @Test
