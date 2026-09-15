@@ -76,7 +76,7 @@ class ExemplarAttacherTest {
         Properties.LLM_BRANCH_OPERAND_HINTS = originalBranchOperandHints;
     }
 
-    // ---- closestChromosome / closestTest ----------------------------------
+    // ---- closestChromosome ----------------------------------
 
     @Test
     void closestChromosomeReturnsIndividualNearestExpectedDistance() {
@@ -92,7 +92,7 @@ class ExemplarAttacherTest {
         TestChromosome closest = ExemplarAttacher.closestChromosome(goal, population, 0.52);
 
         assertSame(middle, closest);
-        assertSame(middle.getTestCase(), ExemplarAttacher.closestTest(goal, population, 0.52));
+        assertSame(middle, ExemplarAttacher.closestChromosome(goal, population, 0.52));
     }
 
     @Test
@@ -104,7 +104,7 @@ class ExemplarAttacherTest {
         List<TestChromosome> population = Arrays.asList(noFitness, infiniteFitness);
 
         assertNull(ExemplarAttacher.closestChromosome(goal, population, 0.3));
-        assertNull(ExemplarAttacher.closestTest(goal, population, 0.3));
+        assertNull(ExemplarAttacher.closestChromosome(goal, population, 0.3));
     }
 
     @Test

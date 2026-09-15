@@ -22,7 +22,6 @@ package org.evosuite.llm.prompt;
 import org.evosuite.Properties;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
-import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 
@@ -89,14 +88,6 @@ public final class ExemplarAttacher {
             }
         }
         return closest;
-    }
-
-    /** Test-case view of {@link #closestChromosome}. */
-    public static TestCase closestTest(TestFitnessFunction goal,
-                                       List<TestChromosome> population,
-                                       double expectedDistance) {
-        TestChromosome closest = closestChromosome(goal, population, expectedDistance);
-        return closest == null ? null : closest.getTestCase();
     }
 
     /**
