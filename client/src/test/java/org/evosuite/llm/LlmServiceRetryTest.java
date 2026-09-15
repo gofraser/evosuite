@@ -241,13 +241,22 @@ class LlmServiceRetryTest {
 
     @Test
     void httpStatusCodeOverridesMisleadingResponseBodyText() {
-        RuntimeException retryableDespiteBody = new RuntimeException("wrapper",
+        // A cause-only wrapper repeats the HTTP exception's message, body
+        // included, in its own message; the status must still win.
+        RuntimeException retryableDespiteBody = new RuntimeException(
                 new LlmHttpException(500, "invalid request"));
         assertTrue(LlmService.isRetryable(retryableDespiteBody));
 
-        RuntimeException nonRetryableDespiteBody = new RuntimeException("wrapper",
+        RuntimeException nonRetryableDespiteBody = new RuntimeException(
                 new LlmHttpException(400, "temporarily unavailable"));
         assertFalse(LlmService.isRetryable(nonRetryableDespiteBody));
+    }
+
+    @Test
+    void malformedResponseIsRetryableEvenWhenItsMessageLooksLikeABadRequest() {
+        RuntimeException wrapped = new RuntimeException(new org.evosuite.llm.provider.LlmProtocolException(
+                "OpenAI response reported an error: invalid request", "{\"error\":{}}"));
+        assertTrue(LlmService.isRetryable(wrapped));
     }
 
     @Test

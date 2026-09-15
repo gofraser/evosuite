@@ -819,25 +819,24 @@ public class LlmService implements AutoCloseable {
             return false;
         }
 
-        boolean retryableSignal = false;
+        // Typed provider failures decide first, before any text is inspected:
+        // their messages carry the response body, and so do the messages of
+        // wrappers built from them, so the text heuristics below would
+        // otherwise let a provider-specific body override the real signal.
         for (Throwable cause : causalChain(error)) {
             if (cause instanceof LlmHttpException) {
-                // The status code is authoritative for an HTTP failure: the
-                // response body (folded into the exception message) must not
-                // be allowed to override it in either direction, since body
-                // text is provider-specific and easy to get wrong.
-                if (isRetryableHttpStatus(((LlmHttpException) cause).getStatusCode())) {
-                    retryableSignal = true;
-                    continue;
-                }
-                return false;
+                // The status code is authoritative for an HTTP failure.
+                return isRetryableHttpStatus(((LlmHttpException) cause).getStatusCode());
             }
             if (cause instanceof LlmProtocolException) {
                 // A 2xx response with a malformed body is most likely a
                 // proxy/gateway hiccup rather than a genuine model failure.
-                retryableSignal = true;
-                continue;
+                return true;
             }
+        }
+
+        boolean retryableSignal = false;
+        for (Throwable cause : causalChain(error)) {
             if (isExplicitlyNonRetryable(cause)) {
                 return false;
             }
