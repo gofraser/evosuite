@@ -60,6 +60,9 @@ public class LlmSemanticCrossover extends LlmSemanticOperator {
      */
     public TestChromosome crossoverSemantically(TestChromosome parent1, TestChromosome parent2,
                                                 Collection<TestFitnessFunction> goals) {
+        if (parent2 == null) {
+            return null;
+        }
         OperatorTarget target = OperatorTarget.closestGoal(parent1, parent2, goals);
         if (target == null) {
             return null;
