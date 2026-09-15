@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.setup.TestCluster;
 import org.evosuite.utils.generic.GenericClass;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -136,7 +137,10 @@ public final class StaticPromptContext {
                         Properties.LlmSutContextMode modeUsed, boolean unavailable,
                         boolean truncated, boolean commentsStripped, boolean selectivelyTruncated) {
             this.sectionText = sectionText;
-            this.reminderTexts = reminderTexts == null ? Collections.emptyList() : reminderTexts;
+            // Defensive copy: reminderTexts is caller-supplied and this entry is
+            // memoised and shared across every prompt (and thread) in the run.
+            this.reminderTexts = reminderTexts == null ? Collections.<String>emptyList()
+                    : Collections.unmodifiableList(new ArrayList<>(reminderTexts));
             this.modeUsed = modeUsed;
             this.unavailable = unavailable;
             this.truncated = truncated;
@@ -196,8 +200,11 @@ public final class StaticPromptContext {
             this.totalCharsBeforeTruncation = totalCharsBeforeTruncation;
             this.budgetMode = budgetMode;
             this.metadata = metadata == null ? PromptResult.DependencySummaryMetadata.empty() : metadata;
+            // Defensive copy: this snapshot is memoised and read back later (from
+            // other prompts/threads) to detect cluster growth against it.
             this.clusterClassNamesAtRender = clusterClassNamesAtRender == null
-                    ? Collections.emptySet() : clusterClassNamesAtRender;
+                    ? Collections.<String>emptySet()
+                    : Collections.unmodifiableSet(new TreeSet<>(clusterClassNamesAtRender));
         }
 
         /** The rendered "Available dependency types..." block, or {@code null} if the summary was empty. */
