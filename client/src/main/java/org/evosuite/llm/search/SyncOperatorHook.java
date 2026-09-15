@@ -121,13 +121,20 @@ abstract class SyncOperatorHook {
      * result carries an open attempt id.
      */
     public final void recordOutcome(OperatorAttemptResult result, TestChromosome evaluatedOffspring) {
+        Double value = evaluatedOffspring == null || result == null || result.getTarget() == null ? null
+                : evaluatedOffspring.getFitnessValues().get(result.getTarget().getGoal());
+        recordOutcome(result, value != null && value == 0.0);
+    }
+
+    /**
+     * Closes the attempt with a coverage verdict the caller established itself, e.g. from an
+     * isolated evaluation of the semantic result taken before later operators changed it.
+     */
+    public final void recordOutcome(OperatorAttemptResult result, boolean targetCovered) {
         if (memory == null || result == null || result.getAttemptId() == null) {
             return;
         }
-        Double value = evaluatedOffspring == null ? null
-                : evaluatedOffspring.getFitnessValues().get(result.getTarget().getGoal());
-        int gained = value != null && value == 0.0 ? 1 : 0;
-        memory.recordAttemptOutcome(result.getAttemptId(), gained);
+        memory.recordAttemptOutcome(result.getAttemptId(), targetCovered ? 1 : 0);
     }
 
     public int getAppliedCount() {
