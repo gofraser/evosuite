@@ -21,6 +21,10 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.setup.TestCluster;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -36,13 +40,16 @@ import java.util.TreeSet;
  */
 public final class ClusterGrowthDelta {
 
-    /** Header for the signature delta; the sole model-facing string this class owns. */
+    /** Header for the signature delta; one of the two model-facing strings this class owns. */
     static final String HEADER = "Additional dependency types now available in the test cluster:";
+    /** Suffix appended when the name-only fallback had to drop classes to fit the budget. */
+    static final String TRUNCATION_FORMAT = " ... (+%d more)";
 
     // A full dependency summary can run to tens of KB; a delta describing a
     // handful of newly-added classes should stay far smaller. Cap it at a
     // quarter of the resolved dependency-summary budget, with a floor so small
-    // budgets (or an unresolved/unbounded one) still get useful signatures.
+    // budgets (or an unresolved/unbounded one) still get useful signatures --
+    // but never above the configured budget itself when that is smaller.
     private static final int DEFAULT_BUDGET_CHARS = 4000;
     private static final int MIN_BUDGET_CHARS = 1000;
     private static final int BUDGET_DIVISOR = 4;
@@ -62,10 +69,7 @@ public final class ClusterGrowthDelta {
         if (addedClassNames == null || addedClassNames.isEmpty()) {
             return null;
         }
-        PromptBuilder.BudgetDecision budgetDecision = PromptBuilder.resolveDependencySummaryBudget();
-        int deltaBudget = budgetDecision.budgetChars <= 0
-                ? DEFAULT_BUDGET_CHARS
-                : Math.max(MIN_BUDGET_CHARS, budgetDecision.budgetChars / BUDGET_DIVISOR);
+        int deltaBudget = resolveDeltaBudget(PromptBuilder.resolveDependencySummaryBudget().budgetChars);
 
         String text = null;
         if (summarizer != null && cluster != null) {
@@ -73,8 +77,46 @@ public final class ClusterGrowthDelta {
                     .getText();
         }
         if (text == null || text.trim().isEmpty()) {
-            text = String.join(", ", new TreeSet<>(addedClassNames));
+            text = joinNamesWithinBudget(new TreeSet<>(addedClassNames), deltaBudget);
         }
         return HEADER + "\n" + text;
+    }
+
+    static int resolveDeltaBudget(int summaryBudgetChars) {
+        if (summaryBudgetChars <= 0) {
+            return DEFAULT_BUDGET_CHARS;
+        }
+        return Math.min(summaryBudgetChars,
+                Math.max(MIN_BUDGET_CHARS, summaryBudgetChars / BUDGET_DIVISOR));
+    }
+
+    /**
+     * Comma-separates as many names as fit in {@code budgetChars}, keeping
+     * room for the truncation suffix that reports how many were dropped. At
+     * least one name is always emitted so the delta never degenerates to a
+     * bare header.
+     */
+    static String joinNamesWithinBudget(Collection<String> sortedNames, int budgetChars) {
+        List<String> names = new ArrayList<>(sortedNames);
+        StringBuilder joined = new StringBuilder();
+        int emitted = 0;
+        for (String name : names) {
+            int remaining = names.size() - emitted - 1;
+            String suffix = remaining > 0 ? String.format(Locale.ROOT, TRUNCATION_FORMAT, remaining) : "";
+            int lengthIfAdded = joined.length() + (emitted > 0 ? 2 : 0) + name.length();
+            if (emitted > 0 && lengthIfAdded + suffix.length() > budgetChars) {
+                break;
+            }
+            if (emitted > 0) {
+                joined.append(", ");
+            }
+            joined.append(name);
+            emitted++;
+        }
+        int dropped = names.size() - emitted;
+        if (dropped > 0) {
+            joined.append(String.format(Locale.ROOT, TRUNCATION_FORMAT, dropped));
+        }
+        return joined.toString();
     }
 }
