@@ -423,25 +423,38 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         this.llmInjectionAdapter = injectionAdapter;
         initializeAsyncProducer(currentGoalsSupplier);
         initializeStagnationDetector(maximizationObjective);
-        wireCurrentGoalsIntoLlmTestFactory(currentGoalsSupplier);
+        wireSearchStateIntoLlmTestFactory(currentGoalsSupplier);
     }
 
     /**
      * Walks the chromosome-factory chain and, if it contains an
-     * {@link LlmTestChromosomeFactory}, replaces its default empty-goals
-     * supplier with the live one. The factory is constructed by the strategy
-     * wrappers before the GA exists, so this is the earliest moment we can
-     * bind real goal feedback into per-individual LLM prompts.
+     * {@link LlmTestChromosomeFactory}, replaces its default empty search
+     * state with the live goal supplier, population supplier and repeated-
+     * injection memory. The factory is constructed by the strategy wrappers
+     * before the GA exists, so this is the earliest moment we can bind real
+     * search feedback into per-individual LLM prompts. {@code
+     * repeatedInjectionMemory} may still be unset here (it is otherwise
+     * created lazily by {@link #initializeAsyncProducer} or {@link
+     * #initializeStagnationDetector}), so it is created here too whenever the
+     * seed factory is present, so it shares the same repeat memory as the
+     * other LLM features.
      */
-    private void wireCurrentGoalsIntoLlmTestFactory(
+    private void wireSearchStateIntoLlmTestFactory(
             Supplier<Collection<TestFitnessFunction>> currentGoalsSupplier) {
         if (currentGoalsSupplier == null) {
             return;
         }
         LlmTestChromosomeFactory factory = findLlmTestChromosomeFactory(chromosomeFactory);
-        if (factory != null) {
-            factory.setUncoveredGoalsSupplier(currentGoalsSupplier);
+        if (factory == null) {
+            return;
         }
+        if (repeatedInjectionMemory == null && Properties.LLM_TEST_FACTORY) {
+            repeatedInjectionMemory = new RepeatedInjectionMemory();
+        }
+        // getPopulationAsTestChromosomes() is called from the search thread
+        // (LlmTestChromosomeFactory.getChromosome() runs during population
+        // creation/replacement), so reading the live population here is safe.
+        factory.setSearchState(currentGoalsSupplier, this::getPopulationAsTestChromosomes, repeatedInjectionMemory);
     }
 
     private static LlmTestChromosomeFactory findLlmTestChromosomeFactory(ChromosomeFactory<?> root) {

@@ -28,10 +28,16 @@ import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.FewShotExampleProvider;
 import org.evosuite.llm.prompt.PromptBuilder;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.prompt.TargetedPromptFactory;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.response.RepairResult;
+import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.response.TestRepairLoop;
+import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.operator.OperatorTarget;
+import org.evosuite.llm.search.operator.OperatorTargetSelector;
 import org.evosuite.setup.TestCluster;
+import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.utils.Randomness;
@@ -40,10 +46,19 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.function.Supplier;
 
 /**
  * Probabilistic LLM test factory with non-LLM fallback.
+ *
+ * <p>During search, each call seeds toward one {@link OperatorTargetSelector}
+ * target: the new individual starts from the population member closest to a
+ * goal that is still worth targeting, rendered through the same {@link
+ * TargetedPromptFactory} block used by the LLM variation operators. Before a
+ * population exists (e.g. the initial population, or once search state has
+ * not yet been wired in), the factory falls back to the generic goal-list
+ * prompt below.
  */
 public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosome> {
 
@@ -52,14 +67,17 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
 
     private final ChromosomeFactory<TestChromosome> fallback;
     private final LlmService llmService;
+    private final TargetedPromptFactory targetedPromptFactory;
     /**
-     * Non-final so the GA can inject its current uncovered-goal supplier after
-     * construction. The factory is built by the strategy wrappers before the
-     * GA exists, so initial wiring defaults to {@link Collections#emptyList()}
-     * and is upgraded via {@link #setUncoveredGoalsSupplier(Supplier)} once
-     * the GA initialises its LLM assistance hooks.
+     * Non-final so the GA can inject its current uncovered-goal and population
+     * suppliers after construction. The factory is built by the strategy
+     * wrappers before the GA exists, so initial wiring defaults to empty and is
+     * upgraded via {@link #setSearchState} once the GA initialises its LLM
+     * assistance hooks.
      */
     private volatile Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier;
+    private volatile Supplier<List<TestChromosome>> populationSupplier;
+    private volatile OperatorTargetSelector targetSelector;
 
     public LlmTestChromosomeFactory(ChromosomeFactory<TestChromosome> fallback) {
         this(fallback, LlmService.getInstance(), Collections::emptyList);
@@ -71,7 +89,10 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
                                     Supplier<Collection<TestFitnessFunction>> uncoveredGoalsSupplier) {
         this.fallback = fallback;
         this.llmService = llmService;
+        this.targetedPromptFactory = new TargetedPromptFactory();
         this.uncoveredGoalsSupplier = uncoveredGoalsSupplier == null ? Collections::emptyList : uncoveredGoalsSupplier;
+        this.populationSupplier = Collections::emptyList;
+        this.targetSelector = new OperatorTargetSelector(null);
     }
 
     public ChromosomeFactory<TestChromosome> getFallbackFactory() {
@@ -79,12 +100,18 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     }
 
     /**
-     * Replaces the uncovered-goal supplier — typically called once during GA
-     * initialisation to bind this factory to the live goal set so subsequent
-     * LLM prompts can include current uncovered goals.
+     * Replaces the goal and population suppliers and rebuilds the target
+     * selector with {@code memory} — typically called once during GA
+     * initialisation to bind this factory to the live search state so
+     * subsequent LLM prompts can seed toward a selector target and share
+     * repeated-injection suppression with the other LLM features.
      */
-    public void setUncoveredGoalsSupplier(Supplier<Collection<TestFitnessFunction>> supplier) {
-        this.uncoveredGoalsSupplier = supplier == null ? Collections::emptyList : supplier;
+    public void setSearchState(Supplier<Collection<TestFitnessFunction>> currentGoals,
+                               Supplier<List<TestChromosome>> population,
+                               RepeatedInjectionMemory memory) {
+        this.uncoveredGoalsSupplier = currentGoals == null ? Collections::emptyList : currentGoals;
+        this.populationSupplier = population == null ? Collections::emptyList : population;
+        this.targetSelector = new OperatorTargetSelector(memory);
     }
 
     @Override
@@ -128,13 +155,27 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         if (!repairResult.isSuccess() || repairResult.getTestCases().isEmpty()) {
             return null;
         }
+        TargetedResponse targeted = TargetedResponse.map(repairResult, 1);
+        TestCase testCase = targeted.forTarget(1)
+                .orElseGet(() -> targeted.all().isEmpty() ? null : targeted.all().get(0));
+        if (testCase == null) {
+            return null;
+        }
         TestChromosome chromosome = new TestChromosome();
-        chromosome.setTestCase(repairResult.getTestCases().get(0));
+        chromosome.setTestCase(testCase);
         return chromosome;
     }
 
     private PromptResult buildPrompt() {
         Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
+        List<TestChromosome> population = populationSupplier.get();
+        List<OperatorTarget> targets = (population == null || population.isEmpty()
+                || goals == null || goals.isEmpty())
+                ? Collections.emptyList()
+                : targetSelector.select(population, goals, 1);
+        if (!targets.isEmpty()) {
+            return targetedPromptFactory.buildGenerate(targets.get(0));
+        }
         PromptBuilder builder = new PromptBuilder()
                 .withSystemPrompt()
                 .withSutContext(Properties.TARGET_CLASS, TestCluster.getInstance())
