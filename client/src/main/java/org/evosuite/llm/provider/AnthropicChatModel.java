@@ -181,23 +181,79 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
         node.put("content", content.toString());
     }
 
-    private LlmService.LlmResponse parseResponse(String responseBody) throws IOException {
-        JsonNode root = MAPPER.readTree(responseBody);
-        StringBuilder text = new StringBuilder();
+    /**
+     * Parses an Anthropic {@code /v1/messages} body, rejecting anything that
+     * does not conform to the expected shape rather than silently falling
+     * back to an empty response. Package-private and static so tests can
+     * exercise the parsing rules directly, without a network round trip.
+     */
+    static LlmService.LlmResponse parseResponse(String responseBody) throws IOException {
+        JsonNode root;
+        try {
+            root = MAPPER.readTree(responseBody);
+        } catch (IOException e) {
+            throw new LlmProtocolException("could not parse Anthropic response as JSON (" + e.getMessage() + ")",
+                    responseBody);
+        }
+        if (root == null || !root.isObject()) {
+            throw new LlmProtocolException("Anthropic response is not a JSON object", responseBody);
+        }
+        JsonNode error = root.path("error");
+        if ("error".equals(root.path("type").asText("")) || error.isObject()) {
+            String message = error.isObject()
+                    ? error.path("message").asText(error.path("type").asText("unknown error"))
+                    : root.path("message").asText("unknown error");
+            throw new LlmProtocolException("Anthropic response reported an error: " + message, responseBody);
+        }
+
         JsonNode content = root.path("content");
-        if (content.isArray()) {
-            for (JsonNode block : content) {
-                if ("text".equals(block.path("type").asText(""))) {
-                    text.append(block.path("text").asText(""));
+        if (!content.isArray()) {
+            throw new LlmProtocolException("Anthropic response has no content array", responseBody);
+        }
+        StringBuilder text = new StringBuilder();
+        boolean sawTextBlock = false;
+        for (JsonNode block : content) {
+            if ("text".equals(block.path("type").asText(""))) {
+                JsonNode textNode = block.path("text");
+                if (!textNode.isTextual()) {
+                    throw new LlmProtocolException("Anthropic response text block has non-string text",
+                            responseBody);
                 }
+                text.append(textNode.asText());
+                sawTextBlock = true;
             }
         }
+        if (!sawTextBlock) {
+            throw new LlmProtocolException("Anthropic response content has no text block", responseBody);
+        }
+
         JsonNode usage = root.path("usage");
-        int reportedInputTokens = usage.path("input_tokens").asInt(0);
-        int outputTokens = usage.path("output_tokens").asInt(0);
-        int cacheReadInputTokens = usage.path("cache_read_input_tokens").asInt(0);
-        int cacheCreationInputTokens = usage.path("cache_creation_input_tokens").asInt(0);
+        int reportedInputTokens = 0;
+        int outputTokens = 0;
+        int cacheReadInputTokens = 0;
+        int cacheCreationInputTokens = 0;
+        if (!usage.isMissingNode() && !usage.isNull()) {
+            if (!usage.isObject()) {
+                throw new LlmProtocolException("Anthropic response usage is not a JSON object", responseBody);
+            }
+            reportedInputTokens = requireNumericIfPresent(usage, "input_tokens", responseBody);
+            outputTokens = requireNumericIfPresent(usage, "output_tokens", responseBody);
+            cacheReadInputTokens = requireNumericIfPresent(usage, "cache_read_input_tokens", responseBody);
+            cacheCreationInputTokens = requireNumericIfPresent(usage, "cache_creation_input_tokens", responseBody);
+        }
         int inputTokens = reportedInputTokens + cacheReadInputTokens + cacheCreationInputTokens;
         return new LlmService.LlmResponse(text.toString(), inputTokens, cacheReadInputTokens, outputTokens);
+    }
+
+    private static int requireNumericIfPresent(JsonNode parent, String field, String responseBody)
+            throws LlmProtocolException {
+        JsonNode value = parent.path(field);
+        if (value.isMissingNode() || value.isNull()) {
+            return 0;
+        }
+        if (!value.isNumber()) {
+            throw new LlmProtocolException("Anthropic response field '" + field + "' is not numeric", responseBody);
+        }
+        return value.asInt();
     }
 }

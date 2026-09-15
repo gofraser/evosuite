@@ -130,20 +130,73 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
         }
     }
 
-    private LlmService.LlmResponse parseResponse(String responseBody) throws IOException {
-        JsonNode root = MAPPER.readTree(responseBody);
-        String text = "";
+    /**
+     * Parses an OpenAI-compatible chat completion body, rejecting anything
+     * that does not conform to the expected shape rather than silently
+     * falling back to an empty response. Package-private and static so tests
+     * can exercise the parsing rules directly, without a network round trip.
+     */
+    static LlmService.LlmResponse parseResponse(String responseBody) throws IOException {
+        JsonNode root;
+        try {
+            root = MAPPER.readTree(responseBody);
+        } catch (IOException e) {
+            throw new LlmProtocolException("could not parse OpenAI response as JSON (" + e.getMessage() + ")",
+                    responseBody);
+        }
+        if (root == null || !root.isObject()) {
+            throw new LlmProtocolException("OpenAI response is not a JSON object", responseBody);
+        }
+        JsonNode error = root.path("error");
+        if (error.isObject()) {
+            throw new LlmProtocolException("OpenAI response reported an error: " + errorMessage(error),
+                    responseBody);
+        }
         JsonNode choices = root.path("choices");
-        if (choices.isArray() && choices.size() > 0) {
-            JsonNode content = choices.get(0).path("message").path("content");
-            if (!content.isMissingNode() && !content.isNull()) {
-                text = content.asText("");
+        if (!choices.isArray() || choices.size() == 0) {
+            throw new LlmProtocolException("OpenAI response has no choices", responseBody);
+        }
+        JsonNode content = choices.get(0).path("message").path("content");
+        if (!content.isTextual()) {
+            throw new LlmProtocolException("OpenAI response choice has no textual message content", responseBody);
+        }
+        String text = content.asText();
+
+        JsonNode usage = root.path("usage");
+        int inputTokens = 0;
+        int outputTokens = 0;
+        int cachedInputTokens = 0;
+        if (!usage.isMissingNode() && !usage.isNull()) {
+            // Some OpenAI-compatible servers omit usage entirely; that is
+            // tolerated as zero counts, but a present-and-wrong-shaped usage
+            // block means the server sent something we cannot trust.
+            if (!usage.isObject()) {
+                throw new LlmProtocolException("OpenAI response usage is not a JSON object", responseBody);
+            }
+            inputTokens = requireNumericIfPresent(usage, "prompt_tokens", responseBody);
+            outputTokens = requireNumericIfPresent(usage, "completion_tokens", responseBody);
+            JsonNode promptDetails = usage.path("prompt_tokens_details");
+            if (promptDetails.isObject()) {
+                cachedInputTokens = requireNumericIfPresent(promptDetails, "cached_tokens", responseBody);
             }
         }
-        JsonNode usage = root.path("usage");
-        int inputTokens = usage.path("prompt_tokens").asInt(0);
-        int outputTokens = usage.path("completion_tokens").asInt(0);
-        int cachedInputTokens = usage.path("prompt_tokens_details").path("cached_tokens").asInt(0);
         return new LlmService.LlmResponse(text, inputTokens, cachedInputTokens, outputTokens);
+    }
+
+    private static int requireNumericIfPresent(JsonNode parent, String field, String responseBody)
+            throws LlmProtocolException {
+        JsonNode value = parent.path(field);
+        if (value.isMissingNode() || value.isNull()) {
+            return 0;
+        }
+        if (!value.isNumber()) {
+            throw new LlmProtocolException("OpenAI response field '" + field + "' is not numeric", responseBody);
+        }
+        return value.asInt();
+    }
+
+    private static String errorMessage(JsonNode error) {
+        String message = error.path("message").asText("");
+        return message.isEmpty() ? error.path("type").asText("unknown error") : message;
     }
 }

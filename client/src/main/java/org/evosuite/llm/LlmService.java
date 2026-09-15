@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.provider.AnthropicChatModel;
 import org.evosuite.llm.provider.LlmHttpException;
+import org.evosuite.llm.provider.LlmProtocolException;
 import org.evosuite.llm.provider.OpenAiCompatibleChatModel;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.utils.LoggingUtils;
@@ -823,6 +824,12 @@ public class LlmService implements AutoCloseable {
                     continue;
                 }
                 return false;
+            }
+            if (cause instanceof LlmProtocolException) {
+                // A 2xx response with a malformed body is most likely a
+                // proxy/gateway hiccup rather than a genuine model failure.
+                retryableSignal = true;
+                continue;
             }
             if (isExplicitlyNonRetryable(cause)) {
                 return false;
