@@ -58,21 +58,17 @@ class SyncTargetPlanTest {
     }
 
     @Test
-    void takeMutationConvertsCrossoverTargetToMutationKind() {
+    void takeMutationLeavesCrossoverTargetInPlaceAndReturnsNull() {
         TestChromosome parent = chromosome();
         TestChromosome partner = chromosome();
-        TestFitnessFunction goal = goal("g");
-        OperatorTarget crossover = OperatorTarget.builder(parent, goal)
+        OperatorTarget crossover = OperatorTarget.builder(parent, goal("g"))
                 .distance(0.3).priority(0.7).partner(partner).build();
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(crossover));
 
-        OperatorTarget taken = plan.takeMutation(parent);
-
-        assertEquals(OperatorTarget.Kind.MUTATION, taken.getKind());
-        assertEquals(goal, taken.getGoal());
-        assertEquals(0.3, taken.getDistance(), 1e-9);
-        assertEquals(0.7, taken.getPriority(), 1e-9);
-        assertFalse(taken.getPartner().isPresent());
+        assertNull(plan.takeMutation(parent),
+                "a crossover target whose gate is rejected must not be handed to the mutation hook");
+        assertEquals(1, plan.remaining(), "a crossover-kind target must remain for takeCrossover");
+        assertSame(crossover, plan.takeCrossover(parent));
     }
 
     @Test

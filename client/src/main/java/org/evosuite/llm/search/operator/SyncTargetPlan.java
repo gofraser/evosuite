@@ -27,10 +27,12 @@ import java.util.Map;
 
 /**
  * One generation's supply of {@link OperatorTargetSelector} targets for the
- * synchronous mutation/crossover hooks, keyed by parent identity. A parent is
- * targeted at most once per generation: whichever hook consumes it first
- * (via {@link #takeMutation} or {@link #takeCrossover}) removes it, so the
- * other hook sees nothing left for that parent.
+ * synchronous mutation/crossover hooks, keyed by parent identity. A parent's
+ * target is used by exactly the hook matching its kind: a crossover target
+ * whose gate is rejected this generation is simply not sent, it is never
+ * converted into a mutation attempt. Whichever hook consumes a parent's
+ * target (via {@link #takeMutation} or {@link #takeCrossover}) removes it, so
+ * the other hook sees nothing left for that parent.
  */
 public final class SyncTargetPlan {
 
@@ -54,14 +56,17 @@ public final class SyncTargetPlan {
     }
 
     /**
-     * Removes and returns {@code parent}'s target, whatever its kind: a
-     * crossover target is converted to its mutation form (see
-     * {@link OperatorTarget#asMutation()}) since the mutation hook has no use
-     * for a partner. Null when {@code parent} has no target this generation.
+     * Removes and returns {@code parent}'s target only if it is a mutation
+     * target; a crossover target is left in place for {@link #takeCrossover}
+     * to consume later, and null is returned.
      */
     public OperatorTarget takeMutation(TestChromosome parent) {
-        OperatorTarget target = byParent.remove(parent);
-        return target == null ? null : target.asMutation();
+        OperatorTarget target = byParent.get(parent);
+        if (target == null || target.getKind() != OperatorTarget.Kind.MUTATION) {
+            return null;
+        }
+        byParent.remove(parent);
+        return target;
     }
 
     /**

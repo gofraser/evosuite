@@ -72,19 +72,6 @@ public final class OperatorTarget {
     public Optional<TestChromosome> getPartner() { return Optional.ofNullable(partner); }
 
     /**
-     * This target with any crossover partner dropped, so {@link #getKind()}
-     * becomes {@link Kind#MUTATION}. Returns {@code this} unchanged when
-     * already a mutation target.
-     */
-    public OperatorTarget asMutation() {
-        if (kind == Kind.MUTATION) {
-            return this;
-        }
-        return builder(parent, goal).distance(distance).priority(priority)
-                .stalled(stalled).card(card).build();
-    }
-
-    /**
      * Repeated-injection identity for this target: the key identifies the goal
      * being targeted; the fingerprint also captures which concrete parent (and,
      * for crossover, partner) test was used, so a retry with a materially
