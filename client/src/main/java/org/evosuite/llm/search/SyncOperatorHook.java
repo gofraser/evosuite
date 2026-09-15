@@ -88,7 +88,7 @@ abstract class SyncOperatorHook {
 
         RepeatedInjectionMemory.PromptAttemptRegistration registration = memory == null
                 ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
-                : memory.registerAttempt(Collections.singletonList(target.toRepeatedInjectionTarget()), false);
+                : memory.registerAttempt(Collections.singletonList(target.toRepeatedInjectionTarget()), true);
 
         TestChromosome result;
         try {

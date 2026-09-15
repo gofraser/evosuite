@@ -53,6 +53,9 @@ public class DiagnosticCardSelector {
             return SelectionResult.empty();
         }
 
+        if (repeatedInjectionMemory != null) {
+            repeatedInjectionMemory.beginSelectionRound();
+        }
         List<RankedCard> rankedCards = rank(extractedCards, repeatedInjectionMemory, suppressInFlightRepeats);
         List<ProblemCard> sorted = new ArrayList<>(rankedCards.size());
         Map<ProblemCard, DiscardReason> preDiscardReasons = new HashMap<>();

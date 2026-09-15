@@ -30,6 +30,17 @@ import java.util.Map;
 
 /**
  * Shared per-run memory for repeated prompt-target selection.
+ *
+ * <p>The suppression cooldown ({@code age} below) is measured in selection
+ * rounds, not attempts: each of the selection passes ({@link
+ * org.evosuite.llm.search.operator.OperatorTargetSelector#select}, {@link
+ * DiagnosticCardSelector}'s ranking pass, and {@link AsyncLlmTestProducer}'s
+ * goal-selection pass) calls {@link #beginSelectionRound()} exactly once
+ * before it ranks its candidates, whether or not that pass ends up
+ * registering an attempt. Counting only {@link #registerAttempt} calls would
+ * let a target that is the sole remaining candidate go permanently
+ * unselected: once it is suppressed, no attempt is ever registered for it, so
+ * its age would never advance and the suppression would never lift.
  */
 public class RepeatedInjectionMemory {
 
@@ -42,6 +53,16 @@ public class RepeatedInjectionMemory {
     private long retriedChangedCount = 0L;
     private static final long DEFAULT_RECENT_COOLDOWN_CAP = 3L;
     private static final long LOW_STEERABILITY_COOLDOWN_CAP = 8L;
+
+    /**
+     * Advances the selection-round ordinal. Called once by each selection
+     * pass before it ranks its candidates via {@link #adjustPriority}, so a
+     * target's age always grows from one pass to the next even when it stays
+     * suppressed and never gets an attempt registered.
+     */
+    public synchronized void beginSelectionRound() {
+        selectionOrdinal++;
+    }
 
     public synchronized SelectionAdjustment adjustPriority(RepeatedInjectionTarget target,
                                                            double basePriority,
@@ -101,20 +122,27 @@ public class RepeatedInjectionMemory {
         return fingerprint != null && fingerprint.contains("|steer=low");
     }
 
+    /**
+     * Registers a prompt attempt for {@code targets}. {@code inFlight} marks
+     * the attempt as open for as long as no outcome has been recorded: an
+     * open attempt counts as in flight whether or not the caller blocks on
+     * it, so no other feature's selection can pick the same key while it is
+     * still open (e.g. a SYNC call the breeding loop blocks on, and an ASYNC
+     * call it does not, are both in flight until their outcome is known).
+     */
     public synchronized PromptAttemptRegistration registerAttempt(List<RepeatedInjectionTarget> targets,
-                                                                  boolean asyncInFlight) {
+                                                                  boolean inFlight) {
         List<RepeatedInjectionTarget> safeTargets = sanitizeTargets(targets);
         if (safeTargets.isEmpty()) {
             return PromptAttemptRegistration.empty();
         }
-        selectionOrdinal++;
         String attemptId = "prompt-" + (++attemptSequence);
-        attempts.put(attemptId, new PromptAttempt(safeTargets, asyncInFlight));
+        attempts.put(attemptId, new PromptAttempt(safeTargets, inFlight));
         for (RepeatedInjectionTarget target : safeTargets) {
             TargetState state = targetStates.computeIfAbsent(target.getKey(), ignored -> new TargetState());
             state.lastSelectedOrdinal = selectionOrdinal;
             state.lastFingerprint = target.getFingerprint();
-            if (asyncInFlight) {
+            if (inFlight) {
                 state.inFlightAttempts++;
             }
         }
@@ -131,7 +159,7 @@ public class RepeatedInjectionMemory {
             if (state == null) {
                 continue;
             }
-            if (attempt.asyncInFlight && state.inFlightAttempts > 0) {
+            if (attempt.inFlight && state.inFlightAttempts > 0) {
                 state.inFlightAttempts--;
             }
             if (gainedGoals > 0) {
@@ -147,7 +175,7 @@ public class RepeatedInjectionMemory {
         if (attempt == null) {
             return;
         }
-        if (!attempt.asyncInFlight) {
+        if (!attempt.inFlight) {
             return;
         }
         for (RepeatedInjectionTarget target : attempt.targets) {
@@ -174,7 +202,7 @@ public class RepeatedInjectionMemory {
             if (state == null) {
                 continue;
             }
-            if (attempt.asyncInFlight && state.inFlightAttempts > 0) {
+            if (attempt.inFlight && state.inFlightAttempts > 0) {
                 state.inFlightAttempts--;
             }
         }
@@ -207,11 +235,11 @@ public class RepeatedInjectionMemory {
 
     private static final class PromptAttempt {
         private final List<RepeatedInjectionTarget> targets;
-        private final boolean asyncInFlight;
+        private final boolean inFlight;
 
-        private PromptAttempt(List<RepeatedInjectionTarget> targets, boolean asyncInFlight) {
+        private PromptAttempt(List<RepeatedInjectionTarget> targets, boolean inFlight) {
             this.targets = targets;
-            this.asyncInFlight = asyncInFlight;
+            this.inFlight = inFlight;
         }
     }
 

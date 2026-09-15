@@ -582,6 +582,7 @@ public class AsyncLlmTestProducer {
         if (repeatedInjectionMemory == null || goals.size() <= GOALS_PER_PROMPT) {
             return goals;
         }
+        repeatedInjectionMemory.beginSelectionRound();
         goals.sort((left, right) -> Double.compare(goalPriority(right), goalPriority(left)));
         List<TestFitnessFunction> selected = new ArrayList<>();
         for (TestFitnessFunction goal : goals) {

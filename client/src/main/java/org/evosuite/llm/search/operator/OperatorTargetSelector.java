@@ -117,6 +117,9 @@ public class OperatorTargetSelector {
                 || currentGoals == null || currentGoals.isEmpty() || k <= 0) {
             return Collections.emptyList();
         }
+        if (memory != null) {
+            memory.beginSelectionRound();
+        }
         return Properties.LLM_OPERATOR_TARGETING == Properties.LlmOperatorTargeting.RANDOM
                 ? selectRandom(population, currentGoals, k, generation, allowCrossover)
                 : selectDirected(population, currentGoals, k, generation, allowCrossover);
