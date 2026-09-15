@@ -58,6 +58,7 @@ class LlmTraceRecorderTest {
                 .messages(Arrays.asList(LlmMessage.system("system"), LlmMessage.user("user")))
                 .responseText("response")
                 .inputTokens(12)
+                .cachedInputTokens(5)
                 .outputTokens(34)
                 .latencyMs(56)
                 .parseStatus("SUCCESS")
@@ -71,11 +72,13 @@ class LlmTraceRecorderTest {
         assertTrue(Files.exists(traceFile));
 
         String content = new String(Files.readAllBytes(traceFile), StandardCharsets.UTF_8);
-        assertTrue(content.contains("\"schema_version\":3"));
+        assertTrue(content.contains("\"schema_version\":4"));
         assertTrue(content.contains("\"run_id\":\"run-abc\""));
         assertTrue(content.contains("\"feature\":\"TEST_REPAIR\""));
         assertTrue(content.contains("\"expanded_classes\":[\"java.util.ArrayList\"]"));
         assertTrue(content.contains("\"input_tokens\":12"));
+        assertTrue(content.contains("\"cached_input_tokens\":5"));
+        assertTrue(content.contains("\"prefix_hash\":"));
     }
 
     @Test

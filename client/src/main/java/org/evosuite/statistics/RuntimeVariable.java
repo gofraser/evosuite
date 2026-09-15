@@ -794,6 +794,73 @@ public enum RuntimeVariable {
     LLM_Output_Tokens,
 
     /**
+     * Total number of input (prompt) tokens served from a provider-side
+     * prompt cache rather than freshly processed. Zero for providers that do
+     * not report cache usage.
+     */
+    LLM_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code SEEDING} LLM feature.
+     */
+    LLM_Seeding_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code TEST_FACTORY} LLM feature.
+     */
+    LLM_TestFactory_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code ASYNC_PRODUCER} LLM feature.
+     */
+    LLM_AsyncProducer_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code STAGNATION} LLM feature.
+     */
+    LLM_Stagnation_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code CONSTANT_POOL_ENRICHMENT} LLM feature.
+     */
+    LLM_ConstantPoolEnrichment_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code OBJECT_POOL_ENRICHMENT} LLM feature.
+     */
+    LLM_ObjectPoolEnrichment_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code CAST_CLASS_ENRICHMENT} LLM feature.
+     */
+    LLM_CastClassEnrichment_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code TEST_REPAIR} LLM feature.
+     */
+    LLM_TestRepair_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code POST_PROCESSING} LLM feature.
+     */
+    LLM_PostProcessing_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code SEMANTIC_MUTATION} LLM feature.
+     */
+    LLM_SemanticMutation_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code SEMANTIC_CROSSOVER} LLM feature.
+     */
+    LLM_SemanticCrossover_Cached_Input_Tokens,
+
+    /**
+     * Cached input tokens attributed to the {@code ITERATIVE_STRATEGY} LLM feature.
+     */
+    LLM_IterativeStrategy_Cached_Input_Tokens,
+
+    /**
      * Total latency in milliseconds spent in LLM provider calls.
      */
     LLM_Latency_Millis,

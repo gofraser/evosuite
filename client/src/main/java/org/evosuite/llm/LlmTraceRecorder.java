@@ -49,7 +49,7 @@ public class LlmTraceRecorder {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmTraceRecorder.class);
     private static final Gson GSON = new Gson();
-    private static final int TRACE_SCHEMA_VERSION = 3;
+    private static final int TRACE_SCHEMA_VERSION = 4;
     private static final ThreadLocal<PostProcessingTraceContext> POST_PROCESSING_TRACE_CONTEXT =
             new ThreadLocal<>();
 
@@ -68,6 +68,7 @@ public class LlmTraceRecorder {
         private final List<LlmMessage> messages;
         private final String responseText;
         private final int inputTokens;
+        private final int cachedInputTokens;
         private final int outputTokens;
         private final long latencyMs;
         private final String parseStatus;
@@ -89,6 +90,7 @@ public class LlmTraceRecorder {
             private List<LlmMessage> messages = Collections.emptyList();
             private String responseText;
             private int inputTokens;
+            private int cachedInputTokens;
             private int outputTokens;
             private long latencyMs;
             private String parseStatus;
@@ -123,6 +125,11 @@ public class LlmTraceRecorder {
 
             public Builder inputTokens(int inputTokens) {
                 this.inputTokens = inputTokens;
+                return this;
+            }
+
+            public Builder cachedInputTokens(int cachedInputTokens) {
+                this.cachedInputTokens = cachedInputTokens;
                 return this;
             }
 
@@ -211,6 +218,7 @@ public class LlmTraceRecorder {
             this.messages = builder.messages == null ? Collections.<LlmMessage>emptyList() : builder.messages;
             this.responseText = builder.responseText;
             this.inputTokens = builder.inputTokens;
+            this.cachedInputTokens = builder.cachedInputTokens;
             this.outputTokens = builder.outputTokens;
             this.latencyMs = builder.latencyMs;
             this.parseStatus = builder.parseStatus;
@@ -472,6 +480,7 @@ public class LlmTraceRecorder {
         traceRecord.put("effective_retry_base_delay_ms", configuration.getRetryBaseDelayMs());
         traceRecord.put("prompt_hash", deterministicPromptHash(safeMessages));
         traceRecord.put("system_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.SYSTEM));
+        traceRecord.put("prefix_hash", messageContentHash(safeMessages, LlmMessage.Role.SYSTEM));
         traceRecord.put("user_prompt_hash", messageContentHash(safeMessages, LlmMessage.Role.USER));
         traceRecord.put("postprocessing_prompt_version",
                 record.feature == LlmFeature.POST_PROCESSING
@@ -502,6 +511,7 @@ public class LlmTraceRecorder {
         traceRecord.put("expansion_attempted", record.expansionAttempted);
         traceRecord.put("expanded_classes", expanded);
         traceRecord.put("input_tokens", record.inputTokens);
+        traceRecord.put("cached_input_tokens", record.cachedInputTokens);
         traceRecord.put("output_tokens", record.outputTokens);
         traceRecord.put("latency_ms", record.latencyMs);
         traceRecord.put("error_type", record.errorType);

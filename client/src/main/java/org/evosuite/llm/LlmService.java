@@ -19,17 +19,10 @@
  */
 package org.evosuite.llm;
 
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.anthropic.AnthropicChatModel;
-import dev.langchain4j.model.ollama.OllamaChatModel;
-import dev.langchain4j.model.openai.OpenAiChatModel;
-import dev.langchain4j.model.output.Response;
-import dev.langchain4j.model.output.TokenUsage;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.provider.AnthropicChatModel;
+import org.evosuite.llm.provider.OpenAiCompatibleChatModel;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
@@ -45,7 +38,6 @@ import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -221,10 +213,10 @@ public class LlmService implements AutoCloseable {
     }
 
     private static void warnIfTimeoutTooLarge(int timeoutSeconds) {
-        // LangChain4j 0.35.0 maps the single timeout() Duration to all four
-        // OkHttp timeouts (call/connect/read/write). A long value here means
-        // any LLM call can stall a worker — and any sandbox-lock holder —
-        // for that long. 300s is already very generous for a single LLM call.
+        // llm_timeout_seconds bounds the HttpURLConnection read timeout for the
+        // whole call. A long value here means any LLM call can stall a worker —
+        // and any sandbox-lock holder — for that long. 300s is already very
+        // generous for a single LLM call.
         if (timeoutSeconds > 300) {
             logger.warn("llm_timeout_seconds={} is unusually large; a slow LLM call will block "
                     + "the calling thread for that long. Recommended <=300s.", timeoutSeconds);
@@ -246,60 +238,25 @@ public class LlmService implements AutoCloseable {
     private static ChatLanguageModel createProviderModel(LlmConfiguration config) {
         switch (config.getProvider()) {
             case OPENAI:
-                checkClassAvailable("dev.langchain4j.model.openai.OpenAiChatModel",
-                        "langchain4j-open-ai", "OPENAI");
                 return createOpenAiModel(config);
             case OLLAMA:
-                checkClassAvailable("dev.langchain4j.model.ollama.OllamaChatModel",
-                        "langchain4j-ollama", "OLLAMA");
                 return createOllamaModel(config);
             case ANTHROPIC:
-                checkClassAvailable("dev.langchain4j.model.anthropic.AnthropicChatModel",
-                        "langchain4j-anthropic", "ANTHROPIC");
                 return createAnthropicModel(config);
             default:
                 throw new IllegalArgumentException("Unsupported LLM provider: " + config.getProvider());
         }
     }
 
-    private static void checkClassAvailable(String className, String artifactId, String provider) {
-        try {
-            Class.forName(className);
-        } catch (ClassNotFoundException e) {
-            throw new IllegalStateException(
-                    "LLM provider " + provider + " requires dev.langchain4j:" + artifactId
-                    + " on the classpath. Add it as a dependency or use the shaded uber-jar.");
-        }
-    }
-
     private static ChatLanguageModel createOpenAiModel(LlmConfiguration config) {
         String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for OPENAI");
         String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for OPENAI");
-        // LangChain4j 0.35.0 fans the single timeout() Duration out to OkHttp's
-        // callTimeout, connectTimeout, readTimeout, writeTimeout — so this one
-        // value bounds the entire HTTP call. pingInterval (which would detect a
-        // silently-dead HTTP/2 connection sooner) is not exposed by this
-        // version of the builder and would require swapping the internal
-        // OkHttpClient AND rebuilding the Retrofit-bound OpenAiApi; that's
-        // out of scope here. invokeWithTimeout() provides the secondary
-        // safety net via FutureTask cancellation + executor replacement.
-        OpenAiChatModel.OpenAiChatModelBuilder builder = OpenAiChatModel.builder()
-                .modelName(modelName)
-                .apiKey(apiKey)
-                .temperature(config.getTemperature())
-                .timeout(Duration.ofSeconds(Math.max(1, config.getTimeoutSeconds())));
-        if (usesMaxCompletionTokens(modelName)) {
-            builder.maxCompletionTokens(config.getMaxTokens());
-        } else {
-            builder.maxTokens(config.getMaxTokens());
-        }
-        if (!isBlank(config.getBaseUrl())) {
-            builder.baseUrl(config.getBaseUrl().trim());
-        }
-        return new LangChain4jChatLanguageModel(builder.build());
+        return new OpenAiCompatibleChatModel(Properties.LlmProvider.OPENAI, modelName, apiKey,
+                config.getBaseUrl(), config.getTemperature(), config.getMaxTokens(),
+                config.getTimeoutSeconds());
     }
 
-    static boolean usesMaxCompletionTokens(String modelName) {
+    public static boolean usesMaxCompletionTokens(String modelName) {
         if (isBlank(modelName)) {
             return false;
         }
@@ -313,28 +270,15 @@ public class LlmService implements AutoCloseable {
     private static ChatLanguageModel createOllamaModel(LlmConfiguration config) {
         String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for OLLAMA");
         String baseUrl = requireNonBlank(config.getBaseUrl(), "LLM base URL must be configured for OLLAMA");
-        OllamaChatModel.OllamaChatModelBuilder builder = OllamaChatModel.builder()
-                .modelName(modelName)
-                .baseUrl(baseUrl)
-                .temperature(config.getTemperature())
-                .numPredict(config.getMaxTokens())
-                .timeout(Duration.ofSeconds(Math.max(1, config.getTimeoutSeconds())));
-        return new LangChain4jChatLanguageModel(builder.build());
+        return new OpenAiCompatibleChatModel(Properties.LlmProvider.OLLAMA, modelName, config.getApiKey(),
+                baseUrl, config.getTemperature(), config.getMaxTokens(), config.getTimeoutSeconds());
     }
 
     private static ChatLanguageModel createAnthropicModel(LlmConfiguration config) {
         String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for ANTHROPIC");
         String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for ANTHROPIC");
-        AnthropicChatModel.AnthropicChatModelBuilder builder = AnthropicChatModel.builder()
-                .modelName(modelName)
-                .apiKey(apiKey)
-                .temperature(config.getTemperature())
-                .maxTokens(config.getMaxTokens())
-                .timeout(Duration.ofSeconds(Math.max(1, config.getTimeoutSeconds())));
-        if (!isBlank(config.getBaseUrl())) {
-            builder.baseUrl(config.getBaseUrl().trim());
-        }
-        return new LangChain4jChatLanguageModel(builder.build());
+        return new AnthropicChatModel(modelName, apiKey, config.getBaseUrl(), config.getTemperature(),
+                config.getMaxTokens(), config.getTimeoutSeconds());
     }
 
     private static String requireNonBlank(String value, String message) {
@@ -523,10 +467,11 @@ public class LlmService implements AutoCloseable {
                             response.getOutputTokens(), configuration.getMaxTokens());
                 }
                 String status = truncated ? "TRUNCATED" : "SUCCESS";
-                statistics.recordCall(feature, response.getInputTokens(), response.getOutputTokens(), latency);
+                statistics.recordCall(feature, response.getInputTokens(), response.getCachedInputTokens(),
+                        response.getOutputTokens(), latency);
                 safeRecordTrace(feature, messages, response.getText(), response.getInputTokens(),
-                        response.getOutputTokens(), latency, status, options.repairAttempt,
-                        options.expansionAttempted, safeExpandedClasses, "", options);
+                        response.getCachedInputTokens(), response.getOutputTokens(), latency, status,
+                        options.repairAttempt, options.expansionAttempted, safeExpandedClasses, "", options);
                 return response.getText();
             } catch (Exception e) {
                 lastError = unwrap(e);
@@ -537,7 +482,7 @@ public class LlmService implements AutoCloseable {
                     // Do not turn a shutdown request into an ordinary provider
                     // failure or continue with a retry.
                     statistics.recordFailure(feature, latency);
-                    safeRecordTrace(feature, messages, "", 0, 0, latency,
+                    safeRecordTrace(feature, messages, "", 0, 0, 0, latency,
                             "INTERRUPTED", options.repairAttempt,
                             options.expansionAttempted, safeExpandedClasses,
                             lastError.getClass().getSimpleName(), options);
@@ -572,7 +517,7 @@ public class LlmService implements AutoCloseable {
                     } else {
                         statistics.recordFailure(feature, latency);
                     }
-                    safeRecordTrace(feature, messages, "", 0, 0,
+                    safeRecordTrace(feature, messages, "", 0, 0, 0,
                             latency, "FAILED", options.repairAttempt,
                             options.expansionAttempted, safeExpandedClasses,
                             lastError.getClass().getSimpleName(), options);
@@ -584,7 +529,7 @@ public class LlmService implements AutoCloseable {
                 // semantics.  Record retries separately so costs and traces
                 // do not hide transient provider work.
                 statistics.recordRetryAttempt(feature, latency);
-                safeRecordTrace(feature, messages, "", 0, 0, latency,
+                safeRecordTrace(feature, messages, "", 0, 0, 0, latency,
                         "RETRYING", options.repairAttempt,
                         options.expansionAttempted, safeExpandedClasses,
                         lastError.getClass().getSimpleName(), options);
@@ -628,15 +573,18 @@ public class LlmService implements AutoCloseable {
             return future.get(Math.min(configuredNanos, remainingNanos),
                     TimeUnit.NANOSECONDS);
         } catch (TimeoutException e) {
-            // Interrupt the worker first — OkHttp's Http2Stream.waitForIo uses
-            // Object.wait, which IS interruptible, so this normally tears down
-            // the call.
+            // Interrupt the worker first. A blocked HttpURLConnection read
+            // normally ends on its own once the socket's read timeout elapses,
+            // but that timeout is a much coarser bound than the phase deadline
+            // being enforced here, so cancelling the future lets the worker
+            // notice sooner if it happens to be at an interruptible point.
             future.cancel(true);
             if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
-                // Worker is still running — either OkHttp is in a non-interruptible
-                // path (Net.poll on the dispatcher thread) or langchain4j swallowed
-                // the interrupt. Drop the executor entirely so the leaked worker
-                // can't keep the sandbox lock (or anything else) alive forever.
+                // Worker is still running — the read timeout hasn't elapsed yet
+                // and the socket read isn't interruptible on this JVM. Drop the
+                // executor entirely so the leaked worker can't keep the sandbox
+                // lock (or anything else) alive forever; the read timeout will
+                // eventually unblock and terminate the leaked thread on its own.
                 // A fresh executor is created lazily on the next call.
                 logger.warn("LLM worker did not terminate after cancel; shutting down executor to drop the stuck call");
                 replaceExecutorService(runner);
@@ -686,15 +634,14 @@ public class LlmService implements AutoCloseable {
     /**
      * Replaces the per-service executor with a fresh one when its worker is
      * stuck inside an unresponsive HTTP call. {@link ExecutorService#shutdownNow()}
-     * interrupts all workers; on the stuck OkHttp threads this won't return
-     * immediately, but the new executor lets subsequent calls proceed
-     * unimpeded.
+     * interrupts all workers; on a worker blocked in a non-interruptible
+     * socket read this won't return immediately, but the new executor lets
+     * subsequent calls proceed unimpeded.
      *
-     * <p>Also rebuilds the {@link ChatLanguageModel} so the next call uses a
-     * fresh OkHttpClient/connection pool. Without this, a dead HTTP/2
-     * connection (one whose reader is parked in non-interruptible
-     * {@code Net.poll}) would still be reused by the new executor's workers,
-     * and they would hang the same way.
+     * <p>Also rebuilds the {@link ChatLanguageModel} so the next call opens a
+     * fresh {@code HttpURLConnection} rather than risk any connection reuse
+     * tied to the leaked worker. The leaked worker itself is left to unblock
+     * on its own once its read timeout elapses.
      */
     private synchronized void replaceExecutorService(ExecutorService stuck) {
         if (this.executorService != stuck) {
@@ -782,6 +729,7 @@ public class LlmService implements AutoCloseable {
                                  List<LlmMessage> messages,
                                  String responseText,
                                  int inputTokens,
+                                 int cachedInputTokens,
                                  int outputTokens,
                                  long latencyMs,
                                  String parseStatus,
@@ -796,6 +744,7 @@ public class LlmService implements AutoCloseable {
                     .messages(messages)
                     .responseText(responseText)
                     .inputTokens(inputTokens)
+                    .cachedInputTokens(cachedInputTokens)
                     .outputTokens(outputTokens)
                     .latencyMs(latencyMs)
                     .parseStatus(parseStatus)
@@ -1122,76 +1071,37 @@ public class LlmService implements AutoCloseable {
         }
     }
 
-    private static final class LangChain4jChatLanguageModel implements ChatLanguageModel {
-
-        private final dev.langchain4j.model.chat.ChatLanguageModel delegate;
-
-        private LangChain4jChatLanguageModel(dev.langchain4j.model.chat.ChatLanguageModel delegate) {
-            this.delegate = delegate;
-        }
-
-        @Override
-        public LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
-            Response<AiMessage> response = delegate.generate(toChatMessages(messages));
-            String text = "";
-            if (response != null && response.content() != null && response.content().text() != null) {
-                text = response.content().text();
-            }
-            TokenUsage tokenUsage = response == null ? null : response.tokenUsage();
-            int inputTokens = tokenUsage != null && tokenUsage.inputTokenCount() != null
-                    ? tokenUsage.inputTokenCount()
-                    : 0;
-            int outputTokens = tokenUsage != null && tokenUsage.outputTokenCount() != null
-                    ? tokenUsage.outputTokenCount()
-                    : 0;
-            return new LlmResponse(text, inputTokens, outputTokens);
-        }
-
-        private List<ChatMessage> toChatMessages(List<LlmMessage> messages) {
-            List<ChatMessage> converted = new ArrayList<>();
-            if (messages == null) {
-                return converted;
-            }
-            for (LlmMessage message : messages) {
-                if (message == null) {
-                    continue;
-                }
-                switch (message.getRole()) {
-                    case SYSTEM:
-                        converted.add(SystemMessage.from(message.getContent()));
-                        break;
-                    case ASSISTANT:
-                        converted.add(AiMessage.from(message.getContent()));
-                        break;
-                    case USER:
-                    default:
-                        converted.add(UserMessage.from(message.getContent()));
-                        break;
-                }
-            }
-            return converted;
-        }
-    }
-
     public static final class LlmResponse {
         private final String text;
         private final int inputTokens;
+        private final int cachedInputTokens;
         private final int outputTokens;
 
         /**
-         * Constructs an LLM response with text and token usage counts.
+         * Constructs an LLM response with text, token usage counts, and the
+         * portion of the input tokens served from a provider-side prompt
+         * cache (0 when the provider does not report caching).
          */
-        public LlmResponse(String text, int inputTokens, int outputTokens) {
+        public LlmResponse(String text, int inputTokens, int cachedInputTokens, int outputTokens) {
             this.text = text;
             this.inputTokens = inputTokens;
+            this.cachedInputTokens = cachedInputTokens;
             this.outputTokens = outputTokens;
+        }
+
+        /**
+         * Constructs an LLM response with text and token usage counts, with
+         * zero cached input tokens.
+         */
+        public LlmResponse(String text, int inputTokens, int outputTokens) {
+            this(text, inputTokens, 0, outputTokens);
         }
 
         /**
          * Creates an {@link LlmResponse} with only the response text and zero token counts.
          */
         public static LlmResponse fromText(String text) {
-            return new LlmResponse(text, 0, 0);
+            return new LlmResponse(text, 0, 0, 0);
         }
 
         public String getText() {
@@ -1200,6 +1110,10 @@ public class LlmService implements AutoCloseable {
 
         public int getInputTokens() {
             return inputTokens;
+        }
+
+        public int getCachedInputTokens() {
+            return cachedInputTokens;
         }
 
         public int getOutputTokens() {

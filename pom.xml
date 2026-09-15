@@ -839,14 +839,6 @@
                                         <includes><include>**</include></includes>
                                     </filter>
                                     <filter>
-                                        <artifact>org.jetbrains.kotlin:*</artifact>
-                                        <includes><include>**</include></includes>
-                                    </filter>
-                                    <filter>
-                                        <artifact>dev.langchain4j:*</artifact>
-                                        <includes><include>**</include></includes>
-                                    </filter>
-                                    <filter>
                                         <artifact>net.bytebuddy:*</artifact>
                                         <includes><include>**</include></includes>
                                     </filter>
@@ -953,7 +945,6 @@
         <mockito.version>4.11.0</mockito.version>
         <bytebuddy.version>1.12.23</bytebuddy.version>
         <logback.version>1.2.13</logback.version>
-        <langchain4j.version>0.35.0</langchain4j.version>
         <publish.classifier></publish.classifier>
 
         <jaxb.version>2.3.3</jaxb.version>
