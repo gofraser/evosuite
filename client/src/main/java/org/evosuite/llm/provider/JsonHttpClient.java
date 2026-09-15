@@ -29,8 +29,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
- * Minimal JSON-over-HTTP client built on {@link HttpURLConnection}, replacing
- * the OkHttp-backed transport that langchain4j used to provide. Kept
+ * Minimal JSON-over-HTTP client built on {@link HttpURLConnection}. Kept
  * deliberately small: it knows nothing about any particular provider's
  * request/response shape, only how to POST a JSON body and hand back the
  * response text (or fail with {@link LlmHttpException} on a non-2xx status).
