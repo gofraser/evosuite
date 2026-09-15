@@ -78,6 +78,21 @@ class ClusterExpansionManagerTest {
     }
 
     @Test
+    void expansionLockIsSharedAcrossInstances() {
+        // The test cluster mutated by tryExpandFrom is process-wide, so every
+        // ClusterExpansionManager (one per TestRepairLoop: search thread, stagnation
+        // worker, async producer, operator workers, ...) must serialise on the same
+        // lock rather than one scoped to its own instance. Constructing two managers
+        // here documents that intent, even though the lock itself is a static field.
+        ClusterExpansionManager first = new ClusterExpansionManager(getClass().getClassLoader());
+        ClusterExpansionManager second = new ClusterExpansionManager(getClass().getClassLoader());
+        assertNotSame(first, second);
+
+        assertSame(ClusterExpansionManager.getExpansionLock(), ClusterExpansionManager.getExpansionLock(),
+                "the expansion lock must be one instance shared by the whole class, not per-manager");
+    }
+
+    @Test
     void filtersNoiseWordsFromDiagnostics() {
         ClusterExpansionManager manager = new ClusterExpansionManager(getClass().getClassLoader());
         ParseResult result = new ParseResult(new DefaultTestCase(), "test");
