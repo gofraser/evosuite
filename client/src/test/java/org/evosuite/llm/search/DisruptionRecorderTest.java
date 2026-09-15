@@ -184,11 +184,11 @@ class DisruptionRecorderTest {
                 .eventIndex(0)
                 .operatorKind(OperatorKind.MUTATION)
                 .operatorSource(OperatorSource.SEMANTIC)
-                .targetGoal("a, b")
+                .targetGoalId("a, b")
                 .build();
 
         String csv = event.toCsvRow();
-        assertTrue(csv.contains("\"a, b\""), "target_goal containing a comma should be quoted: " + csv);
+        assertTrue(csv.contains("\"a, b\""), "target_goal_id containing a comma should be quoted: " + csv);
 
         String[] headerParts = DisruptionEvent.CSV_HEADER.split(CSV_SPLIT_REGEX, -1);
         String[] rowParts = csv.split(CSV_SPLIT_REGEX, -1);

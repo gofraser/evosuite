@@ -85,7 +85,7 @@ class BreedingDisruptionObserverTest {
                 true, 1, null, Double.NaN, false, target, PairedProbeResult.NONE);
 
         DisruptionEvent event = DisruptionRecorder.getInstance().getEvents().get(0);
-        assertEquals("goalA", event.getTargetGoal());
+        assertEquals(GoalId.of(goal), event.getTargetGoalId());
         assertEquals(0.7, event.getTargetDistanceBefore());
         assertEquals(0.0, event.getTargetDistanceAfter());
     }
@@ -101,7 +101,7 @@ class BreedingDisruptionObserverTest {
                 false, 1, null, Double.NaN, false, null, PairedProbeResult.NONE);
 
         DisruptionEvent event = DisruptionRecorder.getInstance().getEvents().get(0);
-        assertNull(event.getTargetGoal());
+        assertNull(event.getTargetGoalId());
         assertTrue(Double.isNaN(event.getTargetDistanceBefore()));
         assertTrue(Double.isNaN(event.getTargetDistanceAfter()));
         assertFalse(event.isPairedProbe());

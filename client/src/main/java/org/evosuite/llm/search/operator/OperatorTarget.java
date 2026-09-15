@@ -20,6 +20,7 @@
 package org.evosuite.llm.search.operator;
 
 import org.evosuite.llm.prompt.TargetSection;
+import org.evosuite.llm.search.GoalId;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.testcase.TestChromosome;
@@ -78,7 +79,7 @@ public final class OperatorTarget {
      * different test is not suppressed as a repeat of the same attempt.
      */
     public RepeatedInjectionTarget toRepeatedInjectionTarget() {
-        String key = "operator|" + goal.toString();
+        String key = "operator|" + GoalId.of(goal);
         StringBuilder fingerprint = new StringBuilder(key).append("|parent=")
                 .append(TargetSection.canonicalCode(parent.getTestCase()));
         if (partner != null) {

@@ -133,7 +133,7 @@ public class BreedingDisruptionObserver {
             }
 
             if (target != null) {
-                builder.targetGoal(target.getGoal().toString());
+                builder.targetGoalId(GoalId.of(target.getGoal()));
                 builder.targetDistanceBefore(target.getDistance());
                 double targetDistanceAfter = Double.NaN;
                 if (probeSnapshot != null && !probeFailure) {
@@ -235,7 +235,7 @@ public class BreedingDisruptionObserver {
             }
 
             if (target != null) {
-                builder.targetGoal(target.getGoal().toString());
+                builder.targetGoalId(GoalId.of(target.getGoal()));
                 builder.targetDistanceBefore(target.getDistance());
                 double targetDistanceAfter = Double.NaN;
                 if (accepted) {

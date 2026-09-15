@@ -79,7 +79,7 @@ public class DisruptionEvent {
     private final double isolatedMutationDelta;          // NaN if unavailable
 
     // ---- Selector target ----
-    private final String targetGoal;             // null if no selector target
+    private final String targetGoalId;           // null if no selector target
     private final double targetDistanceBefore;   // NaN if unavailable
     private final double targetDistanceAfter;    // NaN if unavailable
 
@@ -117,7 +117,7 @@ public class DisruptionEvent {
         this.isolatedFitnessPostCrossover = b.isolatedFitnessPostCrossover;
         this.isolatedFitnessPostMutation = b.isolatedFitnessPostMutation;
         this.isolatedMutationDelta = b.isolatedMutationDelta;
-        this.targetGoal = b.targetGoal;
+        this.targetGoalId = b.targetGoalId;
         this.targetDistanceBefore = b.targetDistanceBefore;
         this.targetDistanceAfter = b.targetDistanceAfter;
         this.pairedProbe = b.pairedProbe;
@@ -137,7 +137,7 @@ public class DisruptionEvent {
             + "accepted_into_offspring,survives_to_next_generation,"
             + "isolated_probe,probe_failure,"
             + "isolated_fitness_post_crossover,isolated_fitness_post_mutation,isolated_mutation_delta,"
-            + "target_goal,target_distance_before,target_distance_after,"
+            + "target_goal_id,target_distance_before,target_distance_after,"
             + "paired_probe,paired_probe_failure,twin_fitness,twin_target_distance";
 
     /**
@@ -160,7 +160,7 @@ public class DisruptionEvent {
                 + formatDouble(isolatedFitnessPostCrossover) + ","
                 + formatDouble(isolatedFitnessPostMutation) + ","
                 + formatDouble(isolatedMutationDelta) + ","
-                + formatCsvField(targetGoal) + ","
+                + formatCsvField(targetGoalId) + ","
                 + formatDouble(targetDistanceBefore) + "," + formatDouble(targetDistanceAfter) + ","
                 + pairedProbe + "," + pairedProbeFailure + ","
                 + formatDouble(twinFitness) + "," + formatDouble(twinTargetDistance);
@@ -170,7 +170,7 @@ public class DisruptionEvent {
         return Double.isNaN(v) ? "" : String.valueOf(v);
     }
 
-    /** Quote free-text CSV fields (target_goal) that contain a comma, quote or line break. */
+    /** Quote free-text CSV fields (target_goal_id) that contain a comma, quote or line break. */
     private static String formatCsvField(String s) {
         if (s == null) {
             return "";
@@ -291,8 +291,8 @@ public class DisruptionEvent {
         return isolatedMutationDelta;
     }
 
-    public String getTargetGoal() {
-        return targetGoal;
+    public String getTargetGoalId() {
+        return targetGoalId;
     }
 
     public double getTargetDistanceBefore() {
@@ -353,7 +353,7 @@ public class DisruptionEvent {
         private double isolatedFitnessPostCrossover = Double.NaN;
         private double isolatedFitnessPostMutation = Double.NaN;
         private double isolatedMutationDelta = Double.NaN;
-        private String targetGoal;
+        private String targetGoalId;
         private double targetDistanceBefore = Double.NaN;
         private double targetDistanceAfter = Double.NaN;
         private boolean pairedProbe;
@@ -496,8 +496,8 @@ public class DisruptionEvent {
             return this;
         }
 
-        public Builder targetGoal(String v) {
-            targetGoal = v;
+        public Builder targetGoalId(String v) {
+            targetGoalId = v;
             return this;
         }
 
