@@ -454,7 +454,8 @@ public abstract class GeneticAlgorithm<T extends Chromosome<T>> implements Searc
         // getPopulationAsTestChromosomes() is called from the search thread
         // (LlmTestChromosomeFactory.getChromosome() runs during population
         // creation/replacement), so reading the live population here is safe.
-        factory.setSearchState(currentGoalsSupplier, this::getPopulationAsTestChromosomes, repeatedInjectionMemory);
+        factory.setSearchState(currentGoalsSupplier, this::getPopulationAsTestChromosomes,
+                () -> currentIteration, repeatedInjectionMemory);
     }
 
     private static LlmTestChromosomeFactory findLlmTestChromosomeFactory(ChromosomeFactory<?> root) {

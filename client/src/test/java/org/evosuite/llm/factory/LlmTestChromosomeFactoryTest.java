@@ -21,9 +21,12 @@ package org.evosuite.llm.factory;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
+import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -37,11 +40,16 @@ import org.mockito.ArgumentCaptor;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -129,7 +137,7 @@ class LlmTestChromosomeFactoryTest {
         when(fallback.getChromosome()).thenReturn(fallbackChromosome);
 
         LlmTestChromosomeFactory factory = new LlmTestChromosomeFactory(fallback, llmService, Collections::emptyList);
-        factory.setSearchState(() -> Collections.singleton(goal), () -> population, null);
+        factory.setSearchState(() -> Collections.singleton(goal), () -> population, () -> 1L, null);
 
         TestChromosome result = factory.getChromosome();
 
@@ -163,6 +171,68 @@ class LlmTestChromosomeFactoryTest {
         String userText = userMessageText(promptCaptor.getValue());
         assertTrue(userText.contains("Generate one JUnit test that is likely to improve coverage."));
         assertFalse(userText.contains("Target #1"));
+    }
+
+    private static LlmTestChromosomeFactory targetedFactory(LlmService llmService, RepeatedInjectionMemory memory,
+                                                            TestFitnessFunction goal) {
+        TestChromosome parent = chromosome(1);
+        parent.setFitness(goal, 0.25);
+        List<TestChromosome> population = Collections.singletonList(parent);
+        ChromosomeFactory<TestChromosome> fallback = mock(ChromosomeFactory.class);
+        when(fallback.getChromosome()).thenReturn(chromosome(2));
+        LlmTestChromosomeFactory factory = new LlmTestChromosomeFactory(fallback, llmService, Collections::emptyList);
+        factory.setSearchState(() -> Collections.singleton(goal), () -> population, () -> 1L, memory);
+        return factory;
+    }
+
+    @Test
+    void registersTheTargetAsAnAttemptAndRecordsNoGainWhenNothingParses() {
+        TestFitnessFunction goal = new StubGoal("g");
+        LlmService llmService = mockAvailableService();
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(UNPARSEABLE_RESPONSE);
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+
+        targetedFactory(llmService, memory, goal).getChromosome();
+
+        ArgumentCaptor<List<RepeatedInjectionTarget>> targets = ArgumentCaptor.forClass(List.class);
+        verify(memory).registerAttempt(targets.capture(), eq(false));
+        assertEquals(1, targets.getValue().size());
+        assertTrue(targets.getValue().get(0).getKey().startsWith("operator|"));
+        verify(memory).recordAttemptOutcome(any(String.class), eq(0));
+        verify(memory, never()).releaseUndeliveredAttempt(any(String.class));
+    }
+
+    @Test
+    void releasesTheAttemptWhenTheCallNeverWentOut() {
+        TestFitnessFunction goal = new StubGoal("g");
+        LlmService llmService = mockAvailableService();
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+                .thenThrow(new LlmBudgetExceededException("spent"));
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+
+        targetedFactory(llmService, memory, goal).getChromosome();
+
+        verify(memory).registerAttempt(any(List.class), eq(false));
+        verify(memory).releaseUndeliveredAttempt(any(String.class));
+        verify(memory, never()).recordAttemptOutcome(any(String.class), any(Integer.class));
+    }
+
+    @Test
+    void goalListPromptRegistersNoAttempt() {
+        TestFitnessFunction goal = new StubGoal("g");
+        LlmService llmService = mockAvailableService();
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class))).thenReturn(UNPARSEABLE_RESPONSE);
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        ChromosomeFactory<TestChromosome> fallback = mock(ChromosomeFactory.class);
+        when(fallback.getChromosome()).thenReturn(chromosome(2));
+        LlmTestChromosomeFactory factory = new LlmTestChromosomeFactory(fallback, llmService, Collections::emptyList);
+        factory.setSearchState(() -> Collections.singleton(goal), Collections::emptyList, () -> 1L, memory);
+
+        factory.getChromosome();
+
+        // registerAttempt with no targets is the memory's own no-op; nothing to close afterwards
+        verify(memory, never()).recordAttemptOutcome(any(String.class), any(Integer.class));
+        verify(memory, never()).releaseUndeliveredAttempt(any(String.class));
     }
 
     /** Minimal goal stub with a cache-only fitness map, mirroring the pattern used across the llm test packages. */
