@@ -22,6 +22,7 @@ package org.evosuite.llm;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.provider.AnthropicChatModel;
+import org.evosuite.llm.provider.LlmHttpException;
 import org.evosuite.llm.provider.OpenAiCompatibleChatModel;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.utils.LoggingUtils;
@@ -812,6 +813,17 @@ public class LlmService implements AutoCloseable {
 
         boolean retryableSignal = false;
         for (Throwable cause : causalChain(error)) {
+            if (cause instanceof LlmHttpException) {
+                // The status code is authoritative for an HTTP failure: the
+                // response body (folded into the exception message) must not
+                // be allowed to override it in either direction, since body
+                // text is provider-specific and easy to get wrong.
+                if (isRetryableHttpStatus(((LlmHttpException) cause).getStatusCode())) {
+                    retryableSignal = true;
+                    continue;
+                }
+                return false;
+            }
             if (isExplicitlyNonRetryable(cause)) {
                 return false;
             }
@@ -822,16 +834,33 @@ public class LlmService implements AutoCloseable {
         return retryableSignal;
     }
 
+    /**
+     * OpenAI documents 408 (request timeout), 409 (conflict), and 429 (rate
+     * limit) as retryable in addition to every 5xx; Anthropic's 529
+     * ("overloaded") falls under that same 5xx umbrella. 425 (Too Early) is
+     * included alongside 409 since both simply mean "resend this request
+     * later". Every other 4xx means the request itself needs to change
+     * before retrying can help.
+     */
+    private static boolean isRetryableHttpStatus(int status) {
+        if (status == 408 || status == 409 || status == 425 || status == 429) {
+            return true;
+        }
+        return status >= 500 && status < 600;
+    }
+
+    /**
+     * Text-based fallback for failures that did not arrive as an
+     * {@link LlmHttpException}, e.g. transport failures from the underlying
+     * {@code HttpURLConnection} or a provider client rejecting the response
+     * before an exception type carrying a status code is available.
+     */
     private static boolean isExplicitlyRetryable(Throwable cause) {
         if (cause instanceof TimeoutException
                 || cause instanceof SocketTimeoutException
                 || cause instanceof ConnectException
                 || cause instanceof SocketException
                 || cause instanceof InterruptedIOException) {
-            return true;
-        }
-
-        if (isLangChainNullTextFailure(cause)) {
             return true;
         }
 
@@ -866,21 +895,6 @@ public class LlmService implements AutoCloseable {
                 || text.contains("bad request")
                 || text.contains("invalid request")
                 || text.contains("malformed");
-    }
-
-    /**
-     * Detects the LangChain4j {@code ValidationUtils.ensureNotNull(text, "text")}
-     * failure that surfaces when a provider returns a response whose content text
-     * is null. Pairing the message check with the exception type avoids false
-     * positives from unrelated {@code IllegalArgumentException}s whose text
-     * happens to include the phrase.
-     */
-    private static boolean isLangChainNullTextFailure(Throwable cause) {
-        if (!(cause instanceof IllegalArgumentException) && !(cause instanceof NullPointerException)) {
-            return false;
-        }
-        String message = cause.getMessage();
-        return message != null && message.toLowerCase().contains("text cannot be null");
     }
 
     private static String combinedText(Throwable throwable) {

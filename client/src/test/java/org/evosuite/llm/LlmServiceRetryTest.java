@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm;
 
+import org.evosuite.llm.provider.LlmHttpException;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -221,52 +222,32 @@ class LlmServiceRetryTest {
     }
 
     @Test
-    void retryClassificationTreatsTextCannotBeNullAsRetryable() {
-        IllegalArgumentException error = new IllegalArgumentException("text cannot be null");
-        assertTrue(LlmService.isRetryable(error));
+    void httpStatusCodeDecidesRetryabilityForRetryableCodes() {
+        for (int status : new int[]{408, 409, 429, 500, 504, 529}) {
+            RuntimeException wrapped = new RuntimeException("wrapper",
+                    new LlmHttpException(status, "irrelevant body"));
+            assertTrue(LlmService.isRetryable(wrapped), "status " + status + " should be retryable");
+        }
     }
 
     @Test
-    void retriesTextCannotBeNullThenSucceeds() {
-        AtomicInteger calls = new AtomicInteger();
-        LlmService.ChatLanguageModel model = (messages, feature) -> {
-            if (calls.incrementAndGet() == 1) {
-                throw new IllegalArgumentException("text cannot be null");
-            }
-            return new LlmService.LlmResponse("ok", 9, 4);
-        };
-
-        LlmConfiguration configuration = new LlmConfiguration(
-                org.evosuite.Properties.LlmProvider.NONE,
-                "mock",
-                "",
-                "",
-                0.0,
-                1024,
-                2,
-                2,
-                1,
-                false,
-                Paths.get("target/llm-test-traces"),
-                "run-4");
-
-        LlmStatistics statistics = new LlmStatistics();
-        LlmService service = new LlmService(model,
-                new LlmBudgetCoordinator.Local(2),
-                configuration,
-                statistics,
-                new LlmTraceRecorder(configuration));
-
-        try {
-            String output = service.query(Collections.singletonList(LlmMessage.user("generate")), LlmFeature.TEST_REPAIR);
-
-            assertEquals("ok", output);
-            assertEquals(2, calls.get());
-            assertEquals(1, statistics.getSuccessfulCalls());
-            assertEquals(0, statistics.getFailedCalls());
-        } finally {
-            service.close();
+    void httpStatusCodeDecidesRetryabilityForNonRetryableCodes() {
+        for (int status : new int[]{400, 401, 404, 422}) {
+            RuntimeException wrapped = new RuntimeException("wrapper",
+                    new LlmHttpException(status, "irrelevant body"));
+            assertFalse(LlmService.isRetryable(wrapped), "status " + status + " should not be retryable");
         }
+    }
+
+    @Test
+    void httpStatusCodeOverridesMisleadingResponseBodyText() {
+        RuntimeException retryableDespiteBody = new RuntimeException("wrapper",
+                new LlmHttpException(500, "invalid request"));
+        assertTrue(LlmService.isRetryable(retryableDespiteBody));
+
+        RuntimeException nonRetryableDespiteBody = new RuntimeException("wrapper",
+                new LlmHttpException(400, "temporarily unavailable"));
+        assertFalse(LlmService.isRetryable(nonRetryableDespiteBody));
     }
 
     @Test
