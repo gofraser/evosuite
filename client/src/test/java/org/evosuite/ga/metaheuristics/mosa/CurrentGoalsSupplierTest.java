@@ -96,6 +96,44 @@ class CurrentGoalsSupplierTest extends MosaTestSupport {
     }
 
     @Test
+    void dynaMosaSearchThreadSeesLiveFrontierWhileOtherThreadsSeeLastPublished() throws Exception {
+        DynaMOSA dynaMosa = new DynaMOSA(TestChromosome::new);
+        dynaMosa.goalsManager = new MultiCriteriaManager(Collections.emptyList());
+        TestFitnessFunction initial = simpleGoal("initial");
+        dynaMosa.goalsManager.getCurrentGoals().add(initial);
+        // This thread plays the search thread: it is the one that publishes.
+        dynaMosa.publishCurrentGoals();
+
+        // An offspring evaluation mid-generation rewrites the frontier without republishing.
+        TestFitnessFunction unlocked = simpleGoal("unlocked");
+        dynaMosa.goalsManager.getCurrentGoals().remove(initial);
+        dynaMosa.goalsManager.getCurrentGoals().add(unlocked);
+
+        Set<TestFitnessFunction> seenElsewhereBefore = readOnOtherThread(dynaMosa);
+        assertEquals(Collections.singleton(initial), seenElsewhereBefore,
+                "a background thread must only see the last published frontier");
+
+        Set<TestFitnessFunction> seenOnSearchThread = dynaMosa.getCurrentGoals();
+        assertEquals(Collections.singleton(unlocked), seenOnSearchThread,
+                "the search thread must see the frontier as it is now, not a stale copy");
+        assertThrows(UnsupportedOperationException.class, () -> seenOnSearchThread.add(initial),
+                "the live view handed to operators must still be an immutable copy");
+
+        assertEquals(Collections.singleton(unlocked), readOnOtherThread(dynaMosa),
+                "a search-thread read republishes, so background threads catch up too");
+    }
+
+    private static Set<TestFitnessFunction> readOnOtherThread(DynaMOSA dynaMosa) throws Exception {
+        java.util.concurrent.atomic.AtomicReference<Set<TestFitnessFunction>> seen =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        Thread reader = new Thread(() -> seen.set(dynaMosa.getCurrentGoals()));
+        reader.start();
+        reader.join(5_000);
+        assertFalse(reader.isAlive(), "reader thread did not finish");
+        return seen.get();
+    }
+
+    @Test
     void dynaMosaCurrentGoalsIsUnmodifiable() {
         DynaMOSA dynaMosa = new DynaMOSA(TestChromosome::new);
         dynaMosa.goalsManager = new MultiCriteriaManager(Collections.emptyList());

@@ -60,6 +60,13 @@ public class DynaMOSA extends AbstractMOSA {
     private transient volatile Set<TestFitnessFunction> currentGoalsSnapshot = Collections.emptySet();
 
     /**
+     * The thread that last published the snapshot, i.e. the search thread. It is the only thread
+     * that mutates the goals manager, so it may read the live frontier directly and see goals
+     * unlocked or covered by the offspring evaluated earlier in the same generation.
+     */
+    private transient volatile Thread publishingThread;
+
+    /**
      * Constructor based on the abstract class. {@link AbstractMOSA}.
      *
      * @param factory a {@link org.evosuite.ga.ChromosomeFactory} object
@@ -235,17 +242,23 @@ public class DynaMOSA extends AbstractMOSA {
         currentGoalsSnapshot = goalsManager == null
                 ? Collections.emptySet()
                 : Collections.unmodifiableSet(new LinkedHashSet<>(goalsManager.getCurrentGoals()));
+        publishingThread = Thread.currentThread();
     }
 
     /**
      * {@inheritDoc}
      *
-     * <p>DynaMOSA's frontier: uncovered goals whose control dependencies are already covered,
-     * as last published by {@link #publishCurrentGoals()}. Immutable and safe to read from any
-     * thread; at most one generation behind the goals manager.
+     * <p>DynaMOSA's frontier: uncovered goals whose control dependencies are already covered.
+     * Always an immutable copy. On the search thread it is taken from the goals manager at the
+     * time of the call, so synchronous operators that run between offspring evaluations target
+     * the frontier as it is now; every other thread gets the copy last published by
+     * {@link #publishCurrentGoals()}, at most one generation behind.
      */
     @Override
     protected Set<TestFitnessFunction> getCurrentGoals() {
+        if (goalsManager != null && Thread.currentThread() == publishingThread) {
+            publishCurrentGoals();
+        }
         Set<TestFitnessFunction> snapshot = currentGoalsSnapshot;
         return snapshot == null ? Collections.emptySet() : snapshot;
     }
