@@ -38,12 +38,25 @@ import java.util.Optional;
  */
 public final class TargetedResponse {
 
+    /**
+     * Whether the LLM actually answered. {@link #map} always yields {@code DELIVERED}
+     * (even when the response was empty or unparsable — the model got a turn and
+     * simply produced nothing usable, which is a legitimate zero-gain outcome for
+     * every target); {@link #noBudget()} and {@link #failed()} mark the two cases
+     * where no call was ever completed, so no target should be credited a gain of
+     * zero — only released, so its repeat-suppression cooldown does not grow on a
+     * turn it never had.
+     */
+    public enum Status { DELIVERED, NO_BUDGET, FAILED }
+
     private final Map<Integer, TestCase> matched;
     private final List<TestCase> unmatched;
+    private final Status status;
 
-    private TargetedResponse(Map<Integer, TestCase> matched, List<TestCase> unmatched) {
+    private TargetedResponse(Map<Integer, TestCase> matched, List<TestCase> unmatched, Status status) {
         this.matched = Collections.unmodifiableMap(matched);
         this.unmatched = Collections.unmodifiableList(unmatched);
+        this.status = status;
     }
 
     /**
@@ -52,13 +65,14 @@ public final class TargetedResponse {
      * or a test with any other name, is unmatched. A failed result maps to
      * nothing, and so does an empty test: the parser synthesises an empty
      * method for a response without code (typically a truncated one), which
-     * must not replace an offspring or seed the population.
+     * must not replace an offspring or seed the population. Always {@link
+     * Status#DELIVERED}: the call went through, whatever came back of it.
      */
     public static TargetedResponse map(RepairResult result, int targetCount) {
         Map<Integer, TestCase> matched = new TreeMap<>();
         List<TestCase> unmatched = new ArrayList<>();
         if (result == null || !result.isSuccess()) {
-            return new TargetedResponse(matched, unmatched);
+            return new TargetedResponse(matched, unmatched, Status.DELIVERED);
         }
         for (ParseResult parsed : result.getParseResults()) {
             TestCase test = parsed.getTestCase();
@@ -72,7 +86,21 @@ public final class TargetedResponse {
                 unmatched.add(test);
             }
         }
-        return new TargetedResponse(matched, unmatched);
+        return new TargetedResponse(matched, unmatched, Status.DELIVERED);
+    }
+
+    /** An empty, {@link Status#NO_BUDGET} response: no call was made, budget ran out first. */
+    public static TargetedResponse noBudget() {
+        return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(), Status.NO_BUDGET);
+    }
+
+    /** An empty, {@link Status#FAILED} response: the call went out but never came back. */
+    public static TargetedResponse failed() {
+        return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(), Status.FAILED);
+    }
+
+    public Status getStatus() {
+        return status;
     }
 
     /** The 1-based target number encoded in {@code methodName}, or 0 when it names no target in range. */

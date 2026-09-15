@@ -196,6 +196,37 @@ class TargetedResponseTest {
         assertTrue(response.all().isEmpty());
     }
 
+    // ---- status ---------------------------------------------------------------------
+
+    @Test
+    void mapAlwaysYieldsDeliveredEvenForAFailedOrNullResult() {
+        RepairResult failure = RepairResult.failure(Collections.singletonList("boom"), 1, Collections.emptyList());
+
+        assertEquals(TargetedResponse.Status.DELIVERED,
+                TargetedResponse.map(RepairResult.success(Collections.emptyList(), Collections.emptyList(), 0,
+                        Collections.emptyList()), 1).getStatus());
+        assertEquals(TargetedResponse.Status.DELIVERED, TargetedResponse.map(failure, 3).getStatus());
+        assertEquals(TargetedResponse.Status.DELIVERED, TargetedResponse.map(null, 3).getStatus());
+    }
+
+    @Test
+    void noBudgetIsEmptyAndCarriesTheNoBudgetStatus() {
+        TargetedResponse response = TargetedResponse.noBudget();
+
+        assertTrue(response.isEmpty());
+        assertTrue(response.all().isEmpty());
+        assertEquals(TargetedResponse.Status.NO_BUDGET, response.getStatus());
+    }
+
+    @Test
+    void failedIsEmptyAndCarriesTheFailedStatus() {
+        TargetedResponse response = TargetedResponse.failed();
+
+        assertTrue(response.isEmpty());
+        assertTrue(response.all().isEmpty());
+        assertEquals(TargetedResponse.Status.FAILED, response.getStatus());
+    }
+
     // ---- targetIndex direct cases ---------------------------------------------------
 
     @Test

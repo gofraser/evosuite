@@ -33,6 +33,10 @@ import java.util.TreeSet;
  * types/goals used to attribute an unmatched response. Captured on the search thread, before a
  * batch's call goes out, so {@link LlmOperatorExecutor} has everything it needs to attribute
  * whatever the worker thread eventually publishes.
+ *
+ * <p>Each target is registered as its own {@link org.evosuite.llm.search.RepeatedInjectionMemory}
+ * attempt (see {@link #add}), so a target missing from the response can be closed with a zero
+ * gain without also closing — or leaving dangling — any other target's attempt in the same batch.
  */
 final class OperatorBatchAttribution {
 
@@ -45,11 +49,19 @@ final class OperatorBatchAttribution {
         snapshots = new ArrayList<>(size);
     }
 
-    void add(OperatorTarget target) {
+    /**
+     * Adds one target, already registered as its own attempt.
+     *
+     * @param target    the target being added
+     * @param attemptId that target's own attempt id ({@code ""} when it could not be registered,
+     *                  e.g. no memory is wired up)
+     */
+    void add(OperatorTarget target, String attemptId) {
         Set<Long> targetLineages = new TreeSet<>(target.getParent().effectiveLineages());
         target.getPartner().ifPresent(partner -> targetLineages.addAll(partner.effectiveLineages()));
         ProblemCardType cardType = target.getCard().map(ProblemCard::getType).orElse(null);
-        snapshots.add(new TargetSnapshot(targetLineages, target.getGoal(), cardType));
+        String safeAttemptId = attemptId == null ? "" : attemptId;
+        snapshots.add(new TargetSnapshot(targetLineages, target.getGoal(), cardType, safeAttemptId));
         lineages.addAll(targetLineages);
         if (cardType != null) {
             cardTypes.add(cardType);
@@ -82,16 +94,28 @@ final class OperatorBatchAttribution {
         return goals;
     }
 
+    /** This batch's per-target attempt ids, in the order targets were added (may contain {@code ""}). */
+    List<String> getAttemptIds() {
+        List<String> ids = new ArrayList<>(snapshots.size());
+        for (TargetSnapshot snapshot : snapshots) {
+            ids.add(snapshot.getAttemptId());
+        }
+        return ids;
+    }
+
     /** Per-target attribution captured on the search thread before the call goes out. */
     static final class TargetSnapshot {
         private final Set<Long> lineages;
         private final TestFitnessFunction goal;
         private final ProblemCardType cardType;
+        private final String attemptId;
 
-        private TargetSnapshot(Set<Long> lineages, TestFitnessFunction goal, ProblemCardType cardType) {
+        private TargetSnapshot(Set<Long> lineages, TestFitnessFunction goal, ProblemCardType cardType,
+                               String attemptId) {
             this.lineages = lineages;
             this.goal = goal;
             this.cardType = cardType;
+            this.attemptId = attemptId;
         }
 
         Set<Long> getLineages() {
@@ -104,6 +128,11 @@ final class OperatorBatchAttribution {
 
         ProblemCardType getCardType() {
             return cardType;
+        }
+
+        /** This target's own attempt id ({@code ""} when it could not be registered). */
+        String getAttemptId() {
+            return attemptId;
         }
     }
 }

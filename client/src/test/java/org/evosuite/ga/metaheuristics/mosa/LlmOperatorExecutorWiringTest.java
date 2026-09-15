@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -155,7 +156,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         assertEquals(InjectionSource.LLM_OPERATOR, candidate1.getInjectionSource());
         assertEquals(InjectionSource.LLM_OPERATOR, candidate2.getInjectionSource());
         verify(mockExecutor, times(1)).reportAttemptOutcome(eq("attempt-1"), eq(0));
-        verify(mockExecutor).submit(anyList());
+        verify(mockExecutor).submit(anyList(), anyInt());
     }
 
     @Test
@@ -173,7 +174,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         harness.collectExternalCandidates(new ArrayList<>());
 
-        verify(mockExecutor, never()).submit(anyList());
+        verify(mockExecutor, never()).submit(anyList(), anyInt());
     }
 
     @Test
@@ -191,7 +192,7 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
         harness.collectExternalCandidates(new ArrayList<>());
 
-        verify(mockExecutor, never()).submit(anyList());
+        verify(mockExecutor, never()).submit(anyList(), anyInt());
     }
 
     @Test

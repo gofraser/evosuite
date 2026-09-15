@@ -28,7 +28,6 @@ import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.LlmSemanticOperator;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
-import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.slf4j.Logger;
@@ -86,6 +85,7 @@ public final class LlmOperatorExecutor {
     private final AtomicLong droppedBudget = new AtomicLong();
     private final AtomicLong droppedInFlight = new AtomicLong();
     private final AtomicLong droppedTime = new AtomicLong();
+    private final AtomicLong failedCalls = new AtomicLong();
     private final AtomicLong producedCandidates = new AtomicLong();
     private final AtomicLong inFlightGenerations = new AtomicLong();
 
@@ -110,18 +110,25 @@ public final class LlmOperatorExecutor {
     }
 
     /**
-     * Groups {@code targets} into homogeneous batches (never mixing mutation
-     * and crossover targets) and submits one call per batch, in order,
-     * stopping at the first in-flight cap, budget, or time-guard refusal.
+     * Picks up to {@code maxCalls} homogeneous batches out of {@code targets} (given in rank
+     * order — highest priority first) and submits one call per batch, in rank order, stopping
+     * early at the first in-flight cap, budget, or time-guard refusal.
+     *
+     * <p>{@code targets} is walked once keeping one open batch per {@link OperatorTarget.Kind}: a
+     * target joins its kind's open batch, and a batch that reaches {@code batchSize} is sealed.
+     * The batches actually submitted are the {@code maxCalls} with the best-ranked first target
+     * (sealed batches and any still-open remainder alike) — the rest of {@code targets} is simply
+     * not used this generation, not "dropped" in the counted sense of {@link #getDroppedBudget()}
+     * etc.
      *
      * @return the number of calls actually submitted
      */
-    public int submit(List<OperatorTarget> targets) {
-        if (shutDown || targets == null || targets.isEmpty()) {
+    public int submit(List<OperatorTarget> targets, int maxCalls) {
+        if (shutDown || targets == null || targets.isEmpty() || maxCalls <= 0) {
             return 0;
         }
         int submitted = 0;
-        for (List<OperatorTarget> batch : groupIntoBatches(targets)) {
+        for (List<OperatorTarget> batch : OperatorBatchGrouper.groupIntoBatches(targets, batchSize, maxCalls)) {
             if (inFlight.get() >= maxInFlight) {
                 droppedInFlight.incrementAndGet();
                 break;
@@ -146,25 +153,7 @@ public final class LlmOperatorExecutor {
         return submitted;
     }
 
-    private List<List<OperatorTarget>> groupIntoBatches(List<OperatorTarget> targets) {
-        List<List<OperatorTarget>> batches = new ArrayList<>();
-        List<OperatorTarget> current = null;
-        OperatorTarget.Kind currentKind = null;
-        for (OperatorTarget target : targets) {
-            if (target == null) {
-                continue;
-            }
-            if (current == null || target.getKind() != currentKind || current.size() >= batchSize) {
-                current = new ArrayList<>();
-                batches.add(current);
-                currentKind = target.getKind();
-            }
-            current.add(target);
-        }
-        return batches;
-    }
-
-    /** Renders the prompt and registers the attempt on the calling thread, then submits the call. */
+    /** Renders the prompt, registers one attempt per target on the calling thread, then submits the call. */
     private boolean submitBatch(LlmSemanticOperator operator, List<OperatorTarget> batch) {
         PromptResult prompt;
         try {
@@ -173,63 +162,97 @@ public final class LlmOperatorExecutor {
             logger.debug("LLM operator prompt rendering failed: {}", e.getMessage());
             return false;
         }
-        List<RepeatedInjectionTarget> repeatedTargets = new ArrayList<>(batch.size());
         OperatorBatchAttribution attribution = new OperatorBatchAttribution(batch.size());
         for (OperatorTarget target : batch) {
-            repeatedTargets.add(target.toRepeatedInjectionTarget());
-            attribution.add(target);
-        }
-        RepeatedInjectionMemory.PromptAttemptRegistration registration = memory == null
-                ? RepeatedInjectionMemory.PromptAttemptRegistration.empty()
-                : memory.registerAttempt(repeatedTargets, true);
-        String attemptId = registration.getAttemptId();
-        if (!attemptId.isEmpty()) {
-            openAttemptIds.add(attemptId);
+            String attemptId = registerAttempt(target);
+            attribution.add(target, attemptId);
         }
 
         inFlight.incrementAndGet();
         try {
-            pool.execute(() -> runBatch(operator, prompt, attemptId, attribution));
+            pool.execute(() -> runBatch(operator, prompt, attribution));
         } catch (RuntimeException e) {
             inFlight.decrementAndGet();
-            closeAttempt(attemptId, 0);
+            release(attribution);
             return false;
         }
         submittedCalls.incrementAndGet();
         return true;
     }
 
-    /** Worker-thread body: makes the LLM call, then publishes the resulting candidates. */
-    private void runBatch(LlmSemanticOperator operator, PromptResult prompt, String attemptId,
-                          OperatorBatchAttribution attribution) {
+    /** Registers {@code target} as its own attempt and tracks it as open; {@code ""} without memory. */
+    private String registerAttempt(OperatorTarget target) {
+        if (memory == null) {
+            return "";
+        }
+        String attemptId = memory.registerAttempt(
+                Collections.singletonList(target.toRepeatedInjectionTarget()), true).getAttemptId();
+        if (!attemptId.isEmpty()) {
+            openAttemptIds.add(attemptId);
+        }
+        return attemptId;
+    }
+
+    /** Worker-thread body: makes the LLM call, then publishes or releases the batch's attempts. */
+    private void runBatch(LlmSemanticOperator operator, PromptResult prompt, OperatorBatchAttribution attribution) {
         try {
-            TargetedResponse mapped = operator.complete(prompt, attribution.size());
+            TargetedResponse response = operator.complete(prompt, attribution.size());
             if (shutDown) {
-                return; // shutdown() releases this attempt; do not publish or close it here.
+                return; // shutdown() releases these attempts; do not publish or close them here.
             }
-            publish(mapped, attemptId, attribution);
+            switch (response.getStatus()) {
+                case NO_BUDGET:
+                    droppedBudget.incrementAndGet();
+                    release(attribution);
+                    break;
+                case FAILED:
+                    failedCalls.incrementAndGet();
+                    release(attribution);
+                    break;
+                case DELIVERED:
+                default:
+                    publish(response, attribution);
+                    break;
+            }
         } catch (RuntimeException e) {
             logger.debug("LLM operator call failed: {}", e.getMessage());
             if (!shutDown) {
-                closeAttempt(attemptId, 0);
+                release(attribution);
             }
+        } catch (Error e) {
+            if (!shutDown) {
+                release(attribution);
+            }
+            throw e;
         } finally {
             inFlight.decrementAndGet();
         }
     }
 
-    private void publish(TargetedResponse mapped, String attemptId, OperatorBatchAttribution attribution) {
-        if (mapped == null || mapped.isEmpty()) {
-            closeAttempt(attemptId, 0);
-            return;
-        }
-        int produced = 0;
-        for (int i = 1; i <= attribution.size(); i++) {
-            TestCase test = mapped.forTarget(i).orElse(null);
-            if (test == null) {
+    /** Releases every attempt of {@code attribution} without recording a (mis-attributed) outcome. */
+    private void release(OperatorBatchAttribution attribution) {
+        for (String attemptId : attribution.getAttemptIds()) {
+            if (attemptId.isEmpty()) {
                 continue;
             }
+            openAttemptIds.remove(attemptId);
+            if (memory != null) {
+                memory.releaseUndeliveredAttempt(attemptId);
+            }
+        }
+    }
+
+    private void publish(TargetedResponse mapped, OperatorBatchAttribution attribution) {
+        int produced = 0;
+        for (int i = 1; i <= attribution.size(); i++) {
             OperatorBatchAttribution.TargetSnapshot snapshot = attribution.snapshot(i - 1);
+            String attemptId = snapshot.getAttemptId();
+            TestCase test = mapped.forTarget(i).orElse(null);
+            if (test == null) {
+                // Target i is not in the response: judged now, not credited to any candidate.
+                closeAttempt(attemptId, 0);
+                continue;
+            }
             List<ProblemCardType> cardTypes = snapshot.getCardType() == null
                     ? Collections.<ProblemCardType>emptyList()
                     : Collections.singletonList(snapshot.getCardType());
@@ -241,17 +264,15 @@ public final class LlmOperatorExecutor {
             produced++;
         }
         for (TestCase test : mapped.unmatched()) {
+            // Cannot be tied to one target's attempt; carries the batch's card types/goals only.
             InjectionAttemptMetadata metadata = new InjectionAttemptMetadata(
-                    attemptId, attribution.getCardTypes(), new LinkedHashSet<>(attribution.getGoals()));
+                    "", attribution.getCardTypes(), new LinkedHashSet<>(attribution.getGoals()));
             if (!offer(newChromosome(test, attribution.getLineages()), metadata)) {
                 return;
             }
             produced++;
         }
         producedCandidates.addAndGet(produced);
-        if (produced == 0) {
-            closeAttempt(attemptId, 0);
-        }
     }
 
     private static TestChromosome newChromosome(TestCase test, Set<Long> lineages) {
@@ -323,6 +344,7 @@ public final class LlmOperatorExecutor {
     public long getDroppedBudget() { return droppedBudget.get(); }
     public long getDroppedInFlight() { return droppedInFlight.get(); }
     public long getDroppedTime() { return droppedTime.get(); }
+    public long getFailedCalls() { return failedCalls.get(); }
     public long getProducedCandidates() { return producedCandidates.get(); }
     public long getInFlightGenerations() { return inFlightGenerations.get(); }
 

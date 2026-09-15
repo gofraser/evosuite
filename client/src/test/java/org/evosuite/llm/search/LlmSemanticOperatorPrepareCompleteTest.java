@@ -19,6 +19,8 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.llm.LlmBudgetExceededException;
+import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptResult;
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -79,8 +82,67 @@ class LlmSemanticOperatorPrepareCompleteTest {
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
 
-        assertTrue(mutation.applyMapped(Collections.singletonList(target)).isEmpty());
+        TargetedResponse response = mutation.applyMapped(Collections.singletonList(target));
+        assertTrue(response.isEmpty());
+        assertEquals(TargetedResponse.Status.NO_BUDGET, response.getStatus());
         verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
+    }
+
+    @Test
+    void completeReturnsNoBudgetWhenCanCallIsFalse() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.isAvailable()).thenReturn(false);
+        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
+
+        TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
+        assertTrue(response.isEmpty());
+        assertEquals(TargetedResponse.Status.NO_BUDGET, response.getStatus());
+    }
+
+    @Test
+    void completeReturnsNoBudgetWhenTheServiceThrowsBudgetExceeded() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.isAvailable()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+                .thenThrow(new LlmBudgetExceededException("no budget left"));
+        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
+
+        TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
+        assertTrue(response.isEmpty());
+        assertEquals(TargetedResponse.Status.NO_BUDGET, response.getStatus());
+    }
+
+    @Test
+    void completeReturnsFailedWhenTheServiceThrowsCallFailed() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.isAvailable()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+                .thenThrow(new LlmCallFailedException("boom", null, false));
+        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
+
+        TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
+        assertTrue(response.isEmpty());
+        assertEquals(TargetedResponse.Status.FAILED, response.getStatus());
+    }
+
+    @Test
+    void completeReturnsFailedOnAnyOtherRuntimeException() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.isAvailable()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
+        when(llmService.query(any(PromptResult.class), any(LlmFeature.class)))
+                .thenThrow(new IllegalStateException("unexpected"));
+        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
+
+        TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
+        assertTrue(response.isEmpty());
+        assertEquals(TargetedResponse.Status.FAILED, response.getStatus());
     }
 
     @Test
@@ -111,6 +173,8 @@ class LlmSemanticOperatorPrepareCompleteTest {
 
         assertTrue(fromApplyMapped.forTarget(1).isPresent());
         assertTrue(fromPrepareComplete.forTarget(1).isPresent());
+        assertEquals(TargetedResponse.Status.DELIVERED, fromApplyMapped.getStatus());
+        assertEquals(TargetedResponse.Status.DELIVERED, fromPrepareComplete.getStatus());
     }
 
     @Test

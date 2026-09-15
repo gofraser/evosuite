@@ -120,6 +120,7 @@ class LlmSemanticOperatorTest {
 
         assertTrue(mapped.forTarget(1).isPresent(), "target 1 must be matched by test_target_1");
         assertTrue(mapped.forTarget(2).isPresent(), "target 2 must be matched by test_target_2");
+        assertEquals(TargetedResponse.Status.DELIVERED, mapped.getStatus());
 
         List<TestChromosome> result = mutation.apply(Arrays.asList(target1, target2));
         assertEquals(2, result.size());
@@ -141,6 +142,8 @@ class LlmSemanticOperatorTest {
         LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
         OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
         assertTrue(mutation.apply(Collections.singletonList(target)).isEmpty());
+        assertEquals(TargetedResponse.Status.NO_BUDGET,
+                mutation.applyMapped(Collections.singletonList(target)).getStatus());
     }
 
     // --- prompt content ----------------------------------------------------------

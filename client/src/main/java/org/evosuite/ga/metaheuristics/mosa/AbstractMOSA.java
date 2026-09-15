@@ -3038,12 +3038,16 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
     private List<TestChromosome> driveOperatorExecutor(LlmOperatorExecutor executor) {
         executor.tickGeneration();
         List<TestChromosome> ready = executor.drain();
-        if (Properties.LLM_OPERATOR_CALLS_PER_GENERATION > 0 && executor.hasCapacity()
-                && operatorTargetSelector != null) {
+        int callsPerGeneration = Properties.LLM_OPERATOR_CALLS_PER_GENERATION;
+        if (callsPerGeneration > 0 && executor.hasCapacity() && operatorTargetSelector != null) {
             try {
-                int k = Properties.LLM_OPERATOR_CALLS_PER_GENERATION * Properties.LLM_OPERATOR_BATCH_SIZE;
-                executor.submit(operatorTargetSelector.select(this.population, getCurrentGoals(), k,
-                        this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER));
+                // Oversample so the executor's rank-order batch shaping has enough same-kind
+                // targets to fill callsPerGeneration full batches even when the ranked list
+                // alternates kinds.
+                int k = callsPerGeneration * Properties.LLM_OPERATOR_BATCH_SIZE;
+                List<OperatorTarget> ranked = operatorTargetSelector.select(this.population, getCurrentGoals(), k,
+                        this.currentIteration, Properties.LLM_OPERATOR_CROSSOVER);
+                executor.submit(ranked, callsPerGeneration);
             } catch (RuntimeException e) {
                 logger.debug("LLM operator target selection/submission failed; skipping this generation", e);
             }

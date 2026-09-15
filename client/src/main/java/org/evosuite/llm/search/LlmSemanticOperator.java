@@ -98,8 +98,11 @@ public abstract class LlmSemanticOperator {
      * the flat chromosome list.
      */
     public TargetedResponse applyMapped(List<OperatorTarget> targets) {
-        if (targets == null || targets.isEmpty() || !canCall()) {
+        if (targets == null || targets.isEmpty()) {
             return TargetedResponse.map(null, 0);
+        }
+        if (!canCall()) {
+            return TargetedResponse.noBudget();
         }
         return complete(prepare(targets), targets.size());
     }
@@ -127,7 +130,7 @@ public abstract class LlmSemanticOperator {
      */
     public TargetedResponse complete(PromptResult prompt, int targetCount) {
         if (!canCall()) {
-            return TargetedResponse.map(null, 0);
+            return TargetedResponse.noBudget();
         }
         try {
             String response = llmService.query(prompt, feature);
@@ -135,12 +138,14 @@ public abstract class LlmSemanticOperator {
             return TargetedResponse.map(result, targetCount);
         } catch (LlmBudgetExceededException e) {
             logger.debug("LLM {} budget exceeded", feature);
+            return TargetedResponse.noBudget();
         } catch (LlmCallFailedException e) {
             logger.debug("LLM {} call failed: {}", feature, e.getMessage());
+            return TargetedResponse.failed();
         } catch (RuntimeException e) {
             logger.debug("LLM {} error: {}", feature, e.getMessage());
+            return TargetedResponse.failed();
         }
-        return TargetedResponse.map(null, 0);
     }
 
     /**
