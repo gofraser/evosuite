@@ -43,6 +43,7 @@ class Phase5PropertyDefaultsTest {
         assertTrue(Properties.LLM_OPERATOR_CROSSOVER);
         assertEquals(3, Properties.LLM_OPERATOR_STALL_GENERATIONS);
         assertEquals(1, Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS);
+        assertEquals(0.5, Properties.LLM_OPERATOR_CALL_SHARE, 0.0);
         assertEquals(Properties.LlmExemplarScope.ALL_CARD_TYPES, Properties.LLM_STAGNATION_EXEMPLAR_SCOPE);
     }
 

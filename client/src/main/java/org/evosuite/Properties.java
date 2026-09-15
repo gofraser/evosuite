@@ -2819,6 +2819,13 @@ public class Properties {
     @IntValue(min = 0)
     public static int LLM_OPERATOR_PARTNER_MIN_NEW_GOALS = 1;
 
+    @Parameter(key = "llm_operator_call_share", group = "LLM",
+            description = "Share of llm_max_calls reserved for LLM operator calls when stagnation "
+                    + "assistance is also on; the other LLM features draw from the rest. Ignored "
+                    + "when llm_max_calls is 0 (unlimited) or stagnation is off")
+    @DoubleValue(min = 0.0, max = 1.0)
+    public static double LLM_OPERATOR_CALL_SHARE = 0.5;
+
     // ---------------------------------------------------------------
     // Speciation / Diversity (LLM-independent)
 
