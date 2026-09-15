@@ -37,6 +37,11 @@ class Phase5PropertyDefaultsTest {
         assertEquals(0.1, Properties.LLM_MUTATION_PROBABILITY, 1e-9);
         assertEquals(0.1, Properties.LLM_CROSSOVER_PROBABILITY, 1e-9);
         assertEquals(0, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
+        assertEquals(Properties.LlmOperatorTargeting.DIRECTED, Properties.LLM_OPERATOR_TARGETING);
+        assertTrue(Properties.LLM_OPERATOR_CROSSOVER);
+        assertEquals(3, Properties.LLM_OPERATOR_STALL_GENERATIONS);
+        assertEquals(1, Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS);
+        assertEquals(Properties.LlmExemplarScope.ALL_CARD_TYPES, Properties.LLM_STAGNATION_EXEMPLAR_SCOPE);
     }
 
     @Test

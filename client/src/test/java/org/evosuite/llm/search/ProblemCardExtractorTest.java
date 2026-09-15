@@ -28,6 +28,7 @@ import org.evosuite.graphs.cfg.ControlDependency;
 import org.evosuite.ga.FitnessFunction;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
+import org.evosuite.llm.prompt.ExemplarAttacher;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestCase;
@@ -1028,8 +1029,7 @@ class ProblemCardExtractorTest {
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void enrichesBranchPolarityCardWithClosestConcreteNearMiss() throws Exception {
+    void enrichesBranchPolarityCardWithClosestConcreteNearMiss() {
         TestFitnessFunction goal = mock(TestFitnessFunction.class);
         when(goal.toString()).thenReturn("Branch in doWork() at line 42");
         TestCase testCase = mock(TestCase.class);
@@ -1047,14 +1047,8 @@ class ProblemCardExtractorTest {
         Map<TestFitnessFunction, Double> best = new LinkedHashMap<>();
         best.put(goal, 0.25);
 
-        StagnationDetector detector = new StagnationDetector(
-                mock(LlmService.class), false, 10, 2, System::nanoTime);
-        Method enrich = StagnationDetector.class.getDeclaredMethod(
-                "attachClosestBranchExamples", List.class, List.class, Map.class);
-        enrich.setAccessible(true);
-        List<ProblemCard> enriched = (List<ProblemCard>) enrich.invoke(
-                detector, Collections.singletonList(card),
-                Collections.singletonList(chromosome), best);
+        List<ProblemCard> enriched = new ExemplarAttacher().attach(
+                Collections.singletonList(card), Collections.singletonList(chromosome), best);
 
         assertEquals(1, enriched.get(0).getConcreteExamples().size());
         ProblemCard.ConcreteExample example = enriched.get(0).getConcreteExamples().get(0);
