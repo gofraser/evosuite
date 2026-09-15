@@ -94,6 +94,11 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
         return parseResponse(responseBody);
     }
 
+    @Override
+    public void cancelInFlight() {
+        httpClient.abortInFlight();
+    }
+
     private String buildRequestBody(List<LlmMessage> messages) {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("model", modelName);

@@ -26,7 +26,10 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Minimal JSON-over-HTTP client built on {@link HttpURLConnection}. Kept
@@ -35,6 +38,29 @@ import java.util.Map;
  * response text (or fail with {@link LlmHttpException} on a non-2xx status).
  */
 public class JsonHttpClient {
+
+    /**
+     * Hard cap on how much of a response body is buffered. A response this
+     * large is not a usable chat completion regardless of provider, so
+     * reading stops and {@link LlmProtocolException} is thrown rather than
+     * growing the buffer without bound.
+     */
+    static final int MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
+
+    // Connections currently sending a request or reading a response, so a
+    // caller that gives up on a call (timeout, interruption) can force the
+    // underlying socket closed. Future.cancel(true) alone cannot interrupt a
+    // thread blocked in HttpURLConnection I/O.
+    private final Set<HttpURLConnection> inFlight = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final int maxResponseBytes;
+
+    public JsonHttpClient() {
+        this(MAX_RESPONSE_BYTES);
+    }
+
+    JsonHttpClient(int maxResponseBytes) {
+        this.maxResponseBytes = maxResponseBytes;
+    }
 
     /**
      * Returns the read timeout to use for an LLM call, in milliseconds, given
@@ -66,6 +92,7 @@ public class JsonHttpClient {
     public String postJson(String url, Map<String, String> headers, String body,
                            int connectTimeoutMs, int readTimeoutMs) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+        inFlight.add(connection);
         try {
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
@@ -87,23 +114,47 @@ public class JsonHttpClient {
 
             int status = connection.getResponseCode();
             if (status < 200 || status >= 300) {
-                throw new LlmHttpException(status, readStream(connection.getErrorStream()));
+                throw new LlmHttpException(status, readStream(connection, connection.getErrorStream()));
             }
-            return readStream(connection.getInputStream());
+            return readStream(connection, connection.getInputStream());
         } finally {
+            inFlight.remove(connection);
             connection.disconnect();
         }
     }
 
-    private static String readStream(InputStream input) throws IOException {
+    /**
+     * Forces every connection this client currently has in flight closed.
+     * Called when a caller gives up on an outstanding request (a phase
+     * deadline or the caller thread being interrupted): it turns a blocked
+     * socket read into an {@link IOException} immediately instead of leaving
+     * it to the read timeout, which is typically a much coarser bound.
+     */
+    public void abortInFlight() {
+        for (HttpURLConnection connection : inFlight) {
+            try {
+                connection.disconnect();
+            } catch (Throwable ignored) {
+                // Best effort: the connection is being discarded either way.
+            }
+        }
+    }
+
+    private String readStream(HttpURLConnection connection, InputStream input) throws IOException {
         if (input == null) {
             return "";
         }
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
         byte[] chunk = new byte[4096];
         int count;
+        int total = 0;
         try (InputStream stream = input) {
             while ((count = stream.read(chunk)) >= 0) {
+                total += count;
+                if (total > maxResponseBytes) {
+                    connection.disconnect();
+                    throw new LlmProtocolException("response exceeded " + maxResponseBytes + " bytes");
+                }
                 buffer.write(chunk, 0, count);
             }
         }

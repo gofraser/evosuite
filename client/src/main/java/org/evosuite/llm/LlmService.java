@@ -581,6 +581,12 @@ public class LlmService implements AutoCloseable {
             // being enforced here, so cancelling the future lets the worker
             // notice sooner if it happens to be at an interruptible point.
             future.cancel(true);
+            // Future.cancel(true) cannot interrupt a thread blocked inside
+            // HttpURLConnection I/O, so ask the model to force its
+            // connection closed directly; that turns the blocked read into
+            // an IOException immediately instead of waiting for the read
+            // timeout, which is a much coarser bound than this deadline.
+            snapshot.cancelInFlight();
             if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
                 // Worker is still running — the read timeout hasn't elapsed yet
                 // and the socket read isn't interruptible on this JVM. Drop the
@@ -597,6 +603,7 @@ public class LlmService implements AutoCloseable {
             // timeout: otherwise a completed request can mutate state after a
             // search worker has been stopped.
             future.cancel(true);
+            snapshot.cancelInFlight();
             if (!waitForWorkerToFinish(workerEntered, workerExited, 2_000L)) {
                 logger.warn("LLM worker did not terminate after caller interruption; replacing executor");
                 replaceExecutorService(runner);
@@ -1083,6 +1090,17 @@ public class LlmService implements AutoCloseable {
 
     public interface ChatLanguageModel {
         LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) throws Exception;
+
+        /**
+         * Best-effort abort of any request this model currently has in
+         * flight, called after {@code Future.cancel(true)} fails to stop a
+         * worker blocked in a non-interruptible read. Providers backed by
+         * {@link org.evosuite.llm.provider.JsonHttpClient} override this to
+         * force the underlying connection closed; models with nothing to
+         * abort (e.g. test doubles) can rely on this no-op default.
+         */
+        default void cancelInFlight() {
+        }
     }
 
     private static final class UnavailableChatLanguageModel implements ChatLanguageModel {
