@@ -73,7 +73,7 @@ public class LanguageModelCrossover {
     public OperatorAttemptResult tryCrossoverWithResult(TestChromosome offspring1,
                                                         TestChromosome offspring2,
                                                         Collection<TestFitnessFunction> goals) {
-        if (!Properties.LLM_OPERATOR_ENABLED) {
+        if (Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.SYNC) {
             return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.DISABLED);
         }
         if (Randomness.nextDouble() > Properties.LLM_CROSSOVER_PROBABILITY) {

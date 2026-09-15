@@ -33,7 +33,9 @@ class Phase5PropertyDefaultsTest {
 
     @Test
     void llmOperatorDefaultsAreCorrect() {
+        assertEquals(Properties.LlmOperatorMode.OFF, Properties.LLM_OPERATOR_MODE);
         assertFalse(Properties.LLM_OPERATOR_ENABLED);
+        assertFalse(Properties.LLM_OPERATOR_PAIRED_PROBE);
         assertEquals(0.1, Properties.LLM_MUTATION_PROBABILITY, 1e-9);
         assertEquals(0.1, Properties.LLM_CROSSOVER_PROBABILITY, 1e-9);
         assertEquals(0, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);

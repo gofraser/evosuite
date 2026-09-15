@@ -428,7 +428,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                             + "' selection function. You may want to consider using it.");
         }
 
-        if (Properties.LLM_OPERATOR_ENABLED) {
+        if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.SYNC) {
             this.llmMutation = new LanguageModelMutation();
             this.llmCrossover = new LanguageModelCrossover();
         }

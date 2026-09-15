@@ -71,7 +71,7 @@ public class LanguageModelMutation {
      */
     public OperatorAttemptResult tryMutateWithResult(TestChromosome offspring,
                                                      Collection<TestFitnessFunction> goals) {
-        if (!Properties.LLM_OPERATOR_ENABLED) {
+        if (Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.SYNC) {
             return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.DISABLED);
         }
         if (Randomness.nextDouble() > Properties.LLM_MUTATION_PROBABILITY) {

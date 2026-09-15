@@ -30,6 +30,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 public class PropertiesTest {
@@ -43,6 +44,19 @@ public class PropertiesTest {
     public void reset() {
         Properties.getInstance().resetToDefaults();
         ClassPathHandler.resetSingleton();
+    }
+
+    @Test
+    public void llmOperatorEnabledAliasSelectsSyncModeOnlyWhenModeIsUnset() {
+        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
+        Properties.resolveLlmOperatorModeAlias();
+        assertEquals(Properties.LlmOperatorMode.SYNC, Properties.LLM_OPERATOR_MODE);
+
+        Properties.LLM_OPERATOR_ENABLED = false;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
+        Properties.resolveLlmOperatorModeAlias();
+        assertEquals(Properties.LlmOperatorMode.OFF, Properties.LLM_OPERATOR_MODE);
     }
 
     @Test

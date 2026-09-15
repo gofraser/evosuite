@@ -29,7 +29,7 @@ public class OperatorAttemptResult {
     /** Why the semantic operator was not attempted. */
     public enum SkipReason {
         NONE,           // semantic was attempted
-        DISABLED,       // LLM_OPERATOR_ENABLED=false
+        DISABLED,       // llm_operator_mode is not SYNC
         PROBABILITY,    // probability gate rejected
         NOT_CONFIGURED  // operator wrapper is null
     }

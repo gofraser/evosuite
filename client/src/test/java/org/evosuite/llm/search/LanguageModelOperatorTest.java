@@ -38,27 +38,27 @@ import static org.mockito.Mockito.*;
  */
 class LanguageModelOperatorTest {
 
-    private boolean prevEnabled;
+    private Properties.LlmOperatorMode prevMode;
     private double prevMutProb;
     private double prevCrossProb;
 
     @BeforeEach
     void saveProperties() {
-        prevEnabled = Properties.LLM_OPERATOR_ENABLED;
+        prevMode = Properties.LLM_OPERATOR_MODE;
         prevMutProb = Properties.LLM_MUTATION_PROBABILITY;
         prevCrossProb = Properties.LLM_CROSSOVER_PROBABILITY;
     }
 
     @AfterEach
     void restoreProperties() {
-        Properties.LLM_OPERATOR_ENABLED = prevEnabled;
+        Properties.LLM_OPERATOR_MODE = prevMode;
         Properties.LLM_MUTATION_PROBABILITY = prevMutProb;
         Properties.LLM_CROSSOVER_PROBABILITY = prevCrossProb;
     }
 
     @Test
     void mutationDisabledReturnsFalse() {
-        Properties.LLM_OPERATOR_ENABLED = false;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
 
@@ -70,7 +70,7 @@ class LanguageModelOperatorTest {
 
     @Test
     void mutationSuccessReplacesTestCase() {
-        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 1.0; // always try
 
         TestChromosome original = makeChromosome();
@@ -91,7 +91,7 @@ class LanguageModelOperatorTest {
 
     @Test
     void mutationFailureFallsBack() {
-        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 1.0;
 
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
@@ -108,7 +108,7 @@ class LanguageModelOperatorTest {
 
     @Test
     void mutationExceptionFallsBackGracefully() {
-        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 1.0;
 
         LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
@@ -125,7 +125,7 @@ class LanguageModelOperatorTest {
 
     @Test
     void crossoverDisabledReturnsFalse() {
-        Properties.LLM_OPERATOR_ENABLED = false;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
         LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
         LanguageModelCrossover crossover = new LanguageModelCrossover(mockSemantic);
 
@@ -135,7 +135,7 @@ class LanguageModelOperatorTest {
 
     @Test
     void crossoverSuccessReplacesOffspring() {
-        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
 
         TestChromosome offspring1 = makeChromosome();
@@ -157,7 +157,7 @@ class LanguageModelOperatorTest {
 
     @Test
     void crossoverFailureFallsBack() {
-        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
 
         LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
@@ -172,7 +172,7 @@ class LanguageModelOperatorTest {
 
     @Test
     void crossoverExceptionFallsBackGracefully() {
-        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
 
         LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
@@ -188,7 +188,7 @@ class LanguageModelOperatorTest {
 
     @Test
     void zeroProbabilityNeverTriesLlm() {
-        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_MUTATION_PROBABILITY = 0.0;
         Properties.LLM_CROSSOVER_PROBABILITY = 0.0;
 

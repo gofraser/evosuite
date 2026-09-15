@@ -77,7 +77,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
     private static final long PARENT1_LINEAGE = 101L;
     private static final long PARENT2_LINEAGE = 202L;
 
-    private boolean savedLlmOperatorEnabled;
+    private Properties.LlmOperatorMode savedLlmOperatorMode;
     private double savedCrossoverProbability;
     private double savedMutationProbability;
     private int savedPopulation;
@@ -86,7 +86,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
 
     @BeforeEach
     void saveProperties() {
-        savedLlmOperatorEnabled = Properties.LLM_OPERATOR_ENABLED;
+        savedLlmOperatorMode = Properties.LLM_OPERATOR_MODE;
         savedCrossoverProbability = Properties.LLM_CROSSOVER_PROBABILITY;
         savedMutationProbability = Properties.LLM_MUTATION_PROBABILITY;
         savedPopulation = Properties.POPULATION;
@@ -94,7 +94,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
         savedCrossoverRate = Properties.CROSSOVER_RATE;
         Archive.getArchiveInstance().reset();
 
-        Properties.LLM_OPERATOR_ENABLED = true;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
         Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
         Properties.LLM_MUTATION_PROBABILITY = 1.0;
         Properties.POPULATION = 2;
@@ -104,7 +104,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
 
     @AfterEach
     void restoreProperties() {
-        Properties.LLM_OPERATOR_ENABLED = savedLlmOperatorEnabled;
+        Properties.LLM_OPERATOR_MODE = savedLlmOperatorMode;
         Properties.LLM_CROSSOVER_PROBABILITY = savedCrossoverProbability;
         Properties.LLM_MUTATION_PROBABILITY = savedMutationProbability;
         Properties.POPULATION = savedPopulation;
@@ -193,7 +193,7 @@ class LlmCrossoverAccountingTest extends MosaTestSupport {
 
         // The mocked semantic crossover reports "no child produced", the same outcome as an
         // unavailable/failed LLM call: breedNextGeneration() must fall back to the standard
-        // CrossOverFunction. LLM_OPERATOR_ENABLED stays true throughout so mutation keeps
+        // CrossOverFunction. LLM_OPERATOR_MODE stays SYNC throughout so mutation keeps
         // taking the (mocked) semantic path, sidestepping standard mutation.
         LlmSemanticCrossover mockSemanticCrossover = mock(LlmSemanticCrossover.class);
         LlmSemanticMutation mockSemanticMutation = mock(LlmSemanticMutation.class);

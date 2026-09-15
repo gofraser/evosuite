@@ -2719,9 +2719,39 @@ public class Properties {
     public static LlmSuiteInjectionPolicy LLM_SUITE_INJECTION_POLICY =
             LlmSuiteInjectionPolicy.NEW_SUITE;
 
+    /**
+     * How LLM variation operators take part in the MOSA breeding loop.
+     */
+    public enum LlmOperatorMode {
+        /** Standard operators only. */
+        OFF,
+        /**
+         * The breeding loop blocks on an LLM call for offspring whose parent holds a
+         * selector target; the response replaces the offspring.
+         */
+        SYNC
+    }
+
+    @Parameter(key = "llm_operator_mode", group = "LLM",
+            description = "How LLM semantic operators take part in MOSA breeding: OFF uses the "
+                    + "standard operators only; SYNC replaces standard mutation/crossover with a "
+                    + "blocking LLM call on offspring whose parent was chosen by the operator "
+                    + "target selector (subject to llm_mutation_probability / "
+                    + "llm_crossover_probability)")
+    public static LlmOperatorMode LLM_OPERATOR_MODE = LlmOperatorMode.OFF;
+
     @Parameter(key = "llm_operator_enabled", group = "LLM",
-            description = "Enable LLM-based semantic mutation and crossover operators in MOSA")
+            description = "Deprecated alias for llm_operator_mode=SYNC; only honoured when "
+                    + "llm_operator_mode is left at OFF")
+    @Deprecated
     public static boolean LLM_OPERATOR_ENABLED = false;
+
+    @Parameter(key = "llm_operator_paired_probe", group = "LLM",
+            description = "In SYNC mode with disruption analysis enabled, also apply the standard "
+                    + "operator to a clone of the same parent whenever a semantic operator was "
+                    + "applied, evaluate that twin and record its fitness and target distance "
+                    + "alongside the semantic offspring's, then discard the twin")
+    public static boolean LLM_OPERATOR_PAIRED_PROBE = false;
 
     @Parameter(key = "llm_mutation_probability", group = "LLM",
             description = "Probability of applying LLM semantic mutation instead of standard mutation (0.0-1.0)")
@@ -3589,6 +3619,17 @@ public class Properties {
             if (MAX_LENGTH < POPULATION) {
                 MAX_LENGTH = POPULATION;
             }
+        }
+        resolveLlmOperatorModeAlias();
+    }
+
+    /**
+     * Maps the deprecated {@code llm_operator_enabled=true} onto {@code llm_operator_mode=SYNC}
+     * unless a mode was set explicitly. Runtime code reads only {@link #LLM_OPERATOR_MODE}.
+     */
+    static void resolveLlmOperatorModeAlias() {
+        if (LLM_OPERATOR_ENABLED && LLM_OPERATOR_MODE == LlmOperatorMode.OFF) {
+            LLM_OPERATOR_MODE = LlmOperatorMode.SYNC;
         }
     }
 
