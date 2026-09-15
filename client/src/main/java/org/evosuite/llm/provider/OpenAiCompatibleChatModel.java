@@ -156,8 +156,13 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
         }
         JsonNode error = root.path("error");
         if (error.isObject()) {
-            throw new LlmProtocolException("OpenAI response reported an error: " + errorMessage(error),
-                    responseBody);
+            // The provider itself reported a failure rather than sending a
+            // malformed body; LlmProviderErrorException lets LlmService tell
+            // a transient failure (rate limit, overload) apart from a
+            // permanent one (invalid request, unknown model) instead of
+            // treating every error object as retryable.
+            throw new LlmProviderErrorException(textOrNull(error, "type"), textOrNull(error, "code"),
+                    textOrNull(error, "message"), responseBody);
         }
         JsonNode choices = root.path("choices");
         if (!choices.isArray() || choices.size() == 0) {
@@ -202,8 +207,8 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
         return value.asInt();
     }
 
-    private static String errorMessage(JsonNode error) {
-        String message = error.path("message").asText("");
-        return message.isEmpty() ? error.path("type").asText("unknown error") : message;
+    private static String textOrNull(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        return value.isTextual() ? value.asText() : null;
     }
 }

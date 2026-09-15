@@ -24,6 +24,7 @@ import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.provider.AnthropicChatModel;
 import org.evosuite.llm.provider.LlmHttpException;
 import org.evosuite.llm.provider.LlmProtocolException;
+import org.evosuite.llm.provider.LlmProviderErrorException;
 import org.evosuite.llm.provider.OpenAiCompatibleChatModel;
 import org.evosuite.llm.provider.RequestCancellation;
 import org.evosuite.runtime.sandbox.Sandbox;
@@ -832,6 +833,11 @@ public class LlmService implements AutoCloseable {
             if (cause instanceof LlmHttpException) {
                 // The status code is authoritative for an HTTP failure.
                 return isRetryableHttpStatus(((LlmHttpException) cause).getStatusCode());
+            }
+            if (cause instanceof LlmProviderErrorException) {
+                // The provider explicitly reported an error object in a 2xx
+                // body; its own type/code decide whether this is transient.
+                return ((LlmProviderErrorException) cause).isRetryable();
             }
             if (cause instanceof LlmProtocolException) {
                 // A 2xx response with a malformed body is most likely a

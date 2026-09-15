@@ -206,10 +206,19 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
             throw new LlmProtocolException("Anthropic response is not a JSON object", responseBody);
         }
         JsonNode error = root.path("error");
-        if ("error".equals(root.path("type").asText("")) || error.isObject()) {
-            String message = error.isObject()
-                    ? error.path("message").asText(error.path("type").asText("unknown error"))
-                    : root.path("message").asText("unknown error");
+        if (error.isObject()) {
+            // The provider itself reported a failure rather than sending a
+            // malformed body; LlmProviderErrorException lets LlmService tell
+            // a transient failure (rate limit, overload) apart from a
+            // permanent one (invalid request, unknown model) instead of
+            // treating every error object as retryable.
+            throw new LlmProviderErrorException(textOrNull(error, "type"), textOrNull(error, "code"),
+                    textOrNull(error, "message"), responseBody);
+        }
+        if ("error".equals(root.path("type").asText(""))) {
+            // Top-level error marker without a well-formed error object: the
+            // body is malformed rather than a genuine provider error report.
+            String message = root.path("message").asText("unknown error");
             throw new LlmProtocolException("Anthropic response reported an error: " + message, responseBody);
         }
 
@@ -262,5 +271,10 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
             throw new LlmProtocolException("Anthropic response field '" + field + "' is not numeric", responseBody);
         }
         return value.asInt();
+    }
+
+    private static String textOrNull(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        return value.isTextual() ? value.asText() : null;
     }
 }

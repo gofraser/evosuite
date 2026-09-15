@@ -20,6 +20,7 @@
 package org.evosuite.llm;
 
 import org.evosuite.llm.provider.LlmHttpException;
+import org.evosuite.llm.provider.LlmProviderErrorException;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
@@ -256,6 +257,20 @@ class LlmServiceRetryTest {
     void malformedResponseIsRetryableEvenWhenItsMessageLooksLikeABadRequest() {
         RuntimeException wrapped = new RuntimeException(new org.evosuite.llm.provider.LlmProtocolException(
                 "OpenAI response reported an error: invalid request", "{\"error\":{}}"));
+        assertTrue(LlmService.isRetryable(wrapped));
+    }
+
+    @Test
+    void providerErrorInvalidRequestTypeIsNotRetriedEvenWrappedInCauseOnlyException() {
+        RuntimeException wrapped = new RuntimeException(
+                new LlmProviderErrorException("invalid_request_error", null, "missing field", "{}"));
+        assertFalse(LlmService.isRetryable(wrapped));
+    }
+
+    @Test
+    void providerErrorRateLimitTypeIsRetried() {
+        RuntimeException wrapped = new RuntimeException(
+                new LlmProviderErrorException("rate_limit_error", null, "slow down", "{}"));
         assertTrue(LlmService.isRetryable(wrapped));
     }
 

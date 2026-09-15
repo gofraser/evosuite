@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -75,9 +76,31 @@ class ProviderResponseParsingTest {
 
     @Test
     void openAiRejectsErrorShapedBody() {
-        LlmProtocolException e = assertThrows(LlmProtocolException.class, () -> OpenAiCompatibleChatModel.parseResponse(
+        LlmProviderErrorException e = assertThrows(LlmProviderErrorException.class, () -> OpenAiCompatibleChatModel.parseResponse(
                 "{\"error\":{\"message\":\"model overloaded\",\"type\":\"overloaded_error\"}}"));
         assertTrue(e.getMessage().contains("model overloaded"));
+        assertTrue(e.isRetryable(), "overloaded_error should be retryable");
+    }
+
+    @Test
+    void openAiInvalidRequestErrorIsNotRetryable() {
+        LlmProviderErrorException e = assertThrows(LlmProviderErrorException.class, () -> OpenAiCompatibleChatModel.parseResponse(
+                "{\"error\":{\"message\":\"missing required field\",\"type\":\"invalid_request_error\"}}"));
+        assertFalse(e.isRetryable(), "invalid_request_error should not be retryable");
+    }
+
+    @Test
+    void openAiRateLimitErrorIsRetryable() {
+        LlmProviderErrorException e = assertThrows(LlmProviderErrorException.class, () -> OpenAiCompatibleChatModel.parseResponse(
+                "{\"error\":{\"message\":\"slow down\",\"type\":\"rate_limit_error\"}}"));
+        assertTrue(e.isRetryable(), "rate_limit_error should be retryable");
+    }
+
+    @Test
+    void openAiTypelessErrorObjectIsNotRetryable() {
+        LlmProviderErrorException e = assertThrows(LlmProviderErrorException.class, () -> OpenAiCompatibleChatModel.parseResponse(
+                "{\"error\":{\"message\":\"something went wrong\"}}"));
+        assertFalse(e.isRetryable(), "an error object without type or code should not be retryable");
     }
 
     @Test
@@ -143,9 +166,31 @@ class ProviderResponseParsingTest {
 
     @Test
     void anthropicRejectsErrorShapedBody() {
-        LlmProtocolException e = assertThrows(LlmProtocolException.class, () -> AnthropicChatModel.parseResponse(
+        LlmProviderErrorException e = assertThrows(LlmProviderErrorException.class, () -> AnthropicChatModel.parseResponse(
                 "{\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"Overloaded\"}}"));
         assertTrue(e.getMessage().contains("Overloaded"));
+        assertTrue(e.isRetryable(), "overloaded_error should be retryable");
+    }
+
+    @Test
+    void anthropicInvalidRequestErrorIsNotRetryable() {
+        LlmProviderErrorException e = assertThrows(LlmProviderErrorException.class, () -> AnthropicChatModel.parseResponse(
+                "{\"type\":\"error\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"bad params\"}}"));
+        assertFalse(e.isRetryable(), "invalid_request_error should not be retryable");
+    }
+
+    @Test
+    void anthropicRateLimitErrorIsRetryable() {
+        LlmProviderErrorException e = assertThrows(LlmProviderErrorException.class, () -> AnthropicChatModel.parseResponse(
+                "{\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"slow down\"}}"));
+        assertTrue(e.isRetryable(), "rate_limit_error should be retryable");
+    }
+
+    @Test
+    void anthropicTypelessErrorObjectIsNotRetryable() {
+        LlmProviderErrorException e = assertThrows(LlmProviderErrorException.class, () -> AnthropicChatModel.parseResponse(
+                "{\"type\":\"error\",\"error\":{\"message\":\"something went wrong\"}}"));
+        assertFalse(e.isRetryable(), "an error object without type or code should not be retryable");
     }
 
     @Test
