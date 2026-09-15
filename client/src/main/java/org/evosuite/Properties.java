@@ -2729,7 +2729,11 @@ public class Properties {
          * The breeding loop blocks on an LLM call for offspring whose parent holds a
          * selector target; the response replaces the offspring.
          */
-        SYNC
+        SYNC,
+        /**
+         * Targets are submitted to a background executor and its results enter as candidates.
+         */
+        ASYNC
     }
 
     @Parameter(key = "llm_operator_mode", group = "LLM",
@@ -2737,7 +2741,8 @@ public class Properties {
                     + "standard operators only; SYNC replaces standard mutation/crossover with a "
                     + "blocking LLM call on offspring whose parent was chosen by the operator "
                     + "target selector (subject to llm_mutation_probability / "
-                    + "llm_crossover_probability)")
+                    + "llm_crossover_probability); ASYNC (background executor; until that executor "
+                    + "lands the search logs a warning and runs without LLM operators)")
     public static LlmOperatorMode LLM_OPERATOR_MODE = LlmOperatorMode.OFF;
 
     @Parameter(key = "llm_operator_enabled", group = "LLM",
@@ -3625,10 +3630,21 @@ public class Properties {
 
     /**
      * Maps the deprecated {@code llm_operator_enabled=true} onto {@code llm_operator_mode=SYNC}
-     * unless a mode was set explicitly. Runtime code reads only {@link #LLM_OPERATOR_MODE}.
+     * unless {@code llm_operator_mode} was set explicitly (via a properties file or the command
+     * line). Runtime code reads only {@link #LLM_OPERATOR_MODE}.
      */
     static void resolveLlmOperatorModeAlias() {
-        if (LLM_OPERATOR_ENABLED && LLM_OPERATOR_MODE == LlmOperatorMode.OFF) {
+        resolveLlmOperatorModeAlias(changedFields.contains("llm_operator_mode"));
+    }
+
+    /**
+     * Maps the deprecated {@code llm_operator_enabled=true} onto {@code llm_operator_mode=SYNC}
+     * when the alias is on and {@code modeSetExplicitly} is false, i.e. nothing has set
+     * {@code llm_operator_mode} itself. An explicit {@code llm_operator_mode=OFF} is left alone
+     * even with the deprecated alias set, since the explicit setting is authoritative.
+     */
+    static void resolveLlmOperatorModeAlias(boolean modeSetExplicitly) {
+        if (LLM_OPERATOR_ENABLED && !modeSetExplicitly) {
             LLM_OPERATOR_MODE = LlmOperatorMode.SYNC;
         }
     }

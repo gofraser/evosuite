@@ -767,6 +767,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * is not re-targeted by the next generation, the seed factory or the stagnation prompt.
      */
     private void initializeSyncOperators() {
+        if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.ASYNC) {
+            LoggingUtils.getEvoLogger().warn(
+                    "* llm_operator_mode=ASYNC is not available yet; running without LLM operators");
+            return;
+        }
         if (Properties.LLM_OPERATOR_MODE != Properties.LlmOperatorMode.SYNC) {
             return;
         }
