@@ -97,15 +97,40 @@ public abstract class LlmSemanticOperator {
      * so a caller can credit individual targets rather than just consuming
      * the flat chromosome list.
      */
-    protected TargetedResponse applyMapped(List<OperatorTarget> targets) {
+    public TargetedResponse applyMapped(List<OperatorTarget> targets) {
         if (targets == null || targets.isEmpty() || !canCall()) {
             return TargetedResponse.map(null, 0);
         }
+        return complete(prepare(targets), targets.size());
+    }
+
+    /**
+     * Renders {@code targets} into a prompt. Reads the parent test(s) and
+     * their last execution result, so must run on the search thread that
+     * owns those chromosomes, never on a background worker.
+     *
+     * @throws IllegalArgumentException when {@code targets} is empty, as
+     *     {@link TargetedPromptFactory#build} requires
+     */
+    public PromptResult prepare(List<OperatorTarget> targets) {
+        return promptFactory.build(targets);
+    }
+
+    /**
+     * Makes the LLM call for an already-rendered prompt and maps the response
+     * back to targets. Safe to run on a background worker: it touches no
+     * chromosome state, only the prompt built by {@link #prepare(List)}.
+     *
+     * @param targetCount the number of targets the prompt was built for
+     */
+    public TargetedResponse complete(PromptResult prompt, int targetCount) {
+        if (!canCall()) {
+            return TargetedResponse.map(null, 0);
+        }
         try {
-            PromptResult prompt = promptFactory.build(targets);
             String response = llmService.query(prompt, feature);
             RepairResult result = repairLoop().attemptParse(response, prompt.getMessages(), feature);
-            return TargetedResponse.map(result, targets.size());
+            return TargetedResponse.map(result, targetCount);
         } catch (LlmBudgetExceededException e) {
             logger.debug("LLM {} budget exceeded", feature);
         } catch (LlmCallFailedException e) {

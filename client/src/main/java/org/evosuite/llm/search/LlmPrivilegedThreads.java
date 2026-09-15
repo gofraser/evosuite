@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
  * leave {@code MSecurityManager.executingTestCase} stuck at {@code true} —
  * which then breaks every subsequent {@code execute()} on any thread.
  */
-final class LlmPrivilegedThreads {
+public final class LlmPrivilegedThreads {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmPrivilegedThreads.class);
 
@@ -48,7 +48,7 @@ final class LlmPrivilegedThreads {
      * @param t    the worker thread to register
      * @param role short human-readable label for the worker (used in debug logs)
      */
-    static void registerAsPrivileged(Thread t, String role) {
+    public static void registerAsPrivileged(Thread t, String role) {
         if (!Sandbox.isSecurityManagerInitialized()) {
             return;
         }

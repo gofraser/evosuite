@@ -153,7 +153,7 @@ public final class StagnationLlmHelper {
         });
     }
 
-    private static int resolveBudgetGuardSeconds() {
+    public static int resolveBudgetGuardSeconds() {
         int configured = Properties.LLM_STAGNATION_BUDGET_GUARD_SECONDS;
         if (configured >= 0) {
             return configured;

@@ -2731,7 +2731,8 @@ public class Properties {
          */
         SYNC,
         /**
-         * Targets are submitted to a background executor and its results enter as candidates.
+         * Selector targets are submitted to a background executor each generation and its
+         * results enter the next generation as external candidates.
          */
         ASYNC
     }
@@ -2741,8 +2742,9 @@ public class Properties {
                     + "standard operators only; SYNC replaces standard mutation/crossover with a "
                     + "blocking LLM call on offspring whose parent was chosen by the operator "
                     + "target selector (subject to llm_mutation_probability / "
-                    + "llm_crossover_probability); ASYNC (background executor; until that executor "
-                    + "lands the search logs a warning and runs without LLM operators)")
+                    + "llm_crossover_probability); ASYNC submits selector targets to a background "
+                    + "executor each generation and its results enter the next generation as "
+                    + "external candidates")
     public static LlmOperatorMode LLM_OPERATOR_MODE = LlmOperatorMode.OFF;
 
     @Parameter(key = "llm_operator_enabled", group = "LLM",
@@ -2825,6 +2827,22 @@ public class Properties {
                     + "when llm_max_calls is 0 (unlimited) or stagnation is off")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_OPERATOR_CALL_SHARE = 0.5;
+    @Parameter(key = "llm_operator_calls_per_generation", group = "LLM",
+            description = "LLM operator calls submitted to the background executor per "
+                    + "generation in ASYNC mode; 0 submits nothing")
+    @IntValue(min = 0)
+    public static int LLM_OPERATOR_CALLS_PER_GENERATION = 1;
+
+    @Parameter(key = "llm_operator_max_inflight", group = "LLM",
+            description = "Worker threads / in-flight cap of the ASYNC operator executor; "
+                    + "submissions beyond it are dropped")
+    @IntValue(min = 1)
+    public static int LLM_OPERATOR_MAX_INFLIGHT = 2;
+
+    @Parameter(key = "llm_operator_batch_size", group = "LLM",
+            description = "Targets rendered into one ASYNC operator call")
+    @IntValue(min = 1)
+    public static int LLM_OPERATOR_BATCH_SIZE = 1;
 
     // ---------------------------------------------------------------
     // Speciation / Diversity (LLM-independent)
