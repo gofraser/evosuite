@@ -55,6 +55,47 @@ public class BranchOperandsTest {
     }
 
     @Test
+    public void testRenderHugeStringProducesBoundedOutput() {
+        char[] chars = new char[1_000_000];
+        java.util.Arrays.fill(chars, 'x');
+        String huge = new String(chars);
+
+        String rendered = BranchOperands.render(huge);
+
+        // truncation counts SOURCE characters (40), regardless of the 1 MB input
+        assertEquals("\"" + huge.substring(0, 40) + "...\"", rendered);
+        assertEquals(1 + 40 + 3 + 1, rendered.length());
+    }
+
+    @Test
+    public void testRenderEscapesBackslashQuoteAndControlCharacters() {
+        String s = "a\\b\"c\nd\re\tf";
+
+        String rendered = BranchOperands.render(s);
+
+        String expected = "\"" + "a" + "\\\\" + "b" + "\\\"" + "c" + "\\n" + "d" + "\\r" + "e" + "\\t" + "f" + "\"";
+        assertEquals(expected, rendered);
+    }
+
+    @Test
+    public void testRenderEscapingCountsSourceCharactersTowardsTheLimit() {
+        // 41 backslashes: each escapes to 2 output chars, but only the first 40 SOURCE
+        // characters are kept, so the 41st must be dropped and "..." appended.
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < 41; i++) {
+            sb.append('\\');
+        }
+        String rendered = BranchOperands.render(sb.toString());
+
+        StringBuilder expected = new StringBuilder("\"");
+        for (int i = 0; i < 40; i++) {
+            expected.append("\\\\");
+        }
+        expected.append("...\"");
+        assertEquals(expected.toString(), rendered);
+    }
+
+    @Test
     public void testRenderNumber() {
         assertEquals("42", BranchOperands.render(42));
     }

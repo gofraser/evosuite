@@ -38,8 +38,8 @@ public class BranchOperandRecordingTest {
     public void testKeepsOnlyLastEvaluationPerBranch() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
 
-        impl.branchOperandsSeen(42, BranchOperands.ofInts(1, 2, Opcodes.IF_ICMPLE));
-        impl.branchOperandsSeen(42, BranchOperands.ofInts(50, 0, Opcodes.IF_ICMPLE));
+        impl.branchOperandsSeen(42, 1, 2, Opcodes.IF_ICMPLE);
+        impl.branchOperandsSeen(42, 50, 0, Opcodes.IF_ICMPLE);
 
         Map<Integer, BranchOperands> lastSeen = impl.getLastBranchOperands();
         assertEquals(1, lastSeen.size());
@@ -47,9 +47,30 @@ public class BranchOperandRecordingTest {
     }
 
     @Test
+    public void testRecordingTheSameBranchTwiceReusesTheSlot() {
+        ExecutionTraceImpl impl = new ExecutionTraceImpl();
+
+        impl.branchOperandsSeen(9, 1, Opcodes.IFEQ);
+        impl.branchOperandsSeen(9, 2, Opcodes.IFEQ);
+        impl.branchOperandsSeen(9, 3, Opcodes.IFEQ);
+
+        assertEquals("3 (IFEQ)", impl.getLastBranchOperands().get(9).toString());
+    }
+
+    @Test
+    public void testFreshTraceHasNoRecordedOperands() {
+        ExecutionTraceImpl impl = new ExecutionTraceImpl();
+
+        assertTrue(impl.getLastBranchOperands().isEmpty());
+        // clear() on a trace that never recorded anything must not blow up
+        impl.clear();
+        assertTrue(impl.getLastBranchOperands().isEmpty());
+    }
+
+    @Test
     public void testClearEmptiesTheMap() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
-        impl.branchOperandsSeen(1, BranchOperands.ofInt(0, Opcodes.IFEQ));
+        impl.branchOperandsSeen(1, 0, Opcodes.IFEQ);
 
         impl.clear();
 
@@ -57,14 +78,36 @@ public class BranchOperandRecordingTest {
     }
 
     @Test
+    public void testBranchIdBeyondInitialArraySizeIsRecorded() {
+        ExecutionTraceImpl impl = new ExecutionTraceImpl();
+
+        impl.branchOperandsSeen(5000, 11, 22, Opcodes.IF_ICMPGT);
+
+        Map<Integer, BranchOperands> lastSeen = impl.getLastBranchOperands();
+        assertEquals(1, lastSeen.size());
+        assertEquals("11 vs 22 (IF_ICMPGT)", lastSeen.get(5000).toString());
+    }
+
+    @Test
+    public void testObjectOperandsAreRecorded() {
+        ExecutionTraceImpl impl = new ExecutionTraceImpl();
+
+        impl.branchOperandsSeen(11, "left", "right", Opcodes.IF_ACMPEQ);
+        impl.branchOperandsSeen(12, "single", Opcodes.IFNONNULL);
+
+        assertEquals("\"left\" vs \"right\" (IF_ACMPEQ)", impl.getLastBranchOperands().get(11).toString());
+        assertEquals("\"single\" (IFNONNULL)", impl.getLastBranchOperands().get(12).toString());
+    }
+
+    @Test
     public void testCloneCarriesOperandsAndIsIndependent() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
-        impl.branchOperandsSeen(7, BranchOperands.ofObject(null, Opcodes.IFNULL));
+        impl.branchOperandsSeen(7, null, Opcodes.IFNULL);
 
         ExecutionTraceImpl clone = impl.clone();
         assertEquals("null (IFNULL)", clone.getLastBranchOperands().get(7).toString());
 
-        clone.branchOperandsSeen(7, BranchOperands.ofObject("x", Opcodes.IFNONNULL));
+        clone.branchOperandsSeen(7, "x", Opcodes.IFNONNULL);
         // the original must not see the clone's later update
         assertEquals("null (IFNULL)", impl.getLastBranchOperands().get(7).toString());
     }
@@ -74,7 +117,7 @@ public class BranchOperandRecordingTest {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
         ExecutionTraceProxy proxy = new ExecutionTraceProxy(impl);
 
-        proxy.branchOperandsSeen(3, BranchOperands.ofInts(9, 9, Opcodes.IF_ICMPEQ));
+        proxy.branchOperandsSeen(3, 9, 9, Opcodes.IF_ICMPEQ);
 
         assertEquals("9 vs 9 (IF_ICMPEQ)", proxy.getLastBranchOperands().get(3).toString());
         assertEquals("9 vs 9 (IF_ICMPEQ)", impl.getLastBranchOperands().get(3).toString());
@@ -83,14 +126,14 @@ public class BranchOperandRecordingTest {
     @Test
     public void testLazyCloneExposesIndependentOperandMapAfterCopyOnWrite() {
         ExecutionTraceImpl impl = new ExecutionTraceImpl();
-        impl.branchOperandsSeen(3, BranchOperands.ofInts(1, 1, Opcodes.IF_ICMPEQ));
+        impl.branchOperandsSeen(3, 1, 1, Opcodes.IF_ICMPEQ);
 
         ExecutionTraceProxy proxy1 = new ExecutionTraceProxy(impl);
         ExecutionTraceProxy proxy2 = (ExecutionTraceProxy) proxy1.lazyClone();
         assertEquals("1 vs 1 (IF_ICMPEQ)", proxy2.getLastBranchOperands().get(3).toString());
 
         // mutating proxy1 triggers copy-on-write, detaching it from the shared impl
-        proxy1.branchOperandsSeen(3, BranchOperands.ofInts(5, 5, Opcodes.IF_ICMPEQ));
+        proxy1.branchOperandsSeen(3, 5, 5, Opcodes.IF_ICMPEQ);
 
         assertEquals("5 vs 5 (IF_ICMPEQ)", proxy1.getLastBranchOperands().get(3).toString());
         assertEquals("1 vs 1 (IF_ICMPEQ)", proxy2.getLastBranchOperands().get(3).toString());

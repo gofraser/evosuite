@@ -33,13 +33,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Not run by default (needs {@code -Dbranch.operand.benchmark=true}): measures how much
  * {@link Properties#LLM_BRANCH_OPERAND_HINTS} adds to the cost of
  * {@link ExecutionTracer#passedBranch(int, int, int, int, int)}, which runs once per executed
- * branch predicate in every generated test.
+ * branch predicate in every generated test, plus how an object-comparison branch (which always
+ * allocates the bounded rendered text) compares.
  */
 public class BranchOperandOverheadBenchmarkTest {
 
     private static final int BRANCH_COUNT = 64;
     private static final long CALLS_PER_ROUND = 5_000_000L;
-    private static final int ROUNDS = 5;
+    private static final long WARMUP_CALLS = CALLS_PER_ROUND / 10;
+    private static final int ROUNDS = 7;
 
     @AfterEach
     public void tearDown() {
@@ -56,29 +58,48 @@ public class BranchOperandOverheadBenchmarkTest {
         ExecutionTracer.enable();
         ExecutionTracer.setCheckCallerThread(false);
 
-        // warm up both code paths before timing either
-        run(false, CALLS_PER_ROUND / 10);
-        run(true, CALLS_PER_ROUND / 10);
+        // Warm up every configuration before timing any of them: this also allocates the 64
+        // BranchOperandSlots up front, so the timed "on" rounds measure steady-state slot
+        // reuse rather than slot-array growth.
+        runInts(false, WARMUP_CALLS);
+        runInts(true, WARMUP_CALLS);
+        runObjects(false, WARMUP_CALLS);
+        runObjects(true, WARMUP_CALLS);
 
-        double[] offNanosPerCall = new double[ROUNDS];
-        double[] onNanosPerCall = new double[ROUNDS];
+        double[] intsOff = new double[ROUNDS];
+        double[] intsOn = new double[ROUNDS];
+        double[] objectsOff = new double[ROUNDS];
+        double[] objectsOn = new double[ROUNDS];
         for (int round = 0; round < ROUNDS; round++) {
-            offNanosPerCall[round] = run(false, CALLS_PER_ROUND);
-            onNanosPerCall[round] = run(true, CALLS_PER_ROUND);
+            // alternate configurations within each round rather than running each
+            // configuration as one long block, so warm-up/thermal drift affects them evenly
+            intsOff[round] = runInts(false, CALLS_PER_ROUND);
+            intsOn[round] = runInts(true, CALLS_PER_ROUND);
+            objectsOff[round] = runObjects(false, CALLS_PER_ROUND);
+            objectsOn[round] = runObjects(true, CALLS_PER_ROUND);
         }
 
-        double off = median(offNanosPerCall);
-        double on = median(onNanosPerCall);
+        double off = median(intsOff);
+        double on = median(intsOn);
         double overheadPct = (on - off) / off * 100.0;
 
-        System.out.printf("ns/call off=%.2f on=%.2f overhead=%.1f%%%n", off, on, overheadPct);
+        double objOff = median(objectsOff);
+        double objOn = median(objectsOn);
+        double objOverheadPct = (objOn - objOff) / objOff * 100.0;
 
-        assertTrue(on / off < 3.0,
-                "recording operands should not triple the cost of passedBranch (was " + (on / off) + "x)");
+        System.out.printf("ns/call ints:    off=%.2f on=%.2f overhead=%.1f%% (on/off=%.3fx)%n",
+                off, on, overheadPct, on / off);
+        System.out.printf("ns/call objects: off=%.2f on=%.2f overhead=%.1f%% (on/off=%.3fx)%n",
+                objOff, objOn, objOverheadPct, objOn / objOff);
+
+        // The property's cost on the int path must be a few percent of one passedBranch call,
+        // which is itself a small fraction of total test execution time.
+        assertTrue(on / off <= 1.05,
+                "recording int operands should add at most ~5% to passedBranch (was " + (on / off) + "x)");
     }
 
-    /** Runs {@code calls} invocations of passedBranch and returns the nanoseconds per call. */
-    private double run(boolean withOperandHints, long calls) {
+    /** Runs {@code calls} int-comparison branch evaluations, cycling {@link #BRANCH_COUNT} ids. */
+    private double runInts(boolean withOperandHints, long calls) {
         Properties.LLM_BRANCH_OPERAND_HINTS = withOperandHints;
         ExecutionTracer.getExecutionTracer().clear();
 
@@ -86,6 +107,26 @@ public class BranchOperandOverheadBenchmarkTest {
         for (long i = 0; i < calls; i++) {
             int branch = (int) (i % BRANCH_COUNT);
             ExecutionTracer.passedBranch((int) i, BRANCH_COUNT, Opcodes.IF_ICMPLE, branch, 1);
+        }
+        long elapsed = System.nanoTime() - start;
+        return elapsed / (double) calls;
+    }
+
+    /**
+     * Runs {@code calls} object-comparison branch evaluations (a short String against an
+     * Integer, as {@code IF_ACMPEQ} would see on the operand stack), cycling
+     * {@link #BRANCH_COUNT} ids.
+     */
+    private double runObjects(boolean withOperandHints, long calls) {
+        Properties.LLM_BRANCH_OPERAND_HINTS = withOperandHints;
+        ExecutionTracer.getExecutionTracer().clear();
+        String left = "sample-value";
+
+        long start = System.nanoTime();
+        for (long i = 0; i < calls; i++) {
+            int branch = (int) (i % BRANCH_COUNT);
+            Integer right = (int) (i % 100);
+            ExecutionTracer.passedBranch(left, right, Opcodes.IF_ACMPEQ, branch, 1);
         }
         long elapsed = System.nanoTime() - start;
         return elapsed / (double) calls;

@@ -68,4 +68,60 @@ public class ExecutionTracerBranchOperandsTest {
 
         assertTrue(ExecutionTracer.getExecutionTracer().getTrace().getLastBranchOperands().isEmpty());
     }
+
+    @Test
+    public void testRecordsSingleIntOperand() {
+        Properties.LLM_BRANCH_OPERAND_HINTS = true;
+        ExecutionTracer.enable();
+        ExecutionTracer.setCheckCallerThread(false);
+        ExecutionTracer.getExecutionTracer().clear();
+
+        ExecutionTracer.passedBranch(0, Opcodes.IFEQ, 7, 1);
+
+        Map<Integer, BranchOperands> lastSeen =
+                ExecutionTracer.getExecutionTracer().getTrace().getLastBranchOperands();
+        assertEquals("0 (IFEQ)", lastSeen.get(7).toString());
+    }
+
+    @Test
+    public void testRecordsTwoObjectOperandsThroughTheTrace() {
+        Properties.LLM_BRANCH_OPERAND_HINTS = true;
+        ExecutionTracer.enable();
+        ExecutionTracer.setCheckCallerThread(false);
+        ExecutionTracer.getExecutionTracer().clear();
+
+        ExecutionTracer.passedBranch("left", "right", Opcodes.IF_ACMPEQ, 13, 1);
+
+        Map<Integer, BranchOperands> lastSeen =
+                ExecutionTracer.getExecutionTracer().getTrace().getLastBranchOperands();
+        assertEquals("\"left\" vs \"right\" (IF_ACMPEQ)", lastSeen.get(13).toString());
+    }
+
+    @Test
+    public void testRecordsSingleObjectOperandThroughTheTrace() {
+        Properties.LLM_BRANCH_OPERAND_HINTS = true;
+        ExecutionTracer.enable();
+        ExecutionTracer.setCheckCallerThread(false);
+        ExecutionTracer.getExecutionTracer().clear();
+
+        ExecutionTracer.passedBranch(null, Opcodes.IFNULL, 21, 1);
+
+        Map<Integer, BranchOperands> lastSeen =
+                ExecutionTracer.getExecutionTracer().getTrace().getLastBranchOperands();
+        assertEquals("null (IFNULL)", lastSeen.get(21).toString());
+    }
+
+    @Test
+    public void testProxyDelegatesToTheUnderlyingTrace() {
+        Properties.LLM_BRANCH_OPERAND_HINTS = true;
+        ExecutionTracer.enable();
+        ExecutionTracer.setCheckCallerThread(false);
+        ExecutionTracer.getExecutionTracer().clear();
+
+        ExecutionTracer.passedBranch(1, 2, Opcodes.IF_ICMPLE, 8, 1);
+        ExecutionTrace proxy = ExecutionTracer.getExecutionTracer().getTrace();
+
+        assertTrue(proxy instanceof ExecutionTraceProxy);
+        assertEquals("1 vs 2 (IF_ICMPLE)", proxy.getLastBranchOperands().get(8).toString());
+    }
 }
