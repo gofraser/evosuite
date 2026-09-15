@@ -20,6 +20,8 @@
 package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.branch.Branch;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.response.LlmAssertionPolicyResolver;
 import org.evosuite.llm.search.ProblemCard;
@@ -28,23 +30,30 @@ import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.BranchOperands;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Opcodes;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Builds real {@link TargetedPromptFactory} prompts from synthetic {@link OperatorTarget}s
@@ -55,16 +64,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TargetedPromptFactoryTest {
 
     private String originalTargetClass;
+    private boolean originalBranchOperandHints;
 
     @BeforeEach
     void saveProperties() {
         originalTargetClass = Properties.TARGET_CLASS;
         Properties.TARGET_CLASS = "com.example.Foo";
+        originalBranchOperandHints = Properties.LLM_BRANCH_OPERAND_HINTS;
     }
 
     @AfterEach
     void restoreProperties() {
         Properties.TARGET_CLASS = originalTargetClass;
+        Properties.LLM_BRANCH_OPERAND_HINTS = originalBranchOperandHints;
     }
 
     private static TestChromosome chromosome(int marker) {
@@ -75,6 +87,29 @@ class TargetedPromptFactoryTest {
         chromosome.setLastExecutionResult(new ExecutionResult(testCase));
         chromosome.setChanged(false);
         return chromosome;
+    }
+
+    /** A parent whose last execution recorded {@code operands} for branch {@code branchId}. */
+    private static TestChromosome chromosomeWithTrace(int marker, int branchId, BranchOperands operands) {
+        TestChromosome chromosome = chromosome(marker);
+        Map<Integer, BranchOperands> byBranch = new HashMap<>();
+        byBranch.put(branchId, operands);
+        ExecutionTrace trace = mock(ExecutionTrace.class);
+        when(trace.getLastBranchOperands()).thenReturn(byBranch);
+        chromosome.getLastExecutionResult().setTrace(trace);
+        return chromosome;
+    }
+
+    /** A branch goal mock as described by {@link org.evosuite.llm.prompt.BranchOperandHint}'s callers. */
+    private static BranchCoverageTestFitness branchGoal(int branchId, boolean value) {
+        Branch branch = mock(Branch.class);
+        when(branch.getActualBranchId()).thenReturn(branchId);
+        when(branch.isSwitchCaseBranch()).thenReturn(false);
+        when(branch.getInstruction()).thenReturn(null);
+        BranchCoverageTestFitness goal = mock(BranchCoverageTestFitness.class);
+        when(goal.getBranch()).thenReturn(branch);
+        when(goal.getValue()).thenReturn(value);
+        return goal;
     }
 
     private static TestFitnessFunction goal(String name) {
@@ -252,6 +287,32 @@ class TargetedPromptFactoryTest {
         String user = userText(new TargetedPromptFactory().build(Collections.singletonList(target)));
 
         assertFalse(user.contains("(fitness distance"));
+    }
+
+    // ---- branch operand hint -----------------------------------------------------
+
+    @Test
+    void operandHintRendersFromTheParentsOwnTraceForABranchGoal() {
+        Properties.LLM_BRANCH_OPERAND_HINTS = true;
+        TestChromosome parent = chromosomeWithTrace(1, 7, BranchOperands.ofInts(50, 0, Opcodes.IF_ICMPLE));
+        BranchCoverageTestFitness g = branchGoal(7, false);
+        OperatorTarget target = OperatorTarget.builder(parent, g).build();
+
+        String user = userText(new TargetedPromptFactory().build(Collections.singletonList(target)));
+
+        assertTrue(user.contains("Last evaluation: 50 vs 0 (IF_ICMPLE); need left > right"));
+    }
+
+    @Test
+    void operandHintIsAbsentWhenThePropertyIsOff() {
+        Properties.LLM_BRANCH_OPERAND_HINTS = false;
+        TestChromosome parent = chromosomeWithTrace(1, 7, BranchOperands.ofInts(50, 0, Opcodes.IF_ICMPLE));
+        BranchCoverageTestFitness g = branchGoal(7, false);
+        OperatorTarget target = OperatorTarget.builder(parent, g).build();
+
+        String user = userText(new TargetedPromptFactory().build(Collections.singletonList(target)));
+
+        assertFalse(user.contains("Last evaluation:"));
     }
 
     // ---- problem card rendering ---------------------------------------------------

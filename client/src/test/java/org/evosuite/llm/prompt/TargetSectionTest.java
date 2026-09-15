@@ -73,7 +73,7 @@ class TargetSectionTest {
         List<String> evidence = Arrays.asList("l1", "l2", "l3", "l4", "l5");
         StringBuilder sb = new StringBuilder();
 
-        TargetSection.appendDetails(sb, evidence, 3, Collections.emptyList(), Collections.emptyList(), "");
+        TargetSection.appendDetails(sb, evidence, 3, null, Collections.emptyList(), Collections.emptyList(), "");
 
         String expected = TargetSection.DETAIL_PREFIX + "l1\n"
                 + TargetSection.DETAIL_PREFIX + "l2\n"
@@ -86,13 +86,50 @@ class TargetSectionTest {
         List<String> evidence = Arrays.asList("l1", "l2", "l3", "l4", "l5");
         StringBuilder sb = new StringBuilder();
 
-        TargetSection.appendDetails(sb, evidence, Integer.MAX_VALUE, Collections.emptyList(),
+        TargetSection.appendDetails(sb, evidence, Integer.MAX_VALUE, null, Collections.emptyList(),
                 Collections.emptyList(), "");
 
         for (String line : evidence) {
             assertTrue(sb.toString().contains(TargetSection.DETAIL_PREFIX + line));
         }
         assertEquals(5, sb.toString().split("\n").length);
+    }
+
+    // ---- operand hint ----------------------------------------------------------
+
+    @Test
+    void operandHintRendersBetweenEvidenceAndConcreteExamples() {
+        List<String> evidence = Collections.singletonList("ev1");
+        ProblemCard.ConcreteExample example = onlyExample(testCaseWithStatements(1), "desc");
+        StringBuilder sb = new StringBuilder();
+
+        TargetSection.appendDetails(sb, evidence, 3, "Last evaluation: 1 vs 0 (IF_ICMPLE); need left > right",
+                Collections.singletonList(example), Collections.emptyList(), "");
+
+        String rendered = sb.toString();
+        assertTrue(rendered.contains(TargetSection.DETAIL_PREFIX
+                + "Last evaluation: 1 vs 0 (IF_ICMPLE); need left > right\n"));
+        int evidenceIdx = rendered.indexOf("ev1");
+        int hintIdx = rendered.indexOf("Last evaluation:");
+        int exampleIdx = rendered.indexOf("desc");
+        assertTrue(evidenceIdx >= 0 && hintIdx > evidenceIdx && exampleIdx > hintIdx,
+                "expected evidence, then hint, then concrete example: " + rendered);
+    }
+
+    @Test
+    void nullOperandHintEmitsNoHintLine() {
+        StringBuilder sb = new StringBuilder();
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null, Collections.emptyList(),
+                Collections.emptyList(), "");
+        assertEquals("", sb.toString());
+    }
+
+    @Test
+    void emptyOperandHintEmitsNoHintLine() {
+        StringBuilder sb = new StringBuilder();
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, "", Collections.emptyList(),
+                Collections.emptyList(), "");
+        assertEquals("", sb.toString());
     }
 
     // ---- concrete example: existing-test reference ----------------------------
@@ -104,7 +141,7 @@ class TargetSectionTest {
         ProblemCard.ConcreteExample example = onlyExample(exemplar, "desc");
         StringBuilder sb = new StringBuilder();
 
-        TargetSection.appendDetails(sb, Collections.emptyList(), 3,
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null,
                 Collections.singletonList(example), existingTests, "");
 
         String expected = TargetSection.DETAIL_PREFIX + "desc"
@@ -120,7 +157,7 @@ class TargetSectionTest {
         ProblemCard.ConcreteExample example = onlyExample(exemplar, "desc");
         StringBuilder sb = new StringBuilder();
 
-        TargetSection.appendDetails(sb, Collections.emptyList(), 3,
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null,
                 Collections.singletonList(example), existingTests, "");
 
         String expected = TargetSection.DETAIL_PREFIX + "desc"
@@ -136,7 +173,7 @@ class TargetSectionTest {
         ProblemCard.ConcreteExample example = onlyExample(notExisting, "desc");
         StringBuilder sb = new StringBuilder();
 
-        TargetSection.appendDetails(sb, Collections.emptyList(), 3,
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null,
                 Collections.singletonList(example), Collections.emptyList(), "");
 
         String rendered = sb.toString();
@@ -154,7 +191,7 @@ class TargetSectionTest {
         ProblemCard.ConcreteExample example = onlyExample(notExisting, "desc");
         StringBuilder sb = new StringBuilder();
 
-        TargetSection.appendDetails(sb, Collections.emptyList(), 3,
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null,
                 Collections.singletonList(example), Collections.emptyList(), "");
 
         String rendered = sb.toString();
@@ -169,7 +206,7 @@ class TargetSectionTest {
         ProblemCard.ConcreteExample example = onlyExample(notExisting, "desc");
         StringBuilder sb = new StringBuilder();
 
-        TargetSection.appendDetails(sb, Collections.emptyList(), 3,
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null,
                 Collections.singletonList(example), Collections.emptyList(), "");
 
         assertFalse(sb.toString().contains(TargetSection.TRUNCATION_MARKER));
@@ -180,7 +217,7 @@ class TargetSectionTest {
     @Test
     void emptyActionHintEmitsNoSuggestedActionLine() {
         StringBuilder sb = new StringBuilder();
-        TargetSection.appendDetails(sb, Collections.emptyList(), 3, Collections.emptyList(),
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null, Collections.emptyList(),
                 Collections.emptyList(), "");
         assertEquals("", sb.toString());
     }
@@ -188,7 +225,7 @@ class TargetSectionTest {
     @Test
     void nullActionHintEmitsNoSuggestedActionLine() {
         StringBuilder sb = new StringBuilder();
-        TargetSection.appendDetails(sb, Collections.emptyList(), 3, Collections.emptyList(),
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null, Collections.emptyList(),
                 Collections.emptyList(), null);
         assertEquals("", sb.toString());
     }
@@ -196,7 +233,7 @@ class TargetSectionTest {
     @Test
     void nonEmptyActionHintEmitsSuggestedActionLine() {
         StringBuilder sb = new StringBuilder();
-        TargetSection.appendDetails(sb, Collections.emptyList(), 3, Collections.emptyList(),
+        TargetSection.appendDetails(sb, Collections.emptyList(), 3, null, Collections.emptyList(),
                 Collections.emptyList(), "do the thing");
 
         String expected = TargetSection.DETAIL_PREFIX + TargetSection.SUGGESTED_ACTION_PREFIX

@@ -192,8 +192,15 @@ public final class TargetedPromptFactory {
         ProblemCard card = target.getCard().orElse(null);
         String actionHint = card != null && card.getType() != null && !card.getType().getActionHint().isEmpty()
                 ? card.getType().getActionHint() : GoalActionHint.forGoal(target.getGoal());
+        // The parent is the test the model starts from, so its own execution is the best evidence;
+        // fall back to the card's hint (from the stagnation path's closest test) when it has none.
+        String operandHint = BranchOperandHint.forGoal(target.getGoal(), target.getParent());
+        if (operandHint == null && card != null) {
+            operandHint = card.getOperandHint();
+        }
         TargetSection.appendBlock(sb, heading.toString(),
                 card == null ? Collections.<String>emptyList() : card.getEvidence(), MAX_EVIDENCE_LINES,
+                operandHint,
                 card == null ? Collections.<ProblemCard.ConcreteExample>emptyList() : card.getConcreteExamples(),
                 existingTests, actionHint, howToProceed);
     }

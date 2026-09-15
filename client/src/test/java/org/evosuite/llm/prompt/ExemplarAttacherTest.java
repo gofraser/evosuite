@@ -20,6 +20,8 @@
 package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.branch.Branch;
+import org.evosuite.coverage.branch.BranchCoverageTestFitness;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.llm.search.ProblemCardType;
 import org.evosuite.testcase.AbstractTestChromosome;
@@ -27,11 +29,14 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.execution.BranchOperands;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Opcodes;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -47,6 +52,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Pins down the closest-test/closest-goal lookups and the scope-gated attach
@@ -55,15 +62,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ExemplarAttacherTest {
 
     private Properties.LlmExemplarScope originalScope;
+    private boolean originalBranchOperandHints;
 
     @BeforeEach
     void saveScope() {
         originalScope = Properties.LLM_STAGNATION_EXEMPLAR_SCOPE;
+        originalBranchOperandHints = Properties.LLM_BRANCH_OPERAND_HINTS;
     }
 
     @AfterEach
     void restoreScope() {
         Properties.LLM_STAGNATION_EXEMPLAR_SCOPE = originalScope;
+        Properties.LLM_BRANCH_OPERAND_HINTS = originalBranchOperandHints;
     }
 
     // ---- closestChromosome / closestTest ----------------------------------
@@ -233,6 +243,46 @@ class ExemplarAttacherTest {
                 String.format(Locale.ROOT, ExemplarAttacher.BRANCH_EXEMPLAR_FORMAT,
                         mapper.describe(branchGoal), 0.4),
                 branchExample.getDescription());
+    }
+
+    @Test
+    void attachSetsOperandHintFromTheClosestChromosomesTrace() {
+        Properties.LLM_BRANCH_OPERAND_HINTS = true;
+        Properties.LLM_STAGNATION_EXEMPLAR_SCOPE = Properties.LlmExemplarScope.ALL_CARD_TYPES;
+        ExemplarAttacher attacher = new ExemplarAttacher();
+
+        Branch branch = mock(Branch.class);
+        when(branch.getActualBranchId()).thenReturn(7);
+        when(branch.isDefaultCase()).thenReturn(false);
+        BranchCoverageTestFitness branchGoal = mock(BranchCoverageTestFitness.class);
+        when(branchGoal.getBranch()).thenReturn(branch);
+        when(branchGoal.getValue()).thenReturn(true);
+
+        Map<Integer, BranchOperands> operandsByBranch = new HashMap<>();
+        operandsByBranch.put(7, BranchOperands.ofInts(50, 0, Opcodes.IF_ICMPLE));
+        ExecutionTrace trace = mock(ExecutionTrace.class);
+        when(trace.getLastBranchOperands()).thenReturn(operandsByBranch);
+        ExecutionResult result = mock(ExecutionResult.class);
+        when(result.getTrace()).thenReturn(trace);
+
+        TestChromosome closest = mock(TestChromosome.class);
+        when(closest.getTestCase()).thenReturn(new DefaultTestCase());
+        when(closest.getFitnessValues()).thenReturn(Collections.singletonMap(
+                (TestFitnessFunction) branchGoal, 0.4));
+        when(closest.getLastExecutionResult()).thenReturn(result);
+
+        Map<TestFitnessFunction, Double> best = new LinkedHashMap<>();
+        best.put(branchGoal, 0.4);
+        ProblemCard branchCard = ProblemCard.builder(ProblemCardType.BRANCH_POLARITY_GAP)
+                .title("branch")
+                .relatedGoals(Collections.singletonList(branchGoal))
+                .build();
+
+        List<ProblemCard> result2 = attacher.attach(
+                Collections.singletonList(branchCard), Collections.singletonList(closest), best);
+
+        assertEquals("Last evaluation: 50 vs 0 (IF_ICMPLE); need left <= right",
+                result2.get(0).getOperandHint());
     }
 
     // ---- attach: scope BRANCH_POLARITY_GAP ----------------------------------

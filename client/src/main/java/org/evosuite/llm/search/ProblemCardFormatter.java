@@ -58,7 +58,7 @@ public final class ProblemCardFormatter {
                     + " (priority=" + String.format(Locale.ROOT, "%.3f", card.getPriority())
                     + ", goals=" + card.getRelatedGoals().size() + ")";
             TargetSection.appendBlock(sb, heading, card.getEvidence(), Integer.MAX_VALUE,
-                    card.getConcreteExamples(), existingTests,
+                    card.getOperandHint(), card.getConcreteExamples(), existingTests,
                     card.getType() == null ? "" : card.getType().getActionHint(),
                     Collections.<String>emptyList());
         }

@@ -46,19 +46,22 @@ public final class TargetSection {
 
     /**
      * Appends one complete block: the heading line, then the detail lines in
-     * their fixed order — up to {@code maxEvidence} evidence lines, every
-     * concrete example (as a reference to an existing test when it is one of
-     * {@code existingTests}, otherwise inlined and truncated), the action hint
-     * when non-empty, and last the {@code howToProceed} lines.
+     * their fixed order — up to {@code maxEvidence} evidence lines, the branch
+     * operand hint (last-evaluation values and what the target polarity needs)
+     * when non-null/non-empty, every concrete example (as a reference to an
+     * existing test when it is one of {@code existingTests}, otherwise inlined
+     * and truncated), the action hint when non-empty, and last the
+     * {@code howToProceed} lines.
      */
     public static void appendBlock(StringBuilder sb, String heading,
                                    List<String> evidence, int maxEvidence,
+                                   String operandHint,
                                    List<ProblemCard.ConcreteExample> examples,
                                    List<TestCase> existingTests,
                                    String actionHint,
                                    List<String> howToProceed) {
         sb.append(heading).append('\n');
-        appendDetails(sb, evidence, maxEvidence, examples, existingTests, actionHint);
+        appendDetails(sb, evidence, maxEvidence, operandHint, examples, existingTests, actionHint);
         for (String line : howToProceed) {
             sb.append(DETAIL_PREFIX).append(line).append('\n');
         }
@@ -66,6 +69,7 @@ public final class TargetSection {
 
     static void appendDetails(StringBuilder sb,
                               List<String> evidence, int maxEvidence,
+                              String operandHint,
                               List<ProblemCard.ConcreteExample> examples,
                               List<TestCase> existingTests,
                               String actionHint) {
@@ -75,6 +79,9 @@ public final class TargetSection {
                 break;
             }
             sb.append(DETAIL_PREFIX).append(line).append('\n');
+        }
+        if (operandHint != null && !operandHint.isEmpty()) {
+            sb.append(DETAIL_PREFIX).append(operandHint).append('\n');
         }
         for (ProblemCard.ConcreteExample example : examples) {
             appendExample(sb, example, existingTests);

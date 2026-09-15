@@ -45,6 +45,7 @@ public final class ProblemCard {
     private final String scopeKey;
     private final String selectionFingerprint;
     private final List<ConcreteExample> concreteExamples;
+    private final String operandHint;
 
     private ProblemCard(ProblemCardType type,
                         String title,
@@ -57,7 +58,8 @@ public final class ProblemCard {
                         String rootCauseKey,
                         String scopeKey,
                         String selectionFingerprint,
-                        List<ConcreteExample> concreteExamples) {
+                        List<ConcreteExample> concreteExamples,
+                        String operandHint) {
         this.type = Objects.requireNonNull(type, "type");
         this.title = title == null ? "" : title.trim();
         this.evidence = evidence == null
@@ -82,6 +84,7 @@ public final class ProblemCard {
         this.concreteExamples = concreteExamples == null
                 ? Collections.emptyList()
                 : Collections.unmodifiableList(new ArrayList<>(concreteExamples));
+        this.operandHint = operandHint == null ? "" : operandHint;
     }
 
     public static Builder builder(ProblemCardType type) {
@@ -105,6 +108,7 @@ public final class ProblemCard {
         private String scopeKey;
         private String selectionFingerprint;
         private List<ConcreteExample> concreteExamples = Collections.emptyList();
+        private String operandHint = "";
 
         private Builder(ProblemCardType type) {
             this.type = Objects.requireNonNull(type, "type");
@@ -165,6 +169,11 @@ public final class ProblemCard {
             return this;
         }
 
+        public Builder operandHint(String operandHint) {
+            this.operandHint = operandHint;
+            return this;
+        }
+
         public Builder concreteExample(TestCase testCase, String description) {
             if (testCase == null) {
                 return this;
@@ -184,7 +193,7 @@ public final class ProblemCard {
             }
             return new ProblemCard(type, title, evidence, relatedGoals,
                     impact, blockage, confidence,
-                    family, rootCauseKey, scopeKey, selectionFingerprint, concreteExamples);
+                    family, rootCauseKey, scopeKey, selectionFingerprint, concreteExamples, operandHint);
         }
     }
 
@@ -240,6 +249,10 @@ public final class ProblemCard {
         return concreteExamples;
     }
 
+    public String getOperandHint() {
+        return operandHint;
+    }
+
     public ProblemCard withConcreteExample(TestCase testCase, String description) {
         if (testCase == null) {
             return this;
@@ -248,7 +261,13 @@ public final class ProblemCard {
         examples.add(new ConcreteExample(testCase, description));
         return new ProblemCard(type, title, evidence, relatedGoals,
                 impact, blockage, confidence, family, rootCauseKey, scopeKey,
-                selectionFingerprint, examples);
+                selectionFingerprint, examples, operandHint);
+    }
+
+    public ProblemCard withOperandHint(String operandHint) {
+        return new ProblemCard(type, title, evidence, relatedGoals,
+                impact, blockage, confidence, family, rootCauseKey, scopeKey,
+                selectionFingerprint, concreteExamples, operandHint);
     }
 
     public RepeatedInjectionTarget toRepeatedInjectionTarget() {

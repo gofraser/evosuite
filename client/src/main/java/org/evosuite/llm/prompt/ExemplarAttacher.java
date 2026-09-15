@@ -162,11 +162,14 @@ public final class ExemplarAttacher {
             return card;
         }
         double distance = bestFitnessPerGoal.get(goal);
-        TestCase closestTest = closestTest(goal, population, distance);
-        if (closestTest == null) {
+        TestChromosome chromosome = closestChromosome(goal, population, distance);
+        if (chromosome == null || chromosome.getTestCase() == null) {
             return card;
         }
-        return card.withConcreteExample(closestTest, describe(card.getType(), goal, distance));
+        ProblemCard withExample = card.withConcreteExample(chromosome.getTestCase(),
+                describe(card.getType(), goal, distance));
+        String hint = BranchOperandHint.forGoal(goal, chromosome);
+        return hint == null ? withExample : withExample.withOperandHint(hint);
     }
 
     /** The caption rendered above an exemplar; the single home of both wordings. */
