@@ -186,7 +186,7 @@ public class OperatorTargetSelector {
 
     /**
      * Population-wide best cached fitness per goal, restricted to goals whose
-     * best is finite and strictly between 0 and 1 (best 0 means covered, no
+     * best is strictly between 0 and {@link ExemplarAttacher#MAX_EXEMPLAR_DISTANCE} (best 0 means covered, no
      * cached value anywhere or a best of 1.0 means not usefully targetable).
      */
     private static Map<TestFitnessFunction, Double> keptGoalsWithBestDistance(
@@ -200,7 +200,7 @@ public class OperatorTargetSelector {
                     best = cached;
                 }
             }
-            if (Double.isFinite(best) && best > 0.0 && best < 1.0) {
+            if (best > 0.0 && best < ExemplarAttacher.MAX_EXEMPLAR_DISTANCE) {
                 kept.put(goal, best);
             }
         }
