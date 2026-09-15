@@ -32,20 +32,28 @@ import java.util.Set;
  * calls have observed the same best distance for that goal.
  *
  * <p>State is scoped to one {@link OperatorTargetSelector} instance (one
- * search run). A goal that disappears from the current-goals collection
- * (covered, or the run moved past it) is forgotten so a later, unrelated goal
- * cannot inherit a stale count.
+ * search run). A goal is forgotten as soon as it is not one of the goals kept
+ * for this generation (covered, unreached, or the run moved past it) so that
+ * later, unrelated generation in which it reappears cannot inherit a stale
+ * count: the count reflects only strictly consecutive observations of the
+ * same distance, never ones separated by a generation where the goal was not
+ * tracked.
  */
 final class GoalStallTracker {
 
     private final Map<TestFitnessFunction, Double> lastDistance = new HashMap<>();
     private final Map<TestFitnessFunction, Integer> stallCount = new HashMap<>();
 
-    /** Drops tracked state for every goal not present in {@code currentGoals}. */
-    void forgetGoalsNotIn(Collection<TestFitnessFunction> currentGoals) {
-        Set<TestFitnessFunction> keep = currentGoals instanceof Set
-                ? (Set<TestFitnessFunction>) currentGoals
-                : new HashSet<>(currentGoals);
+    /**
+     * Drops tracked state for every goal not present in {@code keptGoals}.
+     * Must be called with the exact set of goals that will (or may) be passed
+     * to {@link #record} this generation, so that a goal dropped from that set
+     * for even one generation starts its stall count over from zero.
+     */
+    void forgetGoalsNotIn(Collection<TestFitnessFunction> keptGoals) {
+        Set<TestFitnessFunction> keep = keptGoals instanceof Set
+                ? (Set<TestFitnessFunction>) keptGoals
+                : new HashSet<>(keptGoals);
         lastDistance.keySet().retainAll(keep);
         stallCount.keySet().retainAll(keep);
     }

@@ -45,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class OperatorTargetSelectorTest {
@@ -331,6 +332,46 @@ class OperatorTargetSelectorTest {
         assertFalse(afterImprovement.isStalled(), "a changed best distance resets the stall counter");
     }
 
+    @Test
+    void stallCountIsNotStaleAfterGoalTemporarilyLeavesKeptRange() {
+        Properties.LLM_OPERATOR_STALL_GENERATIONS = 3;
+        TestFitnessFunction g = goal("g");
+        TestChromosome parent = chromosome(1);
+        List<TestFitnessFunction> goals = Collections.singletonList(g);
+        List<TestChromosome> population = Collections.singletonList(parent);
+        OperatorTargetSelector selector = new OperatorTargetSelector(null, noCards());
+
+        parent.setFitness(g, 0.5);
+        selector.select(population, goals, 1); // 1st consecutive observation at 0.5
+        selector.select(population, goals, 1); // 2nd consecutive observation at 0.5
+        parent.setFitness(g, 1.0);
+        assertTrue(selector.select(population, goals, 1).isEmpty(), "best 1.0 is not kept, so nothing is targetable");
+        parent.setFitness(g, 0.5);
+        selector.select(population, goals, 1); // 1st consecutive observation after rejoining
+        OperatorTarget last = selector.select(population, goals, 1).get(0); // 2nd consecutive observation after rejoining
+
+        assertFalse(last.isStalled(),
+                "only 2 consecutive observations at 0.5 since rejoining the kept set, not " + Properties.LLM_OPERATOR_STALL_GENERATIONS);
+    }
+
+    @Test
+    void fourConsecutiveUnchangedGenerationsStallThroughTheSelector() {
+        Properties.LLM_OPERATOR_STALL_GENERATIONS = 3;
+        TestFitnessFunction g = goal("g");
+        TestChromosome parent = chromosome(1);
+        parent.setFitness(g, 0.5);
+        List<TestFitnessFunction> goals = Collections.singletonList(g);
+        List<TestChromosome> population = Collections.singletonList(parent);
+        OperatorTargetSelector selector = new OperatorTargetSelector(null, noCards());
+
+        selector.select(population, goals, 1);
+        selector.select(population, goals, 1);
+        selector.select(population, goals, 1);
+        OperatorTarget fourth = selector.select(population, goals, 1).get(0);
+
+        assertTrue(fourth.isStalled(), "4 consecutive unchanged observations must be stalled at threshold 3");
+    }
+
     // --- repeated-injection memory ------------------------------------------------------------
 
     @Test
@@ -398,11 +439,18 @@ class OperatorTargetSelectorTest {
         Randomness.State savedRandomState = Randomness.snapshot();
         try {
             Randomness.setSeed(42L);
+            TestFitnessFunction goalA = goal("A");
+            TestFitnessFunction goalB = goal("B");
+            TestFitnessFunction goalC = goal("C");
             List<TestChromosome> population = new ArrayList<>();
             for (int i = 0; i < 5; i++) {
-                population.add(chromosome(i));
+                TestChromosome tc = chromosome(i);
+                tc.setFitness(goalA, 0.5);
+                tc.setFitness(goalB, 0.5);
+                tc.setFitness(goalC, 0.5);
+                population.add(tc);
             }
-            Collection<TestFitnessFunction> goals = Arrays.asList(goal("A"), goal("B"), goal("C"));
+            Collection<TestFitnessFunction> goals = Arrays.asList(goalA, goalB, goalC);
 
             OperatorTargetSelector selector = new OperatorTargetSelector(null, noCards());
             List<OperatorTarget> result = selector.select(population, goals, 3);
@@ -425,8 +473,13 @@ class OperatorTargetSelectorTest {
         Randomness.State savedRandomState = Randomness.snapshot();
         try {
             Randomness.setSeed(7L);
-            List<TestChromosome> population = Arrays.asList(chromosome(1), chromosome(2));
-            Collection<TestFitnessFunction> goals = Collections.singletonList(goal("A"));
+            TestFitnessFunction goalA = goal("A");
+            TestChromosome c1 = chromosome(1);
+            c1.setFitness(goalA, 0.5);
+            TestChromosome c2 = chromosome(2);
+            c2.setFitness(goalA, 0.5);
+            List<TestChromosome> population = Arrays.asList(c1, c2);
+            Collection<TestFitnessFunction> goals = Collections.singletonList(goalA);
 
             OperatorTargetSelector selector = new OperatorTargetSelector(null, noCards());
             List<OperatorTarget> result = selector.select(population, goals, 5);
@@ -437,7 +490,122 @@ class OperatorTargetSelectorTest {
         }
     }
 
-    // --- cache-only selection ------------------------------------------------------------
+    @Test
+    void randomModeReturnsEmptyWhenNoGoalHasACachedBest() {
+        Properties.LLM_OPERATOR_TARGETING = Properties.LlmOperatorTargeting.RANDOM;
+        List<TestChromosome> population = Arrays.asList(chromosome(1), chromosome(2));
+        Collection<TestFitnessFunction> goals = Collections.singletonList(goal("A"));
+
+        OperatorTargetSelector selector = new OperatorTargetSelector(null, noCards());
+        List<OperatorTarget> result = selector.select(population, goals, 5);
+
+        assertTrue(result.isEmpty(), "no goal has a cached best in (0,1), so nothing is sampleable");
+    }
+
+    @Test
+    void randomModeNeverProducesNaNDistance() {
+        Properties.LLM_OPERATOR_TARGETING = Properties.LlmOperatorTargeting.RANDOM;
+        Randomness.State savedRandomState = Randomness.snapshot();
+        try {
+            Randomness.setSeed(11L);
+            TestFitnessFunction goalA = goal("A");
+            TestFitnessFunction goalB = goal("B");
+            List<TestChromosome> population = new ArrayList<>();
+            for (int i = 0; i < 6; i++) {
+                TestChromosome tc = chromosome(i);
+                // only goalA ever gets a cached value; goalB is never cached anywhere
+                tc.setFitness(goalA, 0.1 * (i + 1));
+                population.add(tc);
+            }
+            Collection<TestFitnessFunction> goals = Arrays.asList(goalA, goalB);
+
+            OperatorTargetSelector selector = new OperatorTargetSelector(null, noCards());
+            List<OperatorTarget> result = selector.select(population, goals, 6);
+
+            assertFalse(result.isEmpty());
+            for (OperatorTarget target : result) {
+                assertEquals(goalA, target.getGoal(), "goalB has no cached value anywhere, so it can never be sampled");
+                assertFalse(Double.isNaN(target.getDistance()), "distance must never be NaN");
+            }
+        } finally {
+            Randomness.restore(savedRandomState);
+        }
+    }
+
+    @Test
+    void randomModeAttachesCardFromCardSource() {
+        Properties.LLM_OPERATOR_TARGETING = Properties.LlmOperatorTargeting.RANDOM;
+        Randomness.State savedRandomState = Randomness.snapshot();
+        try {
+            Randomness.setSeed(3L);
+            TestFitnessFunction goalA = goal("A");
+            List<TestChromosome> population = new ArrayList<>();
+            for (int i = 0; i < 3; i++) {
+                TestChromosome tc = chromosome(i);
+                tc.setFitness(goalA, 0.4);
+                population.add(tc);
+            }
+            Collection<TestFitnessFunction> goals = Collections.singletonList(goalA);
+
+            ProblemCard card = ProblemCard.builder(ProblemCardType.UNREACHED_METHOD)
+                    .title("card").relatedGoals(Collections.singletonList(goalA))
+                    .impact(1.0).blockage(1.0).confidence(1.0).build();
+            OperatorTargetSelector.CardSource cardSource =
+                    (goalsArg, populationArg, maxCards) -> Collections.singletonList(card);
+
+            OperatorTargetSelector selector = new OperatorTargetSelector(null, cardSource);
+            List<OperatorTarget> result = selector.select(population, goals, 3);
+
+            assertFalse(result.isEmpty());
+            for (OperatorTarget target : result) {
+                assertTrue(target.getCard().isPresent(), "RANDOM mode must attach cards just like DIRECTED");
+                assertEquals(card, target.getCard().get());
+            }
+        } finally {
+            Randomness.restore(savedRandomState);
+        }
+    }
+
+    @Test
+    void randomModeHonoursMemorySuppression() {
+        Properties.LLM_OPERATOR_TARGETING = Properties.LlmOperatorTargeting.RANDOM;
+        Randomness.State savedRandomState = Randomness.snapshot();
+        try {
+            Randomness.setSeed(42L);
+            TestFitnessFunction goalA = goal("A");
+            TestFitnessFunction goalB = goal("B");
+            TestFitnessFunction goalC = goal("C");
+            List<TestChromosome> population = new ArrayList<>();
+            for (int i = 0; i < 5; i++) {
+                TestChromosome tc = chromosome(i);
+                tc.setFitness(goalA, 0.5);
+                tc.setFitness(goalB, 0.5);
+                tc.setFitness(goalC, 0.5);
+                population.add(tc);
+            }
+            Collection<TestFitnessFunction> goals = Arrays.asList(goalA, goalB, goalC);
+
+            RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+            OperatorTargetSelector selector = new OperatorTargetSelector(memory, noCards());
+
+            List<OperatorTarget> firstSelection = selector.select(population, goals, 3);
+            assertEquals(3, firstSelection.size(), "seeded so the deterministic sample yields 3 targets");
+            RepeatedInjectionTarget rit = firstSelection.get(0).toRepeatedInjectionTarget();
+            memory.registerAttempt(Collections.singletonList(rit), true);
+
+            Randomness.setSeed(42L);
+            List<OperatorTarget> secondSelection = selector.select(population, goals, 3);
+            assertEquals(2, secondSelection.size(),
+                    "the in-flight repeat of the sampled target must be dropped, not backfilled");
+            for (OperatorTarget target : secondSelection) {
+                assertNotEquals(rit.getFingerprint(), target.toRepeatedInjectionTarget().getFingerprint());
+            }
+        } finally {
+            Randomness.restore(savedRandomState);
+        }
+    }
+
+    // --- Finding 1: cache-only selection ------------------------------------------------------------
 
     @Test
     void selectionNeverReEvaluatesFitness() {

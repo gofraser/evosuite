@@ -30,10 +30,11 @@ import java.util.Set;
 
 /**
  * Picks a crossover partner for a mutation parent, shared by both {@code
- * DIRECTED} and {@code RANDOM} targeting: a partner is only ever accepted if
- * it covers at least {@link Properties#LLM_OPERATOR_PARTNER_MIN_NEW_GOALS}
- * goals the parent does not, so the two modes differ only in how the (parent,
- * goal) pair itself is chosen, not in the crossover eligibility rule.
+ * DIRECTED} and {@code RANDOM} targeting: a partner is only ever eligible if
+ * its cached fitness for the goal is finite and at most twice {@code best},
+ * and it covers at least {@link Properties#LLM_OPERATOR_PARTNER_MIN_NEW_GOALS}
+ * goals the parent does not. Both modes build the same eligible list via
+ * {@link #eligible}; they differ only in how they pick from it.
  */
 final class CrossoverPartnerFinder {
 
@@ -41,17 +42,15 @@ final class CrossoverPartnerFinder {
     }
 
     /**
-     * Among individuals other than {@code parent} whose cached fitness for
-     * {@code goal} is finite and at most twice {@code best}, returns the one
-     * adding the most goals over the parent (ties broken by smaller distance),
-     * or null if none qualifies.
+     * Individuals other than {@code parent} whose cached fitness for {@code
+     * goal} is finite and at most {@code 2 * best}, and which cover at least
+     * {@link Properties#LLM_OPERATOR_PARTNER_MIN_NEW_GOALS} goals the parent
+     * does not.
      */
-    static TestChromosome directed(List<TestChromosome> population, TestChromosome parent,
-                                   TestFitnessFunction goal, double best) {
+    static List<TestChromosome> eligible(List<TestChromosome> population, TestChromosome parent,
+                                         TestFitnessFunction goal, double best) {
         Set<TestFitnessFunction> parentCovered = parent.getTestCase().getCoveredGoals();
-        TestChromosome chosen = null;
-        int chosenNewGoals = -1;
-        double chosenDistance = Double.POSITIVE_INFINITY;
+        List<TestChromosome> result = new ArrayList<>();
         for (TestChromosome candidate : population) {
             if (candidate == null || candidate == parent || candidate.getTestCase() == null) {
                 continue;
@@ -64,6 +63,21 @@ final class CrossoverPartnerFinder {
             if (newGoals < Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS) {
                 continue;
             }
+            result.add(candidate);
+        }
+        return result;
+    }
+
+    /** Among the eligible candidates, the one adding the most goals over the parent (ties broken by smaller distance), or null. */
+    static TestChromosome directed(List<TestChromosome> population, TestChromosome parent,
+                                   TestFitnessFunction goal, double best) {
+        Set<TestFitnessFunction> parentCovered = parent.getTestCase().getCoveredGoals();
+        TestChromosome chosen = null;
+        int chosenNewGoals = -1;
+        double chosenDistance = Double.POSITIVE_INFINITY;
+        for (TestChromosome candidate : eligible(population, parent, goal, best)) {
+            double distance = candidate.getFitnessValues().get(goal);
+            int newGoals = countNewGoals(candidate.getTestCase().getCoveredGoals(), parentCovered);
             if (newGoals > chosenNewGoals || (newGoals == chosenNewGoals && distance < chosenDistance)) {
                 chosen = candidate;
                 chosenNewGoals = newGoals;
@@ -73,20 +87,11 @@ final class CrossoverPartnerFinder {
         return chosen;
     }
 
-    /** Picks one random other individual and keeps it only if it clears the same eligibility bar as {@link #directed}. */
-    static TestChromosome random(List<TestChromosome> population, TestChromosome parent) {
-        List<TestChromosome> others = new ArrayList<>();
-        for (TestChromosome candidate : population) {
-            if (candidate != null && candidate != parent && candidate.getTestCase() != null) {
-                others.add(candidate);
-            }
-        }
-        if (others.isEmpty()) {
-            return null;
-        }
-        TestChromosome candidate = Randomness.choice(others);
-        int newGoals = countNewGoals(candidate.getTestCase().getCoveredGoals(), parent.getTestCase().getCoveredGoals());
-        return newGoals >= Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS ? candidate : null;
+    /** A uniformly random pick among the eligible candidates, or null if none qualifies. */
+    static TestChromosome random(List<TestChromosome> population, TestChromosome parent,
+                                 TestFitnessFunction goal, double best) {
+        List<TestChromosome> candidates = eligible(population, parent, goal, best);
+        return candidates.isEmpty() ? null : Randomness.choice(candidates);
     }
 
     private static int countNewGoals(Set<TestFitnessFunction> candidateGoals, Set<TestFitnessFunction> parentGoals) {
