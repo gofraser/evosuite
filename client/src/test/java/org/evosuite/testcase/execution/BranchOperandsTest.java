@@ -60,6 +60,18 @@ public class BranchOperandsTest {
     }
 
     @Test
+    public void testSutNumberSubclassIsRenderedByClassName() {
+        class Price extends Number {
+            @Override public int intValue() { throw new AssertionError("must not be called"); }
+            @Override public long longValue() { throw new AssertionError("must not be called"); }
+            @Override public float floatValue() { throw new AssertionError("must not be called"); }
+            @Override public double doubleValue() { throw new AssertionError("must not be called"); }
+            @Override public String toString() { throw new AssertionError("must not be called"); }
+        }
+        assertEquals("Price", BranchOperands.render(new Price()));
+    }
+
+    @Test
     public void testRenderCustomObjectUsesSimpleNameNotToString() {
         assertEquals("Poisoned", BranchOperands.render(new Poisoned()));
     }

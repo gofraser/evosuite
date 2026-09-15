@@ -80,11 +80,17 @@ public final class BranchOperands {
             }
             return "\"" + s + "\"";
         }
-        if (value instanceof Number || value instanceof Boolean || value instanceof Character) {
+        if (isBoxedPrimitive(value)) {
             return value.toString();
         }
         String simpleName = value.getClass().getSimpleName();
         return simpleName.isEmpty() ? value.getClass().getName() : simpleName;
+    }
+
+    /** Only the JDK's own boxes are rendered through toString(): a SUT Number subclass could run arbitrary code. */
+    private static boolean isBoxedPrimitive(Object value) {
+        return (value instanceof Number || value instanceof Boolean || value instanceof Character)
+                && value.getClass().getName().startsWith("java.lang.");
     }
 
     public int getOpcode() {
