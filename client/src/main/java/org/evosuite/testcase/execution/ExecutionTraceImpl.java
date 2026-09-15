@@ -624,6 +624,9 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      * writes in {@link BranchOperandSlot}.
      */
     private BranchOperandSlot slotFor(int branch) {
+        if (branch < 0) {
+            throw new IllegalArgumentException("branch ids are non-negative pool ids, got " + branch);
+        }
         if (branchOperandSlots == null) {
             branchOperandSlots = new BranchOperandSlot[Math.max(branch + 1, 16)];
         } else if (branch >= branchOperandSlots.length) {
