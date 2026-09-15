@@ -45,9 +45,16 @@ public final class RequestCancellation {
     /**
      * Registers how to abort the in-flight request this handle guards. If
      * {@link #abort()} has already been called, {@code aborter} is run
-     * immediately on the calling thread.
+     * immediately on the calling thread, and this method returns
+     * {@code false} so the caller — which may have opened a connection
+     * before reaching this call — knows to stop before sending anything
+     * rather than trust that running {@code aborter} necessarily had an
+     * effect.
+     *
+     * @return {@code true} if this handle was not yet aborted when attached,
+     *         {@code false} if {@link #abort()} had already run
      */
-    public void attach(Runnable aborter) {
+    public boolean attach(Runnable aborter) {
         boolean runImmediately;
         synchronized (lock) {
             this.aborter = aborter;
@@ -56,6 +63,7 @@ public final class RequestCancellation {
         if (runImmediately && aborter != null) {
             aborter.run();
         }
+        return !runImmediately;
     }
 
     /**
