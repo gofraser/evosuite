@@ -26,6 +26,7 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,9 +40,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Verifies {@link OperatorAttemptLog} and {@link OperatorAttemptRecord}: the
@@ -338,6 +342,67 @@ class OperatorAttemptLogTest {
 
         log.recordSurvivors(Collections.singletonList(offspringA), 1);
         assertEquals(1, log.getOffspringSurvived(), "A outlives the selection of its admission generation");
+    }
+
+    // ---- best-effort (telemetry must never break the search) --------------------------------
+
+    @Test
+    void openAndRecordResponseAreBestEffortWhenAStatementCodeThrows() {
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        DefaultTestCase brokenTestCase = new DefaultTestCase();
+        Statement throwingStatement = mock(Statement.class);
+        when(throwingStatement.getCode()).thenThrow(new RuntimeException("boom"));
+        brokenTestCase.addStatement(throwingStatement);
+
+        TestChromosome parent = new TestChromosome();
+        parent.setTestCase(brokenTestCase);
+        OperatorTarget target = OperatorTarget.builder(parent, goal("g")).build();
+
+        assertDoesNotThrow(() -> log.open("broken", 0, target, "SYNC", 1));
+        assertEquals(1, log.getAttempts(), "the row must still be created despite the statement failure");
+
+        assertDoesNotThrow(() -> log.recordResponse("broken", TargetedResponse.Status.DELIVERED, true, true, 0,
+                TargetedResponse.CallUsage.NONE, brokenTestCase));
+        assertEquals("PARSED", cols(log.recordFor("broken"))[13]);
+    }
+
+    // ---- bounded survivor scan ----------------------------------------------------------------
+
+    @Test
+    void survivorScanResolvesPlus5EarlyAndReleasesTheOffspringReferenceWhenAbsentAtPlus1() {
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        TestChromosome offspring = chromosome(1);
+        log.open("early", 0, OperatorTarget.builder(chromosome(2), goal("g")).build(), "SYNC", 1);
+        log.recordAdmitted("early", offspring, 3);
+
+        // Absent already at the admission generation's own scan (plus1) — an identity-based
+        // population membership cannot reappear, so plus5 must resolve to false right away.
+        log.recordSurvivors(Collections.emptyList(), 3);
+
+        OperatorAttemptRecord record = log.recordFor("early");
+        assertEquals("0", cols(record)[24], "survived_plus1");
+        assertEquals("0", cols(record)[25], "survived_plus5 resolved immediately");
+        assertFalse(record.hasAdmittedOffspringReference(),
+                "the offspring reference must be released once its horizons are resolved");
+
+        // The real plus5 generation (admission + 4) must find nothing left pending for it.
+        log.recordSurvivors(Collections.singletonList(offspring), 7);
+        assertEquals("0", cols(record)[25], "must not be re-derived from a later, unrelated scan");
+    }
+
+    @Test
+    void survivorScanOnlyLooksAtRecordsPendingForThatGeneration() {
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        TestChromosome admittedLate = chromosome(1);
+        log.open("late", 0, OperatorTarget.builder(chromosome(2), goal("g")).build(), "SYNC", 1);
+        log.recordAdmitted("late", admittedLate, 10);
+
+        // A scan of an unrelated, earlier generation must not touch a record admitted later.
+        log.recordSurvivors(Collections.singletonList(admittedLate), 3);
+        assertEquals("", cols(log.recordFor("late"))[24], "survived_plus1 must still be unresolved");
+
+        log.recordSurvivors(Collections.singletonList(admittedLate), 10);
+        assertEquals("1", cols(log.recordFor("late"))[24]);
     }
 
     // ---- flush ------------------------------------------------------------------------------

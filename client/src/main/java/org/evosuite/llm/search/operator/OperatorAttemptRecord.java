@@ -26,9 +26,13 @@ import org.evosuite.llm.search.GoalId;
 import org.evosuite.llm.search.ProblemCard;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.statements.Statement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +46,8 @@ import java.util.Set;
  * owns the registry, singleton, and aggregate counters.
  */
 final class OperatorAttemptRecord {
+
+    private static final Logger logger = LoggerFactory.getLogger(OperatorAttemptRecord.class);
 
     static final String CSV_HEADER =
             "generation,attempt_id,mode,kind,batch_size,parent_hash,partner_hash,goal_id,card_type,"
@@ -90,11 +96,31 @@ final class OperatorAttemptRecord {
         TestChromosome parent = target.getParent();
         this.parentHash = System.identityHashCode(parent);
         this.partnerHash = target.getPartner().map(System::identityHashCode).orElse(null);
-        this.goalId = GoalId.of(target.getGoal());
-        this.cardType = target.getCard().map(ProblemCard::getType).map(Enum::name).orElse("");
+        this.goalId = goalId(target.getGoal());
+        this.cardType = cardType(target);
         this.hintPresent = hintPresent(target, parent);
         this.distanceBefore = target.getDistance();
         this.parentStatementCodes = statementCodes(parent == null ? null : parent.getTestCase());
+    }
+
+    /** Best-effort: an id is only ever used to group/report rows, never worth losing the row for. */
+    private static String goalId(TestFitnessFunction goal) {
+        try {
+            return GoalId.of(goal);
+        } catch (RuntimeException e) {
+            logger.debug("GoalId.of failed for operator attempt log: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /** Best-effort, same reasoning as {@link #goalId}. */
+    private static String cardType(OperatorTarget target) {
+        try {
+            return target.getCard().map(ProblemCard::getType).map(Enum::name).orElse("");
+        } catch (RuntimeException e) {
+            logger.debug("card type extraction failed for operator attempt log: {}", e.getMessage());
+            return "";
+        }
     }
 
     private static boolean hintPresent(OperatorTarget target, TestChromosome parent) {
@@ -173,17 +199,36 @@ final class OperatorAttemptRecord {
      * breeds generation {@code admitted + n}, i.e. it outlived the selection of generation
      * {@code admitted + n - 1}; {@code survived_plus1} therefore resolves at the admission
      * generation's own scan, the same moment {@code LLM_Injected_Candidates_Survived} counts.
+     *
+     * <p>Returns true when this call resolved {@code survived_plus5} early — the offspring was
+     * already gone at plus1, and an identity-based population membership cannot reappear once
+     * lost, so plus5 is known to be false without waiting for that generation's scan. The caller
+     * must then drop this record from its plus-5 pending scan.
      */
-    void applySurvivorScan(Set<TestChromosome> presentByIdentity, int generation) {
+    boolean applySurvivorScan(Set<TestChromosome> presentByIdentity, int generation) {
         if (admittedOffspring == null || admittedGeneration == null) {
-            return;
+            return false;
         }
+        boolean resolvedEarly = false;
         if (generation == admittedGeneration) {
-            survivedPlus1 = presentByIdentity.contains(admittedOffspring);
+            boolean present = presentByIdentity.contains(admittedOffspring);
+            survivedPlus1 = present;
+            if (!present) {
+                survivedPlus5 = false;
+                admittedOffspring = null;
+                resolvedEarly = true;
+            }
         }
         if (generation == admittedGeneration + 4) {
             survivedPlus5 = presentByIdentity.contains(admittedOffspring);
+            admittedOffspring = null;
         }
+        return resolvedEarly;
+    }
+
+    /** Whether the admitted offspring reference is still held; package-visible, for tests only. */
+    boolean hasAdmittedOffspringReference() {
+        return admittedOffspring != null;
     }
 
     boolean isParsed() {
@@ -242,11 +287,20 @@ final class OperatorAttemptRecord {
         return s;
     }
 
+    /**
+     * Best-effort: a single statement whose {@code getCode()} throws (e.g. an unresolved generic)
+     * must not lose the whole diff, so a failure here yields an empty list rather than escaping.
+     */
     private static List<String> statementCodes(TestCase testCase) {
         List<String> codes = new ArrayList<>();
         if (testCase != null) {
-            for (Statement statement : testCase) {
-                codes.add(statement.getCode());
+            try {
+                for (Statement statement : testCase) {
+                    codes.add(statement.getCode());
+                }
+            } catch (RuntimeException e) {
+                logger.debug("statement code extraction failed for operator attempt log: {}", e.getMessage());
+                return Collections.emptyList();
             }
         }
         return codes;
