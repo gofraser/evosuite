@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -277,6 +278,96 @@ class LanguageModelOperatorTest {
         assertFalse(result.isAppliedSemantic());
         assertTrue(result.isFallbackUsed());
         assertEquals(1, mutation.getFallbackCount());
+    }
+
+    // --- fallback releases vs. records a repeat-memory attempt, by response status ------------
+
+    @Test
+    void noBudgetResponseReleasesTheAttemptInsteadOfRecordingAGainlessOutcome() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+
+        TestChromosome parent = makeChromosome();
+        OperatorTarget target = mutationTarget(parent, makeGoal("g"));
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
+        when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(TargetedResponse.noBudget());
+
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        // The target never reached a completed turn, so its repeat-suppression cooldown must
+        // not grow — same treatment the ASYNC executor gives an undelivered attempt.
+        verify(memory).releaseUndeliveredAttempt(anyString());
+        verify(memory, never()).recordAttemptOutcome(anyString(), anyInt());
+    }
+
+    @Test
+    void failedResponseReleasesTheAttemptInsteadOfRecordingAGainlessOutcome() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+
+        TestChromosome parent = makeChromosome();
+        OperatorTarget target = mutationTarget(parent, makeGoal("g"));
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
+        when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(TargetedResponse.failed());
+
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        verify(memory).releaseUndeliveredAttempt(anyString());
+        verify(memory, never()).recordAttemptOutcome(anyString(), anyInt());
+    }
+
+    @Test
+    void callExceptionReleasesTheAttemptInsteadOfRecordingAGainlessOutcome() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+
+        TestChromosome parent = makeChromosome();
+        OperatorTarget target = mutationTarget(parent, makeGoal("g"));
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
+        when(mockSemantic.applyMapped(Collections.singletonList(target))).thenThrow(new RuntimeException("boom"));
+
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        verify(memory).releaseUndeliveredAttempt(anyString());
+        verify(memory, never()).recordAttemptOutcome(anyString(), anyInt());
+    }
+
+    @Test
+    void deliveredButUnmatchedResponseStillRecordsAGainlessOutcome() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_MUTATION_PROBABILITY = 1.0;
+
+        TestChromosome parent = makeChromosome();
+        OperatorTarget target = mutationTarget(parent, makeGoal("g"));
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        LlmSemanticMutation mockSemantic = mock(LlmSemanticMutation.class);
+        when(mockSemantic.canCall()).thenReturn(true);
+        when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(unmatchedResponse());
+
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
+        mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+
+        // The call actually completed a turn against this target, it just produced nothing
+        // usable — that counts as a real, gainless attempt, not a released non-delivery.
+        verify(memory).recordAttemptOutcome(anyString(), eq(0));
+        verify(memory, never()).releaseUndeliveredAttempt(anyString());
     }
 
     // --- recordOutcome -------------------------------------------------------------------------

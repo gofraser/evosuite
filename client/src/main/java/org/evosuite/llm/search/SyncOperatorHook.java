@@ -102,7 +102,7 @@ abstract class SyncOperatorHook {
             logger.debug("LLM operator call failed unexpectedly: {}", e.getMessage());
             OperatorAttemptLog.getInstance().recordResponse(attemptId, TargetedResponse.Status.FAILED,
                     false, false, 0, TargetedResponse.CallUsage.NONE, null);
-            return fallback(target, registration);
+            return fallback(target, registration, TargetedResponse.Status.FAILED);
         }
 
         TestCase test = response.forTarget(1).orElse(null);
@@ -116,13 +116,25 @@ abstract class SyncOperatorHook {
             // has evaluated (or dropped) this offspring.
             return OperatorAttemptResult.semanticApplied(target, attemptId, plan.getGeneration());
         }
-        return fallback(target, registration);
+        return fallback(target, registration, response.getStatus());
     }
 
+    /**
+     * Falls back to the standard operator for {@code target}. A {@code NO_BUDGET}/{@code FAILED}
+     * response (or a call that threw) never reached a completed turn for this target, so its
+     * repeat-suppression attempt is released rather than counted as a spent, gainless turn — the
+     * same treatment the asynchronous executor gives an undelivered attempt. Only a delivered
+     * response that produced nothing usable for this target counts as a completed, gainless turn.
+     */
     private OperatorAttemptResult fallback(OperatorTarget target,
-                                           RepeatedInjectionMemory.PromptAttemptRegistration registration) {
+                                           RepeatedInjectionMemory.PromptAttemptRegistration registration,
+                                           TargetedResponse.Status status) {
         if (!registration.isEmpty()) {
-            memory.recordAttemptOutcome(registration.getAttemptId(), 0);
+            if (status == TargetedResponse.Status.NO_BUDGET || status == TargetedResponse.Status.FAILED) {
+                memory.releaseUndeliveredAttempt(registration.getAttemptId());
+            } else {
+                memory.recordAttemptOutcome(registration.getAttemptId(), 0);
+            }
         }
         fallbackCount.incrementAndGet();
         return OperatorAttemptResult.semanticFallback(target);
