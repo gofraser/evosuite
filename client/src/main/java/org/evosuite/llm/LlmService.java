@@ -28,7 +28,6 @@ import org.evosuite.llm.provider.LlmProtocolException;
 import org.evosuite.llm.provider.LlmProviderErrorException;
 import org.evosuite.llm.provider.OpenAiCompatibleChatModel;
 import org.evosuite.llm.provider.RequestCancellation;
-import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,6 +115,15 @@ public class LlmService implements AutoCloseable {
                LlmTraceRecorder traceRecorder,
                Random jitterRandom,
                boolean available) {
+        if (configuration.hasSeparateOperatorModel()) {
+            if (operatorModel == null) {
+                throw new IllegalArgumentException(
+                        "configuration declares a separate operator model but operatorModel is null");
+            }
+        } else if (operatorModel != null) {
+            throw new IllegalArgumentException(
+                    "operatorModel is set but configuration does not declare a separate operator model");
+        }
         this.model = model;
         this.operatorModel = operatorModel;
         this.budgetCoordinator = budgetCoordinator;
@@ -130,12 +138,15 @@ public class LlmService implements AutoCloseable {
 
     /**
      * Returns the {@link ChatLanguageModel} that {@code feature} resolves to:
-     * {@link #operatorModel} when configured and {@code feature} is an operator
-     * feature, otherwise the primary {@link #model}.
+     * {@link #operatorModel} when {@code feature} is an operator feature and
+     * {@link #configuration} declares a separate operator model, otherwise the
+     * primary {@link #model}. This mirrors {@link LlmConfiguration#modelFor(LlmFeature)}
+     * exactly, so the model actually used for a call and the model name recorded
+     * in traces/statistics can never disagree; the constructor enforces that
+     * {@link #operatorModel} is non-null whenever the configuration says so.
      */
     private ChatLanguageModel modelFor(LlmFeature feature) {
-        ChatLanguageModel operatorSnapshot = operatorModel;
-        return operatorSnapshot != null && feature.isOperator() ? operatorSnapshot : model;
+        return feature.isOperator() && configuration.hasSeparateOperatorModel() ? operatorModel : model;
     }
 
     /** Package-private accessor for tests asserting per-feature model resolution. */
@@ -215,8 +226,7 @@ public class LlmService implements AutoCloseable {
                 config.isTraceEnabled(), recorder.getTraceFile());
 
         if (config.getProvider() == Properties.LlmProvider.NONE) {
-            return new LlmService(new UnavailableChatLanguageModel(), null, budget, config, stats, recorder,
-                    new Random(), false);
+            return unavailableInstance(config, budget, stats, recorder);
         }
 
         if (!isJdkCompilerAvailable()) {
@@ -225,8 +235,7 @@ public class LlmService implements AutoCloseable {
                 throw new IllegalStateException(message + " (set -Dllm_require_jdk_compiler=false for soft fallback)");
             }
             logger.warn("{}; disabling LLM features for this run", message);
-            return new LlmService(new UnavailableChatLanguageModel(), null, budget, config, stats, recorder,
-                    new Random(), false);
+            return unavailableInstance(config, budget, stats, recorder);
         }
 
         try {
@@ -241,7 +250,21 @@ public class LlmService implements AutoCloseable {
         } catch (RuntimeException e) {
             logger.warn("Failed to initialize LLM provider '{}': {}", config.getProvider(), e.getMessage());
         }
-        return new LlmService(new UnavailableChatLanguageModel(), null, budget, config, stats, recorder,
+        return unavailableInstance(config, budget, stats, recorder);
+    }
+
+    /**
+     * Builds an unavailable-provider instance (NONE provider, missing compiler, or a
+     * misconfigured provider). Even here the model pair must satisfy the invariant the
+     * full constructor enforces: a second placeholder model whenever {@code config}
+     * declares a separate operator model (e.g. someone set both model properties while
+     * the provider is NONE), {@code null} otherwise.
+     */
+    private static LlmService unavailableInstance(LlmConfiguration config, LlmBudgetCoordinator budget,
+                                                   LlmStatistics stats, LlmTraceRecorder recorder) {
+        ChatLanguageModel operatorModel = config.hasSeparateOperatorModel()
+                ? new UnavailableChatLanguageModel() : null;
+        return new LlmService(new UnavailableChatLanguageModel(), operatorModel, budget, config, stats, recorder,
                 new Random(), false);
     }
 
@@ -751,13 +774,26 @@ public class LlmService implements AutoCloseable {
         executorGeneration.incrementAndGet();
         if (available && configuration.getProvider() != Properties.LlmProvider.NONE) {
             try {
-                this.model = createProviderModel(configuration, configuration.getModel());
-                if (configuration.hasSeparateOperatorModel()) {
-                    this.operatorModel = createProviderModel(configuration, configuration.getOperatorModel());
+                ChatLanguageModel rebuiltModel = createProviderModel(configuration, configuration.getModel());
+                ChatLanguageModel rebuiltOperatorModel = configuration.hasSeparateOperatorModel()
+                        ? createProviderModel(configuration, configuration.getOperatorModel())
+                        : null;
+                // Publish both together, only once both constructions succeeded, so a
+                // failure part-way through (e.g. the operator model throwing) can never
+                // leave model/operatorModel as a pair inconsistent with
+                // configuration.hasSeparateOperatorModel() — the invariant the
+                // constructor enforces.
+                this.model = rebuiltModel;
+                this.operatorModel = rebuiltOperatorModel;
+                if (rebuiltOperatorModel != null) {
+                    LoggingUtils.getEvoLogger().info(
+                            "* LLM: rebuilt {} client after stuck call (model={}, operatorModel={})",
+                            configuration.getProvider(), configuration.getModel(), configuration.getOperatorModel());
+                } else {
+                    LoggingUtils.getEvoLogger().info(
+                            "* LLM: rebuilt {} client after stuck call (model={})",
+                            configuration.getProvider(), configuration.getModel());
                 }
-                LoggingUtils.getEvoLogger().info(
-                        "* LLM: rebuilt {} client after stuck call (model={})",
-                        configuration.getProvider(), configuration.getModel());
             } catch (Throwable t) {
                 logger.warn("Failed to rebuild LLM model after stuck call; keeping existing instance: {}",
                         t.getMessage());
@@ -766,23 +802,7 @@ public class LlmService implements AutoCloseable {
     }
 
     private static ExecutorService createExecutorService() {
-        return Executors.newCachedThreadPool(r -> {
-            Thread worker = new Thread(r, LlmPrivilegedThreads.threadName("timeout-guard"));
-            worker.setDaemon(true);
-            if (Sandbox.isSecurityManagerInitialized()) {
-                try {
-                    // The request runs after SUT observation has initialized
-                    // the sandbox. Register the EvoSuite-owned HTTP worker at
-                    // creation time; otherwise socket writes are treated as
-                    // untrusted SUT activity and writeFileDescriptor is denied.
-                    Sandbox.addPrivilegedThread(worker);
-                } catch (SecurityException | IllegalStateException e) {
-                    logger.warn("Could not register LLM request worker as privileged: {}",
-                            e.getMessage());
-                }
-            }
-            return worker;
-        });
+        return Executors.newCachedThreadPool(r -> LlmPrivilegedThreads.newThread(r, "timeout-guard"));
     }
 
     private boolean sleepBackoff(int attempt, long deadlineNanos) {

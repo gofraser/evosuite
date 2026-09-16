@@ -32,6 +32,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -69,8 +70,18 @@ class LlmServiceOperatorModelTest {
     }
 
     private static LlmConfiguration testConfiguration(String runId) {
+        return testConfiguration(runId, "");
+    }
+
+    /**
+     * A configuration whose {@code operatorModel} is {@code operatorModel}. Every test that
+     * injects a non-null operator client must use one of these so the configuration and the
+     * injected client agree on whether a separate operator model exists — the invariant the
+     * full {@link LlmService} constructor now enforces.
+     */
+    private static LlmConfiguration testConfiguration(String runId, String operatorModel) {
         return new LlmConfiguration(
-                Properties.LlmProvider.NONE, "primary-model", "", "", 0.0, 1024, 2, 0, 1,
+                Properties.LlmProvider.NONE, "primary-model", operatorModel, "", "", 0.0, 1024, 2, 0, 1,
                 false, Paths.get("target/llm-test-traces"), runId);
     }
 
@@ -82,7 +93,7 @@ class LlmServiceOperatorModelTest {
     void semanticMutationAndCrossoverHitOperatorModelOnly() {
         RecordingChatLanguageModel primary = recordingModel();
         RecordingChatLanguageModel operator = recordingModel();
-        LlmConfiguration configuration = testConfiguration("operator-routing-test");
+        LlmConfiguration configuration = testConfiguration("operator-routing-test", "operator-model");
         LlmService service = new LlmService(primary, operator,
                 new LlmBudgetCoordinator.Local(10), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
@@ -104,7 +115,7 @@ class LlmServiceOperatorModelTest {
     void stagnationAndSeedingHitPrimaryModelOnly() {
         RecordingChatLanguageModel primary = recordingModel();
         RecordingChatLanguageModel operator = recordingModel();
-        LlmConfiguration configuration = testConfiguration("primary-routing-test");
+        LlmConfiguration configuration = testConfiguration("primary-routing-test", "operator-model");
         LlmService service = new LlmService(primary, operator,
                 new LlmBudgetCoordinator.Local(10), configuration,
                 new LlmStatistics(), new LlmTraceRecorder(configuration));
@@ -159,6 +170,27 @@ class LlmServiceOperatorModelTest {
         assertTrue(operatorModel instanceof OpenAiCompatibleChatModel);
         assertEquals("primary", ((OpenAiCompatibleChatModel) primaryModel).getModelName());
         assertEquals("operator", ((OpenAiCompatibleChatModel) operatorModel).getModelName());
+    }
+
+    @Test
+    void constructingWithOperatorClientButNoSeparateOperatorModelConfiguredThrows() {
+        RecordingChatLanguageModel primary = recordingModel();
+        RecordingChatLanguageModel operator = recordingModel();
+        LlmConfiguration configuration = testConfiguration("inconsistent-operator-client-test");
+
+        assertThrows(IllegalArgumentException.class, () -> new LlmService(primary, operator,
+                new LlmBudgetCoordinator.Local(10), configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration)));
+    }
+
+    @Test
+    void constructingWithSeparateOperatorModelConfiguredButNullOperatorClientThrows() {
+        RecordingChatLanguageModel primary = recordingModel();
+        LlmConfiguration configuration = testConfiguration("inconsistent-operator-model-test", "operator-model");
+
+        assertThrows(IllegalArgumentException.class, () -> new LlmService(primary, null,
+                new LlmBudgetCoordinator.Local(10), configuration,
+                new LlmStatistics(), new LlmTraceRecorder(configuration)));
     }
 
     private static List<LlmMessage> oneMessage() {
