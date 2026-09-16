@@ -84,7 +84,69 @@ public final class MasterClassLoader {
         URL[] cp = urls.toArray(new URL[0]);
         ClassLoader parent = ClassLoader.getSystemClassLoader();
         logger.debug("Initializing MasterClassLoader with {} entries", cp.length);
-        return new URLClassLoader(cp, parent);
+        return new ProjectFirstClassLoader(cp, parent);
+    }
+
+    /**
+     * Prefixes that must always come from the master's own classpath: the JDK, EvoSuite
+     * itself and the libraries it shares with the client by identity (logging, JUnit,
+     * ASM). Everything else is a project class as far as the master is concerned.
+     */
+    private static final String[] PARENT_FIRST_PREFIXES = {
+            "java.", "javax.", "jdk.", "sun.", "com.sun.",
+            "org.evosuite.", "shaded.", "org.slf4j.", "ch.qos.logback.",
+            "org.junit.", "junit.", "org.hamcrest.", "org.objectweb.asm.",
+            "org.w3c.", "org.xml."
+    };
+
+    /**
+     * Resolves project classes from the project classpath before consulting the parent.
+     *
+     * <p>A plain parent-first {@link URLClassLoader} hands back EvoSuite's own bundled
+     * copy of any library that the project also ships -- jackson-databind and gson are
+     * part of the master jar -- so deserialising a {@code GenericConstructor} of
+     * {@code com.fasterxml.jackson.databind.introspect.POJOPropertyBuilder} looked the
+     * constructor up in the wrong version, threw "Unknown constructor", broke the RMI
+     * connection and left the master with an empty suite (Size 0, coverage 0.0) although
+     * the client had written hundreds of tests. Every JacksonDatabind and Gson target in
+     * the Defects4J assertion experiment was affected.
+     */
+    private static final class ProjectFirstClassLoader extends URLClassLoader {
+
+        ProjectFirstClassLoader(URL[] urls, ClassLoader parent) {
+            super(urls, parent);
+        }
+
+        @Override
+        protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
+            synchronized (getClassLoadingLock(name)) {
+                Class<?> loaded = findLoadedClass(name);
+                if (loaded == null) {
+                    if (isParentFirst(name)) {
+                        loaded = super.loadClass(name, false);
+                    } else {
+                        try {
+                            loaded = findClass(name);
+                        } catch (ClassNotFoundException notInProject) {
+                            loaded = super.loadClass(name, false);
+                        }
+                    }
+                }
+                if (resolve) {
+                    resolveClass(loaded);
+                }
+                return loaded;
+            }
+        }
+
+        private static boolean isParentFirst(String name) {
+            for (String prefix : PARENT_FIRST_PREFIXES) {
+                if (name.startsWith(prefix)) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     private static void addClasspathEntries(Set<URL> urls, String classpath) {
