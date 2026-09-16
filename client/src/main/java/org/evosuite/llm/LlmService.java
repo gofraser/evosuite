@@ -66,6 +66,7 @@ public class LlmService implements AutoCloseable {
     private static volatile Boolean compilerAvailableOverrideForTesting = null;
 
     private volatile ChatLanguageModel model;
+    private volatile ChatLanguageModel operatorModel;
     private final LlmBudgetCoordinator budgetCoordinator;
     private final LlmConfiguration configuration;
     private final LlmStatistics statistics;
@@ -80,7 +81,7 @@ public class LlmService implements AutoCloseable {
                       LlmConfiguration configuration,
                       LlmStatistics statistics,
                       LlmTraceRecorder traceRecorder) {
-        this(model, budgetCoordinator, configuration, statistics, traceRecorder, new Random(), true);
+        this(model, null, budgetCoordinator, configuration, statistics, traceRecorder, new Random(), true);
     }
 
     public LlmService(ChatLanguageModel model,
@@ -89,10 +90,26 @@ public class LlmService implements AutoCloseable {
                       LlmStatistics statistics,
                       LlmTraceRecorder traceRecorder,
                       Random jitterRandom) {
-        this(model, budgetCoordinator, configuration, statistics, traceRecorder, jitterRandom, true);
+        this(model, null, budgetCoordinator, configuration, statistics, traceRecorder, jitterRandom, true);
+    }
+
+    /**
+     * Constructs an {@link LlmService} with a separate {@link ChatLanguageModel}
+     * for the LLM operator features ({@link LlmFeature#SEMANTIC_MUTATION},
+     * {@link LlmFeature#SEMANTIC_CROSSOVER}); pass {@code null} for {@code operatorModel}
+     * when every feature should use {@code model}.
+     */
+    public LlmService(ChatLanguageModel model,
+                      ChatLanguageModel operatorModel,
+                      LlmBudgetCoordinator budgetCoordinator,
+                      LlmConfiguration configuration,
+                      LlmStatistics statistics,
+                      LlmTraceRecorder traceRecorder) {
+        this(model, operatorModel, budgetCoordinator, configuration, statistics, traceRecorder, new Random(), true);
     }
 
     LlmService(ChatLanguageModel model,
+               ChatLanguageModel operatorModel,
                LlmBudgetCoordinator budgetCoordinator,
                LlmConfiguration configuration,
                LlmStatistics statistics,
@@ -100,6 +117,7 @@ public class LlmService implements AutoCloseable {
                Random jitterRandom,
                boolean available) {
         this.model = model;
+        this.operatorModel = operatorModel;
         this.budgetCoordinator = budgetCoordinator;
         this.configuration = configuration;
         this.statistics = statistics;
@@ -108,6 +126,21 @@ public class LlmService implements AutoCloseable {
         this.jitterRandom = jitterRandom;
         this.executorService = createExecutorService();
         this.available = available;
+    }
+
+    /**
+     * Returns the {@link ChatLanguageModel} that {@code feature} resolves to:
+     * {@link #operatorModel} when configured and {@code feature} is an operator
+     * feature, otherwise the primary {@link #model}.
+     */
+    private ChatLanguageModel modelFor(LlmFeature feature) {
+        ChatLanguageModel operatorSnapshot = operatorModel;
+        return operatorSnapshot != null && feature.isOperator() ? operatorSnapshot : model;
+    }
+
+    /** Package-private accessor for tests asserting per-feature model resolution. */
+    ChatLanguageModel modelForTesting(LlmFeature feature) {
+        return modelFor(feature);
     }
 
     long getExecutorGenerationForTesting() {
@@ -182,8 +215,8 @@ public class LlmService implements AutoCloseable {
                 config.isTraceEnabled(), recorder.getTraceFile());
 
         if (config.getProvider() == Properties.LlmProvider.NONE) {
-            return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(),
-                    false);
+            return new LlmService(new UnavailableChatLanguageModel(), null, budget, config, stats, recorder,
+                    new Random(), false);
         }
 
         if (!isJdkCompilerAvailable()) {
@@ -192,20 +225,24 @@ public class LlmService implements AutoCloseable {
                 throw new IllegalStateException(message + " (set -Dllm_require_jdk_compiler=false for soft fallback)");
             }
             logger.warn("{}; disabling LLM features for this run", message);
-            return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(),
-                    false);
+            return new LlmService(new UnavailableChatLanguageModel(), null, budget, config, stats, recorder,
+                    new Random(), false);
         }
 
         try {
-            ChatLanguageModel model = createProviderModel(config);
+            ChatLanguageModel model = createProviderModel(config, config.getModel());
+            ChatLanguageModel operatorModel = config.hasSeparateOperatorModel()
+                    ? createProviderModel(config, config.getOperatorModel())
+                    : null;
             logActiveLlmConfiguration(config);
-            return new LlmService(model, budget, config, stats, recorder, new Random(), true);
+            return new LlmService(model, operatorModel, budget, config, stats, recorder, new Random(), true);
         } catch (IllegalArgumentException e) {
             logger.warn("LLM provider '{}' misconfigured: {}", config.getProvider(), e.getMessage());
         } catch (RuntimeException e) {
             logger.warn("Failed to initialize LLM provider '{}': {}", config.getProvider(), e.getMessage());
         }
-        return new LlmService(new UnavailableChatLanguageModel(), budget, config, stats, recorder, new Random(), false);
+        return new LlmService(new UnavailableChatLanguageModel(), null, budget, config, stats, recorder,
+                new Random(), false);
     }
 
     private static void logActiveLlmConfiguration(LlmConfiguration config) {
@@ -213,8 +250,13 @@ public class LlmService implements AutoCloseable {
         if (baseUrl == null || baseUrl.trim().isEmpty()) {
             baseUrl = "<provider default>";
         }
-        LoggingUtils.getEvoLogger().info("* LLM: provider={}, model={}, baseUrl={}",
-                config.getProvider(), config.getModel(), baseUrl);
+        if (config.hasSeparateOperatorModel()) {
+            LoggingUtils.getEvoLogger().info("* LLM: provider={}, model={}, operatorModel={}, baseUrl={}",
+                    config.getProvider(), config.getModel(), config.getOperatorModel(), baseUrl);
+        } else {
+            LoggingUtils.getEvoLogger().info("* LLM: provider={}, model={}, baseUrl={}",
+                    config.getProvider(), config.getModel(), baseUrl);
+        }
     }
 
     private static void warnIfTimeoutTooLarge(int timeoutSeconds) {
@@ -240,23 +282,23 @@ public class LlmService implements AutoCloseable {
         compilerAvailableOverrideForTesting = available;
     }
 
-    private static ChatLanguageModel createProviderModel(LlmConfiguration config) {
+    private static ChatLanguageModel createProviderModel(LlmConfiguration config, String modelName) {
         switch (config.getProvider()) {
             case OPENAI:
-                return createOpenAiModel(config);
+                return createOpenAiModel(config, modelName);
             case OLLAMA:
-                return createOllamaModel(config);
+                return createOllamaModel(config, modelName);
             case ANTHROPIC:
-                return createAnthropicModel(config);
+                return createAnthropicModel(config, modelName);
             default:
                 throw new IllegalArgumentException("Unsupported LLM provider: " + config.getProvider());
         }
     }
 
-    private static ChatLanguageModel createOpenAiModel(LlmConfiguration config) {
-        String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for OPENAI");
+    private static ChatLanguageModel createOpenAiModel(LlmConfiguration config, String modelName) {
+        String checkedModelName = requireNonBlank(modelName, "LLM model must be configured for OPENAI");
         String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for OPENAI");
-        return new OpenAiCompatibleChatModel(Properties.LlmProvider.OPENAI, modelName, apiKey,
+        return new OpenAiCompatibleChatModel(Properties.LlmProvider.OPENAI, checkedModelName, apiKey,
                 config.getBaseUrl(), config.getTemperature(), config.getMaxTokens(),
                 config.getTimeoutSeconds());
     }
@@ -272,17 +314,17 @@ public class LlmService implements AutoCloseable {
                 || name.startsWith("o4");
     }
 
-    private static ChatLanguageModel createOllamaModel(LlmConfiguration config) {
-        String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for OLLAMA");
+    private static ChatLanguageModel createOllamaModel(LlmConfiguration config, String modelName) {
+        String checkedModelName = requireNonBlank(modelName, "LLM model must be configured for OLLAMA");
         String baseUrl = requireNonBlank(config.getBaseUrl(), "LLM base URL must be configured for OLLAMA");
-        return new OpenAiCompatibleChatModel(Properties.LlmProvider.OLLAMA, modelName, config.getApiKey(),
+        return new OpenAiCompatibleChatModel(Properties.LlmProvider.OLLAMA, checkedModelName, config.getApiKey(),
                 baseUrl, config.getTemperature(), config.getMaxTokens(), config.getTimeoutSeconds());
     }
 
-    private static ChatLanguageModel createAnthropicModel(LlmConfiguration config) {
-        String modelName = requireNonBlank(config.getModel(), "LLM model must be configured for ANTHROPIC");
+    private static ChatLanguageModel createAnthropicModel(LlmConfiguration config, String modelName) {
+        String checkedModelName = requireNonBlank(modelName, "LLM model must be configured for ANTHROPIC");
         String apiKey = requireNonBlank(config.getApiKey(), "LLM API key must be configured for ANTHROPIC");
-        return new AnthropicChatModel(modelName, apiKey, config.getBaseUrl(), config.getTemperature(),
+        return new AnthropicChatModel(checkedModelName, apiKey, config.getBaseUrl(), config.getTemperature(),
                 config.getMaxTokens(), config.getTimeoutSeconds());
     }
 
@@ -541,7 +583,7 @@ public class LlmService implements AutoCloseable {
                     if (isInvalidModelError(friendly)) {
                         List<String> available = fetchAvailableModelIds(options.deadlineNanos);
                         if (!available.isEmpty()) {
-                            String configuredModel = configuration.getModel();
+                            String configuredModel = configuration.modelFor(feature);
                             if (configuredModel != null && available.contains(configuredModel.trim())) {
                                 logger.warn("Model '{}' exists at {} but the request was rejected"
                                                 + " — check your API key and permissions",
@@ -589,7 +631,7 @@ public class LlmService implements AutoCloseable {
     private LlmResponse invokeWithTimeout(List<LlmMessage> messages, LlmFeature feature,
                                           long deadlineNanos) throws Exception {
         ExecutorService runner = executorService;
-        ChatLanguageModel snapshot = model;
+        ChatLanguageModel snapshot = modelFor(feature);
         RequestCancellation cancellation = new RequestCancellation();
         AtomicBoolean workerEntered = new AtomicBoolean();
         CountDownLatch workerExited = new CountDownLatch(1);
@@ -709,7 +751,10 @@ public class LlmService implements AutoCloseable {
         executorGeneration.incrementAndGet();
         if (available && configuration.getProvider() != Properties.LlmProvider.NONE) {
             try {
-                this.model = createProviderModel(configuration);
+                this.model = createProviderModel(configuration, configuration.getModel());
+                if (configuration.hasSeparateOperatorModel()) {
+                    this.operatorModel = createProviderModel(configuration, configuration.getOperatorModel());
+                }
                 LoggingUtils.getEvoLogger().info(
                         "* LLM: rebuilt {} client after stuck call (model={})",
                         configuration.getProvider(), configuration.getModel());

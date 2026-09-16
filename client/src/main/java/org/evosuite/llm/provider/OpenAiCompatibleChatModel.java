@@ -61,6 +61,11 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
         this.httpClient = new JsonHttpClient();
     }
 
+    /** Returns the configured model name, for tests distinguishing provider instances. */
+    public String getModelName() {
+        return modelName;
+    }
+
     private static String resolveEndpoint(Properties.LlmProvider provider, String baseUrl) {
         String base = baseUrl == null ? "" : baseUrl.trim();
         if (provider == Properties.LlmProvider.OLLAMA) {

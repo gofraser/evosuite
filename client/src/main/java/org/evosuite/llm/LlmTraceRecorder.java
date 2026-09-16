@@ -473,7 +473,7 @@ public class LlmTraceRecorder {
         traceRecord.put("postprocessing_minimization_stop_cause",
                 postProcessingContext == null ? "" : postProcessingContext.minimizationStopCause);
         traceRecord.put("provider", configuration.getProvider().name());
-        traceRecord.put("model", configuration.getModel());
+        traceRecord.put("model", configuration.modelFor(record.feature));
         traceRecord.put("effective_temperature", configuration.getTemperature());
         traceRecord.put("effective_max_tokens", configuration.getMaxTokens());
         traceRecord.put("effective_timeout_seconds", configuration.getTimeoutSeconds());

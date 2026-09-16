@@ -36,6 +36,7 @@ public class LlmConfiguration {
 
     private final Properties.LlmProvider provider;
     private final String model;
+    private final String operatorModel;
     private final String apiKey;
     private final String baseUrl;
     private final double temperature;
@@ -52,6 +53,28 @@ public class LlmConfiguration {
     /** Constructs an immutable LLM configuration snapshot with all fields. */
     public LlmConfiguration(Properties.LlmProvider provider,
                             String model,
+                            String apiKey,
+                            String baseUrl,
+                            double temperature,
+                            int maxTokens,
+                            int timeoutSeconds,
+                            int retryMaxAttempts,
+                            int retryBaseDelayMs,
+                            boolean traceEnabled,
+                            Path traceDir,
+                            String runId) {
+        this(provider, model, "", apiKey, baseUrl, temperature, maxTokens, timeoutSeconds,
+                retryMaxAttempts, retryBaseDelayMs, traceEnabled, traceDir, runId);
+    }
+
+    /**
+     * Constructs an immutable LLM configuration snapshot with all fields,
+     * including the optional operator model used only for
+     * {@link LlmFeature#SEMANTIC_MUTATION} and {@link LlmFeature#SEMANTIC_CROSSOVER}.
+     */
+    public LlmConfiguration(Properties.LlmProvider provider,
+                            String model,
+                            String operatorModel,
                             String apiKey,
                             String baseUrl,
                             double temperature,
@@ -88,6 +111,7 @@ public class LlmConfiguration {
         }
         this.provider = provider;
         this.model = trimToEmpty(model);
+        this.operatorModel = trimToEmpty(operatorModel);
         this.apiKey = trimToEmpty(apiKey);
         this.baseUrl = trimToEmpty(baseUrl);
         this.temperature = temperature;
@@ -112,6 +136,7 @@ public class LlmConfiguration {
      */
     public static LlmConfiguration fromProperties() {
         String model = readWithEnvFallback(Properties.LLM_MODEL, "EVOSUITE_LLM_MODEL");
+        String operatorModel = readWithEnvFallback(Properties.LLM_OPERATOR_MODEL, "EVOSUITE_LLM_OPERATOR_MODEL");
         String apiKey = readWithEnvFallback(Properties.LLM_API_KEY, "EVOSUITE_LLM_API_KEY");
         String baseUrl = readWithEnvFallback(Properties.LLM_BASE_URL, "EVOSUITE_LLM_BASE_URL");
         String configuredTraceDir = Properties.LLM_TRACE_DIR == null ? "" : Properties.LLM_TRACE_DIR.trim();
@@ -121,6 +146,7 @@ public class LlmConfiguration {
         return new LlmConfiguration(
                 Properties.LLM_PROVIDER,
                 model,
+                operatorModel,
                 apiKey,
                 baseUrl,
                 Properties.LLM_TEMPERATURE,
@@ -179,6 +205,29 @@ public class LlmConfiguration {
         return model;
     }
 
+    /** Returns the raw configured operator model name; may be empty when unset. */
+    public String getOperatorModel() {
+        return operatorModel;
+    }
+
+    /**
+     * Returns true when a separate model was configured for the LLM operator
+     * calls, i.e. {@link #getOperatorModel()} is non-empty and differs from
+     * {@link #getModel()}.
+     */
+    public boolean hasSeparateOperatorModel() {
+        return !operatorModel.isEmpty() && !operatorModel.equals(model);
+    }
+
+    /**
+     * Returns the model name to use for the given feature: {@link #getOperatorModel()}
+     * when {@code feature} is an operator feature and a separate operator model is
+     * configured (see {@link #hasSeparateOperatorModel()}), otherwise {@link #getModel()}.
+     */
+    public String modelFor(LlmFeature feature) {
+        return feature.isOperator() && hasSeparateOperatorModel() ? operatorModel : model;
+    }
+
     public String getApiKey() {
         return apiKey;
     }
@@ -235,6 +284,7 @@ public class LlmConfiguration {
     public static class Builder {
         private Properties.LlmProvider provider = Properties.LlmProvider.NONE;
         private String model = "";
+        private String operatorModel = "";
         private String apiKey = "";
         private String baseUrl = "";
         private double temperature = 0.7;
@@ -253,6 +303,11 @@ public class LlmConfiguration {
 
         public Builder model(String model) {
             this.model = model;
+            return this;
+        }
+
+        public Builder operatorModel(String operatorModel) {
+            this.operatorModel = operatorModel;
             return this;
         }
 
@@ -312,7 +367,7 @@ public class LlmConfiguration {
          * @return a new {@link LlmConfiguration} instance
          */
         public LlmConfiguration build() {
-            return new LlmConfiguration(provider, model, apiKey, baseUrl, temperature,
+            return new LlmConfiguration(provider, model, operatorModel, apiKey, baseUrl, temperature,
                     maxTokens, timeoutSeconds, retryMaxAttempts, retryBaseDelayMs,
                     traceEnabled, traceDir, runId);
         }

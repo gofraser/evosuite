@@ -544,6 +544,7 @@ public class LlmStatistics {
     private final AtomicLong totalLatencyMs = new AtomicLong();
     private final Map<LlmFeature, FeatureStats> perFeature = new ConcurrentHashMap<>();
     private volatile String configuredModel = "";
+    private volatile String configuredOperatorModel = "";
 
     /**
      * Associates this statistics instance with the immutable configuration of
@@ -553,8 +554,10 @@ public class LlmStatistics {
     void setConfiguration(LlmConfiguration configuration) {
         if (configuration == null || configuration.getProvider() == Properties.LlmProvider.NONE) {
             configuredModel = "";
+            configuredOperatorModel = "";
         } else {
             configuredModel = configuration.getModel();
+            configuredOperatorModel = configuration.modelFor(LlmFeature.SEMANTIC_MUTATION);
         }
     }
 
@@ -703,6 +706,7 @@ public class LlmStatistics {
         // Do not reset counters here: they are accumulated during the run and
         // must be published as-is at shutdown.
         ClientServices.track(RuntimeVariable.LLM_Model, configuredModel);
+        ClientServices.track(RuntimeVariable.LLM_Operator_Model, configuredOperatorModel);
         ClientServices.track(RuntimeVariable.LLM_Calls, getTotalCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, getSuccessfulCalls());
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, getFailedCalls());
@@ -819,6 +823,7 @@ public class LlmStatistics {
      */
     public static void initializeRuntimeVariables() {
         ClientServices.track(RuntimeVariable.LLM_Model, "");
+        ClientServices.track(RuntimeVariable.LLM_Operator_Model, "");
         ClientServices.track(RuntimeVariable.LLM_Calls, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Succeeded, 0);
         ClientServices.track(RuntimeVariable.LLM_Calls_Failed, 0);

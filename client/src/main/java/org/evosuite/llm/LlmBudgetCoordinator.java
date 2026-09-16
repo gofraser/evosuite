@@ -185,11 +185,7 @@ public interface LlmBudgetCoordinator {
         }
 
         private Local quotaFor(LlmFeature feature) {
-            return isOperatorFeature(feature) ? operatorQuota : otherQuota;
-        }
-
-        private static boolean isOperatorFeature(LlmFeature feature) {
-            return feature == LlmFeature.SEMANTIC_MUTATION || feature == LlmFeature.SEMANTIC_CROSSOVER;
+            return feature.isOperator() ? operatorQuota : otherQuota;
         }
 
         @Override

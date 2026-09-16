@@ -194,6 +194,15 @@ class LlmBudgetCoordinatorFeatureShareTest {
     }
 
     @Test
+    void isOperatorIsTrueOnlyForSemanticMutationAndCrossover() {
+        for (LlmFeature feature : LlmFeature.values()) {
+            boolean expected = feature == LlmFeature.SEMANTIC_MUTATION
+                    || feature == LlmFeature.SEMANTIC_CROSSOVER;
+            assertEquals(expected, feature.isOperator(), feature.name());
+        }
+    }
+
+    @Test
     void fromPropertiesReturnsLocalWhenCrossoverProbabilityIsPositiveButCrossoverTargetingIsOff() {
         Properties.LLM_MAX_CALLS = 10;
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;

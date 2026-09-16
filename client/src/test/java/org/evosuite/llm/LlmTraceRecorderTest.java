@@ -26,6 +26,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -35,6 +36,48 @@ class LlmTraceRecorderTest {
 
     @TempDir
     Path tempDir;
+
+    @Test
+    void recordsOperatorModelForSemanticFeaturesAndPrimaryModelOtherwise() throws Exception {
+        LlmConfiguration configuration = new LlmConfiguration(
+                org.evosuite.Properties.LlmProvider.OPENAI,
+                "primary-model",
+                "operator-model",
+                "",
+                "",
+                0.0,
+                256,
+                3,
+                1,
+                1,
+                true,
+                tempDir,
+                "run-model");
+
+        LlmTraceRecorder recorder = new LlmTraceRecorder(configuration);
+        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
+                .feature(LlmFeature.SEMANTIC_MUTATION)
+                .messages(Collections.singletonList(LlmMessage.user("mutate")))
+                .responseText("response")
+                .parseStatus("SUCCESS")
+                .errorType("")
+                .build());
+        recorder.recordCall(new LlmTraceRecorder.CallRecord.Builder()
+                .feature(LlmFeature.STAGNATION)
+                .messages(Collections.singletonList(LlmMessage.user("stagnation")))
+                .responseText("response")
+                .parseStatus("SUCCESS")
+                .errorType("")
+                .build());
+
+        String content = new String(Files.readAllBytes(recorder.getTraceFile()), StandardCharsets.UTF_8);
+        String[] lines = content.split("\\R");
+        assertEquals(2, lines.length);
+        assertTrue(lines[0].contains("\"feature\":\"SEMANTIC_MUTATION\""));
+        assertTrue(lines[0].contains("\"model\":\"operator-model\""));
+        assertTrue(lines[1].contains("\"feature\":\"STAGNATION\""));
+        assertTrue(lines[1].contains("\"model\":\"primary-model\""));
+    }
 
     @Test
     void writesTraceRecordWithRequiredFields() throws Exception {

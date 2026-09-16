@@ -2832,6 +2832,13 @@ public class Properties {
                     + "at 0 and either llm_crossover_probability at 0 or llm_operator_crossover off)")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_OPERATOR_CALL_SHARE = 0.5;
+
+    @Parameter(key = "llm_operator_model", group = "LLM",
+            description = "Model name for the LLM semantic operator calls (mutation and crossover); "
+                    + "empty uses llm_model. Shares provider, base URL, API key and the other "
+                    + "llm_* request settings with llm_model")
+    public static String LLM_OPERATOR_MODEL = "";
+
     @Parameter(key = "llm_operator_calls_per_generation", group = "LLM",
             description = "LLM operator calls submitted to the background executor per "
                     + "generation in ASYNC mode; 0 submits nothing")

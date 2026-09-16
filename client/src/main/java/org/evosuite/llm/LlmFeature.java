@@ -34,5 +34,14 @@ public enum LlmFeature {
     POST_PROCESSING,
     SEMANTIC_MUTATION,
     SEMANTIC_CROSSOVER,
-    ITERATIVE_STRATEGY
+    ITERATIVE_STRATEGY;
+
+    /**
+     * Returns true for the semantic mutation/crossover features that share
+     * the operator budget share ({@link LlmBudgetCoordinator.FeatureShare})
+     * and the optional operator model.
+     */
+    public boolean isOperator() {
+        return this == SEMANTIC_MUTATION || this == SEMANTIC_CROSSOVER;
+    }
 }

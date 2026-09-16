@@ -764,6 +764,12 @@ public enum RuntimeVariable {
     LLM_Model,
 
     /**
+     * The model identifier used for the LLM semantic operator calls: llm_operator_model
+     * when set, otherwise llm_model; empty when LLM is disabled.
+     */
+    LLM_Operator_Model,
+
+    /**
      * Total number of LLM calls attempted by EvoSuite.
      */
     LLM_Calls,

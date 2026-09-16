@@ -71,6 +71,11 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
         this.httpClient = new JsonHttpClient();
     }
 
+    /** Returns the configured model name, for tests distinguishing provider instances. */
+    public String getModelName() {
+        return modelName;
+    }
+
     private static String resolveEndpoint(String baseUrl) {
         String base = baseUrl == null ? "" : baseUrl.trim();
         if (base.isEmpty()) {

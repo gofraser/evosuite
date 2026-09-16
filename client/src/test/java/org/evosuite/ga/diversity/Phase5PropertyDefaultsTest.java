@@ -44,6 +44,7 @@ class Phase5PropertyDefaultsTest {
         assertEquals(3, Properties.LLM_OPERATOR_STALL_GENERATIONS);
         assertEquals(1, Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS);
         assertEquals(0.5, Properties.LLM_OPERATOR_CALL_SHARE, 0.0);
+        assertEquals("", Properties.LLM_OPERATOR_MODEL);
         assertEquals(1, Properties.LLM_OPERATOR_CALLS_PER_GENERATION);
         assertEquals(2, Properties.LLM_OPERATOR_MAX_INFLIGHT);
         assertEquals(1, Properties.LLM_OPERATOR_BATCH_SIZE);
