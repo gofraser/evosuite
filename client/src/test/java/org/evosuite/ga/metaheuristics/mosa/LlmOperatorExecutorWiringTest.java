@@ -20,6 +20,7 @@
 package org.evosuite.ga.metaheuristics.mosa;
 
 import org.evosuite.Properties;
+import org.evosuite.coverage.method.MethodCoverageTestFitness;
 import org.evosuite.ga.archive.Archive;
 import org.evosuite.ga.metaheuristics.mosa.structural.MultiCriteriaManager;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
@@ -410,6 +411,45 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
         // calculateFitness (a no-op in this harness) has "run".
         assertEquals(1, OperatorAttemptLog.getInstance().getTargetHits());
         assertEquals(1, OperatorAttemptLog.getInstance().getOffspringAdmitted());
+    }
+
+    @Test
+    void secondDrainedCandidateForTheSameLiveGoalIsNotCountedAsStale() throws Exception {
+        // remainingUncoveredBeforeInjection is mutated (goal removed) by the first candidate
+        // that covers it; the staleness check must use an immutable snapshot taken before the
+        // drain loop instead, or the second candidate targeting the same still-live goal is
+        // wrongly counted stale just because the first one got there first.
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.METHOD};
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.ASYNC;
+        Properties.LLM_OPERATOR_CALLS_PER_GENERATION = 1;
+        Properties.LLM_OPERATOR_BATCH_SIZE = 1;
+
+        LlmOperatorExecutor mockExecutor = mock(LlmOperatorExecutor.class);
+        when(mockExecutor.hasCapacity()).thenReturn(true);
+        OperatorExecutorHarness harness = new OperatorExecutorHarness(mockExecutor);
+        harness.initializeLlmAssistance(harness::getCurrentGoals, false);
+
+        TestFitnessFunction goal = mock(MethodCoverageTestFitness.class);
+        when(goal.isCovered(org.mockito.ArgumentMatchers.any(TestChromosome.class))).thenReturn(true);
+        Archive.getArchiveInstance().addTarget(goal);
+
+        TestChromosome candidate1 = arrayListConstructorChromosome(1);
+        TestChromosome candidate2 = arrayListConstructorChromosome(2);
+        when(mockExecutor.drain()).thenReturn(Arrays.asList(candidate1, candidate2));
+        InjectionAttemptMetadata metadata1 = new InjectionAttemptMetadata(
+                "attempt-1", Collections.emptyList(), Collections.singletonList(goal));
+        InjectionAttemptMetadata metadata2 = new InjectionAttemptMetadata(
+                "attempt-2", Collections.emptyList(), Collections.singletonList(goal));
+        when(mockExecutor.consumeAttemptMetadata(candidate1)).thenReturn(metadata1);
+        when(mockExecutor.consumeAttemptMetadata(candidate2)).thenReturn(metadata2);
+
+        harness.registerExternalCandidateSources(() -> 0, harness::getCurrentGoals);
+        harness.collectExternalCandidates(new ArrayList<>());
+
+        @SuppressWarnings("unchecked")
+        ClientNodeLocal<TestChromosome> clientNode = mock(ClientNodeLocal.class);
+        harness.emitOperatorStats(clientNode);
+        verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_Candidates_StaleTarget, 0L);
     }
 
     /** Builds a one-statement {@code new ArrayList<>(capacity)} test chromosome. */

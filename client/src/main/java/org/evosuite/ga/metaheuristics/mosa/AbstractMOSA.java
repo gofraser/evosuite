@@ -2104,6 +2104,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         int attempts = 0;
         Map<InjectionSource, Integer> attemptCounts = new EnumMap<>(InjectionSource.class);
         Set<TestFitnessFunction> remainingUncoveredBeforeInjection = getUncoveredGoals();
+        // Immutable snapshot for staleness only: remainingUncoveredBeforeInjection is mutated by
+        // coveredGoalsAndRemoveList as each candidate is processed, so two drained candidates
+        // targeting the same live goal would otherwise see the second as stale just because the
+        // first already covered it moments earlier — even though both arrived while it was still
+        // uncovered.
+        Set<TestFitnessFunction> uncoveredAtDrainStart =
+                Collections.unmodifiableSet(new HashSet<>(remainingUncoveredBeforeInjection));
         Set<String> seenInjectedCallSignatures = new HashSet<>();
         int deduplicatedInjectedCandidates = 0;
         // Only previously-injected LLM candidates seed the dedup set: a
@@ -2210,7 +2217,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         if (tag != null) {
                             tagInjectedCandidate(candidate, tag);
                         }
-                        maybeRecordStaleTarget(tag, metadata, remainingUncoveredBeforeInjection);
+                        maybeRecordStaleTarget(tag, metadata, uncoveredAtDrainStart);
                         this.calculateFitness(candidate);
                         if (tag == InjectionSource.LLM_OPERATOR && metadata != null
                                 && !metadata.getAttemptId().isEmpty()) {
