@@ -90,8 +90,16 @@ public final class BranchOperands {
         if (isBoxedPrimitive(value)) {
             return value.toString();
         }
-        String simpleName = value.getClass().getSimpleName();
-        return simpleName.isEmpty() ? value.getClass().getName() : simpleName;
+        Class<?> type = value.getClass();
+        String simpleName;
+        try {
+            simpleName = type.getSimpleName();
+        } catch (Throwable t) {
+            // JDK 8 throws InternalError("Malformed class name") for some compiler-generated
+            // nested classes (JDK-8057919); this runs inside the tracer on the SUT thread.
+            simpleName = "";
+        }
+        return simpleName.isEmpty() ? type.getName() : simpleName;
     }
 
     /**
