@@ -139,12 +139,10 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (!Properties.USE_DEPRECATED && c.isAnnotationPresent(Deprecated.class)) {
-            final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-            if (Properties.hasTargetClassBeenLoaded() && !c.getDeclaringClass().equals(targetClass)) {
-                logger.debug("Excluding deprecated constructor " + c.getName());
-                return false;
-            }
+        if (!Properties.USE_DEPRECATED && c.isAnnotationPresent(Deprecated.class)
+                && !isExemptFromDeprecationFilter(c.getDeclaringClass())) {
+            logger.debug("Excluding deprecated constructor " + c.getName());
+            return false;
         }
 
         if (isForbiddenNonDeterministicCall(c)) {
@@ -217,13 +215,10 @@ public class TestUsageChecker {
 
         if (!Properties.USE_DEPRECATED) {
             try {
-                if (c.isAnnotationPresent(Deprecated.class) && !isPlatformClass(c)) {
-                    final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-
-                    if (Properties.hasTargetClassBeenLoaded() && !c.equals(targetClass)) {
-                        logger.debug("Skipping deprecated class " + c.getName());
-                        return false;
-                    }
+                if (c.isAnnotationPresent(Deprecated.class) && !isPlatformClass(c)
+                        && !isExemptFromDeprecationFilter(c)) {
+                    logger.debug("Skipping deprecated class " + c.getName());
+                    return false;
                 }
             } catch (java.lang.ArrayStoreException e) {
                 // https://bugs.java.com/view_bug.do?bug_id=JDK-7183985
@@ -337,6 +332,33 @@ public class TestUsageChecker {
     }
 
     /**
+     * Whether the {@code USE_DEPRECATED} filter leaves {@code declaringClass} alone.
+     *
+     * <p>The target class is always exempt: we are asked to test it, deprecated or
+     * not. When the target is itself {@code @Deprecated} the filter is moot -- its
+     * tests unavoidably exercise deprecated API -- and enforcing it is harmful: a
+     * deprecated abstract class (commons-cli {@code Parser}, commons-math
+     * {@code optimization.AbstractScalarDifferentiableOptimizer}) has only
+     * deprecated concrete subclasses, whose constructors take deprecated types in
+     * turn, so filtering leaves no way to instantiate the target at all and the
+     * search runs on an empty population, reporting 0% coverage. A deprecated
+     * target therefore implies {@code use_deprecated}.
+     *
+     * @param declaringClass the class that declares the deprecated element
+     * @return true if the element may be used despite being deprecated
+     */
+    private static boolean isExemptFromDeprecationFilter(Class<?> declaringClass) {
+        if (!Properties.hasTargetClassBeenLoaded()) {
+            return true;
+        }
+        final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
+        if (targetClass == null) {
+            return false;
+        }
+        return declaringClass.equals(targetClass) || targetClass.isAnnotationPresent(Deprecated.class);
+    }
+
+    /**
      * Whether a class comes from the JDK itself rather than from the code under test.
      *
      * <p>Platform classes are loaded by the bootstrap loader, so they have no defining
@@ -419,13 +441,10 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (!Properties.USE_DEPRECATED && f.isAnnotationPresent(Deprecated.class)) {
-            final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-
-            if (Properties.hasTargetClassBeenLoaded() && !f.getDeclaringClass().equals(targetClass)) {
-                logger.debug("Skipping deprecated field " + f.getName());
-                return false;
-            }
+        if (!Properties.USE_DEPRECATED && f.isAnnotationPresent(Deprecated.class)
+                && !isExemptFromDeprecationFilter(f.getDeclaringClass())) {
+            logger.debug("Skipping deprecated field " + f.getName());
+            return false;
         }
 
         if (f.isSynthetic()) {
@@ -568,13 +587,10 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (!Properties.USE_DEPRECATED && m.isAnnotationPresent(Deprecated.class)) {
-            final Class<?> targetClass = Properties.getTargetClassAndDontInitialise();
-
-            if (Properties.hasTargetClassBeenLoaded() && !m.getDeclaringClass().equals(targetClass)) {
-                logger.debug("Excluding deprecated method " + m.getName());
-                return false;
-            }
+        if (!Properties.USE_DEPRECATED && m.isAnnotationPresent(Deprecated.class)
+                && !isExemptFromDeprecationFilter(m.getDeclaringClass())) {
+            logger.debug("Excluding deprecated method " + m.getName());
+            return false;
         }
 
         if (m.isAnnotationPresent(Test.class) || m.isAnnotationPresent(Before.class)

@@ -20,8 +20,14 @@
 package org.evosuite.setup;
 
 import com.examples.with.different.packagename.EnumWithUserMethodsFixture;
+import com.examples.with.different.packagename.deprecated.DeprecatedAbstractBase;
+import com.examples.with.different.packagename.deprecated.DeprecatedImpl;
+import com.examples.with.different.packagename.deprecated.DeprecatedImplOfLiveBase;
+import com.examples.with.different.packagename.deprecated.LiveAbstractBase;
 import com.examples.with.different.packagename.PureEnumFixture;
 import org.evosuite.Properties;
+import org.evosuite.TestGenerationContext;
+import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.testdata.EvoSuiteFile;
 import org.junit.jupiter.api.AfterEach;
@@ -132,6 +138,59 @@ class TestUsageCheckerTest {
         Assertions.assertFalse(TestUsageChecker.isCompilerGeneratedEnumMethod(customValue));
         Assertions.assertTrue(TestUsageChecker.canUse(customFactory, EnumWithUserMethodsFixture.class));
         Assertions.assertTrue(TestUsageChecker.canUse(customValue, EnumWithUserMethodsFixture.class));
+    }
+
+    private static Class<?> loadAsSut(Class<?> fixture) throws ClassNotFoundException {
+        return TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(fixture.getName());
+    }
+
+    private static Class<?> loadTarget(Class<?> fixture) {
+        ClassPathHandler.getInstance().changeTargetCPtoTheSameAsEvoSuite();
+        Properties.CLASS_PREFIX = fixture.getPackage().getName();
+        Properties.TARGET_CLASS = fixture.getName();
+        Properties.resetTargetClass();
+        Class<?> target = Properties.getTargetClassAndDontInitialise();
+        Assertions.assertTrue(Properties.hasTargetClassBeenLoaded(), "fixture should be loadable");
+        return target;
+    }
+
+    @Test
+    void testDeprecatedSubclassesOfDeprecatedTargetAreUsable() throws Exception {
+        // commons-cli Parser: a deprecated abstract target whose only concrete
+        // subclasses are deprecated too. Filtering them leaves nothing that can
+        // instantiate the target, so the search runs on an empty population.
+        boolean defaultUseDeprecated = Properties.USE_DEPRECATED;
+        try {
+            Properties.USE_DEPRECATED = false;
+            Class<?> target = loadTarget(DeprecatedAbstractBase.class);
+            Class<?> impl = loadAsSut(DeprecatedImpl.class);
+
+            Assertions.assertTrue(TestUsageChecker.canUse(target));
+            Assertions.assertTrue(TestUsageChecker.canUse(impl));
+            Assertions.assertTrue(TestUsageChecker.canUse(impl.getConstructor()));
+            Assertions.assertTrue(TestUsageChecker.canUse(impl.getMethod("value"), impl));
+            // A deprecated target implies use_deprecated: the subclasses' own
+            // dependencies (AbstractScalarDifferentiableOptimizer's deprecated
+            // ConjugateGradientFormula enum) are deprecated too.
+            Assertions.assertTrue(TestUsageChecker.canUse(loadAsSut(DeprecatedImplOfLiveBase.class)));
+        } finally {
+            Properties.USE_DEPRECATED = defaultUseDeprecated;
+            Properties.resetTargetClass();
+        }
+    }
+
+    @Test
+    void testDeprecatedSubclassesOfLiveTargetStayExcluded() throws Exception {
+        boolean defaultUseDeprecated = Properties.USE_DEPRECATED;
+        try {
+            Properties.USE_DEPRECATED = false;
+            loadTarget(LiveAbstractBase.class);
+
+            Assertions.assertFalse(TestUsageChecker.canUse(loadAsSut(DeprecatedImplOfLiveBase.class)));
+        } finally {
+            Properties.USE_DEPRECATED = defaultUseDeprecated;
+            Properties.resetTargetClass();
+        }
     }
 
     @Test
