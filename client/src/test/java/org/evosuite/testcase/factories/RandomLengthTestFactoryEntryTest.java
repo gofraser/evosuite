@@ -37,6 +37,7 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -111,6 +112,10 @@ class RandomLengthTestFactoryEntryTest {
 
     public static boolean scalarEntry(String text, int number) {
         return text.length() == number;
+    }
+
+    public static <E> int genericEntry(List<E> list, java.util.function.Predicate<E> predicate) {
+        return list.isEmpty() ? -1 : 0;
     }
 
     @AfterEach
@@ -336,6 +341,27 @@ class RandomLengthTestFactoryEntryTest {
         assertTrue(test.getStatement(collaborator.getStPosition()) instanceof NullStatement);
         assertTrue(ObjectRuleEntryBuilder.producesRuntimeReceiver(
                 test, receiver, ArrayBackedReceiver.class));
+    }
+
+    @Test
+    void stableEntryBindsMethodTypeParameters() throws Exception {
+        // ListUtils.indexOf(List<E>, Predicate<E>): built straight from reflection, E is
+        // unbound and both arguments were cast to independent "<?>" types, which javac
+        // rejects ("inference variable E has incompatible equality constraints"). The
+        // builder must bind E like TestCluster#getRandomTestCall does.
+        TestCase test = new DefaultTestCase();
+        Method reflected = RandomLengthTestFactoryEntryTest.class.getMethod(
+                "genericEntry", List.class, java.util.function.Predicate.class);
+        GenericMethod method = new GenericMethod(
+                reflected, RandomLengthTestFactoryEntryTest.class);
+        assertTrue(method.hasUnboundTypeParameters());
+
+        new ObjectRuleEntryBuilder().insertStableEntryInvocation(
+                test, method, null, reflected.getGenericParameterTypes());
+
+        MethodStatement call = (MethodStatement) test.getStatement(test.size() - 1);
+        assertFalse(call.getMethod().hasUnboundTypeParameters());
+        assertFalse(call.getCode().contains("<?>)"), call.getCode());
     }
 
     @Test

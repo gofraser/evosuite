@@ -343,6 +343,18 @@ public abstract class GenericAccessibleObject<T extends GenericAccessibleObject<
         return getTypeParameters().length != 0;
     }
 
+    /**
+     * Whether this call declares type parameters that have not been bound by one of the
+     * {@code getGenericInstantiation*} methods. Statements must not be built from such a
+     * call: every unbound variable renders as its own unbounded wildcard, so a method
+     * like {@code <E> indexOf(List<E>, Predicate<E>)} is emitted as
+     * {@code indexOf((List<?>) a, (Predicate<?>) b)}, which javac rejects because the
+     * two captures cannot both be E.
+     */
+    public boolean hasUnboundTypeParameters() {
+        return typeVariables.size() < getTypeParameters().length;
+    }
+
     public abstract boolean isAccessible();
 
     public abstract boolean isConstructor();
