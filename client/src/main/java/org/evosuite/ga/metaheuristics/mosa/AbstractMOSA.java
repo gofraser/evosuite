@@ -785,13 +785,16 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * is not re-targeted by the next generation, the seed factory or the stagnation prompt.
      */
     private void initializeLlmOperators() {
+        // Fresh run, fresh attempt log: this must run even when the mode is OFF, otherwise a
+        // JVM that runs an operator-enabled search followed by an OFF search publishes the
+        // previous run's counts from emitOperatorStats and may flush its rows under the new
+        // run's sidecar name. Nothing else resets this singleton before a row could be opened
+        // (ProblemCardLogRecorder/DisruptionRecorder have the same gap, closed only by their
+        // tests).
+        OperatorAttemptLog.resetInstance();
         if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.OFF) {
             return;
         }
-        // Fresh run, fresh attempt log: nothing else resets this singleton before a row could
-        // be opened (ProblemCardLogRecorder/DisruptionRecorder have the same gap, closed only
-        // by their tests).
-        OperatorAttemptLog.resetInstance();
         if (repeatedInjectionMemory == null) {
             repeatedInjectionMemory = new RepeatedInjectionMemory();
         }

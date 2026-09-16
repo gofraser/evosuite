@@ -126,6 +126,33 @@ class LlmOperatorExecutorWiringTest extends MosaTestSupport {
     }
 
     @Test
+    void initializeLlmAssistanceResetsTheAttemptLogEvenWhenTheNewRunIsOff() throws Exception {
+        // A JVM that runs an operator-enabled search followed by an OFF search (e.g. two runs of
+        // the same client process) must not publish the previous run's counts, or flush its rows
+        // under the new run's target class/sidecar name.
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        OperatorExecutorHarness onHarness = new OperatorExecutorHarness(null);
+        onHarness.initializeLlmAssistance(onHarness::getCurrentGoals, false);
+
+        TestChromosome parent = arrayListConstructorChromosome(1);
+        TestFitnessFunction goal = mock(TestFitnessFunction.class);
+        OperatorTarget target = OperatorTarget.builder(parent, goal).build();
+        OperatorAttemptLog.getInstance().open("stale-run-attempt", 0, target, "SYNC", 1);
+        assertEquals(1, OperatorAttemptLog.getInstance().getAttempts());
+
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
+        OperatorExecutorHarness offHarness = new OperatorExecutorHarness(null);
+        offHarness.initializeLlmAssistance(offHarness::getCurrentGoals, false);
+
+        @SuppressWarnings("unchecked")
+        ClientNodeLocal<TestChromosome> clientNode = mock(ClientNodeLocal.class);
+        offHarness.emitOperatorStats(clientNode);
+
+        verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_Targets_Selected, 0L);
+        verify(clientNode).trackOutputVariable(RuntimeVariable.LLM_Operator_Offspring_Admitted, 0L);
+    }
+
+    @Test
     void offModeCreatesNothing() {
         Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.OFF;
         OperatorExecutorHarness harness = new OperatorExecutorHarness(null);
