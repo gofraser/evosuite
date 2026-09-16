@@ -144,8 +144,16 @@ final class OperatorAttemptRecord {
         }
     }
 
+    /**
+     * Marks this attempt as released without a response, unless a response was already recorded:
+     * a parsed candidate stays open in the executor until the GA reports its outcome, and {@code
+     * shutdown()} marks every still-open attempt undelivered — including ones whose response
+     * already arrived and parsed successfully.
+     */
     void recordUndelivered() {
-        this.parseStatus = "UNDELIVERED";
+        if (parseStatus.isEmpty()) {
+            this.parseStatus = "UNDELIVERED";
+        }
     }
 
     void recordEvaluated(double distanceAfter, boolean targetHit) {

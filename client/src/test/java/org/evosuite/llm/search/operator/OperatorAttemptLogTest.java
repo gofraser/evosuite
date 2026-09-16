@@ -210,6 +210,26 @@ class OperatorAttemptLogTest {
     }
 
     @Test
+    void recordUndeliveredDoesNotOverwriteAnAlreadyRecordedResponse() {
+        // A parsed candidate stays open in the ASYNC executor until the GA reports its outcome;
+        // shutdown() then marks every still-open attempt undelivered, including this one. That
+        // must not clobber the response it already got.
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(10, 2, 5, 123L);
+        log.open("parsedThenShutdown", 0, target, "SYNC", 1);
+        log.recordResponse("parsedThenShutdown", TargetedResponse.Status.DELIVERED, true, true, 1, usage,
+                new DefaultTestCase());
+
+        log.recordUndelivered("parsedThenShutdown");
+
+        String[] c = cols(log.recordFor("parsedThenShutdown"));
+        assertEquals("PARSED", c[13], "a parsed row must not be downgraded to UNDELIVERED");
+        assertEquals("1", c[14], "repair_turns must be kept");
+        assertEquals("10", c[18], "input_tokens must be kept");
+    }
+
+    @Test
     void recordResponseWithoutOffspringLeavesStatementColumnsEmpty() {
         OperatorAttemptLog log = OperatorAttemptLog.getInstance();
         OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
