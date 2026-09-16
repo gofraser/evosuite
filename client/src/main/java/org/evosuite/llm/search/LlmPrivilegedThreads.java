@@ -20,6 +20,7 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.runtime.sandbox.Sandbox;
+import org.evosuite.runtime.thread.EvoSuiteOwnedThreads;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,11 +40,12 @@ public final class LlmPrivilegedThreads {
     private static final Logger logger = LoggerFactory.getLogger(LlmPrivilegedThreads.class);
 
     /**
-     * Every LLM background thread is named with this prefix. Test execution
-     * interrupts any thread that appears while a test runs ({@code
-     * ThreadStopper} treats it as a leaked SUT thread); {@code TestRunnable}
-     * exempts this prefix so a worker or compile thread born mid-test is not
-     * interrupted in the middle of an HTTP read or a javac run.
+     * Every LLM background thread is named with this prefix, purely as a
+     * naming convention for diagnostics (thread dumps, logs). It carries no
+     * special meaning to {@code ThreadStopper}: exemption from post-test
+     * cleanup is granted by identity, via {@link EvoSuiteOwnedThreads},
+     * precisely so that a SUT-created thread cannot opt out of cleanup by
+     * picking a name that happens to match.
      */
     public static final String THREAD_NAME_PREFIX = "evosuite-llm-";
 
@@ -53,6 +55,26 @@ public final class LlmPrivilegedThreads {
     /** The name for an LLM background thread with the given role, e.g. {@code operator-1}. */
     public static String threadName(String role) {
         return THREAD_NAME_PREFIX + role;
+    }
+
+    /**
+     * Creates (but does not start) an EvoSuite-owned background thread for
+     * LLM work: named {@code threadName(role)}, marked daemon, registered
+     * with {@link EvoSuiteOwnedThreads} so {@code ThreadStopper} never treats
+     * it as a leaked SUT thread no matter when it is born relative to a test
+     * execution, and best-effort registered with the sandbox as privileged
+     * (see {@link #registerAsPrivileged(Thread, String)}).
+     *
+     * @param r    the thread's body
+     * @param role short human-readable label, e.g. {@code "operator-1"}
+     * @return the new, not-yet-started thread
+     */
+    public static Thread newThread(Runnable r, String role) {
+        Thread t = new Thread(r, threadName(role));
+        t.setDaemon(true);
+        EvoSuiteOwnedThreads.register(t);
+        registerAsPrivileged(t, role);
+        return t;
     }
 
     /**

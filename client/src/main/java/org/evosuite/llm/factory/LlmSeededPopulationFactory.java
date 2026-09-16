@@ -73,11 +73,8 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private static final long serialVersionUID = -1785138098554527622L;
     private static final Logger logger = LoggerFactory.getLogger(LlmSeededPopulationFactory.class);
     /** Blocking provider I/O must never occupy ForkJoinPool.commonPool workers. */
-    private static final ExecutorService LLM_SEED_EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread thread = new Thread(r, LlmPrivilegedThreads.threadName("initial-seeding"));
-        thread.setDaemon(true);
-        return thread;
-    });
+    private static final ExecutorService LLM_SEED_EXECUTOR = Executors.newCachedThreadPool(
+            r -> LlmPrivilegedThreads.newThread(r, "initial-seeding"));
 
     static {
         Runtime.getRuntime().addShutdownHook(new Thread(LLM_SEED_EXECUTOR::shutdownNow,

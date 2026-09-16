@@ -44,11 +44,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.EnrichmentResult> {
 
     /** Shared executor for all enrichment async work. Daemon threads so JVM exit is not blocked. */
-    static final ExecutorService LLM_ENRICHMENT_EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, LlmPrivilegedThreads.threadName("enrichment"));
-        t.setDaemon(true);
-        return t;
-    });
+    static final ExecutorService LLM_ENRICHMENT_EXECUTOR = Executors.newCachedThreadPool(
+            r -> LlmPrivilegedThreads.newThread(r, "enrichment"));
 
     static {
         Runtime.getRuntime().addShutdownHook(new Thread(LLM_ENRICHMENT_EXECUTOR::shutdownNow,

@@ -20,6 +20,7 @@
 package org.evosuite.testcase.execution;
 
 import org.evosuite.llm.search.LlmPrivilegedThreads;
+import org.evosuite.runtime.thread.EvoSuiteOwnedThreads;
 import org.evosuite.runtime.thread.ThreadStopper;
 import org.junit.jupiter.api.Test;
 
@@ -32,41 +33,78 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * After a test runs, {@link ThreadStopper} interrupts every thread that was not alive before
- * it, treating it as a leaked SUT thread. LLM background threads start on the search's own
- * schedule, so one born mid-test (an operator worker, the parse-phase compiler) must be left
- * alone; otherwise its HTTP read or javac run dies half-way with an interrupt.
+ * it, treating it as a leaked SUT thread. EvoSuite's own LLM background threads start on the
+ * search's own schedule, so one born mid-test (an operator worker, the parse-phase compiler)
+ * must be left alone; otherwise its HTTP read or javac run dies half-way with an interrupt.
+ *
+ * <p>The exemption is granted by identity (via {@link EvoSuiteOwnedThreads}), not by thread
+ * name: a SUT thread that merely names itself with the {@code evosuite-llm-} prefix must still
+ * be treated as leaked and interrupted.
  */
 public class TestRunnableThreadsToIgnoreTest {
 
     @Test
-    public void llmThreadPrefixIsIgnored() {
-        assertTrue(TestRunnable.threadsToIgnore().contains(LlmPrivilegedThreads.THREAD_NAME_PREFIX));
-        assertTrue(TestRunnable.threadsToIgnore().contains(TestCaseExecutor.TEST_EXECUTION_THREAD));
-        assertTrue(LlmPrivilegedThreads.threadName("operator-1").startsWith(LlmPrivilegedThreads.THREAD_NAME_PREFIX));
-    }
-
-    @Test
-    public void threadStopperLeavesLlmThreadsAloneButInterruptsSutThreads() throws Exception {
+    public void sutThreadSpoofingTheLlmNamePrefixIsStillInterrupted() throws Exception {
         ThreadStopper stopper = new ThreadStopper(kill -> { }, TestRunnable.threadsToIgnore(), 200L);
         stopper.storeCurrentThreads();
         stopper.startRecordingTime();
 
-        CountDownLatch started = new CountDownLatch(2);
-        AtomicBoolean llmInterrupted = new AtomicBoolean();
-        AtomicBoolean sutInterrupted = new AtomicBoolean();
-        Thread llm = blockingThread(LlmPrivilegedThreads.threadName("parse-compile"), started, llmInterrupted);
-        Thread sut = blockingThread("sut-worker", started, sutInterrupted);
-        llm.start();
-        sut.start();
+        CountDownLatch started = new CountDownLatch(1);
+        AtomicBoolean interrupted = new AtomicBoolean();
+        Thread spoof = blockingThread("evosuite-llm-sut-spoof", started, interrupted);
+        spoof.start();
         assertTrue(started.await(5, TimeUnit.SECONDS));
 
         stopper.killAndJoinClientThreads();
 
-        sut.join(5000);
-        assertTrue(sutInterrupted.get(), "a thread the test spawned is interrupted");
-        assertFalse(llmInterrupted.get(), "an LLM background thread is not");
+        spoof.join(5000);
+        assertTrue(interrupted.get(), "a SUT thread named after the LLM prefix is not exempt by name alone");
+    }
+
+    @Test
+    public void threadCreatedViaLlmPrivilegedThreadsIsNotInterrupted() throws Exception {
+        ThreadStopper stopper = new ThreadStopper(kill -> { }, TestRunnable.threadsToIgnore(), 200L);
+        stopper.storeCurrentThreads();
+        stopper.startRecordingTime();
+
+        CountDownLatch started = new CountDownLatch(1);
+        AtomicBoolean interrupted = new AtomicBoolean();
+        Thread llm = LlmPrivilegedThreads.newThread(() -> {
+            started.countDown();
+            try {
+                Thread.sleep(60_000L);
+            } catch (InterruptedException e) {
+                interrupted.set(true);
+            }
+        }, "parse-compile");
+        llm.start();
+        assertTrue(started.await(5, TimeUnit.SECONDS));
+
+        stopper.killAndJoinClientThreads();
+
+        assertFalse(interrupted.get(), "a thread created via LlmPrivilegedThreads.newThread is exempt by identity");
         llm.interrupt();
         llm.join(5000);
+    }
+
+    @Test
+    public void threadRegisteredDirectlyWithEvoSuiteOwnedThreadsIsNotInterrupted() throws Exception {
+        ThreadStopper stopper = new ThreadStopper(kill -> { }, TestRunnable.threadsToIgnore(), 200L);
+        stopper.storeCurrentThreads();
+        stopper.startRecordingTime();
+
+        CountDownLatch started = new CountDownLatch(1);
+        AtomicBoolean interrupted = new AtomicBoolean();
+        Thread owned = blockingThread("owned-worker", started, interrupted);
+        EvoSuiteOwnedThreads.register(owned);
+        owned.start();
+        assertTrue(started.await(5, TimeUnit.SECONDS));
+
+        stopper.killAndJoinClientThreads();
+
+        assertFalse(interrupted.get(), "a thread registered with EvoSuiteOwnedThreads is exempt regardless of its name");
+        owned.interrupt();
+        owned.join(5000);
     }
 
     private static Thread blockingThread(String name, CountDownLatch started, AtomicBoolean interrupted) {

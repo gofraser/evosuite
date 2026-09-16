@@ -166,11 +166,7 @@ public class TestRepairLoop {
     private static volatile ExecutorService parseCompileExecutor = createParseCompileExecutor();
 
     private static ExecutorService createParseCompileExecutor() {
-        return Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, LlmPrivilegedThreads.threadName("parse-compile"));
-            t.setDaemon(true);
-            return t;
-        });
+        return Executors.newSingleThreadExecutor(r -> LlmPrivilegedThreads.newThread(r, "parse-compile"));
     }
 
     /** Error patterns that the LLM cannot fix (native libs, sandbox, etc.). */

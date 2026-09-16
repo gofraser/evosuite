@@ -154,14 +154,12 @@ public class AsyncLlmTestProducer {
         this.refreshInterval = Math.max(1, refreshInterval);
         this.delayMs = Math.max(0, delayMs);
         this.repeatedInjectionMemory = repeatedInjectionMemory;
-        this.producerThread = new Thread(this::produceLoop, LlmPrivilegedThreads.threadName("async-producer"));
-        this.producerThread.setDaemon(true);
+        this.producerThread = LlmPrivilegedThreads.newThread(this::produceLoop, "async-producer");
     }
 
     /** Starts the background producer thread if not already running. */
     public void start() {
         if (!producerThread.isAlive()) {
-            LlmPrivilegedThreads.registerAsPrivileged(producerThread, "async LLM producer");
             producerThread.start();
         }
     }

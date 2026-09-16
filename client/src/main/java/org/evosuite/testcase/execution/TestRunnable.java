@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase.execution;
 
-import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
@@ -218,15 +217,14 @@ public class TestRunnable implements InterfaceTestRunnable {
 
     /**
      * Thread-name prefixes the {@link ThreadStopper} must leave alone after a test: the
-     * execution thread itself, the user's {@code ignore_threads}, and the LLM background
-     * threads (workers, HTTP timeout guards, the parse-phase compiler), which the search
-     * starts on its own schedule — one born while a test runs is not a leaked SUT thread.
+     * execution thread itself and the user's {@code ignore_threads}. Threads that EvoSuite
+     * itself owns (LLM workers, compile threads, ...) are exempted separately, by identity,
+     * via {@link org.evosuite.runtime.thread.EvoSuiteOwnedThreads} — not by name.
      */
     static Set<String> threadsToIgnore() {
         Set<String> threadsToIgnore = new LinkedHashSet<>();
         threadsToIgnore.add(TestCaseExecutor.TEST_EXECUTION_THREAD);
         threadsToIgnore.addAll(Arrays.asList(Properties.IGNORE_THREADS));
-        threadsToIgnore.add(LlmPrivilegedThreads.THREAD_NAME_PREFIX);
         return threadsToIgnore;
     }
 

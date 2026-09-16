@@ -106,12 +106,8 @@ public final class LlmOperatorExecutor {
         this.budgetGuardSeconds = Math.max(0, budgetGuardSeconds);
         this.maxInFlight = Math.max(1, maxInFlight);
         this.batchSize = Math.max(1, batchSize);
-        this.pool = Executors.newFixedThreadPool(this.maxInFlight, r -> {
-            Thread t = new Thread(r, LlmPrivilegedThreads.threadName("operator-" + workerCounter.incrementAndGet()));
-            t.setDaemon(true);
-            LlmPrivilegedThreads.registerAsPrivileged(t, t.getName());
-            return t;
-        });
+        this.pool = Executors.newFixedThreadPool(this.maxInFlight, r ->
+                LlmPrivilegedThreads.newThread(r, "operator-" + workerCounter.incrementAndGet()));
     }
 
     /**

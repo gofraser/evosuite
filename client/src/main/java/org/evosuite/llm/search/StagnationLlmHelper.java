@@ -142,16 +142,8 @@ public final class StagnationLlmHelper {
         // submits and returns immediately; SYNC submits and waits with a
         // truncated timeout so the call can be interrupted via Future.cancel
         // if it would otherwise outlast the search budget.
-        String threadName = LlmPrivilegedThreads.threadName("stagnation-" + this.mode.name().toLowerCase());
-        this.worker = Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, threadName);
-            t.setDaemon(true);
-            // Register with the sandbox so test execution from the worker
-            // doesn't get sandboxed and corrupt MSecurityManager state.
-            // See AsyncLlmTestProducer for the original justification.
-            LlmPrivilegedThreads.registerAsPrivileged(t, threadName);
-            return t;
-        });
+        String role = "stagnation-" + this.mode.name().toLowerCase();
+        this.worker = Executors.newSingleThreadExecutor(r -> LlmPrivilegedThreads.newThread(r, role));
     }
 
     public static int resolveBudgetGuardSeconds() {

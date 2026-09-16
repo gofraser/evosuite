@@ -70,11 +70,7 @@ public class DecompiledContextProvider implements SutContextProvider {
     private static volatile ExecutorService decompilerExecutor = createExecutor();
 
     private static ExecutorService createExecutor() {
-        return Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, LlmPrivilegedThreads.threadName("decompiler"));
-            t.setDaemon(true);
-            return t;
-        });
+        return Executors.newSingleThreadExecutor(r -> LlmPrivilegedThreads.newThread(r, "decompiler"));
     }
 
     @Override
