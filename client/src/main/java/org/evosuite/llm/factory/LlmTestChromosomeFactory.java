@@ -204,10 +204,14 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
      * evaluated the new test — so the shared memory's cooldown and no-gain
      * counters reflect this factory's prompts like every other feature's.
      *
-     * <p>Returns null, so the caller uses the non-LLM fallback, when a
-     * population exists but the selector offers no eligible target: a goal on
+     * <p>Returns null, so the caller uses the non-LLM fallback, when the
+     * population has targetable goals but the selector offers none: a goal on
      * cooldown or in flight must not be re-prompted through the generic
-     * goal-list prompt, which only serves seeding before a population exists.
+     * goal-list prompt, which carries no repeat bookkeeping. That generic
+     * prompt serves seeding before a population exists and a population with
+     * nothing to target at all — a whole-suite search, whose test chromosomes
+     * never carry per-goal fitness, or a many-objective search with no
+     * near-miss yet — since otherwise the factory would never prompt there.
      */
     private TestChromosome generateViaLlm() {
         boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
@@ -217,11 +221,16 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
         if (population == null || population.isEmpty()) {
             prompt = buildGoalListPrompt();
         } else {
-            target = selectTarget(population);
-            if (target == null) {
+            Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
+            target = selectTarget(population, goals);
+            if (target != null) {
+                prompt = targetedPromptFactory.buildGenerate(target);
+            } else if (goals == null || goals.isEmpty()
+                    || OperatorTargetSelector.hasTargetableGoal(population, goals)) {
                 return null;
+            } else {
+                prompt = buildGoalListPrompt();
             }
-            prompt = targetedPromptFactory.buildGenerate(target);
         }
         RepeatedInjectionMemory memory = repeatedInjectionMemory;
         RepeatedInjectionMemory.PromptAttemptRegistration registration = memory == null
@@ -261,8 +270,7 @@ public class LlmTestChromosomeFactory implements ChromosomeFactory<TestChromosom
     }
 
     /** The single-parent target this call seeds toward, or null when nothing is eligible. */
-    private OperatorTarget selectTarget(List<TestChromosome> population) {
-        Collection<TestFitnessFunction> goals = uncoveredGoalsSupplier.get();
+    private OperatorTarget selectTarget(List<TestChromosome> population, Collection<TestFitnessFunction> goals) {
         if (goals == null || goals.isEmpty()) {
             return null;
         }

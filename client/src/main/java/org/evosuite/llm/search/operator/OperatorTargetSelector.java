@@ -188,6 +188,23 @@ public class OperatorTargetSelector {
     }
 
     /**
+     * True if at least one of {@code currentGoals} is targetable against this
+     * population snapshot, i.e. some individual carries a cached distance for it
+     * in {@code (0, 1)}. Lets a caller tell an empty {@link #select} result that
+     * means "every candidate was suppressed (cooldown, in flight)" apart from one
+     * that means "nothing here to target" — e.g. a whole-suite search whose test
+     * chromosomes never carry per-goal fitness, or a many-objective search with
+     * no near-miss yet. Cache-only, like {@link #select}.
+     */
+    public static boolean hasTargetableGoal(List<TestChromosome> population,
+                                            Collection<TestFitnessFunction> currentGoals) {
+        if (population == null || population.isEmpty() || currentGoals == null || currentGoals.isEmpty()) {
+            return false;
+        }
+        return !keptGoalsWithBestDistance(currentGoals, population).isEmpty();
+    }
+
+    /**
      * Population-wide best cached fitness per goal, restricted to goals whose
      * best is strictly between 0 and {@link ExemplarAttacher#MAX_EXEMPLAR_DISTANCE} (best 0 means covered, no
      * cached value anywhere or a best of 1.0 means not usefully targetable).

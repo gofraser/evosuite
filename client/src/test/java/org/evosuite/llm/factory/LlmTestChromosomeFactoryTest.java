@@ -26,6 +26,7 @@ import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
+import org.evosuite.llm.search.GoalId;
 import org.evosuite.llm.search.RepeatedInjectionTarget;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -264,12 +265,37 @@ class LlmTestChromosomeFactoryTest {
     }
 
     @Test
-    void populatedSearchWithoutEligibleTargetUsesTheFallbackWithoutACall() {
+    void populatedSearchWhoseOnlyTargetIsInFlightUsesTheFallbackWithoutACall() {
         TestFitnessFunction goal = new StubGoal("g");
         TestChromosome parent = chromosome(1);
-        parent.setFitness(goal, 1.0); // at the bound: not targetable
+        parent.setFitness(goal, 0.25); // targetable, but suppressed below
         List<TestChromosome> population = Collections.singletonList(parent);
         LlmService llmService = mockAvailableService();
+        ChromosomeFactory<TestChromosome> fallback = mock(ChromosomeFactory.class);
+        TestChromosome fallbackChromosome = chromosome(2);
+        when(fallback.getChromosome()).thenReturn(fallbackChromosome);
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        memory.registerAttempt(Collections.singletonList(
+                new RepeatedInjectionTarget("operator|" + GoalId.of(goal), "elsewhere")), true);
+        LlmTestChromosomeFactory factory = new LlmTestChromosomeFactory(fallback, llmService, Collections::emptyList);
+        factory.setSearchState(() -> Collections.singleton(goal), () -> population, () -> 1L, memory);
+
+        assertSame(fallbackChromosome, factory.getChromosome());
+        verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
+    }
+
+    /**
+     * A whole-suite search never stores per-goal fitness on its test chromosomes, so the
+     * selector has nothing to target; the factory must still prompt (via the goal list)
+     * rather than silently degrade to the non-LLM factory for the rest of the run.
+     */
+    @Test
+    void populatedSearchWithNothingTargetableStillSendsTheGoalListPrompt() {
+        TestFitnessFunction goal = new StubGoal("g");
+        List<TestChromosome> population = Collections.singletonList(chromosome(1)); // no cached fitness
+        LlmService llmService = mockAvailableService();
+        ArgumentCaptor<PromptResult> promptCaptor = ArgumentCaptor.forClass(PromptResult.class);
+        when(llmService.query(promptCaptor.capture(), any(LlmFeature.class))).thenReturn(UNPARSEABLE_RESPONSE);
         ChromosomeFactory<TestChromosome> fallback = mock(ChromosomeFactory.class);
         TestChromosome fallbackChromosome = chromosome(2);
         when(fallback.getChromosome()).thenReturn(fallbackChromosome);
@@ -278,7 +304,9 @@ class LlmTestChromosomeFactoryTest {
                 new RepeatedInjectionMemory());
 
         assertSame(fallbackChromosome, factory.getChromosome());
-        verify(llmService, never()).query(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService).query(any(PromptResult.class), any(LlmFeature.class));
+        assertFalse(userMessageText(promptCaptor.getValue()).contains("Target #1"),
+                "with nothing targetable the generic goal-list prompt is sent, not a targeted one");
     }
 
     @Test
