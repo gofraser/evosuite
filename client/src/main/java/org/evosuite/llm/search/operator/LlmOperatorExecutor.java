@@ -365,9 +365,17 @@ public final class LlmOperatorExecutor {
     private void finishDeferredResponses() {
         DeferredResponse deferred;
         while ((deferred = deferredResponses.poll()) != null) {
-            TargetedResponse response = deferred.operator.reparseWithExpansion(
-                    deferred.prompt, deferred.rawResponse, deferred.attribution.size(), deferred.usage);
-            handleResponse(response, deferred.attribution);
+            try {
+                TargetedResponse response = deferred.operator.reparseWithExpansion(
+                        deferred.prompt, deferred.rawResponse, deferred.attribution.size(), deferred.usage);
+                handleResponse(response, deferred.attribution);
+            } catch (RuntimeException e) {
+                // The item is already polled; releasing here keeps its attempts from staying
+                // open for the rest of the run and lets the remaining deferrals proceed.
+                logger.debug("Finishing a deferred LLM operator response failed: {}", e.getMessage());
+                recordUndeliveredBatch(deferred.attribution);
+                release(deferred.attribution);
+            }
         }
     }
 

@@ -27,6 +27,7 @@ import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.search.DiagnosticCardSelector;
 import org.evosuite.llm.search.InjectionAttemptMetadata;
 import org.evosuite.llm.search.LlmSemanticCrossover;
+import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.LlmSemanticMutation;
 import org.evosuite.llm.search.RepeatedInjectionMemory;
 import org.evosuite.testcase.DefaultTestCase;
@@ -547,6 +548,37 @@ class LlmOperatorExecutorTest {
             assertTrue(record.toCsvRow().contains(",PARSE_FAILED,"),
                     "expected the deferred re-parse to still fail once expansion could not help: "
                             + record.toCsvRow());
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    @Test
+    void aFailingDeferredReparseReleasesItsAttemptAndKeepsDraining() throws Exception {
+        LlmService llmService = availableService();
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 0, 0, 0, 0L));
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        LlmSemanticMutation mutation = spy(new LlmSemanticMutation(llmService));
+        org.mockito.Mockito.doThrow(new IllegalStateException("cluster unavailable"))
+                .when(mutation).reparseWithExpansion(any(PromptResult.class), any(String.class), eq(1),
+                        any(TargetedResponse.CallUsage.class));
+        LlmOperatorExecutor executor = new LlmOperatorExecutor(mutation, new LlmSemanticCrossover(llmService),
+                memory, () -> -1L, 0, 2, 1);
+
+        OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
+
+        try {
+            assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
+            awaitInFlightZero(executor, 5);
+
+            assertTrue(executor.drain().isEmpty(), "drain() must survive the failing re-parse");
+            assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
+                    memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason(),
+                    "the attempt must be released, not left in flight");
+            OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
+            assertNotNull(record);
+            assertTrue(record.toCsvRow().contains(",UNDELIVERED,"), record.toCsvRow());
         } finally {
             executor.shutdown();
         }
