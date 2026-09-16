@@ -89,9 +89,11 @@ public interface LlmBudgetCoordinator {
      * Whether the current {@link Properties#LLM_OPERATOR_MODE} configuration could actually spend
      * an operator call this run: {@code ASYNC} needs a positive {@link
      * Properties#LLM_OPERATOR_CALLS_PER_GENERATION}, {@code SYNC} needs a positive {@link
-     * Properties#LLM_MUTATION_PROBABILITY} or {@link Properties#LLM_CROSSOVER_PROBABILITY}, and
-     * {@code OFF} never can. Reserving a share of the budget for operators that cannot spend it
-     * (see {@link #fromProperties()}) would just strand it, unreachable by every other feature.
+     * Properties#LLM_MUTATION_PROBABILITY}, or a positive {@link Properties#LLM_CROSSOVER_PROBABILITY}
+     * with {@link Properties#LLM_OPERATOR_CROSSOVER} also on (a crossover probability alone spends
+     * nothing when crossover targets aren't offered), and {@code OFF} never can. Reserving a share
+     * of the budget for operators that cannot spend it (see {@link #fromProperties()}) would just
+     * strand it, unreachable by every other feature.
      *
      * <p>Package-private for tests.
      */
@@ -100,7 +102,8 @@ public interface LlmBudgetCoordinator {
             case ASYNC:
                 return Properties.LLM_OPERATOR_CALLS_PER_GENERATION > 0;
             case SYNC:
-                return Properties.LLM_MUTATION_PROBABILITY > 0 || Properties.LLM_CROSSOVER_PROBABILITY > 0;
+                return Properties.LLM_MUTATION_PROBABILITY > 0
+                        || (Properties.LLM_CROSSOVER_PROBABILITY > 0 && Properties.LLM_OPERATOR_CROSSOVER);
             case OFF:
             default:
                 return false;

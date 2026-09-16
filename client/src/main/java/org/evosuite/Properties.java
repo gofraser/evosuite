@@ -2828,8 +2828,8 @@ public class Properties {
                     + "assistance is also on; the other LLM features draw from the rest. Ignored "
                     + "when llm_max_calls is 0 (unlimited), stagnation is off, or the operators "
                     + "cannot actually spend a call (llm_operator_mode is OFF, ASYNC with "
-                    + "llm_operator_calls_per_generation=0, or SYNC with both "
-                    + "llm_mutation_probability and llm_crossover_probability at 0)")
+                    + "llm_operator_calls_per_generation=0, or SYNC with llm_mutation_probability "
+                    + "at 0 and either llm_crossover_probability at 0 or llm_operator_crossover off)")
     @DoubleValue(min = 0.0, max = 1.0)
     public static double LLM_OPERATOR_CALL_SHARE = 0.5;
     @Parameter(key = "llm_operator_calls_per_generation", group = "LLM",

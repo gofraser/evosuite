@@ -41,6 +41,7 @@ class LlmBudgetCoordinatorFeatureShareTest {
     private final int savedCallsPerGeneration = Properties.LLM_OPERATOR_CALLS_PER_GENERATION;
     private final double savedMutationProbability = Properties.LLM_MUTATION_PROBABILITY;
     private final double savedCrossoverProbability = Properties.LLM_CROSSOVER_PROBABILITY;
+    private final boolean savedOperatorCrossover = Properties.LLM_OPERATOR_CROSSOVER;
 
     @AfterEach
     void restoreProperties() {
@@ -51,6 +52,7 @@ class LlmBudgetCoordinatorFeatureShareTest {
         Properties.LLM_OPERATOR_CALLS_PER_GENERATION = savedCallsPerGeneration;
         Properties.LLM_MUTATION_PROBABILITY = savedMutationProbability;
         Properties.LLM_CROSSOVER_PROBABILITY = savedCrossoverProbability;
+        Properties.LLM_OPERATOR_CROSSOVER = savedOperatorCrossover;
     }
 
     @Test
@@ -187,6 +189,21 @@ class LlmBudgetCoordinatorFeatureShareTest {
 
         // Neither breeding-loop hook can ever fire, so the SYNC operators can never spend
         // their reserved share either.
+        assertFalse(LlmBudgetCoordinator.operatorsCanSpend());
+        assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
+    }
+
+    @Test
+    void fromPropertiesReturnsLocalWhenCrossoverProbabilityIsPositiveButCrossoverTargetingIsOff() {
+        Properties.LLM_MAX_CALLS = 10;
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_ON_STAGNATION = true;
+        Properties.LLM_MUTATION_PROBABILITY = 0.0;
+        Properties.LLM_CROSSOVER_PROBABILITY = 0.5;
+        Properties.LLM_OPERATOR_CROSSOVER = false;
+
+        // A positive crossover probability spends nothing when the selector never hands out a
+        // crossover target to begin with, so reserving a share for it would just strand it.
         assertFalse(LlmBudgetCoordinator.operatorsCanSpend());
         assertTrue(LlmBudgetCoordinator.fromProperties() instanceof LlmBudgetCoordinator.Local);
     }
