@@ -13,6 +13,7 @@ package org.evosuite.testcase.factories;
 
 import org.evosuite.setup.TestCluster;
 import org.evosuite.testcase.GenerationContext;
+import org.evosuite.testcase.StatementFactory;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.VariableResolutionConfig;
@@ -118,6 +119,11 @@ class ObjectRuleEntryBuilder {
 
     void insertStableEntryInvocation(TestCase test, GenericMethod method,
             VariableReference receiver, Type[] parameterTypes) throws Exception {
+        if (method.hasUnboundTypeParameters()) {
+            method = StatementFactory.bindTypeParameters(method,
+                    receiver == null ? null : receiver.getGenericClass());
+            parameterTypes = method.getParameterTypes();
+        }
         List<VariableReference> parameters = new ArrayList<>();
         VariableResolutionConfig config = new VariableResolutionConfig.Builder()
                 .withAllowNull(false)

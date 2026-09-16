@@ -555,6 +555,7 @@ public class StatementFactory {
         List<VariableReference> parameters = null;
 
         try {
+            method = bindTypeParameters(method, null);
             if (!method.isStatic()) {
                 // A functional mock can never be a callee: mocking the receiver would both hide
                 // the real behaviour and short-circuit the lazy dependency resolution that pulls
@@ -599,6 +600,29 @@ public class StatementFactory {
     }
 
     /**
+     * Binds the method's own type parameters if a caller handed us a raw {@link GenericMethod}
+     * (the entry-method and all-methods factories build them straight from reflection, unlike
+     * {@code TestCluster#getRandomTestCall}). See
+     * {@link GenericMethod#hasUnboundTypeParameters()} for why an unbound call is uncompilable.
+     */
+    public static GenericMethod bindTypeParameters(GenericMethod method, GenericClass<?> calleeClass) {
+        if (!method.hasUnboundTypeParameters()) {
+            return method;
+        }
+        try {
+            return calleeClass == null
+                    ? method.getGenericInstantiation()
+                    : method.getGenericInstantiation(calleeClass);
+        } catch (ConstructionFailedException e) {
+            // No cast class satisfies a bound: keep the unbound call rather than lose it.
+            // Its type variables then render as wildcards, which compiles unless the same
+            // variable occurs in more than one parameter.
+            logger.debug("Cannot bind type parameters of {}: {}", method, e.getMessage());
+            return method;
+        }
+    }
+
+    /**
      * Adds a method call for a specific callee.
      *
      * @param test the test case
@@ -617,6 +641,7 @@ public class StatementFactory {
             throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
         }
 
+        method = bindTypeParameters(method, callee.getGenericClass());
         int length = test.size();
 
         List<VariableReference> parameters = testFactory.satisfyParameters(
@@ -651,6 +676,7 @@ public class StatementFactory {
         VariableReference callee = null;
         List<VariableReference> parameters;
 
+        method = bindTypeParameters(method, null);
         if (!method.isStatic()) {
             // A functional mock can never be a callee: mocking the receiver would both hide the
             // real behaviour and short-circuit the lazy dependency resolution that pulls the
@@ -702,6 +728,7 @@ public class StatementFactory {
             throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
         }
 
+        method = bindTypeParameters(method, callee.getGenericClass());
         int length = test.size();
 
         List<VariableReference> parameters = testFactory.satisfyParameters(
