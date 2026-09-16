@@ -745,6 +745,18 @@ public class TestRepairLoop {
                     }
                     if (addedNew) {
                         diagnostics.add("Expanded cluster with: " + expandedClasses);
+                        // Re-parse the SAME response against the now-larger cluster
+                        // without spending an LLM attempt: no request was sent, so
+                        // this must not advance attemptsUsed (and, with
+                        // maxAttempts == 0, must not be skipped by loop
+                        // termination either). Decrementing attempt here cancels
+                        // out the for-loop's attempt++, so the next iteration
+                        // recomputes the same attemptsUsed. This cannot loop
+                        // forever: addedNew is only true when at least one new
+                        // class was appended to expandedClasses, and the set of
+                        // classes the cluster can still expand into is finite, so
+                        // eventually expansion adds nothing new and falls through.
+                        attempt--;
                         continue;
                     }
                     logger.info("Cluster expansion produced no new classes; stopping expansion loop");

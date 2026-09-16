@@ -357,7 +357,12 @@ class TestRepairLoopTest {
     }
 
     @Test
-    void retriesSameResponseAfterSuccessfulClusterExpansion() {
+    void retriesSameResponseAfterSuccessfulClusterExpansionWithoutConsumingAnAttempt() {
+        // maxAttempts = 0 mirrors LlmSemanticOperator's search-thread re-parse loop
+        // (newReparseRepairLoop()) and the SYNC operator loop at the default
+        // llm_operator_repair_attempts=0: the deferred re-parse after a successful
+        // expansion must still happen, and must not be charged against the LLM
+        // repair-attempt budget.
         LlmService llmService = mock(LlmService.class);
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
         when(expansionManager.tryExpandFrom(anyList())).thenReturn(true);
@@ -384,14 +389,58 @@ class TestRepairLoopTest {
                 new LlmResponseParser(),
                 expansionManager,
                 testCase -> new ExecutionResult(testCase),
-                2);
+                0);
 
         RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
                 Collections.singletonList(LlmMessage.user("seed")),
                 LlmFeature.TEST_REPAIR);
 
         assertTrue(result.isSuccess());
-        assertEquals(2, result.getAttemptsUsed());
+        assertEquals(1, result.getAttemptsUsed(),
+                "the local re-parse against the expanded cluster must not consume an LLM attempt");
+        assertTrue(result.getExpandedClasses().contains("java.util.ArrayList"));
+        assertEquals(2, calls.get(), "must have re-parsed the same response after expansion");
+        verify(expansionManager, times(1)).tryExpandFrom(anyList());
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
+    void expansionWithNoNewClassesDoesNotLoopForeverAndFailsWithoutConsumingAnAttempt() {
+        // Same maxAttempts = 0 configuration, but expansion reports success while
+        // resolving nothing new (e.g. everything it could add is already in the
+        // cluster). The loop must fall through instead of looping, and since no
+        // LLM call happened, attemptsUsed stays at 1.
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        when(expansionManager.tryExpandFrom(anyList())).thenReturn(true);
+        when(expansionManager.getLastExpandedClasses()).thenReturn(Collections.<String>emptyList());
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "cannot find symbol java.util.ArrayList", 1,
+                        "ArrayList list = new ArrayList();"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                0);
+
+        RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        assertEquals(1, result.getAttemptsUsed());
+        assertTrue(result.getExpandedClasses().isEmpty());
         verify(expansionManager, times(1)).tryExpandFrom(anyList());
         verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
     }

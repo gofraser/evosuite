@@ -226,6 +226,8 @@ class LlmSemanticOperatorPrepareCompleteTest {
         assertFalse(finished.needsClusterExpansion());
         assertEquals(deferred.getUsage().getInputTokens(), finished.getUsage().getInputTokens(),
                 "the original call's usage must be reused, since no new call is made");
+        assertEquals(0, finished.getRepairTurns(),
+                "a local re-parse over the same raw text must never be counted as an LLM repair turn");
         verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
         verify(llmService, never())
                 .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
