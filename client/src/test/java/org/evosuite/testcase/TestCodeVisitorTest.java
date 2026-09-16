@@ -2143,6 +2143,24 @@ public class TestCodeVisitorTest {
     }
 
     @Test
+    public void nestedWildcardBoundsAreCollapsedWhenRendered() {
+        // "List<? extends ?>" arises when the E of List<? extends E> is bound to a
+        // wildcard (commons-collections4 ListUtils.union / CompositeCollection).
+        // WildcardTypeImpl flattens it, but a foreign WildcardType implementation
+        // may still carry the nesting, and the renderer must not crash on it.
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        java.lang.reflect.WildcardType unbounded = TypeUtils.wildcardType().build();
+        java.lang.reflect.WildcardType extendsNumber =
+                TypeUtils.wildcardType().withUpperBounds(Number.class).build();
+        assertEquals("List<?>", visitor.getTypeName(parameterizedType(List.class,
+                TypeUtils.wildcardType().withUpperBounds(unbounded).build())));
+        assertEquals("List<? extends Number>", visitor.getTypeName(parameterizedType(List.class,
+                TypeUtils.wildcardType().withUpperBounds(extendsNumber).build())));
+        assertEquals("List<? extends Number>", visitor.getTypeName(parameterizedType(List.class,
+                new WildcardTypeImpl(new Type[]{extendsNumber}, new Type[0]))));
+    }
+
+    @Test
     public void unboundedTypeArgumentObjectIsPreserved() {
         // List<E> has no real bound, so List<Object> is legal and must be kept.
         TestCodeVisitor visitor = new TestCodeVisitor();

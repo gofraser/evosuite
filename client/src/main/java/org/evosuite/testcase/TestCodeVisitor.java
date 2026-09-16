@@ -383,14 +383,25 @@ public class TestCodeVisitor extends TestVisitor {
             for (Type bound : ((WildcardType) type).getUpperBounds()) {
                 if (bound == null
                         || (!(bound instanceof CaptureType)
-                        && GenericTypeReflector.erase(bound).equals(Object.class))) {
+                        && safeErasure(bound).equals(Object.class))) {
+                    continue;
+                }
+                // A nested wildcard ("? extends ?") comes from substituting a
+                // wildcard for a type variable inside a bound; WildcardTypeImpl
+                // flattens those, but other WildcardType implementations may not.
+                String boundName = getTypeParameterName(bound);
+                if (boundName.startsWith("?")) {
+                    boundName = boundName.startsWith("? extends ")
+                            ? boundName.substring("? extends ".length()) : null;
+                }
+                if (boundName == null) {
                     continue;
                 }
 
                 if (!first) {
                     ret += ", ";
                 }
-                ret += " extends " + getTypeParameterName(bound);
+                ret += " extends " + boundName;
                 first = false;
             }
             return ret;
