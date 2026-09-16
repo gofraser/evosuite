@@ -231,13 +231,14 @@ class TargetedResponseTest {
 
     @Test
     void mapCarriesRepairTurnsAndParseSucceededFromASuccessfulResult() {
+        // attemptsUsed counts the initial parse as attempt 1, so 3 attempts means 2 repair turns.
         RepairResult result = RepairResult.success(
                 Collections.singletonList(parsed(testCase(1), "test_target_1")),
                 Collections.emptyList(), 3, Collections.emptyList());
 
         TargetedResponse response = TargetedResponse.map(result, 1);
 
-        assertEquals(3, response.getRepairTurns());
+        assertEquals(2, response.getRepairTurns());
         assertTrue(response.isParseSucceeded());
     }
 
@@ -247,7 +248,7 @@ class TargetedResponseTest {
 
         TargetedResponse response = TargetedResponse.map(failure, 1);
 
-        assertEquals(2, response.getRepairTurns());
+        assertEquals(1, response.getRepairTurns());
         assertFalse(response.isParseSucceeded());
     }
 

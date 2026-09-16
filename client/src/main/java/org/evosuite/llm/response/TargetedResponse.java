@@ -91,7 +91,7 @@ public final class TargetedResponse {
     public static TargetedResponse map(RepairResult result, int targetCount, CallUsage usage, String rawResponse) {
         Map<Integer, TestCase> matched = new TreeMap<>();
         List<TestCase> unmatched = new ArrayList<>();
-        int repairTurns = result == null ? 0 : result.getAttemptsUsed();
+        int repairTurns = result == null ? 0 : Math.max(0, result.getAttemptsUsed() - 1);
         boolean parseSucceeded = result != null && result.isSuccess();
         boolean needsClusterExpansion = result != null && result.needsClusterExpansion();
         CallUsage safeUsage = usage == null ? CallUsage.NONE : usage;
@@ -144,7 +144,11 @@ public final class TargetedResponse {
         return status;
     }
 
-    /** The repair loop's attempt count ({@link RepairResult#getAttemptsUsed()}); 0 when no call was delivered. */
+    /**
+     * Repair turns spent after the initial parse ({@link RepairResult#getAttemptsUsed()}
+     * minus one, floored at zero, since attempt 1 is the initial parse, not a
+     * repair); 0 when no call was delivered or the initial parse already succeeded.
+     */
     public int getRepairTurns() {
         return repairTurns;
     }
