@@ -397,6 +397,47 @@ class TestRepairLoopTest {
     }
 
     @Test
+    void expansionDisabledStopsImmediatelyAndFlagsNeedsClusterExpansion() {
+        LlmService llmService = mock(LlmService.class);
+        ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
+        when(expansionManager.extractUnresolvedSymbols(anyList()))
+                .thenReturn(new LinkedHashSet<>(Arrays.asList("java.util.ArrayList")));
+
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public java.util.List<ParseResult> parseTestClass(String sourceCode) {
+                ParseResult error = new ParseResult(new DefaultTestCase(), "test");
+                error.addDiagnostic(new ParseDiagnostic(ParseDiagnostic.Severity.ERROR,
+                        "cannot find symbol java.util.ArrayList", 1,
+                        "ArrayList list = new ArrayList();"));
+                return Collections.singletonList(error);
+            }
+        };
+
+        TestRepairLoop loop = new TestRepairLoop(
+                llmService,
+                parser,
+                new LlmResponseParser(),
+                expansionManager,
+                testCase -> new ExecutionResult(testCase),
+                2,
+                null,
+                null,
+                TestRepairLoop.RepairOptions.parseOnly(false, false));
+
+        RepairResult result = loop.attemptParse("```java\n@org.junit.Test\npublic void test(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")),
+                LlmFeature.TEST_REPAIR);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.needsClusterExpansion());
+        assertEquals(1, result.getAttemptsUsed(),
+                "must stop on the first parse, never burning a repair round-trip");
+        verify(expansionManager, never()).tryExpandFrom(anyList());
+        verify(llmService, never()).query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList());
+    }
+
+    @Test
     void requestsRepairWhenParseErrorCannotBeExpanded() {
         LlmService llmService = mock(LlmService.class);
         when(llmService.query(anyList(), eq(LlmFeature.TEST_REPAIR), anyInt(), anyBoolean(), anyList()))

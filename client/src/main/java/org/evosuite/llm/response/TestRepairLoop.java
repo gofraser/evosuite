@@ -316,6 +316,7 @@ public class TestRepairLoop {
         private final boolean repairOnAssertionFailures;
         private final boolean instructRepairToAvoidAssertions;
         private final boolean executeParsedTests;
+        private final boolean expandClusterOnDemand;
 
         public static RepairOptions defaults() {
             return new RepairOptions(true, true, false, true);
@@ -336,7 +337,21 @@ public class TestRepairLoop {
          * since it would otherwise execute the failed test directly.
          */
         public static RepairOptions parseOnly(boolean keepAssertions) {
-            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions, false);
+            return parseOnly(keepAssertions, true);
+        }
+
+        /**
+         * Same as {@link #parseOnly(boolean)}, but also controls whether the
+         * loop may expand the test cluster itself. A worker thread must pass
+         * {@code false}: {@link TestCluster} is process-wide and the search
+         * thread reads it concurrently, so expansion has to happen on the
+         * search thread instead. With expansion disallowed, {@link
+         * #attemptParse} stops as soon as it would otherwise expand and
+         * returns a failure flagged {@link RepairResult#needsClusterExpansion()}.
+         */
+        public static RepairOptions parseOnly(boolean keepAssertions, boolean expandClusterOnDemand) {
+            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions, false,
+                    expandClusterOnDemand);
         }
 
         public RepairOptions(boolean keepAssertionsInParsedTests,
@@ -350,10 +365,20 @@ public class TestRepairLoop {
                              boolean repairOnAssertionFailures,
                              boolean instructRepairToAvoidAssertions,
                              boolean executeParsedTests) {
+            this(keepAssertionsInParsedTests, repairOnAssertionFailures,
+                    instructRepairToAvoidAssertions, executeParsedTests, true);
+        }
+
+        public RepairOptions(boolean keepAssertionsInParsedTests,
+                             boolean repairOnAssertionFailures,
+                             boolean instructRepairToAvoidAssertions,
+                             boolean executeParsedTests,
+                             boolean expandClusterOnDemand) {
             this.keepAssertionsInParsedTests = keepAssertionsInParsedTests;
             this.repairOnAssertionFailures = repairOnAssertionFailures;
             this.instructRepairToAvoidAssertions = instructRepairToAvoidAssertions;
             this.executeParsedTests = executeParsedTests;
+            this.expandClusterOnDemand = expandClusterOnDemand;
         }
 
         public boolean isKeepAssertionsInParsedTests() {
@@ -376,6 +401,17 @@ public class TestRepairLoop {
          */
         public boolean isExecuteParsedTests() {
             return executeParsedTests;
+        }
+
+        /**
+         * Whether {@link #attemptParse} may expand the test cluster itself when
+         * parsing hits unresolved symbols. When {@code false}, it stops instead
+         * of expanding and returns a failure flagged {@link
+         * RepairResult#needsClusterExpansion()} so the caller can expand and
+         * re-parse on a thread that is allowed to touch the cluster.
+         */
+        public boolean isExpandClusterOnDemand() {
+            return expandClusterOnDemand;
         }
     }
 
@@ -683,6 +719,14 @@ public class TestRepairLoop {
             if (validTests.isEmpty()
                     && hasResolutionErrors(parseResults)
                     && Properties.LLM_EXPAND_CLUSTER_ON_DEMAND) {
+                if (!repairOptions.isExpandClusterOnDemand()) {
+                    // This loop must not touch the shared TestCluster (it runs on a
+                    // worker thread); hand the response back unparsed instead of
+                    // burning a repair round-trip that expansion might make moot.
+                    Set<String> unresolved = clusterExpansionManager.extractUnresolvedSymbols(parseResults);
+                    diagnostics.add("Deferred cluster expansion: " + unresolved);
+                    return RepairResult.needsClusterExpansion(diagnostics, attemptsUsed, expandedClasses);
+                }
                 boolean expanded = false;
                 this.expansionAttempted = true;
                 try {

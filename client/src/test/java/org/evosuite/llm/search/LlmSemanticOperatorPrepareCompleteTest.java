@@ -35,11 +35,16 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -183,5 +188,46 @@ class LlmSemanticOperatorPrepareCompleteTest {
     void prepareRejectsEmptyTargetsAsTheFactoryDoes() {
         LlmSemanticMutation mutation = new LlmSemanticMutation(mock(LlmService.class));
         assertThrows(IllegalArgumentException.class, () -> mutation.prepare(Collections.emptyList()));
+    }
+
+    @Test
+    void completeDeferringExpansionFlagsResolutionErrorsAndReparseFinishesWithoutAnotherCall() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.isAvailable()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
+        String response =
+                "```java\n"
+                        + "import org.junit.Test;\n"
+                        + "public class GeneratedLlmTest {\n"
+                        + "  @Test\n"
+                        + "  public void test_target_1() {\n"
+                        + "    int result = undefinedVariableXyz123;\n"
+                        + "  }\n"
+                        + "}\n"
+                        + "```";
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(response, 1, 2, 3, 4L));
+
+        LlmSemanticMutation mutation = new LlmSemanticMutation(llmService);
+        List<OperatorTarget> targets = Collections.singletonList(
+                OperatorTarget.builder(makeChromosome(), makeGoal("g")).build());
+        PromptResult prompt = mutation.prepare(targets);
+
+        TargetedResponse deferred = mutation.completeDeferringExpansion(prompt, targets.size());
+
+        assertTrue(deferred.needsClusterExpansion(),
+                "an unresolved-symbol response must be handed back for the search thread to expand");
+        assertEquals(response, deferred.getRawResponse());
+        assertFalse(deferred.forTarget(1).isPresent());
+
+        TargetedResponse finished = mutation.reparseWithExpansion(prompt, deferred.getRawResponse(),
+                targets.size(), deferred.getUsage());
+
+        assertFalse(finished.needsClusterExpansion());
+        assertEquals(deferred.getUsage().getInputTokens(), finished.getUsage().getInputTokens(),
+                "the original call's usage must be reused, since no new call is made");
+        verify(llmService, times(1)).queryWithUsage(any(PromptResult.class), any(LlmFeature.class));
+        verify(llmService, never())
+                .query(anyList(), any(LlmFeature.class), anyInt(), anyBoolean(), anyList());
     }
 }

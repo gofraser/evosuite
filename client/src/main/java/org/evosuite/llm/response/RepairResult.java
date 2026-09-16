@@ -37,17 +37,20 @@ public class RepairResult {
     private final List<String> diagnostics;
     private final int attemptsUsed;
     private final List<String> expandedClasses;
+    private final boolean needsClusterExpansion;
 
     private RepairResult(boolean success,
                          List<ParseResult> parseResults,
                          List<String> diagnostics,
                          int attemptsUsed,
-                         List<String> expandedClasses) {
+                         List<String> expandedClasses,
+                         boolean needsClusterExpansion) {
         this.success = success;
         this.parseResults = parseResults;
         this.diagnostics = diagnostics;
         this.attemptsUsed = attemptsUsed;
         this.expandedClasses = expandedClasses;
+        this.needsClusterExpansion = needsClusterExpansion;
     }
 
     /** Creates a successful repair result with the given parse results, diagnostics, and expanded classes. */
@@ -59,7 +62,8 @@ public class RepairResult {
                 Collections.unmodifiableList(new ArrayList<>(parseResults)),
                 Collections.unmodifiableList(new ArrayList<>(diagnostics)),
                 attemptsUsed,
-                Collections.unmodifiableList(new ArrayList<>(expandedClasses)));
+                Collections.unmodifiableList(new ArrayList<>(expandedClasses)),
+                false);
     }
 
     /** Creates a failure result with diagnostics, attempt count, and any expanded classes. */
@@ -70,11 +74,40 @@ public class RepairResult {
                 Collections.<ParseResult>emptyList(),
                 Collections.unmodifiableList(new ArrayList<>(diagnostics)),
                 attemptsUsed,
-                Collections.unmodifiableList(new ArrayList<>(expandedClasses)));
+                Collections.unmodifiableList(new ArrayList<>(expandedClasses)),
+                false);
+    }
+
+    /**
+     * Creates a failure result for a loop that stopped because parsing hit
+     * unresolved symbols but its {@link TestRepairLoop.RepairOptions} forbid
+     * expanding the test cluster itself (a background worker thread, which
+     * must not mutate state the search thread reads concurrently). The
+     * caller is expected to expand the cluster and re-parse the same
+     * response on the search thread instead.
+     */
+    public static RepairResult needsClusterExpansion(List<String> diagnostics,
+                                                      int attemptsUsed,
+                                                      List<String> expandedClasses) {
+        return new RepairResult(false,
+                Collections.<ParseResult>emptyList(),
+                Collections.unmodifiableList(new ArrayList<>(diagnostics)),
+                attemptsUsed,
+                Collections.unmodifiableList(new ArrayList<>(expandedClasses)),
+                true);
     }
 
     public boolean isSuccess() {
         return success;
+    }
+
+    /**
+     * Whether this (failed) result stopped short because expanding the test
+     * cluster could resolve it, but the loop that produced it was configured
+     * not to perform expansion itself.
+     */
+    public boolean needsClusterExpansion() {
+        return needsClusterExpansion;
     }
 
     public List<ParseResult> getParseResults() {

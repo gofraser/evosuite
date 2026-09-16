@@ -498,6 +498,87 @@ class LlmOperatorExecutorTest {
         }
     }
 
+    /**
+     * A response whose only test references an unresolved bare name; the real parser flags
+     * it as a resolution error, which is exactly the case a worker thread must hand back
+     * unfinished rather than expand the shared test cluster itself.
+     */
+    private static final String UNRESOLVED_SYMBOL_RESPONSE =
+            "```java\n"
+                    + "import org.junit.Test;\n"
+                    + "public class GeneratedLlmTest {\n"
+                    + "  @Test\n"
+                    + "  public void test_target_1() {\n"
+                    + "    int result = undefinedVariableXyz123;\n"
+                    + "  }\n"
+                    + "}\n"
+                    + "```";
+
+    @Test
+    void deferredExpansionResponseIsNotPublishedUntilDrainFinishesIt() throws Exception {
+        LlmService llmService = availableService();
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 0, 0, 0, 0L));
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
+
+        OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
+
+        try {
+            assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
+            awaitInFlightZero(executor, 5);
+
+            // The worker's call already came back, but it must not expand the cluster itself:
+            // no response is recorded (the row stays open, without a parse status) until
+            // drain() runs on the search thread.
+            OperatorAttemptRecord openRecord = OperatorAttemptLog.getInstance().recordFor("prompt-1");
+            assertNotNull(openRecord);
+            assertFalse(openRecord.toCsvRow().contains(",PARSE_FAILED,"),
+                    "no response should be recorded yet: " + openRecord.toCsvRow());
+            assertEquals(0, executor.getProducedCandidates());
+            assertEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
+                    memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
+
+            assertTrue(executor.drain().isEmpty(),
+                    "the undefined name never actually resolves to a class, so nothing is produced");
+
+            OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
+            assertNotNull(record);
+            assertTrue(record.toCsvRow().contains(",PARSE_FAILED,"),
+                    "expected the deferred re-parse to still fail once expansion could not help: "
+                            + record.toCsvRow());
+        } finally {
+            executor.shutdown();
+        }
+    }
+
+    @Test
+    void shutdownReleasesADeferredExpansionAttempt() throws Exception {
+        LlmService llmService = availableService();
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 0, 0, 0, 0L));
+        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+        LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
+
+        OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
+
+        assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
+        awaitInFlightZero(executor, 5);
+
+        // The response is sitting in the deferred queue, waiting for drain(); shutdown() must
+        // still release its attempt rather than leave it dangling in flight.
+        executor.shutdown();
+
+        assertTrue(executor.drain().isEmpty());
+        assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
+                memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
+
+        OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
+        assertNotNull(record);
+        assertTrue(record.toCsvRow().contains(",UNDELIVERED,"),
+                "expected an UNDELIVERED parse status: " + record.toCsvRow());
+    }
+
     @Test
     void shutdownReleasesOpenAttemptsAndStopsAcceptingWork() throws Exception {
         LlmService llmService = availableService();

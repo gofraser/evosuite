@@ -55,15 +55,20 @@ public final class TargetedResponse {
     private final int repairTurns;
     private final boolean parseSucceeded;
     private final CallUsage usage;
+    private final boolean needsClusterExpansion;
+    private final String rawResponse;
 
     private TargetedResponse(Map<Integer, TestCase> matched, List<TestCase> unmatched, Status status,
-                             int repairTurns, boolean parseSucceeded, CallUsage usage) {
+                             int repairTurns, boolean parseSucceeded, CallUsage usage,
+                             boolean needsClusterExpansion, String rawResponse) {
         this.matched = Collections.unmodifiableMap(matched);
         this.unmatched = Collections.unmodifiableList(unmatched);
         this.status = status;
         this.repairTurns = repairTurns;
         this.parseSucceeded = parseSucceeded;
         this.usage = usage;
+        this.needsClusterExpansion = needsClusterExpansion;
+        this.rawResponse = rawResponse == null ? "" : rawResponse;
     }
 
     /**
@@ -73,13 +78,26 @@ public final class TargetedResponse {
      * prompt) can record it against each of them.
      */
     public static TargetedResponse map(RepairResult result, int targetCount, CallUsage usage) {
+        return map(result, targetCount, usage, "");
+    }
+
+    /**
+     * Same as {@link #map(RepairResult, int, CallUsage)}, but also carries the
+     * raw LLM text {@code result} was parsed from. A caller whose repair loop
+     * deferred cluster expansion ({@link RepairResult#needsClusterExpansion()})
+     * needs this text to re-parse the same response once the cluster has been
+     * expanded elsewhere; other callers can ignore it.
+     */
+    public static TargetedResponse map(RepairResult result, int targetCount, CallUsage usage, String rawResponse) {
         Map<Integer, TestCase> matched = new TreeMap<>();
         List<TestCase> unmatched = new ArrayList<>();
         int repairTurns = result == null ? 0 : result.getAttemptsUsed();
         boolean parseSucceeded = result != null && result.isSuccess();
+        boolean needsClusterExpansion = result != null && result.needsClusterExpansion();
         CallUsage safeUsage = usage == null ? CallUsage.NONE : usage;
         if (result == null || !result.isSuccess()) {
-            return new TargetedResponse(matched, unmatched, Status.DELIVERED, repairTurns, parseSucceeded, safeUsage);
+            return new TargetedResponse(matched, unmatched, Status.DELIVERED, repairTurns, parseSucceeded,
+                    safeUsage, needsClusterExpansion, rawResponse);
         }
         for (ParseResult parsed : result.getParseResults()) {
             TestCase test = parsed.getTestCase();
@@ -93,7 +111,8 @@ public final class TargetedResponse {
                 unmatched.add(test);
             }
         }
-        return new TargetedResponse(matched, unmatched, Status.DELIVERED, repairTurns, parseSucceeded, safeUsage);
+        return new TargetedResponse(matched, unmatched, Status.DELIVERED, repairTurns, parseSucceeded,
+                safeUsage, needsClusterExpansion, rawResponse);
     }
 
     /**
@@ -106,19 +125,19 @@ public final class TargetedResponse {
      * Status#DELIVERED}: the call went through, whatever came back of it.
      */
     public static TargetedResponse map(RepairResult result, int targetCount) {
-        return map(result, targetCount, CallUsage.NONE);
+        return map(result, targetCount, CallUsage.NONE, "");
     }
 
     /** An empty, {@link Status#NO_BUDGET} response: no call was made, budget ran out first. */
     public static TargetedResponse noBudget() {
         return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(),
-                Status.NO_BUDGET, 0, false, CallUsage.NONE);
+                Status.NO_BUDGET, 0, false, CallUsage.NONE, false, "");
     }
 
     /** An empty, {@link Status#FAILED} response: the call went out but never came back. */
     public static TargetedResponse failed() {
         return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(),
-                Status.FAILED, 0, false, CallUsage.NONE);
+                Status.FAILED, 0, false, CallUsage.NONE, false, "");
     }
 
     public Status getStatus() {
@@ -138,6 +157,27 @@ public final class TargetedResponse {
     /** Token usage and latency of the call behind this response; {@link CallUsage#NONE} when there was none. */
     public CallUsage getUsage() {
         return usage;
+    }
+
+    /**
+     * Whether the repair loop stopped short because expanding the test cluster
+     * could resolve the response, but the loop was not allowed to expand it
+     * itself (see {@link org.evosuite.llm.response.TestRepairLoop.RepairOptions#isExpandClusterOnDemand()}).
+     * {@link #getRawResponse()} carries the text to re-parse once the cluster
+     * has been expanded elsewhere.
+     */
+    public boolean needsClusterExpansion() {
+        return needsClusterExpansion;
+    }
+
+    /**
+     * The raw LLM text behind this response, for a caller that needs to
+     * re-parse it (e.g. after {@link #needsClusterExpansion()}); empty when
+     * there was no underlying call ({@link Status#NO_BUDGET} or {@link
+     * Status#FAILED}).
+     */
+    public String getRawResponse() {
+        return rawResponse;
     }
 
     /** The 1-based target number encoded in {@code methodName}, or 0 when it names no target in range. */

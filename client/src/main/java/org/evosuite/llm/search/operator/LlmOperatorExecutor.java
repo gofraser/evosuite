@@ -55,10 +55,14 @@ import java.util.function.LongSupplier;
  * {@code ASYNC} mode. {@link #submit} renders each batch's prompt on the
  * calling (search) thread via {@link LlmSemanticOperator#prepare} — that step
  * reads parent chromosome state and must not race the GA — then hands the
- * batch to a worker thread that only calls {@link LlmSemanticOperator#complete}
- * and parses the response. Workers never execute a test case: the resulting
- * {@link TestChromosome}s are queued and evaluated later by the GA, when it
- * calls {@link #drain()} on the search thread.
+ * batch to a worker thread that only calls {@link
+ * LlmSemanticOperator#completeDeferringExpansion} and parses the response.
+ * Workers never execute a test case, nor expand the shared test cluster: a
+ * response whose parse needs cluster expansion is queued unfinished and
+ * completed by {@link LlmSemanticOperator#reparseWithExpansion} when {@link
+ * #drain()} runs on the search thread, the only thread allowed to touch the
+ * cluster. The resulting {@link TestChromosome}s are queued and evaluated
+ * later by the GA, when it calls {@link #drain()}.
  */
 public final class LlmOperatorExecutor {
 
@@ -75,6 +79,7 @@ public final class LlmOperatorExecutor {
 
     private final ConcurrentLinkedQueue<Map.Entry<TestChromosome, InjectionAttemptMetadata>> queue =
             new ConcurrentLinkedQueue<>();
+    private final ConcurrentLinkedQueue<DeferredResponse> deferredResponses = new ConcurrentLinkedQueue<>();
     private final Map<TestChromosome, InjectionAttemptMetadata> pendingMetadata = new IdentityHashMap<>();
     private final Set<String> openAttemptIds = ConcurrentHashMap.newKeySet();
     private final AtomicInteger inFlight = new AtomicInteger();
@@ -198,26 +203,18 @@ public final class LlmOperatorExecutor {
     /** Worker-thread body: makes the LLM call, then publishes or releases the batch's attempts. */
     private void runBatch(LlmSemanticOperator operator, PromptResult prompt, OperatorBatchAttribution attribution) {
         try {
-            TargetedResponse response = operator.complete(prompt, attribution.size());
+            TargetedResponse response = operator.completeDeferringExpansion(prompt, attribution.size());
             if (shutDown) {
                 return; // shutdown() releases these attempts; do not publish or close them here.
             }
-            switch (response.getStatus()) {
-                case NO_BUDGET:
-                    droppedBudget.incrementAndGet();
-                    recordBatchResponse(response, attribution);
-                    release(attribution);
-                    break;
-                case FAILED:
-                    failedCalls.incrementAndGet();
-                    recordBatchResponse(response, attribution);
-                    release(attribution);
-                    break;
-                case DELIVERED:
-                default:
-                    publish(response, attribution);
-                    break;
+            if (response.needsClusterExpansion()) {
+                // Only the search thread may expand the shared TestCluster; queue the raw
+                // response for drain() to finish there instead. The attempt stays open.
+                deferredResponses.add(new DeferredResponse(operator, prompt, attribution,
+                        response.getRawResponse(), response.getUsage()));
+                return;
             }
+            handleResponse(response, attribution);
         } catch (RuntimeException e) {
             logger.debug("LLM operator call failed: {}", e.getMessage());
             if (!shutDown) {
@@ -232,6 +229,26 @@ public final class LlmOperatorExecutor {
             throw e;
         } finally {
             inFlight.decrementAndGet();
+        }
+    }
+
+    /** Publishes or releases a completed response's attempts, whether from a worker or a finished deferral. */
+    private void handleResponse(TargetedResponse response, OperatorBatchAttribution attribution) {
+        switch (response.getStatus()) {
+            case NO_BUDGET:
+                droppedBudget.incrementAndGet();
+                recordBatchResponse(response, attribution);
+                release(attribution);
+                break;
+            case FAILED:
+                failedCalls.incrementAndGet();
+                recordBatchResponse(response, attribution);
+                release(attribution);
+                break;
+            case DELIVERED:
+            default:
+                publish(response, attribution);
+                break;
         }
     }
 
@@ -325,11 +342,16 @@ public final class LlmOperatorExecutor {
         }
     }
 
-    /** Drains every candidate produced so far. Empty once shut down. */
+    /**
+     * Drains every candidate produced so far. Empty once shut down. First finishes any
+     * response a worker deferred because parsing it needed the test cluster expanded
+     * (see {@link #runBatch}) — this thread is the only one allowed to do that.
+     */
     public List<TestChromosome> drain() {
         if (shutDown) {
             return Collections.emptyList();
         }
+        finishDeferredResponses();
         List<TestChromosome> result = new ArrayList<>();
         Map.Entry<TestChromosome, InjectionAttemptMetadata> entry;
         while ((entry = queue.poll()) != null) {
@@ -337,6 +359,16 @@ public final class LlmOperatorExecutor {
             result.add(entry.getKey());
         }
         return result;
+    }
+
+    /** Re-parses every deferred response on this (search) thread and publishes or releases it. */
+    private void finishDeferredResponses() {
+        DeferredResponse deferred;
+        while ((deferred = deferredResponses.poll()) != null) {
+            TargetedResponse response = deferred.operator.reparseWithExpansion(
+                    deferred.prompt, deferred.rawResponse, deferred.attribution.size(), deferred.usage);
+            handleResponse(response, deferred.attribution);
+        }
     }
 
     /** Removes and returns the attribution metadata for a candidate drawn from {@link #drain()}. */
@@ -393,5 +425,29 @@ public final class LlmOperatorExecutor {
         openAttemptIds.clear();
         queue.clear();
         pendingMetadata.clear();
+        deferredResponses.clear();
+    }
+
+    /**
+     * A worker's response that needed the test cluster expanded before it could finish
+     * parsing, waiting for {@link #drain()} to complete it via {@link
+     * LlmSemanticOperator#reparseWithExpansion}. Its attempts are left open in {@link
+     * #openAttemptIds} until then.
+     */
+    private static final class DeferredResponse {
+        private final LlmSemanticOperator operator;
+        private final PromptResult prompt;
+        private final OperatorBatchAttribution attribution;
+        private final String rawResponse;
+        private final TargetedResponse.CallUsage usage;
+
+        DeferredResponse(LlmSemanticOperator operator, PromptResult prompt, OperatorBatchAttribution attribution,
+                         String rawResponse, TargetedResponse.CallUsage usage) {
+            this.operator = operator;
+            this.prompt = prompt;
+            this.attribution = attribution;
+            this.rawResponse = rawResponse;
+            this.usage = usage;
+        }
     }
 }

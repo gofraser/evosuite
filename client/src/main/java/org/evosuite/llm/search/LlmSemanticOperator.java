@@ -54,7 +54,22 @@ public abstract class LlmSemanticOperator {
     private final TargetedPromptFactory promptFactory;
 
     /** One loop per calling thread; see {@link #repairLoop()}. */
-    private final ThreadLocal<TestRepairLoop> repairLoops = ThreadLocal.withInitial(this::newRepairLoop);
+    private final ThreadLocal<TestRepairLoop> repairLoops =
+            ThreadLocal.withInitial(() -> newRepairLoop(true));
+
+    /**
+     * One loop per calling thread that must never expand the test cluster
+     * itself; see {@link #completeDeferringExpansion(PromptResult, int)}.
+     */
+    private final ThreadLocal<TestRepairLoop> deferringRepairLoops =
+            ThreadLocal.withInitial(() -> newRepairLoop(false));
+
+    /**
+     * One loop per calling thread for {@link #reparseWithExpansion}: expansion
+     * allowed (it runs on the search thread), but zero LLM repair round-trips.
+     */
+    private final ThreadLocal<TestRepairLoop> reparseRepairLoops =
+            ThreadLocal.withInitial(this::newReparseRepairLoop);
 
     protected LlmSemanticOperator(LlmService llmService, LlmFeature feature) {
         this(llmService, feature, new TargetedPromptFactory());
@@ -164,6 +179,63 @@ public abstract class LlmSemanticOperator {
     }
 
     /**
+     * Same as {@link #complete(PromptResult, int)}, but for a caller that runs
+     * on a background worker and must never mutate the shared {@link
+     * org.evosuite.setup.TestCluster}: its per-thread repair loop is built
+     * with expansion disallowed, so a response that hits unresolved symbols
+     * is handed back unfinished rather than expanded here. The returned
+     * {@link TargetedResponse} is then flagged {@link
+     * TargetedResponse#needsClusterExpansion()} and carries the raw LLM text
+     * ({@link TargetedResponse#getRawResponse()}) so the search thread can
+     * expand the cluster and finish the parse via {@link
+     * #reparseWithExpansion(PromptResult, String, int, TargetedResponse.CallUsage)}.
+     *
+     * @param targetCount the number of targets the prompt was built for
+     */
+    public TargetedResponse completeDeferringExpansion(PromptResult prompt, int targetCount) {
+        if (!canCall()) {
+            return TargetedResponse.noBudget();
+        }
+        try {
+            LlmService.QueryResult queryResult = llmService.queryWithUsage(prompt, feature);
+            RepairResult result = deferringRepairLoops.get()
+                    .attemptParse(queryResult.getText(), prompt.getMessages(), feature);
+            TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
+                    queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
+                    queryResult.getOutputTokens(), queryResult.getLatencyMs());
+            return TargetedResponse.map(result, targetCount, usage, queryResult.getText());
+        } catch (LlmBudgetExceededException e) {
+            logger.debug("LLM {} budget exceeded", feature);
+            return TargetedResponse.noBudget();
+        } catch (LlmCallFailedException e) {
+            logger.debug("LLM {} call failed: {}", feature, e.getMessage());
+            return TargetedResponse.failed();
+        } catch (RuntimeException e) {
+            logger.debug("LLM {} error: {}", feature, e.getMessage());
+            return TargetedResponse.failed();
+        }
+    }
+
+    /**
+     * Finishes a response that {@link #completeDeferringExpansion} could not
+     * because it needed the test cluster expanded first. Runs a per-thread
+     * repair loop with expansion allowed but zero LLM repair round-trips over
+     * the same raw text ({@code rawResponse}), and maps the result with
+     * {@code usage} rather than issuing a new call: those tokens were already
+     * spent by the call that produced {@code rawResponse}. A response whose
+     * parse needed expansion therefore gets no further repair turns. Must run
+     * on the search thread — the only one allowed to expand the cluster.
+     *
+     * @param targetCount the number of targets the original prompt was built for
+     * @param usage the usage of the call that produced {@code rawResponse}
+     */
+    public TargetedResponse reparseWithExpansion(PromptResult prompt, String rawResponse, int targetCount,
+                                                 TargetedResponse.CallUsage usage) {
+        RepairResult result = reparseRepairLoops.get().attemptParse(rawResponse, prompt.getMessages(), feature);
+        return TargetedResponse.map(result, targetCount, usage, rawResponse);
+    }
+
+    /**
      * Returns this thread's repair loop, building it on first use: construction
      * summarises the test cluster, which is too expensive to repeat per
      * application, while {@link TestRepairLoop#attemptParse} keeps per-call
@@ -175,10 +247,17 @@ public abstract class LlmSemanticOperator {
         return repairLoops.get();
     }
 
-    private TestRepairLoop newRepairLoop() {
+    private TestRepairLoop newRepairLoop(boolean expandClusterOnDemand) {
         boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         return TestRepairLoop.createDefault(llmService,
-                TestRepairLoop.RepairOptions.parseOnly(keepAssertions),
+                TestRepairLoop.RepairOptions.parseOnly(keepAssertions, expandClusterOnDemand),
                 Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
+    }
+
+    private TestRepairLoop newReparseRepairLoop() {
+        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
+        return TestRepairLoop.createDefault(llmService,
+                TestRepairLoop.RepairOptions.parseOnly(keepAssertions, true),
+                0);
     }
 }
