@@ -22,6 +22,7 @@ package org.evosuite.utils.generic;
 import java.lang.reflect.Array;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 
 public class GenericArrayTypeImpl implements GenericArrayType {
 
@@ -44,6 +45,19 @@ public class GenericArrayTypeImpl implements GenericArrayType {
     public static Type createArrayType(Type componentType) {
         if (componentType == null) {
             return Object[].class;
+        }
+        if (componentType instanceof WildcardType) {
+            // "?[]" is not a Java type, but substituting a wildcard for E in E[]
+            // produces it (CompositeCollection.toArray(T[])); gentyref's erase()
+            // then throws "not supported: WildcardTypeImpl" from deep inside
+            // isAssignable() and aborts the search. Use the bound instead: an
+            // array of "? extends X" is read-compatible with X[], and anything
+            // else is Object[].
+            WildcardType wildcard = (WildcardType) componentType;
+            Type[] upper = wildcard.getUpperBounds();
+            componentType = wildcard.getLowerBounds().length == 0 && upper.length > 0 && upper[0] != null
+                    ? upper[0] : Object.class;
+            return createArrayType(componentType);
         }
         if (componentType instanceof Class) {
             return createArrayType((Class<?>) componentType);

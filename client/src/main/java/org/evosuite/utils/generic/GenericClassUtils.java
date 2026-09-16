@@ -106,7 +106,15 @@ public class GenericClassUtils {
             return false;
         }
 
-        Type exactSuperType = GenericTypeReflector.getExactSuperType(rhsType, lhsRawClass);
+        Type exactSuperType;
+        try {
+            exactSuperType = GenericTypeReflector.getExactSuperType(rhsType, lhsRawClass);
+        } catch (RuntimeException e) {
+            // gentyref rejects types it cannot erase (wildcards nested in
+            // arrays or bounds); not assignable is the safe answer.
+            logger.debug("Cannot compute exact super type of {}: {}", rhsType, e.toString());
+            return false;
+        }
         if (exactSuperType == null) {
             return false;
         }

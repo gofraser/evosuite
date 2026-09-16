@@ -147,7 +147,11 @@ public class TestMutator {
      * @return true if the call was changed
      */
     public boolean changeRandomCall(TestCase test, Statement statement) {
-        logger.debug("Changing statement {}", statement.getCode());
+        if (logger.isDebugEnabled()) {
+            // getCode() renders the statement; never let a code-generation
+            // problem abort the search from a log line.
+            logger.debug("Changing statement {}", statement.getCode());
+        }
 
         if (statement instanceof UninterpretedStatement) {
             // Snippets are opaque text: replacing them with a fresh
