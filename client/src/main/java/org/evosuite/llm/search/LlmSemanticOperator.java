@@ -200,6 +200,7 @@ public abstract class LlmSemanticOperator {
             LlmService.QueryResult queryResult = llmService.queryWithUsage(prompt, feature);
             RepairResult result = deferringRepairLoops.get()
                     .attemptParse(queryResult.getText(), prompt.getMessages(), feature);
+            logParseOutcome("worker", result);
             TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
                     queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
                     queryResult.getOutputTokens(), queryResult.getLatencyMs());
@@ -232,7 +233,15 @@ public abstract class LlmSemanticOperator {
     public TargetedResponse reparseWithExpansion(PromptResult prompt, String rawResponse, int targetCount,
                                                  TargetedResponse.CallUsage usage) {
         RepairResult result = reparseRepairLoops.get().attemptParse(rawResponse, prompt.getMessages(), feature);
+        logParseOutcome("search-thread re-parse", result);
         return TargetedResponse.map(result, targetCount, usage, rawResponse);
+    }
+
+    private void logParseOutcome(String stage, RepairResult result) {
+        if (logger.isDebugEnabled() && result != null && !result.isSuccess()) {
+            logger.debug("LLM {} {} parse failed (needsClusterExpansion={}): {}", feature, stage,
+                    result.needsClusterExpansion(), result.getDiagnostics());
+        }
     }
 
     /**

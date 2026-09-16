@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.factory;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
 import org.evosuite.ga.ChromosomeFactory;
 import org.evosuite.llm.LlmBudgetExceededException;
@@ -73,7 +74,7 @@ public class LlmSeededPopulationFactory implements ChromosomeFactory<TestChromos
     private static final Logger logger = LoggerFactory.getLogger(LlmSeededPopulationFactory.class);
     /** Blocking provider I/O must never occupy ForkJoinPool.commonPool workers. */
     private static final ExecutorService LLM_SEED_EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread thread = new Thread(r, "llm-initial-seeding");
+        Thread thread = new Thread(r, LlmPrivilegedThreads.threadName("initial-seeding"));
         thread.setDaemon(true);
         return thread;
     });

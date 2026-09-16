@@ -38,7 +38,21 @@ public final class LlmPrivilegedThreads {
 
     private static final Logger logger = LoggerFactory.getLogger(LlmPrivilegedThreads.class);
 
+    /**
+     * Every LLM background thread is named with this prefix. Test execution
+     * interrupts any thread that appears while a test runs ({@code
+     * ThreadStopper} treats it as a leaked SUT thread); {@code TestRunnable}
+     * exempts this prefix so a worker or compile thread born mid-test is not
+     * interrupted in the middle of an HTTP read or a javac run.
+     */
+    public static final String THREAD_NAME_PREFIX = "evosuite-llm-";
+
     private LlmPrivilegedThreads() {
+    }
+
+    /** The name for an LLM background thread with the given role, e.g. {@code operator-1}. */
+    public static String threadName(String role) {
+        return THREAD_NAME_PREFIX + role;
     }
 
     /**

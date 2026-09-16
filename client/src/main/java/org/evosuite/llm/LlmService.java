@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
 import org.evosuite.llm.provider.AnthropicChatModel;
@@ -721,7 +722,7 @@ public class LlmService implements AutoCloseable {
 
     private static ExecutorService createExecutorService() {
         return Executors.newCachedThreadPool(r -> {
-            Thread worker = new Thread(r, "llm-timeout-guard");
+            Thread worker = new Thread(r, LlmPrivilegedThreads.threadName("timeout-guard"));
             worker.setDaemon(true);
             if (Sandbox.isSecurityManagerInitialized()) {
                 try {

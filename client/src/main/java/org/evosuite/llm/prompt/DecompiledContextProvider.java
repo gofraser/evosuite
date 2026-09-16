@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.prompt;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.benf.cfr.reader.api.CfrDriver;
 import org.benf.cfr.reader.api.ClassFileSource;
 import org.benf.cfr.reader.api.OutputSinkFactory;
@@ -70,7 +71,7 @@ public class DecompiledContextProvider implements SutContextProvider {
 
     private static ExecutorService createExecutor() {
         return Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "cfr-decompiler");
+            Thread t = new Thread(r, LlmPrivilegedThreads.threadName("decompiler"));
             t.setDaemon(true);
             return t;
         });

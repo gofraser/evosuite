@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.execution;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
@@ -212,11 +213,21 @@ public class TestRunnable implements InterfaceTestRunnable {
         runFinished = false;
 
         KillSwitch killSwitch = ExecutionTracer::setKillSwitch;
+        threadStopper = new ThreadStopper(killSwitch, threadsToIgnore(), Properties.TIMEOUT);
+    }
+
+    /**
+     * Thread-name prefixes the {@link ThreadStopper} must leave alone after a test: the
+     * execution thread itself, the user's {@code ignore_threads}, and the LLM background
+     * threads (workers, HTTP timeout guards, the parse-phase compiler), which the search
+     * starts on its own schedule — one born while a test runs is not a leaked SUT thread.
+     */
+    static Set<String> threadsToIgnore() {
         Set<String> threadsToIgnore = new LinkedHashSet<>();
         threadsToIgnore.add(TestCaseExecutor.TEST_EXECUTION_THREAD);
         threadsToIgnore.addAll(Arrays.asList(Properties.IGNORE_THREADS));
-
-        threadStopper = new ThreadStopper(killSwitch, threadsToIgnore, Properties.TIMEOUT);
+        threadsToIgnore.add(LlmPrivilegedThreads.THREAD_NAME_PREFIX);
+        return threadsToIgnore;
     }
 
     /**

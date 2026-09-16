@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.response;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
@@ -166,7 +167,7 @@ public class TestRepairLoop {
 
     private static ExecutorService createParseCompileExecutor() {
         return Executors.newSingleThreadExecutor(r -> {
-            Thread t = new Thread(r, "evosuite-llm-parse-compile");
+            Thread t = new Thread(r, LlmPrivilegedThreads.threadName("parse-compile"));
             t.setDaemon(true);
             return t;
         });

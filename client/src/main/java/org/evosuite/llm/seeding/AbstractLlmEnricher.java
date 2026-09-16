@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.seeding;
 
+import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmService;
 import org.evosuite.setup.TestCluster;
@@ -44,7 +45,7 @@ public abstract class AbstractLlmEnricher<R extends AbstractLlmEnricher.Enrichme
 
     /** Shared executor for all enrichment async work. Daemon threads so JVM exit is not blocked. */
     static final ExecutorService LLM_ENRICHMENT_EXECUTOR = Executors.newCachedThreadPool(r -> {
-        Thread t = new Thread(r, "llm-enrichment");
+        Thread t = new Thread(r, LlmPrivilegedThreads.threadName("enrichment"));
         t.setDaemon(true);
         return t;
     });
