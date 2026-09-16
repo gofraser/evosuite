@@ -209,9 +209,14 @@ public class PromptBuilder {
                 reminders = Arrays.asList(REMINDER_GENERIC_TYPES, REMINDER_VISIBILITY);
             }
         }
+        // Same rule SutContextProviderFactory applies to its own cache: SIGNATURE_ONLY depends on
+        // the (expandable) test cluster, and a fallback means the primary mode should be retried.
+        Properties.LlmSutContextMode mode = Properties.LLM_SUT_CONTEXT_MODE;
+        boolean stable = mode != Properties.LlmSutContextMode.SIGNATURE_ONLY
+                && result.getModeUsed() == mode;
         return new StaticPromptContext.SutEntry(sectionText, reminders, result.getModeUsed(),
                 result.isContextUnavailable(), result.isContextTruncated(), result.isCommentsStripped(),
-                result.isSelectivelyTruncated());
+                result.isSelectivelyTruncated(), stable);
     }
 
     /** Adds test cluster context (available API signatures) to the user prompt. */

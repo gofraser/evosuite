@@ -65,11 +65,25 @@ public final class StaticPromptContext {
 
     /**
      * Returns the memoised SUT-context entry for {@code (className, includeReminders)},
-     * rendering it via {@code supplier} on first use.
+     * rendering it via {@code supplier} on first use. Only a {@link SutEntry#isStable() stable}
+     * render is memoised: a fallback (e.g. the decompiler timed out on a cold JVM) or a
+     * cluster-dependent {@code SIGNATURE_ONLY} render is returned for this prompt but rendered
+     * again for the next one, mirroring what {@code SutContextProviderFactory} itself caches.
      */
     public static SutEntry sutEntry(String className, boolean includeReminders, Supplier<SutEntry> supplier) {
         String key = (className == null ? "" : className) + "|" + includeReminders;
-        return SUT_ENTRIES.computeIfAbsent(key, k -> supplier.get());
+        SutEntry entry = SUT_ENTRIES.get(key);
+        if (entry != null) {
+            return entry;
+        }
+        entry = supplier.get();
+        if (entry.isStable()) {
+            SutEntry raced = SUT_ENTRIES.putIfAbsent(key, entry);
+            if (raced != null) {
+                return raced;
+            }
+        }
+        return entry;
     }
 
     /**
@@ -132,10 +146,19 @@ public final class StaticPromptContext {
         private final boolean truncated;
         private final boolean commentsStripped;
         private final boolean selectivelyTruncated;
+        private final boolean stable;
 
         public SutEntry(String sectionText, List<String> reminderTexts,
                         Properties.LlmSutContextMode modeUsed, boolean unavailable,
                         boolean truncated, boolean commentsStripped, boolean selectivelyTruncated) {
+            this(sectionText, reminderTexts, modeUsed, unavailable, truncated, commentsStripped,
+                    selectivelyTruncated, true);
+        }
+
+        public SutEntry(String sectionText, List<String> reminderTexts,
+                        Properties.LlmSutContextMode modeUsed, boolean unavailable,
+                        boolean truncated, boolean commentsStripped, boolean selectivelyTruncated,
+                        boolean stable) {
             this.sectionText = sectionText;
             // Defensive copy: reminderTexts is caller-supplied and this entry is
             // memoised and shared across every prompt (and thread) in the run.
@@ -146,6 +169,15 @@ public final class StaticPromptContext {
             this.truncated = truncated;
             this.commentsStripped = commentsStripped;
             this.selectivelyTruncated = selectivelyTruncated;
+            this.stable = stable;
+        }
+
+        /**
+         * True if this render is class-intrinsic and may be reused for the rest of the run;
+         * false for a fallback or cluster-dependent render that should be redone per prompt.
+         */
+        public boolean isStable() {
+            return stable;
         }
 
         /** The rendered "CLASS UNDER TEST (SUT): ..." block, or {@code null} if no context was available. */

@@ -123,6 +123,57 @@ class PromptBuilderSutContextTest {
         assertTrue(userPrompt.contains("bytecode content"));
     }
 
+    /**
+     * A cold-JVM decompiler timeout on the first prompt must not pin the
+     * SIGNATURE_ONLY fallback for the rest of the run: the memo stores only a
+     * render of the configured mode, so the next prompt retries the decompile.
+     */
+    @Test
+    void withSutContextStaticCacheDoesNotMemoiseAFallbackRender() {
+        Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
+        Properties.LLM_SUT_CONTEXT_MODE = LlmSutContextMode.DECOMPILED_SOURCE;
+        Properties.LLM_CONTEXT_FALLBACK_ENABLED = true;
+
+        SutContextProvider signature = new StubSutContextProvider("signature content");
+        FlakyFirstCallProvider decompiler = new FlakyFirstCallProvider("decompiled content");
+        SutContextProviderFactory factory = new SutContextProviderFactory(
+                signature, signature, decompiler, signature);
+
+        PromptResult first = builderWith(factory)
+                .withSystemPrompt()
+                .withSutContext("com.example.Foo", null)
+                .withInstruction("Generate tests.")
+                .buildWithMetadata();
+        PromptResult second = builderWith(factory)
+                .withSystemPrompt()
+                .withSutContext("com.example.Foo", null)
+                .withInstruction("Generate tests.")
+                .buildWithMetadata();
+        PromptResult third = builderWith(factory)
+                .withSystemPrompt()
+                .withSutContext("com.example.Foo", null)
+                .withInstruction("Generate tests.")
+                .buildWithMetadata();
+
+        assertEquals(LlmSutContextMode.SIGNATURE_ONLY, first.getSutContextMode());
+        assertTrue(first.getMessages().get(0).getContent().contains("signature content"));
+        assertEquals(LlmSutContextMode.DECOMPILED_SOURCE, second.getSutContextMode(),
+                "the fallback render must not be served from the memo on the next prompt");
+        assertTrue(second.getMessages().get(0).getContent().contains("decompiled content"));
+        assertEquals(LlmSutContextMode.DECOMPILED_SOURCE, third.getSutContextMode());
+        assertEquals(2, decompiler.calls, "the successful decompile is memoised for later prompts");
+    }
+
+    private static PromptBuilder builderWith(SutContextProviderFactory factory) {
+        return new PromptBuilder(
+                new SystemPromptProvider(),
+                new TestClusterSummarizer(),
+                new SourceCodeProvider(),
+                new CoverageGoalFormatter(),
+                new TestCaseFormatter(),
+                factory);
+    }
+
     @Test
     void withSutContextStaticCacheEnabledPlacesSectionInSystemMessage() {
         Properties.LLM_PROMPT_CACHE_STATIC_CONTEXT = true;
@@ -392,6 +443,19 @@ class PromptBuilderSutContextTest {
         }
         @Override
         public String modeLabel() { return "stub"; }
+    }
+
+    /** Fails on its first call only, like a decompiler timing out on a cold JVM. */
+    private static class FlakyFirstCallProvider implements SutContextProvider {
+        private final String output;
+        int calls;
+        FlakyFirstCallProvider(String output) { this.output = output; }
+        @Override
+        public Optional<String> getContext(String className, TestCluster cluster) {
+            return ++calls == 1 ? Optional.empty() : Optional.of(output);
+        }
+        @Override
+        public String modeLabel() { return "flaky"; }
     }
 
     private static class FailingSutContextProvider implements SutContextProvider {
