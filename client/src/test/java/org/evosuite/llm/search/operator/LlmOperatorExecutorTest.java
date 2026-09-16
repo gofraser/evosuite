@@ -19,6 +19,7 @@
  */
 package org.evosuite.llm.search.operator;
 
+import org.evosuite.Properties;
 import org.evosuite.llm.LlmBudgetExceededException;
 import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
@@ -36,7 +37,12 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -67,14 +73,46 @@ import static org.mockito.Mockito.when;
  */
 class LlmOperatorExecutorTest {
 
+    @TempDir
+    Path tempReportDir;
+
+    private String originalReportDir;
+    private String originalTargetClass;
+    private boolean originalAttemptLogEnabled;
+
     @BeforeEach
     void resetAttemptLog() {
+        // The sidecar is enabled (into a fresh temp dir) so tests can verify a row that has
+        // retired from memory (see OperatorAttemptLog's retirement rules) via the CSV instead.
+        originalReportDir = Properties.REPORT_DIR;
+        originalTargetClass = Properties.TARGET_CLASS;
+        originalAttemptLogEnabled = Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED;
+        Properties.REPORT_DIR = tempReportDir.toString();
+        Properties.TARGET_CLASS = "com.example.Foo";
+        Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED = true;
         OperatorAttemptLog.resetInstance();
     }
 
     @AfterEach
     void resetAttemptLogAfter() {
         OperatorAttemptLog.resetInstance();
+        Properties.REPORT_DIR = originalReportDir;
+        Properties.TARGET_CLASS = originalTargetClass;
+        Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED = originalAttemptLogEnabled;
+    }
+
+    /** The CSV row for {@code attemptId} once it has retired to the sidecar, or {@code null}. */
+    private static String csvRowFor(String attemptId) throws IOException {
+        Path csv = Paths.get(OperatorAttemptLog.resolveSidecarPath());
+        if (!Files.exists(csv)) {
+            return null;
+        }
+        for (String line : Files.readAllLines(csv)) {
+            if (line.contains("," + attemptId + ",")) {
+                return line;
+            }
+        }
+        return null;
     }
 
     private static final String SINGLE_TARGET_RESPONSE =
@@ -372,11 +410,11 @@ class LlmOperatorExecutorTest {
             assertEquals(0, executor.getFailedCalls());
             assertEquals(0, executor.getProducedCandidates());
 
-            // The attempt log still gets a row for the target, with a NO_BUDGET parse status.
-            OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
-            assertNotNull(record);
-            assertTrue(record.toCsvRow().contains(",NO_BUDGET,"),
-                    "expected a NO_BUDGET parse status: " + record.toCsvRow());
+            // The attempt log still gets a row for the target, with a NO_BUDGET parse status; the
+            // row is a terminal one, so it has already retired from memory into the sidecar.
+            String row = csvRowFor("prompt-1");
+            assertNotNull(row);
+            assertTrue(row.contains(",NO_BUDGET,"), "expected a NO_BUDGET parse status: " + row);
 
             // Released, not recorded as a zero-gain outcome: once the next selection round
             // begins, the target is not suppressed at all, in particular not cooled down the
@@ -543,11 +581,11 @@ class LlmOperatorExecutorTest {
             assertTrue(executor.drain().isEmpty(),
                     "the undefined name never actually resolves to a class, so nothing is produced");
 
-            OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
-            assertNotNull(record);
-            assertTrue(record.toCsvRow().contains(",PARSE_FAILED,"),
-                    "expected the deferred re-parse to still fail once expansion could not help: "
-                            + record.toCsvRow());
+            // PARSE_FAILED is terminal, so the row has already retired from memory into the sidecar.
+            String row = csvRowFor("prompt-1");
+            assertNotNull(row);
+            assertTrue(row.contains(",PARSE_FAILED,"),
+                    "expected the deferred re-parse to still fail once expansion could not help: " + row);
         } finally {
             executor.shutdown();
         }
@@ -581,9 +619,8 @@ class LlmOperatorExecutorTest {
                     memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason(),
                     "the attempt must be closed, not left in flight");
 
-            OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
-            assertNotNull(record);
-            String csv = record.toCsvRow();
+            String csv = csvRowFor("prompt-1");
+            assertNotNull(csv);
             assertTrue(csv.contains(",PARSE_FAILED,"), csv);
             String[] cols = csv.split(",", -1);
             assertEquals("5", cols[18], "input_tokens of the delivered call must be kept: " + csv);
@@ -620,9 +657,8 @@ class LlmOperatorExecutorTest {
         assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                 memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason());
 
-        OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
-        assertNotNull(record);
-        String csv = record.toCsvRow();
+        String csv = csvRowFor("prompt-1");
+        assertNotNull(csv);
         assertTrue(csv.contains(",DROPPED,"), "expected a DROPPED parse status: " + csv);
         String[] cols = csv.split(",", -1);
         assertEquals("5", cols[18], "input_tokens of the delivered call must be kept: " + csv);
@@ -688,11 +724,11 @@ class LlmOperatorExecutorTest {
                 OperatorTarget.builder(chromosome(), goal("g2")).build()), 1, 0));
 
         // The attempt log records the never-answered attempt as UNDELIVERED rather than
-        // silently dropping it or leaving it looking like a genuine (zero-gain) response.
-        OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
-        assertNotNull(record);
-        assertTrue(record.toCsvRow().contains(",UNDELIVERED,"),
-                "expected an UNDELIVERED parse status: " + record.toCsvRow());
+        // silently dropping it or leaving it looking like a genuine (zero-gain) response; being
+        // terminal, the row has already retired from memory into the sidecar.
+        String row = csvRowFor("prompt-1");
+        assertNotNull(row);
+        assertTrue(row.contains(",UNDELIVERED,"), "expected an UNDELIVERED parse status: " + row);
     }
 
     private static void awaitLatch(CountDownLatch latch) {

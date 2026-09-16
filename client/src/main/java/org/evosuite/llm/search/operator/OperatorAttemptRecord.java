@@ -43,7 +43,11 @@ import java.util.Set;
  * target, from the moment it is prompted through evaluation, admission, and
  * a later survival scan. Holds the CSV rendering and the statement-multiset
  * diff between the parent test and any offspring; {@link OperatorAttemptLog}
- * owns the registry, singleton, and aggregate counters.
+ * owns the registry, singleton, retirement, and aggregate counters. Every
+ * event method that can only usefully fire once per record (a response, an
+ * admission, a survivor scan, a hit or improvement) reports back whether it
+ * actually changed anything, so the log can maintain its counters in O(1)
+ * instead of re-scanning rows.
  */
 final class OperatorAttemptRecord {
 
@@ -54,6 +58,15 @@ final class OperatorAttemptRecord {
                     + "hint_present,distance_before,distance_after,target_hit,parse_status,repair_turns,"
                     + "statements_kept,statements_added,statements_removed,input_tokens,cached_input_tokens,"
                     + "output_tokens,latency_ms,admitted,admitted_generation,survived_plus1,survived_plus5";
+
+    /** {@link #recordEvaluated} return flags: a newly-counted hit / distance improvement. */
+    static final int EVAL_NEW_HIT = 1;
+    static final int EVAL_NEW_IMPROVED = 2;
+
+    /** {@link #applySurvivorScan} return flags: what this scan resolved. */
+    static final int SCAN_PLUS1_SURVIVED = 1;
+    static final int SCAN_PLUS5_RESOLVED_EARLY = 2;
+    static final int SCAN_FINAL = 4;
 
     private final String attemptId;
     private final int generation;
@@ -66,7 +79,9 @@ final class OperatorAttemptRecord {
     private final String cardType;
     private final boolean hintPresent;
     private final double distanceBefore;
-    private final List<String> parentStatementCodes;
+
+    /** Released once the attempt closes (diff computed or not needed) — never used again after that. */
+    private List<String> parentStatementCodes;
 
     private String parseStatus = "";
     private Integer repairTurns;
@@ -80,12 +95,17 @@ final class OperatorAttemptRecord {
 
     private Double distanceAfter;
     private Boolean targetHit;
+    private boolean countedHit;
+    private boolean countedImproved;
 
     private boolean admitted;
     private Integer admittedGeneration;
     private TestChromosome admittedOffspring;
     private Boolean survivedPlus1;
     private Boolean survivedPlus5;
+
+    /** Consecutive {@link OperatorAttemptLog#recordSurvivors} scans found PARSED-but-unadmitted; retired at 2. */
+    private int unadmittedParsedScanCount;
 
     OperatorAttemptRecord(String attemptId, int generation, OperatorTarget target, String mode, int batchSize) {
         this.attemptId = attemptId;
@@ -143,8 +163,16 @@ final class OperatorAttemptRecord {
         return kind;
     }
 
-    void recordResponse(TargetedResponse.Status status, boolean parseSucceeded, boolean targetMatched,
+    /**
+     * Records what the call produced, unless a status was already recorded (first status wins —
+     * mirrors {@link #recordDropped}). Returns whether this call actually recorded it, so {@link
+     * OperatorAttemptLog} counts the outcome and retires a terminal row only once.
+     */
+    boolean recordResponse(TargetedResponse.Status status, boolean parseSucceeded, boolean targetMatched,
                         int repairTurns, TargetedResponse.CallUsage usage, TestCase offspring) {
+        if (!parseStatus.isEmpty()) {
+            return false;
+        }
         this.repairTurns = repairTurns;
         TargetedResponse.CallUsage safeUsage = usage == null ? TargetedResponse.CallUsage.NONE : usage;
         this.inputTokens = safeUsage.getInputTokens();
@@ -163,34 +191,41 @@ final class OperatorAttemptRecord {
             this.parseStatus = "UNMATCHED";
         }
         if (offspring != null) {
-            int[] diff = diffStatementCodes(parentStatementCodes, statementCodes(offspring));
+            List<String> before = parentStatementCodes == null ? Collections.emptyList() : parentStatementCodes;
+            int[] diff = diffStatementCodes(before, statementCodes(offspring));
             this.statementsKept = diff[0];
             this.statementsAdded = diff[1];
             this.statementsRemoved = diff[2];
         }
+        this.parentStatementCodes = null;
+        return true;
     }
 
     /**
-     * Marks this attempt as released without a response, unless a response was already recorded:
-     * a parsed candidate stays open in the executor until the GA reports its outcome, and {@code
-     * shutdown()} marks every still-open attempt undelivered — including ones whose response
-     * already arrived and parsed successfully.
+     * Marks this attempt released without a response, unless a response was already recorded: a
+     * parsed candidate stays open until the GA reports its outcome, and {@code shutdown()} marks
+     * every still-open attempt undelivered — including already-parsed ones. Returns whether this
+     * call actually recorded it.
      */
-    void recordUndelivered() {
-        if (parseStatus.isEmpty()) {
-            this.parseStatus = "UNDELIVERED";
+    boolean recordUndelivered() {
+        if (!parseStatus.isEmpty()) {
+            return false;
         }
+        this.parseStatus = "UNDELIVERED";
+        this.parentStatementCodes = null;
+        return true;
     }
 
     /**
      * Marks this attempt as DROPPED, unless a status was already recorded: the call was
      * delivered — its tokens and latency were spent — but the run ended (e.g. {@code shutdown()})
      * before the response could be parsed or matched to a target. Stores the usage exactly like
-     * {@link #recordResponse} does, so token accounting still reflects the spent call.
+     * {@link #recordResponse} does, so token accounting still reflects the spent call. Returns
+     * whether this call actually recorded it.
      */
-    void recordDropped(TargetedResponse.CallUsage usage) {
+    boolean recordDropped(TargetedResponse.CallUsage usage) {
         if (!parseStatus.isEmpty()) {
-            return;
+            return false;
         }
         TargetedResponse.CallUsage safeUsage = usage == null ? TargetedResponse.CallUsage.NONE : usage;
         this.inputTokens = safeUsage.getInputTokens();
@@ -198,17 +233,39 @@ final class OperatorAttemptRecord {
         this.outputTokens = safeUsage.getOutputTokens();
         this.latencyMs = safeUsage.getLatencyMs();
         this.parseStatus = "DROPPED";
+        this.parentStatementCodes = null;
+        return true;
     }
 
-    void recordEvaluated(double distanceAfter, boolean targetHit) {
+    /**
+     * Records the post-evaluation distance/hit and returns which of {@link #EVAL_NEW_HIT} /
+     * {@link #EVAL_NEW_IMPROVED} are newly true this call, so {@link OperatorAttemptLog} counts
+     * each at most once per record even if evaluation is (unexpectedly) reported twice.
+     */
+    int recordEvaluated(double distanceAfter, boolean targetHit) {
         this.distanceAfter = distanceAfter;
         this.targetHit = targetHit;
+        int flags = 0;
+        if (targetHit && !countedHit) {
+            countedHit = true;
+            flags |= EVAL_NEW_HIT;
+        }
+        if (isTargetImproved() && !countedImproved) {
+            countedImproved = true;
+            flags |= EVAL_NEW_IMPROVED;
+        }
+        return flags;
     }
 
-    void recordAdmitted(TestChromosome offspring, int generation) {
+    /** Returns whether this attempt was newly admitted (idempotent: a record admits at most once). */
+    boolean recordAdmitted(TestChromosome offspring, int generation) {
+        if (admitted) {
+            return false;
+        }
         this.admitted = true;
         this.admittedGeneration = generation;
         this.admittedOffspring = offspring;
+        return true;
     }
 
     /**
@@ -218,30 +275,35 @@ final class OperatorAttemptRecord {
      * {@code admitted + n - 1}; {@code survived_plus1} therefore resolves at the admission
      * generation's own scan, the same moment {@code LLM_Injected_Candidates_Survived} counts.
      *
-     * <p>Returns true when this call resolved {@code survived_plus5} early — the offspring was
-     * already gone at plus1, and an identity-based population membership cannot reappear once
-     * lost, so plus5 is known to be false without waiting for that generation's scan. The caller
-     * must then drop this record from its plus-5 pending scan.
+     * <p>Returns a combination of {@link #SCAN_PLUS1_SURVIVED} (set when {@code survived_plus1}
+     * resolves true this call), {@link #SCAN_PLUS5_RESOLVED_EARLY} (the offspring was already gone
+     * at plus1 — an identity-based population membership cannot reappear once lost, so plus5 is
+     * known to be false without waiting for that generation's scan; the caller must then drop this
+     * record from its plus-5 pending scan), and {@link #SCAN_FINAL} (both survival horizons are
+     * now resolved, i.e. {@code survived_plus5} is set — the caller may retire this record).
      */
-    boolean applySurvivorScan(Set<TestChromosome> presentByIdentity, int generation) {
+    int applySurvivorScan(Set<TestChromosome> presentByIdentity, int generation) {
         if (admittedOffspring == null || admittedGeneration == null) {
-            return false;
+            return 0;
         }
-        boolean resolvedEarly = false;
+        int flags = 0;
         if (generation == admittedGeneration) {
             boolean present = presentByIdentity.contains(admittedOffspring);
             survivedPlus1 = present;
-            if (!present) {
+            if (present) {
+                flags |= SCAN_PLUS1_SURVIVED;
+            } else {
                 survivedPlus5 = false;
                 admittedOffspring = null;
-                resolvedEarly = true;
+                flags |= SCAN_PLUS5_RESOLVED_EARLY | SCAN_FINAL;
             }
         }
         if (generation == admittedGeneration + 4) {
             survivedPlus5 = presentByIdentity.contains(admittedOffspring);
             admittedOffspring = null;
+            flags |= SCAN_FINAL;
         }
-        return resolvedEarly;
+        return flags;
     }
 
     /** Whether the admitted offspring reference is still held; package-visible, for tests only. */
@@ -249,8 +311,38 @@ final class OperatorAttemptRecord {
         return admittedOffspring != null;
     }
 
+    /** Whether {@link #parentStatementCodes} is still held; package-visible, for tests only. */
+    boolean hasParentStatementCodesForTesting() {
+        return parentStatementCodes != null;
+    }
+
+    /**
+     * Bumps and returns the count of consecutive {@link OperatorAttemptLog#recordSurvivors} scans
+     * that have found this record {@code PARSED} but unadmitted (retirement rule (c): the log
+     * retires it once this reaches 2). The caller is expected to only call this while that
+     * condition holds.
+     */
+    int bumpUnadmittedParsedScanCount() {
+        return ++unadmittedParsedScanCount;
+    }
+
     boolean isParsed() {
         return "PARSED".equals(parseStatus);
+    }
+
+    /** Whether this record's outcome is a terminal, non-admittable one (retirement rule (a)). */
+    boolean isCaseATerminal() {
+        switch (parseStatus) {
+            case "NO_BUDGET":
+            case "FAILED":
+            case "PARSE_FAILED":
+            case "UNMATCHED":
+            case "UNDELIVERED":
+            case "DROPPED":
+                return true;
+            default:
+                return false;
+        }
     }
 
     boolean isAdmitted() {

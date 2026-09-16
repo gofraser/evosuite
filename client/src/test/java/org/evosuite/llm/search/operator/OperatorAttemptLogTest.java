@@ -36,13 +36,18 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -110,10 +115,14 @@ class OperatorAttemptLogTest {
         log.recordResponse("a1", TargetedResponse.Status.DELIVERED, true, true, 1, usage, offspringTestCase);
         log.recordEvaluated("a1", 1.0, true);
         log.recordAdmitted("a1", offspring, 3);
+        // Captured before the generation-7 scan resolves survived_plus5 and retires the row from
+        // memory: the object itself keeps every field it was ever given, so it still renders the
+        // full expected row after retirement.
+        OperatorAttemptRecord record = log.recordFor("a1");
         log.recordSurvivors(Collections.singletonList(offspring), 3);
         log.recordSurvivors(Collections.singletonList(offspring), 7);
+        assertNull(log.recordFor("a1"), "retired once survived_plus5 resolves");
 
-        OperatorAttemptRecord record = log.recordFor("a1");
         String[] c = cols(record);
 
         assertEquals("3", c[0], "generation");
@@ -185,29 +194,40 @@ class OperatorAttemptLogTest {
         OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
         TargetedResponse.CallUsage usage = TargetedResponse.CallUsage.NONE;
 
+        // Every status below except PARSED is immediately terminal (retirement rule (a)): the row
+        // is gone from memory the instant the event is recorded, so the record is captured first
+        // and asserted on directly — the object itself keeps its fields regardless of retirement.
         log.open("noBudget", 0, target, "SYNC", 1);
+        OperatorAttemptRecord noBudget = log.recordFor("noBudget");
         log.recordResponse("noBudget", TargetedResponse.Status.NO_BUDGET, false, false, 0, usage, null);
-        assertEquals("NO_BUDGET", cols(log.recordFor("noBudget"))[13]);
+        assertEquals("NO_BUDGET", cols(noBudget)[13]);
+        assertNull(log.recordFor("noBudget"), "terminal row must be retired immediately");
 
         log.open("failed", 0, target, "SYNC", 1);
+        OperatorAttemptRecord failed = log.recordFor("failed");
         log.recordResponse("failed", TargetedResponse.Status.FAILED, false, false, 0, usage, null);
-        assertEquals("FAILED", cols(log.recordFor("failed"))[13]);
+        assertEquals("FAILED", cols(failed)[13]);
 
         log.open("parseFailed", 0, target, "SYNC", 1);
+        OperatorAttemptRecord parseFailed = log.recordFor("parseFailed");
         log.recordResponse("parseFailed", TargetedResponse.Status.DELIVERED, false, false, 2, usage, null);
-        assertEquals("PARSE_FAILED", cols(log.recordFor("parseFailed"))[13]);
+        assertEquals("PARSE_FAILED", cols(parseFailed)[13]);
+        assertNull(log.recordFor("parseFailed"), "terminal row must be retired immediately");
 
         log.open("unmatched", 0, target, "SYNC", 1);
+        OperatorAttemptRecord unmatched = log.recordFor("unmatched");
         log.recordResponse("unmatched", TargetedResponse.Status.DELIVERED, true, false, 1, usage, null);
-        assertEquals("UNMATCHED", cols(log.recordFor("unmatched"))[13]);
+        assertEquals("UNMATCHED", cols(unmatched)[13]);
 
         log.open("parsed", 0, target, "SYNC", 1);
         log.recordResponse("parsed", TargetedResponse.Status.DELIVERED, true, true, 1, usage, new DefaultTestCase());
         assertEquals("PARSED", cols(log.recordFor("parsed"))[13]);
 
         log.open("undelivered", 0, target, "SYNC", 1);
+        OperatorAttemptRecord undelivered = log.recordFor("undelivered");
         log.recordUndelivered("undelivered");
-        String[] undeliveredCols = cols(log.recordFor("undelivered"));
+        assertNull(log.recordFor("undelivered"), "terminal row must be retired immediately");
+        String[] undeliveredCols = cols(undelivered);
         assertEquals("UNDELIVERED", undeliveredCols[13]);
         assertEquals("", undeliveredCols[14], "repair_turns must stay empty when never delivered");
         assertEquals("", undeliveredCols[18], "input_tokens must stay empty when never delivered");
@@ -239,10 +259,12 @@ class OperatorAttemptLogTest {
         OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
         TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(10, 2, 5, 123L);
         log.open("dropped", 0, target, "ASYNC", 1);
+        OperatorAttemptRecord record = log.recordFor("dropped");
 
         log.recordDropped("dropped", usage);
 
-        String[] c = cols(log.recordFor("dropped"));
+        assertNull(log.recordFor("dropped"), "terminal row must be retired immediately");
+        String[] c = cols(record);
         assertEquals("DROPPED", c[13], "parse_status");
         assertEquals("10", c[18], "input_tokens");
         assertEquals("2", c[19], "cached_input_tokens");
@@ -281,11 +303,12 @@ class OperatorAttemptLogTest {
         OperatorAttemptLog log = OperatorAttemptLog.getInstance();
         OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
         log.open("noOffspring", 0, target, "SYNC", 1);
+        OperatorAttemptRecord record = log.recordFor("noOffspring");
 
         log.recordResponse("noOffspring", TargetedResponse.Status.DELIVERED, true, false, 0,
                 TargetedResponse.CallUsage.NONE, null);
 
-        String[] c = cols(log.recordFor("noOffspring"));
+        String[] c = cols(record);
         assertEquals("", c[15]);
         assertEquals("", c[16]);
         assertEquals("", c[17]);
@@ -417,12 +440,14 @@ class OperatorAttemptLogTest {
         TestChromosome offspring = chromosome(1);
         log.open("early", 0, OperatorTarget.builder(chromosome(2), goal("g")).build(), "SYNC", 1);
         log.recordAdmitted("early", offspring, 3);
+        // Captured before the scan below resolves both horizons and retires the row from memory.
+        OperatorAttemptRecord record = log.recordFor("early");
 
         // Absent already at the admission generation's own scan (plus1) — an identity-based
         // population membership cannot reappear, so plus5 must resolve to false right away.
         log.recordSurvivors(Collections.emptyList(), 3);
 
-        OperatorAttemptRecord record = log.recordFor("early");
+        assertNull(log.recordFor("early"), "both horizons resolved: the row is retired right away");
         assertEquals("0", cols(record)[24], "survived_plus1");
         assertEquals("0", cols(record)[25], "survived_plus5 resolved immediately");
         assertFalse(record.hasAdmittedOffspringReference(),
@@ -446,6 +471,136 @@ class OperatorAttemptLogTest {
 
         log.recordSurvivors(Collections.singletonList(admittedLate), 10);
         assertEquals("1", cols(log.recordFor("late"))[24]);
+    }
+
+    // ---- retirement and CSV streaming ----------------------------------------------------------
+
+    @Test
+    void everyImmediatelyTerminalStatusRetiresAndStreamsItsRowBeforeFlush(@TempDir Path tempDir)
+            throws IOException {
+        Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED = true;
+        Properties.REPORT_DIR = tempDir.toString();
+        Properties.TARGET_CLASS = "com.example.Foo";
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+
+        log.open("noBudget", 0, target, "SYNC", 1);
+        log.recordResponse("noBudget", TargetedResponse.Status.NO_BUDGET, false, false, 0,
+                TargetedResponse.CallUsage.NONE, null);
+        assertNull(log.recordFor("noBudget"));
+
+        log.open("parseFailed", 0, target, "SYNC", 1);
+        log.recordResponse("parseFailed", TargetedResponse.Status.DELIVERED, false, false, 0,
+                TargetedResponse.CallUsage.NONE, null);
+        assertNull(log.recordFor("parseFailed"));
+
+        log.open("undelivered", 0, target, "SYNC", 1);
+        log.recordUndelivered("undelivered");
+        assertNull(log.recordFor("undelivered"));
+
+        log.open("dropped", 0, target, "ASYNC", 1);
+        log.recordDropped("dropped", TargetedResponse.CallUsage.NONE);
+        assertNull(log.recordFor("dropped"));
+
+        Path csv = Paths.get(OperatorAttemptLog.resolveSidecarPath());
+        List<String> lines = Files.readAllLines(csv);
+        assertEquals(5, lines.size(), "header + 4 retired rows, streamed before flush() ever runs");
+        assertEquals(OperatorAttemptRecord.CSV_HEADER, lines.get(0));
+        assertTrue(lines.stream().anyMatch(l -> l.contains(",NO_BUDGET,")));
+        assertTrue(lines.stream().anyMatch(l -> l.contains(",PARSE_FAILED,")));
+        assertTrue(lines.stream().anyMatch(l -> l.contains(",UNDELIVERED,")));
+        assertTrue(lines.stream().anyMatch(l -> l.contains(",DROPPED,")));
+
+        log.flush();
+        assertEquals(5, Files.readAllLines(csv).size(), "flush() has nothing left to add");
+    }
+
+    @Test
+    void terminalRowIsDroppedFromMemoryButNotWrittenWhenSidecarDisabled(@TempDir Path tempDir) {
+        Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED = false;
+        Properties.REPORT_DIR = tempDir.toString();
+        Properties.TARGET_CLASS = "com.example.Foo";
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+
+        log.open("noBudget", 0, target, "SYNC", 1);
+        log.recordResponse("noBudget", TargetedResponse.Status.NO_BUDGET, false, false, 0,
+                TargetedResponse.CallUsage.NONE, null);
+
+        assertNull(log.recordFor("noBudget"), "row is still dropped from memory even when disabled");
+        assertFalse(Files.exists(Paths.get(OperatorAttemptLog.resolveSidecarPath())));
+        assertEquals(1, log.getAttempts(), "counters are unaffected by retirement");
+    }
+
+    @Test
+    void parsedUnadmittedRowSurvivesOneScanAndIsRetiredByTheSecond() {
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+        log.open("unadmitted", 0, target, "SYNC", 1);
+        log.recordResponse("unadmitted", TargetedResponse.Status.DELIVERED, true, true, 0,
+                TargetedResponse.CallUsage.NONE, new DefaultTestCase());
+
+        log.recordSurvivors(Collections.emptyList(), 0);
+        assertNotNull(log.recordFor("unadmitted"), "one scan is not enough to retire an unadmitted PARSED row");
+
+        log.recordSurvivors(Collections.emptyList(), 1);
+        assertNull(log.recordFor("unadmitted"), "a second consecutive scan retires it (rule (c))");
+    }
+
+    @Test
+    void parsedRowAdmittedBeforeTheSecondScanIsNotRetiredByRuleC() {
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+        log.open("late-admit", 0, target, "SYNC", 1);
+        log.recordResponse("late-admit", TargetedResponse.Status.DELIVERED, true, true, 0,
+                TargetedResponse.CallUsage.NONE, new DefaultTestCase());
+        log.recordSurvivors(Collections.emptyList(), 0);
+
+        TestChromosome offspring = chromosome(2);
+        log.recordAdmitted("late-admit", offspring, 1);
+        log.recordSurvivors(Collections.singletonList(offspring), 1);
+
+        assertNotNull(log.recordFor("late-admit"),
+                "admission before the second scan must cancel rule (c) retirement");
+    }
+
+    @Test
+    void admittedRowIsRetiredOncePlus5ResolvesAndItsCsvRowCarriesTheSurvivalColumns(@TempDir Path tempDir)
+            throws IOException {
+        Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED = true;
+        Properties.REPORT_DIR = tempDir.toString();
+        Properties.TARGET_CLASS = "com.example.Foo";
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        TestChromosome offspring = chromosome(1);
+        log.open("survivor", 0, OperatorTarget.builder(chromosome(2), goal("g")).build(), "SYNC", 1);
+        log.recordAdmitted("survivor", offspring, 0);
+
+        log.recordSurvivors(Collections.singletonList(offspring), 0);
+        assertNotNull(log.recordFor("survivor"), "still pending its plus5 scan");
+        assertEquals(1, log.getOffspringSurvived(), "counted present at plus1");
+
+        log.recordSurvivors(Collections.singletonList(offspring), 4);
+        assertNull(log.recordFor("survivor"), "retired once survived_plus5 resolves");
+
+        Path csv = Paths.get(OperatorAttemptLog.resolveSidecarPath());
+        String[] cols = Files.readAllLines(csv).get(1).split(",", -1);
+        assertEquals("1", cols[22], "admitted");
+        assertEquals("1", cols[24], "survived_plus1");
+        assertEquals("1", cols[25], "survived_plus5");
+    }
+
+    @Test
+    void parentStatementCodesAreReleasedAfterTheResponse() {
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+        log.open("release", 0, target, "SYNC", 1);
+        OperatorAttemptRecord record = log.recordFor("release");
+        assertTrue(record.hasParentStatementCodesForTesting());
+
+        log.recordResponse("release", TargetedResponse.Status.DELIVERED, true, true, 0,
+                TargetedResponse.CallUsage.NONE, new DefaultTestCase());
+
+        assertFalse(record.hasParentStatementCodesForTesting());
     }
 
     // ---- flush ------------------------------------------------------------------------------
@@ -490,6 +645,43 @@ class OperatorAttemptLogTest {
         OperatorAttemptLog.getInstance().flush();
 
         assertFalse(Files.exists(java.nio.file.Paths.get(OperatorAttemptLog.resolveSidecarPath())));
+    }
+
+    @Test
+    void streamedAndFlushedRowsTogetherAccountForEveryAttemptExactlyOnce(@TempDir Path tempDir)
+            throws IOException {
+        Properties.LLM_OPERATOR_ATTEMPT_LOG_ENABLED = true;
+        Properties.REPORT_DIR = tempDir.toString();
+        Properties.TARGET_CLASS = "com.example.Foo";
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+
+        // Retires immediately (rule (a)).
+        log.open("terminal", 0, target, "SYNC", 1);
+        log.recordResponse("terminal", TargetedResponse.Status.FAILED, false, false, 0,
+                TargetedResponse.CallUsage.NONE, null);
+
+        // Retires via rule (b): admitted, survives to plus5.
+        TestChromosome offspring = chromosome(9);
+        log.open("survivor", 0, target, "SYNC", 1);
+        log.recordAdmitted("survivor", offspring, 0);
+        log.recordSurvivors(Collections.singletonList(offspring), 0);
+        log.recordSurvivors(Collections.singletonList(offspring), 4);
+
+        // Still in flight, only resolved by flush().
+        log.open("open", 0, target, "SYNC", 1);
+
+        log.flush();
+
+        Path csv = Paths.get(OperatorAttemptLog.resolveSidecarPath());
+        List<String> lines = Files.readAllLines(csv);
+        assertEquals(4, lines.size(), "header + 3 attempts");
+        Set<String> attemptIds = new HashSet<>();
+        for (int i = 1; i < lines.size(); i++) {
+            attemptIds.add(lines.get(i).split(",", -1)[1]);
+        }
+        assertEquals(new HashSet<>(Arrays.asList("terminal", "survivor", "open")), attemptIds);
+        assertEquals(3, log.getAttempts());
     }
 
     // ---- resetInstance ------------------------------------------------------------------------
