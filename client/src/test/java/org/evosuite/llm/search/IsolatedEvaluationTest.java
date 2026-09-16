@@ -80,6 +80,20 @@ class IsolatedEvaluationTest {
         assertTrue(Properties.TEST_ARCHIVE, "the archive flag must be restored afterwards");
     }
 
+    /**
+     * Some goal types (ExceptionCoverageTestFitness, AllDefsCoverageTestFitness) return the
+     * value from the two-argument overload without storing it themselves.
+     */
+    @Test
+    void storesTheReturnedValueForGoalsThatDoNotUpdateTheIndividual() {
+        RecordingGoal quiet = new RecordingGoal("quiet", 0.25, false);
+        TestChromosome tc = chromosome();
+
+        IsolatedEvaluation.evaluate(tc, Collections.singletonList(quiet));
+
+        assertEquals(0.25, IsolatedEvaluation.distance(tc, quiet), 1e-9);
+    }
+
     @Test
     void distanceIsNanForUnknownGoalOrChromosome() {
         RecordingGoal a = new RecordingGoal("a", 0.0);
@@ -101,17 +115,25 @@ class IsolatedEvaluationTest {
         private static final long serialVersionUID = 1L;
         private final String name;
         private final double value;
+        private final boolean storesOwnValue;
         boolean archiveWasOn;
 
         RecordingGoal(String name, double value) {
+            this(name, value, true);
+        }
+
+        RecordingGoal(String name, double value, boolean storesOwnValue) {
             this.name = name;
             this.value = value;
+            this.storesOwnValue = storesOwnValue;
         }
 
         @Override
         public double getFitness(TestChromosome individual, ExecutionResult result) {
             archiveWasOn |= Properties.TEST_ARCHIVE;
-            updateIndividual(individual, value);
+            if (storesOwnValue) {
+                updateIndividual(individual, value);
+            }
             return value;
         }
 

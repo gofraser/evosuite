@@ -59,7 +59,10 @@ public final class IsolatedEvaluation {
         Properties.TEST_ARCHIVE = false;
         try {
             for (TestFitnessFunction goal : goals) {
-                goal.getFitness(chromosome, result);
+                // Not every goal type stores the value itself in the two-argument overload
+                // (ExceptionCoverageTestFitness, AllDefsCoverageTestFitness leave that to
+                // getFitness(TestChromosome)), so store it explicitly.
+                chromosome.setFitness(goal, goal.getFitness(chromosome, result));
             }
         } finally {
             Properties.TEST_ARCHIVE = archive;
