@@ -230,8 +230,10 @@ class LanguageModelOperatorTest {
         assertEquals(1, log.getOffspringParsed());
         offspring.setFitness(target.getGoal(), 0.0);
         mutation.recordOutcome(result, offspring);
-        assertEquals(1, log.getOffspringAdmitted());
         assertEquals(1, log.getTargetHits());
+        assertEquals(0, log.getOffspringAdmitted(), "recordOutcome alone must not admit the offspring");
+        mutation.recordAdmitted(result, offspring);
+        assertEquals(1, log.getOffspringAdmitted());
     }
 
     @Test
@@ -397,8 +399,11 @@ class LanguageModelOperatorTest {
 
         verify(memory).recordAttemptOutcome(result.getAttemptId(), 1);
         OperatorAttemptLog log = OperatorAttemptLog.getInstance();
-        assertEquals(1, log.getOffspringAdmitted());
         assertEquals(1, log.getTargetHits());
+        assertEquals(0, log.getOffspringAdmitted(), "recordOutcome alone must not admit the offspring");
+
+        mutation.recordAdmitted(result, evaluatedOffspring);
+        assertEquals(1, log.getOffspringAdmitted());
     }
 
     @Test
@@ -461,6 +466,38 @@ class LanguageModelOperatorTest {
                 crossoverHook.tryCrossoverWithResult(makeChromosome(), mutationOnlyParent, plan);
         assertEquals(OperatorAttemptResult.SkipReason.NO_TARGET, secondAttempt.getSkipReason(),
                 "a mutation-kind target must never be handed to the crossover hook");
+    }
+
+    @Test
+    void aCrossoverChildIsEvaluatedButOnlyAdmittedWhenTheCallerAddsIt() {
+        Properties.LLM_OPERATOR_MODE = Properties.LlmOperatorMode.SYNC;
+        Properties.LLM_CROSSOVER_PROBABILITY = 1.0;
+
+        TestChromosome parent1 = makeChromosome();
+        OperatorTarget target = crossoverTarget(parent1, makeGoal("g"), makeChromosome());
+        SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
+
+        TestChromosome offspring1 = makeChromosome();
+        LlmSemanticCrossover mockSemantic = mock(LlmSemanticCrossover.class);
+        when(mockSemantic.canCall()).thenReturn(true);
+        when(mockSemantic.applyMapped(Collections.singletonList(target)))
+                .thenReturn(matchedResponse(nonEmptyTestCase()));
+
+        LanguageModelCrossover crossoverHook =
+                new LanguageModelCrossover(mockSemantic, new RepeatedInjectionMemory());
+        OperatorAttemptResult result = crossoverHook.tryCrossoverWithResult(offspring1, parent1, plan);
+
+        // The breeding loop evaluates a semantic crossover child in isolation, before the
+        // mutation/orphan checks that follow could still discard it.
+        crossoverHook.recordOutcome(result, 0.0);
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        assertEquals(1, log.getTargetHits(), "the isolated evaluation is recorded regardless of admission");
+        assertEquals(0, log.getOffspringAdmitted(), "a child discarded after evaluation must not be admitted");
+
+        // Only once the caller actually adds the offspring to the offspring population is it
+        // admitted; its survival scan then starts from here, not from the isolated probe.
+        crossoverHook.recordAdmitted(result, offspring1);
+        assertEquals(1, log.getOffspringAdmitted());
     }
 
     @Test

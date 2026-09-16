@@ -146,8 +146,10 @@ abstract class SyncOperatorHook {
      * cached fitness for the target's goal is exactly 0.0. Null means the GA
      * dropped the offspring before it could be evaluated: the repeat-memory
      * outcome is still recorded (as no gain, same as before), but the attempt
-     * log's evaluation/admission are skipped since nothing was actually
-     * judged. No-op unless this result carries an open attempt id.
+     * log's evaluation is skipped since nothing was actually judged. Does not
+     * record admission — see {@link #recordAdmitted}, called separately once
+     * the offspring actually enters the offspring population. No-op unless
+     * this result carries an open attempt id.
      */
     public final void recordOutcome(OperatorAttemptResult result, TestChromosome evaluatedOffspring) {
         if (result == null || result.getAttemptId() == null) {
@@ -161,18 +163,18 @@ abstract class SyncOperatorHook {
         }
         Double value = result.getTarget() == null ? null
                 : evaluatedOffspring.getFitnessValues().get(result.getTarget().getGoal());
-        recordOutcome(result, value == null ? Double.NaN : value, evaluatedOffspring);
+        recordOutcome(result, value == null ? Double.NaN : value);
     }
 
     /**
      * Closes the attempt with a target distance the caller established itself, e.g. from an
      * isolated evaluation of the semantic result taken before later operators changed it —
-     * crediting a gain when {@code targetDistance} is exactly 0.0. {@code offspring} is recorded
-     * as admitted regardless of the outcome: a crossover's {@code offspring1} always goes on to
-     * the mutation step and the offspring population, so it counts as admitted even if it is
-     * later discarded — its survival scan then simply never finds it.
+     * crediting a gain when {@code targetDistance} is exactly 0.0. Records the evaluation only;
+     * admission is a separate step (see {@link #recordAdmitted}) because a crossover's {@code
+     * offspring1} still has to survive the mutation step and an orphan check before it actually
+     * reaches the offspring population.
      */
-    public final void recordOutcome(OperatorAttemptResult result, double targetDistance, TestChromosome offspring) {
+    public final void recordOutcome(OperatorAttemptResult result, double targetDistance) {
         if (result == null || result.getAttemptId() == null) {
             return;
         }
@@ -181,6 +183,17 @@ abstract class SyncOperatorHook {
             memory.recordAttemptOutcome(result.getAttemptId(), covered ? 1 : 0);
         }
         OperatorAttemptLog.getInstance().recordEvaluated(result.getAttemptId(), targetDistance, covered);
+    }
+
+    /**
+     * Records that {@code offspring} was actually added to the offspring population, at the point
+     * the caller does so — the only moment a semantic child's survival scan can meaningfully start
+     * from. No-op unless this result carries an open attempt id.
+     */
+    public final void recordAdmitted(OperatorAttemptResult result, TestChromosome offspring) {
+        if (result == null || result.getAttemptId() == null) {
+            return;
+        }
         OperatorAttemptLog.getInstance().recordAdmitted(result.getAttemptId(), offspring, result.getGeneration());
     }
 

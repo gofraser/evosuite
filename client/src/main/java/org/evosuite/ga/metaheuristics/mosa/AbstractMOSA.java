@@ -662,7 +662,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             SemanticProbeResult crossoverProbe = SemanticProbeResult.NONE;
             if (crossoverResult.isAppliedSemantic()) {
                 crossoverProbe = probeSemanticResult(crossoverResult, offspring1, parent1, observer.isEnabled());
-                llmCrossover.recordOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance(), offspring1);
+                llmCrossover.recordOutcome(crossoverResult, crossoverProbe.getSemanticTargetDistance());
             }
 
             // The post-crossover probe is sidecar-only, so it never goes through calculateFitness
@@ -690,9 +690,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             this.removeUnusedVariables(offspring2);
 
             processOffspringMutation(offspring1, parent1, offspringPopulation, observer,
-                    crossoverApplied, syncTargets, postCrossoverProbe1);
+                    crossoverApplied, syncTargets, postCrossoverProbe1, crossoverResult);
             processOffspringMutation(offspring2, parent2, offspringPopulation, observer,
-                    crossoverApplied2, syncTargets, IsolatedProbe.NONE);
+                    crossoverApplied2, syncTargets, IsolatedProbe.NONE,
+                    OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.NOT_CONFIGURED));
         }
 
         // EvoObj: collect the uncovered branch goals once per generation (not per inserted test)
@@ -984,7 +985,11 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
      * mutation logic for offspring1 and offspring2. Records mutation event even when offspring is
      * unchanged (fix: lost attempts). {@code postCrossoverProbe} is the isolated view of the
      * offspring as crossover left it when the caller already took one; otherwise it is taken
-     * here (sidecar-only, never through calculateFitness).
+     * here (sidecar-only, never through calculateFitness). {@code crossoverResult} is the
+     * crossover attempt (if any) that produced {@code offspring} before mutation ran; it is
+     * marked admitted here, at the same point as the mutation attempt, since this is where the
+     * offspring is actually added to {@code offspringPopulation} — the mutation/orphan checks
+     * that ran in between could still have discarded it.
      */
     private void processOffspringMutation(
             TestChromosome offspring,
@@ -993,7 +998,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             BreedingDisruptionObserver observer,
             boolean crossoverApplied,
             SyncTargetPlan syncTargets,
-            IsolatedProbe postCrossoverProbe) {
+            IsolatedProbe postCrossoverProbe,
+            OperatorAttemptResult crossoverResult) {
         int preMutStmts = observer.isEnabled() ? DisruptionHelper.statementCount(offspring) : 0;
 
         if (!postCrossoverProbe.isTaken() && observer.isEnabled() && observer.isIsolatedProbeEnabled()) {
@@ -1038,6 +1044,12 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             }
 
             offspringPopulation.add(offspring);
+            if (llmMutation != null) {
+                llmMutation.recordAdmitted(mutResult, offspring);
+            }
+            if (llmCrossover != null) {
+                llmCrossover.recordAdmitted(crossoverResult, offspring);
+            }
             lastGenOffspringBred++;
             lastGenOffspringIdentity.add(offspring);
             switch (OffspringFate.classify(offspring.getFitnessValues(), parent.getFitnessValues())) {
