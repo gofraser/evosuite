@@ -76,6 +76,11 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
         return modelName;
     }
 
+    /** The resolved messages endpoint, for tests of base-URL handling. */
+    String getEndpoint() {
+        return endpoint;
+    }
+
     private static String resolveEndpoint(String baseUrl) {
         String base = baseUrl == null ? "" : baseUrl.trim();
         if (base.isEmpty()) {
@@ -84,7 +89,14 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
         if (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
-        return base.endsWith("/v1/messages") ? base : base + "/v1/messages";
+        if (base.endsWith("/v1/messages")) {
+            return base;
+        }
+        // Accept the langchain4j-era convention of a base URL that already ends in /v1.
+        if (base.endsWith("/v1")) {
+            return base + "/messages";
+        }
+        return base + "/v1/messages";
     }
 
     @Override
