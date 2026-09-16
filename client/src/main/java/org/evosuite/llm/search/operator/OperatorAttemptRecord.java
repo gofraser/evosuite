@@ -182,6 +182,24 @@ final class OperatorAttemptRecord {
         }
     }
 
+    /**
+     * Marks this attempt as DROPPED, unless a status was already recorded: the call was
+     * delivered — its tokens and latency were spent — but the run ended (e.g. {@code shutdown()})
+     * before the response could be parsed or matched to a target. Stores the usage exactly like
+     * {@link #recordResponse} does, so token accounting still reflects the spent call.
+     */
+    void recordDropped(TargetedResponse.CallUsage usage) {
+        if (!parseStatus.isEmpty()) {
+            return;
+        }
+        TargetedResponse.CallUsage safeUsage = usage == null ? TargetedResponse.CallUsage.NONE : usage;
+        this.inputTokens = safeUsage.getInputTokens();
+        this.cachedInputTokens = safeUsage.getCachedInputTokens();
+        this.outputTokens = safeUsage.getOutputTokens();
+        this.latencyMs = safeUsage.getLatencyMs();
+        this.parseStatus = "DROPPED";
+    }
+
     void recordEvaluated(double distanceAfter, boolean targetHit) {
         this.distanceAfter = distanceAfter;
         this.targetHit = targetHit;

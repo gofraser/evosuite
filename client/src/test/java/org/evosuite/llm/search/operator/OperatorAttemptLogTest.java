@@ -234,6 +234,49 @@ class OperatorAttemptLogTest {
     }
 
     @Test
+    void recordDroppedSetsDroppedStatusAndKeepsUsage() {
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(10, 2, 5, 123L);
+        log.open("dropped", 0, target, "ASYNC", 1);
+
+        log.recordDropped("dropped", usage);
+
+        String[] c = cols(log.recordFor("dropped"));
+        assertEquals("DROPPED", c[13], "parse_status");
+        assertEquals("10", c[18], "input_tokens");
+        assertEquals("2", c[19], "cached_input_tokens");
+        assertEquals("5", c[20], "output_tokens");
+        assertEquals("123", c[21], "latency_ms");
+    }
+
+    @Test
+    void recordDroppedIsANoOpOnceAStatusIsAlreadyRecorded() {
+        // Whichever of a delivered response, an undelivered release, or an earlier drop got
+        // there first must win: DROPPED must never clobber a status already on the row.
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();
+        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(10, 2, 5, 123L);
+        log.open("parsedThenDropped", 0, target, "SYNC", 1);
+        log.recordResponse("parsedThenDropped", TargetedResponse.Status.DELIVERED, true, true, 1, usage,
+                new DefaultTestCase());
+
+        log.recordDropped("parsedThenDropped", new TargetedResponse.CallUsage(99, 99, 99, 999L));
+
+        String[] c = cols(log.recordFor("parsedThenDropped"));
+        assertEquals("PARSED", c[13], "a parsed row must not be downgraded to DROPPED");
+        assertEquals("10", c[18], "input_tokens must be kept, not overwritten by the dropped call");
+    }
+
+    @Test
+    void recordDroppedUnknownAttemptIdIsANoOp() {
+        OperatorAttemptLog log = OperatorAttemptLog.getInstance();
+        log.recordDropped("never-opened", TargetedResponse.CallUsage.NONE);
+
+        assertEquals(0, log.getAttempts());
+    }
+
+    @Test
     void recordResponseWithoutOffspringLeavesStatementColumnsEmpty() {
         OperatorAttemptLog log = OperatorAttemptLog.getInstance();
         OperatorTarget target = OperatorTarget.builder(chromosome(1), goal("g")).build();

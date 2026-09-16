@@ -159,13 +159,9 @@ public abstract class LlmSemanticOperator {
         if (!canCall()) {
             return TargetedResponse.noBudget();
         }
+        LlmService.QueryResult queryResult;
         try {
-            LlmService.QueryResult queryResult = llmService.queryWithUsage(prompt, feature);
-            RepairResult result = repairLoop().attemptParse(queryResult.getText(), prompt.getMessages(), feature);
-            TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
-                    queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
-                    queryResult.getOutputTokens(), queryResult.getLatencyMs());
-            return TargetedResponse.map(result, targetCount, usage);
+            queryResult = llmService.queryWithUsage(prompt, feature);
         } catch (LlmBudgetExceededException e) {
             logger.debug("LLM {} budget exceeded", feature);
             return TargetedResponse.noBudget();
@@ -175,6 +171,19 @@ public abstract class LlmSemanticOperator {
         } catch (RuntimeException e) {
             logger.debug("LLM {} error: {}", feature, e.getMessage());
             return TargetedResponse.failed();
+        }
+        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
+                queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
+                queryResult.getOutputTokens(), queryResult.getLatencyMs());
+        try {
+            RepairResult result = repairLoop().attemptParse(queryResult.getText(), prompt.getMessages(), feature);
+            return TargetedResponse.map(result, targetCount, usage);
+        } catch (RuntimeException e) {
+            // The call was delivered and its tokens were spent; a failure past
+            // this point (parsing or mapping) is a legitimate zero-gain outcome
+            // for the targets, not an undelivered call to release.
+            logger.debug("LLM {} response delivered but could not be parsed: {}", feature, e.getMessage());
+            return TargetedResponse.deliveredUnparsed(usage, queryResult.getText());
         }
     }
 
@@ -196,15 +205,9 @@ public abstract class LlmSemanticOperator {
         if (!canCall()) {
             return TargetedResponse.noBudget();
         }
+        LlmService.QueryResult queryResult;
         try {
-            LlmService.QueryResult queryResult = llmService.queryWithUsage(prompt, feature);
-            RepairResult result = deferringRepairLoops.get()
-                    .attemptParse(queryResult.getText(), prompt.getMessages(), feature);
-            logParseOutcome("worker", result);
-            TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
-                    queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
-                    queryResult.getOutputTokens(), queryResult.getLatencyMs());
-            return TargetedResponse.map(result, targetCount, usage, queryResult.getText());
+            queryResult = llmService.queryWithUsage(prompt, feature);
         } catch (LlmBudgetExceededException e) {
             logger.debug("LLM {} budget exceeded", feature);
             return TargetedResponse.noBudget();
@@ -214,6 +217,21 @@ public abstract class LlmSemanticOperator {
         } catch (RuntimeException e) {
             logger.debug("LLM {} error: {}", feature, e.getMessage());
             return TargetedResponse.failed();
+        }
+        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
+                queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
+                queryResult.getOutputTokens(), queryResult.getLatencyMs());
+        try {
+            RepairResult result = deferringRepairLoop()
+                    .attemptParse(queryResult.getText(), prompt.getMessages(), feature);
+            logParseOutcome("worker", result);
+            return TargetedResponse.map(result, targetCount, usage, queryResult.getText());
+        } catch (RuntimeException e) {
+            // Same reasoning as complete(): the call was delivered, so a parse
+            // or mapping failure here is a zero-gain delivered outcome, not an
+            // undelivered call.
+            logger.debug("LLM {} response delivered but could not be parsed: {}", feature, e.getMessage());
+            return TargetedResponse.deliveredUnparsed(usage, queryResult.getText());
         }
     }
 
@@ -254,6 +272,16 @@ public abstract class LlmSemanticOperator {
      */
     TestRepairLoop repairLoop() {
         return repairLoops.get();
+    }
+
+    /**
+     * Returns this thread's cluster-expansion-disallowed repair loop, used by
+     * {@link #completeDeferringExpansion(PromptResult, int)}.
+     *
+     * <p>Package-private for tests.
+     */
+    TestRepairLoop deferringRepairLoop() {
+        return deferringRepairLoops.get();
     }
 
     private TestRepairLoop newRepairLoop(boolean expandClusterOnDemand) {

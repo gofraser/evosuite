@@ -370,11 +370,20 @@ public final class LlmOperatorExecutor {
                         deferred.prompt, deferred.rawResponse, deferred.attribution.size(), deferred.usage);
                 handleResponse(response, deferred.attribution);
             } catch (RuntimeException e) {
-                // The item is already polled; releasing here keeps its attempts from staying
-                // open for the rest of the run and lets the remaining deferrals proceed.
+                // The original call was delivered (that is how this response ended up deferred
+                // in the first place) and its tokens were spent; a failure while finishing the
+                // parse here is a zero-gain delivered outcome for every target, not an
+                // undelivered call to release.
                 logger.debug("Finishing a deferred LLM operator response failed: {}", e.getMessage());
-                recordUndeliveredBatch(deferred.attribution);
-                release(deferred.attribution);
+                try {
+                    handleResponse(TargetedResponse.deliveredUnparsed(deferred.usage, deferred.rawResponse),
+                            deferred.attribution);
+                } catch (RuntimeException fallbackFailure) {
+                    logger.debug("Recording the deferred response as delivered-but-unparsed also failed: {}",
+                            fallbackFailure.getMessage());
+                    recordUndeliveredBatch(deferred.attribution);
+                    release(deferred.attribution);
+                }
             }
         }
     }
@@ -423,6 +432,35 @@ public final class LlmOperatorExecutor {
             pool.awaitTermination(2, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+        // Best-effort ordering: shutDown is set and workers interrupted/awaited above, and
+        // runBatch's shutDown check keeps an interrupted worker from publishing into these
+        // queues afterwards, but a worker that ignores interruption between its shutDown check
+        // and adding to a queue could still race the draining below. Any such straggler is not
+        // lost: it stays in openAttemptIds and is picked up by the generic loop that follows.
+        //
+        // Responses still queued here were delivered (their LLM call returned) but never
+        // finished/published, so they are DROPPED with their usage, not released as
+        // undelivered.
+        DeferredResponse deferred;
+        while ((deferred = deferredResponses.poll()) != null) {
+            for (String attemptId : deferred.attribution.getAttemptIds()) {
+                if (attemptId.isEmpty()) {
+                    continue;
+                }
+                OperatorAttemptLog.getInstance().recordDropped(attemptId, deferred.usage);
+                closeAttempt(attemptId, 0);
+            }
+        }
+        // Candidates still queued here were already delivered and parsed (their row already
+        // carries a status, e.g. PARSED); they just never made it through drain(), so their
+        // attempt is closed with zero gain rather than released as undelivered.
+        Map.Entry<TestChromosome, InjectionAttemptMetadata> entry;
+        while ((entry = queue.poll()) != null) {
+            InjectionAttemptMetadata metadata = entry.getValue();
+            if (metadata != null) {
+                closeAttempt(metadata.getAttemptId(), 0);
+            }
         }
         for (String attemptId : openAttemptIds) {
             OperatorAttemptLog.getInstance().recordUndelivered(attemptId);

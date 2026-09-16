@@ -118,6 +118,8 @@ class LlmSemanticOperatorPrepareCompleteTest {
         TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
         assertTrue(response.isEmpty());
         assertEquals(TargetedResponse.Status.NO_BUDGET, response.getStatus());
+        assertEquals(TargetedResponse.CallUsage.NONE, response.getUsage(),
+                "no call completed, so there is no usage to carry");
     }
 
     @Test
@@ -133,6 +135,8 @@ class LlmSemanticOperatorPrepareCompleteTest {
         TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
         assertTrue(response.isEmpty());
         assertEquals(TargetedResponse.Status.FAILED, response.getStatus());
+        assertEquals(TargetedResponse.CallUsage.NONE, response.getUsage(),
+                "the call never completed, so there is no usage to carry");
     }
 
     @Test
@@ -148,6 +152,63 @@ class LlmSemanticOperatorPrepareCompleteTest {
         TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
         assertTrue(response.isEmpty());
         assertEquals(TargetedResponse.Status.FAILED, response.getStatus());
+        assertEquals(TargetedResponse.CallUsage.NONE, response.getUsage(),
+                "the call never completed, so there is no usage to carry");
+    }
+
+    @Test
+    void completeReturnsDeliveredUnparsedWhenParsingThrowsAfterASuccessfulQuery() {
+        // The query itself succeeds (tokens spent), but something downstream of it
+        // (the repair loop's parse, or TargetedResponse.map) blows up. That must not
+        // be conflated with an undelivered call: the model answered, so every target
+        // gets a DELIVERED, zero-gain outcome carrying the call's usage.
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.isAvailable()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult("some response", 5, 1, 7, 42L));
+
+        LlmSemanticMutation mutation = org.mockito.Mockito.spy(new LlmSemanticMutation(llmService));
+        org.mockito.Mockito.doThrow(new IllegalStateException("parse blew up"))
+                .when(mutation).repairLoop();
+        OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
+
+        TargetedResponse response = mutation.complete(mutation.prepare(Collections.singletonList(target)), 1);
+
+        assertEquals(TargetedResponse.Status.DELIVERED, response.getStatus());
+        assertTrue(response.isEmpty(), "no test could be produced from an unparsed response");
+        assertFalse(response.isParseSucceeded());
+        assertEquals("some response", response.getRawResponse());
+        assertEquals(5, response.getUsage().getInputTokens());
+        assertEquals(1, response.getUsage().getCachedInputTokens());
+        assertEquals(7, response.getUsage().getOutputTokens());
+        assertEquals(42L, response.getUsage().getLatencyMs());
+    }
+
+    @Test
+    void completeDeferringExpansionReturnsDeliveredUnparsedWhenParsingThrowsAfterASuccessfulQuery() {
+        LlmService llmService = mock(LlmService.class);
+        when(llmService.isAvailable()).thenReturn(true);
+        when(llmService.hasBudget(any(LlmFeature.class))).thenReturn(true);
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult("some other response", 9, 2, 11, 99L));
+
+        LlmSemanticMutation mutation = org.mockito.Mockito.spy(new LlmSemanticMutation(llmService));
+        org.mockito.Mockito.doThrow(new IllegalStateException("parse blew up"))
+                .when(mutation).deferringRepairLoop();
+        OperatorTarget target = OperatorTarget.builder(makeChromosome(), makeGoal("g")).build();
+
+        TargetedResponse response =
+                mutation.completeDeferringExpansion(mutation.prepare(Collections.singletonList(target)), 1);
+
+        assertEquals(TargetedResponse.Status.DELIVERED, response.getStatus());
+        assertTrue(response.isEmpty());
+        assertFalse(response.isParseSucceeded());
+        assertEquals("some other response", response.getRawResponse());
+        assertEquals(9, response.getUsage().getInputTokens());
+        assertEquals(2, response.getUsage().getCachedInputTokens());
+        assertEquals(11, response.getUsage().getOutputTokens());
+        assertEquals(99L, response.getUsage().getLatencyMs());
     }
 
     @Test

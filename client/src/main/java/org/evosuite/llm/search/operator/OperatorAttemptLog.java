@@ -43,8 +43,9 @@ import java.util.Set;
 /**
  * One CSV row per LLM operator target, in both {@code SYNC} and {@code ASYNC}
  * mode: {@link #open} registers a target as it is prompted, {@link
- * #recordResponse}/{@link #recordUndelivered} record what the call produced,
- * and {@link #recordEvaluated}/{@link #recordAdmitted}/{@link
+ * #recordResponse}/{@link #recordUndelivered}/{@link #recordDropped} record
+ * what the call produced (or that it never got the chance to), and {@link
+ * #recordEvaluated}/{@link #recordAdmitted}/{@link
  * #recordSurvivors} record what the search did with it afterwards.
  *
  * <p>Rows are always kept in memory — they are the source of the {@code
@@ -145,6 +146,22 @@ public final class OperatorAttemptLog {
             }
         } catch (RuntimeException e) {
             logger.debug("Operator attempt log: recordUndelivered() failed for {}: {}", attemptId, e.getMessage());
+        }
+    }
+
+    /**
+     * Records that this attempt's call was delivered — tokens/latency spent — but the run ended
+     * before its response could be processed (e.g. still queued at {@code shutdown()}). No-op if
+     * never opened, or if a parse status was already recorded for this attempt.
+     */
+    public synchronized void recordDropped(String attemptId, TargetedResponse.CallUsage usage) {
+        try {
+            OperatorAttemptRecord record = records.get(attemptId);
+            if (record != null) {
+                record.recordDropped(usage);
+            }
+        } catch (RuntimeException e) {
+            logger.debug("Operator attempt log: recordDropped() failed for {}: {}", attemptId, e.getMessage());
         }
     }
 

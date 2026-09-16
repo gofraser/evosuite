@@ -554,11 +554,15 @@ class LlmOperatorExecutorTest {
     }
 
     @Test
-    void aFailingDeferredReparseReleasesItsAttemptAndKeepsDraining() throws Exception {
+    void aFailingDeferredReparseRecordsParseFailedAndClosesItsAttemptWithZeroGain() throws Exception {
+        // The original call was delivered (that is how the response got deferred in the first
+        // place) and its tokens were spent; a failure while finishing the parse on the search
+        // thread must not be treated as an undelivered call to release. Every target gets a
+        // PARSE_FAILED row carrying that call's usage, and its attempt is closed with zero gain.
         LlmService llmService = availableService();
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 0, 0, 0, 0L));
-        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+                .thenReturn(new LlmService.QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 5, 1, 7, 42L));
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmSemanticMutation mutation = spy(new LlmSemanticMutation(llmService));
         org.mockito.Mockito.doThrow(new IllegalStateException("cluster unavailable"))
                 .when(mutation).reparseWithExpansion(any(PromptResult.class), any(String.class), eq(1),
@@ -575,21 +579,32 @@ class LlmOperatorExecutorTest {
             assertTrue(executor.drain().isEmpty(), "drain() must survive the failing re-parse");
             assertNotEquals(DiagnosticCardSelector.DiscardReason.IN_FLIGHT_REPEAT,
                     memory.adjustPriority(target.toRepeatedInjectionTarget(), 1.0, true).getDiscardReason(),
-                    "the attempt must be released, not left in flight");
+                    "the attempt must be closed, not left in flight");
+
             OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
             assertNotNull(record);
-            assertTrue(record.toCsvRow().contains(",UNDELIVERED,"), record.toCsvRow());
+            String csv = record.toCsvRow();
+            assertTrue(csv.contains(",PARSE_FAILED,"), csv);
+            String[] cols = csv.split(",", -1);
+            assertEquals("5", cols[18], "input_tokens of the delivered call must be kept: " + csv);
+            assertEquals("7", cols[20], "output_tokens of the delivered call must be kept: " + csv);
+
+            verify(memory).recordAttemptOutcome("prompt-1", 0);
+            verify(memory, org.mockito.Mockito.never()).releaseUndeliveredAttempt("prompt-1");
         } finally {
             executor.shutdown();
         }
     }
 
     @Test
-    void shutdownReleasesADeferredExpansionAttempt() throws Exception {
+    void shutdownRecordsAQueuedDeferredResponseAsDroppedAndClosesItsAttemptWithZeroGain() throws Exception {
+        // A response still sitting in the deferred queue at shutdown was delivered (its call
+        // returned) but never finished; it must be recorded DROPPED with that call's usage and
+        // its attempt closed with zero gain, not released as if the call never happened.
         LlmService llmService = availableService();
         when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
-                .thenReturn(new LlmService.QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 0, 0, 0, 0L));
-        RepeatedInjectionMemory memory = new RepeatedInjectionMemory();
+                .thenReturn(new LlmService.QueryResult(UNRESOLVED_SYMBOL_RESPONSE, 5, 1, 7, 42L));
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
 
         OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
@@ -598,7 +613,7 @@ class LlmOperatorExecutorTest {
         awaitInFlightZero(executor, 5);
 
         // The response is sitting in the deferred queue, waiting for drain(); shutdown() must
-        // still release its attempt rather than leave it dangling in flight.
+        // record it DROPPED and close its attempt, rather than leave it dangling in flight.
         executor.shutdown();
 
         assertTrue(executor.drain().isEmpty());
@@ -607,8 +622,42 @@ class LlmOperatorExecutorTest {
 
         OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
         assertNotNull(record);
-        assertTrue(record.toCsvRow().contains(",UNDELIVERED,"),
-                "expected an UNDELIVERED parse status: " + record.toCsvRow());
+        String csv = record.toCsvRow();
+        assertTrue(csv.contains(",DROPPED,"), "expected a DROPPED parse status: " + csv);
+        String[] cols = csv.split(",", -1);
+        assertEquals("5", cols[18], "input_tokens of the delivered call must be kept: " + csv);
+
+        verify(memory).recordAttemptOutcome("prompt-1", 0);
+        verify(memory, org.mockito.Mockito.never()).releaseUndeliveredAttempt("prompt-1");
+    }
+
+    @Test
+    void shutdownClosesAnUndrainedParsedCandidateWithZeroGainAndKeepsItsParsedStatus() throws Exception {
+        // A candidate still sitting in the produced-candidate queue at shutdown was already
+        // delivered and parsed (its row already carries PARSED); it just never made it through
+        // drain() to the GA, so its attempt is closed with zero gain rather than released.
+        LlmService llmService = availableService();
+        when(llmService.queryWithUsage(any(PromptResult.class), any(LlmFeature.class)))
+                .thenReturn(new LlmService.QueryResult(SINGLE_TARGET_RESPONSE, 0, 0, 0, 0L));
+        RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
+        LlmOperatorExecutor executor = newExecutor(llmService, memory, -1L, 0, 2, 1);
+
+        OperatorTarget target = OperatorTarget.builder(chromosome(), goal("g1")).build();
+        assertEquals(1, executor.submit(Collections.singletonList(target), 1, 0));
+        awaitInFlightZero(executor, 5);
+
+        // The worker has already parsed and published the candidate into the queue, but
+        // drain() has not run yet to hand it to the GA.
+        executor.shutdown();
+
+        assertTrue(executor.drain().isEmpty(), "shutdown() must have discarded the undrained candidate");
+        OperatorAttemptRecord record = OperatorAttemptLog.getInstance().recordFor("prompt-1");
+        assertNotNull(record);
+        assertTrue(record.toCsvRow().contains(",PARSED,"),
+                "the row must keep its PARSED status: " + record.toCsvRow());
+
+        verify(memory).recordAttemptOutcome("prompt-1", 0);
+        verify(memory, org.mockito.Mockito.never()).releaseUndeliveredAttempt("prompt-1");
     }
 
     @Test

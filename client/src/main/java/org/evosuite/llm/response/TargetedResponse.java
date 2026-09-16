@@ -128,6 +128,20 @@ public final class TargetedResponse {
         return map(result, targetCount, CallUsage.NONE, "");
     }
 
+    /**
+     * A {@link Status#DELIVERED} response for a call that returned but whose
+     * result could not be turned into tests locally (the parse or the mapping
+     * itself threw). The model still answered and the tokens were spent, so
+     * this must not be treated as {@link #noBudget()} or {@link #failed()}:
+     * every target gets a zero-gain outcome, not a release. Carries no
+     * matched/unmatched tests and {@link #isParseSucceeded()} is {@code false}.
+     */
+    public static TargetedResponse deliveredUnparsed(CallUsage usage, String rawResponse) {
+        CallUsage safeUsage = usage == null ? CallUsage.NONE : usage;
+        return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(),
+                Status.DELIVERED, 0, false, safeUsage, false, rawResponse);
+    }
+
     /** An empty, {@link Status#NO_BUDGET} response: no call was made, budget ran out first. */
     public static TargetedResponse noBudget() {
         return new TargetedResponse(new TreeMap<Integer, TestCase>(), new ArrayList<TestCase>(),

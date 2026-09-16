@@ -227,6 +227,32 @@ class TargetedResponseTest {
         assertEquals(TargetedResponse.Status.FAILED, response.getStatus());
     }
 
+    @Test
+    void deliveredUnparsedIsDeliveredButCarriesNoTests() {
+        // The model answered and its tokens were spent (unlike noBudget()/failed()), but the
+        // response could not be turned into tests locally, so this must read as DELIVERED with
+        // a failed parse, not as an undelivered call.
+        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(10, 4, 20, 123L);
+
+        TargetedResponse response = TargetedResponse.deliveredUnparsed(usage, "raw-llm-text");
+
+        assertEquals(TargetedResponse.Status.DELIVERED, response.getStatus());
+        assertSame(usage, response.getUsage());
+        assertEquals("raw-llm-text", response.getRawResponse());
+        assertTrue(response.isEmpty());
+        assertTrue(response.all().isEmpty());
+        assertFalse(response.isParseSucceeded());
+        assertEquals(0, response.getRepairTurns());
+        assertFalse(response.needsClusterExpansion());
+    }
+
+    @Test
+    void deliveredUnparsedDefaultsNullUsageToNone() {
+        TargetedResponse response = TargetedResponse.deliveredUnparsed(null, "raw");
+
+        assertEquals(TargetedResponse.CallUsage.NONE, response.getUsage());
+    }
+
     // ---- repair turns / parse status / usage -----------------------------------------
 
     @Test
