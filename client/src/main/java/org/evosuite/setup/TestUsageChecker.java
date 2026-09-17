@@ -738,9 +738,13 @@ public class TestUsageChecker {
             // && !Modifier.isProtected(m.getModifiers())) {
             String packageName = ClassUtils.getPackageName(ownerClass);
             String declaredPackageName = ClassUtils.getPackageName(m.getDeclaringClass());
+            // A default-access abstract method is only skipped for ordinary classes, where the
+            // implementation may live in a subclass outside the package. The constants of an
+            // enum with constant-specific bodies are nested in the enum itself, and such an
+            // abstract method is often its only entry point (Jsoup's TokeniserState).
             if (packageName.equals(Properties.CLASS_PREFIX)
                     && packageName.equals(declaredPackageName)
-                    && !Modifier.isAbstract(m.getModifiers())) {
+                    && (!Modifier.isAbstract(m.getModifiers()) || m.getDeclaringClass().isEnum())) {
                 TestClusterUtils.makeAccessible(m);
                 return true;
             }

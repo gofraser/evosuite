@@ -19,6 +19,7 @@
  */
 package org.evosuite.setup;
 
+import com.examples.with.different.packagename.EnumWithConstantBodiesFixture;
 import com.examples.with.different.packagename.EnumWithUserMethodsFixture;
 import com.examples.with.different.packagename.deprecated.DeprecatedAbstractBase;
 import com.examples.with.different.packagename.deprecated.DeprecatedImpl;
@@ -138,6 +139,17 @@ class TestUsageCheckerTest {
         Assertions.assertFalse(TestUsageChecker.isCompilerGeneratedEnumMethod(customValue));
         Assertions.assertTrue(TestUsageChecker.canUse(customFactory, EnumWithUserMethodsFixture.class));
         Assertions.assertTrue(TestUsageChecker.canUse(customValue, EnumWithUserMethodsFixture.class));
+    }
+
+    @Test
+    void testPackagePrivateAbstractEnumMethodIsUsable() throws NoSuchMethodException {
+        // Default-access abstract methods are skipped for ordinary classes, whose
+        // implementations may live outside the package; an enum's constant bodies
+        // cannot, and the abstract method is often the enum's only entry point.
+        Properties.CLASS_PREFIX = EnumWithConstantBodiesFixture.class.getPackage().getName();
+        Method read = EnumWithConstantBodiesFixture.class.getDeclaredMethod("read", int.class);
+
+        Assertions.assertTrue(TestUsageChecker.canUse(read, EnumWithConstantBodiesFixture.class));
     }
 
     private static Class<?> loadAsSut(Class<?> fixture) throws ClassNotFoundException {
