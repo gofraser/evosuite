@@ -19,11 +19,7 @@
  */
 package org.evosuite.llm.prompt;
 
-import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.coverage.branch.OnlyBranchCoverageTestFitness;
-import org.evosuite.coverage.cbranch.CBranchTestFitness;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
-import org.evosuite.coverage.ibranch.IBranchTestFitness;
 import org.evosuite.coverage.io.input.InputCoverageTestFitness;
 import org.evosuite.coverage.io.output.OutputCoverageTestFitness;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
@@ -57,8 +53,7 @@ public final class GoalActionHint {
     private GoalActionHint() {}
 
     public static String forGoal(TestFitnessFunction goal) {
-        if (goal instanceof BranchCoverageTestFitness || goal instanceof OnlyBranchCoverageTestFitness
-                || goal instanceof CBranchTestFitness || goal instanceof IBranchTestFitness) {
+        if (BranchGoalView.isBranchGoal(goal)) {
             return BRANCH;
         }
         if (goal instanceof LineCoverageTestFitness || goal instanceof StatementCoverageTestFitness) {

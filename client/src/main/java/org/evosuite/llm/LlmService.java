@@ -22,6 +22,7 @@ package org.evosuite.llm;
 import org.evosuite.llm.search.LlmPrivilegedThreads;
 import org.evosuite.Properties;
 import org.evosuite.llm.prompt.PromptResult;
+import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.provider.AnthropicChatModel;
 import org.evosuite.llm.provider.LlmHttpException;
 import org.evosuite.llm.provider.LlmProtocolException;
@@ -1285,37 +1286,40 @@ public class LlmService implements AutoCloseable {
      */
     public static final class QueryResult {
         private final String text;
-        private final int inputTokens;
-        private final int cachedInputTokens;
-        private final int outputTokens;
-        private final long latencyMs;
+        private final TargetedResponse.CallUsage usage;
 
         public QueryResult(String text, int inputTokens, int cachedInputTokens, int outputTokens, long latencyMs) {
+            this(text, new TargetedResponse.CallUsage(inputTokens, cachedInputTokens, outputTokens, latencyMs));
+        }
+
+        public QueryResult(String text, TargetedResponse.CallUsage usage) {
             this.text = text;
-            this.inputTokens = inputTokens;
-            this.cachedInputTokens = cachedInputTokens;
-            this.outputTokens = outputTokens;
-            this.latencyMs = latencyMs;
+            this.usage = usage == null ? TargetedResponse.CallUsage.NONE : usage;
         }
 
         public String getText() {
             return text;
         }
 
+        /** The usage of the call that produced {@link #getText()}, as one value shared with the response mapping. */
+        public TargetedResponse.CallUsage getUsage() {
+            return usage;
+        }
+
         public int getInputTokens() {
-            return inputTokens;
+            return usage.getInputTokens();
         }
 
         public int getCachedInputTokens() {
-            return cachedInputTokens;
+            return usage.getCachedInputTokens();
         }
 
         public int getOutputTokens() {
-            return outputTokens;
+            return usage.getOutputTokens();
         }
 
         public long getLatencyMs() {
-            return latencyMs;
+            return usage.getLatencyMs();
         }
     }
 }

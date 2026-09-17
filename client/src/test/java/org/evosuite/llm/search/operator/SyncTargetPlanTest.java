@@ -28,7 +28,6 @@ import java.util.Arrays;
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
@@ -52,8 +51,8 @@ class SyncTargetPlanTest {
         OperatorTarget target = OperatorTarget.builder(parent, goal("g")).distance(0.4).build();
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(target));
 
-        assertSame(target, plan.takeMutation(parent));
-        assertNull(plan.takeMutation(parent), "a parent must be targeted at most once per generation");
+        assertSame(target, plan.take(parent, OperatorTarget.Kind.MUTATION));
+        assertNull(plan.take(parent, OperatorTarget.Kind.MUTATION), "a parent must be targeted at most once per generation");
         assertEquals(0, plan.remaining());
     }
 
@@ -65,10 +64,10 @@ class SyncTargetPlanTest {
                 .distance(0.3).priority(0.7).partner(partner).build();
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(crossover));
 
-        assertNull(plan.takeMutation(parent),
+        assertNull(plan.take(parent, OperatorTarget.Kind.MUTATION),
                 "a crossover target whose gate is rejected must not be handed to the mutation hook");
         assertEquals(1, plan.remaining(), "a crossover-kind target must remain for takeCrossover");
-        assertSame(crossover, plan.takeCrossover(parent));
+        assertSame(crossover, plan.take(parent, OperatorTarget.Kind.CROSSOVER));
     }
 
     @Test
@@ -77,9 +76,9 @@ class SyncTargetPlanTest {
         OperatorTarget mutationTarget = OperatorTarget.builder(parent, goal("g")).build();
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(mutationTarget));
 
-        assertNull(plan.takeCrossover(parent));
+        assertNull(plan.take(parent, OperatorTarget.Kind.CROSSOVER));
         assertEquals(1, plan.remaining(), "a mutation-kind target must remain for takeMutation");
-        assertSame(mutationTarget, plan.takeMutation(parent));
+        assertSame(mutationTarget, plan.take(parent, OperatorTarget.Kind.MUTATION));
     }
 
     @Test
@@ -89,9 +88,9 @@ class SyncTargetPlanTest {
         OperatorTarget crossover = OperatorTarget.builder(parent, goal("g")).partner(partner).build();
         SyncTargetPlan plan = new SyncTargetPlan(Collections.singletonList(crossover));
 
-        assertSame(crossover, plan.takeCrossover(parent));
+        assertSame(crossover, plan.take(parent, OperatorTarget.Kind.CROSSOVER));
         assertEquals(0, plan.remaining());
-        assertNull(plan.takeMutation(parent));
+        assertNull(plan.take(parent, OperatorTarget.Kind.MUTATION));
     }
 
     @Test
@@ -99,14 +98,14 @@ class SyncTargetPlanTest {
         SyncTargetPlan plan = new SyncTargetPlan(
                 Collections.singletonList(OperatorTarget.builder(chromosome(), goal("g")).build()));
 
-        assertNull(plan.takeMutation(chromosome()));
-        assertNull(plan.takeCrossover(chromosome()));
+        assertNull(plan.take(chromosome(), OperatorTarget.Kind.MUTATION));
+        assertNull(plan.take(chromosome(), OperatorTarget.Kind.CROSSOVER));
     }
 
     @Test
     void emptyPlanIsAlwaysSafe() {
-        assertNull(SyncTargetPlan.EMPTY.takeMutation(chromosome()));
-        assertNull(SyncTargetPlan.EMPTY.takeCrossover(chromosome()));
+        assertNull(SyncTargetPlan.EMPTY.take(chromosome(), OperatorTarget.Kind.MUTATION));
+        assertNull(SyncTargetPlan.EMPTY.take(chromosome(), OperatorTarget.Kind.CROSSOVER));
         assertEquals(0, SyncTargetPlan.EMPTY.remaining());
         assertEquals(-1, SyncTargetPlan.EMPTY.getGeneration());
     }
@@ -126,6 +125,6 @@ class SyncTargetPlanTest {
         SyncTargetPlan plan = new SyncTargetPlan(Arrays.asList(first, second));
 
         assertEquals(1, plan.remaining());
-        assertSame(first, plan.takeMutation(parent));
+        assertSame(first, plan.take(parent, OperatorTarget.Kind.MUTATION));
     }
 }

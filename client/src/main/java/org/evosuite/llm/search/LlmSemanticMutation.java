@@ -43,7 +43,7 @@ public class LlmSemanticMutation extends LlmSemanticOperator {
     }
 
     @Override
-    protected OperatorTarget.Kind kind() {
+    public OperatorTarget.Kind kind() {
         return OperatorTarget.Kind.MUTATION;
     }
 }

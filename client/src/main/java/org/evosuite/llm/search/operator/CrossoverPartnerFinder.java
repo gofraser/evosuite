@@ -42,28 +42,35 @@ final class CrossoverPartnerFinder {
     }
 
     /**
-     * Individuals other than {@code parent} whose cached fitness for {@code
-     * goal} is finite and at most {@code 2 * best}, and which cover at least
-     * {@link Properties#LLM_OPERATOR_PARTNER_MIN_NEW_GOALS} goals the parent
-     * does not.
+     * The number of goals {@code candidate} covers that {@code parent} does
+     * not, or -1 when {@code candidate} is not an eligible partner: it must be
+     * another individual whose cached fitness for {@code goal} is finite and
+     * at most {@code 2 * best}, covering at least
+     * {@link Properties#LLM_OPERATOR_PARTNER_MIN_NEW_GOALS} new goals.
      */
+    private static int newGoalsIfEligible(TestChromosome candidate, TestChromosome parent,
+                                          Set<TestFitnessFunction> parentCovered,
+                                          TestFitnessFunction goal, double best) {
+        if (candidate == null || candidate == parent || candidate.getTestCase() == null) {
+            return -1;
+        }
+        Double distance = candidate.getFitnessValues().get(goal);
+        if (distance == null || !Double.isFinite(distance) || distance > 2.0 * best) {
+            return -1;
+        }
+        int newGoals = countNewGoals(candidate.getTestCase().getCoveredGoals(), parentCovered);
+        return newGoals < Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS ? -1 : newGoals;
+    }
+
+    /** The eligible partners for {@code parent}; see {@link #newGoalsIfEligible}. */
     static List<TestChromosome> eligible(List<TestChromosome> population, TestChromosome parent,
                                          TestFitnessFunction goal, double best) {
         Set<TestFitnessFunction> parentCovered = parent.getTestCase().getCoveredGoals();
         List<TestChromosome> result = new ArrayList<>();
         for (TestChromosome candidate : population) {
-            if (candidate == null || candidate == parent || candidate.getTestCase() == null) {
-                continue;
+            if (newGoalsIfEligible(candidate, parent, parentCovered, goal, best) >= 0) {
+                result.add(candidate);
             }
-            Double distance = candidate.getFitnessValues().get(goal);
-            if (distance == null || !Double.isFinite(distance) || distance > 2.0 * best) {
-                continue;
-            }
-            int newGoals = countNewGoals(candidate.getTestCase().getCoveredGoals(), parentCovered);
-            if (newGoals < Properties.LLM_OPERATOR_PARTNER_MIN_NEW_GOALS) {
-                continue;
-            }
-            result.add(candidate);
         }
         return result;
     }
@@ -75,9 +82,12 @@ final class CrossoverPartnerFinder {
         TestChromosome chosen = null;
         int chosenNewGoals = -1;
         double chosenDistance = Double.POSITIVE_INFINITY;
-        for (TestChromosome candidate : eligible(population, parent, goal, best)) {
+        for (TestChromosome candidate : population) {
+            int newGoals = newGoalsIfEligible(candidate, parent, parentCovered, goal, best);
+            if (newGoals < 0) {
+                continue;
+            }
             double distance = candidate.getFitnessValues().get(goal);
-            int newGoals = countNewGoals(candidate.getTestCase().getCoveredGoals(), parentCovered);
             if (newGoals > chosenNewGoals || (newGoals == chosenNewGoals && distance < chosenDistance)) {
                 chosen = candidate;
                 chosenNewGoals = newGoals;

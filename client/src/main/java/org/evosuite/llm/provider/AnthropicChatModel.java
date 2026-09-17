@@ -86,9 +86,7 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
         if (base.isEmpty()) {
             base = DEFAULT_BASE_URL;
         }
-        if (base.endsWith("/")) {
-            base = base.substring(0, base.length() - 1);
-        }
+        base = ProviderJson.stripTrailingSlash(base);
         if (base.endsWith("/v1/messages")) {
             return base;
         }
@@ -212,26 +210,7 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
      * exercise the parsing rules directly, without a network round trip.
      */
     static LlmService.LlmResponse parseResponse(String responseBody) throws IOException {
-        JsonNode root;
-        try {
-            root = MAPPER.readTree(responseBody);
-        } catch (IOException e) {
-            throw new LlmProtocolException("could not parse Anthropic response as JSON (" + e.getMessage() + ")",
-                    responseBody);
-        }
-        if (root == null || !root.isObject()) {
-            throw new LlmProtocolException("Anthropic response is not a JSON object", responseBody);
-        }
-        JsonNode error = root.path("error");
-        if (error.isObject()) {
-            // The provider itself reported a failure rather than sending a
-            // malformed body; LlmProviderErrorException lets LlmService tell
-            // a transient failure (rate limit, overload) apart from a
-            // permanent one (invalid request, unknown model) instead of
-            // treating every error object as retryable.
-            throw new LlmProviderErrorException(textOrNull(error, "type"), textOrNull(error, "code"),
-                    textOrNull(error, "message"), responseBody);
-        }
+        JsonNode root = ProviderJson.parseObject(responseBody, "Anthropic");
         if ("error".equals(root.path("type").asText(""))) {
             // Top-level error marker without a well-formed error object: the
             // body is malformed rather than a genuine provider error report.
@@ -269,29 +248,20 @@ public class AnthropicChatModel implements LlmService.ChatLanguageModel {
             if (!usage.isObject()) {
                 throw new LlmProtocolException("Anthropic response usage is not a JSON object", responseBody);
             }
-            reportedInputTokens = requireNumericIfPresent(usage, "input_tokens", responseBody);
-            outputTokens = requireNumericIfPresent(usage, "output_tokens", responseBody);
-            cacheReadInputTokens = requireNumericIfPresent(usage, "cache_read_input_tokens", responseBody);
-            cacheCreationInputTokens = requireNumericIfPresent(usage, "cache_creation_input_tokens", responseBody);
+            reportedInputTokens = ProviderJson.requireNumericIfPresent(usage, "input_tokens",
+
+                    "Anthropic", responseBody);
+            outputTokens = ProviderJson.requireNumericIfPresent(usage, "output_tokens",
+
+                    "Anthropic", responseBody);
+            cacheReadInputTokens = ProviderJson.requireNumericIfPresent(usage, "cache_read_input_tokens",
+
+                    "Anthropic", responseBody);
+            cacheCreationInputTokens = ProviderJson.requireNumericIfPresent(usage, "cache_creation_input_tokens",
+
+                    "Anthropic", responseBody);
         }
         int inputTokens = reportedInputTokens + cacheReadInputTokens + cacheCreationInputTokens;
         return new LlmService.LlmResponse(text.toString(), inputTokens, cacheReadInputTokens, outputTokens);
-    }
-
-    private static int requireNumericIfPresent(JsonNode parent, String field, String responseBody)
-            throws LlmProtocolException {
-        JsonNode value = parent.path(field);
-        if (value.isMissingNode() || value.isNull()) {
-            return 0;
-        }
-        if (!value.isNumber()) {
-            throw new LlmProtocolException("Anthropic response field '" + field + "' is not numeric", responseBody);
-        }
-        return value.asInt();
-    }
-
-    private static String textOrNull(JsonNode node, String field) {
-        JsonNode value = node.path(field);
-        return value.isTextual() ? value.asText() : null;
     }
 }

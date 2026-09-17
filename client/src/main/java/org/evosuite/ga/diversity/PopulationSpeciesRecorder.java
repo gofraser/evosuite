@@ -21,6 +21,7 @@ package org.evosuite.ga.diversity;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.InjectionSource;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -125,14 +126,7 @@ public final class PopulationSpeciesRecorder {
     }
 
     private static String defaultPath() {
-        String tc = Properties.TARGET_CLASS;
-        String suffix = (tc == null || tc.isEmpty()) ? "" : "_" + sanitize(tc);
-        return Properties.REPORT_DIR + File.separator
-                + "population_species_timeline" + suffix + ".csv";
-    }
-
-    private static String sanitize(String s) {
-        return s.replaceAll("[^A-Za-z0-9_.$-]", "_");
+        return SidecarCsv.path("population_species_timeline");
     }
 
     /**

@@ -90,17 +90,28 @@ public final class BranchOperands {
         if (isBoxedPrimitive(value)) {
             return value.toString();
         }
-        Class<?> type = value.getClass();
-        String simpleName;
-        try {
-            simpleName = type.getSimpleName();
-        } catch (Throwable t) {
-            // JDK 8 throws InternalError("Malformed class name") for some compiler-generated
-            // nested classes (JDK-8057919); this runs inside the tracer on the SUT thread.
-            simpleName = "";
-        }
-        return simpleName.isEmpty() ? type.getName() : simpleName;
+        return TYPE_NAMES.get(value.getClass());
     }
+
+    /**
+     * Rendered class name per class, computed once: this runs inside the tracer on the SUT
+     * thread for every reference comparison, and {@code getSimpleName()} re-parses the binary
+     * name on each call on JDK 8.
+     */
+    private static final ClassValue<String> TYPE_NAMES = new ClassValue<String>() {
+        @Override
+        protected String computeValue(Class<?> type) {
+            String simpleName;
+            try {
+                simpleName = type.getSimpleName();
+            } catch (Throwable t) {
+                // JDK 8 throws InternalError("Malformed class name") for some compiler-generated
+                // nested classes (JDK-8057919).
+                simpleName = "";
+            }
+            return simpleName.isEmpty() ? type.getName() : simpleName;
+        }
+    };
 
     /**
      * Escapes and truncates in a single bounded pass so a huge SUT string costs at most one

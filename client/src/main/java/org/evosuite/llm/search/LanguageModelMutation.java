@@ -20,12 +20,8 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
-import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
-import org.evosuite.testcase.TestChromosome;
-
-import java.util.Collections;
 
 /**
  * MOSA-level LLM mutation operator. The target — which parent, which goal,
@@ -40,47 +36,15 @@ import java.util.Collections;
  */
 public class LanguageModelMutation extends SyncOperatorHook {
 
-    private final LlmSemanticMutation semanticMutation;
-
     public LanguageModelMutation() {
         this(new LlmSemanticMutation(), null);
     }
 
-    public LanguageModelMutation(LlmSemanticMutation semanticMutation) {
-        this(semanticMutation, null);
+    public LanguageModelMutation(LlmSemanticMutation operator) {
+        this(operator, null);
     }
 
-    public LanguageModelMutation(LlmSemanticMutation semanticMutation, RepeatedInjectionMemory memory) {
-        super(memory);
-        this.semanticMutation = semanticMutation;
-    }
-
-    /**
-     * Attempt LLM semantic mutation of {@code offspring}, using whatever
-     * target this generation's {@code plan} holds for {@code parent}.
-     */
-    public OperatorAttemptResult tryMutateWithResult(TestChromosome offspring, TestChromosome parent,
-                                                     SyncTargetPlan plan) {
-        return tryApply(offspring, parent, plan);
-    }
-
-    @Override
-    protected double probability() {
-        return Properties.LLM_MUTATION_PROBABILITY;
-    }
-
-    @Override
-    protected boolean canCall() {
-        return semanticMutation.canCall();
-    }
-
-    @Override
-    protected OperatorTarget take(SyncTargetPlan plan, TestChromosome parent) {
-        return plan.takeMutation(parent);
-    }
-
-    @Override
-    protected TargetedResponse invoke(OperatorTarget target) {
-        return semanticMutation.applyMapped(Collections.singletonList(target));
+    public LanguageModelMutation(LlmSemanticMutation operator, RepeatedInjectionMemory memory) {
+        super(operator, OperatorTarget.Kind.MUTATION, () -> Properties.LLM_MUTATION_PROBABILITY, memory);
     }
 }

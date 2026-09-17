@@ -38,12 +38,12 @@ final class OperatorAttemptCsvWriter {
     private boolean headerWritten;
 
     /**
-     * Appends {@code rows} to {@code path}, creating the file and its parent directories and
+     * Appends the rendered {@code rows} to {@code path}, creating the file and its parent directories and
      * writing the CSV header on this writer's first call, appending without a header afterwards.
      * No-op for an empty list. Throws on failure; the caller decides how to handle that (the rows
      * are considered spent by the log either way — a broken disk must not make it retain them).
      */
-    void appendRows(String path, List<OperatorAttemptRecord> rows) throws IOException {
+    void appendRows(String path, List<String> rows) throws IOException {
         if (rows.isEmpty()) {
             return;
         }
@@ -58,8 +58,8 @@ final class OperatorAttemptCsvWriter {
                 writer.write(OperatorAttemptRecord.CSV_HEADER);
                 writer.newLine();
             }
-            for (OperatorAttemptRecord record : rows) {
-                writer.write(record.toCsvRow());
+            for (String row : rows) {
+                writer.write(row);
                 writer.newLine();
             }
         }

@@ -175,8 +175,7 @@ public final class LlmOperatorExecutor {
             pool.execute(() -> runBatch(operator, prompt, attribution));
         } catch (RuntimeException e) {
             inFlight.decrementAndGet();
-            recordUndeliveredBatch(attribution);
-            release(attribution);
+            abandon(attribution);
             return false;
         }
         submittedCalls.incrementAndGet();
@@ -214,13 +213,11 @@ public final class LlmOperatorExecutor {
         } catch (RuntimeException e) {
             logger.debug("LLM operator call failed: {}", e.getMessage());
             if (!shutDown) {
-                recordUndeliveredBatch(attribution);
-                release(attribution);
+                abandon(attribution);
             }
         } catch (Error e) {
             if (!shutDown) {
-                recordUndeliveredBatch(attribution);
-                release(attribution);
+                abandon(attribution);
             }
             throw e;
         } finally {
@@ -232,12 +229,9 @@ public final class LlmOperatorExecutor {
     private void handleResponse(TargetedResponse response, OperatorBatchAttribution attribution) {
         switch (response.getStatus()) {
             case NO_BUDGET:
-                droppedBudget.incrementAndGet();
-                recordBatchResponse(response, attribution);
-                release(attribution);
-                break;
             case FAILED:
-                failedCalls.incrementAndGet();
+                (response.getStatus() == TargetedResponse.Status.NO_BUDGET ? droppedBudget : failedCalls)
+                        .incrementAndGet();
                 recordBatchResponse(response, attribution);
                 release(attribution);
                 break;
@@ -269,11 +263,12 @@ public final class LlmOperatorExecutor {
         }
     }
 
-    /** Records every target of the batch as released without ever getting a response. */
-    private static void recordUndeliveredBatch(OperatorBatchAttribution attribution) {
+    /** Abandons a batch that never got a response: records every target as undelivered, then releases the attempts. */
+    private void abandon(OperatorBatchAttribution attribution) {
         for (String attemptId : attribution.getAttemptIds()) {
             OperatorAttemptLog.getInstance().recordUndelivered(attemptId);
         }
+        release(attribution);
     }
 
     private void publish(TargetedResponse mapped, OperatorBatchAttribution attribution) {
@@ -377,8 +372,7 @@ public final class LlmOperatorExecutor {
                 } catch (RuntimeException fallbackFailure) {
                     logger.debug("Recording the deferred response as delivered-but-unparsed also failed: {}",
                             fallbackFailure.getMessage());
-                    recordUndeliveredBatch(deferred.attribution);
-                    release(deferred.attribution);
+                    abandon(deferred.attribution);
                 }
             }
         }

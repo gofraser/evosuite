@@ -111,6 +111,7 @@ public class JsonHttpClient {
                            RequestCancellation cancellation) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
         boolean attachedBeforeAbort = cancellation == null || cancellation.attach(connection::disconnect);
+        boolean completed = false;
         try {
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
@@ -144,9 +145,16 @@ public class JsonHttpClient {
             if (status < 200 || status >= 300) {
                 throw new LlmHttpException(status, readStream(connection, connection.getErrorStream()));
             }
-            return readStream(connection, connection.getInputStream());
+            String response = readStream(connection, connection.getInputStream());
+            completed = true;
+            return response;
         } finally {
-            connection.disconnect();
+            // A fully drained and closed response stream returns the socket to the JDK's
+            // keep-alive cache, saving a TCP (and TLS) handshake on the next call; only an
+            // aborted or failed exchange needs the connection torn down.
+            if (!completed) {
+                connection.disconnect();
+            }
         }
     }
 

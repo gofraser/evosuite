@@ -34,7 +34,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -636,38 +635,30 @@ public class LlmTraceRecorder {
     }
 
     String deterministicPromptHash(List<LlmMessage> messages) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            for (LlmMessage message : messages) {
-                if (message == null) {
-                    continue;
-                }
-                digest.update(message.getRole().name().getBytes(StandardCharsets.UTF_8));
-                digest.update((byte) 0x1F);
-                digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
-                digest.update((byte) 0x1E);
+        MessageDigest digest = PrefixHash.sha256();
+        for (LlmMessage message : messages) {
+            if (message == null) {
+                continue;
             }
-            return toHex(digest.digest());
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
+            digest.update(message.getRole().name().getBytes(StandardCharsets.UTF_8));
+            digest.update((byte) 0x1F);
+            digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
+            digest.update((byte) 0x1E);
         }
+        return PrefixHash.hex(digest.digest());
     }
 
     private String messageContentHash(List<LlmMessage> messages, LlmMessage.Role role) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            boolean found = false;
-            for (LlmMessage message : messages) {
-                if (message != null && message.getRole() == role) {
-                    digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
-                    digest.update((byte) 0x1E);
-                    found = true;
-                }
+        MessageDigest digest = PrefixHash.sha256();
+        boolean found = false;
+        for (LlmMessage message : messages) {
+            if (message != null && message.getRole() == role) {
+                digest.update(message.getContent().getBytes(StandardCharsets.UTF_8));
+                digest.update((byte) 0x1E);
+                found = true;
             }
-            return found ? toHex(digest.digest()) : "";
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
         }
+        return found ? PrefixHash.hex(digest.digest()) : "";
     }
 
     private static boolean hasInternalContextTruncation(List<LlmMessage> messages) {
@@ -722,14 +713,10 @@ public class LlmTraceRecorder {
     }
 
     private String contentHash(String content) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            digest.update((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
-            digest.update((byte) 0x1E);
-            return toHex(digest.digest());
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
-        }
+        MessageDigest digest = PrefixHash.sha256();
+        digest.update((content == null ? "" : content).getBytes(StandardCharsets.UTF_8));
+        digest.update((byte) 0x1E);
+        return PrefixHash.hex(digest.digest());
     }
 
     public Path getTraceFile() {
@@ -748,14 +735,6 @@ public class LlmTraceRecorder {
             serialized.add(jsonMessage);
         }
         return serialized;
-    }
-
-    private String toHex(byte[] data) {
-        StringBuilder builder = new StringBuilder(data.length * 2);
-        for (byte datum : data) {
-            builder.append(String.format("%02x", datum));
-        }
-        return builder.toString();
     }
 
     private void writeJsonLine(String json) throws IOException {

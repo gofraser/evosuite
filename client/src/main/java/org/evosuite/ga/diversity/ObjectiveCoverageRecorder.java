@@ -20,6 +20,7 @@
 package org.evosuite.ga.diversity;
 
 import org.evosuite.Properties;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -153,8 +154,8 @@ public final class ObjectiveCoverageRecorder {
             writer.write(INDEX_HEADER);
             writer.newLine();
             for (int i = 0; i < classNames.length; i++) {
-                writer.write(i + "," + csvEscape(classNames[i]) + "," + csvEscape(methodNames[i]) + ","
-                        + csvEscape(descriptions[i]));
+                writer.write(i + "," + SidecarCsv.escape(classNames[i]) + "," + SidecarCsv.escape(methodNames[i]) + ","
+                        + SidecarCsv.escape(descriptions[i]));
                 writer.newLine();
             }
             logger.info("Objective index: wrote {} goals to {}", classNames.length, indexPath);
@@ -163,31 +164,12 @@ public final class ObjectiveCoverageRecorder {
         }
     }
 
-    private static String csvEscape(String s) {
-        if (s == null) {
-            return "";
-        }
-        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
-            return "\"" + s.replace("\"", "\"\"") + "\"";
-        }
-        return s;
-    }
-
     private static String defaultTimelinePath() {
-        return Properties.REPORT_DIR + File.separator + TIMELINE_FILENAME_PREFIX + suffix() + ".csv";
+        return SidecarCsv.path(TIMELINE_FILENAME_PREFIX);
     }
 
     private static String defaultIndexPath() {
-        return Properties.REPORT_DIR + File.separator + INDEX_FILENAME_PREFIX + suffix() + ".csv";
-    }
-
-    private static String suffix() {
-        String tc = Properties.TARGET_CLASS;
-        return (tc == null || tc.isEmpty()) ? "" : "_" + sanitize(tc);
-    }
-
-    private static String sanitize(String s) {
-        return s.replaceAll("[^A-Za-z0-9_.$-]", "_");
+        return SidecarCsv.path(INDEX_FILENAME_PREFIX);
     }
 
     private static final class Row {

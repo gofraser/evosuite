@@ -31,7 +31,7 @@ import java.util.Map;
  * target is used by exactly the hook matching its kind: a crossover target
  * whose gate is rejected this generation is simply not sent, it is never
  * converted into a mutation attempt. Whichever hook consumes a parent's
- * target (via {@link #takeMutation} or {@link #takeCrossover}) removes it, so
+ * target (via {@link #take}) removes it, so
  * the other hook sees nothing left for that parent.
  */
 public final class SyncTargetPlan {
@@ -68,27 +68,13 @@ public final class SyncTargetPlan {
     }
 
     /**
-     * Removes and returns {@code parent}'s target only if it is a mutation
-     * target; a crossover target is left in place for {@link #takeCrossover}
-     * to consume later, and null is returned.
-     */
-    public OperatorTarget takeMutation(TestChromosome parent) {
-        OperatorTarget target = byParent.get(parent);
-        if (target == null || target.getKind() != OperatorTarget.Kind.MUTATION) {
-            return null;
-        }
-        byParent.remove(parent);
-        return target;
-    }
-
-    /**
-     * Removes and returns {@code parent}'s target only if it is a crossover
-     * target; a mutation target is left in place for {@link #takeMutation} to
+     * Removes and returns {@code parent}'s target only if it is of {@code kind};
+     * a target of the other kind is left in place for that kind's hook to
      * consume later, and null is returned.
      */
-    public OperatorTarget takeCrossover(TestChromosome parent) {
+    public OperatorTarget take(TestChromosome parent, OperatorTarget.Kind kind) {
         OperatorTarget target = byParent.get(parent);
-        if (target == null || target.getKind() != OperatorTarget.Kind.CROSSOVER) {
+        if (target == null || target.getKind() != kind) {
             return null;
         }
         byParent.remove(parent);

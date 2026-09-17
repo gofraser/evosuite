@@ -19,7 +19,7 @@
  */
 package org.evosuite.ga.diversity;
 
-import org.evosuite.Properties;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -160,13 +160,7 @@ public final class PopulationShapeRecorder {
     }
 
     private static String defaultPath() {
-        String tc = Properties.TARGET_CLASS;
-        String suffix = (tc == null || tc.isEmpty()) ? "" : "_" + sanitize(tc);
-        return Properties.REPORT_DIR + File.separator + FILENAME_PREFIX + suffix + ".csv";
-    }
-
-    private static String sanitize(String s) {
-        return s.replaceAll("[^A-Za-z0-9_.$-]", "_");
+        return SidecarCsv.path(FILENAME_PREFIX);
     }
 
     private static final class Row {

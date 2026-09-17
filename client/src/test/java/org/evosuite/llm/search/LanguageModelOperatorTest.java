@@ -127,7 +127,7 @@ class LanguageModelOperatorTest {
         SyncTargetPlan plan = new SyncTargetPlan(
                 Collections.singletonList(mutationTarget(parent, makeGoal("g"))));
 
-        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         assertEquals(OperatorAttemptResult.SkipReason.DISABLED, result.getSkipReason());
         assertFalse(result.isAttemptedSemantic());
@@ -147,7 +147,7 @@ class LanguageModelOperatorTest {
         SyncTargetPlan plan = new SyncTargetPlan(
                 Collections.singletonList(mutationTarget(parent, makeGoal("g"))));
 
-        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         assertEquals(OperatorAttemptResult.SkipReason.PROBABILITY, result.getSkipReason());
         assertEquals(1, plan.remaining(),
@@ -167,7 +167,7 @@ class LanguageModelOperatorTest {
         SyncTargetPlan plan = new SyncTargetPlan(
                 Collections.singletonList(mutationTarget(parent, makeGoal("g"))));
 
-        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         assertEquals(OperatorAttemptResult.SkipReason.NO_BUDGET, result.getSkipReason());
         assertFalse(result.isAttemptedSemantic());
@@ -185,7 +185,7 @@ class LanguageModelOperatorTest {
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
 
         OperatorAttemptResult result =
-                mutation.tryMutateWithResult(makeChromosome(), makeChromosome(), SyncTargetPlan.EMPTY);
+                mutation.tryApply(makeChromosome(), makeChromosome(), SyncTargetPlan.EMPTY);
 
         assertEquals(OperatorAttemptResult.SkipReason.NO_TARGET, result.getSkipReason());
         verify(mockSemantic, never()).applyMapped(anyList());
@@ -212,7 +212,7 @@ class LanguageModelOperatorTest {
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
 
-        OperatorAttemptResult result = mutation.tryMutateWithResult(offspring, parent, plan);
+        OperatorAttemptResult result = mutation.tryApply(offspring, parent, plan);
 
         assertTrue(result.isAppliedSemantic());
         assertSame(target, result.getTarget());
@@ -252,7 +252,7 @@ class LanguageModelOperatorTest {
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
 
-        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         assertFalse(result.isAppliedSemantic());
         assertTrue(result.isFallbackUsed());
@@ -275,7 +275,7 @@ class LanguageModelOperatorTest {
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenThrow(new RuntimeException("boom"));
 
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic);
-        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         assertFalse(result.isAppliedSemantic());
         assertTrue(result.isFallbackUsed());
@@ -299,7 +299,7 @@ class LanguageModelOperatorTest {
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
-        mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        mutation.tryApply(makeChromosome(), parent, plan);
 
         // The target never reached a completed turn, so its repeat-suppression cooldown must
         // not grow — same treatment the ASYNC executor gives an undelivered attempt.
@@ -322,7 +322,7 @@ class LanguageModelOperatorTest {
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
-        mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        mutation.tryApply(makeChromosome(), parent, plan);
 
         verify(memory).releaseUndeliveredAttempt(anyString());
         verify(memory, never()).recordAttemptOutcome(anyString(), anyInt());
@@ -343,7 +343,7 @@ class LanguageModelOperatorTest {
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
-        mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        mutation.tryApply(makeChromosome(), parent, plan);
 
         verify(memory).releaseUndeliveredAttempt(anyString());
         verify(memory, never()).recordAttemptOutcome(anyString(), anyInt());
@@ -364,7 +364,7 @@ class LanguageModelOperatorTest {
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
-        mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        mutation.tryApply(makeChromosome(), parent, plan);
 
         // The call actually completed a turn against this target, it just produced nothing
         // usable — that counts as a real, gainless attempt, not a released non-delivery.
@@ -391,7 +391,7 @@ class LanguageModelOperatorTest {
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
-        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         TestChromosome evaluatedOffspring = makeChromosome();
         evaluatedOffspring.setFitness(goal, 0.0);
@@ -423,7 +423,7 @@ class LanguageModelOperatorTest {
 
         RepeatedInjectionMemory memory = spy(new RepeatedInjectionMemory());
         LanguageModelMutation mutation = new LanguageModelMutation(mockSemantic, memory);
-        OperatorAttemptResult result = mutation.tryMutateWithResult(makeChromosome(), parent, plan);
+        OperatorAttemptResult result = mutation.tryApply(makeChromosome(), parent, plan);
 
         mutation.recordOutcome(result, null);
 
@@ -454,7 +454,7 @@ class LanguageModelOperatorTest {
         when(mockSemantic.applyMapped(Collections.singletonList(crossover))).thenReturn(matchedResponse(childTest));
 
         LanguageModelCrossover crossoverHook = new LanguageModelCrossover(mockSemantic);
-        OperatorAttemptResult result = crossoverHook.tryCrossoverWithResult(offspring1, parent1, plan);
+        OperatorAttemptResult result = crossoverHook.tryApply(offspring1, parent1, plan);
 
         assertTrue(result.isAppliedSemantic());
         assertSame(crossover, result.getTarget());
@@ -463,7 +463,7 @@ class LanguageModelOperatorTest {
         assertEquals(1, plan.remaining(), "the untouched mutation-kind target must remain in the plan");
 
         OperatorAttemptResult secondAttempt =
-                crossoverHook.tryCrossoverWithResult(makeChromosome(), mutationOnlyParent, plan);
+                crossoverHook.tryApply(makeChromosome(), mutationOnlyParent, plan);
         assertEquals(OperatorAttemptResult.SkipReason.NO_TARGET, secondAttempt.getSkipReason(),
                 "a mutation-kind target must never be handed to the crossover hook");
     }
@@ -485,7 +485,7 @@ class LanguageModelOperatorTest {
 
         LanguageModelCrossover crossoverHook =
                 new LanguageModelCrossover(mockSemantic, new RepeatedInjectionMemory());
-        OperatorAttemptResult result = crossoverHook.tryCrossoverWithResult(offspring1, parent1, plan);
+        OperatorAttemptResult result = crossoverHook.tryApply(offspring1, parent1, plan);
 
         // The breeding loop evaluates a semantic crossover child in isolation, before the
         // mutation/orphan checks that follow could still discard it.
@@ -514,7 +514,7 @@ class LanguageModelOperatorTest {
         when(mockSemantic.applyMapped(Collections.singletonList(target))).thenReturn(unmatchedResponse());
 
         LanguageModelCrossover crossoverHook = new LanguageModelCrossover(mockSemantic);
-        OperatorAttemptResult result = crossoverHook.tryCrossoverWithResult(makeChromosome(), parent1, plan);
+        OperatorAttemptResult result = crossoverHook.tryApply(makeChromosome(), parent1, plan);
 
         assertFalse(result.isAppliedSemantic());
         assertTrue(result.isFallbackUsed());

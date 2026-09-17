@@ -38,20 +38,18 @@ public class OperatorAttemptResult {
         NO_TARGET       // probability gate passed, but the selector gave this parent no target
     }
 
-    private final boolean attemptedSemantic;
-    private final boolean appliedSemantic;
-    private final boolean fallbackUsed;
+    /** Which path the offspring went through. */
+    private enum Path { STANDARD_ONLY, SEMANTIC_APPLIED, SEMANTIC_FALLBACK }
+
+    private final Path path;
     private final SkipReason skipReason;
     private final OperatorTarget target;
     private final String attemptId;
     private final int generation;
 
-    private OperatorAttemptResult(boolean attemptedSemantic, boolean appliedSemantic,
-                                  boolean fallbackUsed, SkipReason skipReason,
+    private OperatorAttemptResult(Path path, SkipReason skipReason,
                                   OperatorTarget target, String attemptId, int generation) {
-        this.attemptedSemantic = attemptedSemantic;
-        this.appliedSemantic = appliedSemantic;
-        this.fallbackUsed = fallbackUsed;
+        this.path = path;
         this.skipReason = skipReason;
         this.target = target;
         this.attemptId = attemptId;
@@ -60,7 +58,7 @@ public class OperatorAttemptResult {
 
     /** Semantic path was attempted and successfully applied, with no target/attempt tracking. */
     public static OperatorAttemptResult semanticApplied() {
-        return new OperatorAttemptResult(true, true, false, SkipReason.NONE, null, null, -1);
+        return new OperatorAttemptResult(Path.SEMANTIC_APPLIED, SkipReason.NONE, null, null, -1);
     }
 
     /** Semantic path was attempted and successfully applied for {@code target}, under {@code attemptId} (nullable). */
@@ -73,34 +71,34 @@ public class OperatorAttemptResult {
      * attemptId} (nullable), from the {@code generation} the target's plan was built for.
      */
     public static OperatorAttemptResult semanticApplied(OperatorTarget target, String attemptId, int generation) {
-        return new OperatorAttemptResult(true, true, false, SkipReason.NONE, target, attemptId, generation);
+        return new OperatorAttemptResult(Path.SEMANTIC_APPLIED, SkipReason.NONE, target, attemptId, generation);
     }
 
     /** Semantic path was attempted but failed; standard fallback was used. */
     public static OperatorAttemptResult semanticFallback() {
-        return new OperatorAttemptResult(true, false, true, SkipReason.NONE, null, null, -1);
+        return new OperatorAttemptResult(Path.SEMANTIC_FALLBACK, SkipReason.NONE, null, null, -1);
     }
 
     /** Semantic path was attempted for {@code target} but failed; standard fallback was used. */
     public static OperatorAttemptResult semanticFallback(OperatorTarget target) {
-        return new OperatorAttemptResult(true, false, true, SkipReason.NONE, target, null, -1);
+        return new OperatorAttemptResult(Path.SEMANTIC_FALLBACK, SkipReason.NONE, target, null, -1);
     }
 
     /** Semantic path was not attempted; standard operator used directly. */
     public static OperatorAttemptResult standardOnly(SkipReason reason) {
-        return new OperatorAttemptResult(false, false, false, reason, null, null, -1);
+        return new OperatorAttemptResult(Path.STANDARD_ONLY, reason, null, null, -1);
     }
 
     public boolean isAttemptedSemantic() {
-        return attemptedSemantic;
+        return path != Path.STANDARD_ONLY;
     }
 
     public boolean isAppliedSemantic() {
-        return appliedSemantic;
+        return path == Path.SEMANTIC_APPLIED;
     }
 
     public boolean isFallbackUsed() {
-        return fallbackUsed;
+        return path == Path.SEMANTIC_FALLBACK;
     }
 
     public SkipReason getSkipReason() {
@@ -127,21 +125,15 @@ public class OperatorAttemptResult {
      * SEMANTIC if attempted (regardless of outcome); STANDARD otherwise.
      */
     public DisruptionEvent.OperatorSource toOperatorSource() {
-        return attemptedSemantic
+        return isAttemptedSemantic()
                 ? DisruptionEvent.OperatorSource.SEMANTIC
                 : DisruptionEvent.OperatorSource.STANDARD;
     }
 
-    /**
-     * Derive disruption event outcome from this result.
-     */
+    /** Derive disruption event outcome from this result: FALLBACK for a failed semantic attempt, APPLIED otherwise. */
     public DisruptionEvent.OperatorOutcome toOperatorOutcome() {
-        if (appliedSemantic) {
-            return DisruptionEvent.OperatorOutcome.APPLIED;
-        }
-        if (fallbackUsed) {
-            return DisruptionEvent.OperatorOutcome.FALLBACK;
-        }
-        return DisruptionEvent.OperatorOutcome.APPLIED; // standard applied
+        return path == Path.SEMANTIC_FALLBACK
+                ? DisruptionEvent.OperatorOutcome.FALLBACK
+                : DisruptionEvent.OperatorOutcome.APPLIED;
     }
 }

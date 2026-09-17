@@ -52,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -96,6 +97,7 @@ class TargetedPromptFactoryTest {
         byBranch.put(branchId, operands);
         ExecutionTrace trace = mock(ExecutionTrace.class);
         when(trace.getLastBranchOperands()).thenReturn(byBranch);
+        when(trace.getLastBranchOperands(anyInt())).thenAnswer(inv -> byBranch.get(inv.<Integer>getArgument(0)));
         chromosome.getLastExecutionResult().setTrace(trace);
         return chromosome;
     }

@@ -209,6 +209,15 @@ public interface ExecutionTrace {
     Map<Integer, BranchOperands> getLastBranchOperands();
 
     /**
+     * Operands of the last evaluation of branch {@code branchId} in this execution, or null
+     * when it was never evaluated or operand recording is off. Cheaper than building the
+     * whole {@link #getLastBranchOperands()} map for one branch.
+     */
+    default BranchOperands getLastBranchOperands(int branchId) {
+        return getLastBranchOperands().get(branchId);
+    }
+
+    /**
      * Retrieve map of all context method counts.
      *
      * @return a {@link java.util.Map} object.

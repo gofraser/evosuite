@@ -20,11 +20,7 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.coverage.branch.OnlyBranchCoverageTestFitness;
-import org.evosuite.coverage.cbranch.CBranchTestFitness;
 import org.evosuite.coverage.exception.ExceptionCoverageTestFitness;
-import org.evosuite.coverage.ibranch.IBranchTestFitness;
 import org.evosuite.coverage.io.input.InputCoverageTestFitness;
 import org.evosuite.coverage.io.output.OutputCoverageTestFitness;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
@@ -34,6 +30,7 @@ import org.evosuite.coverage.method.MethodTraceCoverageTestFitness;
 import org.evosuite.coverage.mutation.Mutation;
 import org.evosuite.coverage.mutation.MutationTestFitness;
 import org.evosuite.coverage.statement.StatementCoverageTestFitness;
+import org.evosuite.llm.prompt.BranchGoalView;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.TestFitnessFunction;
@@ -57,23 +54,12 @@ public final class GoalId {
         if (goal == null) {
             return "";
         }
-        if (goal instanceof BranchCoverageTestFitness) {
-            BranchCoverageTestFitness f = (BranchCoverageTestFitness) goal;
-            return format(goal, branchDiscriminator(f.getBranch(), f.getBranchExpressionValue()));
-        }
-        if (goal instanceof OnlyBranchCoverageTestFitness) {
-            OnlyBranchCoverageTestFitness f = (OnlyBranchCoverageTestFitness) goal;
-            return format(goal, branchDiscriminator(f.getBranch(), f.getBranchExpressionValue()));
-        }
-        if (goal instanceof IBranchTestFitness) {
-            IBranchTestFitness f = (IBranchTestFitness) goal;
-            // IBranch, like CBranch, is scoped to a call context: two IBranch goals on the same
+        BranchGoalView branchGoal = BranchGoalView.of(goal);
+        if (branchGoal != null) {
+            // CBranch and IBranch are scoped to a call context: two goals on the same
             // branch/polarity but different call sites are different goals and need different ids.
-            return format(goal, branchDiscriminator(f.getBranch(), f.getValue()) + contextSuffix(f.getContext()));
-        }
-        if (goal instanceof CBranchTestFitness) {
-            CBranchTestFitness f = (CBranchTestFitness) goal;
-            return format(goal, branchDiscriminator(f.getBranch(), f.getValue()) + contextSuffix(f.getContext()));
+            return format(goal, branchDiscriminator(branchGoal.getBranch(), branchGoal.getValue())
+                    + (branchGoal.isContextScoped() ? contextSuffix(branchGoal.getContext()) : ""));
         }
         if (goal instanceof LineCoverageTestFitness) {
             return format(goal, "line=" + ((LineCoverageTestFitness) goal).getLine());

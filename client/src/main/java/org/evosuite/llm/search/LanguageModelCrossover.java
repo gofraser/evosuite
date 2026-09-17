@@ -20,12 +20,8 @@
 package org.evosuite.llm.search;
 
 import org.evosuite.Properties;
-import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.llm.search.operator.OperatorTarget;
 import org.evosuite.llm.search.operator.SyncTargetPlan;
-import org.evosuite.testcase.TestChromosome;
-
-import java.util.Collections;
 
 /**
  * MOSA-level LLM crossover operator. The target — which parent, its crossover
@@ -39,48 +35,15 @@ import java.util.Collections;
  */
 public class LanguageModelCrossover extends SyncOperatorHook {
 
-    private final LlmSemanticCrossover semanticCrossover;
-
     public LanguageModelCrossover() {
         this(new LlmSemanticCrossover(), null);
     }
 
-    public LanguageModelCrossover(LlmSemanticCrossover semanticCrossover) {
-        this(semanticCrossover, null);
+    public LanguageModelCrossover(LlmSemanticCrossover operator) {
+        this(operator, null);
     }
 
-    public LanguageModelCrossover(LlmSemanticCrossover semanticCrossover, RepeatedInjectionMemory memory) {
-        super(memory);
-        this.semanticCrossover = semanticCrossover;
-    }
-
-    /**
-     * Attempt LLM semantic crossover of {@code offspring1}, using whatever
-     * crossover target this generation's {@code plan} holds for
-     * {@code parent1}.
-     */
-    public OperatorAttemptResult tryCrossoverWithResult(TestChromosome offspring1, TestChromosome parent1,
-                                                        SyncTargetPlan plan) {
-        return tryApply(offspring1, parent1, plan);
-    }
-
-    @Override
-    protected double probability() {
-        return Properties.LLM_CROSSOVER_PROBABILITY;
-    }
-
-    @Override
-    protected boolean canCall() {
-        return semanticCrossover.canCall();
-    }
-
-    @Override
-    protected OperatorTarget take(SyncTargetPlan plan, TestChromosome parent) {
-        return plan.takeCrossover(parent);
-    }
-
-    @Override
-    protected TargetedResponse invoke(OperatorTarget target) {
-        return semanticCrossover.applyMapped(Collections.singletonList(target));
+    public LanguageModelCrossover(LlmSemanticCrossover operator, RepeatedInjectionMemory memory) {
+        super(operator, OperatorTarget.Kind.CROSSOVER, () -> Properties.LLM_CROSSOVER_PROBABILITY, memory);
     }
 }

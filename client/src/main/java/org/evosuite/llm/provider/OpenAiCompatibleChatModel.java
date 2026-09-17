@@ -69,7 +69,7 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
     private static String resolveEndpoint(Properties.LlmProvider provider, String baseUrl) {
         String base = baseUrl == null ? "" : baseUrl.trim();
         if (provider == Properties.LlmProvider.OLLAMA) {
-            base = stripTrailingSlash(base);
+            base = ProviderJson.stripTrailingSlash(base);
             if (!base.endsWith("/v1")) {
                 base = base + "/v1";
             }
@@ -77,13 +77,9 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
             if (base.isEmpty()) {
                 base = DEFAULT_OPENAI_BASE_URL;
             }
-            base = stripTrailingSlash(base);
+            base = ProviderJson.stripTrailingSlash(base);
         }
         return base.endsWith("/chat/completions") ? base : base + "/chat/completions";
-    }
-
-    private static String stripTrailingSlash(String value) {
-        return value.endsWith("/") ? value.substring(0, value.length() - 1) : value;
     }
 
     @Override
@@ -149,26 +145,7 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
      * can exercise the parsing rules directly, without a network round trip.
      */
     static LlmService.LlmResponse parseResponse(String responseBody) throws IOException {
-        JsonNode root;
-        try {
-            root = MAPPER.readTree(responseBody);
-        } catch (IOException e) {
-            throw new LlmProtocolException("could not parse OpenAI response as JSON (" + e.getMessage() + ")",
-                    responseBody);
-        }
-        if (root == null || !root.isObject()) {
-            throw new LlmProtocolException("OpenAI response is not a JSON object", responseBody);
-        }
-        JsonNode error = root.path("error");
-        if (error.isObject()) {
-            // The provider itself reported a failure rather than sending a
-            // malformed body; LlmProviderErrorException lets LlmService tell
-            // a transient failure (rate limit, overload) apart from a
-            // permanent one (invalid request, unknown model) instead of
-            // treating every error object as retryable.
-            throw new LlmProviderErrorException(textOrNull(error, "type"), textOrNull(error, "code"),
-                    textOrNull(error, "message"), responseBody);
-        }
+        JsonNode root = ProviderJson.parseObject(responseBody, "OpenAI");
         JsonNode choices = root.path("choices");
         if (!choices.isArray() || choices.size() == 0) {
             throw new LlmProtocolException("OpenAI response has no choices", responseBody);
@@ -190,30 +167,19 @@ public class OpenAiCompatibleChatModel implements LlmService.ChatLanguageModel {
             if (!usage.isObject()) {
                 throw new LlmProtocolException("OpenAI response usage is not a JSON object", responseBody);
             }
-            inputTokens = requireNumericIfPresent(usage, "prompt_tokens", responseBody);
-            outputTokens = requireNumericIfPresent(usage, "completion_tokens", responseBody);
+            inputTokens = ProviderJson.requireNumericIfPresent(usage, "prompt_tokens",
+
+                    "OpenAI", responseBody);
+            outputTokens = ProviderJson.requireNumericIfPresent(usage, "completion_tokens",
+
+                    "OpenAI", responseBody);
             JsonNode promptDetails = usage.path("prompt_tokens_details");
             if (promptDetails.isObject()) {
-                cachedInputTokens = requireNumericIfPresent(promptDetails, "cached_tokens", responseBody);
+                cachedInputTokens = ProviderJson.requireNumericIfPresent(promptDetails, "cached_tokens",
+
+                        "OpenAI", responseBody);
             }
         }
         return new LlmService.LlmResponse(text, inputTokens, cachedInputTokens, outputTokens);
-    }
-
-    private static int requireNumericIfPresent(JsonNode parent, String field, String responseBody)
-            throws LlmProtocolException {
-        JsonNode value = parent.path(field);
-        if (value.isMissingNode() || value.isNull()) {
-            return 0;
-        }
-        if (!value.isNumber()) {
-            throw new LlmProtocolException("OpenAI response field '" + field + "' is not numeric", responseBody);
-        }
-        return value.asInt();
-    }
-
-    private static String textOrNull(JsonNode node, String field) {
-        JsonNode value = node.path(field);
-        return value.isTextual() ? value.asText() : null;
     }
 }

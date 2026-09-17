@@ -793,8 +793,8 @@ public class LlmStatistics {
             long cachedInput = 0L;
             long output = 0L;
             long latency = 0L;
-            for (LlmFeature feature : new LlmFeature[]{LlmFeature.SEMANTIC_MUTATION, LlmFeature.SEMANTIC_CROSSOVER}) {
-                FeatureSnapshot snapshot = snapshots.get(feature);
+            for (LlmFeature feature : LlmFeature.values()) {
+                FeatureSnapshot snapshot = feature.isOperator() ? snapshots.get(feature) : null;
                 if (snapshot == null) {
                     continue;
                 }

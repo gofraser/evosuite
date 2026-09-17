@@ -63,18 +63,25 @@ public final class PrefixHash {
     /** Lowercase hex SHA-256 of {@code text} ({@code null} treated as the empty string). */
     public static String ofText(String text) {
         String content = text == null ? "" : text;
+        return hex(sha256().digest(content.getBytes(StandardCharsets.UTF_8)));
+    }
+
+    /** A fresh SHA-256 digest; the algorithm is mandatory in every JDK, so its absence is a fatal state. */
+    public static MessageDigest sha256() {
         try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(content.getBytes(StandardCharsets.UTF_8));
-            StringBuilder hex = new StringBuilder(hash.length * 2);
-            for (byte b : hash) {
-                hex.append(Character.forDigit((b >> 4) & 0xF, 16));
-                hex.append(Character.forDigit(b & 0xF, 16));
-            }
-            return hex.toString();
+            return MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
-            // SHA-256 is a mandatory JDK algorithm; this cannot happen in practice.
             throw new IllegalStateException("SHA-256 not available", e);
         }
+    }
+
+    /** Lowercase hex rendering of {@code data}. */
+    public static String hex(byte[] data) {
+        StringBuilder hex = new StringBuilder(data.length * 2);
+        for (byte b : data) {
+            hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+            hex.append(Character.forDigit(b & 0xF, 16));
+        }
+        return hex.toString();
     }
 }

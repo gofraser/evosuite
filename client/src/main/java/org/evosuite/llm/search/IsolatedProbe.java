@@ -24,7 +24,6 @@ import org.evosuite.testcase.TestFitnessFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collection;
 
 /**
@@ -55,12 +54,17 @@ public final class IsolatedProbe {
     public static IsolatedProbe run(TestChromosome offspring, Collection<TestFitnessFunction> goals) {
         try {
             TestChromosome snapshot = offspring.clone();
-            IsolatedEvaluation.evaluate(snapshot, new ArrayList<>(goals));
+            IsolatedEvaluation.evaluate(snapshot, goals);
             return of(snapshot);
         } catch (Exception e) {
             logger.debug("Isolated probe failed", e);
-            return new IsolatedProbe(null, Double.NaN, true);
+            return failed();
         }
+    }
+
+    /** A probe that was attempted but could not be evaluated. */
+    public static IsolatedProbe failed() {
+        return new IsolatedProbe(null, Double.NaN, true);
     }
 
     /** Wraps a snapshot that was already evaluated in isolation, so it is not run a second time. */

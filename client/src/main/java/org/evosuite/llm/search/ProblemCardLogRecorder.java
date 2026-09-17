@@ -22,6 +22,7 @@ package org.evosuite.llm.search;
 import org.evosuite.Properties;
 import org.evosuite.testcase.InjectionSource;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -133,19 +134,19 @@ public final class ProblemCardLogRecorder {
                                         String cardType, String rootCauseKey,
                                         String scopeKey, double priority,
                                         List<String> goalDescriptions) {
-        rows.add("SELECTED," + csvEscape(attemptId) + ",-1," + elapsedMs() + ","
+        rows.add("SELECTED," + SidecarCsv.escape(attemptId) + ",-1," + elapsedMs() + ","
                 + (source == null ? "" : source.name()) + ","
-                + csvEscape(cardType) + "," + csvEscape(rootCauseKey) + ","
-                + csvEscape(scopeKey) + "," + priority + ","
-                + csvEscape(encodeGoals(goalDescriptions)));
+                + SidecarCsv.escape(cardType) + "," + SidecarCsv.escape(rootCauseKey) + ","
+                + SidecarCsv.escape(scopeKey) + "," + priority + ","
+                + SidecarCsv.escape(encodeGoals(goalDescriptions)));
     }
 
     /** Package-visible row writer taking pre-rendered goal descriptions (testable). */
     synchronized void recordCoveredRow(String attemptId, InjectionSource source,
                                        int gen, List<String> goalDescriptions) {
-        rows.add("COVERED_BY_INJECTION," + csvEscape(attemptId) + "," + gen + ","
+        rows.add("COVERED_BY_INJECTION," + SidecarCsv.escape(attemptId) + "," + gen + ","
                 + elapsedMs() + "," + (source == null ? "" : source.name())
-                + ",,,,," + csvEscape(encodeGoals(goalDescriptions)));
+                + ",,,,," + SidecarCsv.escape(encodeGoals(goalDescriptions)));
     }
 
     public synchronized int size() {
@@ -214,28 +215,7 @@ public final class ProblemCardLogRecorder {
         return sb.toString();
     }
 
-    /**
-     * Same escaping as ObjectiveCoverageRecorder.csvEscape — the goal
-     * descriptions here must parse back byte-identical to the objective
-     * index's description column (offline join key).
-     */
-    private static String csvEscape(String s) {
-        if (s == null) {
-            return "";
-        }
-        if (s.contains(",") || s.contains("\"") || s.contains("\n")) {
-            return "\"" + s.replace("\"", "\"\"") + "\"";
-        }
-        return s;
-    }
-
     private static String defaultPath() {
-        String tc = Properties.TARGET_CLASS;
-        String suffix = (tc == null || tc.isEmpty()) ? "" : "_" + sanitize(tc);
-        return Properties.REPORT_DIR + File.separator + FILENAME_PREFIX + suffix + ".csv";
-    }
-
-    private static String sanitize(String s) {
-        return s.replaceAll("[^A-Za-z0-9_.$-]", "_");
+        return SidecarCsv.path(FILENAME_PREFIX);
     }
 }

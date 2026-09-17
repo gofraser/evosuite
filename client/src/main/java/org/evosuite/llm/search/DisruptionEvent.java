@@ -19,6 +19,8 @@
  */
 package org.evosuite.llm.search;
 
+import org.evosuite.utils.SidecarCsv;
+
 /**
  * Immutable record of a single operator disruption event for Phase 8b analysis.
  * One event is emitted per operator application attempt (mutation or crossover),
@@ -84,13 +86,8 @@ public class DisruptionEvent {
     private final double targetDistanceAfter;    // NaN if unavailable
 
     // ---- Isolated view of the semantic result and its standard-operator twin ----
-    private final double semanticFitnessIsolated;         // NaN if unavailable
-    private final double semanticTargetDistanceIsolated;  // NaN if unavailable
-    private final boolean pairedProbe;
-    private final boolean pairedProbeFailure;
-    private final boolean twinChanged;
-    private final double twinFitness;         // NaN if unavailable
-    private final double twinTargetDistance;  // NaN if unavailable
+    /** Isolated view of the semantic result and its twin; {@link SemanticProbeResult#NONE} when not probed. */
+    private final SemanticProbeResult probe;
 
     private DisruptionEvent(Builder b) {
         this.generation = b.generation;
@@ -123,13 +120,7 @@ public class DisruptionEvent {
         this.targetGoalId = b.targetGoalId;
         this.targetDistanceBefore = b.targetDistanceBefore;
         this.targetDistanceAfter = b.targetDistanceAfter;
-        this.semanticFitnessIsolated = b.semanticFitnessIsolated;
-        this.semanticTargetDistanceIsolated = b.semanticTargetDistanceIsolated;
-        this.pairedProbe = b.pairedProbe;
-        this.pairedProbeFailure = b.pairedProbeFailure;
-        this.twinChanged = b.twinChanged;
-        this.twinFitness = b.twinFitness;
-        this.twinTargetDistance = b.twinTargetDistance;
+        this.probe = b.probe == null ? SemanticProbeResult.NONE : b.probe;
     }
 
     // ---- CSV header/row ----
@@ -159,34 +150,23 @@ public class DisruptionEvent {
                 + fitnessPreOperator + "," + fitnessPostOperator + "," + fitnessDelta + ","
                 + statementCountBefore + "," + statementCountAfter + "," + statementCountDelta
                 + "," + editsAdded + "," + editsRemoved + ","
-                + formatDouble(branchJaccardDistance) + "," + formatDouble(lineJaccardDistance)
-                + "," + formatDouble(goalJaccardDistance) + "," + formatDouble(speciationMetricDistance) + ","
+                + SidecarCsv.formatDouble(branchJaccardDistance) + "," + SidecarCsv.formatDouble(lineJaccardDistance)
+                + "," + SidecarCsv.formatDouble(goalJaccardDistance) + ","
+                + SidecarCsv.formatDouble(speciationMetricDistance) + ","
                 + (acceptedIntoOffspring == null ? "" : acceptedIntoOffspring) + ","
                 + (survivesToNextGeneration == null ? "" : survivesToNextGeneration) + ","
                 + isolatedProbe + "," + probeFailure + ","
-                + formatDouble(isolatedFitnessPostCrossover) + ","
-                + formatDouble(isolatedFitnessPostMutation) + ","
-                + formatDouble(isolatedMutationDelta) + ","
-                + formatCsvField(targetGoalId) + ","
-                + formatDouble(targetDistanceBefore) + "," + formatDouble(targetDistanceAfter) + ","
-                + formatDouble(semanticFitnessIsolated) + "," + formatDouble(semanticTargetDistanceIsolated) + ","
-                + pairedProbe + "," + pairedProbeFailure + "," + twinChanged + ","
-                + formatDouble(twinFitness) + "," + formatDouble(twinTargetDistance);
-    }
-
-    private static String formatDouble(double v) {
-        return Double.isNaN(v) ? "" : String.valueOf(v);
-    }
-
-    /** Quote free-text CSV fields (target_goal_id) that contain a comma, quote or line break. */
-    private static String formatCsvField(String s) {
-        if (s == null) {
-            return "";
-        }
-        if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0) {
-            return '"' + s.replace("\"", "\"\"") + '"';
-        }
-        return s;
+                + SidecarCsv.formatDouble(isolatedFitnessPostCrossover) + ","
+                + SidecarCsv.formatDouble(isolatedFitnessPostMutation) + ","
+                + SidecarCsv.formatDouble(isolatedMutationDelta) + ","
+                + SidecarCsv.escape(targetGoalId) + ","
+                + SidecarCsv.formatDouble(targetDistanceBefore) + ","
+                + SidecarCsv.formatDouble(targetDistanceAfter) + ","
+                + SidecarCsv.formatDouble(probe.getSemanticFitness()) + ","
+                + SidecarCsv.formatDouble(probe.getSemanticTargetDistance()) + ","
+                + probe.isTwinEvaluated() + "," + probe.isTwinFailure() + "," + probe.isTwinChanged() + ","
+                + SidecarCsv.formatDouble(probe.getTwinFitness()) + ","
+                + SidecarCsv.formatDouble(probe.getTwinTargetDistance());
     }
 
     // ---- Getters ----
@@ -311,32 +291,36 @@ public class DisruptionEvent {
         return targetDistanceAfter;
     }
 
+    public SemanticProbeResult getProbe() {
+        return probe;
+    }
+
     public double getSemanticFitnessIsolated() {
-        return semanticFitnessIsolated;
+        return probe.getSemanticFitness();
     }
 
     public double getSemanticTargetDistanceIsolated() {
-        return semanticTargetDistanceIsolated;
+        return probe.getSemanticTargetDistance();
     }
 
     public boolean isPairedProbe() {
-        return pairedProbe;
+        return probe.isTwinEvaluated();
     }
 
     public boolean isTwinChanged() {
-        return twinChanged;
+        return probe.isTwinChanged();
     }
 
     public boolean isPairedProbeFailure() {
-        return pairedProbeFailure;
+        return probe.isTwinFailure();
     }
 
     public double getTwinFitness() {
-        return twinFitness;
+        return probe.getTwinFitness();
     }
 
     public double getTwinTargetDistance() {
-        return twinTargetDistance;
+        return probe.getTwinTargetDistance();
     }
 
     // ---- Builder ----
@@ -376,13 +360,7 @@ public class DisruptionEvent {
         private String targetGoalId;
         private double targetDistanceBefore = Double.NaN;
         private double targetDistanceAfter = Double.NaN;
-        private double semanticFitnessIsolated = Double.NaN;
-        private double semanticTargetDistanceIsolated = Double.NaN;
-        private boolean pairedProbe;
-        private boolean pairedProbeFailure;
-        private boolean twinChanged;
-        private double twinFitness = Double.NaN;
-        private double twinTargetDistance = Double.NaN;
+        private SemanticProbeResult probe = SemanticProbeResult.NONE;
 
         public Builder generation(int v) {
             generation = v;
@@ -534,38 +512,9 @@ public class DisruptionEvent {
             return this;
         }
 
-        public Builder semanticFitnessIsolated(double v) {
-            semanticFitnessIsolated = v;
-            return this;
-        }
-
-        public Builder semanticTargetDistanceIsolated(double v) {
-            semanticTargetDistanceIsolated = v;
-            return this;
-        }
-
-        public Builder pairedProbe(boolean v) {
-            pairedProbe = v;
-            return this;
-        }
-
-        public Builder twinChanged(boolean v) {
-            twinChanged = v;
-            return this;
-        }
-
-        public Builder pairedProbeFailure(boolean v) {
-            pairedProbeFailure = v;
-            return this;
-        }
-
-        public Builder twinFitness(double v) {
-            twinFitness = v;
-            return this;
-        }
-
-        public Builder twinTargetDistance(double v) {
-            twinTargetDistance = v;
+        /** The isolated probe of the semantic result and its twin; null means {@link SemanticProbeResult#NONE}. */
+        public Builder probe(SemanticProbeResult v) {
+            probe = v;
             return this;
         }
 

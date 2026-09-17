@@ -1577,6 +1577,18 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
         return result;
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BranchOperands getLastBranchOperands(int branchId) {
+        if (branchOperandSlots == null || branchId < 0 || branchId >= branchOperandSlots.length) {
+            return null;
+        }
+        BranchOperandSlot slot = branchOperandSlots[branchId];
+        return slot == null ? null : slot.toBranchOperands();
+    }
+
     /*
      * (non-Javadoc)
      *

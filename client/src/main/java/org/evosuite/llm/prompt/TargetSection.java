@@ -105,15 +105,23 @@ public final class TargetSection {
                 .append("\n```\n");
     }
 
-    /** Position of {@code target} in {@code tests} (by identity, then by whitespace-normalised code), or -1. */
+    /**
+     * Position of {@code target} in {@code tests}: by identity first (the usual case, since an
+     * exemplar is attached as the population test itself), and only then by
+     * whitespace-normalised code, which costs a {@code toCode()} per candidate.
+     */
     public static int indexOfTest(List<TestCase> tests, TestCase target) {
         if (tests == null || target == null) {
             return -1;
         }
+        for (int i = 0; i < tests.size(); i++) {
+            if (tests.get(i) == target) {
+                return i;
+            }
+        }
         String targetCode = canonicalCode(target);
         for (int i = 0; i < tests.size(); i++) {
-            TestCase candidate = tests.get(i);
-            if (candidate == target || canonicalCode(candidate).equals(targetCode)) {
+            if (canonicalCode(tests.get(i)).equals(targetCode)) {
                 return i;
             }
         }

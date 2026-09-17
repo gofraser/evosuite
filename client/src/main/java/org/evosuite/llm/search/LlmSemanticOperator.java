@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * Shared machinery for the LLM variation operators (semantic mutation and
@@ -55,21 +56,21 @@ public abstract class LlmSemanticOperator {
 
     /** One loop per calling thread; see {@link #repairLoop()}. */
     private final ThreadLocal<TestRepairLoop> repairLoops =
-            ThreadLocal.withInitial(() -> newRepairLoop(true));
+            ThreadLocal.withInitial(() -> newRepairLoop(true, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS));
 
     /**
      * One loop per calling thread that must never expand the test cluster
      * itself; see {@link #completeDeferringExpansion(PromptResult, int)}.
      */
     private final ThreadLocal<TestRepairLoop> deferringRepairLoops =
-            ThreadLocal.withInitial(() -> newRepairLoop(false));
+            ThreadLocal.withInitial(() -> newRepairLoop(false, Properties.LLM_OPERATOR_REPAIR_ATTEMPTS));
 
     /**
      * One loop per calling thread for {@link #reparseWithExpansion}: expansion
      * allowed (it runs on the search thread), but zero LLM repair round-trips.
      */
     private final ThreadLocal<TestRepairLoop> reparseRepairLoops =
-            ThreadLocal.withInitial(this::newReparseRepairLoop);
+            ThreadLocal.withInitial(() -> newRepairLoop(true, 0));
 
     protected LlmSemanticOperator(LlmService llmService, LlmFeature feature) {
         this(llmService, feature, new TargetedPromptFactory());
@@ -144,7 +145,7 @@ public abstract class LlmSemanticOperator {
     }
 
     /** The only {@link OperatorTarget.Kind} this operator accepts. */
-    protected abstract OperatorTarget.Kind kind();
+    public abstract OperatorTarget.Kind kind();
 
     /**
      * Makes the LLM call for an already-rendered prompt and maps the response
@@ -156,35 +157,7 @@ public abstract class LlmSemanticOperator {
      * @param targetCount the number of targets the prompt was built for
      */
     public TargetedResponse complete(PromptResult prompt, int targetCount) {
-        if (!canCall()) {
-            return TargetedResponse.noBudget();
-        }
-        LlmService.QueryResult queryResult;
-        try {
-            queryResult = llmService.queryWithUsage(prompt, feature);
-        } catch (LlmBudgetExceededException e) {
-            logger.debug("LLM {} budget exceeded", feature);
-            return TargetedResponse.noBudget();
-        } catch (LlmCallFailedException e) {
-            logger.debug("LLM {} call failed: {}", feature, e.getMessage());
-            return TargetedResponse.failed();
-        } catch (RuntimeException e) {
-            logger.debug("LLM {} error: {}", feature, e.getMessage());
-            return TargetedResponse.failed();
-        }
-        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
-                queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
-                queryResult.getOutputTokens(), queryResult.getLatencyMs());
-        try {
-            RepairResult result = repairLoop().attemptParse(queryResult.getText(), prompt.getMessages(), feature);
-            return TargetedResponse.map(result, targetCount, usage);
-        } catch (RuntimeException e) {
-            // The call was delivered and its tokens were spent; a failure past
-            // this point (parsing or mapping) is a legitimate zero-gain outcome
-            // for the targets, not an undelivered call to release.
-            logger.debug("LLM {} response delivered but could not be parsed: {}", feature, e.getMessage());
-            return TargetedResponse.deliveredUnparsed(usage, queryResult.getText());
-        }
+        return complete(prompt, targetCount, this::repairLoop, null);
     }
 
     /**
@@ -202,6 +175,18 @@ public abstract class LlmSemanticOperator {
      * @param targetCount the number of targets the prompt was built for
      */
     public TargetedResponse completeDeferringExpansion(PromptResult prompt, int targetCount) {
+        return complete(prompt, targetCount, this::deferringRepairLoop, "worker");
+    }
+
+    /**
+     * Shared body of the two {@code complete} variants: one call, then one
+     * parse with the loop {@code loop} supplies (resolved after the call, so a
+     * failure to build it counts as a delivered-but-unparsed response like any
+     * other parse failure). {@code stage} names the caller for parse-failure
+     * logging, or is null to log nothing.
+     */
+    private TargetedResponse complete(PromptResult prompt, int targetCount, Supplier<TestRepairLoop> loop,
+                                      String stage) {
         if (!canCall()) {
             return TargetedResponse.noBudget();
         }
@@ -218,18 +203,17 @@ public abstract class LlmSemanticOperator {
             logger.debug("LLM {} error: {}", feature, e.getMessage());
             return TargetedResponse.failed();
         }
-        TargetedResponse.CallUsage usage = new TargetedResponse.CallUsage(
-                queryResult.getInputTokens(), queryResult.getCachedInputTokens(),
-                queryResult.getOutputTokens(), queryResult.getLatencyMs());
+        TargetedResponse.CallUsage usage = queryResult.getUsage();
         try {
-            RepairResult result = deferringRepairLoop()
-                    .attemptParse(queryResult.getText(), prompt.getMessages(), feature);
-            logParseOutcome("worker", result);
+            RepairResult result = loop.get().attemptParse(queryResult.getText(), prompt.getMessages(), feature);
+            if (stage != null) {
+                logParseOutcome(stage, result);
+            }
             return TargetedResponse.map(result, targetCount, usage, queryResult.getText());
         } catch (RuntimeException e) {
-            // Same reasoning as complete(): the call was delivered, so a parse
-            // or mapping failure here is a zero-gain delivered outcome, not an
-            // undelivered call.
+            // The call was delivered and its tokens were spent; a failure past
+            // this point (parsing or mapping) is a legitimate zero-gain outcome
+            // for the targets, not an undelivered call to release.
             logger.debug("LLM {} response delivered but could not be parsed: {}", feature, e.getMessage());
             return TargetedResponse.deliveredUnparsed(usage, queryResult.getText());
         }
@@ -284,17 +268,10 @@ public abstract class LlmSemanticOperator {
         return deferringRepairLoops.get();
     }
 
-    private TestRepairLoop newRepairLoop(boolean expandClusterOnDemand) {
+    private TestRepairLoop newRepairLoop(boolean expandClusterOnDemand, int repairAttempts) {
         boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
         return TestRepairLoop.createDefault(llmService,
                 TestRepairLoop.RepairOptions.parseOnly(keepAssertions, expandClusterOnDemand),
-                Properties.LLM_OPERATOR_REPAIR_ATTEMPTS);
-    }
-
-    private TestRepairLoop newReparseRepairLoop() {
-        boolean keepAssertions = LlmAssertionPolicyResolver.keepAssertions(false);
-        return TestRepairLoop.createDefault(llmService,
-                TestRepairLoop.RepairOptions.parseOnly(keepAssertions, true),
-                0);
+                repairAttempts);
     }
 }

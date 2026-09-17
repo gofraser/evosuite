@@ -21,12 +21,7 @@ package org.evosuite.llm.prompt;
 
 import org.evosuite.Properties;
 import org.evosuite.coverage.branch.Branch;
-import org.evosuite.coverage.branch.BranchCoverageTestFitness;
-import org.evosuite.coverage.branch.OnlyBranchCoverageTestFitness;
-import org.evosuite.coverage.cbranch.CBranchTestFitness;
-import org.evosuite.coverage.ibranch.IBranchTestFitness;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
-import org.evosuite.setup.CallContext;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.BranchOperands;
@@ -88,16 +83,17 @@ public final class BranchOperandHint {
         if (!Properties.LLM_BRANCH_OPERAND_HINTS || trace == null) {
             return null;
         }
-        Branch branch = branchOf(goal);
+        BranchGoalView branchGoal = BranchGoalView.of(goal);
+        Branch branch = branchGoal == null ? null : branchGoal.getBranch();
         if (branch == null || branch.isDefaultCase()) {
             return null;
         }
         // The trace keeps only the globally-last evaluation per branch id; for a context-scoped
         // goal (a specific call site) that evaluation may belong to a different call altogether.
-        if (hasNonEmptyContext(goal)) {
+        if (branchGoal.hasNonEmptyContext()) {
             return null;
         }
-        BranchOperands operands = trace.getLastBranchOperands().get(branch.getActualBranchId());
+        BranchOperands operands = trace.getLastBranchOperands(branch.getActualBranchId());
         if (operands == null) {
             return null;
         }
@@ -105,15 +101,7 @@ public final class BranchOperandHint {
         if (isCompareResultSentinel(operands, jump)) {
             return null;
         }
-        return render(branch, operands, valueOf(goal));
-    }
-
-    /** Whether {@code goal} carries a non-empty {@link CallContext}; only CBranch/IBranch goals ever do. */
-    private static boolean hasNonEmptyContext(TestFitnessFunction goal) {
-        CallContext context = goal instanceof CBranchTestFitness ? ((CBranchTestFitness) goal).getContext()
-                : goal instanceof IBranchTestFitness ? ((IBranchTestFitness) goal).getContext()
-                : null;
-        return context != null && !context.isEmpty();
+        return render(branch, operands, branchGoal.getValue());
     }
 
     /**
@@ -136,23 +124,6 @@ public final class BranchOperandHint {
         } catch (RuntimeException e) {
             return false;
         }
-    }
-
-    /** The branch of one of the four branch goal types, or null for any other goal (or a branchless-method root goal). */
-    private static Branch branchOf(TestFitnessFunction goal) {
-        return goal instanceof BranchCoverageTestFitness ? ((BranchCoverageTestFitness) goal).getBranch()
-                : goal instanceof OnlyBranchCoverageTestFitness ? ((OnlyBranchCoverageTestFitness) goal).getBranch()
-                : goal instanceof CBranchTestFitness ? ((CBranchTestFitness) goal).getBranch()
-                : goal instanceof IBranchTestFitness ? ((IBranchTestFitness) goal).getBranch()
-                : null;
-    }
-
-    /** Whether {@code goal}'s target polarity is the jump being taken; only meaningful once {@link #branchOf} is non-null. */
-    private static boolean valueOf(TestFitnessFunction goal) {
-        return goal instanceof BranchCoverageTestFitness ? ((BranchCoverageTestFitness) goal).getValue()
-                : goal instanceof OnlyBranchCoverageTestFitness ? ((OnlyBranchCoverageTestFitness) goal).getValue()
-                : goal instanceof CBranchTestFitness ? ((CBranchTestFitness) goal).getValue()
-                : ((IBranchTestFitness) goal).getValue();
     }
 
     private static String render(Branch branch, BranchOperands operands, boolean truePolarity) {

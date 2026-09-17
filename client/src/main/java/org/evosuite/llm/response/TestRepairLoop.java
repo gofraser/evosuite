@@ -316,11 +316,11 @@ public class TestRepairLoop {
         private final boolean expandClusterOnDemand;
 
         public static RepairOptions defaults() {
-            return new RepairOptions(true, true, false, true);
+            return new RepairOptions(true, true, false, true, true);
         }
 
         public static RepairOptions forAssertionPolicy(boolean keepAssertions) {
-            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions, true);
+            return new RepairOptions(keepAssertions, keepAssertions, !keepAssertions, true, true);
         }
 
         /**
@@ -355,15 +355,7 @@ public class TestRepairLoop {
                              boolean repairOnAssertionFailures,
                              boolean instructRepairToAvoidAssertions) {
             this(keepAssertionsInParsedTests, repairOnAssertionFailures,
-                    instructRepairToAvoidAssertions, true);
-        }
-
-        public RepairOptions(boolean keepAssertionsInParsedTests,
-                             boolean repairOnAssertionFailures,
-                             boolean instructRepairToAvoidAssertions,
-                             boolean executeParsedTests) {
-            this(keepAssertionsInParsedTests, repairOnAssertionFailures,
-                    instructRepairToAvoidAssertions, executeParsedTests, true);
+                    instructRepairToAvoidAssertions, true, true);
         }
 
         public RepairOptions(boolean keepAssertionsInParsedTests,

@@ -23,10 +23,10 @@ import org.evosuite.Properties;
 import org.evosuite.llm.response.TargetedResponse;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,9 +72,12 @@ import java.util.Set;
  * order; {@code generation} and {@code attempt_id} are in every row so analysis can re-sort them.
  * When the sidecar is disabled, retired and flushed rows are simply dropped, nothing is written.
  *
- * <p>Singleton like {@code ProblemCardLogRecorder}. Every public method is synchronized: {@code
- * recordResponse} is called from worker threads in {@code ASYNC} mode, everything else from the
- * search thread. Every method that touches a row or the sidecar file is also best-effort:
+ * <p>Singleton like {@code ProblemCardLogRecorder}. Every public method holds the log's monitor
+ * while it touches rows or counters: {@code recordResponse} is called from worker threads in
+ * {@code ASYNC} mode, everything else from the search thread. The sidecar write itself happens
+ * after that monitor is released (rows are rendered to text first), serialised on the writer, so
+ * a worker retiring a failed batch never makes the search thread wait on disk I/O. Every method
+ * that touches a row or the sidecar file is also best-effort:
  * telemetry must never break the search it is observing, so a {@link RuntimeException} anywhere
  * in its body is caught and logged rather than propagated; a failed sidecar write is logged once
  * per instance and the row is dropped rather than retried or kept forever.
@@ -87,7 +90,9 @@ public final class OperatorAttemptLog {
 
     private final LinkedHashMap<String, OperatorAttemptRecord> records = new LinkedHashMap<>();
     private final OperatorAttemptCsvWriter csvWriter = new OperatorAttemptCsvWriter();
+    /** Guarded by {@link #csvWriter}'s monitor, not the log's. */
     private boolean writeFailureLogged;
+    /** Guarded by {@link #csvWriter}'s monitor, not the log's. */
     private long rowsWritten;
 
     private long attempts;
@@ -130,13 +135,7 @@ public final class OperatorAttemptLog {
 
     /** Deterministically resolves the sidecar file path from properties. */
     public static String resolveSidecarPath() {
-        String tc = Properties.TARGET_CLASS;
-        String suffix = (tc == null || tc.isEmpty()) ? "" : "_" + sanitize(tc);
-        return Properties.REPORT_DIR + File.separator + "operator_attempts" + suffix + ".csv";
-    }
-
-    private static String sanitize(String s) {
-        return s.replaceAll("[^A-Za-z0-9_.$-]", "_");
+        return SidecarCsv.path("operator_attempts");
     }
 
     /** Registers one operator target as it is prompted. No-op for a null/empty or duplicate attempt id. */
@@ -156,40 +155,49 @@ public final class OperatorAttemptLog {
     }
 
     /** Records what the call behind {@code attemptId} produced for this target. No-op if never opened. */
-    public synchronized void recordResponse(String attemptId, TargetedResponse.Status status,
-                                            boolean parseSucceeded, boolean targetMatched, int repairTurns,
-                                            TargetedResponse.CallUsage usage, TestCase offspringOrNull) {
-        try {
-            OperatorAttemptRecord record = records.get(attemptId);
-            if (record == null) {
-                return;
+    public void recordResponse(String attemptId, TargetedResponse.Status status,
+                               boolean parseSucceeded, boolean targetMatched, int repairTurns,
+                               TargetedResponse.CallUsage usage, TestCase offspringOrNull) {
+        List<String> rows = Collections.emptyList();
+        synchronized (this) {
+            try {
+                OperatorAttemptRecord record = records.get(attemptId);
+                if (record == null) {
+                    return;
+                }
+                boolean applied = record.recordResponse(status, parseSucceeded, targetMatched, repairTurns,
+                        usage, offspringOrNull);
+                if (!applied) {
+                    return;
+                }
+                if (record.isParsed()) {
+                    parsed++;
+                }
+                if (record.isCaseATerminal()) {
+                    rows = retire(Collections.singletonList(record));
+                }
+            } catch (RuntimeException e) {
+                logger.debug("Operator attempt log: recordResponse() failed for {}: {}", attemptId, e.getMessage());
             }
-            boolean applied = record.recordResponse(status, parseSucceeded, targetMatched, repairTurns, usage,
-                    offspringOrNull);
-            if (!applied) {
-                return;
-            }
-            if (record.isParsed()) {
-                parsed++;
-            }
-            if (record.isCaseATerminal()) {
-                retire(Collections.singletonList(record));
-            }
-        } catch (RuntimeException e) {
-            logger.debug("Operator attempt log: recordResponse() failed for {}: {}", attemptId, e.getMessage());
         }
+        writeRows(rows);
     }
 
     /** Records that this attempt was released without ever getting a response (shutdown/pool rejection). */
-    public synchronized void recordUndelivered(String attemptId) {
-        try {
-            OperatorAttemptRecord record = records.get(attemptId);
-            if (record != null && record.recordUndelivered()) {
-                retire(Collections.singletonList(record));
+    public void recordUndelivered(String attemptId) {
+        List<String> rows = Collections.emptyList();
+        synchronized (this) {
+            try {
+                OperatorAttemptRecord record = records.get(attemptId);
+                if (record != null && record.recordUndelivered()) {
+                    rows = retire(Collections.singletonList(record));
+                }
+            } catch (RuntimeException e) {
+                logger.debug("Operator attempt log: recordUndelivered() failed for {}: {}", attemptId,
+                        e.getMessage());
             }
-        } catch (RuntimeException e) {
-            logger.debug("Operator attempt log: recordUndelivered() failed for {}: {}", attemptId, e.getMessage());
         }
+        writeRows(rows);
     }
 
     /**
@@ -197,15 +205,19 @@ public final class OperatorAttemptLog {
      * before its response could be processed (e.g. still queued at {@code shutdown()}). No-op if
      * never opened, or if a parse status was already recorded for this attempt.
      */
-    public synchronized void recordDropped(String attemptId, TargetedResponse.CallUsage usage) {
-        try {
-            OperatorAttemptRecord record = records.get(attemptId);
-            if (record != null && record.recordDropped(usage)) {
-                retire(Collections.singletonList(record));
+    public void recordDropped(String attemptId, TargetedResponse.CallUsage usage) {
+        List<String> rows = Collections.emptyList();
+        synchronized (this) {
+            try {
+                OperatorAttemptRecord record = records.get(attemptId);
+                if (record != null && record.recordDropped(usage)) {
+                    rows = retire(Collections.singletonList(record));
+                }
+            } catch (RuntimeException e) {
+                logger.debug("Operator attempt log: recordDropped() failed for {}: {}", attemptId, e.getMessage());
             }
-        } catch (RuntimeException e) {
-            logger.debug("Operator attempt log: recordDropped() failed for {}: {}", attemptId, e.getMessage());
         }
+        writeRows(rows);
     }
 
     /** Records the post-evaluation distance to the target goal and whether it was hit. */
@@ -254,7 +266,16 @@ public final class OperatorAttemptLog {
      * every still-open {@code PARSED}-but-unadmitted record's scan count, retiring it once that
      * reaches two (rule (c)): its offspring's generation of admission-or-rejection is long past.
      */
-    public synchronized void recordSurvivors(Collection<TestChromosome> population, int generation) {
+    public void recordSurvivors(Collection<TestChromosome> population, int generation) {
+        List<String> rows = Collections.emptyList();
+        synchronized (this) {
+            rows = retireSettledLocked(population, generation);
+        }
+        writeRows(rows);
+    }
+
+    /** The row-mutating part of {@link #recordSurvivors}; returns the rendered rows to write. */
+    private List<String> retireSettledLocked(Collection<TestChromosome> population, int generation) {
         try {
             List<OperatorAttemptRecord> toRetire = new ArrayList<>();
             List<OperatorAttemptRecord> pending = pendingSurvivorScans.remove(generation);
@@ -287,35 +308,54 @@ public final class OperatorAttemptLog {
                     toRetire.add(record);
                 }
             }
-            retire(toRetire);
+            return retire(toRetire);
         } catch (RuntimeException e) {
             logger.debug("Operator attempt log: recordSurvivors() failed: {}", e.getMessage());
+            return Collections.emptyList();
         }
     }
 
     /**
-     * Removes {@code toRetire} from memory and, when the sidecar is enabled, appends them to the
-     * CSV in one batched write; when disabled, or when the write fails, the rows are simply
-     * dropped (a write failure is logged once per instance, not retried).
+     * Removes {@code toRetire} from memory and returns their rendered CSV rows for {@link
+     * #writeRows} — rendered here, under the log's monitor, so the write can happen outside it.
+     * Empty when the sidecar is disabled: the rows are then simply dropped.
      */
-    private void retire(List<OperatorAttemptRecord> toRetire) {
+    private List<String> retire(List<OperatorAttemptRecord> toRetire) {
         if (toRetire.isEmpty()) {
-            return;
+            return Collections.emptyList();
         }
         for (OperatorAttemptRecord record : toRetire) {
             records.remove(record.getAttemptId());
         }
         if (!isSidecarEnabled()) {
+            return Collections.emptyList();
+        }
+        List<String> rows = new ArrayList<>(toRetire.size());
+        for (OperatorAttemptRecord record : toRetire) {
+            rows.add(record.toCsvRow());
+        }
+        return rows;
+    }
+
+    /**
+     * Appends {@code rows} to the sidecar in one batched write, serialised on the writer but not
+     * on the log's monitor. A write failure is logged once per instance and the rows dropped,
+     * not retried.
+     */
+    private void writeRows(List<String> rows) {
+        if (rows.isEmpty()) {
             return;
         }
-        try {
-            csvWriter.appendRows(resolveSidecarPath(), toRetire);
-            rowsWritten += toRetire.size();
-        } catch (IOException e) {
-            if (!writeFailureLogged) {
-                writeFailureLogged = true;
-                logger.debug("Operator attempt log: failed to write to the sidecar CSV; "
-                        + "further failures will not be logged: {}", e.getMessage());
+        synchronized (csvWriter) {
+            try {
+                csvWriter.appendRows(resolveSidecarPath(), rows);
+                rowsWritten += rows.size();
+            } catch (IOException | RuntimeException e) {
+                if (!writeFailureLogged) {
+                    writeFailureLogged = true;
+                    logger.debug("Operator attempt log: failed to write to the sidecar CSV; "
+                            + "further failures will not be logged: {}", e.getMessage());
+                }
             }
         }
     }
@@ -360,27 +400,33 @@ public final class OperatorAttemptLog {
      * call writes nothing new. No-op when there are no rows left; writes nothing (but still
      * clears) when the sidecar is disabled.
      */
-    public synchronized void flush() {
-        try {
-            if (records.isEmpty()) {
-                return;
-            }
-            List<OperatorAttemptRecord> remaining = new ArrayList<>(records.values());
-            records.clear();
-            pendingSurvivorScans.clear();
-            if (!isSidecarEnabled()) {
-                return;
-            }
+    public void flush() {
+        List<String> rows;
+        synchronized (this) {
             try {
-                csvWriter.appendRows(resolveSidecarPath(), remaining);
-                rowsWritten += remaining.size();
+                if (records.isEmpty()) {
+                    return;
+                }
+                List<OperatorAttemptRecord> remaining = new ArrayList<>(records.values());
+                pendingSurvivorScans.clear();
+                rows = retire(remaining);
+            } catch (RuntimeException e) {
+                logger.debug("Operator attempt log: flush() failed: {}", e.getMessage());
+                return;
+            }
+        }
+        if (rows.isEmpty()) {
+            return;
+        }
+        synchronized (csvWriter) {
+            try {
+                csvWriter.appendRows(resolveSidecarPath(), rows);
+                rowsWritten += rows.size();
                 logger.info("Operator attempt log: wrote {} rows to {} ({} total this run)",
-                        remaining.size(), resolveSidecarPath(), rowsWritten);
-            } catch (IOException e) {
+                        rows.size(), resolveSidecarPath(), rowsWritten);
+            } catch (IOException | RuntimeException e) {
                 logger.warn("Failed to write operator attempt log: {}", e.getMessage());
             }
-        } catch (RuntimeException e) {
-            logger.debug("Operator attempt log: flush() failed: {}", e.getMessage());
         }
     }
 }

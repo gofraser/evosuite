@@ -28,6 +28,7 @@ import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.statements.Statement;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,7 +84,23 @@ final class OperatorAttemptRecord {
     /** Released once the attempt closes (diff computed or not needed) — never used again after that. */
     private List<String> parentStatementCodes;
 
-    private String parseStatus = "";
+    /**
+     * How the call ended for this target; {@code PARSED} is the only status an attempt can
+     * still be admitted from, every other one is terminal (retirement rule (a)).
+     */
+    enum ParseStatus {
+        PARSED(false), NO_BUDGET(true), FAILED(true), PARSE_FAILED(true), UNMATCHED(true),
+        UNDELIVERED(true), DROPPED(true);
+
+        final boolean terminal;
+
+        ParseStatus(boolean terminal) {
+            this.terminal = terminal;
+        }
+    }
+
+    /** Null until the call's outcome is recorded; the first recorded status wins. */
+    private ParseStatus parseStatus;
     private Integer repairTurns;
     private Integer statementsKept;
     private Integer statementsAdded;
@@ -98,7 +115,7 @@ final class OperatorAttemptRecord {
     private boolean countedHit;
     private boolean countedImproved;
 
-    private boolean admitted;
+    /** Set once by {@link #recordAdmitted}; non-null means admitted. */
     private Integer admittedGeneration;
     private TestChromosome admittedOffspring;
     private Boolean survivedPlus1;
@@ -170,25 +187,21 @@ final class OperatorAttemptRecord {
      */
     boolean recordResponse(TargetedResponse.Status status, boolean parseSucceeded, boolean targetMatched,
                         int repairTurns, TargetedResponse.CallUsage usage, TestCase offspring) {
-        if (!parseStatus.isEmpty()) {
+        if (parseStatus != null) {
             return false;
         }
         this.repairTurns = repairTurns;
-        TargetedResponse.CallUsage safeUsage = usage == null ? TargetedResponse.CallUsage.NONE : usage;
-        this.inputTokens = safeUsage.getInputTokens();
-        this.cachedInputTokens = safeUsage.getCachedInputTokens();
-        this.outputTokens = safeUsage.getOutputTokens();
-        this.latencyMs = safeUsage.getLatencyMs();
+        applyUsage(usage);
         if (status == TargetedResponse.Status.NO_BUDGET) {
-            this.parseStatus = "NO_BUDGET";
+            this.parseStatus = ParseStatus.NO_BUDGET;
         } else if (status == TargetedResponse.Status.FAILED) {
-            this.parseStatus = "FAILED";
+            this.parseStatus = ParseStatus.FAILED;
         } else if (!parseSucceeded) {
-            this.parseStatus = "PARSE_FAILED";
+            this.parseStatus = ParseStatus.PARSE_FAILED;
         } else if (offspring != null && targetMatched) {
-            this.parseStatus = "PARSED";
+            this.parseStatus = ParseStatus.PARSED;
         } else {
-            this.parseStatus = "UNMATCHED";
+            this.parseStatus = ParseStatus.UNMATCHED;
         }
         if (offspring != null) {
             List<String> before = parentStatementCodes == null ? Collections.emptyList() : parentStatementCodes;
@@ -208,10 +221,10 @@ final class OperatorAttemptRecord {
      * call actually recorded it.
      */
     boolean recordUndelivered() {
-        if (!parseStatus.isEmpty()) {
+        if (parseStatus != null) {
             return false;
         }
-        this.parseStatus = "UNDELIVERED";
+        this.parseStatus = ParseStatus.UNDELIVERED;
         this.parentStatementCodes = null;
         return true;
     }
@@ -224,17 +237,21 @@ final class OperatorAttemptRecord {
      * whether this call actually recorded it.
      */
     boolean recordDropped(TargetedResponse.CallUsage usage) {
-        if (!parseStatus.isEmpty()) {
+        if (parseStatus != null) {
             return false;
         }
+        applyUsage(usage);
+        this.parseStatus = ParseStatus.DROPPED;
+        this.parentStatementCodes = null;
+        return true;
+    }
+
+    private void applyUsage(TargetedResponse.CallUsage usage) {
         TargetedResponse.CallUsage safeUsage = usage == null ? TargetedResponse.CallUsage.NONE : usage;
         this.inputTokens = safeUsage.getInputTokens();
         this.cachedInputTokens = safeUsage.getCachedInputTokens();
         this.outputTokens = safeUsage.getOutputTokens();
         this.latencyMs = safeUsage.getLatencyMs();
-        this.parseStatus = "DROPPED";
-        this.parentStatementCodes = null;
-        return true;
     }
 
     /**
@@ -259,10 +276,9 @@ final class OperatorAttemptRecord {
 
     /** Returns whether this attempt was newly admitted (idempotent: a record admits at most once). */
     boolean recordAdmitted(TestChromosome offspring, int generation) {
-        if (admitted) {
+        if (isAdmitted()) {
             return false;
         }
-        this.admitted = true;
         this.admittedGeneration = generation;
         this.admittedOffspring = offspring;
         return true;
@@ -327,26 +343,16 @@ final class OperatorAttemptRecord {
     }
 
     boolean isParsed() {
-        return "PARSED".equals(parseStatus);
+        return parseStatus == ParseStatus.PARSED;
     }
 
     /** Whether this record's outcome is a terminal, non-admittable one (retirement rule (a)). */
     boolean isCaseATerminal() {
-        switch (parseStatus) {
-            case "NO_BUDGET":
-            case "FAILED":
-            case "PARSE_FAILED":
-            case "UNMATCHED":
-            case "UNDELIVERED":
-            case "DROPPED":
-                return true;
-            default:
-                return false;
-        }
+        return parseStatus != null && parseStatus.terminal;
     }
 
     boolean isAdmitted() {
-        return admitted;
+        return admittedGeneration != null;
     }
 
     boolean isSurvivedPlus1() {
@@ -362,14 +368,15 @@ final class OperatorAttemptRecord {
     }
 
     String toCsvRow() {
-        return generation + "," + formatCsvField(attemptId) + "," + mode + "," + kind + "," + batchSize + ","
-                + parentHash + "," + orEmpty(partnerHash) + "," + formatCsvField(goalId) + ","
-                + formatCsvField(cardType) + "," + bool(hintPresent) + "," + formatDouble(distanceBefore) + ","
-                + (distanceAfter == null ? "" : formatDouble(distanceAfter)) + ","
-                + (targetHit == null ? "" : bool(targetHit)) + "," + parseStatus + ","
+        return generation + "," + SidecarCsv.escape(attemptId) + "," + mode + "," + kind + "," + batchSize + ","
+                + parentHash + "," + orEmpty(partnerHash) + "," + SidecarCsv.escape(goalId) + ","
+                + SidecarCsv.escape(cardType) + "," + bool(hintPresent) + ","
+                + SidecarCsv.formatDouble(distanceBefore) + ","
+                + (distanceAfter == null ? "" : SidecarCsv.formatDouble(distanceAfter)) + ","
+                + (targetHit == null ? "" : bool(targetHit)) + "," + (parseStatus == null ? "" : parseStatus) + ","
                 + orEmpty(repairTurns) + "," + orEmpty(statementsKept) + "," + orEmpty(statementsAdded) + ","
                 + orEmpty(statementsRemoved) + "," + orEmpty(inputTokens) + "," + orEmpty(cachedInputTokens) + ","
-                + orEmpty(outputTokens) + "," + orEmpty(latencyMs) + "," + bool(admitted) + ","
+                + orEmpty(outputTokens) + "," + orEmpty(latencyMs) + "," + bool(isAdmitted()) + ","
                 + orEmpty(admittedGeneration) + "," + (survivedPlus1 == null ? "" : bool(survivedPlus1)) + ","
                 + (survivedPlus5 == null ? "" : bool(survivedPlus5));
     }
@@ -380,21 +387,6 @@ final class OperatorAttemptRecord {
 
     private static String orEmpty(Object value) {
         return value == null ? "" : String.valueOf(value);
-    }
-
-    private static String formatDouble(double v) {
-        return Double.isNaN(v) ? "" : String.valueOf(v);
-    }
-
-    /** Same escaping as {@code DisruptionEvent.formatCsvField}. */
-    private static String formatCsvField(String s) {
-        if (s == null) {
-            return "";
-        }
-        if (s.indexOf(',') >= 0 || s.indexOf('"') >= 0 || s.indexOf('\n') >= 0 || s.indexOf('\r') >= 0) {
-            return '"' + s.replace("\"", "\"\"") + '"';
-        }
-        return s;
     }
 
     /**

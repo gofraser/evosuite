@@ -42,6 +42,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -109,6 +110,7 @@ class BranchOperandHintTest {
         byBranch.put(branchId, operands);
         ExecutionTrace trace = mock(ExecutionTrace.class);
         when(trace.getLastBranchOperands()).thenReturn(byBranch);
+        when(trace.getLastBranchOperands(anyInt())).thenAnswer(inv -> byBranch.get(inv.<Integer>getArgument(0)));
         return trace;
     }
 

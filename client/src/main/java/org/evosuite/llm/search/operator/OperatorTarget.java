@@ -47,6 +47,8 @@ public final class OperatorTarget {
     private final boolean stalled;
     private final ProblemCard card;
     private final TestChromosome partner;
+    /** Lazily rendered by {@link #toRepeatedInjectionTarget()}: it costs a {@code toCode()} per test. */
+    private RepeatedInjectionTarget repeatedInjectionTarget;
 
     private OperatorTarget(Builder builder) {
         this.parent = Objects.requireNonNull(builder.parent, "parent");
@@ -61,6 +63,23 @@ public final class OperatorTarget {
 
     public static Builder builder(TestChromosome parent, TestFitnessFunction goal) {
         return new Builder(parent, goal);
+    }
+
+    /** A copy of this target carrying {@code card} (the card does not affect kind, priority or identity). */
+    public OperatorTarget withCard(ProblemCard card) {
+        return card == this.card ? this : copy(priority, card);
+    }
+
+    /** A copy of this target with its priority replaced (identity and fingerprint unchanged). */
+    public OperatorTarget withPriority(double priority) {
+        return priority == this.priority ? this : copy(priority, card);
+    }
+
+    private OperatorTarget copy(double priority, ProblemCard card) {
+        OperatorTarget copy = builder(parent, goal).distance(distance).priority(priority).stalled(stalled)
+                .partner(partner).card(card).build();
+        copy.repeatedInjectionTarget = repeatedInjectionTarget;
+        return copy;
     }
 
     public TestChromosome getParent() { return parent; }
@@ -79,13 +98,19 @@ public final class OperatorTarget {
      * different test is not suppressed as a repeat of the same attempt.
      */
     public RepeatedInjectionTarget toRepeatedInjectionTarget() {
+        RepeatedInjectionTarget cached = repeatedInjectionTarget;
+        if (cached != null) {
+            return cached;
+        }
         String key = "operator|" + GoalId.of(goal);
         StringBuilder fingerprint = new StringBuilder(key).append("|parent=")
                 .append(TargetSection.canonicalCode(parent.getTestCase()));
         if (partner != null) {
             fingerprint.append("|partner=").append(TargetSection.canonicalCode(partner.getTestCase()));
         }
-        return new RepeatedInjectionTarget(key, fingerprint.toString());
+        cached = new RepeatedInjectionTarget(key, fingerprint.toString());
+        repeatedInjectionTarget = cached;
+        return cached;
     }
 
     @Override

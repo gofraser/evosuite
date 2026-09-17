@@ -595,6 +595,14 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
         return trace.getLastBranchOperands();
     }
 
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public BranchOperands getLastBranchOperands(int branchId) {
+        return trace.getLastBranchOperands(branchId);
+    }
+
     /*
      * (non-Javadoc)
      *

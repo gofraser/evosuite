@@ -140,6 +140,59 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         default void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
             // no-op
         }
+
+        /** Called once {@code candidate} has been evaluated by the GA; {@code metadata} may be null. */
+        default void onCandidateEvaluated(TestChromosome candidate, InjectionAttemptMetadata metadata) {
+            // no-op
+        }
+
+        /** Called once {@code candidate} actually entered the union of {@code generation}; metadata may be null. */
+        default void onCandidateAdmitted(TestChromosome candidate, InjectionAttemptMetadata metadata,
+                                         int generation) {
+            // no-op
+        }
+    }
+
+    /**
+     * An LLM-backed candidate source: drains from one helper and routes that helper's
+     * per-attempt metadata and outcome reports through {@link #metadataByCandidate} and
+     * {@link #reportGains}.
+     */
+    private static class LlmCandidateSource implements ExternalCandidateSource {
+        private final java.util.function.Supplier<List<TestChromosome>> drain;
+        private final InjectionSource tag;
+        private final Function<TestChromosome, InjectionAttemptMetadata> lookup;
+        private final ObjIntConsumer<String> report;
+
+        LlmCandidateSource(java.util.function.Supplier<List<TestChromosome>> drain, InjectionSource tag,
+                           Function<TestChromosome, InjectionAttemptMetadata> lookup,
+                           ObjIntConsumer<String> report) {
+            this.drain = drain;
+            this.tag = tag;
+            this.lookup = lookup;
+            this.report = report;
+        }
+
+        @Override
+        public List<TestChromosome> drain() {
+            return drain.get();
+        }
+
+        @Override
+        public InjectionSource injectionSource() {
+            return tag;
+        }
+
+        @Override
+        public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
+                List<TestChromosome> candidates) {
+            return metadataByCandidate(candidates, lookup);
+        }
+
+        @Override
+        public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
+            reportGains(gainsByAttemptId, report);
+        }
     }
 
     /**
@@ -621,7 +674,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             boolean crossoverApplied = false;
             if (llmCrossover != null) {
                 try {
-                    crossoverResult = llmCrossover.tryCrossoverWithResult(
+                    crossoverResult = llmCrossover.tryApply(
                             offspring1, parent1, syncTargets);
                 } catch (Exception e) {
                     logger.debug("LLM crossover error; falling back to standard", e);
@@ -682,8 +735,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         ? crossoverResult.getTarget().getPartner().orElse(parent2) : parent2;
                 observer.recordCrossover(offspring1, parent1, recordedParent2,
                         preCrossStmts1, crossoverResult, crossoverApplied,
-                        this.currentIteration, postCrossoverProbe1.getFitness(), postCrossoverProbe1.isFailure(),
-                        postCrossoverProbe1.getSnapshot(), crossoverResult.getTarget(), crossoverProbe);
+                        this.currentIteration, postCrossoverProbe1, crossoverProbe);
             }
 
             this.removeUnusedVariables(offspring1);
@@ -789,9 +841,8 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // Fresh run, fresh attempt log: this must run even when the mode is OFF, otherwise a
         // JVM that runs an operator-enabled search followed by an OFF search publishes the
         // previous run's counts from emitOperatorStats and may flush its rows under the new
-        // run's sidecar name. Nothing else resets this singleton before a row could be opened
-        // (ProblemCardLogRecorder/DisruptionRecorder have the same gap, closed only by their
-        // tests).
+        // run's sidecar name. LlmRunLifecycle.completeRun() resets it (and the other telemetry
+        // singletons) at the end of a generation run too; this covers a GA started without one.
         OperatorAttemptLog.resetInstance();
         if (Properties.LLM_OPERATOR_MODE == Properties.LlmOperatorMode.OFF) {
             return;
@@ -824,9 +875,16 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 Properties.LLM_OPERATOR_MAX_INFLIGHT, Properties.LLM_OPERATOR_BATCH_SIZE);
     }
 
-    /** Selector targets for this generation's SYNC hooks; empty when the hooks are off. */
+    /**
+     * Selector targets for this generation's SYNC hooks; empty when the hooks are off or
+     * neither could place a call (budget spent, service down), since selection is the
+     * expensive part and every hook would skip its target anyway.
+     */
     private SyncTargetPlan selectSyncTargets() {
         if (operatorTargetSelector == null || (llmMutation == null && llmCrossover == null)) {
+            return SyncTargetPlan.EMPTY;
+        }
+        if (!(llmMutation != null && llmMutation.canCall()) && !(llmCrossover != null && llmCrossover.canCall())) {
             return SyncTargetPlan.EMPTY;
         }
         return new SyncTargetPlan(operatorTargetSelector.select(this.population, getCurrentGoals(),
@@ -1010,7 +1068,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                 OperatorAttemptResult.SkipReason.NOT_CONFIGURED);
         if (llmMutation != null) {
             try {
-                mutResult = llmMutation.tryMutateWithResult(offspring, parent, syncTargets);
+                mutResult = llmMutation.tryApply(offspring, parent, syncTargets);
             } catch (Exception e) {
                 logger.debug("LLM mutation error; falling back to standard", e);
                 mutResult = OperatorAttemptResult.semanticFallback();
@@ -1038,9 +1096,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
 
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
-                        true, this.currentIteration, postCrossoverProbe.getSnapshot(),
-                        postCrossoverProbe.getFitness(), postCrossoverProbe.isFailure(),
-                        mutResult.getTarget(), mutationProbe);
+                        true, this.currentIteration, postCrossoverProbe, mutationProbe);
             }
 
             offspringPopulation.add(offspring);
@@ -1067,9 +1123,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
             lastGenOffspringUnchanged++;
             if (observer.isEnabled()) {
                 observer.recordMutation(offspring, parent, preMutStmts, mutResult,
-                        false, this.currentIteration, postCrossoverProbe.getSnapshot(),
-                        postCrossoverProbe.getFitness(), postCrossoverProbe.isFailure(),
-                        mutResult.getTarget(), SemanticProbeResult.NONE);
+                        false, this.currentIteration, postCrossoverProbe, SemanticProbeResult.NONE);
             }
         }
     }
@@ -2120,9 +2174,9 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // coveredGoalsAndRemoveList as each candidate is processed, so two drained candidates
         // targeting the same live goal would otherwise see the second as stale just because the
         // first already covered it moments earlier — even though both arrived while it was still
-        // uncovered.
-        Set<TestFitnessFunction> uncoveredAtDrainStart =
-                Collections.unmodifiableSet(new HashSet<>(remainingUncoveredBeforeInjection));
+        // uncovered. Taken lazily, before the first candidate of the generation is processed, so
+        // the common generation with nothing drained does not copy the uncovered set at all.
+        Set<TestFitnessFunction> uncoveredAtDrainStart = null;
         Set<String> seenInjectedCallSignatures = new HashSet<>();
         int deduplicatedInjectedCandidates = 0;
         // Only previously-injected LLM candidates seed the dedup set: a
@@ -2229,16 +2283,13 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         if (tag != null) {
                             tagInjectedCandidate(candidate, tag);
                         }
+                        if (uncoveredAtDrainStart == null) {
+                            uncoveredAtDrainStart =
+                                    Collections.unmodifiableSet(new HashSet<>(remainingUncoveredBeforeInjection));
+                        }
                         maybeRecordStaleTarget(tag, metadata, uncoveredAtDrainStart);
                         this.calculateFitness(candidate);
-                        if (tag == InjectionSource.LLM_OPERATOR && metadata != null
-                                && !metadata.getAttemptId().isEmpty()) {
-                            List<TestFitnessFunction> targetGoals = metadata.getTargetGoals();
-                            double distanceAfter = targetGoals.isEmpty()
-                                    ? Double.NaN : candidate.getFitness(targetGoals.get(0));
-                            OperatorAttemptLog.getInstance().recordEvaluated(
-                                    metadata.getAttemptId(), distanceAfter, distanceAfter == 0.0);
-                        }
+                        source.onCandidateEvaluated(candidate, metadata);
                         List<TestFitnessFunction> coveredNow =
                                 coveredGoalsAndRemoveList(candidate, remainingUncoveredBeforeInjection);
                         int gained = coveredNow.size();
@@ -2263,11 +2314,7 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                         }
                         if (!blendingActive || Properties.LLM_BLEND_KEEP_RAW) {
                             union.add(candidate);
-                            if (tag == InjectionSource.LLM_OPERATOR && metadata != null
-                                    && !metadata.getAttemptId().isEmpty()) {
-                                OperatorAttemptLog.getInstance().recordAdmitted(
-                                        metadata.getAttemptId(), candidate, this.currentIteration);
-                            }
+                            source.onCandidateAdmitted(candidate, metadata, this.currentIteration);
                             if (isLlmInjectionSource(tag)) {
                                 lastGenInjectedCandidatesAdmittedCount++;
                                 llmInjectedCandidatesAdmittedTotal++;
@@ -2987,76 +3034,40 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
         // maybeSubmit/drain are documented to be safe no-ops post-shutdown.
         if (asyncProducer != null) {
             final org.evosuite.llm.search.AsyncLlmTestProducer producer = asyncProducer;
-            externalCandidateSources.add(new ExternalCandidateSource() {
-                @Override
-                public List<TestChromosome> drain() {
-                    return producer.drainAvailable();
-                }
-
-                @Override
-                public InjectionSource injectionSource() {
-                    return InjectionSource.LLM_ASYNC;
-                }
-
-                @Override
-                public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                        List<TestChromosome> candidates) {
-                    return metadataByCandidate(candidates, producer::consumeAttemptMetadata);
-                }
-
-                @Override
-                public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
-                    reportGains(gainsByAttemptId, producer::reportAttemptOutcome);
-                }
-            });
+            externalCandidateSources.add(new LlmCandidateSource(producer::drainAvailable,
+                    InjectionSource.LLM_ASYNC, producer::consumeAttemptMetadata, producer::reportAttemptOutcome));
         }
         if (stagnationLlmHelper != null) {
             final StagnationLlmHelper helper = stagnationLlmHelper;
-            externalCandidateSources.add(new ExternalCandidateSource() {
-                @Override
-                public List<TestChromosome> drain() {
-                    return driveStagnationHelper(helper, coveredGoalCountSupplier, currentGoalsSupplier);
-                }
-
-                @Override
-                public InjectionSource injectionSource() {
-                    return InjectionSource.LLM_STAGNATION;
-                }
-
-                @Override
-                public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                        List<TestChromosome> candidates) {
-                    return metadataByCandidate(candidates, helper::consumeAttemptMetadata);
-                }
-
-                @Override
-                public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
-                    reportGains(gainsByAttemptId, helper::reportAttemptOutcome);
-                }
-            });
+            externalCandidateSources.add(new LlmCandidateSource(
+                    () -> driveStagnationHelper(helper, coveredGoalCountSupplier, currentGoalsSupplier),
+                    InjectionSource.LLM_STAGNATION, helper::consumeAttemptMetadata, helper::reportAttemptOutcome));
         }
         if (operatorExecutor != null) {
             final LlmOperatorExecutor executor = operatorExecutor;
-            externalCandidateSources.add(new ExternalCandidateSource() {
+            externalCandidateSources.add(new LlmCandidateSource(() -> driveOperatorExecutor(executor),
+                    InjectionSource.LLM_OPERATOR, executor::consumeAttemptMetadata, executor::reportAttemptOutcome) {
+                // The operator source is the only one with per-target telemetry: the attempt log
+                // wants the evaluated distance to the prompted goal and the moment of admission.
                 @Override
-                public List<TestChromosome> drain() {
-                    return driveOperatorExecutor(executor);
+                public void onCandidateEvaluated(TestChromosome candidate, InjectionAttemptMetadata metadata) {
+                    if (metadata == null || metadata.getAttemptId().isEmpty()) {
+                        return;
+                    }
+                    List<TestFitnessFunction> targetGoals = metadata.getTargetGoals();
+                    double distanceAfter = targetGoals.isEmpty()
+                            ? Double.NaN : candidate.getFitness(targetGoals.get(0));
+                    OperatorAttemptLog.getInstance().recordEvaluated(
+                            metadata.getAttemptId(), distanceAfter, distanceAfter == 0.0);
                 }
 
                 @Override
-                public InjectionSource injectionSource() {
-                    return InjectionSource.LLM_OPERATOR;
-                }
-
-                @Override
-                public Map<TestChromosome, InjectionAttemptMetadata> consumeAttemptMetadata(
-                        List<TestChromosome> candidates) {
-                    return metadataByCandidate(candidates, executor::consumeAttemptMetadata);
-                }
-
-                @Override
-                public void reportAttemptOutcomes(Map<String, Integer> gainsByAttemptId) {
-                    reportGains(gainsByAttemptId, executor::reportAttemptOutcome);
+                public void onCandidateAdmitted(TestChromosome candidate, InjectionAttemptMetadata metadata,
+                                                int generation) {
+                    if (metadata != null && !metadata.getAttemptId().isEmpty()) {
+                        OperatorAttemptLog.getInstance().recordAdmitted(metadata.getAttemptId(), candidate,
+                                generation);
+                    }
                 }
             });
         }

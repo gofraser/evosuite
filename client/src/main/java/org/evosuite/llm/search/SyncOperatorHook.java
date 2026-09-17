@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.DoubleSupplier;
 
 /**
  * Shared machinery behind {@link LanguageModelMutation} and
@@ -41,29 +42,34 @@ import java.util.concurrent.atomic.AtomicInteger;
  * RepeatedInjectionMemory} (if any) and the {@link OperatorAttemptLog}, make
  * the one LLM call, and replace the offspring's test case on success.
  */
-abstract class SyncOperatorHook {
+public class SyncOperatorHook {
 
     private static final Logger logger = LoggerFactory.getLogger(SyncOperatorHook.class);
 
+    private final LlmSemanticOperator operator;
+    private final OperatorTarget.Kind kind;
+    private final DoubleSupplier probability;
     private final RepeatedInjectionMemory memory;
     private final AtomicInteger appliedCount = new AtomicInteger(0);
     private final AtomicInteger fallbackCount = new AtomicInteger(0);
 
-    protected SyncOperatorHook(RepeatedInjectionMemory memory) {
+    /**
+     * @param operator the semantic operator this hook wraps
+     * @param kind the kind of target this hook takes from a plan (the operator's own kind)
+     * @param probability the probability gate applied once the mode check has passed
+     */
+    public SyncOperatorHook(LlmSemanticOperator operator, OperatorTarget.Kind kind, DoubleSupplier probability,
+                            RepeatedInjectionMemory memory) {
+        this.operator = operator;
+        this.kind = kind;
+        this.probability = probability;
         this.memory = memory;
     }
 
-    /** The probability gate this hook applies once it has passed the mode check. */
-    protected abstract double probability();
-
     /** Whether the underlying operator could place a call right now (service up, budget left). */
-    protected abstract boolean canCall();
-
-    /** Takes this hook's kind of target for {@code parent} from {@code plan}, or null. */
-    protected abstract OperatorTarget take(SyncTargetPlan plan, TestChromosome parent);
-
-    /** Makes the one LLM call for {@code target}, mapped back to this single target. */
-    protected abstract TargetedResponse invoke(OperatorTarget target);
+    public boolean canCall() {
+        return operator.canCall();
+    }
 
     /**
      * Attempts this hook's semantic operator on {@code offspring}, whose
@@ -81,10 +87,10 @@ abstract class SyncOperatorHook {
             // remaining generations out of the semantic-attempt statistics and the repeat memory.
             return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.NO_BUDGET);
         }
-        if (Randomness.nextDouble() > probability()) {
+        if (Randomness.nextDouble() > probability.getAsDouble()) {
             return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.PROBABILITY);
         }
-        OperatorTarget target = take(plan, parent);
+        OperatorTarget target = plan.take(parent, kind);
         if (target == null) {
             return OperatorAttemptResult.standardOnly(OperatorAttemptResult.SkipReason.NO_TARGET);
         }
@@ -97,7 +103,7 @@ abstract class SyncOperatorHook {
 
         TargetedResponse response;
         try {
-            response = invoke(target);
+            response = operator.applyMapped(Collections.singletonList(target));
         } catch (RuntimeException e) {
             logger.debug("LLM operator call failed unexpectedly: {}", e.getMessage());
             OperatorAttemptLog.getInstance().recordResponse(attemptId, TargetedResponse.Status.FAILED,

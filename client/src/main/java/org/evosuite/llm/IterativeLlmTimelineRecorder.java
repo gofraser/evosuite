@@ -12,6 +12,7 @@
 package org.evosuite.llm;
 
 import org.evosuite.Properties;
+import org.evosuite.utils.SidecarCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,21 +85,7 @@ public final class IterativeLlmTimelineRecorder {
     }
 
     private static String defaultPath() {
-        String target = Properties.TARGET_CLASS;
-        String suffix = target == null || target.isEmpty()
-                ? "" : "_" + target.replaceAll("[^A-Za-z0-9_.$-]", "_");
-        return Properties.REPORT_DIR + File.separator
-                + "iterative_llm_timeline" + suffix + ".csv";
-    }
-
-    private static String csv(String value) {
-        if (value == null) {
-            return "";
-        }
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
-        }
-        return value;
+        return SidecarCsv.path("iterative_llm_timeline");
     }
 
     private static final class Row {
@@ -148,13 +135,13 @@ public final class IterativeLlmTimelineRecorder {
         }
 
         private String toCsv() {
-            return round + "," + csv(roundType) + "," + elapsedMs + ","
+            return round + "," + SidecarCsv.escape(roundType) + "," + elapsedMs + ","
                     + remainingMs + "," + targetGoals + "," + queryLatencyMs
                     + "," + testsParsed + "," + testsUnique + "," + duplicates
                     + "," + newGoals + "," + coveredGoals + "," + totalGoals
                     + "," + suiteSize + "," + suiteLength + "," + coverage
                     + "," + assertionsRetained + "," + testsWithAssertions
-                    + "," + csv(failure);
+                    + "," + SidecarCsv.escape(failure);
         }
     }
 }

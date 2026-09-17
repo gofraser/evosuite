@@ -81,8 +81,8 @@ class BreedingDisruptionObserverTest {
         offspring.setFitness(goal, 0.0);
         OperatorTarget target = OperatorTarget.builder(parent, goal).distance(0.7).build();
 
-        observer.recordMutation(offspring, parent, 0, OperatorAttemptResult.semanticApplied(),
-                true, 1, null, Double.NaN, false, target, SemanticProbeResult.NONE);
+        observer.recordMutation(offspring, parent, 0, OperatorAttemptResult.semanticApplied(target, null),
+                true, 1, IsolatedProbe.NONE, SemanticProbeResult.NONE);
 
         DisruptionEvent event = DisruptionRecorder.getInstance().getEvents().get(0);
         assertEquals(GoalId.of(goal), event.getTargetGoalId());
@@ -98,7 +98,7 @@ class BreedingDisruptionObserverTest {
 
         observer.recordMutation(offspring, parent, 0, OperatorAttemptResult.standardOnly(
                         OperatorAttemptResult.SkipReason.NOT_CONFIGURED),
-                false, 1, null, Double.NaN, false, null, SemanticProbeResult.NONE);
+                false, 1, IsolatedProbe.NONE, SemanticProbeResult.NONE);
 
         DisruptionEvent event = DisruptionRecorder.getInstance().getEvents().get(0);
         assertNull(event.getTargetGoalId());
@@ -120,7 +120,7 @@ class BreedingDisruptionObserverTest {
         SemanticProbeResult probe = SemanticProbeResult.withTwin(semanticSnapshot, twin, false, goal);
 
         observer.recordMutation(offspring, parent, 0, OperatorAttemptResult.semanticApplied(),
-                false, 1, null, Double.NaN, false, null, probe);
+                false, 1, IsolatedProbe.NONE, probe);
 
         DisruptionEvent event = DisruptionRecorder.getInstance().getEvents().get(0);
         assertEquals(0.0, event.getSemanticFitnessIsolated());
@@ -144,7 +144,7 @@ class BreedingDisruptionObserverTest {
         semanticSnapshot.setFitness(goal, 0.0);
 
         observer.recordCrossover(offspring, parent, partner, 0, OperatorAttemptResult.semanticApplied(target, null),
-                true, 1, Double.NaN, false, null, target, SemanticProbeResult.semanticOnly(semanticSnapshot, goal));
+                true, 1, IsolatedProbe.NONE, SemanticProbeResult.semanticOnly(semanticSnapshot, goal));
 
         DisruptionEvent event = DisruptionRecorder.getInstance().getEvents().get(0);
         assertEquals(0.4, event.getTargetDistanceBefore());
@@ -163,7 +163,7 @@ class BreedingDisruptionObserverTest {
         semanticSnapshot.setFitness(goal, 0.25);
 
         observer.recordMutation(offspring, parent, 0, OperatorAttemptResult.semanticApplied(),
-                false, 1, null, Double.NaN, false, null, SemanticProbeResult.twinFailed(semanticSnapshot, goal));
+                false, 1, IsolatedProbe.NONE, SemanticProbeResult.twinFailed(semanticSnapshot, goal));
 
         DisruptionEvent event = DisruptionRecorder.getInstance().getEvents().get(0);
         assertEquals(0.25, event.getSemanticTargetDistanceIsolated());

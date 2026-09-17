@@ -52,6 +52,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -262,6 +263,7 @@ class ExemplarAttacherTest {
         operandsByBranch.put(7, BranchOperands.ofInts(50, 0, Opcodes.IF_ICMPLE));
         ExecutionTrace trace = mock(ExecutionTrace.class);
         when(trace.getLastBranchOperands()).thenReturn(operandsByBranch);
+        when(trace.getLastBranchOperands(anyInt())).thenAnswer(inv -> operandsByBranch.get(inv.<Integer>getArgument(0)));
         ExecutionResult result = mock(ExecutionResult.class);
         when(result.getTrace()).thenReturn(trace);
 
