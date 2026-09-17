@@ -75,4 +75,41 @@ public class ExecutionTraceImplTest {
         Assertions.assertNull(impl.getExplicitException());
         Assertions.assertTrue(impl.getMethodContextCount().isEmpty());
     }
+
+    @Test
+    public void withoutMethodCallsKeepsAggregatesAndDropsCallRecords() {
+        boolean traceCallsBefore = ExecutionTraceImpl.isTraceCallsEnabled();
+        ExecutionTraceImpl.enableTraceCalls();
+        try {
+            ExecutionTraceImpl impl = new ExecutionTraceImpl();
+            impl.enteredMethod("Foo", "bar()V", null);
+            impl.linePassed("Foo", "bar()V", 7);
+            impl.branchPassed(3, 11, 0.0, 4.0);
+            impl.exitMethod("Foo", "bar()V");
+            Assertions.assertEquals(1, impl.getMethodCalls().size());
+            Assertions.assertEquals(1, impl.getMethodCalls().get(0).branchTrace.size());
+
+            ExecutionTraceImpl compact = impl.withoutMethodCalls();
+
+            Assertions.assertTrue(compact.getMethodCalls().isEmpty());
+            Assertions.assertTrue(compact.getMethodCalls("Foo", "bar()V").isEmpty());
+            Assertions.assertTrue(compact.getAllCoveredLines().contains(7));
+            Assertions.assertTrue(compact.getCoveredMethods().contains("Foo.bar()V"));
+            Assertions.assertEquals(0.0, compact.getTrueDistances().get(3), 0.0);
+            Assertions.assertEquals(4.0, compact.getFalseDistances().get(3), 0.0);
+            Assertions.assertTrue(compact.getCoveredTrueBranches().contains(3));
+            // the original is untouched
+            Assertions.assertEquals(1, impl.getMethodCalls().size());
+
+            ExecutionTrace viaProxy = new ExecutionTraceProxy(impl).withoutMethodCalls();
+            Assertions.assertTrue(viaProxy.getMethodCalls().isEmpty());
+            Assertions.assertTrue(viaProxy.getAllCoveredLines().contains(7));
+        } finally {
+            if (traceCallsBefore) {
+                ExecutionTraceImpl.enableTraceCalls();
+            } else {
+                ExecutionTraceImpl.disableTraceCalls();
+            }
+        }
+    }
 }

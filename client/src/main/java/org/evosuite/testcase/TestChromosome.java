@@ -33,6 +33,7 @@ import org.evosuite.symbolic.BranchCondition;
 import org.evosuite.symbolic.ConcolicMutation;
 import org.evosuite.symbolic.dse.ConcolicExecutorImpl;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.ExecutionTrace;
 import org.evosuite.testcase.localsearch.TestCaseLocalSearch;
 import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.PrimitiveStatement;
@@ -125,6 +126,16 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
 
     /** Maximum number of descent lineage ids retained per chromosome. */
     public static final int DESCENT_LINEAGE_CAP = 4;
+
+    /**
+     * Drops the per-invocation method-call records from the cached execution result,
+     * keeping the aggregated coverage data. See {@link ExecutionTrace#withoutMethodCalls()}.
+     */
+    public void discardMethodCallTraces() {
+        if (lastExecutionResult != null && lastExecutionResult.getTrace() != null) {
+            lastExecutionResult.setTrace(lastExecutionResult.getTrace().withoutMethodCalls());
+        }
+    }
 
     /**
      * {@inheritDoc}

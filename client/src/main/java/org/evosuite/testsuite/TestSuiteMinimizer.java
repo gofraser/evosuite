@@ -447,7 +447,15 @@ public class TestSuiteMinimizer {
         final int originalSuiteSize = suite.size();
         final int originalSuiteLength = suite.totalLengthOfTestCases();
 
-        ExecutionTracer.enableTraceCalls();
+        // Minimisation only asks whether a goal is still covered, which the aggregated
+        // trace answers; per-call records are needed by the def-use criteria alone.
+        // Every test in the suite is re-executed and its result cached, so on
+        // call-heavy targets recording them exhausts the heap before the first goal.
+        if (ExecutionTracer.coverageRequiresMethodCallTraces()) {
+            ExecutionTracer.enableTraceCalls();
+        } else {
+            ExecutionTracer.disableTraceCalls();
+        }
 
         // Ensure ExecutionTracer is in a clean state before re-executing tests.
         // After the search phase (especially if the last execution timed out),

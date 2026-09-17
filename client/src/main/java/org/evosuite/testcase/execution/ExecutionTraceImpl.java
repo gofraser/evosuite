@@ -679,10 +679,21 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
      */
     @Override
     public ExecutionTraceImpl clone() {
+        return clone(true);
+    }
+
+    @Override
+    public ExecutionTraceImpl withoutMethodCalls() {
+        return clone(false);
+    }
+
+    private ExecutionTraceImpl clone(boolean includeMethodCalls) {
 
         ExecutionTraceImpl copy = new ExecutionTraceImpl();
-        for (MethodCall call : finishedCalls) {
-            copy.finishedCalls.add(call.clone());
+        if (includeMethodCalls) {
+            for (MethodCall call : finishedCalls) {
+                copy.finishedCalls.add(call.clone());
+            }
         }
         // copy.finished_calls.addAll(finished_calls);
         copy.coverage = new HashMap<>();
@@ -918,11 +929,10 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     @Override
     public void exitMethod(String classname, String methodname) {
         if (!classname.isEmpty() && !methodname.isEmpty()) {
-            // if(traceCalls) {
             if (!stack.isEmpty() && !(stack.peek().methodName.equals(methodname))) {
                 // Handle cases where unexpected calls are on the stack
                 if (stack.peek().methodName.isEmpty() && !stack.peek().branchTrace.isEmpty()) {
-                    finishedCalls.add(stack.pop());
+                    finishCall(stack.pop());
                 } else {
                     // Usually, this happens if we use mutation testing and
                     // the mutation causes an unexpected exception or
@@ -930,9 +940,20 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
                     stack.pop();
                 }
             } else {
-                finishedCalls.add(stack.pop());
+                finishCall(stack.pop());
             }
-            //}
+        }
+    }
+
+    /**
+     * Keeps a completed call only while per-call tracing is on. Without it the record
+     * carries nothing beyond what {@link #getCoveredMethods()} already says, yet on a
+     * call-heavy target (jackson's TokenBuffer: thousands of calls per test) the empty
+     * records alone ran the minimiser out of heap.
+     */
+    private void finishCall(MethodCall call) {
+        if (traceCalls) {
+            finishedCalls.add(call);
         }
     }
 
@@ -943,7 +964,7 @@ public class ExecutionTraceImpl implements ExecutionTrace, Cloneable {
     public synchronized void finishCalls() {
         logger.debug("At the end, we have " + stack.size() + " calls left on stack");
         while (!stack.isEmpty()) {
-            finishedCalls.add(stack.pop());
+            finishCall(stack.pop());
         }
     }
 

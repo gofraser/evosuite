@@ -500,6 +500,19 @@ public interface ExecutionTrace {
     ExecutionTrace lazyClone();
 
     /**
+     * Returns an independent copy of this trace that keeps every aggregated
+     * record (covered lines, branches, methods and mutants, branch distances,
+     * call contexts, def-use maps) but none of the per-invocation
+     * {@link MethodCall} records. Those are needed only to compute approach
+     * levels for goals a result does <em>not</em> cover; a result that is kept
+     * for the goals it does cover -- an archive entry -- never needs them, and
+     * on call-heavy code they dominate the heap.
+     *
+     * @return a copy without {@link #getMethodCalls()} data
+     */
+    ExecutionTrace withoutMethodCalls();
+
+    /**
      * <p>getBranchesTrace.</p>
      *
      * @return a {@link java.util.List} object.

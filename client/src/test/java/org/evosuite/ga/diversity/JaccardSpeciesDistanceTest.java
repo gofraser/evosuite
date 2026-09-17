@@ -27,7 +27,6 @@ import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.TestFitnessFunction;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.ExecutionTrace;
-import org.evosuite.testcase.execution.MethodCall;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -184,15 +183,7 @@ class JaccardSpeciesDistanceTest {
         tc.setTestCase(new DefaultTestCase());
         ExecutionResult result = new ExecutionResult(tc.getTestCase());
         ExecutionTrace trace = mock(ExecutionTrace.class);
-        List<MethodCall> calls = new ArrayList<>();
-        for (String sig : signatures) {
-            String[] parts = sig.split("\\.");
-            MethodCall mc = mock(MethodCall.class);
-            mc.className = parts[0];
-            mc.methodName = parts[1];
-            calls.add(mc);
-        }
-        when(trace.getMethodCalls()).thenReturn(calls);
+        when(trace.getCoveredMethods()).thenReturn(new HashSet<>(signatures));
         when(trace.getCoveredTrueBranches()).thenReturn(Collections.emptySet());
         when(trace.getCoveredFalseBranches()).thenReturn(Collections.emptySet());
         result.setTrace(trace);
@@ -209,15 +200,7 @@ class JaccardSpeciesDistanceTest {
         ExecutionTrace trace = mock(ExecutionTrace.class);
         when(trace.getCoveredTrueBranches()).thenReturn(trueBranches);
         when(trace.getCoveredFalseBranches()).thenReturn(falseBranches);
-        List<MethodCall> calls = new ArrayList<>();
-        for (String sig : methodSigs) {
-            String[] parts = sig.split("\\.");
-            MethodCall mc = mock(MethodCall.class);
-            mc.className = parts[0];
-            mc.methodName = parts[1];
-            calls.add(mc);
-        }
-        when(trace.getMethodCalls()).thenReturn(calls);
+        when(trace.getCoveredMethods()).thenReturn(new HashSet<>(methodSigs));
         result.setTrace(trace);
         tc.setLastExecutionResult(result);
         return tc;

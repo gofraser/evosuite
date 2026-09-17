@@ -614,6 +614,11 @@ public class ExecutionTraceProxy implements ExecutionTrace, Cloneable {
         return copy;
     }
 
+    @Override
+    public ExecutionTrace withoutMethodCalls() {
+        return new ExecutionTraceProxy(trace.withoutMethodCalls());
+    }
+
     /*
      * (non-Javadoc)
      *
