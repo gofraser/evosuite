@@ -997,7 +997,7 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                             + Arrays.asList(typeParameters.get(numParam).getBounds()));
                     WildcardType wildcardType = (WildcardType) parameterClass.getType();
                     boolean preserveWildcard = recursionLevel >= 1
-                            && parameterClass.satisfiesBoundaries(currentTypeVariable, extendedMap)
+                            && wildcardSatisfiesTypeVariableBounds(wildcardType, currentTypeVariable, extendedMap)
                             && !hasConcreteParameterizedBound(wildcardType);
                     if (preserveWildcard) {
                         Type parameterType = parameterClass.getType();
@@ -2238,18 +2238,41 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
                 (ParameterizedType) candidateAsBoundRaw);
     }
 
+    /**
+     * True if the wildcard has an explicit, fully concrete parameterized bound such as
+     * {@code ? extends List<String>}. A bare class bound does not count: every unbounded
+     * wildcard carries an implicit {@code Object.class} upper bound, so it would disqualify
+     * almost every wildcard from being preserved.
+     */
     private static boolean hasConcreteParameterizedBound(WildcardType wildcardType) {
         for (Type bound : wildcardType.getUpperBounds()) {
-            if (isConcreteType(bound)) {
+            if (bound instanceof ParameterizedType && isConcreteType(bound)) {
                 return true;
             }
         }
         for (Type bound : wildcardType.getLowerBounds()) {
-            if (isConcreteType(bound)) {
+            if (bound instanceof ParameterizedType && isConcreteType(bound)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Whether keeping the wildcard literally is a legal instantiation of the type variable.
+     * An unbounded wildcard always is: javac caps {@code Foo<?>} at the declared bound of
+     * Foo's type parameter, so {@code TypeVariable<?>} is fine although {@code Object} (the
+     * wildcard's erasure) does not implement {@code GenericDeclaration}. Only an explicit
+     * bound needs the stricter {@code satisfiesBoundaries} check.
+     */
+    private static boolean wildcardSatisfiesTypeVariableBounds(WildcardType wildcardType,
+            TypeVariable<?> typeVariable, Map<TypeVariable<?>, Type> typeMap) {
+        if (wildcardType.getLowerBounds().length == 0
+                && wildcardType.getUpperBounds().length == 1
+                && wildcardType.getUpperBounds()[0] == Object.class) {
+            return true;
+        }
+        return new GenericClassImpl(wildcardType).satisfiesBoundaries(typeVariable, typeMap);
     }
 
     private static boolean hasConcreteVsWildcardMismatch(ParameterizedType expectedBound,
