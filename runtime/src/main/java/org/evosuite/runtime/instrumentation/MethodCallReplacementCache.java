@@ -816,7 +816,7 @@ public class MethodCallReplacementCache {
 
         // java/lang/Object
         addReplacementCall(new MethodCallReplacement("java/lang/Object", "hashCode", "()I", Opcodes.INVOKEVIRTUAL,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "identityHashCode",
+                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "hashCode",
                 "(Ljava/lang/Object;)I", false, false));
 
         addReplacementCall(new MethodCallReplacement("java/lang/Object", "toString", "()Ljava/lang/String;",

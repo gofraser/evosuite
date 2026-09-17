@@ -501,6 +501,11 @@ public class TestSuiteMinimizer {
         int testsWithTraces = 0;
         int testsWithExceptions = 0;
         String firstExceptionType = null;
+        // The probe runs each test under exactly the conditions the goal scan
+        // below will, so its results are as good as the scan's own: keeping
+        // them saves re-executing up to half the suite, which on a 958-test
+        // archive suite at ~70 ms a test was more than the whole phase budget.
+        Map<TestChromosome, ExecutionResult> probeResults = new IdentityHashMap<>();
         for (int i = 0; i < suite.getTestChromosomes().size(); i++) {
             MinimizationStopCause stopCause = getStopCause();
             if (stopCause != MinimizationStopCause.NONE) {
@@ -511,6 +516,7 @@ public class TestSuiteMinimizer {
             }
             TestChromosome test = suite.getTestChromosomes().get(i);
             ExecutionResult result = runPreflight(test.getTestCase());
+            probeResults.put(test, result);
             if (!result.getTrace().getCoveredTrueBranches().isEmpty()
                     || !result.getTrace().getCoveredFalseBranches().isEmpty()
                     || !result.getTrace().getCoveredBranchlessMethods().isEmpty()
@@ -547,8 +553,19 @@ public class TestSuiteMinimizer {
         }
 
         // Tests can reproduce coverage — now clear stale state and proceed.
+        // The search-phase goals are remembered per test so that, should
+        // minimization stop early, the originals it has to fall back on can be
+        // judged on what they contributed rather than kept wholesale.
+        Map<TestChromosome, Set<TestFitnessFunction>> goalsBeforeReset = new IdentityHashMap<>();
         for (TestChromosome test : suite.getTestChromosomes()) {
-            test.setChanged(true); // implies test.clearCachedResults();
+            goalsBeforeReset.put(test, new LinkedHashSet<>(test.getTestCase().getCoveredGoals()));
+            ExecutionResult probed = probeResults.get(test);
+            if (probed != null) {
+                test.setLastExecutionResult(probed);
+                test.setChanged(false);
+            } else {
+                test.setChanged(true); // implies test.clearCachedResults();
+            }
             // Clear stale covered goals from the search phase.  The archive
             // stores test references (not clones), so goals accumulated during
             // the search may no longer be reproducible on re-execution.
@@ -711,7 +728,31 @@ public class TestSuiteMinimizer {
         List<TestChromosome> finalTests = new ArrayList<>();
 
         if (incompleteStopCause != MinimizationStopCause.NONE && originalTestChromosomes != null) {
-            finalTests.addAll(originalTestChromosomes);
+            // Minimization stopped early, so the goals it never reached are only
+            // covered by the original tests. Keep those originals that still
+            // contribute a goal the minimized tests do not cover, and hand them
+            // their search-phase goals back: the scan above cleared them, and
+            // without them the coverage reconciliation in minimize() saw every
+            // unreached goal as lost and restored the very same tests a second
+            // time - on jackson-databind TokenBuffer a 927-test suite left
+            // minimization with 1174 tests, of which 247 were duplicates.
+            int droppedOriginals = 0;
+            for (TestChromosome test : originalTestChromosomes) {
+                Set<TestFitnessFunction> goalsBefore = goalsBeforeReset.getOrDefault(test,
+                        Collections.emptySet());
+                if (!goalsBefore.isEmpty() && covered.containsAll(goalsBefore)) {
+                    droppedOriginals++;
+                    continue;
+                }
+                for (TestFitnessFunction goal : goalsBefore) {
+                    test.getTestCase().addCoveredGoal(goal);
+                }
+                finalTests.add(test);
+            }
+            logger.info("Minimization stopped early; kept {} of {} original tests, dropped {} whose "
+                            + "goals the {} minimized tests already cover.",
+                    finalTests.size(), originalTestChromosomes.size(), droppedOriginals,
+                    minimizedTests.size());
         }
 
         finalTests.addAll(minimizedTests);

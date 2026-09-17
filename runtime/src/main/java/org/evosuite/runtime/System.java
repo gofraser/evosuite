@@ -294,7 +294,38 @@ public class System {
     }
 
     /**
-     * Replacement for {@link Object#toString()} that uses the stable mocked identity hash code.
+     * Replacement for a call to {@link Object#hashCode()}.
+     *
+     * <p>The instrumentation replaces every {@code invokevirtual Object.hashCode()} it
+     * sees, and it sees one wherever the receiver's static type is {@code Object} - a
+     * generic {@code K key} erases to exactly that. The receiver at run time is usually
+     * something else: a String, an Integer, a value class. Answering with the mocked
+     * identity id for those made two equal keys hash differently, so any hash table in
+     * instrumented code stopped finding its own entries. Guava's {@code RegularImmutableMap}
+     * inside Closure lost "desc" that way: {@code putAll} copied the entry, {@code
+     * containsKey("desc")} on another String instance said no, and the builder threw
+     * "duplicate key". Only an object whose class leaves {@code hashCode()} to
+     * {@code Object} gets the deterministic id; everything else gets its own.</p>
+     *
+     * @param o the receiver of the call
+     * @return the receiver's hash code
+     * @throws NullPointerException if the receiver is null, as the original call would
+     */
+    public static int hashCode(Object o) {
+        if (o == null) {
+            throw new NullPointerException();
+        }
+        if (overridesObjectMethod(o.getClass(), "hashCode")) {
+            return o.hashCode();
+        }
+        return identityHashCode(o);
+    }
+
+    /**
+     * Replacement for a call to {@link Object#toString()}: the receiver's own
+     * {@code toString()} when its class defines one, otherwise the default form with the
+     * stable mocked identity hash code in place of the JVM's. See {@link #hashCode(Object)}
+     * for why the dynamic type has to decide.
      *
      * @param o the object to get the string representation for
      * @return the string representation
@@ -304,8 +335,30 @@ public class System {
         if (o == null) {
             throw new NullPointerException();
         }
+        if (overridesObjectMethod(o.getClass(), "toString")) {
+            return o.toString();
+        }
 
         return o.getClass().getName() + "@" + String.format("%010d", identityHashCode(o));
+    }
+
+    private static final Map<Class<?>, Boolean> overridesHashCode = new HashMap<>();
+    private static final Map<Class<?>, Boolean> overridesToString = new HashMap<>();
+
+    private static boolean overridesObjectMethod(Class<?> clazz, String methodName) {
+        Map<Class<?>, Boolean> cache = "hashCode".equals(methodName) ? overridesHashCode : overridesToString;
+        synchronized (cache) {
+            Boolean overrides = cache.get(clazz);
+            if (overrides == null) {
+                try {
+                    overrides = clazz.getMethod(methodName).getDeclaringClass() != Object.class;
+                } catch (NoSuchMethodException e) {
+                    overrides = false;
+                }
+                cache.put(clazz, overrides);
+            }
+            return overrides;
+        }
     }
 
     /**

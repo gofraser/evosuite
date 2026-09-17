@@ -640,6 +640,62 @@ public class TestSuiteGenerator {
     }
 
     /**
+     * Drops every test that is a prefix of another test in the suite, crediting
+     * its covered goals to the test that contains it.
+     *
+     * <p>The archive keeps the shortest test for each goal, and a test that
+     * grew out of another by appending statements covers everything its
+     * origin does, so the suite the search hands back is largely made of
+     * prefixes of its own tests: 718 of the 958 tests for jackson-databind's
+     * TokenBuffer, 822 of 1174 on another seed. {@link TestSuiteWriter} merges
+     * them when the tests are written, but by then inlining, minimization
+     * and the coverage analysis have each re-executed all of them - on
+     * TokenBuffer 70 s of inlining alone, and a minimization that timed out
+     * before it had scanned the first goal. Merging here, before any of that,
+     * costs one pass over the suite. Same condition as the writer: with
+     * {@code call_probability} the prefixes are kept as distinct tests.</p>
+     */
+    void removePrefixTests(TestSuiteChromosome testSuite) {
+        if (Properties.CALL_PROBABILITY > 0 || testSuite.size() < 2) {
+            return;
+        }
+        // Longest first, so a test only has to be compared with the tests
+        // that can contain it; the sort is stable, so equal tests keep their
+        // order and the first of them is the one that survives.
+        List<TestChromosome> byLength = new ArrayList<>(testSuite.getTestChromosomes());
+        byLength.sort(Comparator.comparingInt((TestChromosome t) -> -t.size()));
+        List<TestChromosome> kept = new ArrayList<>();
+        Set<TestChromosome> prefixes = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (TestChromosome test : byLength) {
+            TestChromosome container = null;
+            for (TestChromosome candidate : kept) {
+                if (test.getTestCase().isPrefix(candidate.getTestCase())) {
+                    container = candidate;
+                    break;
+                }
+            }
+            if (container == null) {
+                kept.add(test);
+                continue;
+            }
+            for (TestFitnessFunction goal : test.getTestCase().getCoveredGoals()) {
+                container.getTestCase().addCoveredGoal(goal);
+            }
+            prefixes.add(test);
+        }
+        if (prefixes.isEmpty()) {
+            return;
+        }
+        List<TestChromosome> remaining = new ArrayList<>(testSuite.getTestChromosomes());
+        remaining.removeIf(prefixes::contains);
+        testSuite.replaceWithTestChromosomes(remaining);
+        LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                + "Removed " + prefixes.size() + " tests that were prefixes of other tests, "
+                + remaining.size() + " remain");
+        logSuiteDiagnostics("postProcess:afterPrefixRemoval", testSuite);
+    }
+
+    /**
      * Apply any readability optimizations and other techniques that should use
      * or modify the generated tests.
      *
@@ -714,6 +770,8 @@ public class TestSuiteGenerator {
                 testSuite.removeCoveredGoal(f);
             }
         }
+
+        removePrefixTests(testSuite);
 
         if (Properties.INLINE) {
             ClientServices.getInstance().getClientNode().changeState(ClientState.INLINING);

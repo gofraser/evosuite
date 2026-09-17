@@ -807,6 +807,64 @@ public class TestTestSuiteMinimizer {
         assertLogMessage(Level.WARN, "Minimization lost 1 of 4 covered goals");
     }
 
+    @Test
+    public void perTestMinimizationStoppedEarlyKeepsOnlyOriginalsStillNeeded() {
+        // Three tests, each covering its own goal. Minimization runs out of
+        // time right after it has minimized a test for the first goal: the
+        // fallback must keep the originals for the two goals it never reached
+        // and drop the original the minimized test has made redundant - not
+        // keep all three and then have the coverage reconciliation restore
+        // the two "lost" ones a second time.
+        minimizerLogger.setLevel(Level.INFO);
+        boolean[] timeUp = {false};
+        List<TestFitnessFunction> goals = new ArrayList<>();
+        goals.add(indexGoal(0));
+        // Evaluated only after the first goal's minimized test has been kept
+        // (the scan of the remaining goals), so flipping the flag here stops
+        // minimization before it reaches the second goal.
+        goals.add(indexGoal(1, () -> timeUp[0] = true));
+        goals.add(indexGoal(2));
+
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        for (int i = 0; i < 3; i++) {
+            DefaultTestCase test = new DefaultTestCase();
+            test.addStatement(new IntPrimitiveStatement(test, i));
+            test.addStatement(new IntPrimitiveStatement(test, 100 + i));
+            test.addCoveredGoal(goals.get(i));
+            suite.addTest(test);
+        }
+        TestFitnessFactory<TestFitnessFunction> factory = new TestFitnessFactory<TestFitnessFunction>() {
+            @Override
+            public List<TestFitnessFunction> getCoverageGoals() {
+                return goals;
+            }
+
+            @Override
+            public double getFitness(TestSuiteChromosome suite) {
+                return 1.0;
+            }
+        };
+
+        TestSuiteMinimizer minimizer = new TestSuiteMinimizer(
+                Collections.singletonList(factory),
+                () -> timeUp[0] ? MinimizationStopCause.TIMEOUT : MinimizationStopCause.NONE,
+                executedTest -> {
+                    ExecutionResult result = new ExecutionResult(executedTest);
+                    result.setTrace(nonEmptyTrace());
+                    return result;
+                });
+        MinimizationResult result = minimizer.minimize(suite, true);
+
+        assertEquals(MinimizationStatus.TIMED_OUT, result.getStatus());
+        assertEquals(3, suite.size());
+        assertEquals(3, suite.getCoveredGoals().size());
+        // The first goal's test was minimized to its one relevant statement;
+        // the two originals that were never reached stay as they were.
+        assertEquals(5, suite.totalLengthOfTestCases());
+        assertLogMessage(Level.INFO, "kept 2 of 3 original tests, dropped 1");
+        assertLogMessage(Level.INFO, "Minimization preserved coverage");
+    }
+
     private void assertLogMessage(Level level, String message) {
         ILoggingEvent matchingEvent = null;
         for (ILoggingEvent event : minimizerLogAppender.list) {
@@ -868,9 +926,15 @@ public class TestTestSuiteMinimizer {
      * pre-recorded mark.
      */
     private static TestFitnessFunction indexGoal(int index) {
+        return indexGoal(index, () -> {
+        });
+    }
+
+    private static TestFitnessFunction indexGoal(int index, Runnable onEvaluate) {
         return new TestFitnessFunction() {
             @Override
             public double getFitness(TestChromosome individual, ExecutionResult result) {
+                onEvaluate.run();
                 // TestCaseMinimizer probes fitness on a statement-deleted clone
                 // to decide whether the deletion was safe, so an empty test
                 // must be handled (as simply not covering) rather than throw.
