@@ -378,16 +378,30 @@ public class TestMutator {
                     if (s.isAssignmentStatement()) {
                         AssignmentStatement assignment = (AssignmentStatement) s;
                         if (assignment.getValue() == var) {
-                            VariableReference replacementVar = Randomness.choice(alternatives);
-                            if (assignment.getReturnValue().isAssignableFrom(replacementVar)) {
-                                s.replace(var, replacementVar);
-                                changed = true;
+                            // The assignment's own retval is a candidate too; choosing it
+                            // aliases both sides to one variable, printed as an undeclared
+                            // "x = x" because the retval no longer declares at this position.
+                            List<VariableReference> candidates = alternatives.stream()
+                                    .filter(r -> r != assignment.getReturnValue())
+                                    .collect(Collectors.toList());
+                            if (!candidates.isEmpty()) {
+                                VariableReference replacementVar = Randomness.choice(candidates);
+                                if (assignment.getReturnValue().isAssignableFrom(replacementVar)) {
+                                    s.replace(var, replacementVar);
+                                    changed = true;
+                                }
                             }
                         } else if (assignment.getReturnValue() == var) {
-                            VariableReference replacementVar = Randomness.choice(alternatives);
-                            if (replacementVar.isAssignableFrom(assignment.getValue())) {
-                                s.replace(var, replacementVar);
-                                changed = true;
+                            // Same aliasing in the other direction.
+                            List<VariableReference> candidates = alternatives.stream()
+                                    .filter(r -> r != assignment.getValue())
+                                    .collect(Collectors.toList());
+                            if (!candidates.isEmpty()) {
+                                VariableReference replacementVar = Randomness.choice(candidates);
+                                if (replacementVar.isAssignableFrom(assignment.getValue())) {
+                                    s.replace(var, replacementVar);
+                                    changed = true;
+                                }
                             }
                         }
                     } else {
@@ -428,8 +442,28 @@ public class TestMutator {
                         if (var2 instanceof ArrayIndex) {
                             ArrayIndex ai = (ArrayIndex) var2;
                             if (ai.getArray().equals(var)) {
-                                s.replace(var2, Randomness.choice(alternatives));
-                                changed = true;
+                                // As above: an assignment's other side must not become
+                                // the replacement for this side.
+                                List<VariableReference> candidates = alternatives;
+                                if (s.isAssignmentStatement()) {
+                                    AssignmentStatement assignment = (AssignmentStatement) s;
+                                    VariableReference otherSide = null;
+                                    if (assignment.getReturnValue() == var2) {
+                                        otherSide = assignment.getValue();
+                                    } else if (assignment.getValue() == var2) {
+                                        otherSide = assignment.getReturnValue();
+                                    }
+                                    if (otherSide != null) {
+                                        final VariableReference excluded = otherSide;
+                                        candidates = alternatives.stream()
+                                                .filter(r -> r != excluded)
+                                                .collect(Collectors.toList());
+                                    }
+                                }
+                                if (!candidates.isEmpty()) {
+                                    s.replace(var2, Randomness.choice(candidates));
+                                    changed = true;
+                                }
                             }
                         }
                     }
