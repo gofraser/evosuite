@@ -51,6 +51,30 @@ public class GenericClassUtilsTest {
         Map<K, V> values;
     }
 
+    // Mirrors the shape that triggers the gentyref bug: a *static* nested class inside
+    // a generic outer class does not capture the outer class's type parameter, but
+    // gentyref 1.2.0's own isMissingTypeParameters(Class) walks getEnclosingClass()
+    // without checking Modifier.isStatic, so it wrongly treats the nested class as raw
+    // and erases the whole supertype chain (see GenericClassUtils.isAssignableViaExactSuperType).
+    private static class GenericOuter<T> {
+        static class NestedLeaf extends GenericOuter<String> {
+        }
+    }
+
+    // A multi-level chain, like Jackson's DOMDeserializer -> FromStringDeserializer ->
+    // ... -> JsonDeserializer, where the static nested class is several hops away from
+    // the generic interface being checked against.
+    private interface GenericBase<T> {
+    }
+
+    private static abstract class GenericMid<T> implements GenericBase<T> {
+    }
+
+    private static class GenericOuter2<T> extends GenericMid<T> {
+        static class NestedLeaf2 extends GenericOuter2<String> {
+        }
+    }
+
     @Test
     public void testAssignableToUninstantiatedTypeVariablesUsesRawCompatibility() throws Exception {
         Type lhsType = GenericHolder.class.getDeclaredField("table").getGenericType();
@@ -92,5 +116,43 @@ public class GenericClassUtilsTest {
 
         // This is true because of the isUninstantiatedClassTypeParameters rule
         Assertions.assertTrue(GenericClassUtils.isAssignable(mapTypeVar, hashMapConcrete));
+    }
+
+    @Test
+    public void testStaticNestedClassInGenericOuterIsNotAssignableToWrongTypeArgument() {
+        // NestedLeaf is-a GenericOuter<String>, not GenericOuter<Object>: it must not be
+        // considered assignable to GenericOuter<Object>, even though NestedLeaf's enclosing
+        // class GenericOuter<T> declares a type parameter.
+        Type wrongTypeArgument = new org.evosuite.utils.ParameterizedTypeImpl(
+                GenericOuter.class, new Type[]{Object.class}, null);
+
+        Assertions.assertFalse(GenericClassUtils.isAssignable(wrongTypeArgument, GenericOuter.NestedLeaf.class));
+    }
+
+    @Test
+    public void testStaticNestedClassInGenericOuterIsAssignableToItsActualTypeArgument() {
+        Type actualTypeArgument = new org.evosuite.utils.ParameterizedTypeImpl(
+                GenericOuter.class, new Type[]{String.class}, null);
+
+        Assertions.assertTrue(GenericClassUtils.isAssignable(actualTypeArgument, GenericOuter.NestedLeaf.class));
+    }
+
+    @Test
+    public void testStaticNestedClassMultiLevelChainIsNotAssignableToWrongTypeArgument() {
+        // Same as above, but with a multi-hop hierarchy between the static nested class and
+        // the generic interface being checked, as in Jackson's
+        // DOMDeserializer<T>.DocumentDeserializer -> ... -> JsonDeserializer<T> chain.
+        Type wrongTypeArgument = new org.evosuite.utils.ParameterizedTypeImpl(
+                GenericBase.class, new Type[]{Object.class}, null);
+
+        Assertions.assertFalse(GenericClassUtils.isAssignable(wrongTypeArgument, GenericOuter2.NestedLeaf2.class));
+    }
+
+    @Test
+    public void testStaticNestedClassMultiLevelChainIsAssignableToItsActualTypeArgument() {
+        Type actualTypeArgument = new org.evosuite.utils.ParameterizedTypeImpl(
+                GenericBase.class, new Type[]{String.class}, null);
+
+        Assertions.assertTrue(GenericClassUtils.isAssignable(actualTypeArgument, GenericOuter2.NestedLeaf2.class));
     }
 }

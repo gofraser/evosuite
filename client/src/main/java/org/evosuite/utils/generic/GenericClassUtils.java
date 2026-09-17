@@ -119,6 +119,17 @@ public class GenericClassUtils {
             return false;
         }
 
+        if (exactSuperType instanceof Class && !isDefinitelyRaw(rhsType)) {
+            // gentyref's own isMissingTypeParameters(Class) walks getEnclosingClass() without
+            // checking Modifier.isStatic, so a static nested class of a generic outer class
+            // (DOMDeserializer<T>.DocumentDeserializer) counts as raw and its whole supertype
+            // chain is erased: the "exact" supertype comes back as the raw JsonDeserializer
+            // class, which commons-lang3 would then accept for JsonDeserializer<Object>. The
+            // rhs is not raw by the static-aware definition below, so do not trust the erased
+            // result; the caller's commons-lang3 check resolves the type arguments correctly.
+            return false;
+        }
+
         if (TypeUtils.equals(lhsType, exactSuperType)) {
             return true;
         }
@@ -129,6 +140,17 @@ public class GenericClassUtils {
             logger.debug("Found unassignable exact super type: " + e);
             return false;
         }
+    }
+
+    /**
+     * Returns true if {@code type} is a plain {@link Class} that is genuinely raw, ie
+     * {@link #isMissingTypeParameters(Type)} would say so. Any other kind of type (an
+     * already-parameterized type, a type variable, a gentyref {@code CaptureType}, etc)
+     * is never "raw" by construction, so this deliberately avoids calling
+     * {@code isMissingTypeParameters} on anything it does not accept.
+     */
+    private static boolean isDefinitelyRaw(Type type) {
+        return type instanceof Class && isMissingTypeParameters(type);
     }
 
     /**
