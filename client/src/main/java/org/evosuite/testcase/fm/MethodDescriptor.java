@@ -21,6 +21,7 @@ package org.evosuite.testcase.fm;
 
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.testcase.execution.EvosuiteError;
 import org.evosuite.utils.generic.GenericClass;
@@ -340,6 +341,18 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
                 || method.getName().equals("toString")
                 || Modifier.isPrivate(modifiers)) {
 
+            return false;
+        }
+
+        if (!Properties.USE_SEPARATE_CLASSLOADER
+                && RemoveFinalClassAdapter.isFinalMethod(method.getMethod())) {
+            // Final in the original bytecode. Stubbing it works during the search only
+            // because InstrumentingClassLoader stripped the modifier; the generated test's
+            // JVM usually loads the class unstripped (the verifier resolves it before the
+            // runtime agent is active, and retransformation cannot change modifiers), and
+            // there Mockito's subclass mock maker runs the real method instead of the
+            // stub. Leave it unstubbed so search and test see the same default answer.
+            // With use_separate_classloader the test JVM instruments the class as well.
             return false;
         }
 

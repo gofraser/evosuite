@@ -28,6 +28,7 @@ import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.runtime.FalsePositiveException;
 import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.instrumentation.InstrumentedClass;
+import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.runtime.mock.MockList;
 import org.evosuite.runtime.util.AtMostOnceLogger;
@@ -383,6 +384,15 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 then if it is final we cannot mock it :(
                 recall that instrumentation does remove the final modifiers
              */
+            return false;
+        }
+
+        if (!Properties.USE_SEPARATE_CLASSLOADER
+                && RemoveFinalClassAdapter.finalClasses.contains(rawClass.getName())) {
+            // Final in the original bytecode: the check above no longer sees that once
+            // InstrumentingClassLoader has stripped the modifier. The generated test's JVM
+            // usually loads the class unstripped (see MethodDescriptor.shouldBeMocked), and
+            // there Mockito's subclass mock maker cannot mock a final class at all.
             return false;
         }
 
@@ -1227,6 +1237,9 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 && returnType != Comparable.class
                 && returnType != Cloneable.class
                 && !Modifier.isFinal(returnType.getModifiers())
+                // getModifiers() no longer shows final once the class is instrumented
+                && (Properties.USE_SEPARATE_CLASSLOADER
+                        || !RemoveFinalClassAdapter.finalClasses.contains(returnType.getName()))
                 && !returnType.isPrimitive()) {
             try {
                 lenientMockDepth.set(depth + 1);

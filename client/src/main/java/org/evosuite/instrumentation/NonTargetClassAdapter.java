@@ -35,6 +35,12 @@ public class NonTargetClassAdapter extends ClassVisitor {
     private final String className;
 
     /**
+     * Dotted binary name of the class currently being visited, ie the name used
+     * to key {@link RemoveFinalClassAdapter}'s final-method bookkeeping.
+     */
+    private String currentClassName;
+
+    /**
      * <p>Constructor for NonTargetClassAdapter.</p>
      *
      * @param cv        a {@link org.objectweb.asm.ClassVisitor} object.
@@ -47,8 +53,9 @@ public class NonTargetClassAdapter extends ClassVisitor {
 
     @Override
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+        currentClassName = name.replace('/', '.');
         if ((access & Opcodes.ACC_FINAL) == Opcodes.ACC_FINAL) {
-            RemoveFinalClassAdapter.finalClasses.add(name.replace('/', '.'));
+            RemoveFinalClassAdapter.finalClasses.add(currentClassName);
         }
 
         // We are removing final access to allow mocking
@@ -62,6 +69,12 @@ public class NonTargetClassAdapter extends ClassVisitor {
     public MethodVisitor visitMethod(int access, String name, String desc,
                                      String signature, final String[] exceptions) {
 
+        if ((access & Opcodes.ACC_FINAL) == Opcodes.ACC_FINAL) {
+            // Record it the same way RemoveFinalClassAdapter does for target classes,
+            // so FunctionalMockStatement/MethodDescriptor can recognise a method that
+            // was final in the original bytecode of a non-target (dependency) class too.
+            RemoveFinalClassAdapter.recordFinalMethod(currentClassName, name, desc);
+        }
         MethodVisitor mv = super.visitMethod(access & ~Opcodes.ACC_FINAL, name, desc, signature, exceptions);
         // TimeoutExceededRethrowAdapter MUST sit between JSRInlinerAdapter and
         // the ClassWriter (below, not above).  JSRInlinerAdapter extends MethodNode
