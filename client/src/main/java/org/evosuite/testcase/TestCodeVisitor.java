@@ -543,16 +543,7 @@ public class TestCodeVisitor extends TestVisitor {
             ConstantValue cval = (ConstantValue) var;
             if (cval.getValue() != null && cval.getVariableClass().equals(Class.class)) {
                 Class<?> classLiteral = (Class<?>) cval.getValue();
-                if (!classLiteral.isPrimitive() && !classLiteral.isArray()
-                        && !isClassLiteralReferenceableFromGeneratedTest(classLiteral)) {
-                    // A private (or otherwise unreferenceable) class cannot be
-                    // named with a ".class" literal, even from the same package
-                    // (e.g. PrivateAccess.getVariable(HttpConnection.Base.class,...)
-                    // where Base is a private nested class). Obtain it reflectively;
-                    // the enclosing test method already declares throws Throwable.
-                    return "Class.forName(\"" + classLiteral.getName() + "\")";
-                }
-                return getClassName(classLiteral) + ".class";
+                return getClassLiteralExpression(classLiteral);
             }
             return var.getName();
         } else if (var instanceof FieldReference) {
@@ -709,8 +700,8 @@ public class TestCodeVisitor extends TestVisitor {
         return "((" + getClassName(field.getType()) + ") "
                 + getClassName(PrivateAccess.class)
                 + ".getVariable("
-                + getClassName(field.getDeclaringClass())
-                + ".class, "
+                + getClassLiteralExpression(field.getDeclaringClass())
+                + ", "
                 + receiver
                 + ", \""
                 + field.getName()
@@ -721,8 +712,8 @@ public class TestCodeVisitor extends TestVisitor {
         String receiver = source == null ? "null" : getVariableName(source);
         return getClassName(PrivateAccess.class)
                 + ".setVariable("
-                + getClassName(field.getDeclaringClass())
-                + ".class, "
+                + getClassLiteralExpression(field.getDeclaringClass())
+                + ", "
                 + receiver
                 + ", \""
                 + field.getName()
@@ -4293,6 +4284,28 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
         return isSamePackage(constructor.getDeclaringClass(), testPackageName);
+    }
+
+    /**
+     * Renders {@code classLiteral} as either a {@code Foo.class} literal or, when
+     * that is not referenceable from the generated test, a {@code Class.forName(...)}
+     * call. Shared by the plain {@code Class}-typed {@link ConstantValue} case and by
+     * the reflective {@code PrivateAccess} field accessors, both of which need a
+     * {@code Class} expression for a type that may be a source-private nested class
+     * (see {@link #isClassLiteralReferenceableFromGeneratedTest}).
+     */
+    private String getClassLiteralExpression(Class<?> classLiteral) {
+        if (!classLiteral.isPrimitive() && !classLiteral.isArray()
+                && !isClassLiteralReferenceableFromGeneratedTest(classLiteral)) {
+            // A private (or otherwise unreferenceable) class cannot be named with a
+            // ".class" literal, even from the same package (e.g.
+            // PrivateAccess.getVariable(HttpConnection.Base.class, ...) where Base is
+            // a private nested class). Obtain it reflectively; callers of this method
+            // only ever feed a Class into reflective PrivateAccess calls, and the
+            // enclosing test method already declares throws Throwable.
+            return "Class.forName(\"" + classLiteral.getName() + "\")";
+        }
+        return getClassName(classLiteral) + ".class";
     }
 
     /**

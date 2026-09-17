@@ -237,6 +237,20 @@ public class TestCodeVisitorTest {
         private java.util.Map<String, Integer> counts = new java.util.LinkedHashMap<>();
     }
 
+    /**
+     * Mirrors {@code org.jsoup.helper.HttpConnection.Base}: a private nested class
+     * declaring a (package-private, i.e. not itself {@code private}) field, extended
+     * by a public nested subclass. The field's own modifier would let it compile as
+     * direct access, but its declaring class cannot be named from outside
+     * {@code TestCodeVisitorTest}, so accesses must go through reflection.
+     */
+    private abstract static class InaccessibleSuperWithField {
+        String secret = "secret";
+    }
+
+    public static class PublicSubOfInaccessibleSuper extends InaccessibleSuperWithField {
+    }
+
     public static class ChainedInspectorSource {
         public ChainedInspectorValue getValue() {
             return new ChainedInspectorValue();
@@ -1957,6 +1971,69 @@ public class TestCodeVisitorTest {
                 "Reflective field cast should use raw Map type:\n" + code);
         assertFalse(code.contains("(Map<String, Integer>) PrivateAccess.getVariable("),
                 "Reflective field cast must not include type arguments:\n" + code);
+    }
+
+    @Test
+    public void testFieldDeclaredInPrivateSuperclassReadUsesClassForNameNotClassLiteral() throws Exception {
+        // Defects4J Jsoup-90 regression: PrivateAccess.getVariable(HttpConnection.Base.class, ...)
+        // does not compile because Base is a private nested class. The field itself
+        // (headers/method) is only package-private, so the fix must key off of the
+        // declaring class's accessibility rather than the field's own modifiers.
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(PublicSubOfInaccessibleSuper.class.getDeclaredConstructor(),
+                        PublicSubOfInaccessibleSuper.class),
+                0,
+                0);
+
+        java.lang.reflect.Field secretField = InaccessibleSuperWithField.class.getDeclaredField("secret");
+        FieldReference secretReference = new FieldReference(
+                tc, new GenericField(secretField, PublicSubOfInaccessibleSuper.class), holder);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String access = visitor.getVariableName(secretReference);
+
+        assertTrue(access.contains("PrivateAccess.getVariable("),
+                "Field inherited from an inaccessible declaring class must go through PrivateAccess:\n" + access);
+        assertTrue(access.contains("Class.forName(\"" + InaccessibleSuperWithField.class.getName() + "\")"),
+                "The declaring class is private, so its Class must be obtained reflectively:\n" + access);
+        assertFalse(access.contains(InaccessibleSuperWithField.class.getSimpleName() + ".class"),
+                "Must not emit an uncompilable .class literal for a private declaring class:\n" + access);
+    }
+
+    @Test
+    public void testFieldDeclaredInPrivateSuperclassWriteUsesClassForNameNotClassLiteral() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(PublicSubOfInaccessibleSuper.class.getDeclaredConstructor(),
+                        PublicSubOfInaccessibleSuper.class),
+                0,
+                0);
+
+        StringPrimitiveStatement value = new StringPrimitiveStatement(tc, "updated");
+        tc.addStatement(value);
+
+        java.lang.reflect.Field secretField = InaccessibleSuperWithField.class.getDeclaredField("secret");
+        FieldReference secretReference = new FieldReference(
+                tc, new GenericField(secretField, PublicSubOfInaccessibleSuper.class), holder);
+        AssignmentStatement assignmentStatement = new AssignmentStatement(
+                tc, secretReference, value.getReturnValue());
+        assertTrue(assignmentStatement.isValid());
+        tc.addStatement(assignmentStatement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("PrivateAccess.setVariable("),
+                "Field write on an inaccessible declaring class must go through PrivateAccess:\n" + code);
+        assertTrue(code.contains("Class.forName(\"" + InaccessibleSuperWithField.class.getName() + "\")"),
+                "The declaring class is private, so its Class must be obtained reflectively:\n" + code);
+        assertFalse(code.contains(InaccessibleSuperWithField.class.getSimpleName() + ".class"),
+                "Must not emit an uncompilable .class literal for a private declaring class:\n" + code);
     }
 
     @Test
