@@ -40,10 +40,13 @@ import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.commons.lang3.reflect.TypeUtils;
+
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -936,10 +939,21 @@ public class VariableResolver {
         }
         int originalSize = test.size();
         try {
+            // Bind the implementation's type variables to the requested arguments up front
+            // (LinkedHashSet<E> -> LinkedHashSet<String> for Set<String>). A no-arg constructor
+            // gets no owner binding in addConstructor, and an unbound LinkedHashSet<E> passes
+            // the isAssignableTo check below for any element type.
+            Type ownerType = implementation;
+            if (requestedType.getType() instanceof ParameterizedType
+                    && implementation.getTypeParameters().length
+                        == ((ParameterizedType) requestedType.getType()).getActualTypeArguments().length) {
+                ownerType = TypeUtils.parameterize(implementation,
+                        ((ParameterizedType) requestedType.getType()).getActualTypeArguments());
+            }
             GenericConstructor constructor = new GenericConstructor(
-                    implementation.getConstructor(), implementation);
+                    implementation.getConstructor(), ownerType);
             VariableReference result = testFactory.addConstructor(
-                    test, constructor, implementation, position, context);
+                    test, constructor, ownerType, position, context);
             if (result != null && result.isAssignableTo(requestedType.getType())) {
                 return result;
             }

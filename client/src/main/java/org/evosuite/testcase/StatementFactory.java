@@ -139,6 +139,30 @@ public class StatementFactory {
             throw new ConstructionFailedException("Max recursion depth reached");
         }
 
+        if (constructor.getConstructor().getParameterCount() >= 2
+                && constructor.getOwnerClass().hasWildcardOrTypeVariables()) {
+            // The cluster hands out the raw GenericConstructor, so a constructor such as
+            // SetUniqueList(List<E>, Set<E>) still has the owner's type variable E in every
+            // parameter. satisfyParameters resolves each parameter on its own, widening E to
+            // a wildcard, so the two arguments can end up with different instantiations of
+            // E while the printed call has to pick one. Bind E once before satisfying any of
+            // them. Only for 2+ parameters: a single one cannot disagree with itself, and a
+            // forced instantiation would replace the diamond that explicit wildcard owners
+            // (ArrayList<?>) are printed with. exactType helps only when it is a concrete
+            // instantiation of this owner; a raw Class from tryCreateStandardContainer is
+            // wrapped just as unbound as the constructor's own owner.
+            try {
+                GenericClass<?> exactOwner = exactType == null ? null : GenericClassFactory.get(exactType);
+                constructor = exactOwner != null
+                        && !exactOwner.hasWildcardOrTypeVariables()
+                        && exactOwner.getRawClass().equals(constructor.getRawGeneratedType())
+                        ? constructor.copyWithOwnerFromReturnType(exactOwner)
+                        : constructor.getGenericInstantiation();
+            } catch (ConstructionFailedException e) {
+                logger.debug("Cannot bind owner type variables of {}: {}", constructor, e.getMessage());
+            }
+        }
+
         int length = test.size();
 
         try {
@@ -149,7 +173,7 @@ public class StatementFactory {
                     position,
                     context.deeper(),
                     VariableResolutionConfig.defaultConfig());
-            
+
             if (isCapacitySensitiveConstructor(constructor)) {
                 validateOrAdjustCapacityParameters(test, constructor, position, parameters);
             }

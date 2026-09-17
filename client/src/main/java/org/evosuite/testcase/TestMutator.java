@@ -81,6 +81,17 @@ public class TestMutator {
             VariableReference callee = null;
             if (!method.isStatic()) {
                 callee = testFactory.getRandomNonNullNonPrimitiveObject(test, method.getOwnerType(), position);
+                if (method.getOwnerClass().hasWildcardOrTypeVariables()) {
+                    // The cluster hands out the raw GenericMethod; bind the owner's type
+                    // variables from the callee once, or every parameter mentioning them is
+                    // widened to a wildcard and resolved independently of the others.
+                    try {
+                        method = method.getGenericInstantiation(callee.getGenericClass());
+                    } catch (ConstructionFailedException e) {
+                        // Keep the unbound method; its parameters fall back to wildcards below.
+                        logger.debug("Cannot bind owner type variables of {}: {}", method, e.getMessage());
+                    }
+                }
             }
 
             List<VariableReference> parameters = new ArrayList<>();
@@ -102,6 +113,17 @@ public class TestMutator {
         } else if (call.isConstructor()) {
 
             GenericConstructor constructor = (GenericConstructor) call;
+            if (constructor.getOwnerClass().hasWildcardOrTypeVariables()) {
+                // As for methods above: with E of SetUniqueList(List<E>, Set<E>) unbound, the
+                // two parameters are widened to List<?>/Set<?> and filled independently, while
+                // TestCodeVisitor prints a single <E> that then matches only one of them.
+                try {
+                    constructor = constructor.getGenericInstantiation();
+                } catch (ConstructionFailedException e) {
+                    // Keep the unbound constructor; its parameters fall back to wildcards below.
+                    logger.debug("Cannot bind owner type variables of {}: {}", constructor, e.getMessage());
+                }
+            }
             VariableReference retval = statement.getReturnValue();
             List<VariableReference> parameters = new ArrayList<>();
             for (Type type : constructor.getParameterTypes()) {
