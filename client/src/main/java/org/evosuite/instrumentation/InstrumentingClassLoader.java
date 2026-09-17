@@ -125,6 +125,9 @@ public class InstrumentingClassLoader extends ClassLoader {
 
             logger.info("Loaded class " + fullyQualifiedTargetClass + " directly from " + fileName);
             return result;
+        } catch (VirtualMachineError e) {
+            // See instrumentClass: never turn an exhausted stack into a cached NoClassDefFoundError.
+            throw e;
         } catch (Throwable t) {
             logger.error("Error while loading class " + fullyQualifiedTargetClass + " : " + t.getMessage(), t);
             throw new ClassNotFoundException(t.getMessage(), t);
@@ -302,6 +305,18 @@ public class InstrumentingClassLoader extends ClassLoader {
 
             logger.info("Loaded class: " + fullyQualifiedTargetClass);
             return result;
+        } catch (VirtualMachineError e) {
+            // A StackOverflowError here is not a property of the class. Code like Jackson's
+            // BeanSerializerBase catches StackOverflowError and resolves its exception class
+            // inside the handler, with a few frames of stack left; the JVM's own loader copes,
+            // but instrumentation needs far more. Wrapping the error in ClassNotFoundException
+            // turns it into a NoClassDefFoundError, which HotSpot records for that constant-pool
+            // entry (JVMS 5.4.3), so every later use of the class from the same site fails even
+            // with a full stack. VirtualMachineErrors are not recorded, so rethrowing lets the
+            // next attempt, one frame up in the Jackson case, succeed exactly as it would
+            // uninstrumented. Not logged: building a logging event on an exhausted stack can
+            // fail inside logback's static initialisers, and that failure is permanent too.
+            throw e;
         } catch (Throwable t) {
             // We catch Throwable here because instrumentation or class definition might fail with
             // LinkageError or other unexpected errors, which we want to wrap as ClassNotFoundException
