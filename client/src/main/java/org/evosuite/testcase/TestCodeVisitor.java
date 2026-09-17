@@ -3744,7 +3744,10 @@ public class TestCodeVisitor extends TestVisitor {
         }
         if (type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
-            if (dependsOnGenericTypeInformation(parameterizedType.getRawType())) {
+            // The raw type of a parameterized type always declares type parameters, so
+            // checking it would flag every parameterized type, Box<String> included; only
+            // the owner (Outer<T>.Inner<E>) and the arguments can still be unresolved.
+            if (dependsOnGenericTypeInformation(parameterizedType.getOwnerType())) {
                 return true;
             }
             for (Type argument : parameterizedType.getActualTypeArguments()) {
