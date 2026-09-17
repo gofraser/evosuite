@@ -167,7 +167,7 @@ public class Scaffolding {
             builder.append("// Empty scaffolding for empty test suite\n");
         } else {
             builder.append(new Scaffolding().getBeforeAndAfterMethods(name,
-                    requirements.hasSecurityException(), results, replaySnapshot));
+                    requirements.needsThreadWrapper(), results, replaySnapshot));
         }
         builder.append(getFooter());
 
@@ -248,7 +248,7 @@ public class Scaffolding {
 
         list.add(EvoSuiteClassExclude.class.getCanonicalName());
 
-        if (requirements.needsAgent() || requirements.hasSecurityException() || SystemInUtil.getInstance().hasBeenUsed()
+        if (requirements.needsAgent() || requirements.needsThreadWrapper() || SystemInUtil.getInstance().hasBeenUsed()
                 || JOptionPaneInputs.getInstance().hasAnyDialog() || requirements.isRuntimeEnabled()
                 || requirements.usesMocks()) {
             UnitTestAdapter adapter = getAdapter();
@@ -257,12 +257,12 @@ public class Scaffolding {
             list.add(adapter.afterEach().getCanonicalName());
         }
 
-        if (Properties.RESET_STATIC_FIELDS || requirements.hasSecurityException()
+        if (Properties.RESET_STATIC_FIELDS || requirements.needsThreadWrapper()
                 || requirements.shouldResetProperties()) {
             list.add(getAdapter().afterAll().getCanonicalName());
         }
 
-        if (Properties.RESET_STATIC_FIELDS || requirements.hasSecurityException()) {
+        if (Properties.RESET_STATIC_FIELDS || requirements.needsThreadWrapper()) {
             /*
              * for simplicity, when doing static reset, we always activate the
              * sandbox, as anyway its code is only going to be in the
@@ -272,7 +272,7 @@ public class Scaffolding {
             list.add(Sandbox.SandboxMode.class.getCanonicalName());
         }
 
-        if (requirements.hasSecurityException()) {
+        if (requirements.needsThreadWrapper()) {
             list.add(java.util.concurrent.ExecutorService.class.getCanonicalName());
             list.add(java.util.concurrent.Executors.class.getCanonicalName());
             list.add(java.util.concurrent.Future.class.getCanonicalName());

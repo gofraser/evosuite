@@ -20,7 +20,9 @@
 package org.evosuite.junit.writer;
 
 import org.evosuite.Properties;
+import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.execution.reset.ClassReInitializer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -103,6 +105,23 @@ public class ScaffoldingRegressionTest {
         Assertions.assertFalse(code.contains("example.PostProcessingClass"));
         Assertions.assertTrue(code.contains("\"example.InitializedClass\""));
         Assertions.assertTrue(code.contains("Class.forName(\"example.MockedType\""));
+    }
+
+    @Test
+    public void testScaffoldingFileDeclaresExecutorForTimeouts() {
+        configureDefaults();
+
+        // A test that timed out is wrapped in executor.submit(...) by TestSuiteWriter even
+        // when no security exception occurred, so the scaffolding file must declare the field.
+        DefaultTestCase test = new DefaultTestCase();
+        ExecutionResult timedOut = new ExecutionResult(test);
+        timedOut.reportNewThrownException(test.size(), new TestCaseExecutor.TimeoutExceeded());
+        List<ExecutionResult> results = Collections.singletonList(timedOut);
+
+        String code = Scaffolding.getScaffoldingFileContent("TimeoutTest", results, false);
+        Assertions.assertTrue(code.contains("protected static ExecutorService executor;"), code);
+        Assertions.assertTrue(code.contains("import java.util.concurrent.ExecutorService;"), code);
+        Assertions.assertTrue(code.contains("executor = Executors.newCachedThreadPool();"), code);
     }
 
     private static void configureDefaults() {
