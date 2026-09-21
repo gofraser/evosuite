@@ -59,6 +59,12 @@ public class ThreadStopper {
      */
     private long startTime;
 
+    /**
+     * Minimum time the kill switch stays on for a leftover thread, regardless of how
+     * much of the timeout the test itself consumed.
+     */
+    private static final long MIN_KILL_SWITCH_WINDOW_MS = 200;
+
 
     /**
      * Creates a new ThreadStopper.
@@ -143,6 +149,14 @@ public class ThreadStopper {
          * to prevent issues with code that do not handle interrupt
          */
         killSwitch.setKillSwitch(true);
+        // In total the test case should not run for more than the timeout. A test that
+        // already used it up (typically because it was blocked on a lock held by one of
+        // these very threads) would leave no time at all: the kill switch would be on
+        // for microseconds, no probe would fire, and the thread would survive into the
+        // next test, still holding its locks. So always leave the switch on long enough
+        // for a running thread to reach a probe.
+        long deadline = Math.max(startTime + timeout,
+                System.currentTimeMillis() + MIN_KILL_SWITCH_WINDOW_MS);
 
         /*
          * try to interrupt the SUT threads
@@ -186,11 +200,7 @@ public class ThreadStopper {
 
                 logger.info("Found new thread");
                 try {
-                    /*
-                     * In total the test case should not run for more than Properties.TIMEOUT ms
-                     */
-                    long delta = System.currentTimeMillis() - startTime;
-                    long waitingTime = timeout - delta;
+                    long waitingTime = deadline - System.currentTimeMillis();
                     if (waitingTime > 0) {
                         t.join(waitingTime);
                     }
