@@ -378,8 +378,9 @@ public class ExternalProcessGroupHandler {
             return;
         }
 
-        // Avoid repeated growth when restarting clients.
-        if (!existing.contains("--add-opens")) {
+        // Avoid repeated growth when restarting clients, but do not let a user's own
+        // --add-opens in JDK_JAVA_OPTIONS suppress EvoSuite's.
+        if (!existing.contains(joined)) {
             env.put("JDK_JAVA_OPTIONS", existing + " " + joined);
         }
     }

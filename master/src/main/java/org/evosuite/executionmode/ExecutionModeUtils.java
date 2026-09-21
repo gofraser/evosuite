@@ -24,13 +24,18 @@ import org.evosuite.ClientProcess;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ClassPathHacker;
 import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.runtime.ReflectionAccess;
 import org.evosuite.utils.ExternalProcessGroupHandler;
 import org.evosuite.utils.LoggingUtils;
 import org.slf4j.Logger;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.management.ManagementFactory;
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Utility class for handling execution modes and command-line arguments.
@@ -330,6 +335,99 @@ public final class ExecutionModeUtils {
         // file version or fail to handle module system changes on JDK 25+.
         // This matches the flag already set in the Maven test configuration.
         cmdLine.add("-Dnet.bytebuddy.experimental=true");
+
+        // The SUT shares the unnamed module with the runtime, so it would inherit every
+        // package opened above. ReflectionAccess hides those from the SUT's setAccessible
+        // calls, but only those: whatever module access the user gave EvoSuite's own JVM
+        // (on its command line or through JDK_JAVA_OPTIONS) is meant for the SUT, is
+        // forwarded to the client and stays visible. Liferay's XStream needs
+        // java.base/java.util on JDK 17 in production too; a user who runs EvoSuite with
+        // that --add-opens gets the same behaviour in the search and in the generated tests.
+        Set<String> userGranted = userGrantedModuleAccess();
+        for (String arg : userModuleAccessArguments()) {
+            cmdLine.add(arg);
+        }
+        Set<String> privateAccess = new LinkedHashSet<>();
+        for (int i = 0; i + 1 < cmdLine.size(); i++) {
+            if ("--add-opens".equals(cmdLine.get(i)) || "--add-exports".equals(cmdLine.get(i))) {
+                String pair = modulePackage(cmdLine.get(i + 1));
+                if (pair != null && !userGranted.contains(pair)) {
+                    privateAccess.add(pair);
+                }
+            }
+        }
+        cmdLine.add("-D" + ReflectionAccess.PRIVATE_ACCESS_PROPERTY + "=" + String.join(",", privateAccess));
+    }
+
+    /**
+     * The {@code module/package} pairs the user opened or exported to the unnamed module
+     * when launching EvoSuite itself (command line or {@code JDK_JAVA_OPTIONS}, both of
+     * which the launcher reports as input arguments).
+     */
+    static Set<String> userGrantedModuleAccess() {
+        Set<String> pairs = new LinkedHashSet<>();
+        List<String> args = userModuleAccessArguments();
+        for (int i = 0; i + 1 < args.size(); i += 2) {
+            String pair = modulePackage(args.get(i + 1));
+            if (pair != null) {
+                pairs.add(pair);
+            }
+        }
+        return pairs;
+    }
+
+    /**
+     * The {@code --add-opens}/{@code --add-exports} arguments this JVM was started with,
+     * as flag/value pairs, restricted to those targeting the unnamed module.
+     */
+    static List<String> userModuleAccessArguments() {
+        List<String> result = new ArrayList<>();
+        List<String> input;
+        try {
+            input = ManagementFactory.getRuntimeMXBean().getInputArguments();
+        } catch (RuntimeException e) {
+            return result;
+        }
+        // A master spawned by another EvoSuite process (continuous test generation,
+        // coverage measurement) was started with EvoSuite's own flags; the list it
+        // inherited says which of them are not the user's.
+        Set<String> inheritedPrivate = new LinkedHashSet<>();
+        String inherited = System.getProperty(ReflectionAccess.PRIVATE_ACCESS_PROPERTY, "");
+        for (String pair : inherited.split(",")) {
+            if (!pair.trim().isEmpty()) {
+                inheritedPrivate.add(pair.trim());
+            }
+        }
+        for (int i = 0; i < input.size(); i++) {
+            String arg = input.get(i);
+            String flag = null;
+            String value = null;
+            if ("--add-opens".equals(arg) || "--add-exports".equals(arg)) {
+                if (i + 1 < input.size()) {
+                    flag = arg;
+                    value = input.get(++i);
+                }
+            } else if (arg.startsWith("--add-opens=") || arg.startsWith("--add-exports=")) {
+                int eq = arg.indexOf('=');
+                flag = arg.substring(0, eq);
+                value = arg.substring(eq + 1);
+            }
+            if (flag != null && value.endsWith("=ALL-UNNAMED")
+                    && !inheritedPrivate.contains(modulePackage(value))) {
+                result.add(flag);
+                result.add(value);
+            }
+        }
+        return result;
+    }
+
+    /** {@code java.base/java.util=ALL-UNNAMED} to {@code java.base/java.util}, or null. */
+    private static String modulePackage(String value) {
+        int eq = value.indexOf('=');
+        if (eq <= 0 || !value.substring(0, eq).contains("/")) {
+            return null;
+        }
+        return value.substring(0, eq);
     }
 
     /**

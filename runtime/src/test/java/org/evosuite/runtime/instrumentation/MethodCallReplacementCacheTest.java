@@ -352,4 +352,21 @@ public class MethodCallReplacementCacheTest {
         Assertions.assertTrue(cache.hasReplacementCall("java/lang/Thread", sleepLongKey));
         Assertions.assertTrue(cache.hasReplacementCall("java/lang/Thread", sleepLongIntKey));
     }
+
+    @Test
+    public void testReflectionAccessReplacementsAreRegisteredForAllFourOwners() {
+        MethodCallReplacementCache cache = MethodCallReplacementCache.getInstance();
+
+        String[] owners = {"java/lang/reflect/AccessibleObject", "java/lang/reflect/Field",
+                "java/lang/reflect/Method", "java/lang/reflect/Constructor"};
+        for (String owner : owners) {
+            Assertions.assertTrue(cache.hasReplacementCall(owner, "setAccessible(Z)V"),
+                    "Missing setAccessible(boolean) replacement for " + owner);
+            Assertions.assertTrue(cache.hasReplacementCall(owner, "trySetAccessible()Z"),
+                    "Missing trySetAccessible() replacement for " + owner);
+        }
+
+        Assertions.assertTrue(cache.hasReplacementCall("java/lang/reflect/AccessibleObject",
+                "setAccessible([Ljava/lang/reflect/AccessibleObject;Z)V"));
+    }
 }

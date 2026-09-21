@@ -85,6 +85,9 @@ public class MethodCallReplacementCache {
             // java.lang.*
             addJavaLangCalls();
 
+            // java.lang.reflect.{AccessibleObject,Field,Method,Constructor}.setAccessible(..)
+            addReflectionAccessCalls();
+
             // javax.swing.JComponent.getPreferredSize()
             addReplacementCall(new MethodCallReplacement("javax/swing/JComponent", "getPreferredSize",
                     "()Ljava/awt/Dimension;", Opcodes.INVOKEVIRTUAL,
@@ -902,6 +905,29 @@ public class MethodCallReplacementCache {
          * "org/evosuite/runtime/ResourceLoader", "getResource",
          * "(Ljava/lang/String;)Ljava/net/URL;", true, false));
          */
+    }
+
+    /**
+     * setAccessible(boolean) is caller-sensitive and therefore redeclared in Field, Method
+     * and Constructor; javac emits the receiver's static type as owner for both it and the
+     * final trySetAccessible(), so all four owners need entries.
+     */
+    private void addReflectionAccessCalls() {
+
+        String reflectionAccess = PackageInfo.getNameWithSlash(org.evosuite.runtime.ReflectionAccess.class);
+        String[] owners = {"java/lang/reflect/AccessibleObject", "java/lang/reflect/Field",
+                "java/lang/reflect/Method", "java/lang/reflect/Constructor"};
+
+        for (String owner : owners) {
+            addReplacementCall(new MethodCallReplacement(owner, "setAccessible", "(Z)V", Opcodes.INVOKEVIRTUAL,
+                    reflectionAccess, "setAccessible", "(Ljava/lang/reflect/AccessibleObject;Z)V", false, false));
+            addReplacementCall(new MethodCallReplacement(owner, "trySetAccessible", "()Z", Opcodes.INVOKEVIRTUAL,
+                    reflectionAccess, "trySetAccessible", "(Ljava/lang/reflect/AccessibleObject;)Z", false, false));
+        }
+
+        addReplacementCall(new MethodCallReplacement("java/lang/reflect/AccessibleObject", "setAccessible",
+                "([Ljava/lang/reflect/AccessibleObject;Z)V", Opcodes.INVOKESTATIC,
+                reflectionAccess, "setAccessible", "([Ljava/lang/reflect/AccessibleObject;Z)V", false, false));
     }
 
     private void replaceAllInstanceMethodsWithStatic(Class<?> mockClass, Class<?> target) {
