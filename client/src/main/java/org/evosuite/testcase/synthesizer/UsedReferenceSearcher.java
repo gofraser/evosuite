@@ -1,5 +1,6 @@
 package org.evosuite.testcase.synthesizer;
 
+import org.evosuite.TestGenerationContext;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
@@ -19,6 +20,17 @@ import java.util.Map;
 import java.util.Set;
 
 public class UsedReferenceSearcher {
+
+    /**
+     * Whether the whole-class EvoObj synthesis attempt currently in progress has exceeded its
+     * wall-clock budget (see {@code Properties#OBJECT_RULE_SYNTHESIS_TIMEOUT}). Checked in the
+     * loops below so a pathological field/setter search does not keep iterating the test once the
+     * attempt has already been given up on.
+     */
+    private static boolean synthesisBudgetExceeded() {
+        return TestGenerationContext.getInstance().getObjectRuleRuntime().synthesisAttemptTimedOut();
+    }
+
     public VariableReference searchRelevantFieldReadingReferenceInTest(
             TestCase test, Field field, VariableReference targetObject) {
         List<VariableReference> relevantRefs = new ArrayList<VariableReference>();
@@ -26,6 +38,9 @@ public class UsedReferenceSearcher {
 
         if (targetObject != null) {
             for (int i = 0; i < test.size(); i++) {
+                if (synthesisBudgetExceeded()) {
+                    break;
+                }
                 Statement stat = test.getStatement(i);
                 if (stat instanceof MethodStatement) {
                     MethodStatement mStat = (MethodStatement) stat;
@@ -151,6 +166,9 @@ public class UsedReferenceSearcher {
              * which are data-flow relevant to writing the field @{code field}
              */
             for (int i = 0; i < test.size(); i++) {
+                if (synthesisBudgetExceeded()) {
+                    break;
+                }
                 Statement stat = test.getStatement(i);
                 if (stat instanceof MethodStatement) {
                     MethodStatement mStat = (MethodStatement) stat;
@@ -280,6 +298,11 @@ public class UsedReferenceSearcher {
      */
     public ParameterMatch searchRelevantParameterOfSetterInTest(
             String className, String methodName, Field field) {
+
+        Set<Integer> emptyParams = new HashSet<>();
+        if (synthesisBudgetExceeded()) {
+            return new ParameterMatch(false, emptyParams);
+        }
 
         /**
          * get all the field setter bytecode instructions in the method. TODO: the field setter can

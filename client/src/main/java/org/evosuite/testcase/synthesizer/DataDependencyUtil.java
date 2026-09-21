@@ -625,9 +625,21 @@ public class DataDependencyUtil {
         return configured;
     }
 
+    /**
+     * Whether either the per-entry-method setter-analysis window ({@link
+     * org.evosuite.testcase.factories.ObjectRuleRuntime#beginSetterAnalysis(long)}) or the
+     * coarser whole-attempt synthesis window ({@code beginSynthesisAttempt}) has expired.
+     *
+     * <p>The latter matters because not every caller of {@link #analyzeFieldSetter} opens a
+     * setter-analysis window: {@code UsedReferenceSearcher.searchRelevantParameterOfSetterInTest}
+     * calls it directly with a fixed recursion depth, so without the whole-attempt window that
+     * recursion (into every project-package method reachable from a field setter, several levels
+     * deep) had no time bound at all.
+     */
     private static boolean setterAnalysisTimedOut() {
-
-        return TestGenerationContext.getInstance().getObjectRuleRuntime().setterAnalysisTimedOut();
+        org.evosuite.testcase.factories.ObjectRuleRuntime runtime =
+                TestGenerationContext.getInstance().getObjectRuleRuntime();
+        return runtime.setterAnalysisTimedOut() || runtime.synthesisAttemptTimedOut();
     }
 
     /** Whether a candidate directly assigns the field rather than reaching it through a call. */
@@ -944,6 +956,9 @@ public class DataDependencyUtil {
     private static boolean receiverReferencesField(
             BytecodeInstruction instruction, Field field, Set<BytecodeInstruction> visited) {
         if (instruction == null || field == null || !visited.add(instruction)) {
+            return false;
+        }
+        if (setterAnalysisTimedOut()) {
             return false;
         }
         if (instruction.getASMNode() instanceof FieldInsnNode) {

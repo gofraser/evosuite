@@ -39,6 +39,8 @@ public final class ObjectRuleRuntime {
     private TargetContext activeTargetContext;
     private volatile Long setterAnalysisDeadlineNanos;
     private volatile boolean setterAnalysisTimedOut;
+    private volatile Long synthesisAttemptDeadlineNanos;
+    private volatile boolean synthesisAttemptTimedOut;
     private final AtomicLong resetEpoch = new AtomicLong();
 
     /**
@@ -181,6 +183,43 @@ public final class ObjectRuleRuntime {
     }
 
     /**
+     * Starts the wall-clock budget for one whole-class EvoObj synthesis attempt (one call to
+     * {@code ObjectRuleTemplateSynthesizer.synthesize}), using zero for an unlimited window. This
+     * is a coarser, outer budget than {@link #beginSetterAnalysis(long)}: the per-entry-method
+     * setter-analysis window bounds a single {@code analyzeFieldSetter} entry point, but a whole
+     * synthesis attempt can call it, and the {@code UsedReferenceSearcher} paths that call
+     * {@code analyzeFieldSetter} directly without opening a setter-analysis window at all, many
+     * times over. {@link #setterAnalysisTimedOut()} and this method are both consulted by
+     * {@code DataDependencyUtil}'s recursion guards so every entry point is bounded even when it
+     * never called {@link #beginSetterAnalysis(long)} itself.
+     */
+    public void beginSynthesisAttempt(long deadlineNanos) {
+        synthesisAttemptDeadlineNanos = deadlineNanos > 0 ? deadlineNanos : null;
+        synthesisAttemptTimedOut = false;
+    }
+
+    /**
+     * Returns whether the current whole-class synthesis attempt has exceeded its wall-clock
+     * budget.
+     */
+    public boolean synthesisAttemptTimedOut() {
+        if (!synthesisAttemptTimedOut
+                && synthesisAttemptDeadlineNanos != null
+                && System.nanoTime() >= synthesisAttemptDeadlineNanos) {
+            synthesisAttemptTimedOut = true;
+        }
+        return synthesisAttemptTimedOut;
+    }
+
+    /**
+     * Ends the current whole-class synthesis attempt window.
+     */
+    public void endSynthesisAttempt() {
+        synthesisAttemptDeadlineNanos = null;
+        synthesisAttemptTimedOut = false;
+    }
+
+    /**
      * Clears all run-scoped object-rule state.
      */
     public void reset() {
@@ -190,13 +229,16 @@ public final class ObjectRuleRuntime {
         synthesisConstruction = false;
         activeTargetContext = null;
         endSetterAnalysis();
+        endSynthesisAttempt();
         branchSelector.reset();
         templateCache.reset();
         clearBranchInterestedVars();
         recommendedClasses.clear();
         FBranchDefUseAnalyzer.analyzedMethods.clear();
         DefUseAnalyzer.resetSingleton();
+        org.evosuite.utils.MethodUtil.resetCache();
         FunctionalMockSetupCoordinator.reset();
         DataDependencyUtil.resetSetterAnalysisCache();
+        ObjectRuleTemplateSynthesizer.resetSynthesisTimeoutWarnings();
     }
 }

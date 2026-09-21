@@ -167,6 +167,14 @@ public class Properties {
     @IntValue(min = 0)
     public static int OBJECT_RULE_ANALYSIS_TIMEOUT = 2000;
 
+    @Parameter(key = "object_rule_synthesis_timeout", group = "Test Creation",
+            description = "Maximum milliseconds spent on one whole-class EvoObj template synthesis attempt "
+                    + "(covers every field/setter search the attempt performs, not just a single entry "
+                    + "method); the attempt aborts and falls back to ordinary random generation once this "
+                    + "elapses (0 disables the limit)")
+    @IntValue(min = 0)
+    public static int OBJECT_RULE_SYNTHESIS_TIMEOUT = 5000;
+
     /**
      * Depth of the intra-class call-chain search when looking for a field's setter during EvoObj
      * template synthesis (see). Constant, not user-facing.

@@ -6,7 +6,11 @@ import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
@@ -149,38 +153,97 @@ public class MethodUtil {
 			return string;
 	}
 
-	public static MethodNode getMethodNode(InstrumentingClassLoader classLoader, String className, String methodName) {
-		InputStream is = ResourceList.getInstance(classLoader).getClassAsStream(className);
-		try {
-			ClassReader reader = new ClassReader(is);
-			ClassNode cn = new ClassNode();
-			reader.accept(cn, ClassReader.SKIP_FRAMES);
-			List<MethodNode> l = cn.methods;
+	/*
+	 * Same shape, and same fix, as DefUseAnalyzer.getMethodNode: this used to re-parse the whole
+	 * class with ASM on every call (and again for every superclass on a miss), which is expensive
+	 * when EvoObj's interprocedural analysis calls it repeatedly for the same handful of classes.
+	 * Cache both the parsed ClassNode and the resolved MethodNode (including the superclass walk)
+	 * per classloader; resetCache() is invoked from ObjectRuleRuntime.reset() so a new
+	 * test-generation context never reuses another context's parsed bytecode.
+	 */
+	private static final Map<ClassLoader, Map<String, ClassNode>> CLASS_NODE_CACHE =
+			Collections.synchronizedMap(new WeakHashMap<>());
+	private static final Map<ClassLoader, Map<String, MethodNode>> METHOD_NODE_CACHE =
+			Collections.synchronizedMap(new WeakHashMap<>());
+	private static final ClassNode MISSING_CLASS_NODE = new ClassNode();
+	private static final MethodNode MISSING_METHOD_NODE = new MethodNode();
 
-			for (MethodNode n : l) {
+	public static void resetCache() {
+		CLASS_NODE_CACHE.clear();
+		METHOD_NODE_CACHE.clear();
+	}
+
+	public static MethodNode getMethodNode(InstrumentingClassLoader classLoader, String className, String methodName) {
+		Map<String, MethodNode> methodCache = perLoaderCache(METHOD_NODE_CACHE, classLoader);
+		String cacheKey = className + "#" + methodName;
+		MethodNode cached = methodCache.get(cacheKey);
+		if (cached != null) {
+			return cached == MISSING_METHOD_NODE ? null : cached;
+		}
+
+		MethodNode resolved = resolveMethodNode(classLoader, className, methodName);
+		methodCache.put(cacheKey, resolved == null ? MISSING_METHOD_NODE : resolved);
+		return resolved;
+	}
+
+	private static MethodNode resolveMethodNode(InstrumentingClassLoader classLoader, String className,
+			String methodName) {
+		ClassNode cn = getOrParseClassNode(classLoader, className);
+		if (cn != null) {
+			for (MethodNode n : cn.methods) {
 				String methodSig = n.name + n.desc;
 				if (methodSig.equals(methodName)) {
 					return n;
 				}
 			}
+		}
 
-			// Can't find the method in current class
-			// Check its parent class
-			try {
-				Class<?> clazz = Class.forName(className);
-				if (clazz.getSuperclass() != null) {
-					Class<?> superClazz = clazz.getSuperclass();
-					return getMethodNode(classLoader, superClazz.getName(), methodName);
-				}
-			} catch (ClassNotFoundException e) {
-				log.debug("Could not load class " + className, e);
+		// Can't find the method in current class
+		// Check its parent class
+		try {
+			Class<?> clazz = Class.forName(className);
+			if (clazz.getSuperclass() != null) {
+				Class<?> superClazz = clazz.getSuperclass();
+				return getMethodNode(classLoader, superClazz.getName(), methodName);
 			}
-
-		} catch (IOException e) {
-			log.debug("Could not read class " + className, e);
+		} catch (ClassNotFoundException e) {
+			log.debug("Could not load class " + className, e);
 		}
 
 		return null;
+	}
+
+	private static ClassNode getOrParseClassNode(InstrumentingClassLoader classLoader, String className) {
+		Map<String, ClassNode> classCache = perLoaderCache(CLASS_NODE_CACHE, classLoader);
+		ClassNode cached = classCache.get(className);
+		if (cached != null) {
+			return cached == MISSING_CLASS_NODE ? null : cached;
+		}
+
+		ClassNode parsed = parseClassNode(classLoader, className);
+		classCache.put(className, parsed == null ? MISSING_CLASS_NODE : parsed);
+		return parsed;
+	}
+
+	private static ClassNode parseClassNode(InstrumentingClassLoader classLoader, String className) {
+		try (InputStream is = ResourceList.getInstance(classLoader).getClassAsStream(className)) {
+			if (is == null) {
+				log.debug("Could not read class " + className);
+				return null;
+			}
+			ClassReader reader = new ClassReader(is);
+			ClassNode cn = new ClassNode();
+			reader.accept(cn, ClassReader.SKIP_FRAMES);
+			return cn;
+		} catch (IOException e) {
+			log.debug("Could not read class " + className, e);
+			return null;
+		}
+	}
+
+	private static <V> Map<String, V> perLoaderCache(Map<ClassLoader, Map<String, V>> cache,
+			ClassLoader classLoader) {
+		return cache.computeIfAbsent(classLoader, cl -> new ConcurrentHashMap<>());
 	}
 
 	public static ActualControlFlowGraph registerMethod(String className, String methodName) {

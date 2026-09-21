@@ -49,6 +49,15 @@ class ObjectRuleTemplateSynthesizer {
     private static final double NO_PAYOFF_SYNTHESIS_BUDGET_FRACTION = 0.05;
     private static final int NO_PAYOFF_MAX_CONSECUTIVE_ATTEMPTS = 30;
     private static final int NO_PAYOFF_MIN_ATTEMPTS = 1;
+    // Log the synthesis-timeout fallback once per class rather than once per attempt: a class
+    // whose construction genuinely needs more than the budget would otherwise log on every
+    // generation.
+    private static final Set<String> TIMEOUT_WARNED_CLASSES =
+            java.util.Collections.newSetFromMap(new java.util.concurrent.ConcurrentHashMap<>());
+
+    static void resetSynthesisTimeoutWarnings() {
+        TIMEOUT_WARNED_CLASSES.clear();
+    }
 
     private final ObjectRuleGenerationCoordinator owner;
 
@@ -109,10 +118,18 @@ class ObjectRuleTemplateSynthesizer {
 
             freshSynthesisStarted = true;
             ConstructionPathSynthesizer synthesizer = owner.newConstructionPathSynthesizer();
-            boolean previousSynthesisConstruction =
-                    org.evosuite.TestGenerationContext.getInstance()
-                            .getObjectRuleRuntime()
-                            .setSynthesisConstruction(true);
+            org.evosuite.testcase.factories.ObjectRuleRuntime runtime =
+                    org.evosuite.TestGenerationContext.getInstance().getObjectRuleRuntime();
+            boolean previousSynthesisConstruction = runtime.setSynthesisConstruction(true);
+            long synthesisTimeoutMillis = Properties.OBJECT_RULE_SYNTHESIS_TIMEOUT;
+            // Bounds the graph-construction/statement-correspondence phase, which is where the
+            // interprocedural field-setter search (DataDependencyUtil/UsedReferenceSearcher) can
+            // recurse deeply into a large dependency; without this a single pathological class can
+            // stall the whole GA thread instead of falling back to a plain random test.
+            runtime.beginSynthesisAttempt(
+                    synthesisTimeoutMillis > 0
+                            ? System.nanoTime() + synthesisTimeoutMillis * 1_000_000L
+                            : 0L);
             try {
                 org.evosuite.testcase.synthesizer.PartialGraph preparedGraph =
                         owner.preparedGraph(b);
@@ -123,9 +140,17 @@ class ObjectRuleTemplateSynthesizer {
                 synthesizer.buildNodeStatementCorrespondence(
                         synthesisTest, synthesisBranch, allowNullValue, preparedGraph, size);
             } finally {
-                org.evosuite.TestGenerationContext.getInstance()
-                        .getObjectRuleRuntime()
-                        .setSynthesisConstruction(previousSynthesisConstruction);
+                if (runtime.synthesisAttemptTimedOut()) {
+                    String targetClass = org.evosuite.testcase.synthesizer.TargetContext.activeClassName();
+                    if (targetClass != null && !targetClass.isEmpty()
+                            && TIMEOUT_WARNED_CLASSES.add(targetClass)) {
+                        logger.warn("EvoObj synthesis for {} exceeded the {} ms synthesis budget; "
+                                        + "falling back to ordinary generation for this attempt",
+                                targetClass, synthesisTimeoutMillis);
+                    }
+                }
+                runtime.endSynthesisAttempt();
+                runtime.setSynthesisConstruction(previousSynthesisConstruction);
             }
 
             // A graph whose required parameter root is still null (or is not the exact target

@@ -6,7 +6,10 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.evosuite.TestGenerationContext;
 import org.evosuite.classpath.ResourceList;
@@ -37,8 +40,33 @@ public class DefUseAnalyzer {
 
 	private static Set<String> analizedList = new HashSet<>();
 
+	/*
+	 * getMethodNode() used to re-parse a class's full bytecode with ASM on every single call (and
+	 * then repeat that for every superclass on a miss). For a method that recurses into library
+	 * code (interprocedural field-setter/def-use analysis walks every method called by a target
+	 * method, several levels deep), the same handful of library classes were being parsed from
+	 * scratch thousands of times per test-generation attempt, which is what turned a few seconds of
+	 * real work into multi-minute GA stalls. Cache both the parsed ClassNode and the resolved
+	 * MethodNode (including the outcome of the superclass walk) per classloader, so a given
+	 * class/method pair is parsed/resolved at most once per test-generation context. A WeakHashMap
+	 * keyed on classloader identity lets the cache for a discarded context be collected, and
+	 * resetSingleton() (called from ObjectRuleRuntime.reset(), mirroring GraphPool/
+	 * BytecodeInstructionPool's per-context clearing) drops it explicitly so a new context never
+	 * sees another context's parsed bytecode.
+	 */
+	private static final Map<ClassLoader, Map<String, ClassNode>> CLASS_NODE_CACHE =
+			java.util.Collections.synchronizedMap(new WeakHashMap<>());
+	private static final Map<ClassLoader, Map<String, MethodNode>> METHOD_NODE_CACHE =
+			java.util.Collections.synchronizedMap(new WeakHashMap<>());
+	// Sentinels so a "not found" result is cached too, instead of re-parsing/re-walking on every
+	// repeated miss (which is exactly the pattern that made the uncached lookup so expensive).
+	private static final ClassNode MISSING_CLASS_NODE = new ClassNode();
+	private static final MethodNode MISSING_METHOD_NODE = new MethodNode();
+
 	public static void resetSingleton() {
 		analizedList.clear();
+		CLASS_NODE_CACHE.clear();
+		METHOD_NODE_CACHE.clear();
 	}
 
 	/**
@@ -132,41 +160,77 @@ public class DefUseAnalyzer {
 	}
 
 	public static MethodNode getMethodNode(InstrumentingClassLoader classLoader, String className, String methodName) {
-		try (InputStream is = ResourceList.getInstance(classLoader).getClassAsStream(className)) {
-			if (is == null) {
-				logger.debug("No class bytes found for {} while resolving {}", className, methodName);
-				return null;
-			}
-			ClassReader reader = new ClassReader(is);
-			ClassNode cn = new ClassNode();
-			reader.accept(cn, ClassReader.SKIP_FRAMES);
-			List<MethodNode> l = cn.methods;
+		Map<String, MethodNode> methodCache = perLoaderCache(METHOD_NODE_CACHE, classLoader);
+		String cacheKey = className + "#" + methodName;
+		MethodNode cached = methodCache.get(cacheKey);
+		if (cached != null) {
+			return cached == MISSING_METHOD_NODE ? null : cached;
+		}
 
-			for (MethodNode n : l) {
+		MethodNode resolved = resolveMethodNode(classLoader, className, methodName);
+		methodCache.put(cacheKey, resolved == null ? MISSING_METHOD_NODE : resolved);
+		return resolved;
+	}
+
+	private static MethodNode resolveMethodNode(InstrumentingClassLoader classLoader, String className,
+			String methodName) {
+		ClassNode cn = getOrParseClassNode(classLoader, className);
+		if (cn != null) {
+			for (MethodNode n : cn.methods) {
 				String methodSig = n.name + n.desc;
 				if (methodSig.equals(methodName)) {
 					return n;
 				}
 			}
+		}
 
-			// Can't find the method in current class
-			// Check its parent class
-			try {
-				Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
-				if (clazz.getSuperclass() != null) {
-					Class<?> superClazz = clazz.getSuperclass();
-					return getMethodNode(classLoader, superClazz.getName(), methodName);
-				}
-			} catch (ClassNotFoundException e) {
-				// class not available on the SUT classloader; give up
+		// Can't find the method in current class
+		// Check its parent class
+		try {
+			Class<?> clazz = TestGenerationContext.getInstance().getClassLoaderForSUT().loadClass(className);
+			if (clazz.getSuperclass() != null) {
+				Class<?> superClazz = clazz.getSuperclass();
+				return getMethodNode(classLoader, superClazz.getName(), methodName);
 			}
-
-		} catch (IOException e) {
-			logger.debug("Unable to read class bytes for {} while resolving {}", className,
-					methodName, e);
+		} catch (ClassNotFoundException e) {
+			// class not available on the SUT classloader; give up
 		}
 
 		return null;
+	}
+
+	private static ClassNode getOrParseClassNode(InstrumentingClassLoader classLoader, String className) {
+		Map<String, ClassNode> classCache = perLoaderCache(CLASS_NODE_CACHE, classLoader);
+		ClassNode cached = classCache.get(className);
+		if (cached != null) {
+			return cached == MISSING_CLASS_NODE ? null : cached;
+		}
+
+		ClassNode parsed = parseClassNode(classLoader, className);
+		classCache.put(className, parsed == null ? MISSING_CLASS_NODE : parsed);
+		return parsed;
+	}
+
+	private static ClassNode parseClassNode(InstrumentingClassLoader classLoader, String className) {
+		try (InputStream is = ResourceList.getInstance(classLoader).getClassAsStream(className)) {
+			if (is == null) {
+				logger.debug("No class bytes found for {}", className);
+				return null;
+			}
+			ClassReader reader = new ClassReader(is);
+			ClassNode cn = new ClassNode();
+			reader.accept(cn, ClassReader.SKIP_FRAMES);
+			return cn;
+		} catch (IOException e) {
+			logger.debug("Unable to read class bytes for {}", className, e);
+			return null;
+		}
+	}
+
+	private static <V> Map<String, V> perLoaderCache(Map<ClassLoader, Map<String, V>> cache,
+			ClassLoader classLoader) {
+		// Collections.synchronizedMap already guards computeIfAbsent internally.
+		return cache.computeIfAbsent(classLoader, cl -> new ConcurrentHashMap<>());
 	}
 
 	public void analyze(ClassLoader classLoader, MethodNode mn, String className,
