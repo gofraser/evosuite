@@ -237,7 +237,14 @@ public class System {
     }
 
     /**
-     * Current time returns numbers increased by 1.
+     * The mocked clock does not run on its own: it only moves forward when the
+     * SUT actually sleeps (see {@link org.evosuite.runtime.mock.java.lang.MockThread#sleep(long)},
+     * which calls {@link #advanceCurrentTimeMillis(long)}), or when explicitly
+     * set via {@link #setCurrentTimeMillis(long)}. Reading it via
+     * {@link #currentTimeMillis()} or {@link #nanoTime()} never changes it.
+     * This makes two clock reads with no intervening sleep return the same
+     * value, which many SUTs rely on (e.g. comparing the creation timestamps
+     * of two objects built back-to-back).
      */
     // Initialised to 2014-02-14, 20:21
     private static long currentTime = 1392409281320L;
@@ -249,7 +256,21 @@ public class System {
      */
     public static synchronized long currentTimeMillis() {
         wasTimeAccessed = true;
-        return currentTime++;
+        return currentTime;
+    }
+
+    /**
+     * Advances the mocked clock by the given amount. Used to simulate the
+     * passage of time when the SUT sleeps, without EvoSuite actually having
+     * to wait that long in real time.
+     *
+     * @param millis amount of time (in milliseconds) to move the mocked clock
+     *               forward by. Non-positive values are ignored.
+     */
+    public static synchronized void advanceCurrentTimeMillis(long millis) {
+        if (millis > 0) {
+            currentTime += millis;
+        }
     }
 
     /**
@@ -411,7 +432,7 @@ public class System {
      */
     public static synchronized long nanoTime() {
         wasTimeAccessed = true;
-        return (currentTime++) * 1000L;
+        return currentTime * 1000L;
     }
 
     /**
@@ -452,14 +473,15 @@ public class System {
 
 
     /**
-     * Allow setting the time.
+     * Allow setting the time. This is how a test seeds the clock the SUT will read,
+     * so any value must be accepted: a SUT comparing the time against a small
+     * constant is only reachable by setting the clock below where it started. Time
+     * moves forward on its own only through {@link #advanceCurrentTimeMillis(long)}.
      *
      * @param time a long.
      */
     public static synchronized void setCurrentTimeMillis(long time) {
-        if (time >= currentTime) {
-            currentTime = time;
-        }
+        currentTime = time;
     }
 
     /**

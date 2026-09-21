@@ -62,9 +62,9 @@ public class MockThread extends Thread implements OverrideMock {
     private static final Map<Integer, Long> threadMap = new ConcurrentHashMap<>();
 
     /**
-     * Tracks the cumulative sleep time (in the SUT's perception) requested by
-     * all threads in the current test execution.  When the total exceeds
-     * {@link #MAX_CUMULATIVE_SLEEP_MS}, {@link #sleep(long)} throws
+     * Counts how many times {@link #sleep(long)} has been called (successfully)
+     * by any thread during the current test execution.  When the count exceeds
+     * {@link #MAX_SLEEP_CALLS_PER_TEST}, {@link #sleep(long)} throws
      * {@link TooManyResourcesException} to break out of infinite polling loops
      * in uninstrumented library code that the
      * {@link org.evosuite.runtime.LoopCounter} cannot reach.
@@ -72,31 +72,85 @@ public class MockThread extends Thread implements OverrideMock {
      * <p>Uses AtomicLong instead of ThreadLocal so that {@link #reset()} clears
      * the budget for all threads, not just the calling thread.</p>
      */
-    private static final AtomicLong cumulativeSleepRequested = new AtomicLong(0L);
+    private static final AtomicLong sleepCallCount = new AtomicLong(0L);
 
     /**
-     * Maximum cumulative sleep time (in SUT-perceived milliseconds) before
-     * {@link #sleep(long)} gives up and throws {@link TooManyResourcesException}.
-     *
-     * <p>Because each call is already capped at 50ms of <em>real</em> sleep, this
-     * budget is also (approximately) how many real milliseconds a polling loop
-     * gets to burn before being cut off — 10_000 meant up to ~10 real seconds of
-     * wall-clock sleeping per test. That is cheap for one test, but a search
-     * evaluates thousands of individuals: on 66_openjms
-     * {@code ResourceManager}, whose {@code UUIDGenerator.createTimeUUIDChars}
-     * sleeps in a loop, every one of 10/10 seeds spent the entire run paying
-     * that cost and produced no output at all. 1.2.0 had no cumulative budget
-     * and relied solely on the per-test timeout, so a polling loop cost at most
-     * one test's timeout, not an accumulating multiple of it. Keep the budget
-     * (uninstrumented polling loops still need a way to terminate that
-     * {@link org.evosuite.runtime.LoopCounter} cannot reach) but shrink it so a
-     * loop that hits it pays milliseconds, not seconds.
+     * Maximum number of {@link #sleep(long)} calls allowed per test execution
+     * before {@link #sleep(long)} gives up and throws {@link TooManyResourcesException}.
+     * This is a hard ceiling on top of the real-time regimes below — it exists
+     * for uninstrumented library code (e.g. HSQLDB {@code Server.start()}) that
+     * the {@link org.evosuite.runtime.LoopCounter} cannot reach, so that such a
+     * loop cannot spin forever even if it somehow escapes EvoSuite's per-test
+     * timeout (see the three real-sleep regimes below).
      */
-    private static final long MAX_CUMULATIVE_SLEEP_MS = 200L;
+    private static final long MAX_SLEEP_CALLS_PER_TEST = 10_000L;
+
+    /**
+     * {@code sleep(long)} performs a genuine {@link Thread#sleep(long)} in three
+     * regimes, tracked per test execution (reset alongside {@link #sleepCallCount}
+     * by {@link #reset()}), instead of either always sleeping the full requested
+     * duration (too slow — see the history below) or never sleeping at all (lets a
+     * spinning SUT thread starve another thread contending for the same lock — see
+     * the history below):
+     *
+     * <ol>
+     * <li>While the cumulative *real* time this test has spent sleeping is below
+     * {@link #REAL_SLEEP_BUDGET_MS} (200ms), each call really sleeps up to
+     * {@link #MAX_REAL_SLEEP_PER_CALL_MS} (50ms) — this restores 1.2.0's per-call
+     * real-sleep cap, so a SUT that legitimately sleeps a handful of times (e.g.
+     * 55_lavalamp's Blink, 10 calls/test) behaves close to how it would on a real
+     * JVM.</li>
+     * <li>Once that budget is exhausted, every further call in the same test only
+     * really sleeps {@link #MIN_REAL_SLEEP_MS} (1ms) — not zero, and deliberately
+     * not just {@link Thread#yield()}: a background AEThread-style loop that calls
+     * {@code sleep()} on every iteration (e.g. 104_vuze's
+     * {@code TRTrackerServerImpl.timerLoop()}, which sleeps 60s between iterations
+     * and, with no real wait at all, was observed via jstack spinning at ~98% CPU
+     * and permanently starving a lower-priority thread blocked entering the same
+     * {@code AEMonitor}) is thereby capped at ~1ms of real cost per iteration
+     * forever, cheap enough not to matter, but still real enough that the OS
+     * scheduler gets a genuine, repeated chance to run the thread it would
+     * otherwise starve. {@code yield()} alone is not enough here — it is only
+     * advisory and does not reliably let a blocked waiter run.</li>
+     * <li>The {@link #MAX_SLEEP_CALLS_PER_TEST} call-count cap above still applies
+     * on top of both regimes and throws — but the *time* budget itself never
+     * throws, it only downgrades the per-call cost from 50ms to 1ms. That is the
+     * key difference from both the 200ms *cumulative* budget removed by
+     * 91aacb37c (which threw, and cut off 55_lavalamp's Blink after its 5th call)
+     * and the "no real sleep at all" replacement that budget was replaced with
+     * (which let a background sleep-loop spin unthrottled): once a test's SUT
+     * threads are into the 1ms-per-call regime, a loop that calls sleep() a lot
+     * costs at most ~1ms per iteration, so it is EvoSuite's own per-test timeout
+     * (a few seconds) — not this cap — that bounds how long a single evaluation
+     * of a pathological polling loop can take, exactly as in 1.2.0.</li>
+     * </ol>
+     */
+    private static final long REAL_SLEEP_BUDGET_MS = 200L;
+
+    /**
+     * Upper bound (in real milliseconds) on the genuine {@link Thread#sleep(long)}
+     * each mocked {@link #sleep(long)} call performs while under
+     * {@link #REAL_SLEEP_BUDGET_MS} — see {@link #REAL_SLEEP_BUDGET_MS}'s doc.
+     */
+    private static final long MAX_REAL_SLEEP_PER_CALL_MS = 50L;
+
+    /**
+     * The real sleep every call performs once {@link #REAL_SLEEP_BUDGET_MS} has
+     * been exhausted — see {@link #REAL_SLEEP_BUDGET_MS}'s doc.
+     */
+    private static final long MIN_REAL_SLEEP_MS = 1L;
+
+    /**
+     * Cumulative *real* milliseconds this test execution has spent inside the
+     * real {@link Thread#sleep(long)} calls {@link #sleep(long)} performs — see
+     * {@link #REAL_SLEEP_BUDGET_MS}. Reset alongside {@link #sleepCallCount}.
+     */
+    private static final AtomicLong cumulativeRealSleepMillis = new AtomicLong(0L);
 
     public static void reset() {
         threadMap.clear();
-        cumulativeSleepRequested.set(0L);  // AtomicLong — visible to all threads
+        sleepCallCount.set(0L);  // AtomicLong — visible to all threads
+        cumulativeRealSleepMillis.set(0L);
     }
 
     private boolean isSutRelated() {
@@ -164,29 +218,97 @@ public class MockThread extends Thread implements OverrideMock {
      */
     @EvoSuiteExclude
     public static void sleep(long millis) throws InterruptedException {
-        // Track cumulative mocked sleep time. Uninstrumented library code
-        // (e.g., HSQLDB Server.start()) may sit in a polling loop calling
-        // Thread.sleep(). The LoopCounter can't break these loops because no
-        // checkLoop() was inserted. We therefore enforce a cumulative budget
-        // over the *effective* mocked delay (<= 50ms per call), not the raw
-        // requested millis, so a single legitimate long sleep is still reduced
-        // to one short mocked wait instead of being rejected immediately.
-        if (millis > 0) {
-            long effectiveMillis = Math.min(millis, 50L);
-            long cumulative = cumulativeSleepRequested.addAndGet(effectiveMillis);
-            if (cumulative > MAX_CUMULATIVE_SLEEP_MS) {
-                // Throw an unchecked exception.  InterruptedException won't
-                // work here because server-style loops (like HSQLDB
-                // Server.start()) typically catch InterruptedException and
-                // keep looping.  TooManyResourcesException is already used by
-                // LoopCounter for the same purpose — breaking infinite loops
-                // that EvoSuite cannot otherwise terminate.
-                throw new TooManyResourcesException(
-                        "MockThread: cumulative sleep request exceeded "
-                                + MAX_CUMULATIVE_SLEEP_MS + "ms");
-            }
+        // A real sleep below already throws InterruptedException when
+        // interrupted, so no need to special-case Thread.interrupted() here
+        // as long as some real sleep always runs — see below.
+
+        // Uninstrumented library code (e.g., HSQLDB Server.start()) may sit in
+        // a polling loop calling Thread.sleep(). The LoopCounter can't break
+        // these loops because no checkLoop() was inserted. We therefore cap
+        // the number of sleep() calls a test is allowed to make; once the cap
+        // is hit we throw to break out of the loop. This cap never moves —
+        // see REAL_SLEEP_BUDGET_MS's doc for how the *cost* of each call
+        // changes instead.
+        boolean overCap = millis > 0 && sleepCallCount.incrementAndGet() > MAX_SLEEP_CALLS_PER_TEST;
+
+        // Advance the mocked clock by the requested amount so that SUT code
+        // observing System.currentTimeMillis()/nanoTime() before and after the
+        // sleep sees time having passed, without EvoSuite actually waiting
+        // that long.
+        org.evosuite.runtime.System.advanceCurrentTimeMillis(millis);
+
+        if (millis <= 0) {
+            // Nothing was really requested; let the real Thread.sleep(millis)
+            // handle the millis == 0 (near no-op) / millis < 0
+            // (IllegalArgumentException) cases exactly like the real method.
+            Thread.sleep(millis);
+            return;
         }
-        Thread.sleep(Math.min(millis, 50));
+
+        // Perform a real sleep instead of just yielding. A pure
+        // Thread.yield() is only advisory — it does not necessarily take the
+        // calling thread off the run queue, and does not reliably let a
+        // thread blocked entering a monitor actually run — so a SUT
+        // background thread whose mocked "sleep" period never really elapses
+        // (e.g. a periodic AEThread in 104_vuze's TRTrackerServerImpl that
+        // sleeps 60s between loop iterations) turned into a genuine CPU-bound
+        // spin: thousands of iterations per second, each re-acquiring/
+        // releasing some lock that another, lower-priority thread was also
+        // trying to acquire. That other thread was starved indefinitely —
+        // confirmed with jstack as TEST_EXECUTION_THREAD_0 permanently
+        // BLOCKED entering ConfigurationManager's AEMonitor, while the
+        // spinning timer thread showed ~98% CPU re-entering the same monitor
+        // — even though nothing was technically deadlocked. EvoSuite then
+        // force-stopped the blocked thread, sometimes while it held an
+        // unrelated java.util.concurrent lock that Thread.stop() cannot
+        // release, wedging every later test.
+        //
+        // But always sleeping up to MAX_REAL_SLEEP_PER_CALL_MS is also wrong:
+        // with only the call-count cap above (no cumulative *time* budget), a
+        // SUT that sleeps in a loop would pay that cost on every call of
+        // every test evaluation, not just once — e.g. a class whose
+        // uninstrumented polling loop calls sleep() a few hundred times would
+        // burn real time on every single individual the search evaluates,
+        // collapsing the number of evaluations the search budget affords (the
+        // 200ms *cumulative* budget 91aacb37c removed existed for exactly
+        // this reason, and its removal is what let sleep() regress to never
+        // sleeping at all in the first place). So: only the first
+        // REAL_SLEEP_BUDGET_MS of *real* sleep per test gets the full
+        // per-call cap; after that this test's remaining sleep() calls fall
+        // back to a fixed, minimal real sleep, cheap enough not to matter but
+        // still real enough to starve nobody. See REAL_SLEEP_BUDGET_MS's doc
+        // for the three regimes in full.
+        if (Thread.currentThread() instanceof MockThread) {
+            // A thread the SUT started runs alongside the test, so a real pause
+            // costs the search nothing, and a short one is harmful: vuze's
+            // TrackerServer timer loop asks for 60 s, does ~10 ms of config
+            // lookups under ConfigurationManager's AEMonitor per iteration, and
+            // with a 1 ms pause held that monitor almost continuously while the
+            // test thread constructing a second server waited for it, was
+            // declared stuck and force-stopped with a ReentrantLock in hand.
+            Thread.sleep(Math.min(millis, MAX_REAL_SLEEP_PER_CALL_MS));
+        } else if (!overCap && cumulativeRealSleepMillis.get() < REAL_SLEEP_BUDGET_MS) {
+            long cappedMillis = Math.min(millis, MAX_REAL_SLEEP_PER_CALL_MS);
+            Thread.sleep(cappedMillis);
+            cumulativeRealSleepMillis.addAndGet(cappedMillis);
+        } else {
+            Thread.sleep(MIN_REAL_SLEEP_MS);
+        }
+
+        // Break out of a loop that has sleep()ed too often. InterruptedException
+        // won't work here because server-style loops (like HSQLDB Server.start())
+        // typically catch InterruptedException and keep looping;
+        // TooManyResourcesException is already used by LoopCounter for the same
+        // purpose. The real pause above deliberately happens first: a loop that
+        // also swallows this exception (vuze's TRTrackerServerImpl timer loop
+        // catches Throwable) would otherwise turn into a busy loop the moment
+        // the cap is reached, and a busy loop holding a monitor starves every
+        // other thread that needs it.
+        if (overCap) {
+            throw new TooManyResourcesException(
+                    "MockThread: exceeded " + MAX_SLEEP_CALLS_PER_TEST
+                            + " sleep() calls in a single test");
+        }
     }
 
     @EvoSuiteExclude
