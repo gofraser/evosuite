@@ -22,6 +22,9 @@ package org.evosuite.runtime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.*;
 
 
@@ -261,7 +264,42 @@ public class System {
         return currentTime;
     }
 
-    private static final Map<Integer, Integer> hashKeys = new HashMap<>();
+    /**
+     * Mocked identity hash codes, keyed by the real identity hash of the object. An object
+     * keeps its mocked value for as long as it is reachable: SUT code stores such objects as
+     * keys of {@code HashMap}s that live in static state across many tests (110_firebird's
+     * {@code GDSFactory.typeToPluginMap} is keyed by {@code GDSType}, which defines no
+     * {@code hashCode()}), and a key whose hash changes after {@code put()} is searched for in
+     * the wrong bucket and never found again. The entries are weak so that objects that died
+     * with their test do not accumulate over a run; {@link #resetRuntime()} only restarts the
+     * counter, so the objects a test creates still get the same small, deterministic values
+     * every time the test runs.
+     */
+    private static final Map<Integer, List<HashKey>> hashKeys = new HashMap<>();
+    private static final ReferenceQueue<Object> deadHashKeys = new ReferenceQueue<>();
+    private static int nextHashKey = 1;
+
+    private static final class HashKey extends WeakReference<Object> {
+        private final int realId;
+        private final int mockedId;
+
+        HashKey(Object referent, int realId, int mockedId) {
+            super(referent, deadHashKeys);
+            this.realId = realId;
+            this.mockedId = mockedId;
+        }
+    }
+
+    private static void expungeDeadHashKeys() {
+        Reference<?> ref;
+        while ((ref = deadHashKeys.poll()) != null) {
+            HashKey dead = (HashKey) ref;
+            List<HashKey> entries = hashKeys.get(dead.realId);
+            if (entries != null && entries.remove(dead) && entries.isEmpty()) {
+                hashKeys.remove(dead.realId);
+            }
+        }
+    }
 
     /**
      * Registers an object to ensure it has a stable mocked identity hash code.
@@ -284,12 +322,17 @@ public class System {
         }
 
         synchronized (hashKeys) {
-            Integer realId = java.lang.System.identityHashCode(o);
-            if (!hashKeys.containsKey(realId)) {
-                hashKeys.put(realId, hashKeys.size() + 1);
+            expungeDeadHashKeys();
+            int realId = java.lang.System.identityHashCode(o);
+            List<HashKey> entries = hashKeys.computeIfAbsent(realId, k -> new ArrayList<>(1));
+            for (HashKey entry : entries) {
+                if (entry.get() == o) {
+                    return entry.mockedId;
+                }
             }
-
-            return hashKeys.get(realId);
+            int mockedId = nextHashKey++;
+            entries.add(new HashKey(o, realId, mockedId));
+            return mockedId;
         }
     }
 
@@ -435,7 +478,11 @@ public class System {
     public static void resetRuntime() {
         currentTime = 1392409281320L; // 2014-02-14, 20:21
         wasTimeAccessed = false;
-        hashKeys.clear();
+        synchronized (hashKeys) {
+            // Objects that survive the test keep their mocked hash (see hashKeys); only
+            // the numbering of objects created from now on starts over.
+            nextHashKey = 1;
+        }
         restoreProperties();
         needToRestoreProperties = false;
         //readProperties.clear(); //we cannot reset read properties here
