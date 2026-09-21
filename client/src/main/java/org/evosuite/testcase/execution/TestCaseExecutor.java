@@ -932,47 +932,70 @@ public class TestCaseExecutor implements ThreadFactory {
                     && currentThread.isAlive() && isThreadStuckInSutCode(currentThread);
             if (!abandonStuckStaticInit && shouldForceStopAfterCancellation(needsTimeoutCleanup(handler),
                     workerStillExecutingAfterCancellation)) {
-                logger.warn("Run still not finished, thread {} is stuck at:",
-                        currentThread == null ? "<null>" : currentThread.getName());
-                if (currentThread != null) {
-                    for (StackTraceElement element : currentThread.getStackTrace()) {
-                        logger.warn("  {}", element);
+                // Re-sample <clinit> membership right here, immediately before doing
+                // anything forceful. initialInStaticInit/initialInProtectedBootstrap were
+                // snapshotted once, back when the timeout was first caught; everything
+                // between there and here — the fast kill-switch-swallow escalation, which
+                // skips the grace/abandon handling above entirely, or simply the time spent
+                // waiting through the graceful chain — is enough for the thread to have left
+                // ordinary SUT code and entered a <clinit> since. Forcing it now is exactly
+                // the class-poisoning bug abandonStuckStaticInit exists to avoid, so route
+                // into the same abandon handling instead of interrupting or stopping it,
+                // no matter which path got us here.
+                if (isInStaticInit()) {
+                    String stuckClinitClass = currentStaticInitClass();
+                    if (stuckClinitClass != null) {
+                        abandonedClinitClasses.add(stuckClinitClass);
                     }
-                }
-                // Try interrupt first — works for threads blocked on I/O,
-                // sleeping, or waiting on monitors.
-                if (currentThread != null && currentThread.isAlive()) {
-                    currentThread.interrupt();
-                }
-                // Last resort: Thread.stop() to kill CPU-bound loops in
-                // uninstrumented JDK code (e.g. Logger.getEffectiveLoggerBundle)
-                // that don't respond to interrupt(). Deprecated but necessary —
-                // a leaked thread burns 100% CPU for the entire process lifetime.
-                if (currentThread != null && currentThread.isAlive()) {
-                    Thread stoppedThread = currentThread;
-                    try {
-                        logger.warn("Force-stopping stuck thread {} via Thread.stop()",
-                                stoppedThread.getName());
-                        stoppedThread.stop();
-                        stoppedThread.join(Properties.SHUTDOWN_TIMEOUT);
-                    } catch (Throwable t) {
-                        logger.info("Exception during Thread.stop() cleanup: {}", t.getMessage());
+                    logger.warn("Thread {} is inside <clinit> of {} at the force-stop decision "
+                                    + "(it was not when the timeout was first caught) — abandoning "
+                                    + "it instead of forcing it, to avoid poisoning the class.",
+                            currentThread == null ? "<null>" : currentThread.getName(),
+                            ExecutionTracer.describeCurrentClassInit());
+                    abandonStuckStaticInit = true;
+                } else {
+                    logger.warn("Run still not finished, thread {} is stuck at:",
+                            currentThread == null ? "<null>" : currentThread.getName());
+                    if (currentThread != null) {
+                        for (StackTraceElement element : currentThread.getStackTrace()) {
+                            logger.warn("  {}", element);
+                        }
                     }
-                    // Thread.stop() gives the victim no chance to run any finally
-                    // block, and on JDK 20+ it does not even stop it (it throws
-                    // UnsupportedOperationException instead). Either way we have
-                    // just given up on this thread, so if it was inside the
-                    // sandbox its lock is now leaked, and every later test
-                    // execution in this process would stall for the full sandbox
-                    // acquisition timeout before recovering. Hand the lock back
-                    // here instead of paying that timeout. No-op when the thread
-                    // did not own the lock, so it is safe to call unconditionally.
-                    if (Sandbox.reclaimSandboxLockOwnedBy(stoppedThread)) {
-                        logger.warn("Reclaimed the sandbox lock leaked by force-stopped thread {}",
-                                stoppedThread.getName());
+                    // Try interrupt first — works for threads blocked on I/O,
+                    // sleeping, or waiting on monitors.
+                    if (currentThread != null && currentThread.isAlive()) {
+                        currentThread.interrupt();
                     }
+                    // Last resort: Thread.stop() to kill CPU-bound loops in
+                    // uninstrumented JDK code (e.g. Logger.getEffectiveLoggerBundle)
+                    // that don't respond to interrupt(). Deprecated but necessary —
+                    // a leaked thread burns 100% CPU for the entire process lifetime.
+                    if (currentThread != null && currentThread.isAlive()) {
+                        Thread stoppedThread = currentThread;
+                        try {
+                            logger.warn("Force-stopping stuck thread {} via Thread.stop()",
+                                    stoppedThread.getName());
+                            stoppedThread.stop();
+                            stoppedThread.join(Properties.SHUTDOWN_TIMEOUT);
+                        } catch (Throwable t) {
+                            logger.info("Exception during Thread.stop() cleanup: {}", t.getMessage());
+                        }
+                        // Thread.stop() gives the victim no chance to run any finally
+                        // block, and on JDK 20+ it does not even stop it (it throws
+                        // UnsupportedOperationException instead). Either way we have
+                        // just given up on this thread, so if it was inside the
+                        // sandbox its lock is now leaked, and every later test
+                        // execution in this process would stall for the full sandbox
+                        // acquisition timeout before recovering. Hand the lock back
+                        // here instead of paying that timeout. No-op when the thread
+                        // did not own the lock, so it is safe to call unconditionally.
+                        if (Sandbox.reclaimSandboxLockOwnedBy(stoppedThread)) {
+                            logger.warn("Reclaimed the sandbox lock leaked by force-stopped thread {}",
+                                    stoppedThread.getName());
+                        }
+                    }
+                    ExecutionTracer.disable();
                 }
-                ExecutionTracer.disable();
             }
             ExecutionTracer.disable();
 
