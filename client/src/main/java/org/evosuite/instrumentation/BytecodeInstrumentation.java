@@ -384,6 +384,12 @@ public class BytecodeInstrumentation {
     private ClassVisitor createAdapterChain(ClassVisitor cv, String className, String classNameWithDots,
                                             ClassLoader classLoader, boolean enableLoopCounter,
                                             ClassReader reader) {
+        if (DependencyAnalysis.shouldAnalyze(classNameWithDots)) {
+            // Innermost, so the injected rethrow is written straight to the writer and
+            // never enters the MethodNode buffers of the CFG/testability adapters.
+            cv = new TimeoutExceededRethrowClassAdapter(cv);
+        }
+
         if (config.resetStaticFields()) {
             cv = new StaticAccessClassAdapter(cv, className);
         }

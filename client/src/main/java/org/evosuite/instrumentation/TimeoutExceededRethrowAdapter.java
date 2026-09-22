@@ -23,7 +23,9 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -60,6 +62,16 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
 
     private Set<Label> catchHandlerLabels;
 
+    /**
+     * javac up to Java 8 protects the first instruction of a finally handler with the
+     * handler itself (exception table entry {@code [handler, handler+1) -> handler}). Code
+     * injected at the handler label would sit inside that range, and an exception it throws
+     * would dispatch straight back to the same handler, forever: liferay's
+     * CoalescedPipe.take() spun at 100% CPU in its finally block until force-stopped. Such
+     * ranges are moved to start at a fresh label emitted after the injected code.
+     */
+    private Map<Label, Label> shiftedRangeStarts;
+
     private boolean injected = false;
 
     private static final String RUNTIME_INTERNAL = "org/evosuite/runtime/Runtime";
@@ -70,6 +82,12 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
 
     @Override
     public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
+        if (start == handler) {
+            if (shiftedRangeStarts == null) {
+                shiftedRangeStarts = new HashMap<>();
+            }
+            start = shiftedRangeStarts.computeIfAbsent(handler, h -> new Label());
+        }
         super.visitTryCatchBlock(start, end, handler, type);
         if (type == null
                 || "java/lang/Throwable".equals(type)
@@ -93,6 +111,12 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
             mv.visitMethodInsn(Opcodes.INVOKESTATIC, RUNTIME_INTERNAL,
                     "rethrowIfTimeout", "(Ljava/lang/Throwable;)V", false);
             injected = true;
+        }
+        if (shiftedRangeStarts != null) {
+            Label shiftedStart = shiftedRangeStarts.remove(label);
+            if (shiftedStart != null) {
+                super.visitLabel(shiftedStart);
+            }
         }
     }
 
