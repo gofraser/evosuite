@@ -497,7 +497,13 @@ public class VariableResolver {
         // steer this dependency. Only skip the mock boost for it, though, when a real
         // generator is actually available: an inert mock is still better than
         // ConstructionFailedException when it is the only way to get an instance at all.
+        //
+        // And only for the project's own types. A library type whose methods are all void is
+        // still best served by a mock: it is a null-safe stand-in the SUT can paint on or
+        // notify. weka.gui.beans.BeanVisual passes Graphics2D around, and preferring the
+        // concrete PostscriptGraphics over a mock took it from 0.98 to 0.57 branch coverage.
         boolean mockWouldBeInert = isDeepPlainInterfaceOrAbstract
+                && DependencyAnalysis.isTargetProject(clazz.getRawClass().getName())
                 && !FunctionalMockStatement.hasUsefulMockSurface(clazz.getRawClass())
                 && TestCluster.getInstance().hasGenerator(type);
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
