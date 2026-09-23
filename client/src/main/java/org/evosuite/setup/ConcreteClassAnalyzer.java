@@ -273,7 +273,7 @@ public class ConcreteClassAnalyzer {
             // in the generated JUnit test cases, but rather its mock.
             logger.debug("Adding mock " + mock + " instead of " + clazz);
             clazz = mock;
-        } else if (!TestClusterUtils.checkIfCanUse(clazz.getCanonicalName())) {
+        } else if (!TestClusterUtils.checkIfCanUse(clazz.getCanonicalName(), clazz)) {
             return null;
         }
 

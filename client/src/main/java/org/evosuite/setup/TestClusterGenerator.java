@@ -625,7 +625,7 @@ public class TestClusterGenerator {
                     subClazz = mock;
                 } else {
 
-                    if (!TestClusterUtils.checkIfCanUse(subClazz.getCanonicalName())) {
+                    if (!TestClusterUtils.checkIfCanUse(subClazz.getCanonicalName(), subClazz)) {
                         continue;
                     }
                 }

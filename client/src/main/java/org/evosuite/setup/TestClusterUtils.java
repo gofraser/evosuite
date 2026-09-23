@@ -30,6 +30,10 @@ import org.junit.runners.Suite;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Arrays;
+import java.util.Set;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -217,10 +221,73 @@ public class TestClusterUtils {
      * @return a boolean.
      */
     public static boolean checkIfCanUse(final String className) {
+        return checkIfCanUse(className, null);
+    }
+
+    /**
+     * Whether a class may be used in generated tests.
+     *
+     * <p>The excluded prefixes name JDK internals, but two of them are also used by ordinary
+     * libraries: {@code com.sun.} belongs to the JDK as much as to rome ({@code
+     * com.sun.syndication}), JavaMail or Mojarra, and such a library sitting on the project's
+     * classpath is a normal dependency of the class under test. Excluding it silently removes
+     * every method that mentions one of its types - 108_liferay's RSSUtil has a single method,
+     * returning {@code ObjectValuePair<String, SyndFeed>}, so the class dropped from 1.0 to
+     * 0.5 branch coverage. When the loaded class is available, let the module system decide:
+     * only a class that really comes from the JDK is excluded.
+     *
+     * @param className the class name
+     * @param clazz     the loaded class, or {@code null} if it is not available
+     * @return whether the class may be used
+     */
+    public static boolean checkIfCanUse(final String className, final Class<?> clazz) {
         if (isConfiguredTargetClassOrPackage(className)) {
             return true;
         }
-        return classExceptions.stream().noneMatch(className::startsWith);
+        String excluded = classExceptions.stream().filter(className::startsWith).findFirst().orElse(null);
+        if (excluded == null) {
+            return true;
+        }
+        return AMBIGUOUS_JDK_PREFIXES.contains(excluded) && clazz != null && !isJdkClass(clazz);
+    }
+
+    /**
+     * Prefixes from {@link #classExceptions} that a library may legitimately use as well.
+     */
+    private static final Set<String> AMBIGUOUS_JDK_PREFIXES = Collections.unmodifiableSet(
+            new LinkedHashSet<>(Arrays.asList("com.sun.", "com.oracle.")));
+
+    /**
+     * Whether the class comes from the JDK itself rather than from the project's classpath.
+     *
+     * @param clazz the loaded class
+     * @return true if the class belongs to a JDK module or was loaded by the boot/platform loader
+     */
+    private static boolean isJdkClass(final Class<?> clazz) {
+        ClassLoader loader = clazz.getClassLoader();
+        if (loader == null) {
+            return true; // boot loader: JDK
+        }
+        // The module system is only available from Java 9 on, and this module is compiled
+        // against Java 8, so ask for the module reflectively. On Java 8 there are no modules
+        // and a class that was loaded at all came from the classpath.
+        try {
+            Object module = Class.class.getMethod("getModule").invoke(clazz);
+            if (module == null) {
+                return false;
+            }
+            boolean named = (Boolean) module.getClass().getMethod("isNamed").invoke(module);
+            if (!named) {
+                return false;
+            }
+            String name = (String) module.getClass().getMethod("getName").invoke(module);
+            return name != null && (name.startsWith("java.") || name.startsWith("jdk.")
+                    || name.startsWith("javafx.") || name.equals("java") || name.equals("jdk"));
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            // No module system, or it refused to answer: fall back to the old, conservative
+            // behaviour of treating the prefix as a JDK package.
+            return true;
+        }
     }
 
     private static boolean isConfiguredTargetClassOrPackage(final String className) {

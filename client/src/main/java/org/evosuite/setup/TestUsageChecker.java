@@ -239,7 +239,7 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (!TestClusterUtils.checkIfCanUse(c.getName())) {
+        if (!TestClusterUtils.checkIfCanUse(c.getName(), c)) {
             return false;
         }
 
