@@ -217,6 +217,7 @@ public class TestGenerationContext {
         // TODO: BranchPool should not be static
         BranchPool.getInstance(classLoader).reset();
         RemoveFinalClassAdapter.reset();
+        org.evosuite.testcase.statements.FunctionalMockStatement.resetUsefulMockSurfaceCache();
         LinePool.reset();
         MutationPool.getInstance(classLoader).clear();
 

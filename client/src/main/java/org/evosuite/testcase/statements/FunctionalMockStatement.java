@@ -525,6 +525,78 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         return canBeFunctionalMockedIncludingSUT(type);
     }
 
+    private static final Map<Class<?>, Boolean> usefulMockSurfaceCache = new ConcurrentHashMap<>();
+
+    /**
+     * Checks whether mocking {@code rawClass} could ever let the search control any
+     * observable outcome. A functional mock only helps the search by letting it stub
+     * a method's return value; {@link MethodDescriptor#shouldBeMocked()} already refuses
+     * void methods, {@code equals}/{@code hashCode}/{@code toString}, private methods, and
+     * (since a class' methods can only be intercepted if not final in the original
+     * bytecode - see {@link MethodDescriptor#shouldBeMocked()}) methods that were final
+     * before instrumentation. When every instance method of a type falls into one of
+     * those buckets, a mock of it is inert: Mockito creates the object, but every call
+     * on it either runs unstubbable real code or returns Mockito's default answer, with
+     * no way for the search to steer it. In that situation the search should prefer a
+     * real generator over spending evaluations on a mock that cannot be controlled.
+     *
+     * <p>This mirrors the filters in {@code MethodDescriptor.shouldBeMocked()} but is
+     * static (no {@code GenericMethod} instance is needed) so it can be asked before a
+     * mock is actually created.
+     *
+     * @param rawClass the type that would be mocked
+     * @return true if at least one method exists that a functional mock could usefully stub
+     */
+    public static boolean hasUsefulMockSurface(Class<?> rawClass) {
+        // Called on the object-creation hot path (once per interface/abstract dependency
+        // resolution), so cache the per-class reflection scan below.
+        Boolean cached = usefulMockSurfaceCache.get(rawClass);
+        if (cached != null) {
+            return cached;
+        }
+        boolean result = computeHasUsefulMockSurface(rawClass);
+        usefulMockSurfaceCache.put(rawClass, result);
+        return result;
+    }
+
+    private static boolean computeHasUsefulMockSurface(Class<?> rawClass) {
+        Set<Method> candidates = new LinkedHashSet<>();
+        for (Class<?> c = rawClass; c != null; c = c.getSuperclass()) {
+            candidates.addAll(Arrays.asList(c.getDeclaredMethods()));
+        }
+        candidates.addAll(Arrays.asList(rawClass.getMethods()));
+
+        for (Method method : candidates) {
+            int modifiers = method.getModifiers();
+            if (Modifier.isStatic(modifiers) || Modifier.isPrivate(modifiers)) {
+                continue;
+            }
+            if (!Modifier.isPublic(modifiers) && !Modifier.isProtected(modifiers)) {
+                continue;
+            }
+            if (method.getReturnType().equals(Void.TYPE)
+                    || method.getName().equals("equals")
+                    || method.getName().equals("hashCode")
+                    || method.getName().equals("toString")) {
+                continue;
+            }
+            if (!Properties.USE_SEPARATE_CLASSLOADER && RemoveFinalClassAdapter.isFinalMethod(method)) {
+                // Final in the original bytecode: unstubbable, see MethodDescriptor.shouldBeMocked().
+                continue;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Clears the {@link #hasUsefulMockSurface(Class)} cache. Called by
+     * {@code TestGenerationContext.resetContext()} alongside {@link RemoveFinalClassAdapter#reset()},
+     * whose bookkeeping this cache is derived from.
+     */
+    public static void resetUsefulMockSurfaceCache() {
+        usefulMockSurfaceCache.clear();
+    }
 
     /**
      * Add a method stubbing to this mock statement. Used by the test parser to

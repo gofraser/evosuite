@@ -491,12 +491,21 @@ public class VariableResolver {
         boolean isDeepInterfaceOrAbstract = context.getDepth() > 0
                 && (clazz.getRawClass().isInterface() || clazz.isAbstract());
         boolean isDeepPlainInterfaceOrAbstract = isDeepInterfaceOrAbstract && !isDeepFunctionalInterface;
+        // A mock of this type is inert - every method the search could otherwise stub is
+        // either void, equals/hashCode/toString, or final in the original bytecode (see
+        // FunctionalMockStatement.hasUsefulMockSurface) - so a mock can never let the search
+        // steer this dependency. Only skip the mock boost for it, though, when a real
+        // generator is actually available: an inert mock is still better than
+        // ConstructionFailedException when it is the only way to get an instance at all.
+        boolean mockWouldBeInert = isDeepPlainInterfaceOrAbstract
+                && !FunctionalMockStatement.hasUsefulMockSurface(clazz.getRawClass())
+                && TestCluster.getInstance().hasGenerator(type);
         double effectiveMockProb = Properties.P_FUNCTIONAL_MOCKING;
         boolean bypassTimeGate = false;
         if (isDeepFunctionalInterface && Properties.MOCK_IF_NO_GENERATOR) {
             effectiveMockProb = 1.0;
             bypassTimeGate = true;
-        } else if (isDeepPlainInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR) {
+        } else if (isDeepPlainInterfaceOrAbstract && Properties.MOCK_IF_NO_GENERATOR && !mockWouldBeInert) {
             effectiveMockProb = Math.max(effectiveMockProb,
                     context.isConcreteChain() ? CHAIN_MOCK_BOOST : DEEP_MOCK_BOOST);
             bypassTimeGate = true;
