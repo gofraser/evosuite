@@ -441,6 +441,37 @@ public class InstrumentingClassLoader extends ClassLoader {
         return collectResourcesFromTargetClasspath(name, false);
     }
 
+    /**
+     * Resolving one resource used to stat every classpath entry anew - several hundred of them
+     * for a SUT like 108_liferay - and frame computation asks for hundreds of classes while
+     * instrumenting a single one. Remember which entries exist and what kind they are, keyed by
+     * the classpath string so a change still takes effect, and remember the answers.
+     */
+    private volatile String cachedClasspath;
+    private volatile List<File> cachedClasspathEntries = Collections.emptyList();
+    private final Map<String, List<URL>> firstResourceCache = new ConcurrentHashMap<>();
+
+    private List<File> targetClasspathEntries(String targetClasspath) {
+        List<File> entries = cachedClasspathEntries;
+        if (targetClasspath.equals(cachedClasspath)) {
+            return entries;
+        }
+        List<File> fresh = new ArrayList<>();
+        for (String entry : targetClasspath.split(File.pathSeparator)) {
+            if (entry == null || entry.isEmpty()) {
+                continue;
+            }
+            File cpEntry = new File(entry);
+            if (cpEntry.exists()) {
+                fresh.add(cpEntry);
+            }
+        }
+        cachedClasspathEntries = fresh;
+        cachedClasspath = targetClasspath;
+        firstResourceCache.clear();
+        return fresh;
+    }
+
     private List<URL> collectResourcesFromTargetClasspath(String name, boolean firstMatchOnly) {
         String targetClasspath;
         try {
@@ -453,16 +484,16 @@ public class InstrumentingClassLoader extends ClassLoader {
             return Collections.emptyList();
         }
 
-        LinkedHashSet<URL> resources = new LinkedHashSet<>();
-        for (String entry : targetClasspath.split(File.pathSeparator)) {
-            if (entry == null || entry.isEmpty()) {
-                continue;
+        List<File> entries = targetClasspathEntries(targetClasspath);
+        if (firstMatchOnly) {
+            List<URL> cached = firstResourceCache.get(name);
+            if (cached != null) {
+                return cached;
             }
-            File cpEntry = new File(entry);
-            if (!cpEntry.exists()) {
-                continue;
-            }
+        }
 
+        LinkedHashSet<URL> resources = new LinkedHashSet<>();
+        for (File cpEntry : entries) {
             if (cpEntry.isDirectory()) {
                 File resourceFile = new File(cpEntry, name);
                 if (resourceFile.isFile()) {
@@ -492,7 +523,11 @@ public class InstrumentingClassLoader extends ClassLoader {
                 }
             }
         }
-        return new ArrayList<>(resources);
+        List<URL> result = new ArrayList<>(resources);
+        if (firstMatchOnly) {
+            firstResourceCache.put(name, result);
+        }
+        return result;
     }
 
     private static void addEnumeration(Set<URL> sink, Enumeration<URL> enumeration) {

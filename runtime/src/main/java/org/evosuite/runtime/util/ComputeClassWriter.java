@@ -25,6 +25,10 @@ import org.objectweb.asm.Opcodes;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * A ClassWriter that computes the common super class of two classes without
@@ -34,36 +38,83 @@ import java.io.InputStream;
  */
 public class ComputeClassWriter extends ClassWriter {
 
+    /**
+     * Frame computation asks for the common superclass of two types over and over, and each
+     * answer walks both ancestor chains, reading and parsing every class on the way through
+     * {@link ClassLoader#getResourceAsStream(String)}. On a SUT with a few hundred classpath
+     * entries a single lookup costs hundreds of file-system probes, which is how instrumenting
+     * one class could take more than the ten seconds a static initializer is given before it is
+     * abandoned. Both the parsed facts and the answers are cached per class loader, keyed
+     * weakly so a discarded test-generation context takes its cache with it.
+     */
+    private static final Map<ClassLoader, Map<String, TypeFacts>> TYPE_FACTS =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
+    private static final Map<ClassLoader, Map<String, String>> COMMON_SUPERCLASS =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
+    /** Bounds the per-loader answer cache; the fact cache is bounded by the classpath itself. */
+    private static final int MAX_CACHED_ANSWERS = 20_000;
+
+    /** What frame computation needs to know about a type, or {@link #MISSING} if it has no bytecode. */
+    private static final class TypeFacts {
+        private final String superName;
+        private final String[] interfaces;
+        private final boolean isInterface;
+
+        private TypeFacts(String superName, String[] interfaces, boolean isInterface) {
+            this.superName = superName;
+            this.interfaces = interfaces;
+            this.isInterface = isInterface;
+        }
+    }
+
+    private static final TypeFacts MISSING = new TypeFacts(null, new String[0], false);
+
     public ComputeClassWriter(final int flags) {
         super(flags);
     }
 
     @Override
     protected String getCommonSuperClass(final String type1, final String type2) {
+        Map<String, String> answers = answerCache();
+        String key = type1 + ' ' + type2;
+        String cached = answers.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        String answer = computeCommonSuperClass(type1, type2);
+        if (answers.size() < MAX_CACHED_ANSWERS) {
+            answers.put(key, answer);
+        }
+        return answer;
+    }
+
+    private String computeCommonSuperClass(final String type1, final String type2) {
         try {
-            ClassReader info1 = tryTypeInfo(type1);
-            ClassReader info2 = tryTypeInfo(type2);
+            TypeFacts info1 = typeFacts(type1);
+            TypeFacts info2 = typeFacts(type2);
             // If either type can't be resolved on the classpath (common when a SUT
             // references classes from dependencies that aren't available), fall back
             // to Object. Throwing here would abort the entire instrumentation and
             // propagate up through RMI (breaking test-case deserialization on the
             // master), whereas Object produces a valid — if conservative — frame.
-            if (info1 == null || info2 == null) {
+            if (info1 == MISSING || info2 == MISSING) {
                 return "java/lang/Object";
             }
 
-            if ((info1.getAccess() & Opcodes.ACC_INTERFACE) != 0) {
+            if (info1.isInterface) {
                 if (typeImplements(type2, info2, type1)) {
                     return type1;
                 }
-                if ((info2.getAccess() & Opcodes.ACC_INTERFACE) != 0) {
+                if (info2.isInterface) {
                     if (typeImplements(type1, info1, type2)) {
                         return type2;
                     }
                 }
                 return "java/lang/Object";
             }
-            if ((info2.getAccess() & Opcodes.ACC_INTERFACE) != 0) {
+            if (info2.isInterface) {
                 if (typeImplements(type1, info1, type2)) {
                     return type2;
                 } else {
@@ -100,12 +151,34 @@ public class ComputeClassWriter extends ClassWriter {
         }
     }
 
-    private ClassReader tryTypeInfo(final String type) throws IOException {
-        try {
-            return typeInfo(type);
-        } catch (NullPointerException e) {
-            return null;
+    private Map<String, String> answerCache() {
+        return COMMON_SUPERCLASS.computeIfAbsent(contextLoader(),
+                cl -> Collections.synchronizedMap(new LinkedHashMap<>()));
+    }
+
+    private static ClassLoader contextLoader() {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        return loader == null ? ComputeClassWriter.class.getClassLoader() : loader;
+    }
+
+    /** The cached facts about a type, or {@link #MISSING} when its bytecode cannot be read. */
+    private TypeFacts typeFacts(final String type) {
+        Map<String, TypeFacts> facts = TYPE_FACTS.computeIfAbsent(contextLoader(),
+                cl -> Collections.synchronizedMap(new LinkedHashMap<>()));
+        TypeFacts known = facts.get(type);
+        if (known != null) {
+            return known;
         }
+        TypeFacts computed;
+        try {
+            ClassReader reader = typeInfo(type);
+            computed = new TypeFacts(reader.getSuperName(), reader.getInterfaces(),
+                    (reader.getAccess() & Opcodes.ACC_INTERFACE) != 0);
+        } catch (IOException | NullPointerException e) {
+            computed = MISSING;
+        }
+        facts.put(type, computed);
+        return computed;
     }
 
     /**
@@ -121,13 +194,19 @@ public class ComputeClassWriter extends ClassWriter {
      * @throws IOException if the bytecode of 'type' or of some of its ancestor class
      *     cannot be loaded.
      */
-    private StringBuilder typeAncestors(String type, ClassReader info)
+    private StringBuilder typeAncestors(String type, TypeFacts info)
             throws IOException {
         StringBuilder b = new StringBuilder();
         while (!"java/lang/Object".equals(type)) {
             b.append(';').append(type);
-            type = info.getSuperName();
-            info = typeInfo(type);
+            type = info.superName;
+            if (type == null) {
+                break;
+            }
+            info = typeFacts(type);
+            if (info == MISSING) {
+                break;
+            }
         }
         return b;
     }
@@ -142,22 +221,29 @@ public class ComputeClassWriter extends ClassWriter {
      * @throws IOException if the bytecode of 'type' or of some of its ancestor class
      *                     cannot be loaded.
      */
-    private boolean typeImplements(String type, ClassReader info, String itf)
+    private boolean typeImplements(String type, TypeFacts info, String itf)
             throws IOException {
         while (!"java/lang/Object".equals(type)) {
-            String[] itfs = info.getInterfaces();
+            String[] itfs = info.interfaces;
             for (final String s : itfs) {
                 if (s.equals(itf)) {
                     return true;
                 }
             }
             for (final String s : itfs) {
-                if (typeImplements(s, typeInfo(s), itf)) {
+                TypeFacts itfInfo = typeFacts(s);
+                if (itfInfo != MISSING && typeImplements(s, itfInfo, itf)) {
                     return true;
                 }
             }
-            type = info.getSuperName();
-            info = typeInfo(type);
+            type = info.superName;
+            if (type == null) {
+                return false;
+            }
+            info = typeFacts(type);
+            if (info == MISSING) {
+                return false;
+            }
         }
         return false;
     }
