@@ -576,6 +576,24 @@ public class MockFile extends File implements OverrideMock {
     }
 
     @Override
+    public File[] listFiles(FilenameFilter filter) {
+        if (!MockFramework.isEnabled()) {
+            return super.listFiles(filter);
+        }
+        String[] ss = list();
+        if (ss == null) {
+            return null;
+        }
+        ArrayList<File> files = new ArrayList<>();
+        for (String s : ss) {
+            if ((filter == null) || filter.accept(this, s)) {
+                files.add(new MockFile(this, s));
+            }
+        }
+        return files.toArray(new File[files.size()]);
+    }
+
+    @Override
     public String getCanonicalPath() throws IOException {
         if (!MockFramework.isEnabled()) {
             return super.getCanonicalPath();
@@ -659,8 +677,27 @@ public class MockFile extends File implements OverrideMock {
 
     @Override
     public String[] list(FilenameFilter filter) {
-        //no need to mock it, as it uses the mocked list()
-        return super.list(filter);
+        if (!MockFramework.isEnabled()) {
+            return super.list(filter);
+        }
+        // Cannot delegate to super.list(filter): since Java 9, java.io.File routes this
+        // (and listFiles(FilenameFilter)) through a private normalizedList() helper that
+        // calls straight into the real filesystem, bypassing the overridden list() below
+        // entirely. On the real JDK 8 that this class was written against, list(filter)
+        // called the public, overridable list(), so this used to be safe. Now it has to
+        // be built on the mocked list() explicitly, or a VFS-only directory would report
+        // exists()/isDirectory() true while silently falling through to the real disk here.
+        String[] names = list();
+        if (names == null || filter == null) {
+            return names;
+        }
+        ArrayList<String> v = new ArrayList<>();
+        for (String name : names) {
+            if (filter.accept(this, name)) {
+                v.add(name);
+            }
+        }
+        return v.toArray(new String[0]);
     }
 
     @Override
