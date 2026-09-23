@@ -1166,6 +1166,18 @@ public abstract class JUnitAnalyzer {
                     logger.error("Compiler output: {}", compilerOutput);
                 }
 
+                if (crashedInsteadOfRejecting(compilerOutput)) {
+                    // javac died on its own (it catches OutOfMemoryError and StackOverflowError
+                    // internally and prints "An exception has occurred in the compiler"), so it
+                    // never judged the test. Deleting it here would throw away a perfectly good
+                    // test because the compiler ran out of heap - 43_lilith's LoggingProto, whose
+                    // tests pull in a 32 KB protobuf builder class, loses tests this way.
+                    disableCompileCheckDueToInfrastructure(
+                            new IllegalStateException("javac crashed: " + firstLine(compilerOutput)),
+                            compilerClasspath);
+                    return generated;
+                }
+
                 logGeneratedSourceExcerptsOnCompilationFailure(generated);
                 return null;
             }
@@ -1308,6 +1320,31 @@ public abstract class JUnitAnalyzer {
                         + "Examples: {}",
                 missingCount, missingClassFiles);
         return false;
+    }
+
+    /**
+     * Whether javac reported a crash of its own rather than a verdict on the test. It catches
+     * {@code OutOfMemoryError} and {@code StackOverflowError} internally and asks the user to file
+     * a bug, leaving {@code compiled == false} with no useful diagnostic.
+     *
+     * @param compilerOutput what javac wrote to its own output stream
+     * @return true if the compiler crashed
+     */
+    private static boolean crashedInsteadOfRejecting(String compilerOutput) {
+        if (compilerOutput == null || compilerOutput.isEmpty()) {
+            return false;
+        }
+        return compilerOutput.contains("An exception has occurred in the compiler")
+                || compilerOutput.contains("java.lang.OutOfMemoryError")
+                || compilerOutput.contains("java.lang.StackOverflowError");
+    }
+
+    private static String firstLine(String text) {
+        if (text == null) {
+            return "";
+        }
+        int end = text.indexOf('\n');
+        return end < 0 ? text.trim() : text.substring(0, end).trim();
     }
 
     private static boolean isJavacInfrastructureFailure(Throwable throwable) {
