@@ -257,7 +257,7 @@ public class ComputeClassWriter extends ClassWriter {
      * @throws NullPointerException if the bytecode of 'type' cannot be found.
      */
     private ClassReader typeInfo(final String type) throws IOException, NullPointerException {
-        try (InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(type + ".class")) {
+        try (InputStream is = contextLoader().getResourceAsStream(type + ".class")) {
             if (is == null) {
                 throw new NullPointerException("Class not found " + type);
             }
