@@ -596,7 +596,9 @@ public final class VirtualFileSystem {
                 folder = (VFolder) child;
             }
 
-            parent.addChild(folder);
+            if (!parent.hasChild(name)) {
+                parent.addChild(folder);
+            }
             parent = folder;
         }
 

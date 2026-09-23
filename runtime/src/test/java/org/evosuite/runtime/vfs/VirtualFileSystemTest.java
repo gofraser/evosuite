@@ -262,6 +262,30 @@ public class VirtualFileSystemTest {
     }
 
     @Test
+    public void testCreatingAnExistingFolderDoesNotDuplicateIt() {
+        String base = System.getProperty("user.dir") + File.separator + "dup_check";
+        String nested = base + File.separator + "inner";
+
+        Assertions.assertTrue(VirtualFileSystem.getInstance().createFolder(nested));
+        // mkdirs on an existing path walks the same folders again
+        Assertions.assertTrue(VirtualFileSystem.getInstance().createFolder(nested));
+        Assertions.assertTrue(VirtualFileSystem.getInstance().createFolder(base));
+
+        MockFile baseFolder = new MockFile(base);
+        Assertions.assertTrue(baseFolder.exists());
+        String[] children = baseFolder.list();
+        Assertions.assertNotNull(children);
+        Assertions.assertEquals(1, children.length,
+                "a folder walked several times must not list its children more than once: "
+                        + Arrays.toString(children));
+        Assertions.assertEquals("inner", children[0]);
+
+        // a duplicate would also survive its own deletion, because removeChild drops one match
+        Assertions.assertTrue(new MockFile(nested).delete());
+        Assertions.assertEquals(0, baseFolder.list().length);
+    }
+
+    @Test
     public void testListWithFilenameFilterOnExistingEmptyDirectoryIsNeverNull() throws IOException {
         // Pin the contract: if a MockFile reports exists()==true and isDirectory()==true,
         // then every listing method must be consistent with that and return a (possibly
