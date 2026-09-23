@@ -2730,17 +2730,37 @@ public final class MockHeadlessSwing {
 
         @Override
         public java.awt.Font[] getAllFonts() {
-            return new java.awt.Font[0];
+            // Font enumeration does not need a display device: even the JDK's own
+            // sun.java2d.HeadlessGraphicsEnvironment delegates font queries to the
+            // real font manager while still rejecting display-only operations. This
+            // stub used to hand back an empty array unconditionally, which starves
+            // any SUT branch that depends on a non-empty font list (e.g. iterating
+            // getAvailableFontFamilyNames() looking for a match) of real data purely
+            // because EvoSuite runs headless. Fall back to empty only if the real
+            // environment genuinely cannot be reached.
+            try {
+                return GraphicsEnvironment.getLocalGraphicsEnvironment().getAllFonts();
+            } catch (Throwable ignored) {
+                return new java.awt.Font[0];
+            }
         }
 
         @Override
         public String[] getAvailableFontFamilyNames() {
-            return new String[0];
+            try {
+                return GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames();
+            } catch (Throwable ignored) {
+                return new String[0];
+            }
         }
 
         @Override
         public String[] getAvailableFontFamilyNames(java.util.Locale l) {
-            return new String[0];
+            try {
+                return GraphicsEnvironment.getLocalGraphicsEnvironment().getAvailableFontFamilyNames(l);
+            } catch (Throwable ignored) {
+                return new String[0];
+            }
         }
     }
 
