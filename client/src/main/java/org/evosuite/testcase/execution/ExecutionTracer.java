@@ -67,8 +67,11 @@ public class ExecutionTracer {
      * Counts how many times checkTimeout() has been called with the kill switch
      * active, reset whenever the kill switch is (re)armed. Unlike
      * {@link #clinitKillSwitchCount}, this counts every probe, not just the ones
-     * taken inside a static initializer: a thread that racks up a large number of
-     * these after being told to stop is not merely slow, it is looping through code
+     * taken inside a static initializer, and only counted for the thread under test:
+     * a probe from a background SUT thread says nothing about why the test thread is
+     * stuck, and instrumented non-target classes call {@link #checkTimeout()} from
+     * whatever thread reaches them. The thread under test running one of these after
+     * being told to stop is not merely slow, it is looping through code
      * (typically a {@code catch (Throwable)} block) that swallows
      * {@link TestCaseExecutor.TimeoutExceeded}. {@link TestCaseExecutor} uses this to
      * decide when to stop waiting through the graceful shutdown chain and escalate
@@ -259,6 +262,22 @@ public class ExecutionTracer {
     }
 
     /**
+     * Whether the caller is the thread whose test is being executed. Unlike
+     * {@link #isThreadNeqCurrentThread()} this is cheap enough for the kill-switch probe,
+     * which instrumented code runs at every source line, and it does not fabricate a
+     * tracked thread as a side effect.
+     *
+     * @return true if this probe says something about the thread under test
+     */
+    private static boolean isProbeFromThreadUnderTest() {
+        if (!checkCallerThread) {
+            return true;
+        }
+        Thread tracked = currentThread;
+        return tracked == null || Thread.currentThread() == tracked;
+    }
+
+    /**
      * Obviously more than one thread is executing during the creation of
      * concurrent TestCases. #TODO steenbuck we should test if
      * Thread.currentThread() is in the set of currently executing threads.
@@ -442,7 +461,9 @@ public class ExecutionTracer {
         if (!tracer.killSwitch) {
             return;
         }
-        tracer.killSwitchProbeCount++;
+        if (isProbeFromThreadUnderTest()) {
+            tracer.killSwitchProbeCount++;
+        }
 
         if (!isInStaticInit()) {
             tracer.clinitKillSwitchCount = 0;

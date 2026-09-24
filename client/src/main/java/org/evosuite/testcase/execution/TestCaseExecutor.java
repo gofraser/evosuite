@@ -770,16 +770,18 @@ public class TestCaseExecutor implements ThreadFactory {
             waitForLastTask(handler, Properties.SHUTDOWN_TIMEOUT);
 
             // A thread that is still running instrumented code well past the kill switch,
-            // with hundreds of checkTimeout() probes already seen and ignored, is not
-            // merely slow — it has demonstrably swallowed TimeoutExceeded (typically via a
+            // having seen and ignored a checkTimeout() probe of its own, is not merely
+            // slow — it has demonstrably swallowed TimeoutExceeded (typically via a
             // "catch (Throwable) { ...; continue; }" loop in the SUT) and will keep doing
             // so no matter how long we wait through the graceful chain below. Detect that
-            // here and skip straight to the Thread.stop() last resort.
+            // here and skip straight to the Thread.stop() last resort. ExecutionTracer
+            // only counts probes made by the thread under test, so a background SUT thread
+            // touching an instrumented line cannot push us down this path.
             boolean sutSwallowsKillSwitch = shouldFastEscalateAfterKillSwitch(
                     initialInProtectedBootstrap, needsTimeoutCleanup(handler),
                     ExecutionTracer.getKillSwitchProbeCount(), KILL_SWITCH_SWALLOW_PROBE_THRESHOLD);
             if (sutSwallowsKillSwitch) {
-                logger.info("Thread {} hit {} kill-switch probes after being told to stop — "
+                logger.warn("Thread {} hit {} kill-switch probes after being told to stop — "
                                 + "it is looping through code that swallows TimeoutExceeded; "
                                 + "skipping the graceful shutdown chain and escalating straight "
                                 + "to Thread.stop().",
