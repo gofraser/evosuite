@@ -60,6 +60,7 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
 
         Set<Integer> tkilled = new HashSet<>();
         int numTest = 0;
+        int reportedProgress = -1;
         boolean timeIsShort = false;
 
         for (TestCase test : suite.getTests()) {
@@ -88,10 +89,16 @@ public class SimpleMutationAssertionGenerator extends MutationAssertionGenerator
                 // Set<Integer> killed = new HashSet<Integer>();
                 addAssertions(test, tkilled);
                 //progressMonitor.updateStatus((100 * numTest++) / tests.size());
-                ClientState state = ClientState.ASSERTION_GENERATION;
-                ClientStateInformation information = new ClientStateInformation(state);
-                information.setProgress((100 * numTest++) / suite.size());
-                ClientServices.getInstance().getClientNode().changeState(state, information);
+                // Report progress only when the percentage changes: every report is a remote
+                // call, and a suite can have thousands of tests.
+                int progress = (100 * numTest++) / suite.size();
+                if (progress != reportedProgress) {
+                    reportedProgress = progress;
+                    ClientState state = ClientState.ASSERTION_GENERATION;
+                    ClientStateInformation information = new ClientStateInformation(state);
+                    information.setProgress(progress);
+                    ClientServices.getInstance().getClientNode().changeState(state, information);
+                }
             }
         }
 

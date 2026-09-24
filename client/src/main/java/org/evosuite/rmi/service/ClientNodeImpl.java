@@ -47,7 +47,6 @@ import java.rmi.RemoteException;
 import java.rmi.registry.Registry;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ClientNodeImpl<T extends Chromosome<T>>
         implements ClientNodeLocal<T>, ClientNodeRemote<T> {
@@ -101,6 +100,18 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     private Collection<Set<T>> bestSolutions;
 
     private Thread statisticsThread;
+
+    /**
+     * Runs the best-effort remote actions (state notifications, result export). Guarded by
+     * {@link #remoteActionLock}; created on first use, and replaced when an action does not
+     * finish in time, as its thread may then be stuck in RMI I/O.
+     */
+    private ExecutorService remoteActionExecutor;
+
+    /** The thread of {@link #remoteActionExecutor}, once it has been created. */
+    private volatile Thread remoteActionThread;
+
+    private final Object remoteActionLock = new Object();
 
     //only for testing
     protected ClientNodeImpl() {
@@ -631,41 +642,90 @@ public class ClientNodeImpl<T extends Chromosome<T>>
     }
 
     private boolean runRemoteActionBestEffort(String actionName, long timeoutMs, RemoteAction action) {
-        final AtomicBoolean completed = new AtomicBoolean(false);
-        Thread remoteActionThread = new Thread(() -> {
-            try {
-                action.execute();
-                completed.set(true);
-            } catch (RemoteException e) {
-                logger.error("Cannot complete remote action: " + actionName, e);
-            } catch (Throwable t) {
-                logger.error("Unexpected error during remote action: " + actionName, t);
-            }
-        }, "RMI ClientNodeRemoteAction-" + actionName);
-        remoteActionThread.setDaemon(true);
-        // RMI calls are EvoSuite infrastructure; mark this helper thread as privileged
-        // so sandbox checks do not treat it as SUT-originated network access.
+        ExecutorService executor = remoteActionExecutor();
+        Future<Boolean> future;
         try {
-            Sandbox.addPrivilegedThread(remoteActionThread);
-        } catch (SecurityException e) {
-            logger.debug("Could not mark remote action thread as privileged; relying on RMI allowlist", e);
+            future = executor.submit(() -> {
+                try {
+                    action.execute();
+                    return true;
+                } catch (RemoteException e) {
+                    logger.error("Cannot complete remote action: " + actionName, e);
+                } catch (Throwable t) {
+                    logger.error("Unexpected error during remote action: " + actionName, t);
+                }
+                return false;
+            });
+        } catch (RejectedExecutionException e) {
+            logger.debug("Remote action executor is shut down; skipping remote action {}", actionName);
+            return false;
         }
-        remoteActionThread.start();
 
         try {
-            remoteActionThread.join(timeoutMs);
+            return future.get(timeoutMs, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return false;
-        }
-
-        if (remoteActionThread.isAlive()) {
+        } catch (ExecutionException e) {
+            logger.error("Unexpected error during remote action: " + actionName, e.getCause());
+            return false;
+        } catch (TimeoutException e) {
             logger.warn("Remote action {} did not finish within {} ms; continuing locally.",
                     actionName, timeoutMs);
-            remoteActionThread.interrupt();
+            future.cancel(true);
+            discardRemoteActionExecutor(executor);
             return false;
         }
-        return completed.get();
+    }
+
+    /**
+     * Returns the executor for remote actions. Status notifications are sent for every goal
+     * during minimization, and this used to start (and register as privileged) a new thread
+     * for each of them; tens of thousands of dead threads then accumulated in the sandbox's
+     * privileged set. A single daemon thread serves them all now.
+     */
+    private ExecutorService remoteActionExecutor() {
+        ExecutorService executor;
+        synchronized (remoteActionLock) {
+            if (remoteActionExecutor == null) {
+                remoteActionExecutor = Executors.newSingleThreadExecutor(r -> {
+                    Thread t = new Thread(r, "RMI ClientNodeRemoteAction");
+                    t.setDaemon(true);
+                    // The factory runs on the submitting thread, before the new thread starts.
+                    markRemoteActionThreadPrivileged(t);
+                    remoteActionThread = t;
+                    return t;
+                });
+            }
+            executor = remoteActionExecutor;
+        }
+        // The sandbox may have been re-initialized since the thread was created (the JUnit
+        // check does this), so make sure it is still privileged.
+        Thread existing = remoteActionThread;
+        if (existing != null) {
+            markRemoteActionThreadPrivileged(existing);
+        }
+        return executor;
+    }
+
+    private static void markRemoteActionThreadPrivileged(Thread t) {
+        // RMI calls are EvoSuite infrastructure; mark the helper thread as privileged so
+        // sandbox checks do not treat it as SUT-originated network access.
+        try {
+            Sandbox.addPrivilegedThread(t);
+        } catch (SecurityException e) {
+            logger.debug("Could not mark remote action thread as privileged; relying on RMI allowlist", e);
+        }
+    }
+
+    private void discardRemoteActionExecutor(ExecutorService executor) {
+        synchronized (remoteActionLock) {
+            if (remoteActionExecutor == executor) {
+                remoteActionExecutor = null;
+                remoteActionThread = null;
+            }
+        }
+        executor.shutdownNow();
     }
 
     private void notifyMasterOfStateChangeBestEffort(ClientState state, ClientStateInformation information) {

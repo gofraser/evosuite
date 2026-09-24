@@ -596,8 +596,15 @@ public class TestSuiteMinimizer {
 
         MinimizationStopCause incompleteStopCause = MinimizationStopCause.NONE;
 
+        int reportedProgress = -1;
         for (TestFitnessFunction goal : goals) {
-            updateClientStatus(numGoals > 0 ? 100 * currentGoal / numGoals : 100);
+            // Report progress only when the percentage changes: every report is a remote call,
+            // and a class can have tens of thousands of goals.
+            int progress = numGoals > 0 ? 100 * currentGoal / numGoals : 100;
+            if (progress != reportedProgress) {
+                updateClientStatus(progress);
+                reportedProgress = progress;
+            }
             currentGoal++;
             MinimizationStopCause stopCause = getStopCause();
             if (stopCause != MinimizationStopCause.NONE) {
