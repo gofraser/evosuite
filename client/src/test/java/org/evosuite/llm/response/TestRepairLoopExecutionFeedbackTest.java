@@ -20,6 +20,7 @@
 package org.evosuite.llm.response;
 
 import org.evosuite.Properties;
+import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
@@ -27,11 +28,15 @@ import org.evosuite.runtime.mock.java.lang.MockIllegalArgumentException;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
+import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testparser.ParseResult;
 import org.evosuite.testparser.TestParser;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,6 +73,9 @@ class TestRepairLoopExecutionFeedbackTest {
 
     /** Target class for the parsed tests. */
     public static class FeedbackTarget {
+        public int load() throws IOException {
+            throw new IOException("disk");
+        }
     }
 
     @Test
@@ -127,6 +135,71 @@ class TestRepairLoopExecutionFeedbackTest {
         assertTrue(result.isSuccess(), String.valueOf(result.getDiagnostics()));
         assertTrue(result.getDiagnostics().stream().noneMatch(d -> d.startsWith("Execution error")),
                 String.valueOf(result.getDiagnostics()));
+    }
+
+    @Test
+    void assertionsAfterAnUnexpectedExceptionReportTheException() {
+        RepairResult result = runLoadThenAssert(null);
+
+        String error = executionError(result);
+        assertTrue(error.contains("statement 1 threw java.io.IOException - disk"), error);
+        assertTrue(error.contains("assertions at statement(s) [2] were never reached"), error);
+        assertTrue(result.getDiagnostics().stream().noneMatch(d -> d.contains("Assertion failed")
+                        || d.contains("Assertion evaluation error")),
+                String.valueOf(result.getDiagnostics()));
+    }
+
+    @Test
+    void assertionsAfterAnExpectedExceptionAreNotEvaluated() {
+        RepairResult result = runLoadThenAssert("IOException");
+
+        assertTrue(result.isSuccess(), String.valueOf(result.getDiagnostics()));
+        assertTrue(result.getDiagnostics().stream().noneMatch(d -> d.startsWith("Execution error")),
+                String.valueOf(result.getDiagnostics()));
+        assertEquals(1, result.getTestCases().get(0).getStatement(2).getAssertions().size());
+    }
+
+    /**
+     * {@code new FeedbackTarget(); target.load(); int int0 = 3; assertEquals(4, int0);}
+     * where {@code load()} throws its declared IOException.
+     */
+    private RepairResult runLoadThenAssert(String expectedException) {
+        TestParser parser = new TestParser(getClass().getClassLoader()) {
+            @Override
+            public List<ParseResult> parseTestClass(String sourceCode) {
+                DefaultTestCase testCase = constructorOnlyTest();
+                try {
+                    testCase.addStatement(new MethodStatement(testCase,
+                            new GenericMethod(FeedbackTarget.class.getMethod("load"), FeedbackTarget.class),
+                            testCase.getStatement(0).getReturnValue(),
+                            Collections.<VariableReference>emptyList()));
+                } catch (NoSuchMethodException e) {
+                    throw new AssertionError(e);
+                }
+                IntPrimitiveStatement literal = new IntPrimitiveStatement(testCase, 3);
+                testCase.addStatement(literal);
+                PrimitiveAssertion assertion = new PrimitiveAssertion();
+                assertion.setSource(literal.getReturnValue());
+                assertion.setValue(4);
+                literal.addAssertion(assertion);
+                ParseResult parsed = new ParseResult(testCase, "ctorTest");
+                parsed.setExpectedExceptionClass(expectedException);
+                return Collections.singletonList(parsed);
+            }
+        };
+        TestRepairLoop loop = new TestRepairLoop(mock(LlmService.class), parser, new LlmResponseParser(),
+                mock(ClusterExpansionManager.class),
+                testCase -> {
+                    ExecutionResult result = new ExecutionResult(testCase);
+                    Scope scope = new Scope();
+                    scope.setObject(testCase.getStatement(0).getReturnValue(), new FeedbackTarget());
+                    result.reportNewThrownException(1, new IOException("disk"));
+                    result.setFinalScope(scope);
+                    return result;
+                },
+                0, null, null, TestRepairLoop.RepairOptions.forAssertionPolicy(true));
+        return loop.attemptParse("```java\n@org.junit.Test public void t(){}\n```",
+                Collections.singletonList(LlmMessage.user("seed")), LlmFeature.TEST_REPAIR);
     }
 
     private RepairResult runWithExceptionAtFirstStatement(Function<TestCase, Throwable> exception) {

@@ -1008,7 +1008,13 @@ public class TestRepairLoop {
             }
             Integer failIndex = firstUndeclaredExceptionPosition(failed, salvaged, result);
             if (failIndex == null) {
-                int removed = removeFailingAssertions(salvaged, result, salvaged.size());
+                // Assertions of statements that never completed cannot hold.
+                int executedCount = executedStatementCount(salvaged, result);
+                int removed = removeFailingAssertions(salvaged, result, executedCount);
+                for (int i = executedCount; i < salvaged.size(); i++) {
+                    removed += salvaged.getStatement(i).getAssertions().size();
+                    salvaged.getStatement(i).removeAssertions();
+                }
                 return acceptAssertionPreservingSalvage(salvaged, original,
                         removed == 0 ? "unchanged" : "removing " + removed + " failing assertion(s)");
             }
@@ -1540,7 +1546,18 @@ public class TestRepairLoop {
         if (executionResult.getFinalScope() == null) {
             return null;
         }
-        for (int i = 0; i < parseResult.getTestCase().size(); i++) {
+        // Statements from the first exception onwards never completed, so their
+        // assertions say nothing about the SUT; evaluating them against the final
+        // scope reports misleading "Assertion failed at statement N" feedback.
+        int executedCount = executedStatementCount(parseResult.getTestCase(), executionResult);
+        if (executedCount < parseResult.getTestCase().size()) {
+            ExecutionFailureContext unreachable = checkUnreachableAssertions(
+                    parseResult, executionResult, executedCount);
+            if (unreachable != null) {
+                return unreachable;
+            }
+        }
+        for (int i = 0; i < executedCount; i++) {
             org.evosuite.testcase.statements.Statement stmt = parseResult.getTestCase().getStatement(i);
             if (stmt == null || stmt.getAssertions() == null || stmt.getAssertions().isEmpty()) {
                 continue;
@@ -1569,6 +1586,59 @@ public class TestRepairLoop {
             }
         }
         return null;
+    }
+
+    /**
+     * Number of leading statements that completed: the position of the first
+     * thrown exception, or the test size when nothing was thrown or execution
+     * continued past the exception.
+     */
+    private static int executedStatementCount(TestCase testCase, ExecutionResult executionResult) {
+        Integer firstException = executionResult.getFirstPositionOfThrownException();
+        if (firstException == null || firstException < 0) {
+            return testCase.size();
+        }
+        if (!Properties.BREAK_ON_EXCEPTION && !(executionResult.getExceptionThrownAtPosition(firstException)
+                instanceof org.evosuite.runtime.System.SystemExitException)) {
+            return testCase.size();
+        }
+        return Math.min(firstException, testCase.size());
+    }
+
+    /**
+     * When statements carrying assertions were skipped because of an exception
+     * the test neither expects nor can avoid (it was not raised by the EvoSuite
+     * runtime), the intended oracles never ran: report the exception rather
+     * than the assertions. Returns null when no assertion was skipped or the
+     * exception is expected.
+     */
+    private ExecutionFailureContext checkUnreachableAssertions(ParseResult parseResult,
+                                                               ExecutionResult executionResult,
+                                                               int exceptionPosition) {
+        TestCase testCase = parseResult.getTestCase();
+        List<Integer> skipped = new ArrayList<>();
+        for (int i = exceptionPosition; i < testCase.size(); i++) {
+            org.evosuite.testcase.statements.Statement stmt = testCase.getStatement(i);
+            if (stmt != null && stmt.getAssertions() != null && !stmt.getAssertions().isEmpty()) {
+                skipped.add(i);
+            }
+        }
+        if (skipped.isEmpty()) {
+            return null;
+        }
+        Throwable thrown = executionResult.getExceptionThrownAtPosition(exceptionPosition);
+        if (thrown == null
+                || matchesExpectedException(parseResult.getExpectedExceptionClass(), thrown)
+                || isRaisedByEvoSuiteRuntime(thrown)) {
+            return null;
+        }
+        String message = "Execution error in test '" + parseResult.getOriginalMethodName()
+                + "': statement " + exceptionPosition + " threw "
+                + formatThrowableWithStackExcerpt(thrown, parseResult, exceptionPosition)
+                + "\nThe assertions at statement(s) " + skipped
+                + " were never reached because of this exception."
+                + buildExecutionContext(parseResult, exceptionPosition, thrown);
+        return new ExecutionFailureContext(message, thrown, exceptionPosition);
     }
 
     private boolean isUndeclaredException(ParseResult parseResult, Integer position, Throwable thrown) {
