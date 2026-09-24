@@ -219,7 +219,6 @@ public class LlmStrategy extends TestGenerationStrategy {
                 new IterativeLlmTimelineRecorder();
         IterativeLlmSidecarRecorder sidecarRecorder =
                 new IterativeLlmSidecarRecorder(allGoals);
-        List<Double> ratioTimeline = new ArrayList<>();
         List<Integer> newGoalsTimeline = new ArrayList<>();
         List<Integer> coverageTimeline = new ArrayList<>();
         List<Long> elapsedTimeline = new ArrayList<>();
@@ -261,7 +260,7 @@ public class LlmStrategy extends TestGenerationStrategy {
         totalParsedTests += initial.tests.size();
         totalUniqueTests += initialAdded;
         totalDuplicates += initialDuplicates;
-        ratioTimeline.add(computeParsedRatio(suite));
+        sampleParsedRatio(suite);
         Set<TestFitnessFunction> coveredGoals = suite.getCoveredGoals();
         coverageTimeline.add(coveredGoals.size());
         newGoalsTimeline.add(coveredGoals.size());
@@ -291,7 +290,7 @@ public class LlmStrategy extends TestGenerationStrategy {
                     : ExitReason.STOPPING_CONDITION;
             return finishIterative(suite, 0, rounds, exitReason,
                     parseFailureCount, totalParsedTests, totalUniqueTests,
-                    totalDuplicates, ratioTimeline, newGoalsTimeline,
+                    totalDuplicates, newGoalsTimeline,
                     coverageTimeline, elapsedTimeline, queryLatencyTimeline,
                     suiteSizeTimeline, parsedTestsTimeline,
                     uniqueTestsTimeline, targetGoalsTimeline, timelineRecorder,
@@ -383,7 +382,7 @@ public class LlmStrategy extends TestGenerationStrategy {
             }
 
             // Per-iteration sample (gap-free).
-            ratioTimeline.add(computeParsedRatio(suite));
+            sampleParsedRatio(suite);
             int newGoalsThisIter = coveredGoals.size() - coveredBefore;
             newGoalsTimeline.add(newGoalsThisIter);
             coverageTimeline.add(coveredGoals.size());
@@ -474,7 +473,7 @@ public class LlmStrategy extends TestGenerationStrategy {
 
         return finishIterative(suite, iteration, rounds, exitReason,
                 parseFailureCount, totalParsedTests, totalUniqueTests,
-                totalDuplicates, ratioTimeline, newGoalsTimeline,
+                totalDuplicates, newGoalsTimeline,
                 coverageTimeline, elapsedTimeline, queryLatencyTimeline,
                 suiteSizeTimeline, parsedTestsTimeline, uniqueTestsTimeline,
                 targetGoalsTimeline, timelineRecorder, sidecarRecorder);
@@ -492,7 +491,6 @@ public class LlmStrategy extends TestGenerationStrategy {
                                                 int totalParsedTests,
                                                 int totalUniqueTests,
                                                 int totalDuplicates,
-                                                List<Double> ratioTimeline,
                                                 List<Integer> newGoalsTimeline,
                                                 List<Integer> coverageTimeline,
                                                 List<Long> elapsedTimeline,
@@ -503,7 +501,6 @@ public class LlmStrategy extends TestGenerationStrategy {
                                                 List<Integer> targetGoalsTimeline,
                                                 IterativeLlmTimelineRecorder timelineRecorder,
                                                 IterativeLlmSidecarRecorder sidecarRecorder) {
-        emitRatioTimeline(ratioTimeline);
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.LLM_Iterative_Iterations, iteration);
         ClientServices.getInstance().getClientNode()
@@ -1153,16 +1150,15 @@ public class LlmStrategy extends TestGenerationStrategy {
         return total > 0 ? (double) parsed / total : 0.0;
     }
 
-    private void emitRatioTimeline(List<Double> timeline) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < timeline.size(); i++) {
-            if (i > 0) {
-                sb.append(";");
-            }
-            sb.append(String.format(Locale.ROOT, "%.4f", timeline.get(i)));
-        }
+    /**
+     * Records the current parsed-statement ratio. The master keeps
+     * {@link RuntimeVariable#LLM_Parsed_Statement_Ratio_Timeline} as a sampled sequence of
+     * doubles, which MOSA reports once per generation, so each value is tracked as it is computed
+     * rather than joined into one string at the end, which the statistics could not store.
+     */
+    private void sampleParsedRatio(TestSuiteChromosome suite) {
         ClientServices.getInstance().getClientNode()
                 .trackOutputVariable(RuntimeVariable.LLM_Parsed_Statement_Ratio_Timeline,
-                        sb.toString());
+                        computeParsedRatio(suite));
     }
 }

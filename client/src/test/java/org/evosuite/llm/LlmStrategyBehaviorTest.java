@@ -373,33 +373,6 @@ class LlmStrategyBehaviorTest {
     }
 
     // ----------------------------------------------------------------
-    // 3b. Ratio timeline is locale-safe
-    // ----------------------------------------------------------------
-
-    @Test
-    void ratioTimelineFormattingIsLocaleIndependent() {
-        // Verifies Issue 5: String.format uses Locale.ROOT
-        // A ratio like 0.5 must always produce "0.5000", never "0,5000"
-        TestSuiteChromosome suite = new TestSuiteChromosome();
-        DefaultTestCase tc = new DefaultTestCase();
-        IntPrimitiveStatement s1 = new IntPrimitiveStatement(tc, 1);
-        s1.setParsedFromLlm(true);
-        IntPrimitiveStatement s2 = new IntPrimitiveStatement(tc, 2);
-        tc.addStatement(s1);
-        tc.addStatement(s2);
-        TestChromosome c = new TestChromosome();
-        c.setTestCase(tc);
-        suite.addTest(c);
-
-        double ratio = LlmStrategy.computeParsedRatio(suite);
-        // Format the same way emitRatioTimeline does
-        String formatted = String.format(Locale.ROOT, "%.4f", ratio);
-        assertEquals("0.5000", formatted);
-        assertFalse(formatted.contains(","),
-                "Formatted ratio must not contain locale-dependent comma");
-    }
-
-    // ----------------------------------------------------------------
     // 4. LLMSTRATEGY does not suppress structural post-processing
     // ----------------------------------------------------------------
 
