@@ -395,8 +395,12 @@ public class TestParser {
             return false;
         }
         int size = testCase.size();
-        if (ref instanceof ConstantValue) {
-            // ConstantValue resolves when referenced as a parameter by some statement.
+        boolean staticFieldWithoutSource = ref instanceof FieldReference
+                && ((FieldReference) ref).getSource() == null;
+        if (ref instanceof ConstantValue || staticFieldWithoutSource) {
+            // ConstantValue resolves when referenced as a parameter by some statement. So does a
+            // static field read with no source object (eg Integer.MAX_VALUE passed as an
+            // argument): FieldReference.getStPosition falls back to the statement using it.
             for (int i = 0; i < size; i++) {
                 try {
                     if (testCase.getStatement(i).references(ref)) {
