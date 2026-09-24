@@ -1446,10 +1446,16 @@ public class TestSuiteGenerator {
                     removedByCompileFilter, beforeCompileFilter);
         }
 
+        // Each check compiles the tests and runs them on freshly loaded classes, which is
+        // expensive in memory; stop checking, and keep the tests not checked yet, rather than
+        // run the client out of heap.
+        PhaseMemoryGuard memoryGuard = new PhaseMemoryGuard();
+
         // compile and run each test one at a time. and keep track of total time
         long start = java.lang.System.currentTimeMillis();
         Iterator<TestCase> iter = testCases.iterator();
         int removedInSingleTestChecks = 0;
+        int checkedInSingleTestChecks = 0;
         while (iter.hasNext()) {
             if (JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()) {
                 logger.warn("Aborting remaining per-test JUnit checks due to prior javac infrastructure failure");
@@ -1458,6 +1464,11 @@ public class TestSuiteGenerator {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 break;
             }
+            if (isMemoryExhaustedForJUnitCheck(memoryGuard, "the remaining per-test JUnit checks",
+                    testCases.size() - checkedInSingleTestChecks + removedInSingleTestChecks)) {
+                break;
+            }
+            checkedInSingleTestChecks++;
             TestCase tc = iter.next();
             List<TestCase> list = new ArrayList<>();
             list.add(tc);
@@ -1479,13 +1490,15 @@ public class TestSuiteGenerator {
          */
         long delta = java.lang.System.currentTimeMillis() - start;
 
-        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()) {
+        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()
+                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the whole-suite JUnit check", 0)) {
             numUnstable += checkAllTestsIfTime(testCases, delta);
         }
 
         // second passage on reverse order, this is to spot dependencies among
         // tests
-        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure() && testCases.size() > 1) {
+        if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure() && testCases.size() > 1
+                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the reverse-order JUnit check", 0)) {
             Collections.reverse(testCases);
             try {
                 numUnstable += checkAllTestsIfTime(testCases, delta);
@@ -1496,7 +1509,10 @@ public class TestSuiteGenerator {
             }
         }
 
-        chromosome.setExtensionInitializationOrder(resolveExtensionInitializationOrderIfNeeded(testCases, delta));
+        chromosome.setExtensionInitializationOrder(
+                isMemoryExhaustedForJUnitCheck(memoryGuard, "the order-sensitivity analysis", 0)
+                        ? Collections.<String>emptyList()
+                        : resolveExtensionInitializationOrderIfNeeded(testCases, delta));
 
         chromosome.clearTests(); // remove all tests
         for (TestCase testCase : testCases) {
@@ -1517,6 +1533,30 @@ public class TestSuiteGenerator {
         ClientServices.track(RuntimeVariable.NumUnstableTests, numUnstable);
         Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
 
+    }
+
+    /**
+     * Checks the memory guard of the JUnit check phase, and logs (once) that the remaining
+     * checks are skipped when memory has run out.
+     *
+     * @param guard     the guard of the phase
+     * @param what      the checks that would be skipped, for the log
+     * @param unchecked number of tests that stay unchecked, or 0 if not relevant
+     * @return true if the checks must be skipped
+     */
+    private static boolean isMemoryExhaustedForJUnitCheck(PhaseMemoryGuard guard, String what, int unchecked) {
+        boolean wasExhausted = guard.isExhaustedAlready();
+        if (!guard.isExhausted()) {
+            return false;
+        }
+        if (!wasExhausted) {
+            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Low memory during JUnit check: " + (guard.getLastFreeBytes() / 1024 / 1024)
+                    + " MB free, need " + (guard.getThresholdBytes() / 1024 / 1024) + " MB; skipping "
+                    + what + " and all later checks, keeping the suite"
+                    + (unchecked > 0 ? " (" + unchecked + " test(s) left unchecked)" : ""));
+        }
+        return true;
     }
 
     private static int checkAllTestsIfTime(List<TestCase> testCases, long delta) {

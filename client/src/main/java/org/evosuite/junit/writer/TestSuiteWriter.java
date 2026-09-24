@@ -237,17 +237,26 @@ public class TestSuiteWriter implements Opcodes {
         LoopCounter.getInstance().setActive(true);
 
         List<ExecutionResult> results = new ArrayList<>();
-        boolean lowMemoryLogged = false;
+        // Once memory is found critical, it stays critical for the rest of this write, and the
+        // heap is collected at most once per write: collecting before every remaining test cost
+        // one full GC of the whole heap per test when memory ran low.
+        boolean memoryCritical = false;
+        boolean collectedForWrite = false;
         for (TestCase test : testCases) {
             boolean budgetExhausted = !TimeController.getInstance().hasTimeToExecuteATestCase();
-            boolean memoryCritical = !budgetExhausted && isMemoryCriticalForWrite();
-            if (budgetExhausted || memoryCritical) {
-                if (memoryCritical && !lowMemoryLogged) {
+            if (!budgetExhausted && !memoryCritical && isBelowWriteMemoryThreshold()) {
+                if (!collectedForWrite) {
+                    collectedForWrite = true;
+                    collectGarbage();
+                }
+                memoryCritical = isBelowWriteMemoryThreshold();
+                if (memoryCritical) {
                     logger.warn("Test execution during JUnit write skipped: free memory below {} MB threshold; "
                                     + "falling back to cached results to avoid OOM",
                             (Properties.MIN_FREE_MEM * 2L) / 1024 / 1024);
-                    lowMemoryLogged = true;
                 }
+            }
+            if (budgetExhausted || memoryCritical) {
                 // Try to use a cached result; if none exists, fall back to placeholder
                 boolean added = false;
                 for (ExecutionResult result : cachedResults) {
@@ -450,16 +459,18 @@ public class TestSuiteWriter implements Opcodes {
      * it over the edge.  Mirrors {@code TestSuiteGenerator#isMemoryTooLowForPhase}
      * but kept inline to avoid a cross-module dependency.
      */
-    private boolean isMemoryCriticalForWrite() {
+    private boolean isBelowWriteMemoryThreshold() {
+        return freeHeapBytes() < Properties.MIN_FREE_MEM * 2L;
+    }
+
+    /** Free heap, including the part the JVM has not claimed from the OS yet. */
+    long freeHeapBytes() {
         java.lang.Runtime runtime = java.lang.Runtime.getRuntime();
-        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        long threshold = Properties.MIN_FREE_MEM * 2L;
-        if (freeMem >= threshold) {
-            return false;
-        }
+        return runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+    }
+
+    void collectGarbage() {
         java.lang.System.gc();
-        freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
-        return freeMem < threshold;
     }
 
     /**
