@@ -178,13 +178,11 @@ public class TestRepairLoop {
             "java.security.AccessControlException"
     ));
     /**
-     * FQCN prefix for exceptions thrown by EvoSuite's mock runtime. Anything
-     * under this package is produced deterministically by the harness, not by
-     * the SUT, so no test can avoid it: instead of dropping such tests as
-     * failures, we accept them for coverage purposes.
+     * Package prefix of EvoSuite's mock runtime. Derived from a class literal
+     * so that it is {@code shaded.org.evosuite.runtime.mock.} in the shaded
+     * jar and {@code org.evosuite.runtime.mock.} in an unshaded build.
      */
-    static final String SHADED_MOCK_RUNTIME_PACKAGE_PREFIX =
-            "shaded.org.evosuite.runtime.mock.";
+    static final String MOCK_RUNTIME_PACKAGE_PREFIX = packagePrefixOf(MockFramework.class);
     private static final Set<String> DEPENDENCY_MISSING_MARKERS = new HashSet<>(Arrays.asList(
             "NoClassDefFoundError",
             "ClassNotFoundException",
@@ -1589,11 +1587,11 @@ public class TestRepairLoop {
         if (matchesExpectedException(expectedExceptionClass, thrown)) {
             return false;
         }
-        // Exceptions raised by the EvoSuite mock runtime (shaded.org.evosuite.runtime.mock.*)
-        // are environment-induced, deterministic, and unavoidable for any test that
-        // reaches the mocked call site. Accept them as if they were declared so the
-        // test is kept as a covering chromosome instead of dropped.
-        if (isShadedRuntimeMockException(thrown)) {
+        // Exceptions raised by the EvoSuite runtime itself (simulated I/O and
+        // network failures, System.exit) are environment-induced, deterministic,
+        // and unavoidable for any test that reaches the call site. Accept them as
+        // if they were declared so the test is kept as a covering chromosome.
+        if (isRaisedByEvoSuiteRuntime(thrown)) {
             return false;
         }
         if (position < 0 || position >= testCase.size()) {
@@ -1601,38 +1599,74 @@ public class TestRepairLoop {
             // Silently ignoring it can incorrectly mark a failing candidate as successful.
             return true;
         }
-        return !testCase.getStatement(position)
-                .getDeclaredExceptions().contains(thrown.getClass());
+        Set<Class<?>> declared = testCase.getStatement(position).getDeclaredExceptions();
+        return !declared.contains(thrown.getClass())
+                && !declared.contains(unmockedExceptionClass(thrown.getClass()));
     }
 
     /**
-     * Returns true when the throwable (or any of its superclasses) is a member
-     * of EvoSuite's shaded mock runtime package. Used by the executor and the
-     * repair-loop hint logic to recognize environment-induced exceptions that
-     * the LLM cannot eliminate by changing the test.
+     * Returns true when the throwable was raised by EvoSuite's runtime rather
+     * than by the SUT: either the {@code System.exit} replacement, or an
+     * exception whose throwing frame (ignoring JDK frames) is in the mock
+     * runtime package. The exception class alone says nothing about its
+     * origin, because instrumentation rewrites SUT code such as
+     * {@code new IllegalArgumentException(..)} to the corresponding mock
+     * class and re-parents SUT exception classes onto mock superclasses.
      */
-    static boolean isShadedRuntimeMockException(Throwable thrown) {
+    static boolean isRaisedByEvoSuiteRuntime(Throwable thrown) {
         if (thrown == null) {
             return false;
         }
-        Class<?> current = thrown.getClass();
-        while (current != null) {
-            String name = current.getName();
-            if (name != null && name.startsWith(SHADED_MOCK_RUNTIME_PACKAGE_PREFIX)) {
-                return true;
+        if (thrown instanceof org.evosuite.runtime.System.SystemExitException) {
+            return true;
+        }
+        StackTraceElement[] trace = thrown.getStackTrace();
+        if (trace == null) {
+            return false;
+        }
+        for (StackTraceElement frame : trace) {
+            String className = frame == null ? null : frame.getClassName();
+            if (className == null || isJdkClassName(className)) {
+                continue;
             }
-            current = current.getSuperclass();
+            return className.startsWith(MOCK_RUNTIME_PACKAGE_PREFIX);
         }
         return false;
     }
 
+    private static boolean isJdkClassName(String className) {
+        return className.startsWith("java.")
+                || className.startsWith("javax.")
+                || className.startsWith("jdk.")
+                || className.startsWith("sun.")
+                || className.startsWith("com.sun.");
+    }
+
+    /**
+     * Maps a mock exception class (e.g. {@code MockIllegalArgumentException})
+     * to the JDK class it replaces, so feedback names the exception the SUT
+     * source actually throws. Other classes are returned unchanged.
+     */
+    static Class<?> unmockedExceptionClass(Class<?> exceptionClass) {
+        Class<?> current = exceptionClass;
+        while (current != null && current.getName().startsWith(MOCK_RUNTIME_PACKAGE_PREFIX)) {
+            current = current.getSuperclass();
+        }
+        return current == null ? exceptionClass : current;
+    }
+
+    private static String packagePrefixOf(Class<?> type) {
+        String name = type.getName();
+        return name.substring(0, name.lastIndexOf('.') + 1);
+    }
+
     /**
      * Returns true when the diagnostic error string contains a reference to
-     * an exception under the shaded mock runtime package, suggesting the
+     * an exception under the mock runtime package, suggesting the
      * underlying failure is environment-induced rather than test-fixable.
      */
-    static boolean errorMentionsShadedRuntimeMockException(String error) {
-        return error != null && error.contains(SHADED_MOCK_RUNTIME_PACKAGE_PREFIX);
+    static boolean errorMentionsMockRuntimeException(String error) {
+        return error != null && error.contains(MOCK_RUNTIME_PACKAGE_PREFIX);
     }
 
     private boolean matchesExpectedException(String expected, Throwable thrown) {
@@ -2089,14 +2123,13 @@ public class TestRepairLoop {
                                     || ctx.errorMessage.contains("is null")))) {
                 scopes.npeFailingTests.add(name);
             }
-            if (isShadedRuntimeMockException(thrown)
-                    || (ctx.errorMessage != null
-                            && errorMentionsShadedRuntimeMockException(ctx.errorMessage))) {
+            if (isRaisedByEvoSuiteRuntime(thrown)
+                    || errorMentionsMockRuntimeException(ctx.errorMessage)) {
                 scopes.shadedMockFailingTests.add(name);
             }
             String expected = pr.getExpectedExceptionClass();
             if (expected != null && !expected.trim().isEmpty()) {
-                String actualName = thrown != null ? thrown.getClass().getName() : null;
+                String actualName = thrown != null ? reportedExceptionName(thrown) : null;
                 if (actualName != null && !matchesExpectedExceptionName(thrown.getClass(), expected)) {
                     scopes.expectationMismatchFailingTests.add(name);
                     scopes.expectationMismatchDetails.put(name,
@@ -2172,7 +2205,7 @@ public class TestRepairLoop {
         repairMessage.append(" different setup will produce it.");
         if (!scopes.shadedMockFailingTests.isEmpty()) {
             repairMessage.append("\n- Note: tests ").append(scopes.shadedMockFailingTests)
-                    .append(" failed with an exception under shaded.org.evosuite.runtime.mock.*;");
+                    .append(" failed with an exception under ").append(MOCK_RUNTIME_PACKAGE_PREFIX).append("*;");
             repairMessage.append(" that is the EvoSuite test harness, not the SUT, and you cannot");
             repairMessage.append(" eliminate it by changing test inputs. Either accept it via");
             repairMessage.append(" assertThrows on that exact class or drop those tests.");
@@ -3755,8 +3788,9 @@ public class TestRepairLoop {
         sb.append("  2) Replace the test with a different one that does NOT reach the failing call\n");
         sb.append("     (e.g. exercise a different SUT method, constructor, or pure-logic path).\n");
         sb.append("  3) Remove the test from the class entirely.\n");
-        if (errorMentionsShadedRuntimeMockException(error)) {
-            sb.append("Note: the failure list mentions an exception under shaded.org.evosuite.runtime.mock.*.\n");
+        if (errorMentionsMockRuntimeException(error)) {
+            sb.append("Note: the failure list mentions an exception under ")
+                    .append(MOCK_RUNTIME_PACKAGE_PREFIX).append("*.\n");
             sb.append("That is the EvoSuite mock harness, not the SUT, and it is unavoidable in this\n");
             sb.append("environment for any test reaching that call site. Treat it as ground truth.\n");
         }
@@ -4002,7 +4036,16 @@ public class TestRepairLoop {
 
     private String formatThrowable(Throwable throwable) {
         String message = throwable.getMessage() == null ? "" : throwable.getMessage();
-        return throwable.getClass().getSimpleName() + (message.isEmpty() ? "" : (": " + message));
+        return unmockedExceptionClass(throwable.getClass()).getSimpleName()
+                + (message.isEmpty() ? "" : (": " + message));
+    }
+
+    /**
+     * Exception class name as reported to the LLM: mock replacements are
+     * shown as the JDK exception the SUT source throws.
+     */
+    static String reportedExceptionName(Throwable throwable) {
+        return unmockedExceptionClass(throwable.getClass()).getName();
     }
 
     private String formatThrowableWithStackExcerpt(Throwable throwable,
@@ -4013,12 +4056,12 @@ public class TestRepairLoop {
         }
         Throwable rootCause = unwrapDiagnosticCause(throwable);
         StringBuilder message = new StringBuilder();
-        message.append(throwable.getClass().getName())
+        message.append(reportedExceptionName(throwable))
                 .append(" - ")
                 .append(throwable.getMessage() == null ? "" : throwable.getMessage());
         if (rootCause != null && rootCause != throwable) {
             message.append("\nRoot cause: ")
-                    .append(rootCause.getClass().getName())
+                    .append(reportedExceptionName(rootCause))
                     .append(" - ")
                     .append(rootCause.getMessage() == null ? "" : rootCause.getMessage());
         }

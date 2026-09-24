@@ -2787,22 +2787,16 @@ class TestRepairLoopTest {
     }
 
     @Test
-    void shadedRuntimeMockExceptionsAreRecognized() {
-        // Synthesize a class name under the shaded mock package via a stub
-        // exception class — we cannot easily instantiate one of the real
-        // shaded classes from a unit test without pulling in the runtime, so
-        // we check the helper directly on the canonical name path.
-        assertTrue(TestRepairLoop.errorMentionsShadedRuntimeMockException(
+    void mockRuntimeExceptionsAreRecognized() {
+        assertTrue(TestRepairLoop.errorMentionsMockRuntimeException(
                 "Execution error in test 'x': "
-                        + "shaded.org.evosuite.runtime.mock.java.lang.MockIllegalStateException "
+                        + TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "java.lang.MockIllegalStateException "
                         + "- Workspace is closed."));
-        assertFalse(TestRepairLoop.errorMentionsShadedRuntimeMockException(
+        assertFalse(TestRepairLoop.errorMentionsMockRuntimeException(
                 "Execution error in test 'x': java.lang.NullPointerException - foo"));
-        assertFalse(TestRepairLoop.errorMentionsShadedRuntimeMockException(null));
-        // isShadedRuntimeMockException walks the superclass chain; a plain
-        // RuntimeException is NOT under the shaded prefix.
-        assertFalse(TestRepairLoop.isShadedRuntimeMockException(new RuntimeException("not mock")));
-        assertFalse(TestRepairLoop.isShadedRuntimeMockException(null));
+        assertFalse(TestRepairLoop.errorMentionsMockRuntimeException(null));
+        assertFalse(TestRepairLoop.isRaisedByEvoSuiteRuntime(new RuntimeException("not mock")));
+        assertFalse(TestRepairLoop.isRaisedByEvoSuiteRuntime(null));
     }
 
     @Test
@@ -2815,13 +2809,13 @@ class TestRepairLoopTest {
         assertTrue(hintForShadedMock.contains("Change the assertThrows expectation"));
         assertTrue(hintForShadedMock.contains("Replace the test"));
         assertTrue(hintForShadedMock.contains("Remove the test"));
-        assertTrue(hintForShadedMock.contains("shaded.org.evosuite.runtime.mock"));
+        assertTrue(hintForShadedMock.contains(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
 
         String hintForPlainError = TestRepairLoop.buildIdenticalErrorEscalationHint(
                 "Execution error in test 'x': java.lang.NullPointerException - foo");
         assertTrue(hintForPlainError.contains("STOP"));
         // No shaded-mock note when no such marker is present in the error.
-        assertFalse(hintForPlainError.contains("shaded.org.evosuite.runtime.mock.*"));
+        assertFalse(hintForPlainError.contains(TestRepairLoop.MOCK_RUNTIME_PACKAGE_PREFIX + "*"));
     }
 
     @Test
