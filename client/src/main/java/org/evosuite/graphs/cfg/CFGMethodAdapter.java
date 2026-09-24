@@ -92,6 +92,15 @@ public class CFGMethodAdapter extends MethodVisitor {
     }
 
     /**
+     * Forgets the methods recorded while the given class loader instrumented classes.
+     *
+     * @param classLoader the class loader that is no longer needed
+     */
+    public static void release(ClassLoader classLoader) {
+        methods.remove(classLoader);
+    }
+
+    /**
      * This is the name + the description of the method. It is more like the
      * signature and less like the name. The name of the method can be found in
      * this.plainName.

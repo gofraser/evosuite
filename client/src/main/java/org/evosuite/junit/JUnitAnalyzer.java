@@ -134,7 +134,19 @@ public abstract class JUnitAnalyzer {
     private static volatile boolean COMPILE_CHECK_DISABLED_LOGGED = false;
     private static volatile boolean COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED = false;
 
-    private static InstrumentingClassLoader loader = new NonInstrumentingClassLoader();
+    /**
+     * The class loader of the JUnit check in progress. Every check gets a fresh one, which is
+     * released (see {@link #releaseCheckLoader()}) once the check is over, so that the classes
+     * it instrumented do not accumulate across the many checks of post-processing.
+     */
+    private static InstrumentingClassLoader loader = null;
+
+    /**
+     * Set when a JUnit check runner had to be abandoned while it may still be executing code
+     * through the current check loader; that loader is then left alone rather than released
+     * under the orphan's feet.
+     */
+    private static volatile boolean checkRunnerAbandoned = false;
 
     private static final VersionDependentAnalyzing JUNIT4_ANALYZER = new JUnit4Analyzing();
     private static final VersionDependentAnalyzing JUNIT5_ANALYZER = new JUnit5Analyzing();
@@ -448,6 +460,7 @@ public abstract class JUnitAnalyzer {
             logger.error("" + e, e);
             return numUnstable;
         } finally {
+            releaseCheckLoader();
             //let's be sure we clean up all what we wrote on disk
 
             if (dir != null) {
@@ -571,6 +584,7 @@ public abstract class JUnitAnalyzer {
             }
             return retriedResult;
         } finally {
+            releaseCheckLoader();
             loader = savedLoader;
         }
     }
@@ -764,6 +778,7 @@ public abstract class JUnitAnalyzer {
                 // sandbox lock back on its behalf now rather than making the next test execution
                 // discover the leak by burning its whole acquisition timeout.
                 Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
+                checkRunnerAbandoned = true;
                 return JUnitResult.allPassed(testClasses.length);
             } catch (CancellationException ce) {
                 // The check was cancelled rather than completed, so it observed no failure for
@@ -773,6 +788,7 @@ public abstract class JUnitAnalyzer {
                 logger.error("JUnit check was cancelled before completing; "
                         + "keeping the suite as-is without checking it.");
                 Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
+                checkRunnerAbandoned = true;
                 return JUnitResult.allPassed(testClasses.length);
             }
         } catch (InterruptedException ie) {
@@ -950,6 +966,36 @@ public abstract class JUnitAnalyzer {
         return new NonInstrumentingClassLoader();
     }
 
+    /**
+     * Releases the class loader of the check that just finished and forgets it. Each check
+     * instruments the SUT anew in its own loader, registering the result in the static
+     * loader-keyed pools; without the release, each check kept its loader and the instrumented
+     * SUT alive (tens of megabytes on a large SUT), and a post-processing phase with a hundred
+     * checks ran the client out of heap.
+     */
+    private static void releaseCheckLoader() {
+        InstrumentingClassLoader released = loader;
+        loader = null;
+        if (released == null) {
+            return;
+        }
+        if (checkRunnerAbandoned) {
+            // An orphan runner may still be loading classes through this loader and writing
+            // to its pools; leave them alone rather than race it.
+            checkRunnerAbandoned = false;
+            logger.warn("Not releasing the JUnit check class loader, an abandoned runner may still use it");
+            return;
+        }
+        TestGenerationContext.getInstance().releaseClassLoader(released);
+    }
+
+    private static InstrumentingClassLoader currentLoader() {
+        if (loader == null) {
+            loader = new NonInstrumentingClassLoader();
+        }
+        return loader;
+    }
+
     private static boolean mayInvokeJvmTermination(List<TestCase> tests) {
         if (tests == null || tests.isEmpty()) {
             return false;
@@ -1019,6 +1065,7 @@ public abstract class JUnitAnalyzer {
             logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
             return Collections.singleton("execution-error");
         } finally {
+            releaseCheckLoader();
             if (dir != null) {
                 try {
                     FileUtils.deleteDirectory(dir);
@@ -1990,6 +2037,7 @@ public abstract class JUnitAnalyzer {
 
             //as last step, execute the generated/compiled test cases
 
+            loader = createInitialJUnitClassLoader(tests);
             Class<?>[] testClasses = loadTests(generated);
 
             if (testClasses == null) {
@@ -2022,6 +2070,7 @@ public abstract class JUnitAnalyzer {
             logger.error("" + e, e);
             return false;
         } finally {
+            releaseCheckLoader();
             //let's be sure we clean up all what we wrote on disk
             if (dir != null) {
                 try {
@@ -2155,7 +2204,7 @@ public abstract class JUnitAnalyzer {
             logger.info("Loading class " + className);
             //testClass = ((InstrumentingClassLoader) TestGenerationContext.getInstance()
             // .getClassLoaderForSUT()).loadClassFromFile(className,
-            testClass = loader.loadClassFromFile(className, fileName);
+            testClass = currentLoader().loadClassFromFile(className, fileName);
         } catch (ClassNotFoundException e) {
             logger.error("Failed to load test case " + className + " from file "
                     + file.getAbsolutePath() + " , error " + e, e);
@@ -2166,7 +2215,7 @@ public abstract class JUnitAnalyzer {
     private static Class<?> loadClass(String className) {
         try {
             logger.info("Loading class {}", className);
-            return loader.loadClass(className);
+            return currentLoader().loadClass(className);
         } catch (ClassNotFoundException e) {
             logger.error("Cannot load class: " + className, e);
             return null;

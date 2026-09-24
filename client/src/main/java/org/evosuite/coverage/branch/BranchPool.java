@@ -97,6 +97,16 @@ public class BranchPool {
 
         return instanceMap.get(classLoader);
     }
+
+    /**
+     * Drops the pool of the given class loader, so that the branches registered while it
+     * instrumented classes (and, through them, the loader itself) can be garbage collected.
+     *
+     * @param classLoader the class loader whose pool is no longer needed
+     */
+    public static void release(ClassLoader classLoader) {
+        instanceMap.remove(classLoader);
+    }
     // fill the pool
 
     /**

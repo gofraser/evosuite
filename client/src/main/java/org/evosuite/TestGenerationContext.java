@@ -21,6 +21,7 @@ package org.evosuite;
 
 import org.evosuite.assertion.InspectorManager;
 import org.evosuite.classpath.ClassPathHandler;
+import org.evosuite.classpath.ResourceList;
 import org.evosuite.contracts.ContractChecker;
 import org.evosuite.contracts.FailingTestSet;
 import org.evosuite.coverage.branch.BranchPool;
@@ -36,6 +37,7 @@ import org.evosuite.graphs.cfg.CFGMethodAdapter;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.LinePool;
 import org.evosuite.runtime.Runtime;
+import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
 import org.evosuite.runtime.instrumentation.MethodCallReplacementCache;
 import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
@@ -192,6 +194,32 @@ public class TestGenerationContext {
     @Deprecated
     public static ClassLoader getClassLoader() {
         return getInstance().classLoader;
+    }
+
+    /**
+     * Releases everything the static, class-loader-keyed pools recorded for a class loader
+     * other than the one of this context, such as the throw-away loaders the JUnit check
+     * creates to execute the generated tests on freshly loaded classes.
+     *
+     * <p>Instrumenting a class registers its bytecode instructions, control flow graphs,
+     * branches and mutants in pools keyed by the loader that instrumented it. Those entries
+     * reference the loader, so without this call every such loader, and all it instrumented,
+     * stays reachable until the next {@link #resetContext()}. The loader of this context is
+     * never released.
+     *
+     * @param loader a class loader that is no longer used
+     */
+    public void releaseClassLoader(ClassLoader loader) {
+        if (loader == null || loader == classLoader) {
+            return;
+        }
+        BytecodeInstructionPool.release(loader);
+        GraphPool.release(loader);
+        BranchPool.release(loader);
+        MutationPool.release(loader);
+        CFGMethodAdapter.release(loader);
+        ResourceList.release(loader);
+        ClassResetter.getInstance().releaseClassLoader(loader);
     }
 
     /**

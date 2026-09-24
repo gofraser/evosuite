@@ -452,4 +452,16 @@ public class GraphPool {
         instanceMap.clear();
     }
 
+    /**
+     * Drops the pool of the given class loader, so that the graphs built while it instrumented
+     * classes (and, through them, the loader itself) can be garbage collected.
+     *
+     * @param classLoader the class loader whose pool is no longer needed
+     */
+    public static void release(ClassLoader classLoader) {
+        if (classLoader != null) {
+            instanceMap.remove(classLoader);
+        }
+    }
+
 }

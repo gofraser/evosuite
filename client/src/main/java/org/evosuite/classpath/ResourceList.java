@@ -160,6 +160,21 @@ public class ResourceList {
         instanceMap.clear();
     }
 
+    /**
+     * Drops the resource list of the given class loader, if one was ever created for it.
+     *
+     * @param classLoader the class loader that is no longer needed
+     */
+    public static void release(ClassLoader classLoader) {
+        if (classLoader == null) {
+            return;
+        }
+        ResourceList removed = instanceMap.remove(classLoader);
+        if (removed != null) {
+            removed.resetCache();
+        }
+    }
+
 
     /**
      * Checks if the target class is among the ones in the SUT classpath.
