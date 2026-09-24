@@ -81,6 +81,40 @@ class MockitoPatternParserTest {
     }
 
     @Test
+    void typedFallbackForUnhoistableStubbingValueIsDefinedBeforeTheMock() {
+        // The shape of an LLM test from SF110 freemind: stubbing controller.iterator() with view
+        // moves the controller mock after view, so view can no longer move after nodeView, and
+        // the alias nodeView cannot be hoisted either -- the parser substitutes a typed default.
+        String body = "List controller = mock(List.class);\n"
+                + "Iterator view = mock(Iterator.class);\n"
+                + "Object selected = null;\n"
+                + "Object nodeView = selected;\n"
+                + "when(controller.iterator()).thenReturn(view);\n"
+                + "when(view.next()).thenReturn(nodeView);\n"
+                + "controller.size();\n";
+        TestParser parser = new TestParser(getClass().getClassLoader());
+        parser.setMarkParsedFromLlm(true);
+        TestCase tc = parser.parseTestMethodBody(body, MOCKITO_IMPORTS).getTestCase();
+
+        boolean sawStubbedMock = false;
+        for (int i = 0; i < tc.size(); i++) {
+            if (!(tc.getStatement(i) instanceof FunctionalMockStatement)) {
+                continue;
+            }
+            for (VariableReference used : tc.getStatement(i).getVariableReferences()) {
+                if (used == tc.getStatement(i).getReturnValue()) {
+                    continue;
+                }
+                sawStubbedMock = true;
+                assertTrue(used.getStPosition() < i,
+                        "mock at " + i + " uses a value defined at " + used.getStPosition() + ":\n"
+                                + tc.toCode());
+            }
+        }
+        assertTrue(sawStubbedMock, tc.toCode());
+    }
+
+    @Test
     void parseMockCreation() {
         Fixture fixture = fixture("List mockList = mock(List.class);", MOCKITO_IMPORTS, false);
 

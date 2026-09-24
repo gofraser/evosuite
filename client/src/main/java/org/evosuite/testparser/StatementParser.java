@@ -2558,11 +2558,25 @@ public class StatementParser {
         if (raw == void.class || raw == Void.class) {
             return addStatement(createUninterpretedStatement(new NameExpr("fallback"), ";"));
         }
+        return addStatement(typedFallbackStatement(expectedType));
+    }
+
+    /**
+     * Like {@link #createTypedFallbackValue(Type)}, but inserts the value at {@code position}
+     * instead of appending it, for a caller whose user of the value sits earlier in the test (eg a
+     * mock stubbed with it): an appended value would be a forward reference, which later edits
+     * that only look for uses after a definition turn into an orphan.
+     */
+    VariableReference createTypedFallbackValue(Type expectedType, int position) {
+        return addStatement(typedFallbackStatement(expectedType), position);
+    }
+
+    private Statement typedFallbackStatement(Type expectedType) {
         Statement primitiveFallback = defaultPrimitiveStatement(testCase, expectedType);
         if (primitiveFallback != null) {
-            return addStatement(primitiveFallback);
+            return primitiveFallback;
         }
-        return addStatement(new NullStatement(testCase, accessibleNullType(expectedType)));
+        return new NullStatement(testCase, accessibleNullType(expectedType));
     }
 
     private com.github.javaparser.ast.type.ClassOrInterfaceType parseClassOrInterfaceType(String typeName) {

@@ -1169,7 +1169,9 @@ class MockitoPatternParser {
                                     + " reordered; substituted a typed default value. Declare the value variable"
                                     + " before the mock it is returned from.");
                 }
-                adjusted.add(parser.createTypedFallbackValue(valueRef.getType()));
+                // At the mock's position, not appended: the mock uses the value.
+                adjusted.add(parser.createTypedFallbackValue(valueRef.getType(), mockPos));
+                mockPos++;
             } else {
                 adjusted.add(valueRef);
             }
