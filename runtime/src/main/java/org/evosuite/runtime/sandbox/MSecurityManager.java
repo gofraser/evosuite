@@ -49,6 +49,7 @@ import java.net.UnknownHostException;
 import java.security.*;
 import java.sql.SQLPermission;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
@@ -244,6 +245,10 @@ public class MSecurityManager extends SecurityManager {
     /**
      * Data structure containing all the (EvoSuite) threads that do not need to
      * go through the same sandbox as the SUT threads.
+     *
+     * <p>Every permission check looks the current thread up here, and EvoSuite registers
+     * short-lived helper threads all the time, so this is a plain concurrent set rather than a
+     * copy-on-write one, and threads that have terminated are pruned when threads are added.
      */
     private final Set<Thread> privilegedThreads;
 
@@ -279,7 +284,7 @@ public class MSecurityManager extends SecurityManager {
      * instance is automatically added as "privileged".
      */
     public MSecurityManager() {
-        privilegedThreads = new CopyOnWriteArraySet<>();
+        privilegedThreads = ConcurrentHashMap.newKeySet();
         privilegedThreads.add(Thread.currentThread());
         defaultManager = System.getSecurityManager();
         executingTestCase = false;
@@ -311,8 +316,19 @@ public class MSecurityManager extends SecurityManager {
      * @return the set of privileged threads
      */
     public Set<Thread> getPrivilegedThreads() {
+        pruneTerminatedPrivilegedThreads();
         Set<Thread> set = new LinkedHashSet<>(privilegedThreads);
         return set;
+    }
+
+    /**
+     * Forgets privileged threads that have terminated. A terminated thread can never ask for a
+     * permission again, but keeping it would make the set, and every copy of it handed to a new
+     * security manager, grow with each helper thread EvoSuite ever started. Threads that were
+     * registered before being started are kept.
+     */
+    private void pruneTerminatedPrivilegedThreads() {
+        privilegedThreads.removeIf(t -> t.getState() == Thread.State.TERMINATED);
     }
 
     /**
@@ -824,7 +840,14 @@ public class MSecurityManager extends SecurityManager {
      */
     public synchronized void addPrivilegedThread(Thread t) throws SecurityException {
         if (privilegedThreads.contains(Thread.currentThread())) {
+            if (privilegedThreads.contains(t)) {
+                return;
+            }
+            if (t.getState() == Thread.State.TERMINATED) {
+                return;
+            }
             logger.debug("Adding privileged thread: \"" + t.getName() + "\"");
+            pruneTerminatedPrivilegedThreads();
             privilegedThreads.add(t);
         } else {
             String current = Thread.currentThread().getName();
