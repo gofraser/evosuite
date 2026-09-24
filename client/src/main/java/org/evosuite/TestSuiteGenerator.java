@@ -1409,6 +1409,7 @@ public class TestSuiteGenerator {
         }
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.JUNIT_CHECK);
+        JUnitAnalyzer.resetMemoryExhaustion();
 
         // Store this value; if this option is true then the JUnit check
         // would not succeed, as the JUnit classloader wouldn't find the class
@@ -1552,13 +1553,20 @@ public class TestSuiteGenerator {
      */
     private static boolean isMemoryExhaustedForJUnitCheck(PhaseMemoryGuard guard, String what, int unchecked) {
         boolean wasExhausted = guard.isExhaustedAlready();
-        if (!guard.isExhausted()) {
+        String cause;
+        if (!wasExhausted && JUnitAnalyzer.isMemoryExhaustedDuringCheck()) {
+            // A check (e.g. javac, which shares this heap) ran out of memory.
+            guard.markExhausted();
+            cause = "a check ran out of memory";
+        } else if (guard.isExhausted()) {
+            cause = (guard.getLastFreeBytes() / 1024 / 1024) + " MB free, need "
+                    + (guard.getThresholdBytes() / 1024 / 1024) + " MB";
+        } else {
             return false;
         }
         if (!wasExhausted) {
             LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                    + "Low memory during JUnit check: " + (guard.getLastFreeBytes() / 1024 / 1024)
-                    + " MB free, need " + (guard.getThresholdBytes() / 1024 / 1024) + " MB; skipping "
+                    + "Low memory during JUnit check (" + cause + "); skipping "
                     + what + " and all later checks, keeping the suite"
                     + (unchecked > 0 ? " (" + unchecked + " test(s) left unchecked)" : ""));
         }

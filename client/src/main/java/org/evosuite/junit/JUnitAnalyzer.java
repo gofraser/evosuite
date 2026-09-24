@@ -133,6 +133,13 @@ public abstract class JUnitAnalyzer {
     private static volatile boolean COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE = false;
     private static volatile boolean COMPILE_CHECK_DISABLED_LOGGED = false;
     private static volatile boolean COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED = false;
+    /**
+     * Set when a check ran out of heap (javac included, which runs in this JVM). The remaining
+     * checks of the phase are skipped and the tests not checked yet are kept, as with any other
+     * sign of low memory during the check; unlike a javac infrastructure failure, this does not
+     * disable compile filtering for good. Cleared by {@link #resetMemoryExhaustion()}.
+     */
+    private static volatile boolean MEMORY_EXHAUSTED_DURING_CHECK = false;
 
     /**
      * The class loader of the JUnit check in progress. Every check gets a fresh one, which is
@@ -234,6 +241,9 @@ public abstract class JUnitAnalyzer {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 break;
             }
+            if (MEMORY_EXHAUSTED_DURING_CHECK) {
+                break;
+            }
 
             TestCase test = iter.next();
 
@@ -252,7 +262,7 @@ public abstract class JUnitAnalyzer {
                     iter.remove();
                     String code = test.toCode();
                     logger.error("Failed to compile test case:\n" + code);
-                } else if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+                } else if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK) {
                     return;
                 }
             } finally {
@@ -288,7 +298,7 @@ public abstract class JUnitAnalyzer {
         if (tests == null || tests.isEmpty()) { //nothing to do
             return numUnstable;
         }
-        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK) {
             logCompileDependentExecutionSkippedIfNeeded();
             return numUnstable;
         }
@@ -1064,7 +1074,7 @@ public abstract class JUnitAnalyzer {
     }
 
     private static Set<String> executeAndCollectUnexpectedFailures(List<TestCase> tests) {
-        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK) {
             logCompileDependentExecutionSkippedIfNeeded();
             return Collections.emptySet();
         }
@@ -1209,12 +1219,24 @@ public abstract class JUnitAnalyzer {
 
             CompilerAttemptResult attempt = runCompilerAttempt(compiler, generated, classpath, locale, charset);
             if (attempt.hasInfrastructureFailure()) {
+                if (isOutOfMemory(attempt.getInfrastructureFailure())) {
+                    stopChecksDueToMemoryExhaustion(tests.size(), attempt.getInfrastructureFailure());
+                    return generated;
+                }
                 disableCompileCheckDueToInfrastructure(attempt.getInfrastructureFailure(), compilerClasspath);
                 return generated;
             }
 
             if (!attempt.isCompiled()) {
                 BoundedDiagnosticListener diagnostics = attempt.getDiagnostics();
+                String compilerOutput = attempt.getCompilerOutput();
+                if (reportsOutOfMemory(compilerOutput)) {
+                    // javac ran out of heap, which it shares with this client: the tests were
+                    // never judged, and what is exhausted is the heap, not javac.
+                    stopChecksDueToMemoryExhaustion(tests.size(),
+                            new OutOfMemoryError("javac: " + firstLine(compilerOutput)));
+                    return generated;
+                }
                 logger.error("Compilation failed on {} generated test file(s)", generated.size());
                 logger.error("Classpath: {}", compilerClasspath);
                 // TODO remove
@@ -1235,7 +1257,6 @@ public abstract class JUnitAnalyzer {
                     logger.error("Additional compiler diagnostics were omitted after {} entries",
                             MAX_STORED_COMPILER_DIAGNOSTICS);
                 }
-                String compilerOutput = attempt.getCompilerOutput();
                 if (compilerOutput != null && !compilerOutput.isEmpty()) {
                     // Output javac would otherwise have written to its own out stream (distinct
                     // from the diagnostics above), e.g. usage or internal-error messages.
@@ -1243,11 +1264,10 @@ public abstract class JUnitAnalyzer {
                 }
 
                 if (crashedInsteadOfRejecting(compilerOutput)) {
-                    // javac died on its own (it catches OutOfMemoryError and StackOverflowError
-                    // internally and prints "An exception has occurred in the compiler"), so it
-                    // never judged the test. Deleting it here would throw away a perfectly good
-                    // test because the compiler ran out of heap - 43_lilith's LoggingProto, whose
-                    // tests pull in a 32 KB protobuf builder class, loses tests this way.
+                    // javac died on its own (it catches StackOverflowError internally and prints
+                    // "An exception has occurred in the compiler"), so it never judged the test.
+                    // Deleting it here would throw away a perfectly good test. Running out of
+                    // heap is handled above: that is the client's memory, not a javac problem.
                     disableCompileCheckDueToInfrastructure(
                             new IllegalStateException("javac crashed: " + firstLine(compilerOutput)),
                             compilerClasspath);
@@ -1266,12 +1286,17 @@ public abstract class JUnitAnalyzer {
             return generated;
 
         } catch (OutOfMemoryError e) {
-            logger.error("Out of memory while compiling generated tests ({} test case(s))", tests.size(), e);
-            return null;
+            // Not a verdict on the tests: reporting them as not compiling would delete them.
+            stopChecksDueToMemoryExhaustion(tests.size(), e);
+            return generated;
         } catch (IOException e) {
             logger.error("" + e, e);
             return null;
         } catch (RuntimeException e) {
+            if (isOutOfMemory(e)) {
+                stopChecksDueToMemoryExhaustion(tests.size(), e);
+                return generated;
+            }
             if (isJavacInfrastructureFailure(e)) {
                 disableCompileCheckDueToInfrastructure(e, compilerClasspath);
                 return generated;
@@ -1279,6 +1304,10 @@ public abstract class JUnitAnalyzer {
             logger.error("Unexpected runtime exception while compiling generated tests", e);
             return null;
         } catch (Error e) {
+            if (isOutOfMemory(e)) {
+                stopChecksDueToMemoryExhaustion(tests.size(), e);
+                return generated;
+            }
             if (isJavacInfrastructureFailure(e)) {
                 disableCompileCheckDueToInfrastructure(e, compilerClasspath);
                 return generated;
@@ -1334,6 +1363,52 @@ public abstract class JUnitAnalyzer {
         return COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE;
     }
 
+    /**
+     * Whether a check ran out of memory since the last {@link #resetMemoryExhaustion()}; the
+     * remaining checks are then skipped and the tests not checked yet are kept.
+     *
+     * @return true if memory ran out during a check
+     */
+    public static boolean isMemoryExhaustedDuringCheck() {
+        return MEMORY_EXHAUSTED_DURING_CHECK;
+    }
+
+    /** Forgets an earlier out-of-memory condition, e.g. at the start of a new JUnit check phase. */
+    public static void resetMemoryExhaustion() {
+        MEMORY_EXHAUSTED_DURING_CHECK = false;
+    }
+
+    private static void stopChecksDueToMemoryExhaustion(int numTests, Throwable failure) {
+        boolean first = !MEMORY_EXHAUSTED_DURING_CHECK;
+        MEMORY_EXHAUSTED_DURING_CHECK = true;
+        if (first) {
+            logger.warn("Ran out of memory while compiling {} generated test(s) for the JUnit check ({}). "
+                            + "Skipping the remaining checks and keeping the tests not checked yet.",
+                    numTests, failure == null ? "no details" : failure.toString());
+        }
+    }
+
+    /**
+     * Whether javac reported running out of heap. It catches the error itself and prints it
+     * instead of throwing it, e.g. when opening a jar of the classpath fails in
+     * {@code ZipFileSystem.initCEN}.
+     */
+    static boolean reportsOutOfMemory(String compilerOutput) {
+        return compilerOutput != null && compilerOutput.contains("java.lang.OutOfMemoryError");
+    }
+
+    static boolean isOutOfMemory(Throwable throwable) {
+        Throwable current = throwable;
+        int depth = 0;
+        while (current != null && depth++ < 20) {
+            if (current instanceof OutOfMemoryError) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
     private static void logCompileCheckDisabledIfNeeded() {
         if (COMPILE_CHECK_DISABLED_LOGGED) {
             return;
@@ -1344,6 +1419,10 @@ public abstract class JUnitAnalyzer {
     }
 
     private static void logCompileDependentExecutionSkippedIfNeeded() {
+        if (!COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+            // Skipped because memory ran out, which was reported when it happened.
+            return;
+        }
         if (COMPILE_DEPENDENT_EXECUTION_SKIPPED_LOGGED) {
             return;
         }
@@ -1353,7 +1432,7 @@ public abstract class JUnitAnalyzer {
     }
 
     private static boolean shouldSkipCompileDependentExecutionAfterCompile() {
-        if (!COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+        if (!COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE && !MEMORY_EXHAUSTED_DURING_CHECK) {
             return false;
         }
         logCompileDependentExecutionSkippedIfNeeded();
@@ -2043,7 +2122,7 @@ public abstract class JUnitAnalyzer {
             //nothing to compile or run
             return true;
         }
-        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE) {
+        if (COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE || MEMORY_EXHAUSTED_DURING_CHECK) {
             logCompileDependentExecutionSkippedIfNeeded();
             return true;
         }

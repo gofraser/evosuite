@@ -73,6 +73,11 @@ final class PhaseMemoryGuard {
         return true;
     }
 
+    /** Marks memory as exhausted for the rest of the phase, e.g. after an OutOfMemoryError. */
+    void markExhausted() {
+        exhausted = true;
+    }
+
     /** Returns whether memory has already been found exhausted, without checking again. */
     boolean isExhaustedAlready() {
         return exhausted;

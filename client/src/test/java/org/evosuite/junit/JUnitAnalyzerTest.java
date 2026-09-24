@@ -405,6 +405,39 @@ public class JUnitAnalyzerTest {
     }
 
     @Test
+    public void testMemoryExhaustionSkipsChecksAndKeepsTests() throws Exception {
+        Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
+        Properties.TEST_SCAFFOLDING = false;
+        Properties.TARGET_CLASS = DowncastExample.class.getCanonicalName();
+        TestCaseBuilder builder = new TestCaseBuilder();
+        builder.appendConstructor(DowncastExample.class.getConstructor());
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(builder.getDefaultTestCase());
+
+        java.lang.reflect.Field flag = JUnitAnalyzer.class.getDeclaredField("MEMORY_EXHAUSTED_DURING_CHECK");
+        flag.setAccessible(true);
+        // Counts the suites rendered for compilation.
+        java.lang.reflect.Field compiled = JUnitAnalyzer.class.getDeclaredField("NUM");
+        compiled.setAccessible(true);
+        flag.set(null, true);
+        try {
+            Assertions.assertTrue(JUnitAnalyzer.isMemoryExhaustedDuringCheck());
+            int compiledBefore = compiled.getInt(null);
+            JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
+            Assertions.assertEquals(0, JUnitAnalyzer.handleTestsThatAreUnstable(tests));
+            Assertions.assertTrue(JUnitAnalyzer.analyzeOrderSensitivity(
+                    Arrays.asList(tests.get(0), tests.get(0).clone())).getForwardFailures().isEmpty());
+            Assertions.assertEquals(compiledBefore, compiled.getInt(null), "no further checks may run");
+            Assertions.assertEquals(1, tests.size(), "unchecked tests must be kept");
+            // Running out of memory is not a javac infrastructure failure.
+            Assertions.assertFalse(JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure());
+        } finally {
+            JUnitAnalyzer.resetMemoryExhaustion();
+        }
+        Assertions.assertFalse(JUnitAnalyzer.isMemoryExhaustedDuringCheck());
+    }
+
+    @Test
     public void testWatchdogBudgetIsBoundedByTheRemainingPhaseTime() {
         long configured = 1_200_000L;
         Assertions.assertEquals(configured, JUnitAnalyzer.computeWatchdogBudgetMs(configured, Long.MAX_VALUE));
