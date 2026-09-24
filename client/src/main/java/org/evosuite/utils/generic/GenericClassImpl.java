@@ -1922,20 +1922,22 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
      * not object identity and not {@code CastClassManager}'s pool state -- so it keeps paying off
      * across pool changes and across the many pool candidates that share the same bound.
      *
-     * <p>It is a plain (not synchronized) map: client-side test generation runs the search on a
-     * single GA thread, matching the rest of this class's and {@code CastClassManager}'s caches.
-     * {@code accessOrder = true} makes it evict least-recently-used entries once it grows past
-     * {@link #SATISFIES_BOUNDARIES_CACHE_CAPACITY}.
+     * <p>{@code accessOrder = true} makes it evict least-recently-used entries once it grows past
+     * {@link #SATISFIES_BOUNDARIES_CACHE_CAPACITY}. That also makes every {@code get} a structural
+     * modification, so the map is synchronized: the search runs on one GA thread, but LLM workers
+     * (eg asynchronous stagnation help) parse and instantiate tests on their own threads at the
+     * same time. The check itself runs outside the lock; two threads computing the same entry
+     * store the same answer.
      */
     private static final int SATISFIES_BOUNDARIES_CACHE_CAPACITY = 20000;
 
-    private static final Map<String, Boolean> SATISFIES_BOUNDARIES_CACHE =
+    private static final Map<String, Boolean> SATISFIES_BOUNDARIES_CACHE = Collections.synchronizedMap(
             new LinkedHashMap<String, Boolean>(16, 0.75f, true) {
                 @Override
                 protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
                     return size() > SATISFIES_BOUNDARIES_CACHE_CAPACITY;
                 }
-            };
+            });
 
     /**
      * Clears {@link #SATISFIES_BOUNDARIES_CACHE}. Called from {@code TestGenerationContext
