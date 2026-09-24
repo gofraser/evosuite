@@ -2057,7 +2057,10 @@ public abstract class AbstractMOSA extends GeneticAlgorithm<TestChromosome> {
                     }
                 }
                 source.reportAttemptOutcomes(gainsByAttemptId);
-            } catch (Exception e) {
+            } catch (Exception | LinkageError e) {
+                // LinkageError: a source reflecting on SUT types (eg to build an LLM prompt) can
+                // hit a class whose dependencies are not on the classpath. That source's
+                // candidates are optional; losing them must not end the search.
                 logger.debug("External candidate source failed; skipping", e);
             }
         }

@@ -373,9 +373,19 @@ public class TestClusterSummarizer {
                     Collections.emptySet());
             Map<String, Integer> methodFrequency = modifierFrequencyByClass.getOrDefault(className,
                     Collections.<String, Integer>emptyMap());
-            TypeSummary summary = buildTypeSummary(rawClass, generators, modifiers, compactSignatures,
-                    methodFrequency, concreteSubtypeLookup.getOrDefault(className, Collections.<Class<?>>emptyList()),
-                    targetPackageName);
+            TypeSummary summary;
+            try {
+                summary = buildTypeSummary(rawClass, generators, modifiers, compactSignatures,
+                        methodFrequency, concreteSubtypeLookup.getOrDefault(className, Collections.<Class<?>>emptyList()),
+                        targetPackageName);
+            } catch (LinkageError | TypeNotPresentException e) {
+                // Reflecting on a type's members resolves every type in their signatures, and
+                // SUT dependencies routinely mention classes missing from the classpath (eg an
+                // absent commons-codec). Leave that one type out of the prompt rather than
+                // failing the prompt, which would end the whole search.
+                logger.debug("Omitting {} from the dependency summary: {}", className, e.toString());
+                continue;
+            }
             if (summary == null || summary.isEmpty()) {
                 continue;
             }

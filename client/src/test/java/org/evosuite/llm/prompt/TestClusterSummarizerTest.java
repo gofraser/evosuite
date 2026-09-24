@@ -27,6 +27,9 @@ import org.evosuite.Properties;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
@@ -401,6 +404,50 @@ class TestClusterSummarizerTest {
         // Should show the static factory method
         assertTrue(result.getText().contains("static"), "Should show static factory method: " + result.getText());
         assertTrue(result.getText().contains("getText"), "Should show getText method: " + result.getText());
+    }
+
+    @Test
+    void summarizeDependenciesOmitsTypeWhoseSignaturesMentionMissingClass() throws Exception {
+        // A public class whose constructor takes a type that is not on the classpath: reflecting
+        // on its constructors throws NoClassDefFoundError, as with SF110 dependencies that
+        // mention an absent library.
+        String brokenName = "org.evosuite.llm.prompt.fixture.NeedsMissingType";
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC, brokenName.replace('.', '/'), null,
+                "java/lang/Object", null);
+        MethodVisitor ctor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>",
+                "(Lorg/evosuite/llm/prompt/fixture/Missing;)V", null, null);
+        ctor.visitCode();
+        ctor.visitVarInsn(Opcodes.ALOAD, 0);
+        ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+        ctor.visitInsn(Opcodes.RETURN);
+        ctor.visitMaxs(0, 0);
+        ctor.visitEnd();
+        cw.visitEnd();
+        byte[] bytes = cw.toByteArray();
+        Class<?> broken = new ClassLoader(getClass().getClassLoader()) {
+            Class<?> define() {
+                return defineClass(brokenName, bytes, 0, bytes.length);
+            }
+        }.define();
+
+        GenericClass<?> brokenType = mock(GenericClass.class);
+        doReturn(broken).when(brokenType).getRawClass();
+        GenericClass<?> healthyType = mock(GenericClass.class);
+        doReturn(TestClusterSummarizer.DependencySummaryResult.class).when(healthyType).getRawClass();
+
+        Map<GenericClass<?>, Set<GenericAccessibleObject<?>>> generators = new HashMap<>();
+        generators.put(brokenType, Collections.emptySet());
+        generators.put(healthyType, Collections.emptySet());
+        TestCluster cluster = mock(TestCluster.class);
+        when(cluster.getGeneratorsByType()).thenReturn(generators);
+        when(cluster.getModifiers()).thenReturn(Collections.emptySet());
+
+        String text = new TestClusterSummarizer()
+                .summarizeDependencies(cluster, "org.evosuite.MyCut", 0).getText();
+
+        assertFalse(text.contains("NeedsMissingType"), text);
+        assertTrue(text.contains("DependencySummaryResult"), text);
     }
 
     @Test
