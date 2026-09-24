@@ -65,6 +65,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -1572,6 +1573,128 @@ class LlmPostProcessorTest {
         return test;
     }
 
+    @Test
+    void runUnifiedPostProcessing_boundsInitialAndRepairQueriesByPhaseDeadline() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        Properties.LLM_POSTPROCESSING_TIMEOUT = 600;
+        DefaultTestCase test = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        markAllTestsExecutedNormally(suite);
+        QueueCapturingModel model = new QueueCapturingModel();
+        model.enqueue("{\"schemaVersion\":2,"
+                + "\"assertions\":["
+                + "{\"assertionId\":\"a0\",\"kind\":\"EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"},"
+                + "{\"assertionId\":\"a1\",\"kind\":\"EQUALS\",\"expected\":\"7\",\"actual\":\"v1\"}"
+                + "]}");
+        model.enqueue("[{\"assertionId\":\"a0\",\"kind\":\"NOT_EQUALS\",\"expected\":\"8\",\"actual\":\"v1\"}]");
+        DeadlineCapturingLlmService service = new DeadlineCapturingLlmService(model);
+        // The phase clock never advances, so the whole 600s timeout remains.
+        LlmPostProcessor phaseProcessor = new LlmPostProcessor(service, new RecordingFallbackRunner(0),
+                new FinalScopeCandidateRunner(7), new FinalScopeStabilityRunner(7),
+                new IntegerScopeAssertionEvaluationRunner(), null,
+                new SequencePhaseClock(0L), new RuntimePostProcessingTelemetry());
+
+        long before = System.nanoTime();
+        run(phaseProcessor, suite);
+        long after = System.nanoTime();
+
+        assertEquals(2, model.messages.size());
+        assertEquals(2, service.deadlines.size());
+        long phaseNanos = TimeUnit.SECONDS.toNanos(600);
+        for (long deadline : service.deadlines) {
+            assertTrue(deadline - (before + phaseNanos) >= 0, "deadline precedes the phase end");
+            assertTrue((after + phaseNanos) - deadline >= 0, "deadline exceeds the phase end");
+        }
+    }
+
+    @Test
+    void runUnifiedPostProcessing_passesNoDeadlineWithoutPhaseTimeout() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.LLM_POSTPROCESSING_TIMEOUT = 0;
+        QueueCapturingModel model = new QueueCapturingModel();
+        model.enqueue("{\"schemaVersion\":2}");
+        DeadlineCapturingLlmService service = new DeadlineCapturingLlmService(model);
+
+        run(processor(service), singleTestSuite(7));
+
+        assertEquals(Collections.singletonList(Long.MAX_VALUE), service.deadlines);
+    }
+
+    @Test
+    void runUnifiedPostProcessing_interruptedQueryStopsPhaseWithoutFurtherCallsOrFallback() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        Properties.TARGET_CLASS = null;
+        Properties.LLM_POSTPROCESSING_ASSERTION_FALLBACK =
+                Properties.LlmPostProcessingAssertionFallback.ON_INFRASTRUCTURE_FAILURE;
+        CapturingClientNode node = installCapturingClientNode();
+        DefaultTestCase first = uninterpretedIntReturnTest();
+        DefaultTestCase second = uninterpretedIntReturnTest();
+        DefaultTestCase third = uninterpretedIntReturnTest();
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(first);
+        suite.addTest(second);
+        suite.addTest(third);
+        markAllTestsExecutedNormally(suite);
+        InterruptCallerModel model = new InterruptCallerModel(Thread.currentThread());
+        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(10);
+        RecordingFallbackRunner fallbackRunner = new RecordingFallbackRunner(1);
+        LlmPostProcessor phaseProcessor =
+                processor(createService(model, budget), fallbackRunner, new FinalScopeCandidateRunner(7));
+        LlmPostProcessingPhaseContext phaseContext = phaseProcessor.createPhaseContext();
+
+        boolean interruptedAfterPhase;
+        try {
+            phaseProcessor.runUnifiedPostProcessing(suite, MinimizationResult.disabled(suite), phaseContext);
+        } finally {
+            interruptedAfterPhase = Thread.interrupted();
+        }
+
+        assertTrue(interruptedAfterPhase, "the interrupt must stay visible to the caller");
+        assertEquals(1, model.calls);
+        assertEquals(9, budget.getRemaining());
+        assertEquals(0, fallbackRunner.calls);
+        assertEquals("interrupted", phaseContext.getTerminalReason());
+        assertEquals("interrupted", node.value(RuntimeVariable.LLM_PostProcessing_Skip_Reason));
+        assertTrue(first.getAssertions().isEmpty());
+        assertTrue(phaseContext.requiresStandardAssertionFallback());
+        assertTrue(phaseContext.shouldGenerateStandardAssertionsFor(first));
+        assertTrue(phaseContext.shouldGenerateStandardAssertionsFor(second));
+        assertTrue(phaseContext.shouldGenerateStandardAssertionsFor(third));
+    }
+
+    @Test
+    void runUnifiedPostProcessing_preInterruptedThreadStartsNoTest() {
+        Properties.LLM_POSTPROCESSING_ENABLED = true;
+        Properties.LLM_PROVIDER = Properties.LlmProvider.OPENAI;
+        DefaultTestCase test = singleIntTest(7);
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(test);
+        QueueCapturingModel model = new QueueCapturingModel();
+        model.enqueue("{\"schemaVersion\":2,\"testName\":\"shouldNotApply\"}");
+        LlmBudgetCoordinator.Local budget = new LlmBudgetCoordinator.Local(10);
+        LlmPostProcessor phaseProcessor = processor(createService(model, budget));
+        LlmPostProcessingPhaseContext phaseContext = phaseProcessor.createPhaseContext();
+
+        boolean interruptedAfterPhase;
+        Thread.currentThread().interrupt();
+        try {
+            phaseProcessor.runUnifiedPostProcessing(suite, MinimizationResult.disabled(suite), phaseContext);
+        } finally {
+            interruptedAfterPhase = Thread.interrupted();
+        }
+
+        assertTrue(interruptedAfterPhase);
+        assertEquals(0, model.messages.size());
+        assertEquals(10, budget.getRemaining());
+        assertEquals("interrupted", phaseContext.getTerminalReason());
+        assertNoAppliedPostProcessing(test);
+    }
+
     private static ExecutionResult throwingResult(DefaultTestCase test) {
         ExecutionResult result = new ExecutionResult(test);
         result.reportNewThrownException(0, new RuntimeException("boom"));
@@ -1600,6 +1723,11 @@ class LlmPostProcessorTest {
     }
 
     private static LlmService createService(LlmService.ChatLanguageModel model, int budget) {
+        return createService(model, new LlmBudgetCoordinator.Local(budget));
+    }
+
+    private static LlmService createService(LlmService.ChatLanguageModel model,
+                                            LlmBudgetCoordinator budget) {
         LlmConfiguration configuration = new LlmConfiguration(
                 Properties.LlmProvider.NONE,
                 "mock",
@@ -1615,7 +1743,7 @@ class LlmPostProcessorTest {
                 "test-post-processing");
         return new LlmService(
                 model,
-                new LlmBudgetCoordinator.Local(budget),
+                budget,
                 configuration,
                 new LlmStatistics(),
                 new LlmTraceRecorder(configuration));
@@ -1859,6 +1987,55 @@ class LlmPostProcessorTest {
         }
     }
 
+    /** Interrupts the thread that issued the query, then blocks until cancelled. */
+    private static final class InterruptCallerModel implements LlmService.ChatLanguageModel {
+        private final Thread caller;
+        private volatile int calls;
+
+        private InterruptCallerModel(Thread caller) {
+            this.caller = caller;
+        }
+
+        @Override
+        public LlmService.LlmResponse generate(List<LlmMessage> messages, LlmFeature feature) {
+            calls++;
+            caller.interrupt();
+            try {
+                Thread.sleep(10_000L);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            throw new IllegalStateException("cancelled");
+        }
+    }
+
+    private static final class DeadlineCapturingLlmService extends LlmService {
+        private final List<Long> deadlines = new ArrayList<>();
+
+        private DeadlineCapturingLlmService(LlmService.ChatLanguageModel model) {
+            super(model,
+                    new LlmBudgetCoordinator.Local(10),
+                    testConfiguration(),
+                    new LlmStatistics(),
+                    new LlmTraceRecorder(testConfiguration()));
+        }
+
+        @Override
+        public String query(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
+            deadlines.add(deadlineNanos);
+            return super.query(promptResult, feature, deadlineNanos);
+        }
+
+        @Override
+        public String query(List<LlmMessage> messages, LlmFeature feature, int repairAttempt,
+                            boolean expansionAttempted, List<String> expandedClasses,
+                            long deadlineNanos) {
+            deadlines.add(deadlineNanos);
+            return super.query(messages, feature, repairAttempt, expansionAttempted,
+                    expandedClasses, deadlineNanos);
+        }
+    }
+
     private static final class UnavailableTestLlmService extends LlmService {
         private UnavailableTestLlmService(LlmService.ChatLanguageModel model) {
             super(model,
@@ -1879,7 +2056,7 @@ class LlmPostProcessorTest {
         }
 
         @Override
-        public String query(PromptResult promptResult, LlmFeature feature) {
+        public String query(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
             throw new AssertionError("Unavailable service must be skipped before query");
         }
     }
@@ -1899,7 +2076,7 @@ class LlmPostProcessorTest {
         }
 
         @Override
-        public String query(PromptResult promptResult, LlmFeature feature) {
+        public String query(PromptResult promptResult, LlmFeature feature, long deadlineNanos) {
             throw new AssertionError("No-budget service must be skipped before query");
         }
     }

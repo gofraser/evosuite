@@ -91,6 +91,7 @@ public final class LlmPostProcessingPhaseContext {
             case "timeout":
             case "low_memory":
             case "budget_exhausted":
+            case "interrupted":
             case "infrastructure_failure":
             case "phase_failure":
                 return true;

@@ -47,6 +47,13 @@ final class LlmPostProcessingPhase {
         List<LlmPostProcessor.WorkItem> workItems = LlmPostProcessor.WorkItem.from(
                 tests, limitedIncompleteMinimization);
         for (int workIndex = 0; workIndex < workItems.size(); workIndex++) {
+            if (Thread.currentThread().isInterrupted()) {
+                logger.info("Unified LLM post-processing stopped before test {}: thread interrupted",
+                        workItems.get(workIndex).originalIndex);
+                stopReason = StopReason.INTERRUPTED;
+                metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
+                break;
+            }
             if (processor.isPhaseTimedOut(phaseContext)) {
                 stopReason = StopReason.TIMEOUT;
                 metrics.capSkippedTests += LlmPostProcessor.remainingItems(workItems, workIndex);
@@ -130,7 +137,8 @@ final class LlmPostProcessingPhase {
         MAX_CALLS("max_calls"),
         MAX_TOTAL_STATEMENTS("max_total_statements"),
         LOW_MEMORY("low_memory"),
-        BUDGET_EXHAUSTED("budget_exhausted");
+        BUDGET_EXHAUSTED("budget_exhausted"),
+        INTERRUPTED("interrupted");
 
         final String value;
 

@@ -26,6 +26,7 @@ import org.evosuite.assertion.SimpleMutationAssertionGenerator;
 import org.evosuite.assertion.Assertion;
 import org.evosuite.assertion.TemplateCodeAssertion;
 import org.evosuite.llm.LlmBudgetExceededException;
+import org.evosuite.llm.LlmCallFailedException;
 import org.evosuite.llm.LlmFeature;
 import org.evosuite.llm.LlmMessage;
 import org.evosuite.llm.LlmService;
@@ -43,6 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashSet;
@@ -51,6 +53,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Orchestrator for unified LLM post-processing. The unified phase runs after
@@ -236,6 +239,41 @@ public class LlmPostProcessor {
         return remainingMillis > callWindowMillis;
     }
 
+    /**
+     * Absolute {@link System#nanoTime()} deadline for LLM calls in this phase.
+     * {@link #canStartAnotherLlmCall} only guarantees one call window, while a
+     * query may retry and back off several times; the deadline keeps those
+     * retries inside the phase timeout.
+     */
+    long phaseDeadlineNanos(LlmPostProcessingPhaseContext phaseContext) {
+        int timeoutSeconds = phaseContext.options().phaseBudget().timeoutSeconds();
+        if (timeoutSeconds <= 0) {
+            return Long.MAX_VALUE;
+        }
+        long elapsedMillis = phaseContext.phaseClock().currentTimeMillis() - phaseContext.startMillis();
+        long remainingMillis = Math.max(0L, timeoutSeconds * 1000L - elapsedMillis);
+        return System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(remainingMillis);
+    }
+
+    /**
+     * Whether a failure means this thread was asked to stop. {@link LlmService}
+     * restores the interrupt flag before rethrowing, but a wrapped
+     * {@link InterruptedException} is also accepted and the flag is restored so
+     * callers still observe the interrupt.
+     */
+    static boolean isInterruption(Throwable failure) {
+        if (Thread.currentThread().isInterrupted()) {
+            return true;
+        }
+        for (Throwable cause = failure; cause != null; cause = cause.getCause()) {
+            if (cause instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+                return true;
+            }
+        }
+        return false;
+    }
+
     boolean isLowMemory(LlmPostProcessingPhaseContext phaseContext) {
         return resourceGuard.isLowMemory(phaseContext.options().minimumFreeMemoryBytes());
     }
@@ -244,7 +282,8 @@ public class LlmPostProcessor {
         return llmService != null && llmService.hasBudget();
     }
 
-    String queryWithPostProcessingTraceContext(PromptResult prompt, int testIndex,
+    String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,
+                                               PromptResult prompt, int testIndex,
                                                MinimizationResult minimizationResult,
                                                int repairAttempt) {
         LlmTraceRecorder.setPostProcessingTraceContext(
@@ -252,16 +291,20 @@ public class LlmPostProcessor {
                 minimizationResult.getUnderlyingStopCause().name(),
                 testIndex);
         try {
+            ensureNotInterrupted();
+            long deadlineNanos = phaseDeadlineNanos(phaseContext);
             if (repairAttempt <= 1) {
-                return llmService.query(prompt, LlmFeature.POST_PROCESSING);
+                return llmService.query(prompt, LlmFeature.POST_PROCESSING, deadlineNanos);
             }
-            return llmService.query(prompt.getMessages(), LlmFeature.POST_PROCESSING, repairAttempt);
+            return llmService.query(prompt.getMessages(), LlmFeature.POST_PROCESSING, repairAttempt,
+                    false, Collections.<String>emptyList(), deadlineNanos);
         } finally {
             LlmTraceRecorder.clearPostProcessingTraceContext();
         }
     }
 
-    String queryWithPostProcessingTraceContext(List<LlmMessage> messages, int testIndex,
+    String queryWithPostProcessingTraceContext(LlmPostProcessingPhaseContext phaseContext,
+                                               List<LlmMessage> messages, int testIndex,
                                                MinimizationResult minimizationResult,
                                                int repairAttempt) {
         LlmTraceRecorder.setPostProcessingTraceContext(
@@ -269,9 +312,22 @@ public class LlmPostProcessor {
                 minimizationResult.getUnderlyingStopCause().name(),
                 testIndex);
         try {
-            return llmService.query(messages, LlmFeature.POST_PROCESSING, repairAttempt);
+            ensureNotInterrupted();
+            return llmService.query(messages, LlmFeature.POST_PROCESSING, repairAttempt,
+                    false, Collections.<String>emptyList(), phaseDeadlineNanos(phaseContext));
         } finally {
             LlmTraceRecorder.clearPostProcessingTraceContext();
+        }
+    }
+
+    /**
+     * Fails before the service takes a budget permit: with the flag already
+     * set, the provider call would be cancelled as soon as it started.
+     */
+    private static void ensureNotInterrupted() {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new LlmCallFailedException("LLM query interrupted",
+                    new InterruptedException("post-processing thread interrupted"), false);
         }
     }
 
@@ -751,6 +807,7 @@ public class LlmPostProcessor {
                 context, rejected, options);
         try {
             String rawRepairResponse = queryWithPostProcessingTraceContext(
+                    phaseContext,
                     repairMessages,
                     testIndex,
                     minimizationResult,
@@ -780,6 +837,11 @@ public class LlmPostProcessor {
         } catch (LlmBudgetExceededException e) {
             throw e;
         } catch (RuntimeException e) {
+            if (isInterruption(e)) {
+                // Let the per-test processor stop the phase instead of
+                // applying and falling back on an interrupted thread.
+                throw e;
+            }
             logger.debug("Unified LLM post-processing assertion repair skipped after failure: {}",
                     e.getMessage());
             return AssertionRepairResult.called(acceptedResponse, rejected.size(),
