@@ -97,6 +97,7 @@ public class AsyncLlmTestProducer {
     private static final int CONFIRMED_EMPTY_SNAPSHOTS_BEFORE_STOP = 3;
     private static final int MIN_SNAPSHOT_RETRY_DELAY_MS = 10;
     private static final int MAX_SNAPSHOT_RETRY_DELAY_MS = 1000;
+    private static final long QUEUE_FULL_WAIT_MS = 100L;
 
     public enum StopReason {
         NONE,
@@ -191,6 +192,9 @@ public class AsyncLlmTestProducer {
         List<TestChromosome> tests = new ArrayList<>();
         synchronized (publicationLock) {
             testQueue.drainTo(tests);
+            if (!tests.isEmpty()) {
+                publicationLock.notifyAll();
+            }
         }
         return tests;
     }
@@ -295,7 +299,6 @@ public class AsyncLlmTestProducer {
             try {
                 List<TestChromosome> candidates = requestCandidates(prompt, repairLoop);
                 if (!candidates.isEmpty()) {
-                    boolean producedAny = false;
                     int published = 0;
                     for (TestChromosome chromosome : candidates) {
                         if (!cardTypes.isEmpty()) {
@@ -309,19 +312,12 @@ public class AsyncLlmTestProducer {
                                             : new ArrayList<>(cardTypes),
                                     attemptTargetGoals));
                         if (!publishedCandidate) {
-                            if (!running) {
-                                return;
-                            }
-                            // Bounded queue is full. Drop this candidate and let
-                            // the next producer iteration observe fresh goals.
-                            continue;
+                            // Publishing only fails once stop() has been requested.
+                            return;
                         }
-                        producedAny = true;
                         published++;
                     }
-                    if (!producedAny && repeatedInjectionMemory != null && !registration.isEmpty()) {
-                        repeatedInjectionMemory.recordAttemptOutcome(registration.getAttemptId(), 0);
-                    } else if (published > 0 && !cardTypes.isEmpty()) {
+                    if (!cardTypes.isEmpty()) {
                         LlmStatistics.recordDiagnosticCandidatesPublished(cardTypes, published);
                     }
                 } else if (repeatedInjectionMemory != null && !registration.isEmpty()) {
@@ -366,31 +362,47 @@ public class AsyncLlmTestProducer {
     /**
      * Publishes one candidate together with its attribution.  Holding the
      * same lock in drainAvailable() closes the otherwise observable interval
-     * between queue insertion and metadata insertion.  stop() changes
-     * running before interrupting this thread; the final check retracts a
-     * candidate that raced with that stop request before any consumer can see
-     * it.
+     * between queue insertion and metadata insertion.  When the queue is full
+     * the producer waits for the consumer instead of dropping the candidate,
+     * which also keeps it from issuing further LLM calls whose results would
+     * have nowhere to go.  stop() changes running before interrupting this
+     * thread; the final check retracts a candidate that raced with that stop
+     * request before any consumer can see it.
+     *
+     * @return false only once the producer is stopping
      */
     private boolean publishCandidate(TestChromosome chromosome,
                                      InjectionAttemptMetadata metadata) {
         synchronized (publicationLock) {
-            if (!running) {
-                return false;
-            }
-            attemptMetadataByCandidate.put(chromosome, metadata);
-            // Never block while holding publicationLock: drainAvailable() uses
-            // the same lock, so a blocking put into a full queue would prevent
-            // the only consumer from making space.
-            if (!testQueue.offer(chromosome)) {
+            while (running) {
+                attemptMetadataByCandidate.put(chromosome, metadata);
+                if (testQueue.offer(chromosome)) {
+                    if (running) {
+                        return true;
+                    }
+                    testQueue.remove(chromosome);
+                    attemptMetadataByCandidate.remove(chromosome);
+                    return false;
+                }
                 attemptMetadataByCandidate.remove(chromosome);
-                return false;
+                awaitQueueSpace();
             }
-            if (!running) {
-                testQueue.remove(chromosome);
-                attemptMetadataByCandidate.remove(chromosome);
-                return false;
-            }
-            return true;
+            return false;
+        }
+    }
+
+    /**
+     * Waits for drainAvailable() to make space.  wait() releases
+     * publicationLock, so the consumer is never blocked by a full queue; the
+     * timeout bounds how long a missed notification can delay a stop check.
+     */
+    private void awaitQueueSpace() {
+        try {
+            publicationLock.wait(QUEUE_FULL_WAIT_MS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            recordStopReason(StopReason.INTERRUPTED);
+            running = false;
         }
     }
 

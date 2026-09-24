@@ -30,6 +30,8 @@ import org.evosuite.testcase.execution.ExecutionResult;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -40,7 +42,9 @@ import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -161,6 +165,84 @@ class AsyncLlmTestProducerThreadSafetyTest {
             releaseRequest.countDown();
             producer.stop();
         }
+    }
+
+    @Test
+    void fullQueueWaitsForConsumerInsteadOfDroppingCandidates() throws Exception {
+        LlmService service = mock(LlmService.class);
+        when(service.isAvailable()).thenReturn(true);
+        when(service.hasBudget()).thenReturn(true);
+        List<TestChromosome> firstResponse = new ArrayList<>();
+        for (int i = 0; i < 5; i++) {
+            firstResponse.add(new TestChromosome());
+        }
+        AtomicInteger requests = new AtomicInteger();
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                () -> Collections.singleton(new FixedFitnessGoal("example.Target", "method()V", 1.0)),
+                null, service, 2, 1, 1) {
+            @Override
+            protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
+                return requests.getAndIncrement() == 0 ? firstResponse : Collections.emptyList();
+            }
+        };
+
+        try {
+            producer.start();
+            long deadline = System.currentTimeMillis() + 2000L;
+            while (requests.get() == 0 && System.currentTimeMillis() < deadline) {
+                Thread.sleep(10L);
+            }
+            // With the queue full and nobody draining, the producer must wait
+            // rather than drop candidates and issue further LLM requests.
+            Thread.sleep(300L);
+            assertEquals(1, requests.get(), "producer must not query the LLM while its queue is full");
+
+            List<TestChromosome> drained = new ArrayList<>();
+            deadline = System.currentTimeMillis() + 2000L;
+            while (drained.size() < firstResponse.size() && System.currentTimeMillis() < deadline) {
+                drained.addAll(producer.drainAvailable());
+                Thread.sleep(10L);
+            }
+            assertEquals(firstResponse.size(), drained.size(), "every candidate must reach the consumer");
+            for (int i = 0; i < firstResponse.size(); i++) {
+                assertSame(firstResponse.get(i), drained.get(i));
+                assertNotNull(producer.consumeAttemptMetadata(drained.get(i)));
+            }
+        } finally {
+            producer.stop();
+        }
+    }
+
+    @Test
+    void stopReleasesProducerWaitingOnFullQueue() throws Exception {
+        LlmService service = mock(LlmService.class);
+        when(service.isAvailable()).thenReturn(true);
+        when(service.hasBudget()).thenReturn(true);
+        CountDownLatch requestReturned = new CountDownLatch(1);
+        TestChromosome first = new TestChromosome();
+        TestChromosome blocked = new TestChromosome();
+        AsyncLlmTestProducer producer = new AsyncLlmTestProducer(
+                () -> Collections.singleton(new FixedFitnessGoal("example.Target", "method()V", 1.0)),
+                null, service, 1, 1, 0) {
+            @Override
+            protected List<TestChromosome> requestCandidates(PromptResult prompt, TestRepairLoop repairLoop) {
+                requestReturned.countDown();
+                return Arrays.asList(first, blocked);
+            }
+        };
+
+        producer.start();
+        assertTrue(requestReturned.await(1, TimeUnit.SECONDS));
+        Thread.sleep(100L);
+        long started = System.nanoTime();
+        producer.stop();
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started);
+
+        assertTrue(elapsedMs < 1000L, "stop() must not wait out its join timeout, took " + elapsedMs + " ms");
+        assertEquals(AsyncLlmTestProducer.StopReason.STOP_REQUESTED, producer.getStoppedReason());
+        List<TestChromosome> drained = producer.drainAvailable();
+        assertEquals(Collections.singletonList(first), drained);
+        assertNull(producer.consumeAttemptMetadata(blocked));
     }
 
     private static final class StubProducingAsyncLlmTestProducer extends AsyncLlmTestProducer {
