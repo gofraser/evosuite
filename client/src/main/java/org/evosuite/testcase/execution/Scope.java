@@ -20,6 +20,8 @@
 package org.evosuite.testcase.execution;
 
 import org.evosuite.setup.TestUsageChecker;
+import org.evosuite.testcase.TestCase;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.UninterpretedStatement;
 import org.evosuite.testcase.variable.ArrayReference;
@@ -114,7 +116,7 @@ public class Scope {
                 if (Proxy.isProxyClass(o.getClass())) {
                     Class<?> inferredType = o.getClass().getSuperclass();
                     if (declaredType == null || declaredType.isAssignableFrom(inferredType)) {
-                        reference.setType(inferredType);
+                        retypeIfCalleesAllow(reference, inferredType);
                     }
                 } else if (o.getClass().getName().contains("EnhancerByMockito") || o.getClass().getName().contains("MockitoMock") || org.mockito.Mockito.mockingDetails(o).isMock()) {
                     /*
@@ -140,20 +142,51 @@ public class Scope {
                         // as the declared raw class, because the declared type might have
                         // generic parameters (e.g. Foo<Integer>) while target is always raw (Foo.class).
                         if (declaredType == null || !declaredType.equals(target)) {
-                            reference.setType(target);
+                            retypeIfCalleesAllow(reference, target);
                         }
                     }
 
                 } else {
                     if (declaredType == null || declaredType.isAssignableFrom(o.getClass())) {
                         if (declaredType == null || !declaredType.equals(o.getClass())) {
-                            reference.setType(o.getClass());
+                            retypeIfCalleesAllow(reference, o.getClass());
                         }
                     }
                 }
             }
         }
         pool.put(reference, o);
+    }
+
+    /**
+     * Narrows the static type of a variable to its runtime class, unless a later call uses the
+     * variable as the receiver of a method the narrowed type cannot receive. A variable typed as a
+     * supertype of the method's declaring class is an admissible receiver (the call downcasts it
+     * and fails at runtime if the object is of another subclass), but narrowing it to that other,
+     * sibling subclass would leave a statement that no longer passes the receiver check when the
+     * test is copied -- which aborted a search on SF110's OAIVerb hierarchy.
+     */
+    private void retypeIfCalleesAllow(VariableReference reference, Class<?> newType) {
+        TestCase test = reference.getTestCase();
+        if (test != null) {
+            int position;
+            try {
+                position = reference.getStPosition();
+            } catch (AssertionError | RuntimeException e) {
+                position = -1;
+            }
+            for (int i = position + 1; i < test.size(); i++) {
+                Statement statement = test.getStatement(i);
+                if (statement instanceof MethodStatement) {
+                    MethodStatement call = (MethodStatement) statement;
+                    if (!call.isStatic() && reference.equals(call.getCallee())
+                            && !MethodStatement.isCompatibleCalleeType(call.getMethod(), newType)) {
+                        return;
+                    }
+                }
+            }
+        }
+        reference.setType(newType);
     }
 
     private boolean shouldKeepDeclaredType(VariableReference reference) {
