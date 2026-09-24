@@ -1490,9 +1490,15 @@ public class TestSuiteGenerator {
          */
         long delta = java.lang.System.currentTimeMillis() - start;
 
+        // What running the whole suite once costs; the per-test total is an upper bound
+        // until the whole-suite check has actually been timed.
+        long suiteRunMs = delta;
         if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()
-                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the whole-suite JUnit check", 0)) {
-            numUnstable += checkAllTestsIfTime(testCases, delta);
+                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the whole-suite JUnit check", 0)
+                && hasTimeForWholeSuiteCheck(delta)) {
+            long suiteCheckStart = java.lang.System.currentTimeMillis();
+            numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
+            suiteRunMs = Math.min(suiteRunMs, java.lang.System.currentTimeMillis() - suiteCheckStart);
         }
 
         // second passage on reverse order, this is to spot dependencies among
@@ -1512,7 +1518,7 @@ public class TestSuiteGenerator {
         chromosome.setExtensionInitializationOrder(
                 isMemoryExhaustedForJUnitCheck(memoryGuard, "the order-sensitivity analysis", 0)
                         ? Collections.<String>emptyList()
-                        : resolveExtensionInitializationOrderIfNeeded(testCases, delta));
+                        : resolveExtensionInitializationOrderIfNeeded(testCases, delta, suiteRunMs));
 
         chromosome.clearTests(); // remove all tests
         for (TestCase testCase : testCases) {
@@ -1560,14 +1566,19 @@ public class TestSuiteGenerator {
     }
 
     private static int checkAllTestsIfTime(List<TestCase> testCases, long delta) {
-        if (TimeController.getInstance().hasTimeToExecuteATestCase()
-                && TimeController.getInstance().isThereStillTimeInThisPhase(delta)) {
+        if (hasTimeForWholeSuiteCheck(delta)) {
             return JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
         }
         return 0;
     }
 
-    private static List<String> resolveExtensionInitializationOrderIfNeeded(List<TestCase> testCases, long delta) {
+    private static boolean hasTimeForWholeSuiteCheck(long delta) {
+        return TimeController.getInstance().hasTimeToExecuteATestCase()
+                && TimeController.getInstance().isThereStillTimeInThisPhase(delta);
+    }
+
+    private static List<String> resolveExtensionInitializationOrderIfNeeded(List<TestCase> testCases, long delta,
+                                                                            long suiteRunMs) {
         if (Properties.TEST_FORMAT != Properties.OutputFormat.JUNIT5
                 || !Properties.TEST_EXTENSION_MODE
                 || !Properties.RESET_STATIC_FIELDS
@@ -1591,6 +1602,11 @@ public class TestSuiteGenerator {
             return preloadOrder;
         }
 
+        if (!hasTimeForOrderSensitivityAnalysis(suiteRunMs)) {
+            logger.warn("Skipping order-sensitivity analysis: less than twice its expected cost of {} ms "
+                    + "left in the JUnit check phase", orderSensitivityAnalysisCostMs(suiteRunMs));
+            return Collections.emptyList();
+        }
         JUnitAnalyzer.OrderSensitivityAnalysis analysis = JUnitAnalyzer.analyzeOrderSensitivity(testCases);
         if (!analysis.isOrderSensitive()) {
             return Collections.emptyList();
@@ -1612,6 +1628,23 @@ public class TestSuiteGenerator {
                 analysis.getReverseFailures(),
                 explicitOrder.size());
         return explicitOrder;
+    }
+
+    /**
+     * The order-sensitivity analysis compiles and runs the whole suite twice, forward and in
+     * reverse.
+     */
+    static long orderSensitivityAnalysisCostMs(long suiteRunMs) {
+        return 2L * Math.max(0L, suiteRunMs);
+    }
+
+    /**
+     * Returns whether the current phase has at least twice the expected cost of the
+     * order-sensitivity analysis left, so that starting it does not run the phase over time.
+     */
+    static boolean hasTimeForOrderSensitivityAnalysis(long suiteRunMs) {
+        return TimeController.getInstance().isThereStillTimeInThisPhase(
+                2L * orderSensitivityAnalysisCostMs(suiteRunMs));
     }
 
     private static List<String> buildExtensionInitializationOrder(List<String> observedInitializationOrder) {

@@ -405,6 +405,17 @@ public class JUnitAnalyzerTest {
     }
 
     @Test
+    public void testWatchdogBudgetIsBoundedByTheRemainingPhaseTime() {
+        long configured = 1_200_000L;
+        Assertions.assertEquals(configured, JUnitAnalyzer.computeWatchdogBudgetMs(configured, Long.MAX_VALUE));
+        Assertions.assertEquals(configured, JUnitAnalyzer.computeWatchdogBudgetMs(configured, 2_000_000L));
+        Assertions.assertEquals(45_000L, JUnitAnalyzer.computeWatchdogBudgetMs(configured, 45_000L));
+        // A phase that is over still leaves the check a short budget rather than none.
+        Assertions.assertEquals(JUnitAnalyzer.MIN_WATCHDOG_BUDGET_MS,
+                JUnitAnalyzer.computeWatchdogBudgetMs(configured, 0L));
+    }
+
+    @Test
     public void testJUnitChecksDoNotAccumulateClassLoadersInPools() throws Exception {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT4;
         Properties.TEST_SCAFFOLDING = false;

@@ -699,7 +699,8 @@ public abstract class JUnitAnalyzer {
         // happens). We give the runner the configured budget, then a grace
         // window after interrupt, and finally synthesize an all-failed result
         // and walk away from the orphan thread.
-        long budgetMs = 1000L * Math.max(1, Properties.JUNIT_CHECK_TIMEOUT);
+        long budgetMs = computeWatchdogBudgetMs(1000L * Math.max(1, Properties.JUNIT_CHECK_TIMEOUT),
+                remainingTimeInPhaseMs());
         long graceMs = 30_000L;
         // Register the runner thread as privileged at thread creation, not
         // post-hoc. The body calls Sandbox.resetDefaultSecurityManager() (and
@@ -810,6 +811,34 @@ public abstract class JUnitAnalyzer {
             if (!wasLoopCheckOn) {
                 LoopCounter.getInstance().setActive(false);
             }
+        }
+    }
+
+    /** Shortest watchdog budget a check gets, even when its phase is (nearly) over. */
+    static final long MIN_WATCHDOG_BUDGET_MS = 1_000L;
+
+    /**
+     * Returns how long the watchdog lets a single JUnit run take: the configured JUnit check
+     * timeout, but never more than what is left of the current phase. Each call used to get
+     * the full configured timeout (20 minutes by default) however little of the phase was
+     * left, so a slow check could overrun the phase, and the whole run, by that much.
+     *
+     * @param configuredMs     the configured JUnit check timeout
+     * @param remainingPhaseMs time left in the current phase, or {@link Long#MAX_VALUE} if unknown
+     * @return the watchdog budget in milliseconds
+     */
+    static long computeWatchdogBudgetMs(long configuredMs, long remainingPhaseMs) {
+        long budget = Math.min(configuredMs, Math.max(0L, remainingPhaseMs));
+        return Math.max(MIN_WATCHDOG_BUDGET_MS, budget);
+    }
+
+    private static long remainingTimeInPhaseMs() {
+        try {
+            return TimeController.getInstance().getRemainingTimeInPhaseMs();
+        } catch (RuntimeException e) {
+            // No usable phase information: fall back to the configured timeout.
+            logger.debug("Cannot determine the time left in the current phase", e);
+            return Long.MAX_VALUE;
         }
     }
 
