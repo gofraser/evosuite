@@ -821,7 +821,7 @@ class TestRepairLoopTest {
     }
 
     @Test
-    void keepAssertionPolicySkipsAssertionStrippingSalvage() {
+    void keepAssertionPolicyCannotSalvageTestFailingAtFirstStatement() {
         LlmService llmService = mock(LlmService.class);
         ClusterExpansionManager expansionManager = mock(ClusterExpansionManager.class);
         TestParser parser = new TestParser(getClass().getClassLoader()) {
@@ -855,7 +855,7 @@ class TestRepairLoopTest {
 
         assertFalse(result.isSuccess());
         assertTrue(result.getDiagnostics().stream().anyMatch(
-                d -> d.contains("Skipped assertion-stripping brute-force salvage")));
+                d -> d.contains("Salvaged 0 of 1 failing candidate test(s)")));
     }
 
     @Test

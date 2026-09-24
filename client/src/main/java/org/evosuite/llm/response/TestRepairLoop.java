@@ -66,6 +66,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -480,6 +481,11 @@ public class TestRepairLoop {
         expansionAttempted = false;
         boolean observedExecutionDrop = false;
         boolean strictContractReaskUsed = false;
+        // Candidates that failed at execution in any attempt. The LLM often
+        // rewrites or deletes a failing test in a later turn, so salvage must
+        // not be limited to the final attempt's failures.
+        Map<String, ParseResult> executionDropsForSalvage = new LinkedHashMap<>();
+        boolean salvageAttempted = false;
         String previousError = null;
 
         // Accumulate the full conversation so repair requests include prior turns
@@ -681,6 +687,7 @@ public class TestRepairLoop {
                     droppedAtExecution.add(pr);
                     executionErrorByTest.put(pr, failure);
                     diagnostics.add(failure.errorMessage);
+                    executionDropsForSalvage.putIfAbsent(buildSalvageDedupKey(pr), pr);
                 }
             }
 
@@ -712,28 +719,10 @@ public class TestRepairLoop {
                     conversation, currentResponse, feature, expandedClasses,
                     executionErrorByTest, repairDeadlineNanos);
             if (next == null) {
-                if (repairOptions.isKeepAssertionsInParsedTests()) {
-                    diagnostics.add("Skipped assertion-stripping brute-force salvage "
-                            + "because assertions must be preserved.");
-                } else {
-                    // Final-resort salvage is only valid for integrations whose
-                    // policy explicitly permits assertions to be removed.
-                    List<ParseResult> allFailedTests = new ArrayList<>(droppedAtParse);
-                    allFailedTests.addAll(droppedAtExecution);
-                    for (ParseResult pr : allFailedTests) {
-                        Optional<TestCase> salvaged = performBruteForceSalvage(pr.getTestCase());
-                        if (salvaged.isPresent()) {
-                            ParseResult salvagedResult = new ParseResult(salvaged.get(),
-                                                                         pr.getOriginalMethodName(),
-                                                                         pr.getDiagnostics());
-                            publishSalvagedTests(
-                                    mergeSalvagedTests(salvagedExecutableTests,
-                                            Collections.singletonList(salvagedResult)),
-                                    salvagedTestsConsumer);
-                        }
-                    }
-                }
-
+                salvageFailedCandidates(droppedAtParse, executionDropsForSalvage.values(),
+                        diagnostics, salvagedExecutableTests, salvagedTestsConsumer,
+                        repairDeadlineNanos);
+                salvageAttempted = true;
                 if (!salvagedExecutableTests.isEmpty()) {
                     return RepairResult.success(new ArrayList<>(salvagedExecutableTests.values()),
                             diagnostics, attemptsUsed, expandedClasses);
@@ -744,6 +733,13 @@ public class TestRepairLoop {
             currentResponse = next;
         }
 
+        if (!salvageAttempted && !executionDropsForSalvage.isEmpty()) {
+            // The loop ended on a parse failure after earlier attempts had
+            // produced executable-but-failing candidates.
+            salvageFailedCandidates(Collections.<ParseResult>emptyList(),
+                    executionDropsForSalvage.values(), diagnostics, salvagedExecutableTests,
+                    salvagedTestsConsumer, repairDeadlineNanos);
+        }
         if (!salvagedExecutableTests.isEmpty()) {
             diagnostics.add("Returned partial success from previously executable tests.");
             return RepairResult.success(new ArrayList<>(salvagedExecutableTests.values()),
@@ -909,6 +905,209 @@ public class TestRepairLoop {
         logger.warn("Dropping {} due to {} unsafe-to-copy statement(s); details: {}",
                 context, issues.size(), issues);
         return true;
+    }
+
+    /**
+     * Final-resort salvage once no further repair turn is possible. Under the
+     * assertion-dropping policy every failed candidate is stripped of its
+     * assertions and truncated at the failure site. Under the
+     * assertion-preserving policy only candidates that failed at execution are
+     * considered (they passed the compile gate), and only the assertions that
+     * do not hold are removed; see {@link #performAssertionPreservingSalvage}.
+     * Candidates whose method already survived as an executable test in a
+     * later attempt are skipped, since the LLM repaired them.
+     */
+    private void salvageFailedCandidates(List<ParseResult> droppedAtParse,
+                                         Collection<ParseResult> droppedAtExecution,
+                                         List<String> diagnostics,
+                                         Map<String, ParseResult> salvagedExecutableTests,
+                                         Consumer<List<ParseResult>> salvagedTestsConsumer,
+                                         long repairDeadlineNanos) {
+        boolean keepAssertions = repairOptions.isKeepAssertionsInParsedTests();
+        List<ParseResult> candidates = new ArrayList<>();
+        if (!keepAssertions && droppedAtParse != null) {
+            candidates.addAll(droppedAtParse);
+        }
+        Set<String> executableMethodNames = new HashSet<>();
+        for (ParseResult kept : salvagedExecutableTests.values()) {
+            executableMethodNames.add(safeMethodName(kept));
+        }
+        for (ParseResult pr : droppedAtExecution) {
+            if (!executableMethodNames.contains(safeMethodName(pr))) {
+                candidates.add(pr);
+            }
+        }
+        int salvagedCount = 0;
+        for (ParseResult pr : candidates) {
+            if (isSalvageDeadlineReached(repairDeadlineNanos)) {
+                diagnostics.add("Stopped salvage early: repair deadline reached.");
+                break;
+            }
+            Optional<TestCase> salvaged = keepAssertions
+                    ? performAssertionPreservingSalvage(pr)
+                    : performBruteForceSalvage(pr.getTestCase());
+            if (!salvaged.isPresent()) {
+                continue;
+            }
+            ParseResult salvagedResult = new ParseResult(salvaged.get(),
+                                                         pr.getOriginalMethodName(),
+                                                         pr.getDiagnostics());
+            List<ParseResult> accepted = mergeSalvagedTests(salvagedExecutableTests,
+                    Collections.singletonList(salvagedResult));
+            salvagedCount += accepted.size();
+            publishSalvagedTests(accepted, salvagedTestsConsumer);
+        }
+        if (!candidates.isEmpty()) {
+            diagnostics.add("Salvaged " + salvagedCount + " of " + candidates.size()
+                    + " failing candidate test(s)"
+                    + (keepAssertions ? " by removing only failing assertions or truncating at the failure."
+                                      : " by removing assertions or truncating at the failure."));
+        }
+    }
+
+    private static boolean isSalvageDeadlineReached(long repairDeadlineNanos) {
+        if (Thread.currentThread().isInterrupted()) {
+            return true;
+        }
+        if (repairDeadlineNanos == NO_REPAIR_DEADLINE || repairDeadlineNanos <= 0L) {
+            return false;
+        }
+        return System.nanoTime() >= repairDeadlineNanos - REPAIR_DEADLINE_RETURN_MARGIN_NANOS;
+    }
+
+    /**
+     * Salvage that keeps the LLM's oracles wherever they hold. The candidate
+     * is re-executed repeatedly:
+     * <ul>
+     *   <li>an assertion-only snippet that throws is removed;</li>
+     *   <li>an undeclared exception at a direct SUT call keeps the test as a
+     *       covering throw: everything after the call is removed, together
+     *       with the call's own assertions;</li>
+     *   <li>any other undeclared exception truncates the test before the
+     *       failing statement;</li>
+     *   <li>once nothing throws, only the attached assertions that do not
+     *       hold are removed.</li>
+     * </ul>
+     */
+    private Optional<TestCase> performAssertionPreservingSalvage(ParseResult failed) {
+        TestCase original = failed == null ? null : failed.getTestCase();
+        if (original == null || hasOrphanedVariableReferences(original,
+                "salvage candidate test " + original.getID())) {
+            return Optional.empty();
+        }
+        TestCase salvaged = original.clone();
+        int maxRounds = salvaged.size() + 1;
+        for (int round = 0; round < maxRounds && salvaged.size() > 0; round++) {
+            ExecutionResult result;
+            try {
+                result = testExecutor.execute(salvaged);
+            } catch (Throwable executionFailure) {
+                logger.debug("Salvage execution failed for test {}", original.getID(), executionFailure);
+                return Optional.empty();
+            }
+            if (result == null) {
+                return Optional.empty();
+            }
+            Integer failIndex = firstUndeclaredExceptionPosition(failed, salvaged, result);
+            if (failIndex == null) {
+                int removed = removeFailingAssertions(salvaged, result, salvaged.size());
+                return acceptAssertionPreservingSalvage(salvaged, original,
+                        removed == 0 ? "unchanged" : "removing " + removed + " failing assertion(s)");
+            }
+            if (failIndex < 0 || failIndex >= salvaged.size()) {
+                return Optional.empty();
+            }
+            org.evosuite.testcase.statements.Statement failStmt = salvaged.getStatement(failIndex);
+            if (failStmt instanceof org.evosuite.testcase.statements.UninterpretedStatement
+                    && LlmAssertionSanitizer.isAssertionOnlySnippet(
+                            ((org.evosuite.testcase.statements.UninterpretedStatement) failStmt)
+                                    .getSourceCode())) {
+                salvaged.remove(failIndex);
+                continue;
+            }
+            if (isSutCallStatement(failStmt)) {
+                if (salvaged.size() > failIndex + 1) {
+                    salvaged.chop(failIndex + 1);
+                }
+                failStmt.removeAssertions();
+                removeFailingAssertions(salvaged, result, failIndex);
+                return acceptAssertionPreservingSalvage(salvaged, original,
+                        "keeping a covering throw at SUT call (index " + failIndex + ")");
+            }
+            if (failIndex == 0) {
+                break;
+            }
+            salvaged.chop(failIndex);
+        }
+        logger.warn("Failed to salvage test case: {}", original.getID());
+        return Optional.empty();
+    }
+
+    private Optional<TestCase> acceptAssertionPreservingSalvage(TestCase salvaged,
+                                                                TestCase original,
+                                                                String how) {
+        if (!isMeaningful(salvaged)) {
+            logger.warn("Discarded salvaged test {} as it is not meaningful.", original.getID());
+            return Optional.empty();
+        }
+        if (hasUnsafelyCopyableStatements(salvaged, "salvaged test " + original.getID())) {
+            return Optional.empty();
+        }
+        logger.warn("Salvaged test {} with assertions preserved ({}).", original.getID(), how);
+        return Optional.of(salvaged);
+    }
+
+    /**
+     * Position of the first exception that {@link #checkExecution} would treat
+     * as a failure, or null when the execution is clean.
+     */
+    private Integer firstUndeclaredExceptionPosition(ParseResult origin,
+                                                     TestCase testCase,
+                                                     ExecutionResult result) {
+        List<Integer> positions = new ArrayList<>(result.getPositionsWhereExceptionsWereThrown());
+        Collections.sort(positions);
+        for (Integer position : positions) {
+            Throwable thrown = result.getExceptionThrownAtPosition(position);
+            if (!isUndeclaredException(testCase, origin.getExpectedExceptionClass(), position, thrown)) {
+                continue;
+            }
+            if (!repairOptions.isRepairOnAssertionFailures() && thrown instanceof AssertionError) {
+                continue;
+            }
+            return position;
+        }
+        return null;
+    }
+
+    /**
+     * Removes the attached assertions of statements before {@code limit} that
+     * do not hold (or cannot be evaluated) on the final scope of
+     * {@code result}. Returns the number of removed assertions.
+     */
+    private int removeFailingAssertions(TestCase testCase, ExecutionResult result, int limit) {
+        if (result.getFinalScope() == null) {
+            return 0;
+        }
+        int removed = 0;
+        for (int i = 0; i < Math.min(limit, testCase.size()); i++) {
+            org.evosuite.testcase.statements.Statement stmt = testCase.getStatement(i);
+            if (stmt == null || stmt.getAssertions() == null || stmt.getAssertions().isEmpty()) {
+                continue;
+            }
+            for (Assertion assertion : new ArrayList<>(stmt.getAssertions())) {
+                boolean holds;
+                try {
+                    holds = assertion != null && assertion.evaluate(result.getFinalScope());
+                } catch (Throwable evaluationFailure) {
+                    holds = false;
+                }
+                if (!holds) {
+                    stmt.removeAssertion(assertion);
+                    removed++;
+                }
+            }
+        }
+        return removed;
     }
 
     private Optional<TestCase> performBruteForceSalvage(TestCase failedTestCase) {
@@ -1375,10 +1574,19 @@ public class TestRepairLoop {
     }
 
     private boolean isUndeclaredException(ParseResult parseResult, Integer position, Throwable thrown) {
-        if (parseResult == null || parseResult.getTestCase() == null || position == null || thrown == null) {
+        if (parseResult == null) {
             return false;
         }
-        if (matchesExpectedException(parseResult, thrown)) {
+        return isUndeclaredException(parseResult.getTestCase(), parseResult.getExpectedExceptionClass(),
+                position, thrown);
+    }
+
+    private boolean isUndeclaredException(TestCase testCase, String expectedExceptionClass,
+                                          Integer position, Throwable thrown) {
+        if (testCase == null || position == null || thrown == null) {
+            return false;
+        }
+        if (matchesExpectedException(expectedExceptionClass, thrown)) {
             return false;
         }
         // Exceptions raised by the EvoSuite mock runtime (shaded.org.evosuite.runtime.mock.*)
@@ -1388,12 +1596,12 @@ public class TestRepairLoop {
         if (isShadedRuntimeMockException(thrown)) {
             return false;
         }
-        if (position < 0 || position >= parseResult.getTestCase().size()) {
+        if (position < 0 || position >= testCase.size()) {
             // If execution reports an exception at an invalid position, treat it as undeclared.
             // Silently ignoring it can incorrectly mark a failing candidate as successful.
             return true;
         }
-        return !parseResult.getTestCase().getStatement(position)
+        return !testCase.getStatement(position)
                 .getDeclaredExceptions().contains(thrown.getClass());
     }
 
@@ -1427,11 +1635,10 @@ public class TestRepairLoop {
         return error != null && error.contains(SHADED_MOCK_RUNTIME_PACKAGE_PREFIX);
     }
 
-    private boolean matchesExpectedException(ParseResult parseResult, Throwable thrown) {
-        if (parseResult == null || thrown == null) {
+    private boolean matchesExpectedException(String expected, Throwable thrown) {
+        if (thrown == null) {
             return false;
         }
-        String expected = parseResult.getExpectedExceptionClass();
         if (expected == null || expected.trim().isEmpty()) {
             return false;
         }
