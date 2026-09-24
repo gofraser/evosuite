@@ -761,7 +761,7 @@ public class TestRepairLoop {
             logger.warn("LLM seeding for {} dropped every candidate at execution after {} attempt(s)",
                     Properties.TARGET_CLASS, attemptsUsed);
         }
-        return RepairResult.failure(diagnostics, attemptsUsed, expandedClasses);
+        return RepairResult.failure(diagnostics, attemptsUsed, expandedClasses, observedExecutionDrop);
     }
 
     private List<ParseResult> mergeSalvagedTests(Map<String, ParseResult> salvaged, List<ParseResult> newResults) {

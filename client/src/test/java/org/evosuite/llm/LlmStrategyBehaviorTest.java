@@ -271,6 +271,46 @@ class LlmStrategyBehaviorTest {
         }
     }
 
+    @Test
+    void roundsDroppedAtExecutionRestartInsteadOfStoppingEarly() {
+        Properties.LLM_STRATEGY_MODE = Properties.LlmStrategyMode.ITERATIVE_BUDGETED;
+        int originalLimit = Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT;
+        Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT = 2;
+
+        MockChatLanguageModel model = new MockChatLanguageModel();
+        for (int i = 0; i < 30; i++) {
+            model.enqueue(LlmFeature.ITERATIVE_STRATEGY, SIMPLE_JUNIT_RESPONSE);
+        }
+        LlmService service = createService(model, 30);
+        int[] attempts = {0};
+        TestRepairLoop droppingLoop = new TestRepairLoop(service,
+                new TestParser(getClass().getClassLoader()), new LlmResponseParser(),
+                new ClusterExpansionManager(), testCase -> null, 0) {
+            @Override
+            public RepairResult attemptParse(String llmResponse, List<LlmMessage> conversationHistory,
+                                             LlmFeature feature, long repairDeadlineNanos) {
+                attempts[0]++;
+                return RepairResult.failure(Arrays.asList(
+                        "Applied wrapper normalization (block #1): wrapper-normalized",
+                        "Execution error in test 'test0': java.lang.IllegalStateException - boom"),
+                        1, Collections.<String>emptyList(), true);
+            }
+        };
+
+        LlmStrategy strategy = createTestableIterativeStrategyWithGenLimit(service, 50, droppingLoop);
+        try {
+            strategy.generateTests();
+            // Initial round plus follow-ups: each streak of two failed rounds
+            // restarts the conversation, up to the restart bound, before stopping.
+            int expected = 2 * (3 + 1); // three restarts allowed in a row
+            assertEquals(expected, attempts[0]);
+            assertTrue(service.hasBudget());
+        } finally {
+            Properties.LLM_STRATEGY_PARSE_FAIL_LIMIT = originalLimit;
+            service.close();
+        }
+    }
+
     // ----------------------------------------------------------------
     // 3. Follow-up prompts target uncovered goals
     // ----------------------------------------------------------------
@@ -727,6 +767,11 @@ class LlmStrategyBehaviorTest {
      */
     private LlmStrategy createTestableIterativeStrategyWithGenLimit(
             LlmService service, int generationLimit) {
+        return createTestableIterativeStrategyWithGenLimit(service, generationLimit, null);
+    }
+
+    private LlmStrategy createTestableIterativeStrategyWithGenLimit(
+            LlmService service, int generationLimit, TestRepairLoop repairLoop) {
         Properties.LLM_STRATEGY_MODE = Properties.LlmStrategyMode.ITERATIVE_BUDGETED;
 
         // Create a fake goal that is never covered
@@ -815,6 +860,12 @@ class LlmStrategyBehaviorTest {
                         new MaxGenerationStoppingCondition<>();
                 sc.setLimit(generationLimit);
                 return sc;
+            }
+
+            @Override
+            protected TestRepairLoop createRepairLoop(LlmService llmService,
+                                                      TestRepairLoop.RepairOptions options) {
+                return repairLoop != null ? repairLoop : super.createRepairLoop(llmService, options);
             }
         };
     }
