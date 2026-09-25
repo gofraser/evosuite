@@ -1066,27 +1066,27 @@ public final class MockHeadlessSwing {
     }
 
     /**
-     * Replacement for {@code Cursor.getDefaultCursor()}.
+     * Replacement for {@code Cursor.getDefaultCursor()}. A predefined cursor is a description, not
+     * a native resource, so a headless JVM builds one happily; only
+     * {@link #replacement_getSystemCustomCursor(String)} needs the display. Returning null here
+     * starved every SUT that asks for a cursor and then uses it - squirrel-sql's CursorChanger does
+     * {@code if (newCursor == null) throw new IllegalArgumentException("null Cursor passed")},
+     * which made 12 action classes unable to run actionPerformed at all.
      *
-     * @return default cursor or null in headless mode when mocking is enabled
+     * @return the default cursor
      */
     public static Cursor replacement_getDefaultCursor() {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
         return Cursor.getDefaultCursor();
     }
 
     /**
-     * Replacement for {@code Cursor.getPredefinedCursor(int)}.
+     * Replacement for {@code Cursor.getPredefinedCursor(int)}. Works headless; see
+     * {@link #replacement_getDefaultCursor()}.
      *
      * @param type predefined cursor type
-     * @return predefined cursor or null in headless mode when mocking is enabled
+     * @return the predefined cursor
      */
     public static Cursor replacement_getPredefinedCursor(int type) {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
         return Cursor.getPredefinedCursor(type);
     }
 
@@ -1105,15 +1105,13 @@ public final class MockHeadlessSwing {
     }
 
     /**
-     * Replacement for {@code new Cursor(int)}.
+     * Replacement for {@code new Cursor(int)}. Works headless; see
+     * {@link #replacement_getDefaultCursor()}.
      *
      * @param type predefined cursor type
-     * @return a cursor instance or null in headless mode when mocking is enabled
+     * @return a cursor instance
      */
     public static Cursor replacement_newCursor(int type) {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
         return new Cursor(type);
     }
 

@@ -40,12 +40,30 @@ public class MockHeadlessSwingCursorTest {
         MockFramework.disable();
     }
 
+    /**
+     * Only a system custom cursor needs the display. Handing back null for the others made any SUT
+     * that uses the cursor it just asked for fail: squirrel-sql's CursorChanger rejects a null
+     * cursor outright, so 12 action classes never reached actionPerformed on any seed of the SF110
+     * replication.
+     */
     @Test
-    public void cursorStaticFactoriesReturnNullWhenHeadlessAndMockingEnabled() throws Exception {
+    public void cursorFactoriesThatWorkHeadlessAreNotMockedAway() {
+        // Left unguarded on purpose: the contract is now "always a real cursor", which holds in
+        // both modes. Note this only FAILS on a headless JVM, because that is the only place the
+        // old code returned null - on a machine with a display it passes either way. Run it with
+        // -Djava.awt.headless=true to exercise the regression.
+        Assertions.assertEquals(java.awt.Cursor.DEFAULT_CURSOR,
+                MockHeadlessSwing.replacement_getDefaultCursor().getType());
+        Assertions.assertEquals(java.awt.Cursor.HAND_CURSOR,
+                MockHeadlessSwing.replacement_getPredefinedCursor(java.awt.Cursor.HAND_CURSOR).getType());
+        Assertions.assertEquals(java.awt.Cursor.HAND_CURSOR,
+                MockHeadlessSwing.replacement_newCursor(java.awt.Cursor.HAND_CURSOR).getType());
+    }
+
+    @Test
+    public void aSystemCustomCursorIsStillMockedAway() throws Exception {
+        // This one really does need the display: the JDK throws HeadlessException.
         Assumptions.assumeTrue(GraphicsEnvironment.isHeadless());
-        Assertions.assertNull(MockHeadlessSwing.replacement_getDefaultCursor());
-        Assertions.assertNull(MockHeadlessSwing.replacement_getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
         Assertions.assertNull(MockHeadlessSwing.replacement_getSystemCustomCursor("copy"));
-        Assertions.assertNull(MockHeadlessSwing.replacement_newCursor(java.awt.Cursor.HAND_CURSOR));
     }
 }
