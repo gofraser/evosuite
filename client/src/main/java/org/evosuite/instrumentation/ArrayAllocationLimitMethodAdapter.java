@@ -42,7 +42,7 @@ import java.util.Map;
 public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
 
     /**
-     * Whether the array-size guard is emitted for this class at all.
+     * Whether the per-allocation array-size guard is emitted for this class.
      *
      * <p>{@code array_limit} bounds the array sizes a <em>test</em> can ask for, so it only makes
      * sense where the size can come from a test input: the classes under analysis. Third-party
@@ -51,8 +51,11 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      * limit -- and rejecting that is a false positive that kills every call into the library.
      * EvoSuite 1.2.0 chained this adapter from {@code ExecutionPathClassAdapter} only, i.e. it
      * had exactly this scope; it was later also chained from {@code NonTargetClassAdapter}.
+     *
+     * <p>The cumulative budget deliberately does <em>not</em> share this scope: see
+     * {@link #emitCumulativeBudgetCheck()}.
      */
-    private final boolean enabled;
+    private final boolean sizeGuardEnabled;
 
     /**
      * <p>Constructor for ArrayAllocationLimitMethodAdapter.</p>
@@ -66,7 +69,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     public ArrayAllocationLimitMethodAdapter(MethodVisitor mv, String className,
                                              String methodName, int access, String desc) {
         super(Opcodes.ASM9, mv, access, methodName, desc);
-        this.enabled = appliesTo(className);
+        this.sizeGuardEnabled = appliesTo(className);
     }
 
     private static boolean appliesTo(String className) {
@@ -115,16 +118,17 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      */
     @Override
     public void visitIntInsn(int opcode, int operand) {
-        if (enabled && opcode == Opcodes.NEWARRAY) {
-            Label origTarget = new Label();
-            visitInsn(Opcodes.DUP);
-            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
-                    "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
-            throwAllocationRejected("Array allocation exceeds the configured array_limit");
-            super.visitLabel(origTarget);
+        if (opcode == Opcodes.NEWARRAY) {
+            if (sizeGuardEnabled) {
+                Label origTarget = new Label();
+                visitInsn(Opcodes.DUP);
+                visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
+                        "ARRAY_LIMIT", "I");
+                super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
+                throwAllocationRejected("Array allocation exceeds the configured array_limit");
+                super.visitLabel(origTarget);
+            }
             emitCumulativeBudgetCheck();
-
         }
         super.visitIntInsn(opcode, operand);
     }
@@ -139,16 +143,17 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitTypeInsn(int opcode, String type) {
 
-        if (enabled && opcode == Opcodes.ANEWARRAY) {
-            Label origTarget = new Label();
-            visitInsn(Opcodes.DUP);
-            visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
-                    "ARRAY_LIMIT", "I");
-            super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
-            throwAllocationRejected("Array allocation exceeds the configured array_limit");
-            super.visitLabel(origTarget);
+        if (opcode == Opcodes.ANEWARRAY) {
+            if (sizeGuardEnabled) {
+                Label origTarget = new Label();
+                visitInsn(Opcodes.DUP);
+                visitFieldInsn(Opcodes.GETSTATIC, PackageInfo.getNameWithSlash(org.evosuite.Properties.class),
+                        "ARRAY_LIMIT", "I");
+                super.visitJumpInsn(Opcodes.IF_ICMPLE, origTarget);
+                throwAllocationRejected("Array allocation exceeds the configured array_limit");
+                super.visitLabel(origTarget);
+            }
             emitCumulativeBudgetCheck();
-
         }
         super.visitTypeInsn(opcode, type);
     }
@@ -164,6 +169,19 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      * per iteration in a chunked-array growth method -- which is exactly the pattern that
      * can exhaust the heap while every individual allocation looks legal. See
      * {@link org.evosuite.runtime.ArrayAllocationBudget}.
+     *
+     * <p>Unlike the per-allocation guard this is emitted for <em>every</em> instrumented
+     * class, not only the ones under analysis. The reason the size guard is scoped
+     * ({@link #sizeGuardEnabled}) is that it rejects one legitimately large buffer a library
+     * sizes from its own constant; the cumulative budget cannot make that mistake, because
+     * such a buffer is a few million elements against a per-test total of
+     * {@code cumulative_array_limit} (50M by default) that only a runaway accumulation
+     * reaches. Scoping it to the class under test left the common case unguarded: 44_summa's
+     * DoubleIntArrayList is the target and is guarded, but it delegates to ChunkedLongArray,
+     * which is not, and that is where the {@code while (chunks.size() <= index >>> 20)
+     * chunks.add(new long[1 << 20])} loop allocates 8 MB a time until the heap is gone. All
+     * 19 runs that died of low memory in the 2026-09-24 SF110 replication threw no
+     * TooManyResourcesException at all.
      */
     private void emitCumulativeBudgetCheck() {
         visitInsn(Opcodes.DUP);
@@ -181,7 +199,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
                                 boolean isInterface) {
-        if (enabled && shouldLimitSizeArg(opcode, owner, name, descriptor)) {
+        if (sizeGuardEnabled && shouldLimitSizeArg(opcode, owner, name, descriptor)) {
             // Stack: ..., int(size)  →  clamp size to ARRAY_LIMIT
             Label ok = new Label();
             visitInsn(Opcodes.DUP);
@@ -222,7 +240,11 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
     @Override
     public void visitMultiANewArrayInsn(String desc, int dims) {
 
-        if (!enabled) {
+        if (!sizeGuardEnabled) {
+            // No cumulative accounting here yet: the dimensions are consumed by the
+            // allocation itself, so recording the product needs the same spill-to-locals
+            // dance as the checks below. A loop of multi-dimensional allocations in a
+            // library class is therefore still unguarded.
             super.visitMultiANewArrayInsn(desc, dims);
             return;
         }

@@ -20,6 +20,8 @@
 package org.evosuite.instrumentation;
 
 import org.evosuite.Properties;
+import org.evosuite.runtime.ArrayAllocationBudget;
+import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.junit.jupiter.api.AfterEach;
@@ -70,6 +72,8 @@ public class ArrayAllocationLimitMethodAdapterTest {
 
     private String originalTargetClass;
 
+    private long originalCumulativeLimit;
+
     private Class<?> instrumented;
 
     @BeforeEach
@@ -77,6 +81,9 @@ public class ArrayAllocationLimitMethodAdapterTest {
         Properties.getInstance().resetToDefaults();
         originalArrayLimit = Properties.ARRAY_LIMIT;
         originalTargetClass = Properties.TARGET_CLASS;
+        // The budget is process-wide static state; leaving it moved would fail later tests.
+        originalCumulativeLimit = RuntimeSettings.maxCumulativeArrayElements;
+        ArrayAllocationBudget.reset();
         Properties.ARRAY_LIMIT = LIMIT;
         // The guard only applies to classes under analysis, so the fixture has to be one.
         Properties.TARGET_CLASS = VICTIM;
@@ -87,6 +94,8 @@ public class ArrayAllocationLimitMethodAdapterTest {
     public void tearDown() {
         Properties.ARRAY_LIMIT = originalArrayLimit;
         Properties.TARGET_CLASS = originalTargetClass;
+        RuntimeSettings.maxCumulativeArrayElements = originalCumulativeLimit;
+        ArrayAllocationBudget.reset();
     }
 
     @Test
@@ -139,6 +148,38 @@ public class ArrayAllocationLimitMethodAdapterTest {
         instrumented = instrument(VICTIM);
 
         assertEquals(LIMIT * 100, invoke("newArray", LIMIT * 100));
+    }
+
+    /**
+     * ...but the cumulative budget must still cover it. Scoping that half to the class under
+     * analysis too left the common case unguarded: 44_summa's DoubleIntArrayList is the target
+     * and is guarded, while the chunk loop that actually exhausts the heap lives one call away in
+     * ChunkedLongArray, which is not. A library cannot trip this by sizing one buffer from its own
+     * constant -- only by allocating over and over within a single test.
+     */
+    @Test
+    public void libraryAllocationStillCountsAgainstTheCumulativeBudget() throws Exception {
+        Properties.TARGET_CLASS = "some.other.Class";
+        instrumented = instrument(VICTIM);
+        RuntimeSettings.maxCumulativeArrayElements = 10_000L;
+
+        // Each allocation is far below array_limit and would never be refused on its own.
+        assertEquals(6_000, invoke("newArray", 6_000));
+        assertRejected("newArray", 6_000);
+    }
+
+    /**
+     * The budget is per test execution, so a reset has to actually clear it.
+     */
+    @Test
+    public void theCumulativeBudgetStartsAfreshForTheNextTest() throws Exception {
+        Properties.TARGET_CLASS = "some.other.Class";
+        instrumented = instrument(VICTIM);
+        RuntimeSettings.maxCumulativeArrayElements = 10_000L;
+
+        assertEquals(6_000, invoke("newArray", 6_000));
+        ArrayAllocationBudget.reset();
+        assertEquals(6_000, invoke("newArray", 6_000));
     }
 
     // ---------------------------------------------------------------- helpers
