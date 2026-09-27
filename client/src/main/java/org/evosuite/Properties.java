@@ -3454,7 +3454,7 @@ public class Properties {
 
     @Parameter(key = "ignore_threads", group = "Runtime",
             description = "Do not attempt to kill threads matching this prefix")
-    public static String[] IGNORE_THREADS = new String[]{};
+    public static String[] IGNORE_THREADS = new String[]{"Image Fetcher"};
 
     @Parameter(key = "min_free_mem", group = "Runtime", description = "Minimum amount of available memory")
     public static int MIN_FREE_MEM = 50 * 1000 * 1000;
