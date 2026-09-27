@@ -238,6 +238,46 @@ public class MethodCallReplacementCache {
                     "()Ljava/awt/Toolkit;", Opcodes.INVOKESTATIC,
                     headlessSwing, "replacement_getDefaultToolkit",
                     "()Ljava/awt/Toolkit;", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "waitForID",
+                    "(I)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_waitForID",
+                    "(Ljava/awt/MediaTracker;I)V", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "waitForID",
+                    "(IJ)Z", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_waitForID",
+                    "(Ljava/awt/MediaTracker;IJ)Z", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "waitForAll",
+                    "()V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_waitForAll",
+                    "(Ljava/awt/MediaTracker;)V", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "waitForAll",
+                    "(J)Z", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_waitForAll",
+                    "(Ljava/awt/MediaTracker;J)Z", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "checkID",
+                    "(I)Z", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_checkID",
+                    "(Ljava/awt/MediaTracker;I)Z", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "checkID",
+                    "(IZ)Z", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_checkID",
+                    "(Ljava/awt/MediaTracker;IZ)Z", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "checkAll",
+                    "()Z", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_checkAll",
+                    "(Ljava/awt/MediaTracker;)Z", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "checkAll",
+                    "(Z)Z", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_checkAll",
+                    "(Ljava/awt/MediaTracker;Z)Z", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "statusID",
+                    "(IZ)I", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_statusID",
+                    "(Ljava/awt/MediaTracker;IZ)I", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/MediaTracker", "statusAll",
+                    "(Z)I", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_statusAll",
+                    "(Ljava/awt/MediaTracker;Z)I", false, false));
             addReplacementCall(new MethodCallReplacement("java/awt/GraphicsEnvironment",
                     "getLocalGraphicsEnvironment",
                     "()Ljava/awt/GraphicsEnvironment;", Opcodes.INVOKESTATIC,

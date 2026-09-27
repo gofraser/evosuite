@@ -69,6 +69,7 @@ import java.awt.Insets;
 import java.awt.KeyboardFocusManager;
 import java.awt.CheckboxMenuItem;
 import java.awt.Label;
+import java.awt.MediaTracker;
 import java.awt.Menu;
 import java.awt.MenuBar;
 import java.awt.MenuItem;
@@ -314,6 +315,215 @@ public final class MockHeadlessSwing {
         } catch (Throwable ignored) {
             return readCachedToolkit();
         }
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.waitForID(int)}.
+     *
+     * <p>{@code Toolkit.getImage(...)} itself never blocks: it hands back an {@code Image}
+     * immediately and starts an asynchronous load on a background {@code sun.awt.image.ImageFetcher}
+     * thread. The blocking happens here, in {@code MediaTracker}, which is exactly why a SUT
+     * constructor that does {@code getImage(...)} followed by {@code tracker.waitForID(0)} can sit
+     * for the entire test timeout: on a real display the fetcher finishes in milliseconds, but under
+     * EvoSuite the fetcher thread is unrelated to progress of the search and the wait is pure lost
+     * time. Note the return path below claims the wait <em>finished</em>, not that the image is
+     * absent or broken; see {@link #replacement_statusID(MediaTracker, int, boolean)} for why that
+     * distinction matters.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @throws InterruptedException propagated from the real wait when mocking is off
+     */
+    public static void replacement_waitForID(MediaTracker source, int id) throws InterruptedException {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            source.waitForID(id);
+            return;
+        }
+        // Headless and mocking enabled: the load is not going to get any more done by waiting
+        // for it, so treat it as already finished instead of blocking the search.
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.waitForID(int, long)}. See
+     * {@link #replacement_waitForID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @param ms     the timeout in milliseconds
+     * @return {@code true} (the wait is reported as complete) in mocked mode
+     * @throws InterruptedException propagated from the real wait when mocking is off
+     */
+    public static boolean replacement_waitForID(MediaTracker source, int id, long ms) throws InterruptedException {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.waitForID(id, ms);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.waitForAll()}. See
+     * {@link #replacement_waitForID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @throws InterruptedException propagated from the real wait when mocking is off
+     */
+    public static void replacement_waitForAll(MediaTracker source) throws InterruptedException {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            source.waitForAll();
+            return;
+        }
+        // Headless and mocking enabled: nothing left to usefully wait for.
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.waitForAll(long)}. See
+     * {@link #replacement_waitForID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @param ms     the timeout in milliseconds
+     * @return {@code true} (the wait is reported as complete) in mocked mode
+     * @throws InterruptedException propagated from the real wait when mocking is off
+     */
+    public static boolean replacement_waitForAll(MediaTracker source, long ms) throws InterruptedException {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.waitForAll(ms);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.checkID(int)}.
+     *
+     * <p>A caller that just returned from a (now instant) {@code waitForID}/{@code waitForAll} and
+     * then asks {@code checkID}/{@code checkAll} whether the image is done must see the same answer
+     * the wait implied, or it falls straight into its own retry/poll loop and the starvation comes
+     * back through a different door. So this reports "done" here too, consistently with
+     * {@link #replacement_statusID(MediaTracker, int, boolean)}.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @return {@code true} in mocked mode
+     */
+    public static boolean replacement_checkID(MediaTracker source, int id) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.checkID(id);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.checkID(int, boolean)}. See
+     * {@link #replacement_checkID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @param load   whether to start loading if not already started
+     * @return {@code true} in mocked mode
+     */
+    public static boolean replacement_checkID(MediaTracker source, int id, boolean load) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.checkID(id, load);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.checkAll()}. See
+     * {@link #replacement_checkID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @return {@code true} in mocked mode
+     */
+    public static boolean replacement_checkAll(MediaTracker source) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.checkAll();
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.checkAll(boolean)}. See
+     * {@link #replacement_checkID(MediaTracker, int)}.
+     *
+     * @param source the media tracker
+     * @param load   whether to start loading if not already started
+     * @return {@code true} in mocked mode
+     */
+    public static boolean replacement_checkAll(MediaTracker source, boolean load) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.checkAll(load);
+        }
+        return true;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.statusID(int, boolean)}.
+     *
+     * <p>Reports {@link MediaTracker#COMPLETE}, not {@link MediaTracker#ERRORED}. Three earlier
+     * defects in this file - {@code getAllFonts()} returning empty, {@code Container.add} being
+     * skipped, {@code Cursor.getPredefinedCursor} returning null - all came from a mock claiming the
+     * requested thing was simply not there, which starved SUT code that legitimately branches on
+     * success. Reporting {@code ERRORED} here would repeat that mistake: SUT code that checks
+     * {@code isErrorID}/{@code isErrorAny} or a {@code catch}/error-handling branch would now run
+     * instead of the normal path the class was written for, for a reason that has nothing to do with
+     * the actual image. {@code COMPLETE} is the answer consistent with "the wait is over and nothing
+     * went wrong", which is the only claim this mock is actually entitled to make.
+     *
+     * @param source the media tracker
+     * @param id     the tracking id
+     * @param load   whether to start loading if not already started
+     * @return {@link MediaTracker#COMPLETE} in mocked mode
+     */
+    public static int replacement_statusID(MediaTracker source, int id, boolean load) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.statusID(id, load);
+        }
+        return MediaTracker.COMPLETE;
+    }
+
+    /**
+     * Replacement for {@code MediaTracker.statusAll(boolean)}. See
+     * {@link #replacement_statusID(MediaTracker, int, boolean)}.
+     *
+     * @param source the media tracker
+     * @param load   whether to start loading if not already started
+     * @return {@link MediaTracker#COMPLETE} in mocked mode
+     */
+    public static int replacement_statusAll(MediaTracker source, boolean load) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (!isMockingInHeadlessEnvironment()) {
+            return source.statusAll(load);
+        }
+        return MediaTracker.COMPLETE;
     }
 
     /**
