@@ -507,7 +507,11 @@ public final class TestChromosome extends AbstractTestChromosome<TestChromosome>
                         + ": " + e.getClass().getSimpleName() + ": " + e.getMessage();
                 AtMostOnceLogger.warn(logger, msg);
                 fms.fillWithNullRefs();
-                return changed;
+                // Only this mock is beyond saving. Returning abandoned every functional mock
+                // after it in the same test, leaving those with their inputs unset for a
+                // failure that had nothing to do with them.
+                i += test.size() - preLength;
+                continue;
             }
             changed = true;
 
