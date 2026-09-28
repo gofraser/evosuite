@@ -21,6 +21,7 @@ package org.evosuite.testcase.dmon;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 
 import java.util.Map;
 import java.util.Optional;
@@ -35,6 +36,13 @@ public class DmonCoordinator {
 
     private final DmonNpeAnalyzer analyzer = new DmonNpeAnalyzer();
     private final Map<CacheKey, Optional<DmonPromotionPlan>> analysisCache = new ConcurrentHashMap<>();
+    // Ephemeral assist bypasses the target-class restriction (it analyzes NPEs from
+    // ANY constructor/method on the call path, not just the target class), so its
+    // population of distinct failure sites is much larger. Cache it separately from
+    // analysisCache so the two lookups never collide, and so a failing analysis (e.g. an
+    // ASM bytecode read that yields no hint) is computed once per failure signature rather
+    // than once per retry attempt / per execution of the same crashing site.
+    private final Map<CacheKey, Optional<DmonPromotionPlan>> ephemeralAssistCache = new ConcurrentHashMap<>();
 
     /**
      * Returns the singleton instance of the DmonCoordinator.
@@ -59,13 +67,36 @@ public class DmonCoordinator {
         if (!Properties.DMON_CACHE_ANALYSIS) {
             return analyzer.analyzeConstructorNpe(statement, throwable);
         }
-        CacheKey key = CacheKey.from(statement, throwable);
+        CacheKey key = CacheKey.from("CTOR", statement == null ? null : statement.getDeclaringClassName(), throwable);
         return analysisCache.computeIfAbsent(key, k -> analyzer.analyzeConstructorNpe(statement, throwable));
     }
 
     /**
+     * Analyzes a method-invocation failure to determine if it can be promoted. Mirrors
+     * {@link #analyzeConstructorFailure(ConstructorStatement, Throwable)} for NPEs raised
+     * by a method call rather than a constructor call.
+     *
+     * @param statement the method statement
+     * @param throwable the throwable that occurred
+     * @return an optional promotion plan
+     */
+    public Optional<DmonPromotionPlan> analyzeMethodFailure(MethodStatement statement, Throwable throwable) {
+        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+            return Optional.empty();
+        }
+        if (!Properties.DMON_CACHE_ANALYSIS) {
+            return analyzer.analyzeMethodNpe(statement, throwable);
+        }
+        CacheKey key = CacheKey.from("METHOD", statement == null ? null : statement.getDeclaringClassName(), throwable);
+        return analysisCache.computeIfAbsent(key, k -> analyzer.analyzeMethodNpe(statement, throwable));
+    }
+
+    /**
      * Analyzes a constructor failure for ephemeral assist without the target-class restriction.
-     * Results are not cached since ephemeral injections are transient.
+     * Cached (when {@link Properties#DMON_CACHE_ANALYSIS} is on) since the analysis is a pure
+     * function of the declaring class name, the NPE message and the top stack frame — caching
+     * it (including the empty/"no plan" outcome) avoids repeating message parsing and the ASM
+     * bytecode fallback on every retry attempt and every execution of the same crashing site.
      *
      * @param statement the constructor statement
      * @param throwable the throwable that occurred
@@ -75,29 +106,54 @@ public class DmonCoordinator {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
             return Optional.empty();
         }
-        return analyzer.analyzeConstructorNpe(statement, throwable, false);
+        if (!Properties.DMON_CACHE_ANALYSIS) {
+            return analyzer.analyzeConstructorNpe(statement, throwable, false);
+        }
+        CacheKey key = CacheKey.from("CTOR_ASSIST", statement == null ? null : statement.getDeclaringClassName(), throwable);
+        return ephemeralAssistCache.computeIfAbsent(key, k -> analyzer.analyzeConstructorNpe(statement, throwable, false));
+    }
+
+    /**
+     * Analyzes a method-invocation failure for ephemeral assist without the target-class
+     * restriction. See {@link #analyzeForEphemeralAssist(ConstructorStatement, Throwable)}.
+     *
+     * @param statement the method statement
+     * @param throwable the throwable that occurred
+     * @return an optional promotion plan
+     */
+    public Optional<DmonPromotionPlan> analyzeForEphemeralAssist(MethodStatement statement, Throwable throwable) {
+        if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
+            return Optional.empty();
+        }
+        if (!Properties.DMON_CACHE_ANALYSIS) {
+            return analyzer.analyzeMethodNpe(statement, throwable, false);
+        }
+        CacheKey key = CacheKey.from("METHOD_ASSIST", statement == null ? null : statement.getDeclaringClassName(), throwable);
+        return ephemeralAssistCache.computeIfAbsent(key, k -> analyzer.analyzeMethodNpe(statement, throwable, false));
     }
 
     private static final class CacheKey {
+        private final String discriminator;
         private final String owner;
         private final String message;
         private final String topFrame;
 
-        private CacheKey(String owner, String message, String topFrame) {
+        private CacheKey(String discriminator, String owner, String message, String topFrame) {
+            this.discriminator = discriminator == null ? "" : discriminator;
             this.owner = owner == null ? "" : owner;
             this.message = message == null ? "" : message;
             this.topFrame = topFrame == null ? "" : topFrame;
         }
 
-        private static CacheKey from(ConstructorStatement statement, Throwable throwable) {
-            String owner = statement == null ? "" : statement.getDeclaringClassName();
+        private static CacheKey from(String discriminator, String declaringClassName, Throwable throwable) {
+            String owner = declaringClassName == null ? "" : declaringClassName;
             String message = throwable == null ? "" : String.valueOf(throwable.getMessage());
             String topFrame = "";
             if (throwable != null && throwable.getStackTrace() != null && throwable.getStackTrace().length > 0) {
                 StackTraceElement first = throwable.getStackTrace()[0];
                 topFrame = first.getClassName() + "#" + first.getMethodName() + ":" + first.getLineNumber();
             }
-            return new CacheKey(owner, message, topFrame);
+            return new CacheKey(discriminator, owner, message, topFrame);
         }
 
         @Override
@@ -109,14 +165,16 @@ public class DmonCoordinator {
                 return false;
             }
             CacheKey other = (CacheKey) o;
-            return owner.equals(other.owner)
+            return discriminator.equals(other.discriminator)
+                    && owner.equals(other.owner)
                     && message.equals(other.message)
                     && topFrame.equals(other.topFrame);
         }
 
         @Override
         public int hashCode() {
-            int result = owner.hashCode();
+            int result = discriminator.hashCode();
+            result = 31 * result + owner.hashCode();
             result = 31 * result + message.hashCode();
             result = 31 * result + topFrame.hashCode();
             return result;

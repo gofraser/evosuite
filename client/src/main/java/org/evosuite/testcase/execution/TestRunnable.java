@@ -638,11 +638,44 @@ public class TestRunnable implements InterfaceTestRunnable {
         return args;
     }
 
+    /**
+     * Dispatches to the DmonCoordinator's constructor- or method-failure analysis, whichever
+     * matches the statement kind. DMoN's repair is driven by the NPE's stack trace, not by the
+     * kind of statement that triggered it — see DmonNpeAnalyzer.
+     */
+    private static Optional<DmonPromotionPlan> analyzeDmonFailure(Statement statement, Throwable throwable) {
+        if (statement instanceof ConstructorStatement) {
+            return DmonCoordinator.getInstance()
+                    .analyzeConstructorFailure((ConstructorStatement) statement, throwable);
+        }
+        if (statement instanceof MethodStatement) {
+            return DmonCoordinator.getInstance()
+                    .analyzeMethodFailure((MethodStatement) statement, throwable);
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Dispatches to the DmonCoordinator's relaxed (no target-class restriction) analysis used
+     * for cascading ephemeral assist. See {@link #analyzeDmonFailure(Statement, Throwable)}.
+     */
+    private static Optional<DmonPromotionPlan> analyzeDmonEphemeralAssist(Statement statement, Throwable throwable) {
+        if (statement instanceof ConstructorStatement) {
+            return DmonCoordinator.getInstance()
+                    .analyzeForEphemeralAssist((ConstructorStatement) statement, throwable);
+        }
+        if (statement instanceof MethodStatement) {
+            return DmonCoordinator.getInstance()
+                    .analyzeForEphemeralAssist((MethodStatement) statement, throwable);
+        }
+        return Optional.empty();
+    }
+
     private static void maybeRecordDmonCandidate(ExecutionResult result, Statement statement, Throwable throwable) {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
             return;
         }
-        if (!(statement instanceof ConstructorStatement)) {
+        if (!(statement instanceof ConstructorStatement) && !(statement instanceof MethodStatement)) {
             return;
         }
         if (!(throwable instanceof NullPointerException)) {
@@ -652,9 +685,7 @@ public class TestRunnable implements InterfaceTestRunnable {
             logger.trace("DMoN runtime: candidate already recorded for this execution");
             return;
         }
-        ConstructorStatement constructorStatement = (ConstructorStatement) statement;
-        Optional<DmonPromotionPlan> plan = DmonCoordinator.getInstance()
-                .analyzeConstructorFailure(constructorStatement, throwable);
+        Optional<DmonPromotionPlan> plan = analyzeDmonFailure(statement, throwable);
         if (plan.isPresent()) {
             result.setDmonPromotionPlan(plan.get());
             DmonFailureSite fs = plan.get().getFailureSite();
@@ -675,11 +706,10 @@ public class TestRunnable implements InterfaceTestRunnable {
         if (!Properties.DMON_ENABLED || Properties.NO_RUNTIME_DEPENDENCY) {
             return throwable;
         }
-        if (!(statement instanceof ConstructorStatement)) {
+        if (!(statement instanceof ConstructorStatement) && !(statement instanceof MethodStatement)) {
             return throwable;
         }
 
-        ConstructorStatement constructorStatement = (ConstructorStatement) statement;
         Throwable lastThrown = throwable;
         NullPointerException currentNpe = extractNpe(throwable);
         if (currentNpe == null) {
@@ -689,20 +719,18 @@ public class TestRunnable implements InterfaceTestRunnable {
 
         for (int attempt = 0; attempt < maxRetries; attempt++) {
             maybeRecordDmonCandidate(result, statement, currentNpe);
-            Optional<DmonPromotionPlan> analyzedPlan = DmonCoordinator.getInstance()
-                    .analyzeConstructorFailure(constructorStatement, currentNpe);
+            Optional<DmonPromotionPlan> analyzedPlan = analyzeDmonFailure(statement, currentNpe);
             if (!analyzedPlan.isPresent()) {
-                // For non-target-class constructors, try relaxed analysis for ephemeral
-                // assist only (not recorded for promotion).
-                analyzedPlan = DmonCoordinator.getInstance()
-                        .analyzeForEphemeralAssist(constructorStatement, currentNpe);
+                // For non-target-class constructors/methods, try relaxed analysis for
+                // ephemeral assist only (not recorded for promotion).
+                analyzedPlan = analyzeDmonEphemeralAssist(statement, currentNpe);
             }
             if (!analyzedPlan.isPresent()) {
                 logger.debug("DMoN runtime: cascading assist stopped [attempt={}, reason=NO_PLAN]",
                         attempt + 1);
                 return lastThrown;
             }
-            if (!tryEphemeralInjection(constructorStatement, analyzedPlan.get())) {
+            if (!tryEphemeralInjection(statement, analyzedPlan.get())) {
                 logger.debug("DMoN runtime: cascading assist stopped [attempt={}, reason=INJECTION_FAILED]",
                         attempt + 1);
                 return lastThrown;
@@ -783,8 +811,8 @@ public class TestRunnable implements InterfaceTestRunnable {
         }
     }
 
-    private boolean tryEphemeralInjection(ConstructorStatement constructorStatement, DmonPromotionPlan plan) {
-        Class<?> ownerClass = resolveOwnerClassForEphemeral(constructorStatement, plan);
+    private boolean tryEphemeralInjection(Statement statement, DmonPromotionPlan plan) {
+        Class<?> ownerClass = resolveOwnerClassForEphemeral(statement, plan);
         if (ownerClass == null) {
             return false;
         }
@@ -843,8 +871,7 @@ public class TestRunnable implements InterfaceTestRunnable {
         return tryEphemeralInstanceInjection(ownerClass, instanceField, dependencyType, fieldName);
     }
 
-    private static Class<?> resolveOwnerClassForEphemeral(
-            ConstructorStatement constructorStatement, DmonPromotionPlan plan) {
+    private static Class<?> resolveOwnerClassForEphemeral(Statement statement, DmonPromotionPlan plan) {
         String ownerName = plan.getFailureSite() == null ? null : plan.getFailureSite().getOwnerClass();
         ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
         if (ownerName != null && !ownerName.trim().isEmpty()) {
@@ -853,7 +880,13 @@ public class TestRunnable implements InterfaceTestRunnable {
             } catch (ClassNotFoundException expected) {
             }
         }
-        return constructorStatement.getConstructor().getConstructor().getDeclaringClass();
+        if (statement instanceof ConstructorStatement) {
+            return ((ConstructorStatement) statement).getConstructor().getConstructor().getDeclaringClass();
+        }
+        if (statement instanceof MethodStatement) {
+            return ((MethodStatement) statement).getMethod().getMethod().getDeclaringClass();
+        }
+        return null;
     }
 
     private boolean tryEphemeralSetterInjection(Class<?> ownerClass, Class<?> dependencyType, String fieldName) {

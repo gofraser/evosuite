@@ -22,7 +22,9 @@ package org.evosuite.testcase.dmon;
 import org.evosuite.Properties;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -33,6 +35,12 @@ public class DmonCoordinatorTest {
 
     public static class CacheCtorTarget {
         public CacheCtorTarget() {
+            throw new NullPointerException("Cannot read field \"dep\" because \"this.dep\" is null");
+        }
+    }
+
+    public static class CacheMethodTarget {
+        public static void trigger() {
             throw new NullPointerException("Cannot read field \"dep\" because \"this.dep\" is null");
         }
     }
@@ -66,6 +74,48 @@ public class DmonCoordinatorTest {
                     .analyzeConstructorFailure(statement, npe);
 
             Assert.assertTrue(first.isPresent());
+            Assert.assertSame("Cached lookup should return exact Optional instance", first, second);
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_CACHE_ANALYSIS = oldCache;
+            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.TARGET_CLASS = oldTarget;
+        }
+    }
+
+    @Test
+    public void cacheReturnsSameOptionalInstanceForSameMethodFailureSignature() throws Exception {
+        // Analogue of cacheReturnsSameOptionalInstanceForSameFailureSignature() for
+        // analyzeMethodFailure(), which did not exist before the method-invocation
+        // generalisation of DMoN.
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldCache = Properties.DMON_CACHE_ANALYSIS;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        String oldTarget = Properties.TARGET_CLASS;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_CACHE_ANALYSIS = true;
+            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.TARGET_CLASS = CacheMethodTarget.class.getCanonicalName();
+
+            DefaultTestCase test = new DefaultTestCase();
+            GenericMethod gm = new GenericMethod(
+                    CacheMethodTarget.class.getMethod("trigger"), CacheMethodTarget.class);
+            MethodStatement statement = new MethodStatement(test, gm, null, Collections.emptyList());
+
+            NullPointerException npe = new NullPointerException(
+                    "Cannot read field \"dep\" because \"this.dep\" is null");
+            npe.setStackTrace(new StackTraceElement[]{
+                    new StackTraceElement(CacheMethodTarget.class.getName(), "trigger", "CacheMethodTarget.java", 12)
+            });
+
+            Optional<DmonPromotionPlan> first = DmonCoordinator.getInstance()
+                    .analyzeMethodFailure(statement, npe);
+            Optional<DmonPromotionPlan> second = DmonCoordinator.getInstance()
+                    .analyzeMethodFailure(statement, npe);
+
+            Assert.assertTrue(first.isPresent());
+            Assert.assertEquals(DmonFailureSiteKind.METHOD_INVOCATION, first.get().getFailureSite().getKind());
             Assert.assertSame("Cached lookup should return exact Optional instance", first, second);
         } finally {
             Properties.DMON_ENABLED = oldEnabled;

@@ -24,7 +24,9 @@ import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.execution.ExecutionResult;
 import org.evosuite.testcase.execution.TestCaseExecutor;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericConstructor;
+import org.evosuite.utils.generic.GenericMethod;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -38,6 +40,16 @@ public class DmonEphemeralAssistTest {
 
         public StaticNullCtorTarget() {
             ctorCalls++;
+            dep.run();
+        }
+    }
+
+    public static class StaticNullMethodTarget {
+        static Runnable dep;
+        static int callCount;
+
+        public static void trigger() {
+            callCount++;
             dep.run();
         }
     }
@@ -134,6 +146,56 @@ public class DmonEphemeralAssistTest {
             Properties.TARGET_CLASS = oldTargetClass;
             StaticNullCtorTarget.dep = null;
             StaticNullCtorTarget.ctorCalls = 0;
+            TestCaseExecutor.pullDown();
+            TestCaseExecutor.initExecutor();
+        }
+    }
+
+    @Test
+    public void methodStatementNpeIsRecordedAsPromotionCandidateAndRolledBack() throws Exception {
+        // Before the method-invocation generalisation, DMoN's runtime gates
+        // (maybeRecordDmonCandidate / maybeAssistAndRecordDmonCandidate in TestRunnable) only
+        // fired for `instanceof ConstructorStatement`. A NullPointerException thrown from a
+        // MethodStatement therefore never recorded a promotion candidate, even against the
+        // target class. This test fails (getDmonPromotionPlan() == null) if that gate is
+        // reinstated.
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldOnlyTarget = Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR;
+        String oldTargetClass = Properties.TARGET_CLASS;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
+            Properties.TARGET_CLASS = StaticNullMethodTarget.class.getCanonicalName();
+
+            StaticNullMethodTarget.dep = null;
+            StaticNullMethodTarget.callCount = 0;
+
+            DefaultTestCase test = new DefaultTestCase();
+            GenericMethod gm = new GenericMethod(
+                    StaticNullMethodTarget.class.getMethod("trigger"), StaticNullMethodTarget.class);
+            test.addStatement(new MethodStatement(test, gm, null, Collections.emptyList()));
+
+            ExecutionResult result = TestCaseExecutor.runTest(test);
+
+            Assert.assertNotNull("DMoN should record a promotion candidate for a method-call NPE",
+                    result.getDmonPromotionPlan());
+            Assert.assertEquals("Failure site should be tagged as a method invocation, not a constructor",
+                    DmonFailureSiteKind.METHOD_INVOCATION,
+                    result.getDmonPromotionPlan().getFailureSite().getKind());
+            Assert.assertFalse("Rollback should restore state without contamination flag",
+                    result.isDmonContaminated());
+            Assert.assertNull("Ephemeral static injection must be rolled back", StaticNullMethodTarget.dep);
+            Assert.assertTrue("Method should execute at least once", StaticNullMethodTarget.callCount >= 1);
+            if (result.noThrownExceptions()) {
+                Assert.assertEquals("If assisted execution succeeds, method should run once failing + once retried",
+                        2, StaticNullMethodTarget.callCount);
+            }
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = oldOnlyTarget;
+            Properties.TARGET_CLASS = oldTargetClass;
+            StaticNullMethodTarget.dep = null;
+            StaticNullMethodTarget.callCount = 0;
             TestCaseExecutor.pullDown();
             TestCaseExecutor.initExecutor();
         }

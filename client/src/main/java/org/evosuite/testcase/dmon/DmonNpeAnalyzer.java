@@ -21,6 +21,7 @@ package org.evosuite.testcase.dmon;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.MethodStatement;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
@@ -36,12 +37,14 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 /**
- * Post-mortem analyzer for constructor NPE failures.
+ * Post-mortem analyzer for constructor- and method-call NPE failures.
  * V1 focuses on extracting stable metadata for later promotion/injection phases.
  */
 public class DmonNpeAnalyzer {
@@ -71,7 +74,64 @@ public class DmonNpeAnalyzer {
      */
     public Optional<DmonPromotionPlan> analyzeConstructorNpe(ConstructorStatement statement, Throwable throwable,
                                                               boolean enforceTargetClassRestriction) {
-        if (statement == null || throwable == null) {
+        if (statement == null) {
+            return Optional.empty();
+        }
+        return analyzeExecutableNpe(statement.getDeclaringClassName(),
+                statement.getConstructor().getConstructor(),
+                DmonFailureSiteKind.CONSTRUCTOR_INIT,
+                throwable,
+                enforceTargetClassRestriction);
+    }
+
+    /**
+     * Analyzes a method-invocation NullPointerException to determine if it can be promoted.
+     * This mirrors {@link #analyzeConstructorNpe(ConstructorStatement, Throwable)}: DMoN's
+     * repair is driven by the NPE's stack trace, not by the kind of statement that triggered
+     * it, so a call such as {@code someSut.doSomething()} that NPEs deep inside a dependency
+     * (e.g. a Swing field only ever populated by another class's constructor) is handled the
+     * same way as a constructor NPE.
+     *
+     * @param statement the method statement
+     * @param throwable the NullPointerException that occurred
+     * @return an optional promotion plan
+     */
+    public Optional<DmonPromotionPlan> analyzeMethodNpe(MethodStatement statement, Throwable throwable) {
+        return analyzeMethodNpe(statement, throwable, true);
+    }
+
+    /**
+     * Analyzes a method-invocation NullPointerException with optional target-class enforcement.
+     *
+     * @param statement the method statement
+     * @param throwable the NullPointerException that occurred
+     * @param enforceTargetClassRestriction if true, only analyze methods declared on the target class
+     * @return an optional promotion plan
+     */
+    public Optional<DmonPromotionPlan> analyzeMethodNpe(MethodStatement statement, Throwable throwable,
+                                                         boolean enforceTargetClassRestriction) {
+        if (statement == null) {
+            return Optional.empty();
+        }
+        return analyzeExecutableNpe(statement.getDeclaringClassName(),
+                statement.getMethod().getMethod(),
+                DmonFailureSiteKind.METHOD_INVOCATION,
+                throwable,
+                enforceTargetClassRestriction);
+    }
+
+    /**
+     * Shared analysis core for both constructor- and method-triggered NPEs. The repair logic
+     * only ever needed the declaring class name (for the target-class restriction and as a
+     * failure-site fallback) and the {@link Executable} itself (for the ASM bytecode fallback);
+     * neither depends on whether the statement was a constructor or method call.
+     */
+    private Optional<DmonPromotionPlan> analyzeExecutableNpe(String declaringClassName,
+                                                              Executable executable,
+                                                              DmonFailureSiteKind kind,
+                                                              Throwable throwable,
+                                                              boolean enforceTargetClassRestriction) {
+        if (declaringClassName == null || throwable == null) {
             return Optional.empty();
         }
 
@@ -80,7 +140,7 @@ public class DmonNpeAnalyzer {
         }
 
         if (enforceTargetClassRestriction && Properties.DMON_ONLY_TARGET_CLASS_CONSTRUCTOR
-                && !Properties.TARGET_CLASS.equals(statement.getDeclaringClassName())) {
+                && !Properties.TARGET_CLASS.equals(declaringClassName)) {
             return Optional.empty();
         }
 
@@ -89,12 +149,12 @@ public class DmonNpeAnalyzer {
                 : new NpeMessageParser.ParseResult(Optional.empty(), Optional.empty(), Optional.empty(),
                 NpeMessageParser.ParseStrength.NO_MATCH);
 
-        StackTraceElement site = pickFailureSite(throwable, statement.getDeclaringClassName());
+        StackTraceElement site = pickFailureSite(throwable, declaringClassName);
         DmonFailureSite failureSite = new DmonFailureSite(
-                site == null ? statement.getDeclaringClassName() : site.getClassName(),
-                site == null ? "<init>" : site.getMethodName(),
+                site == null ? declaringClassName : site.getClassName(),
+                site == null ? defaultMethodToken(kind, executable) : site.getMethodName(),
                 site == null ? -1 : site.getLineNumber(),
-                DmonFailureSiteKind.CONSTRUCTOR_INIT
+                kind
         );
 
         Optional<String> ownerToken = parseResult.getOwnerToken();
@@ -107,7 +167,7 @@ public class DmonNpeAnalyzer {
         if (Properties.DMON_ASM_FALLBACK
                 && parseResult.getStrength() == NpeMessageParser.ParseStrength.NO_MATCH
                 && site != null) {
-            Optional<AsmHint> asmHint = analyzeWithAsmFallback(statement, site);
+            Optional<AsmHint> asmHint = analyzeWithAsmFallback(executable, site);
             if (asmHint.isPresent()) {
                 AsmHint hint = asmHint.get();
                 if (!ownerToken.isPresent()) {
@@ -138,6 +198,13 @@ public class DmonNpeAnalyzer {
                 plan.getMemberToken().orElse(""),
                 plan.getInferredMissingTypeName().orElse(""));
         return Optional.of(plan);
+    }
+
+    private static String defaultMethodToken(DmonFailureSiteKind kind, Executable executable) {
+        if (kind == DmonFailureSiteKind.CONSTRUCTOR_INIT) {
+            return "<init>";
+        }
+        return executable == null ? "" : executable.getName();
     }
 
     private static StackTraceElement pickFailureSite(Throwable throwable, String declaringClass) {
@@ -184,20 +251,23 @@ public class DmonNpeAnalyzer {
                 || declaringClass.equals(jvmClassName.replace('$', '.'));
     }
 
-    private Optional<AsmHint> analyzeWithAsmFallback(ConstructorStatement statement, StackTraceElement site) {
-        if (statement == null || site == null || site.getLineNumber() <= 0) {
+    private Optional<AsmHint> analyzeWithAsmFallback(Executable executable, StackTraceElement site) {
+        if (executable == null || site == null || site.getLineNumber() <= 0) {
             return Optional.empty();
         }
 
         String ownerClass = site.getClassName();
         String methodName = site.getMethodName();
         String expectedDesc = null;
-        if ("<init>".equals(methodName)) {
-            Constructor<?> ctor = statement.getConstructor().getConstructor();
-            expectedDesc = Type.getConstructorDescriptor(ctor);
+        boolean isConstructor = executable instanceof Constructor;
+        String expectedMethodToken = isConstructor ? "<init>" : executable.getName();
+        if (expectedMethodToken.equals(methodName)) {
+            expectedDesc = isConstructor
+                    ? Type.getConstructorDescriptor((Constructor<?>) executable)
+                    : Type.getMethodDescriptor((Method) executable);
         }
 
-        Class<?> statementOwner = statement.getConstructor().getConstructor().getDeclaringClass();
+        Class<?> statementOwner = executable.getDeclaringClass();
         ClassLoader loader = statementOwner == null
                 ? Thread.currentThread().getContextClassLoader()
                 : statementOwner.getClassLoader();

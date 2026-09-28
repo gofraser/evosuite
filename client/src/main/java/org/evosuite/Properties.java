@@ -502,7 +502,10 @@ public class Properties {
     public static boolean DMON_ENABLED = true;
 
     @Parameter(key = "dmon_only_target_class_constructor", group = "Test Creation",
-            description = "Restrict DMoN detection to constructors declared in the target class")
+            description = "Restrict DMoN's promotable-candidate detection to statements that directly call the "
+                    + "target class (its constructors, and, since method-call NPEs were added, its methods too); "
+                    + "the NPE itself may still occur deeper in the call stack. Does not restrict the relaxed "
+                    + "ephemeral-assist analysis used mid-execution to chase cascading dependencies")
     public static boolean DMON_ONLY_TARGET_CLASS_CONSTRUCTOR = true;
 
     @Parameter(key = "dmon_helpful_npe_parse", group = "Test Creation",

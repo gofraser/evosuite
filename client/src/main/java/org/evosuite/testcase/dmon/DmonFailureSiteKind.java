@@ -24,6 +24,7 @@ package org.evosuite.testcase.dmon;
  */
 public enum DmonFailureSiteKind {
     CONSTRUCTOR_INIT,
+    METHOD_INVOCATION,
     STATIC_INIT
 }
 
