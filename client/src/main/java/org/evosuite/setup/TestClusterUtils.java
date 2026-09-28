@@ -290,7 +290,11 @@ public class TestClusterUtils {
         }
     }
 
-    private static boolean isConfiguredTargetClassOrPackage(final String className) {
+    /**
+     * Package-visible so {@link TestUsageChecker#canUse(Class)} can apply the same bypass to its
+     * own-class rejection below (see the call site there for why).
+     */
+    static boolean isConfiguredTargetClassOrPackage(final String className) {
         if (className == null) {
             return false;
         }

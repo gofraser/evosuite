@@ -1100,6 +1100,26 @@ public class VariableResolver {
             return resolveVariable(test, String.class, position, context,
                     new VariableResolutionConfig.Builder().withAllowNull(allowNull).withCanUseMocks(false).build());
         }
+        if (choice.isObject()) {
+            // java.lang.Object is unconditionally in "classes" above (it is the universal
+            // fallback for an unconstrained cast), but unlike every other entry it never has a
+            // registered generator to look up: TestCluster indexes generators by the concrete
+            // type they produce, and nothing in a dependency graph declares a method or
+            // constructor that returns bare Object. Routing it through the generator lookup
+            // below throws "No generators of type java.lang.Object" instead of falling back, so
+            // construct the plain object directly via its public no-arg constructor instead -
+            // the same thing a registered generator would have done had one existed.
+            try {
+                GenericConstructor objectConstructor =
+                        new GenericConstructor(Object.class.getConstructor(), Object.class);
+                VariableReference ret = testFactory.addConstructor(test, objectConstructor, position,
+                        context.deeper());
+                ret.setDistance(context.getDepth() + 1);
+                return ret;
+            } catch (NoSuchMethodException e) {
+                throw new ConstructionFailedException("Cannot construct java.lang.Object");
+            }
+        }
 
         GenericAccessibleObject<?> o = TestCluster.getInstance().getRandomGenerator(choice);
         if (o == null) {

@@ -253,7 +253,19 @@ public class TestUsageChecker {
             return true;
         }
 
-        if (TestClusterUtils.isEvoSuiteClass(c) && !MockList.isAMockClass(c.getCanonicalName())) {
+        // The configured target class (or a member nested inside it) is exempt from the
+        // "reject EvoSuite's own classes" rule below, for the same reason checkIfCanUse()
+        // above already exempts it from the package-exclusion check: if the class under test
+        // itself happens to live under org.evosuite (dogfooding EvoSuite against its own
+        // code, or - as here - a unit test using a nested class of itself as a stand-in SUT),
+        // then rejecting the target class' own members as "EvoSuite-internal" makes every
+        // generic-bound parameter typed on one of them permanently unconstructible: nothing
+        // can ever satisfy the bound, no matter how the search proceeds. No real-world class
+        // under test lives under org.evosuite, so this bypass cannot change behaviour for the
+        // ordinary case; it only stops EvoSuite from refusing to use the very class it was
+        // told to target.
+        if (TestClusterUtils.isEvoSuiteClass(c) && !MockList.isAMockClass(c.getCanonicalName())
+                && !TestClusterUtils.isConfiguredTargetClassOrPackage(c.getName())) {
             return false;
         }
 
