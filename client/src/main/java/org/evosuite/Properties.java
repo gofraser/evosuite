@@ -541,6 +541,11 @@ public class Properties {
             description = "Number of EvoSuite clients to run in parallel")
     public static int NUM_PARALLEL_CLIENTS = 1;
 
+    @Parameter(key = "client_connection_timeout_ms", group = "Test Creation",
+            description = "How long the master waits (in milliseconds) for all clients to connect via RMI "
+                    + "before giving up and aborting the run")
+    public static long CLIENT_CONNECTION_TIMEOUT_MS = 60000;
+
     @Parameter(key = "migrants_iteration_frequency", group = "Test Creation",
             description = "Determines amount of iterations between sending migrants to other client "
                     + "(-1 to disable any iterations between clients)")
