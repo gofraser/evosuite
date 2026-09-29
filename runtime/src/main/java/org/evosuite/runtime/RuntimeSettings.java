@@ -93,8 +93,8 @@ public class RuntimeSettings {
     public static long maxNumberOfIterationsPerLoop = 10_000;
 
     /**
-     * How many array elements, summed across every NEWARRAY/ANEWARRAY in the classes
-     * under analysis, is a single test execution allowed to allocate?.
+     * How many bytes, summed across every NEWARRAY/ANEWARRAY/MULTIANEWARRAY in the
+     * classes under analysis, is a single test execution allowed to allocate?.
      *
      * <p>{@link org.evosuite.runtime.ArrayAllocationBudget} enforces this. It exists
      * because a loop that allocates many individually-legal-sized arrays -- e.g. one
@@ -102,8 +102,27 @@ public class RuntimeSettings {
      * per-allocation size check and can exhaust the heap long before the loop-iteration
      * cap ({@link #maxNumberOfIterationsPerLoop}) is reached. A negative value disables
      * the check.
+     *
+     * <p>Counted in bytes, not elements: a {@code long[]}/{@code double[]} element is 8
+     * times the footprint of a {@code byte[]} element, so counting elements let
+     * wide-element arrays allocate 8x the intended heap before tripping the guard.
+     * Charging bytes makes the budget uniform across element types, which necessarily
+     * means picking one number rather than preserving each type's old (bug-dependent)
+     * effective allowance -- those cannot all be kept at once.
+     *
+     * <p>The default, 400,000,000 (400MB), is deliberately the <em>widest</em> effective
+     * allowance any element type had before this counted bytes -- what a
+     * {@code long[]}/{@code double[]} could already reach -- not a freshly tuned value.
+     * The two possible errors are not symmetric: too tight silently refuses allocations
+     * that ran fine before (a coverage loss with no signal in the logs, since the
+     * resulting {@link org.evosuite.runtime.TooManyResourcesException} is swallowed
+     * during search), while too loose is still backstopped by the per-allocation
+     * {@code array_limit} guard and by low-memory process shutdown. Picking the widest
+     * prior allowance means this change refuses nothing that was previously allowed; it
+     * is purely corrective (byte[] gains the allowance wide types already had) rather
+     * than a tightening bundled into the bug fix.
      */
-    public static long maxCumulativeArrayElements = 50_000_000L;
+    public static long maxCumulativeArrayBytes = 400_000_000L;
 
     /**
      * Should tests be executed in a separate instrumenting class loader

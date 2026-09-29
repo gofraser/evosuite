@@ -82,7 +82,7 @@ public class ArrayAllocationLimitMethodAdapterTest {
         originalArrayLimit = Properties.ARRAY_LIMIT;
         originalTargetClass = Properties.TARGET_CLASS;
         // The budget is process-wide static state; leaving it moved would fail later tests.
-        originalCumulativeLimit = RuntimeSettings.maxCumulativeArrayElements;
+        originalCumulativeLimit = RuntimeSettings.maxCumulativeArrayBytes;
         ArrayAllocationBudget.reset();
         Properties.ARRAY_LIMIT = LIMIT;
         // The guard only applies to classes under analysis, so the fixture has to be one.
@@ -94,7 +94,7 @@ public class ArrayAllocationLimitMethodAdapterTest {
     public void tearDown() {
         Properties.ARRAY_LIMIT = originalArrayLimit;
         Properties.TARGET_CLASS = originalTargetClass;
-        RuntimeSettings.maxCumulativeArrayElements = originalCumulativeLimit;
+        RuntimeSettings.maxCumulativeArrayBytes = originalCumulativeLimit;
         ArrayAllocationBudget.reset();
     }
 
@@ -161,7 +161,7 @@ public class ArrayAllocationLimitMethodAdapterTest {
     public void libraryAllocationStillCountsAgainstTheCumulativeBudget() throws Exception {
         Properties.TARGET_CLASS = "some.other.Class";
         instrumented = instrument(VICTIM);
-        RuntimeSettings.maxCumulativeArrayElements = 10_000L;
+        RuntimeSettings.maxCumulativeArrayBytes = 10_000L;
 
         // Each allocation is far below array_limit and would never be refused on its own.
         assertEquals(6_000, invoke("newArray", 6_000));
@@ -175,11 +175,44 @@ public class ArrayAllocationLimitMethodAdapterTest {
     public void theCumulativeBudgetStartsAfreshForTheNextTest() throws Exception {
         Properties.TARGET_CLASS = "some.other.Class";
         instrumented = instrument(VICTIM);
-        RuntimeSettings.maxCumulativeArrayElements = 10_000L;
+        RuntimeSettings.maxCumulativeArrayBytes = 10_000L;
 
         assertEquals(6_000, invoke("newArray", 6_000));
         ArrayAllocationBudget.reset();
         assertEquals(6_000, invoke("newArray", 6_000));
+    }
+
+    /**
+     * The budget counts bytes, not elements: an element of a {@code long[]} is 8 times
+     * the footprint of an element of the {@code byte[]} used by the other tests in this
+     * class. A budget that (incorrectly) counted elements would let this pair of
+     * allocations through, because 100 elements is comfortably under a budget of 500;
+     * counted correctly, the second allocation's 800 bytes push the running total (800)
+     * over that same budget.
+     */
+    @Test
+    public void cumulativeBudgetCountsBytesNotElementsForWideElementTypes() throws Exception {
+        RuntimeSettings.maxCumulativeArrayBytes = 500L;
+
+        // 50 longs = 400 bytes: within budget, whether counted in bytes or elements.
+        assertEquals(50, invoke("newLongArray", 50));
+        // Another 50 longs => 100 elements (still under 500) but 800 bytes (over 500).
+        assertRejected("newLongArray", 50);
+    }
+
+    /**
+     * {@code visitMultiANewArrayInsn} used to never call the cumulative-budget check at
+     * all, so a loop of legal-sized multi-dimensional allocations contributed nothing to
+     * the running total and could exhaust the heap regardless of cumulative_array_limit_bytes.
+     * {@code multiNewArray(rows, columns)} allocates an {@code int[rows][columns]}: each
+     * call here is 10*20 = 200 ints = 800 bytes, well under array_limit (1000) on its own.
+     */
+    @Test
+    public void multiDimensionalAllocationCountsAgainstTheCumulativeBudget() throws Exception {
+        RuntimeSettings.maxCumulativeArrayBytes = 900L;
+
+        assertEquals(10, invoke("multiNewArray", 10, 20)); // 800 bytes: within budget
+        assertRejected("multiNewArray", 10, 20); // 1600 bytes total: over budget
     }
 
     // ---------------------------------------------------------------- helpers

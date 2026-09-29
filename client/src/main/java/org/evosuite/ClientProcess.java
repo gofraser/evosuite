@@ -166,7 +166,7 @@ public class ClientProcess {
         RuntimeSettings.sandboxMode = Properties.SANDBOX_MODE;
         RuntimeSettings.maxNumberOfThreads = Properties.MAX_STARTED_THREADS;
         RuntimeSettings.maxNumberOfIterationsPerLoop = Properties.MAX_LOOP_ITERATIONS;
-        RuntimeSettings.maxCumulativeArrayElements = Properties.CUMULATIVE_ARRAY_LIMIT;
+        RuntimeSettings.maxCumulativeArrayBytes = Properties.CUMULATIVE_ARRAY_LIMIT_BYTES;
         RuntimeSettings.useVNET = Properties.VIRTUAL_NET;
         RuntimeSettings.useSeparateClassLoader = Properties.USE_SEPARATE_CLASSLOADER;
         RuntimeSettings.className = Properties.TARGET_CLASS;

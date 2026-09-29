@@ -30,6 +30,11 @@ public class ArrayAllocationVictim {
         return data.length;
     }
 
+    public static int newLongArray(int size) {
+        long[] data = new long[size];
+        return data.length;
+    }
+
     public static int aNewArray(int size) {
         Object[] data = new Object[size];
         return data.length;

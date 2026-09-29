@@ -3222,12 +3222,18 @@ public class Properties {
             description = "Hard limit on array allocation in the code")
     public static int ARRAY_LIMIT = 1000000;
 
-    @Parameter(key = "cumulative_array_limit", group = "Test Execution",
-            description = "Hard limit on the total number of array elements a single test execution may "
-                    + "allocate across all NEWARRAY/ANEWARRAY sites in the analysed classes. Catches a loop "
-                    + "that allocates many individually-legal-sized arrays (each under array_limit) before "
-                    + "it can exhaust the heap. A negative value disables the check.")
-    public static long CUMULATIVE_ARRAY_LIMIT = 50_000_000L;
+    @Parameter(key = "cumulative_array_limit_bytes", group = "Test Execution",
+            description = "Hard limit, in bytes, on the total size of arrays a single test execution may "
+                    + "allocate across all NEWARRAY/ANEWARRAY/MULTIANEWARRAY sites in the analysed classes. "
+                    + "Catches a loop that allocates many individually-legal-sized arrays (each under "
+                    + "array_limit) before it can exhaust the heap. Counted in bytes, not elements, so the "
+                    + "budget is uniform across element types instead of implicitly depending on which "
+                    + "primitive type happens to be allocated. The default (400,000,000, i.e. 400MB) is NOT a "
+                    + "tuned value: it is the widest effective allowance any element type had before this "
+                    + "counted bytes (what a long[]/double[] could already reach), chosen so the fix is purely "
+                    + "corrective and refuses nothing that was previously allowed. A negative value disables "
+                    + "the check.")
+    public static long CUMULATIVE_ARRAY_LIMIT_BYTES = 400_000_000L;
 
     @Parameter(key = "collection_capacity_limit", group = "Test Execution",
             description = "Hard limit on collection constructor capacity in the code")

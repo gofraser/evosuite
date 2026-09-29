@@ -20,9 +20,10 @@
 package org.evosuite.runtime;
 
 /**
- * Tracks how many array elements a single test execution has allocated across every
- * NEWARRAY/ANEWARRAY site in the classes under analysis, and refuses further allocation
- * once the running total crosses {@link RuntimeSettings#maxCumulativeArrayElements}.
+ * Tracks how many bytes a single test execution has allocated across every
+ * NEWARRAY/ANEWARRAY/MULTIANEWARRAY site in the classes under analysis, and refuses
+ * further allocation once the running total crosses
+ * {@link RuntimeSettings#maxCumulativeArrayBytes}.
  *
  * <p>{@code org.evosuite.instrumentation.ArrayAllocationLimitMethodAdapter} already
  * rejects any single allocation over {@code array_limit}, but a loop that allocates many
@@ -31,18 +32,24 @@ package org.evosuite.runtime;
  * exhaust the heap before any other safety net (the loop-iteration cap, the -mem
  * watchdog) gets a chance to fire. Counting the cumulative size closes that gap.
  *
+ * <p>Counted in bytes rather than elements: an element of a {@code long[]} or
+ * {@code double[]} is 8 times the footprint of an element of a {@code byte[]}, so a
+ * budget expressed in elements let wide-element arrays allocate up to 8x the memory of
+ * narrow ones before tripping. The caller supplies the element width (in bytes) of the
+ * array being allocated, and this class does the multiplication itself.
+ *
  * <p>Mirrors the reset lifecycle of {@link LoopCounter}: {@link Runtime#resetRuntime()}
  * clears the running total before every test execution.
  */
 public class ArrayAllocationBudget {
 
     /**
-     * Running total of array elements allocated so far by whichever test execution is
-     * currently using this thread. Not thread-confined on purpose: like
-     * {@link LoopCounter}, this assumes a single test-execution thread is active at a
-     * time and is reset before each one starts.
+     * Running total of bytes allocated so far by whichever test execution is currently
+     * using this thread. Not thread-confined on purpose: like {@link LoopCounter}, this
+     * assumes a single test-execution thread is active at a time and is reset before
+     * each one starts.
      */
-    private static volatile long allocatedElements = 0L;
+    private static volatile long allocatedBytes = 0L;
 
     private ArrayAllocationBudget() {
     }
@@ -51,29 +58,34 @@ public class ArrayAllocationBudget {
      * Reset the running total for the next test.
      */
     public static void reset() {
-        allocatedElements = 0L;
+        allocatedBytes = 0L;
     }
 
     /**
-     * Record an allocation of {@code elements} array slots and reject it if the
-     * cumulative total for this test now exceeds the configured budget.
+     * Record an allocation of {@code elements} array slots, each {@code elementWidthBytes}
+     * bytes wide, and reject it if the cumulative total for this test now exceeds the
+     * configured budget.
      *
      * <p>Called from bytecode instrumented into the classes under analysis, right after
-     * a NEWARRAY/ANEWARRAY whose own size already passed the per-call {@code
-     * array_limit} check.
+     * a NEWARRAY/ANEWARRAY/MULTIANEWARRAY whose own size already passed the per-call
+     * {@code array_limit} check.
      *
-     * @param elements number of elements the allocation about to happen will occupy
+     * @param elements          number of elements the allocation about to happen will occupy
+     * @param elementWidthBytes size in bytes of a single element (e.g. 8 for {@code long}/
+     *                          {@code double}, 1 for {@code byte}/{@code boolean}, or a
+     *                          pointer width for a reference-typed array)
      * @throws TooManyResourcesException if the cumulative budget has been exceeded
      */
-    public static void checkAndRecord(long elements) {
-        if (RuntimeSettings.maxCumulativeArrayElements < 0) {
+    public static void checkAndRecord(long elements, int elementWidthBytes) {
+        if (RuntimeSettings.maxCumulativeArrayBytes < 0) {
             return; // disabled
         }
-        allocatedElements += elements;
-        if (allocatedElements > RuntimeSettings.maxCumulativeArrayElements) {
+        long bytes = elements * (long) elementWidthBytes;
+        allocatedBytes += bytes;
+        if (allocatedBytes > RuntimeSettings.maxCumulativeArrayBytes) {
             throw new TooManyResourcesException("Cumulative array allocation for this test exceeds the "
-                    + "configured cumulative_array_limit of " + RuntimeSettings.maxCumulativeArrayElements
-                    + " elements (" + allocatedElements + " requested so far)");
+                    + "configured cumulative_array_limit_bytes of " + RuntimeSettings.maxCumulativeArrayBytes
+                    + " bytes (" + allocatedBytes + " requested so far)");
         }
     }
 }
