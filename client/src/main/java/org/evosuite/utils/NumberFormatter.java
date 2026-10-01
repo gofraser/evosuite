@@ -129,7 +129,18 @@ public class NumberFormatter {
                 enumClass = enumClass.getEnclosingClass();
             }
 
-            if (visitor != null) {
+            // visitor.getClassName(enumClass) trusts Class.getModifiers(), which
+            // lies for a source-private nested enum: AccessibleClassAdapter promotes
+            // its InnerClasses-attribute access flags to ACC_PUBLIC for execution
+            // (see TestCodeVisitor#isClassLiteralReferenceableFromGeneratedTest).
+            // Only take the richer, import-aware path when the enum class is
+            // actually referenceable by name; otherwise fall back to the same
+            // simple-name chaining used when no visitor is available at all, which
+            // at least degrades predictably. Callers that can restructure the
+            // surrounding expression (PrimitiveAssertion, InspectorAssertion) check
+            // referenceability themselves and render a by-name comparison instead,
+            // so they never reach this branch for a non-referenceable enum.
+            if (visitor != null && TestCodeVisitor.isClassLiteralReferenceableFromGeneratedTest(enumClass)) {
                 className = visitor.getClassName(enumClass);
                 Class<?> enclosingClass = enumClass.getEnclosingClass();
                 if (enclosingClass != null && className.indexOf('.') < 0) {

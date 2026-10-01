@@ -23,6 +23,9 @@ import com.examples.with.different.packagename.AbstractEnumInInnerClass;
 import com.examples.with.different.packagename.AbstractEnumUser;
 import com.examples.with.different.packagename.AccessExamples;
 import com.examples.with.different.packagename.EnumInInnerClass;
+import com.examples.with.different.packagename.PackagePrivateNestedConstructorExample;
+import com.examples.with.different.packagename.PrivateNestedReflectiveConstructorExample;
+import com.examples.with.different.packagename.PrivateNestedReflectiveConstructorSuperclassExample;
 import com.examples.with.different.packagename.EnumUser;
 import com.examples.with.different.packagename.subpackage.AccessExamplesProtectedOverride;
 import com.examples.with.different.packagename.subpackage.AccessExamplesSubclass;
@@ -2490,6 +2493,202 @@ public class TestCodeVisitorTest {
                 "Ambiguous null across a non-public overload must be cast:\n" + code);
         assertFalse(code.contains("OverloadedNullConstructors(null)"),
                 "Bare ambiguous null must not be emitted:\n" + code);
+    }
+
+    /**
+     * Strips every double-quoted string literal out of {@code code}, so callers can
+     * check that a forbidden identifier never appears as a source-level reference
+     * (declared type, cast, class literal) while still allowing it to appear inside
+     * a {@code Class.forName("...")} string, where naming it is required and safe.
+     */
+    private static String stripStringLiterals(String code) {
+        return code.replaceAll("\"([^\"\\\\]|\\\\.)*\"", "\"\"");
+    }
+
+    @Test
+    public void testReflectiveConstructorFallbackPrefersAccessibleInterfaceOverObject()
+            throws Exception {
+        TestCase tc = new DefaultTestCase();
+
+        Class<?> privateProxyClass = Class.forName(
+                "com.examples.with.different.packagename.PrivateNestedReflectiveConstructorExample$PrivateProxy");
+        java.lang.reflect.Constructor<?> rawCtor = privateProxyClass.getDeclaredConstructor(String.class);
+
+        StringPrimitiveStatement label = new StringPrimitiveStatement(tc, "secret");
+        tc.addStatement(label);
+
+        GenericConstructor proxyCtor = new GenericConstructor(rawCtor, privateProxyClass);
+        ConstructorStatement proxyStatement = new ConstructorStatement(
+                tc, proxyCtor, Collections.singletonList(label.getReturnValue()));
+        VariableReference proxyVar = tc.addStatement(proxyStatement);
+
+        GenericConstructor holderCtor = new GenericConstructor(
+                PrivateNestedReflectiveConstructorExample.ProxyHolder.class.getDeclaredConstructor(),
+                PrivateNestedReflectiveConstructorExample.ProxyHolder.class);
+        VariableReference holder = tc.addStatement(
+                new ConstructorStatement(tc, holderCtor, Collections.emptyList()));
+
+        Method describe = PrivateNestedReflectiveConstructorExample.ProxyHolder.class
+                .getDeclaredMethod("describe", PrivateNestedReflectiveConstructorExample.Proxy.class);
+        tc.addStatement(new MethodStatement(
+                tc,
+                new GenericMethod(describe, PrivateNestedReflectiveConstructorExample.ProxyHolder.class),
+                holder,
+                Collections.singletonList(proxyVar)));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String proxyVarName = visitor.getVariableName(proxyVar);
+        String declaredType = visitor.getClassName(PrivateNestedReflectiveConstructorExample.Proxy.class);
+
+        // 1. No reference to the private type name anywhere outside a string literal
+        // (not as a class literal, not as the declared type, not as a cast). The
+        // generated *variable name* legitimately echoes the private simple name
+        // (e.g. "..._PrivateProxy0") -- that is just an identifier, not a type
+        // reference -- so it is excluded before checking.
+        String withoutStringLiterals = stripStringLiterals(code).replace(proxyVarName, "");
+        assertFalse(withoutStringLiterals.contains("PrivateProxy"),
+                "Private nested type name must never be written outside a string literal "
+                        + "or the (irrelevant) generated variable name:\n" + code);
+
+        // The class literal for the reflective getDeclaredConstructor() call must
+        // still be obtainable, just reflectively.
+        assertTrue(code.contains("Class.forName(\"" + privateProxyClass.getName() + "\")"),
+                "Reflective fallback should obtain the private class via Class.forName:\n" + code);
+
+        // 2. The declared type is the accessible interface the class implements
+        // (Proxy), not Object -- and the downstream describe(Proxy) call still
+        // accepts the very same variable, with no extra cast.
+        assertEquals("PrivateNestedReflectiveConstructorExample.Proxy", declaredType);
+        assertTrue(code.contains(declaredType + " " + proxyVarName + " = ("
+                        + declaredType + ") constructor"),
+                "Declaration and cast should use the accessible interface:\n" + code);
+        assertTrue(code.contains(".describe(" + proxyVarName + ")"),
+                "Downstream call should accept the declared interface type directly:\n" + code);
+    }
+
+    @Test
+    public void testReflectiveConstructorFallbackFallsBackToAccessibleSuperclassWithoutInterfaces()
+            throws Exception {
+        TestCase tc = new DefaultTestCase();
+
+        Class<?> privateWeakEntryClass = Class.forName(
+                "com.examples.with.different.packagename."
+                        + "PrivateNestedReflectiveConstructorSuperclassExample$PrivateWeakEntry");
+        java.lang.reflect.Constructor<?> rawCtor = privateWeakEntryClass.getDeclaredConstructor(
+                Object.class, java.lang.ref.ReferenceQueue.class);
+
+        GenericConstructor ctor = new GenericConstructor(rawCtor, privateWeakEntryClass);
+        ConstructorStatement statement = new ConstructorStatement(
+                tc, ctor, Arrays.asList(new NullReference(tc, Object.class),
+                        new NullReference(tc, java.lang.ref.ReferenceQueue.class)));
+        tc.addStatement(statement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String entryVarName = visitor.getVariableName(statement.getReturnValue());
+
+        String withoutStringLiterals = stripStringLiterals(code).replace(entryVarName, "");
+        assertFalse(withoutStringLiterals.contains("PrivateWeakEntry"),
+                "Private nested type name must never be written outside a string literal "
+                        + "or the (irrelevant) generated variable name:\n" + code);
+        assertTrue(code.contains("WeakReference " + entryVarName
+                        + " = (WeakReference) constructor"),
+                "With no accessible interface, the nearest accessible superclass should be used:\n" + code);
+    }
+
+    @Test
+    public void testPackagePrivateNestedConstructorStillRendersByNameInSamePackage() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = PackagePrivateNestedConstructorExample.class.getPackage().getName();
+        try {
+            TestCase tc = new DefaultTestCase();
+            Class<?> workerClass = Class.forName(
+                    "com.examples.with.different.packagename."
+                            + "PackagePrivateNestedConstructorExample$PackagePrivateWorker");
+            GenericConstructor ctor = new GenericConstructor(
+                    workerClass.getDeclaredConstructor(), workerClass);
+            tc.addStatement(new ConstructorStatement(tc, ctor, Collections.emptyList()));
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains(
+                            "PackagePrivateNestedConstructorExample.PackagePrivateWorker "
+                                    + "packagePrivateNestedConstructorExample_PackagePrivateWorker0 = new "
+                                    + "PackagePrivateNestedConstructorExample.PackagePrivateWorker();"),
+                    "Package-private nested constructors in the matching package must still "
+                            + "be called directly, not reflectively:\n" + code);
+            assertFalse(code.contains("getDeclaredConstructor"),
+                    "Legally accessible constructor must not fall back to reflection:\n" + code);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
+    }
+
+    /**
+     * Pins the regression reported against FIX 1: a public nested class with a
+     * non-public constructor (a common factory-method-only idiom) must keep its own
+     * declared/cast type -- NOT fall back to {@code Object} -- even though the
+     * constructor itself is not source-accessible and must go through the
+     * reflective fallback. {@link PublicTypeWithPackagePrivateCtor} is public and
+     * its own enclosing class ({@code TestCodeVisitorTest}) is public too, so the
+     * type is unambiguously nameable; {@code Properties.CLASS_PREFIX} is pointed at
+     * an unrelated package (as in
+     * {@link #testPackagePrivateConstructorInDifferentGeneratedPackageUsesReflection()})
+     * so that the package-private constructor is conservatively treated as
+     * inaccessible, forcing the reflective fallback, while the type itself stays
+     * nameable regardless of {@code CLASS_PREFIX} (nameability only depends on the
+     * {@code private} flags along the enclosing chain, not on package matching).
+     * Mirrors {@code TestRepairLoopSalvageTest.SalvageTarget} / {@code
+     * TestRepairLoopExecutionFeedbackTest.FeedbackTarget}, both public nested
+     * classes with implicit public constructors inside a package-private outer test
+     * class (so their own constructor accessibility fails the same conservative
+     * package-match check, just via the enclosing class rather than an explicit
+     * {@code CLASS_PREFIX} override), which the earlier (incorrect) fix broke by
+     * gating the declared/cast type on constructor accessibility instead of the
+     * type's own nameability.
+     */
+    @Test
+    public void testPublicNestedClassWithNonPublicConstructorKeepsOwnDeclaredType() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = "different.generated.package";
+        try {
+            TestCase tc = new DefaultTestCase();
+            StringPrimitiveStatement arg = new StringPrimitiveStatement(tc, "x");
+            tc.addStatement(arg);
+
+            GenericConstructor constructor = new GenericConstructor(
+                    PublicTypeWithPackagePrivateCtor.class.getDeclaredConstructor(String.class),
+                    PublicTypeWithPackagePrivateCtor.class);
+            ConstructorStatement ctorStmt = new ConstructorStatement(
+                    tc, constructor, Collections.singletonList((VariableReference) arg.getReturnValue()));
+            VariableReference instance = tc.addStatement(ctorStmt);
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+            String declaredType = visitor.getClassName(PublicTypeWithPackagePrivateCtor.class);
+            String varName = visitor.getVariableName(instance);
+
+            assertEquals("TestCodeVisitorTest.PublicTypeWithPackagePrivateCtor", declaredType);
+
+            // Reflective fallback is still used for the constructor call itself.
+            assertTrue(code.contains("getDeclaredConstructor("), "Expected reflective construction:\n" + code);
+            assertTrue(code.contains(".setAccessible(true);"), "Expected reflective construction:\n" + code);
+            assertTrue(code.contains(".newInstance("), "Expected reflective construction:\n" + code);
+
+            // The declared type and cast must be the real nested class, not Object.
+            assertTrue(code.contains(declaredType + " " + varName + " = (" + declaredType + ") constructor"),
+                    "Declared/cast type must be the nested class's own name, not Object:\n" + code);
+            assertFalse(code.contains("Object " + varName), "Must not fall back to Object:\n" + code);
+            assertFalse(code.contains("(Object) constructor"), "Must not cast to Object:\n" + code);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
     }
 }
 

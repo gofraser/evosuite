@@ -4186,7 +4186,20 @@ public class TestCodeVisitor extends TestVisitor {
         // can diverge from the constructor owner (e.g. java.sql.Date retval with a
         // java.util.Date constructor), and when both simple names collide the import
         // picks one while the other is fully qualified, producing uncompilable code.
-        String constructorTypeName = getTypeName(constructor.getOwnerType());
+        //
+        // Whether the CONSTRUCTOR is source-accessible (-> direct "new Owner(...)"
+        // vs. reflective fallback, see constructorAccessible below) is a different
+        // question from whether the declaring TYPE itself can be named at all. A
+        // private constructor on an otherwise perfectly nameable public class is a
+        // common idiom (factory-method-only construction): the constructor needs
+        // reflection, but the type name is entirely fine to declare and cast to.
+        // Only when the type itself is not nameable (see
+        // isDeclaredTypeNameableInGeneratedTest) does the declared/cast type need to
+        // fall back to the nearest accessible supertype instead.
+        boolean constructorAccessible = isSourceAccessibleFromGeneratedTest(rawConstructor);
+        String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
+                ? getTypeName(constructor.getOwnerType())
+                : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
 
         // The declaration prefix ("Type ") is prepended at the point where the
         // retval variable is first introduced. In the try-catch path the retval
@@ -4212,7 +4225,7 @@ public class TestCodeVisitor extends TestVisitor {
             declarationPrefix = constructorTypeName + " ";
         }
 
-        if (isSourceAccessibleFromGeneratedTest(rawConstructor)) {
+        if (constructorAccessible) {
             if (isNonStaticMemberClass) {
                 result += declarationPrefix + declarationVarName + " = "
                         + getVariableName(parameters.get(0))
@@ -4228,15 +4241,15 @@ public class TestCodeVisitor extends TestVisitor {
             // Fallback for private/protected/package-private constructors that are not
             // source-accessible from the generated test package.
             String constructorVarName = "constructor" + statement.getPosition();
-            String classLiteral = getClassName(rawConstructor.getDeclaringClass());
+            String classExpression = getClassLiteralExpression(rawConstructor.getDeclaringClass());
             result += "java.lang.reflect.Constructor<?> " + constructorVarName + " = "
-                    + classLiteral + ".class.getDeclaredConstructor(";
+                    + classExpression + ".getDeclaredConstructor(";
             Class<?>[] rawParameterTypes = rawConstructor.getParameterTypes();
             for (int i = 0; i < rawParameterTypes.length; i++) {
                 if (i > 0) {
                     result += ", ";
                 }
-                result += getClassName(rawParameterTypes[i]) + ".class";
+                result += getClassLiteralExpression(rawParameterTypes[i]);
             }
             result += ");" + NEWLINE;
             result += constructorVarName + ".setAccessible(true);" + NEWLINE;
@@ -4333,14 +4346,23 @@ public class TestCodeVisitor extends TestVisitor {
      * {@code InnerClasses} attribute -- so it gets promoted and
      * {@link Class#getModifiers()} then reports it as public. The generated test is,
      * however, compiled against the real (uninstrumented) classes, where the
-     * literal is rejected. Because these class literals only ever feed reflective
-     * {@code PrivateAccess} calls (the sole producers of {@code Class}-typed
-     * {@code ConstantValue}s), any nested class is emitted reflectively: a nested
+     * literal is rejected. A nested class is emitted reflectively instead: a nested
      * {@code .class} literal is never referenceable from outside its enclosing type
      * unless the nested class is public, and reflection never needs the compile-time
      * {@code Class<Foo>} typing anyway.
+     *
+     * <p>Besides feeding {@code getClassLiteralExpression}, this check is also used
+     * directly wherever a nested type's referenceability needs to be known without
+     * needing a {@code Class} expression at all -- e.g. the reflective-constructor
+     * fallback choosing a declared/cast type (see {@code visitConstructorStatement}
+     * and {@code findAccessibleRenderableSupertype}), and
+     * {@link org.evosuite.utils.NumberFormatter} / the assertion classes deciding
+     * whether an enum constant can be rendered as {@code Type.CONSTANT} or must be
+     * compared by name instead. It is {@code public static} (rather than private)
+     * so those classes can call it without needing a {@code TestCodeVisitor}
+     * instance and without duplicating the logic.
      */
-    private boolean isClassLiteralReferenceableFromGeneratedTest(Class<?> classLiteral) {
+    public static boolean isClassLiteralReferenceableFromGeneratedTest(Class<?> classLiteral) {
         if (classLiteral == null) {
             return false;
         }
@@ -4351,6 +4373,187 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
         return isTypeAccessibleFromGeneratedTest(classLiteral, getGeneratedTestPackageName());
+    }
+
+    /**
+     * Decides whether an enum constant's declaring class may be named directly in a
+     * generated-test assertion as {@code Type.CONSTANT}, or whether the comparison
+     * must instead be rendered by {@link Enum#name()}.
+     *
+     * <p>This is deliberately <b>narrower</b> than, and must not be confused with,
+     * {@link #isClassLiteralReferenceableFromGeneratedTest}. That method
+     * blanket-rejects every nested class, public or not, because a {@code .class}
+     * literal always has a reflective {@code Class.forName(...)} escape hatch, so
+     * being unnecessarily conservative there is free. An enum constant used as a
+     * <i>value</i> in an assertion has no such escape hatch -- there is no
+     * reflective way to produce an expression that denotes the constant itself --
+     * so unnecessary conservatism here is not free: reusing the blanket check would
+     * force every nested enum, including public and same-package ones, into the
+     * uglier by-name comparison, a corpus-wide change to generated assertions to
+     * fix only the genuinely-private handful.
+     *
+     * <p>Unlike the {@code .class}-literal case, {@link Class#getModifiers()} can be
+     * trusted here for the one thing that matters: privacy. {@code
+     * AccessibleClassAdapter.visitInnerClass} only ORs {@code ACC_PUBLIC} into an
+     * InnerClasses-attribute entry that is <b>not already</b> {@code ACC_PRIVATE} --
+     * a source-private nested type keeps its {@code ACC_PRIVATE} flag through
+     * instrumentation, and {@code Class.getModifiers()} for a member class reads
+     * exactly that entry. So a private nested enum still reads back as private at
+     * render time, and {@link #isTypeAccessibleFromGeneratedTest} -- which already
+     * special-cases {@code Modifier.isPrivate} before falling through to the
+     * same-package check -- can be used directly instead of the blanket check.
+     *
+     * <p><b>Known residual risk:</b> {@code getModifiers()} still lies
+     * <i>upward</i> for package-private and protected nested types --
+     * {@code AccessibleClassAdapter} promotes those to {@code ACC_PUBLIC}. That is
+     * harmless when the generated test sits in the CUT's own package (the only case
+     * {@link #isTypeAccessibleFromGeneratedTest} treats a non-public type as
+     * accessible in anyway), but a package-private nested enum belonging to a
+     * <i>foreign</i> package would be misreported as public/nameable here. This is
+     * strictly more accurate than the previous blanket-conservative behaviour, but
+     * is not a complete fix for that narrower cross-package case.
+     *
+     * @param enumClass the enum constant's declaring class (already unwrapped past
+     *                   any anonymous constant-body subclass)
+     * @return {@code true} if {@code Type.CONSTANT} can be written directly,
+     *         {@code false} if the comparison must be rendered by name instead
+     */
+    public static boolean isEnumConstantNameableInGeneratedTest(Class<?> enumClass) {
+        if (enumClass == null) {
+            return false;
+        }
+        if (enumClass.getEnclosingClass() != null && Modifier.isPrivate(enumClass.getModifiers())) {
+            return false;
+        }
+        return isTypeAccessibleFromGeneratedTest(enumClass, getGeneratedTestPackageName());
+    }
+
+    /**
+     * Decides whether {@code type} can be written by name as a declared variable
+     * type or cast target in the generated test -- as opposed to whether a
+     * <em>constructor</em> of it is source-accessible (see
+     * {@link #isSourceAccessibleFromGeneratedTest}), which is a different question:
+     * a private constructor on an otherwise perfectly nameable public class is a
+     * common idiom, and reflection is needed for the constructor while the type
+     * name itself is fine to write.
+     *
+     * <p>This predicate is deliberately narrower than both of the other
+     * referenceability checks in this class, and must not be confused with either:
+     * <ul>
+     * <li>{@link #isClassLiteralReferenceableFromGeneratedTest} blanket-rejects
+     * every nested class, because a {@code .class} literal always has a reflective
+     * {@code Class.forName(...)} escape hatch, so being unnecessarily conservative
+     * there is free.
+     * <li>{@link #isEnumConstantNameableInGeneratedTest} defers to
+     * {@link #isTypeAccessibleFromGeneratedTest}, which also requires each
+     * enclosing class in the chain to be accessible (public, or in the generated
+     * test's own package per {@code Properties.CLASS_PREFIX}) -- appropriate there
+     * because the enum case targets real CUT classes, where that chain is
+     * meaningful.
+     * </ul>
+     * Reusing either of those here regressed real, previously-passing output: a
+     * {@code public static} nested class with an implicit public constructor,
+     * declared inside a package-private outer class, with no
+     * {@code Properties.CLASS_PREFIX} configured (exactly the shape of several
+     * EvoSuite-internal test fixtures, e.g. {@code TestRepairLoopSalvageTest}'s
+     * package-private {@code TestRepairLoopSalvageTest} enclosing a {@code public
+     * static class SalvageTarget}) is perfectly nameable as
+     * {@code TestRepairLoopSalvageTest.SalvageTarget} -- exactly as
+     * {@link #getClassName} has always optimistically rendered it, with no
+     * enclosing-class accessibility check at all -- but
+     * {@link #isTypeAccessibleFromGeneratedTest}'s conservative
+     * {@code isEmptyPackageName(testPackageName) -> false} default for the
+     * package-private enclosing class would call it unnameable, substituting
+     * {@code Object} and breaking every statement that uses the variable's real
+     * type.
+     *
+     * <p>The one signal that can be trusted post-instrumentation is a type's own
+     * {@code private} flag: {@code AccessibleClassAdapter.visitInnerClass} only ORs
+     * in {@code ACC_PUBLIC} for an InnerClasses-attribute entry that is not already
+     * {@code ACC_PRIVATE}, so a source-private nested type keeps reading as private
+     * even at render time. This method therefore checks only that, walking the full
+     * enclosing-class chain (a public member of a private enclosing type is just as
+     * unnameable as the private type itself), and otherwise defers to the same
+     * long-standing optimism {@link #getClassName} already applies to every other
+     * nested type -- package-private, protected or public alike.
+     *
+     * @param type the declaring class of a constructor, which may or may not itself
+     *             be source-accessible
+     * @return {@code true} if {@code type} (and its enclosing chain) can be written
+     *         by name, {@code false} only when some level of that chain is
+     *         source-private
+     */
+    private static boolean isDeclaredTypeNameableInGeneratedTest(Class<?> type) {
+        for (Class<?> current = type; current != null; current = current.getEnclosingClass()) {
+            if (Modifier.isPrivate(current.getModifiers())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Finds the nearest accessible type that the generated test may use in place of
+     * {@code inaccessibleType} as a declared variable type or cast target, when
+     * {@code inaccessibleType} itself cannot be named from the generated test (e.g.
+     * a source-private nested class instantiated through the reflective-constructor
+     * fallback in {@code visitConstructorStatement}). Unlike a {@code Class}
+     * literal (see {@link #getClassLiteralExpression}), a type used for a
+     * declaration or cast has no reflective escape hatch -- {@code Class.forName}
+     * yields a {@code Class}, not a type the compiler can use -- so an accessible
+     * supertype has to be found instead.
+     *
+     * <p>Interfaces are preferred over the superclass chain: a source-private
+     * helper/proxy class is typically declared {@code private} specifically to hide
+     * an implementation behind a public interface it implements for its callers
+     * (e.g. {@code IconManager.IconProxy implements Icon}), so an implemented
+     * interface is far more likely to carry the API that later statements in the
+     * generated test actually invoke on the variable. The superclass chain, by
+     * contrast, commonly bottoms out at {@code Object}, which offers nothing useful.
+     * Direct interfaces are tried before inherited ones (breadth-first), and the
+     * superclass chain is only consulted once no accessible interface is found at
+     * all. {@code Object} -- always accessible -- is the ultimate fallback, so this
+     * method never returns {@code null}.
+     *
+     * @param inaccessibleType the (possibly source-private) declaring class of a
+     *                          constructor that is not source-accessible
+     * @return the nearest accessible interface or superclass, defaulting to
+     *         {@code Object.class}
+     */
+    private static Class<?> findAccessibleRenderableSupertype(Class<?> inaccessibleType) {
+        String testPackageName = getGeneratedTestPackageName();
+
+        Deque<Class<?>> interfaceQueue = new ArrayDeque<>();
+        Set<Class<?>> seenInterfaces = new LinkedHashSet<>();
+        for (Class<?> current = inaccessibleType; current != null; current = current.getSuperclass()) {
+            for (Class<?> iface : current.getInterfaces()) {
+                if (seenInterfaces.add(iface)) {
+                    interfaceQueue.addLast(iface);
+                }
+            }
+        }
+        while (!interfaceQueue.isEmpty()) {
+            Class<?> iface = interfaceQueue.removeFirst();
+            if (isTypeAccessibleFromGeneratedTest(iface, testPackageName)) {
+                return iface;
+            }
+            for (Class<?> superInterface : iface.getInterfaces()) {
+                if (seenInterfaces.add(superInterface)) {
+                    interfaceQueue.addLast(superInterface);
+                }
+            }
+        }
+
+        for (Class<?> current = inaccessibleType.getSuperclass(); current != null;
+             current = current.getSuperclass()) {
+            if (isTypeAccessibleFromGeneratedTest(current, testPackageName)) {
+                return current;
+            }
+        }
+
+        // Object is always public, so the loop above is guaranteed to return before
+        // this point is reached; kept as an explicit, documented default.
+        return Object.class;
     }
 
     /**
@@ -4414,7 +4617,7 @@ public class TestCodeVisitor extends TestVisitor {
         return packageName == null || packageName.isEmpty();
     }
 
-    private String getGeneratedTestPackageName() {
+    private static String getGeneratedTestPackageName() {
         String classPrefix = Properties.CLASS_PREFIX;
         if (classPrefix == null) {
             return "";
