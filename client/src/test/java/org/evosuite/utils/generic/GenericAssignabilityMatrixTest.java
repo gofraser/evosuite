@@ -197,6 +197,33 @@ class GenericAssignabilityMatrixTest {
         static void classOfSuperInteger(Class<? super Integer> c) {
         }
 
+        // -- nested-shared-raw Class<T> cases (the actual shape of 4afbc209f/ff45d8b1f: two
+        // different parameterisations of the SAME raw class nested inside Class<...>, where the
+        // reverted bug -- erasing the class-literal's type argument via getRawClass -- collapsed
+        // both to List.class and could no longer tell them apart). Plain classOfInteger vs
+        // classOfNumber above does NOT exercise this: Integer and Number already have different
+        // erasures, so the pre-fix erase-then-compare code answers those correctly regardless.
+        static void classOfListOfString(Class<List<String>> c) {
+        }
+
+        static void classOfListOfInteger(Class<List<Integer>> c) {
+        }
+
+        static void classOfListOfWildcard(Class<List<?>> c) {
+        }
+
+        static void classOfArrayListOfString(Class<ArrayList<String>> c) {
+        }
+
+        static void classOfListOfExtendsNumber(Class<List<? extends Number>> c) {
+        }
+
+        static void classOfMapStringInteger(Class<Map<String, Integer>> c) {
+        }
+
+        static void classOfMapStringString(Class<Map<String, String>> c) {
+        }
+
         // -- arrays, including generic arrays --
         static void stringArray(String[] a) {
         }
@@ -378,6 +405,13 @@ class GenericAssignabilityMatrixTest {
             case "classRaw": return "Class";
             case "classOfWildcard": return "Class<?>";
             case "classOfSuperInteger": return "Class<? super Integer>";
+            case "classOfListOfString": return "Class<List<String>>";
+            case "classOfListOfInteger": return "Class<List<Integer>>";
+            case "classOfListOfWildcard": return "Class<List<?>>";
+            case "classOfArrayListOfString": return "Class<ArrayList<String>>";
+            case "classOfListOfExtendsNumber": return "Class<List<? extends Number>>";
+            case "classOfMapStringInteger": return "Class<Map<String, Integer>>";
+            case "classOfMapStringString": return "Class<Map<String, String>>";
             case "stringArray": return "String[]";
             case "objectArray": return "Object[]";
             case "numberArray": return "Number[]";
@@ -500,6 +534,15 @@ class GenericAssignabilityMatrixTest {
         addBothDirections(cases, classFamily, "classOfSuperInteger", "classOfNumber");
         addBothDirections(cases, classFamily, "classOfSuperInteger", "classOfInteger");
         addBothDirections(cases, classFamily, "classOfNumber", "classOfInteger");
+        // -- nested-shared-raw: two parameterisations of the same raw class nested inside
+        // Class<...>, which is the shape that actually exercises 4afbc209f/ff45d8b1f (see the
+        // Sigs comment above the fixtures for why classOfNumber/classOfInteger does not).
+        addBothDirections(cases, classFamily, "classOfListOfString", "classOfListOfInteger");
+        addBothDirections(cases, classFamily, "classOfListOfString", "classOfListOfWildcard");
+        addBothDirections(cases, classFamily, "classOfListOfInteger", "classOfListOfWildcard");
+        addBothDirections(cases, classFamily, "classOfListOfString", "classOfArrayListOfString");
+        addBothDirections(cases, classFamily, "classOfListOfInteger", "classOfListOfExtendsNumber");
+        addBothDirections(cases, classFamily, "classOfMapStringInteger", "classOfMapStringString");
 
         // -- arrays, including generic arrays --
         String arrays = "arrays";
