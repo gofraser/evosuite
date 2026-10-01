@@ -41,40 +41,26 @@ public final class EnumAssertionCodeRenderer {
     }
 
     /**
-     * The constant's declaring class may be a source-private nested enum (e.g.
-     * {@code jigl.image.io.ImageInputStream.ImageFileType}), whose name can never
-     * be written -- not even as {@code Type.CONSTANT} from the same package.
-     * There is no reflective escape hatch here (unlike a {@code Class} literal):
-     * the expression must denote the constant's value, not a {@code Class}. So
-     * when {@link TestCodeVisitor#isEnumConstantNameableInGeneratedTest} says the
-     * declaring class cannot be named, the comparison is rendered by name
-     * instead, comparing {@link Enum#name()} strings rather than the constants
-     * themselves. See that method's javadoc for why this uses it rather than the
-     * stricter, blanket-conservative {@code isClassLiteralReferenceableFromGeneratedTest}
-     * used for {@code .class} literals: unlike a {@code .class} literal, falling
-     * back unnecessarily here is not free, so the check needs to be accurate
-     * rather than merely safe.
+     * The constant's declaring class may be a source-private nested enum, whose
+     * name can never be written in the generated test -- not even as
+     * {@code Type.CONSTANT} from the same package -- and there is no reflective
+     * escape hatch here (unlike a {@code Class} literal), since the expression
+     * must denote the constant's value, not a {@code Class}. When {@link
+     * TestCodeVisitor#isEnumConstantNameableInGeneratedTest} says the declaring
+     * class cannot be named, the comparison is rendered by name instead,
+     * comparing {@link Enum#name()} strings rather than the constants
+     * themselves.
      *
-     * <p>In the by-name fallback, {@code actualExpression} cannot be called
-     * directly -- its declared/static type in the generated test need not be the
-     * enum type (it is often {@code Object}, e.g. an accessor declared to return
-     * {@code Object}, or an interface the enum implements), and
-     * {@code Object}/arbitrary interfaces have no {@code name()} method. The
-     * expression is therefore cast to {@code Enum<?>} before calling
-     * {@code name()}. That cast is always compile-safe here: this branch is
-     * reached only when {@code value} is an actual enum constant, and an enum
-     * instance is a reference type (there is no primitive enum type), so
-     * {@code actualExpression}'s declared type can only be {@code Object},
-     * {@code Enum} itself, or an interface the enum implements (an enum cannot
-     * have any other superclass) -- and javac permits a cast to a non-final class
-     * ({@link Enum} is abstract) from any of those, per the narrowing reference
-     * conversion rules (JLS 5.5): a cast between an interface type and a
-     * non-final class is always allowed, since some not-yet-known subtype could
-     * implement both. {@code toString()} was considered instead of a cast -- it
-     * needs no cast, since every reference type declares it -- but an enum may
-     * override {@code toString()}, so it is not guaranteed to agree with
-     * {@code name()}; the cast preserves the exact comparison this fallback
-     * already made before the cast was added, so it was kept.
+     * <p>In that by-name fallback, {@code actualExpression} cannot be called
+     * directly: its declared/static type in the generated test need not be the
+     * enum type (often {@code Object}, e.g. an accessor declared to return
+     * {@code Object}, or an interface the enum implements), and neither has a
+     * {@code name()} method. The expression is therefore cast to {@code Enum<?>}
+     * first; that cast is always compile-safe here, since an enum constant's
+     * declared type can only be {@code Object}, {@code Enum} itself, or an
+     * interface the enum implements. {@code name()} is used rather than
+     * {@code toString()} because an enum may override {@code toString()}, which
+     * then need not agree with {@code name()}.
      *
      * @param value            the enum constant being compared against
      * @param actualExpression the generated-test expression yielding the actual
@@ -88,33 +74,19 @@ public final class EnumAssertionCodeRenderer {
     /**
      * As {@link #getEnumAssertionCode(Object, String)}, but also given the
      * {@link TestCodeVisitor} rendering the surrounding test, when one is
-     * available (callers outside a visitor pass, i.e. {@link PrimitiveAssertion}
-     * and {@link InspectorAssertion}'s own {@code getCode()}, pass {@code null}
-     * and get identical behaviour to the two-argument overload).
+     * available ({@link PrimitiveAssertion} and {@link InspectorAssertion}'s own
+     * {@code getCode()} pass {@code null} and get identical behaviour to the
+     * two-argument overload).
      *
      * <p>In the nameable branch, the visitor -- when given -- is threaded into
-     * {@link NumberFormatter#getNumberString(Object, TestCodeVisitor)} exactly
-     * as {@code TestCodeVisitor}'s own (now-removed) direct calls did, so
-     * {@code TestCodeVisitor}'s richer, import-aware, conflict-resolving
-     * naming is unchanged for every case it already handled. {@link
-     * NumberFormatter}'s own gate for that richer path uses the same {@link
-     * TestCodeVisitor#isEnumConstantNameableInGeneratedTest} check this method
-     * just used to decide this branch is reachable at all, so whenever this
-     * branch is taken, {@code NumberFormatter} already calls {@link
-     * TestCodeVisitor#getClassName(Class)} on {@code enumClass} (and, if
-     * nested, its enclosing class) itself, registering the import and
-     * resolving any simple-name clash with another already-imported class.
-     * The explicit follow-up call below is therefore a no-op in every case
-     * this method reaches (it just returns the now-cached name) and is kept
-     * only as a defensive safeguard: it used to be load-bearing, back when
-     * {@code NumberFormatter} gated its richer path on the strictly narrower,
-     * blanket-nested-class-rejecting {@link
-     * TestCodeVisitor#isClassLiteralReferenceableFromGeneratedTest} instead,
-     * which silently skipped import registration (and conflict resolution)
-     * for every nested enum -- the exact mismatch that produced a
-     * plausible-looking but wrongly-resolved {@code Outer.Inner.CONSTANT}
-     * reference when some unrelated, already-imported class happened to share
-     * the enum's enclosing simple name.
+     * {@link NumberFormatter#getNumberString(Object, TestCodeVisitor)}, which
+     * gates its own import-registering, conflict-resolving naming on the same
+     * {@link TestCodeVisitor#isEnumConstantNameableInGeneratedTest} check used
+     * above, so it already calls {@link TestCodeVisitor#getClassName(Class)} on
+     * {@code enumClass} (and its enclosing class, if nested) whenever this
+     * branch is reached. The explicit follow-up call below is therefore a no-op
+     * in practice; it is kept only as a defensive safeguard against that
+     * invariant changing.
      *
      * @param visitor the enclosing visitor, or {@code null} outside a visitor pass
      */

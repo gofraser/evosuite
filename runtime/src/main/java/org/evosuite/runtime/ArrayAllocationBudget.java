@@ -43,29 +43,16 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>Concurrency: {@link #checkAndRecord(long, int)} and
  * {@link #checkAndRecord(int[], int)} are a single atomic check-and-charge (a
  * compare-and-swap loop on {@link #allocatedBytes}), not a read-modify-write on a plain
- * {@code volatile}. Several SUT threads allocating concurrently -- the usual case once a
- * test starts a thread pool or executor -- therefore all have their charges counted,
- * instead of racing to overwrite one another's update and silently under-counting.
+ * {@code volatile}, so concurrent charges from multiple SUT threads are all counted
+ * rather than racing to overwrite one another.
  *
  * <p>Reset lifecycle: {@link Runtime#resetRuntime()} calls {@link #reset()} once per
- * test, on the thread about to run that test, mirroring {@link LoopCounter}. Unlike
- * {@link LoopCounter}, which keeps a per-thread snapshot ({@code protectedCounters}) for
- * a thread TestCaseExecutor has given up on but left running, this class does not: a
- * leftover SUT thread that keeps allocating arrays after its own test has been abandoned
- * continues to call {@link #checkAndRecord(long, int)} and so continues to add to
- * whichever total is current, including a later test's. That is a deliberate choice, not
- * an oversight -- the two counters fail in opposite directions. {@link LoopCounter}
- * resetting an abandoned thread's counter to zero lets that thread's own loop spin
- * forever without ever tripping its limit, which is a loss of protection for that
- * thread. Here, an abandoned thread folding its charges into a later test's total can
- * only make that later test look like it allocated more than it did -- tripping the cap
- * sooner than its own allocations alone would warrant -- never less: the abandoned
- * thread's allocations are still real heap pressure on the same JVM process while it
- * keeps running, so still counting them keeps the budget's actual purpose (bounding this
- * process's cumulative array allocation) intact. The cost is an occasional, misattributed
- * false rejection of an innocent later test, not a true cap bypass; a dedicated
- * per-thread quarantine (as {@link LoopCounter} has) was judged unnecessary extra
- * complexity for that trade-off.
+ * test, on the thread about to run that test. Unlike {@link LoopCounter}, this class does
+ * not quarantine a leftover SUT thread that keeps running after its own test has been
+ * abandoned: such a thread keeps charging whichever total is current, including a later
+ * test's. That is deliberate -- the abandoned thread's allocations are still real heap
+ * pressure on this process, so still counting them keeps the budget meaningful. The cost
+ * is an occasional false rejection of an innocent later test, not a true cap bypass.
  */
 public class ArrayAllocationBudget {
 

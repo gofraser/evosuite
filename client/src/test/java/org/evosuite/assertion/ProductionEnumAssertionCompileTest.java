@@ -36,11 +36,13 @@ import org.junit.jupiter.api.Test;
  * via {@link TestCodeVisitor}'s own {@code visitPrimitiveAssertion}/
  * {@code visitInspectorAssertion} -- rather than the isolated
  * {@code Assertion#getCode()} strings that {@link PrimitiveAssertionTest} and
- * {@link InspectorAssertionTest} exercise. {@code TestCodeVisitor} dispatches
- * enum-valued primitive/inspector assertions through its own, independent enum
- * branches instead of {@code getCode()} or the shared
- * {@link EnumAssertionCodeRenderer}, so a fix to the latter alone does not
- * repair what {@code toCode()} actually emits. Every assertion here is
+ * {@link InspectorAssertionTest} exercise. {@code TestCodeVisitor} now routes
+ * enum-valued primitive/inspector assertions through the shared
+ * {@link EnumAssertionCodeRenderer}; this class exists because, before that
+ * fix, {@code visitPrimitiveAssertion}/{@code visitInspectorAssertion} called
+ * {@code NumberFormatter} directly through their own, independent enum
+ * branches, so a fix to {@link EnumAssertionCodeRenderer} alone did not
+ * repair what {@code toCode()} actually emitted. Every assertion here is
  * compiled, never string-matched, so a reachable-but-inaccessible or
  * reachable-but-unimported rendering fails the way a real generated suite
  * would -- at javac time.

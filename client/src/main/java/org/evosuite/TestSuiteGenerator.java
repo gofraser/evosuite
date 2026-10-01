@@ -647,13 +647,10 @@ public class TestSuiteGenerator {
      * <p>The archive keeps the shortest test for each goal, and a test that
      * grew out of another by appending statements covers everything its
      * origin does, so the suite the search hands back is largely made of
-     * prefixes of its own tests: 718 of the 958 tests for jackson-databind's
-     * TokenBuffer, 822 of 1174 on another seed. {@link TestSuiteWriter} merges
-     * them when the tests are written, but by then inlining, minimization
-     * and the coverage analysis have each re-executed all of them - on
-     * TokenBuffer 70 s of inlining alone, and a minimization that timed out
-     * before it had scanned the first goal. Merging here, before any of that,
-     * compares each candidate against the tests already kept, so it is
+     * prefixes of its own tests. {@link TestSuiteWriter} merges them when the
+     * tests are written, but by then inlining, minimization and the coverage
+     * analysis have each re-executed all of them. Merging here, before any of
+     * that, compares each candidate against the tests already kept, so it is
      * worst-case quadratic in the number of tests, with each comparison
      * walking statements. Same condition as the writer: with
      * {@code call_probability} the prefixes are kept as distinct tests.</p>
@@ -685,19 +682,14 @@ public class TestSuiteGenerator {
                 container.getTestCase().addCoveredGoal(goal);
             }
             // isPrefix(candidate) only matches when test's statement i equals
-            // candidate's statement i for every i < test.size(), so the dropped
-            // test's statements line up one-to-one with the surviving test's
-            // leading statements; addAssertions(TestCase) walks the same shared
-            // range and copies across positions it finds, skipping assertions
-            // already present (the same machinery TestSuiteWriter#insertTest and
-            // TestSuiteMinimizer use to merge prefixes). LLM/seed tests carry
+            // candidate's statement i for every i < test.size(), so
+            // addAssertions(TestCase) can walk that same shared range and copy
+            // across assertions not already present. LLM/seed tests carry
             // oracles the assertion phase never regenerates, so without this
             // they are lost outright when the shorter test is discarded below.
-            //
             // Presentation metadata (test names, comments, section breaks) is
-            // not merged here: it is only ever attached by the LLM post-processing
-            // phase, which runs after this method in the pipeline, so there is
-            // never anything on either test case to carry over at this point.
+            // not merged here, since it is only attached later by LLM
+            // post-processing.
             container.getTestCase().addAssertions(test.getTestCase());
             prefixes.add(test);
         }

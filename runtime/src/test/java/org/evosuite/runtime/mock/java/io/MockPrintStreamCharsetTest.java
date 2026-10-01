@@ -29,13 +29,14 @@ import java.nio.charset.StandardCharsets;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 /**
- * {@code MockPrintStream(OutputStream, boolean, Charset)} used to delegate straight to
- * {@code PrintStream}'s own {@code (OutputStream, boolean, Charset)} constructor, which is a
- * Java 10 API absent from Java 8 (confirmed with {@code javap} against Corretto 8). It now
- * routes through the Java 8 {@code (OutputStream, boolean, String)} constructor via
- * {@link java.nio.charset.Charset#name()} instead. These tests pin the observable behaviour --
- * bytes written through a non-trivial charset -- so a future change to that constructor cannot
- * silently alter what gets written.
+ * {@code MockPrintStream(OutputStream, boolean, Charset)} mirrors {@code PrintStream}'s own
+ * {@code (OutputStream, boolean, Charset)} constructor, which is a Java 10 API absent from
+ * Java 8. It calls the Java 8-safe {@code (OutputStream, boolean)} super constructor and keeps
+ * its own {@link java.io.OutputStreamWriter} built from the given {@link
+ * java.nio.charset.Charset} for the stream's lifetime, routing every {@code print}/{@code
+ * println} override through it. These tests pin the observable behaviour -- bytes written
+ * through a non-trivial charset -- so a future change to that constructor cannot silently alter
+ * what gets written.
  */
 public class MockPrintStreamCharsetTest {
 

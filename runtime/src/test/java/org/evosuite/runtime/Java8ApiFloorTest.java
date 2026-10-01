@@ -67,21 +67,16 @@ import static org.junit.jupiter.api.Assertions.fail;
  * <p>Two severities, both observed in practice. A post-8 <em>type</em> in a field, parameter or
  * local breaks the whole class at load time ({@code NoClassDefFoundError}). A post-8 <em>method
  * call</em> throws only when that line executes ({@code NoSuchMethodError}), which is worse,
- * because it survives every smoke test. Five real instances of this were found and fixed by hand
- * in October 2026 -- a {@code PrintStream(OutputStream, boolean, Charset)} constructor that is
- * Java 10+, a {@code PrintWriter} equivalent, a {@code SocketImpl} constructor that is package
- * private before JDK 12, {@code Component.setMixingCutoutShape}, and a whole interface's worth of
- * {@code sun.awt.ComponentFactory} methods that are abstract on Java 8 and only gained defaults in
- * JDK 9. Every one of them was found by reading code, not by the build.
+ * because it survives every smoke test.
  *
  * <p>{@code javac --release 8} is the fix: unlike {@code -source}/{@code -target} it links against
  * Java 8's actual API signatures, so it rejects a post-8 API outright. This runs as a test rather
- * than as a second {@code maven-compiler-plugin} execution on purpose. That was tried first and
- * reverted: {@code maven-compiler-plugin}'s {@code outputDirectory} is bound to the read-write
- * parameter {@code ${project.build.outputDirectory}}, so configuring it on a second execution
- * redirects the module's output for the rest of the reactor, and downstream modules then compiled
- * against the release-8 scratch directory. As a test there is no build state to corrupt, and it
- * still runs on every {@code mvn test} -- which an opt-in profile would not.
+ * than as a second {@code maven-compiler-plugin} execution: a second execution's {@code
+ * outputDirectory} is bound to the shared, read-write {@code ${project.build.outputDirectory}}
+ * parameter, so configuring it there would redirect the module's output for the rest of the
+ * reactor, and downstream modules would then compile against the release-8 scratch directory. As
+ * a test there is no build state to corrupt, and it still runs on every {@code mvn test} -- which
+ * an opt-in profile would not.
  *
  * @see #theCheckActuallyRejectsAPostJava8Api() the canary, which proves this test can fail
  */

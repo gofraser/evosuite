@@ -158,10 +158,10 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
      * "opens java.io"}), confirmed empirically against this module's own Corretto 17 runtime.
      *
      * <p>So instead this always calls the Java 8-safe {@code (OutputStream, boolean)}
-     * constructor (default platform encoding, used only for the raw line-separator bytes written
-     * by the no-argument {@link #println()}, which never goes through {@link #encoder}) and
-     * overrides every {@code print}/{@code println} overload to route its text through {@link
-     * #encoder} instead: one {@link OutputStreamWriter} built directly from the given {@link
+     * constructor purely to satisfy that first-statement requirement, and overrides every
+     * {@code print}/{@code println} overload -- including the no-argument {@link #println()} --
+     * to route its text through {@link #encoder} instead: one {@link OutputStreamWriter} built
+     * directly from the given {@link
      * Charset} -- a Java 8 API -- and kept for the stream's lifetime. Building the encoder this
      * way, instead of resolving the charset back to a name via {@link Charset#forName(String)},
      * also means an unregistered {@link Charset} (one that implements {@link
@@ -420,13 +420,13 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
      * failure is translated into {@link #setError()} rather than escaping -- a real {@link
      * PrintStream} never throws from a print/println call.
      *
-     * <p>One observable difference from {@link PrintStream}'s own text path: real
-     * {@code PrintStream.write(String)} only flushes the real underlying stream when
-     * {@code autoFlush} is set <em>and</em> the text contains {@code '\n'}, while {@link
-     * PrintStream#write(byte[], int, int)} flushes on every call once {@code autoFlush} is set,
-     * regardless of content. That is a cadence difference only -- it cannot change which bytes
-     * are written -- and is an acceptable trade-off for reusing the existing, correct, public
-     * byte-writing path instead of re-deriving it.
+     * <p>One observable difference from {@link PrintStream}'s own text path: under
+     * {@code autoFlush}, a tracking-output probe records one flush of the real underlying stream
+     * for real {@code print("x")} but two for real {@code print("x\n")}, versus one from this
+     * class's {@link #write(byte[], int, int)} call in both cases. That is a flush-count
+     * difference only -- it cannot change which bytes are written -- and is an acceptable
+     * trade-off for reusing the existing, correct, public byte-writing path instead of
+     * re-deriving it.
      */
     private void writeEncoded(String s) {
         synchronized (this) {

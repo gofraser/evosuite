@@ -97,93 +97,69 @@ import java.util.Properties;
  * super-constructors can run, without exposing that toolkit's peer-creation
  * entry points.
  *
- * <p>Background: {@code GuiSupport.initializeHeadlessToolkitIfNeeded()}
- * constructs the real platform toolkit (e.g. {@code sun.awt.X11.XToolkit})
- * while the JVM is still headless, so the toolkit's own constructor skips its
- * native initialization ({@code XToolkit.init()} / {@code XWM.init()}, the
- * code that would start its native event thread) — it never runs, because on
- * a JVM started headless there is no real display to initialize against.
- * Bare <em>construction</em> of a {@code Window}/{@code Frame}/{@code Dialog}
- * does not need that native state (see {@link Toolkit#getScreenInsets}, which
- * this class does not even need to override — the JDK base implementation
- * returns a zero {@code Insets} once the {@code headless} flag itself is
- * false). <em>Peer creation</em> does: {@code Window.addNotify()} (reached
- * from {@code pack()}/{@code setVisible(true)}/{@code addNotify()}) calls
- * {@code createWindow()}/{@code createFrame()}/... on this toolkit, and the
- * real toolkit's overrides of those methods construct a native peer (e.g.
- * {@code new XFramePeer(target)}), which loads {@code sun.awt.X11.XWindow}
- * for the first time and runs its unconditional native {@code initIDs()} —
- * unconditional because that class assumes the toolkit already completed the
- * native initialization above. On a JVM with no real display that call fails
- * with {@code UnsatisfiedLinkError}, and because the failure happens inside a
- * class's {@code <clinit>}, the class is left in {@code <clinit failed>}
- * state for the rest of the JVM: every later reference to it — even from an
- * unrelated SUT — throws {@code NoClassDefFoundError} instead of running.
+ * <p>The real platform toolkit is constructed while the JVM is still
+ * headless, so its own native initialization never runs. Bare
+ * <em>construction</em> of a {@code Window}/{@code Frame}/{@code Dialog}
+ * does not need that native state, but <em>peer creation</em> does: {@code
+ * Window.addNotify()} (reached from {@code pack()}/{@code
+ * setVisible(true)}/{@code addNotify()}) calls the real toolkit's
+ * {@code create*Peer} methods, which construct a native peer and run
+ * unconditional native {@code initIDs()} code that assumes the native
+ * initialization above already happened. On a JVM with no real display that
+ * call fails with {@code UnsatisfiedLinkError} inside a class's {@code
+ * <clinit>}, which permanently leaves that class in {@code <clinit failed>}
+ * state: every later reference to it, from any SUT, throws {@code
+ * NoClassDefFoundError} for the rest of the JVM.
  *
  * <p>This matters even though the {@code Mock*}/{@code OverrideMock} classes
  * (e.g. {@code MockFrame}) already no-op {@code pack()}/{@code setVisible()}:
- * that only protects SUTs that directly <em>extend</em> {@code Frame}/{@code
- * JFrame}/etc. (superclass-rewritten by {@code MethodCallReplacementClassAdapter}).
- * A SUT that merely <em>uses</em> a raw {@code JFrame}/{@code Frame} — as a
- * field or a local built and packed inside its own constructor — gets the
- * genuine JDK class, and if that constructor also calls {@code pack()}/{@code
- * setVisible()} on it, that call happens while still inside the disable/restore
- * window, reaching the real toolkit's peer creation directly.
+ * that only protects SUTs that directly <em>extend</em> a GUI class. A SUT
+ * that merely <em>uses</em> a raw {@code JFrame}/{@code Frame} -- as a field
+ * or a local built and packed inside its own constructor -- gets the genuine
+ * JDK class, and if that constructor calls {@code pack()}/{@code
+ * setVisible()} on it, that call reaches the real toolkit's peer creation
+ * directly while still inside the disable/restore window.
  *
- * <p>This class closes that gap: it implements {@link ComponentFactory}
- * itself and explicitly overrides every one of its peer-creation methods
- * ({@code createWindow}, {@code createFrame}, {@code createDialog},
- * {@code createButton}, ...) to throw {@link HeadlessException}, matching
- * the interface's own JDK 9+ default body exactly (verified with {@code
- * javap -c} against the JDK source). These overrides are not optional on
- * this class: {@code sun.awt.ComponentFactory} has those default bodies only
- * from JDK 9 onward — on Java 8 every one of its methods is abstract
- * (verified with {@code javap} against Corretto 8), so a class that merely
- * compiles against a modern JDK's defaults loads fine on Java 8 but throws
- * {@link AbstractMethodError} the moment a method nobody overrode is
- * actually called there. {@code createCanvas}/{@code createPanel} (the
- * lightweight-peer path used by Swing/{@code JComponent}) are overridden the
- * same way, returning a shared {@code sun.awt.NullComponentPeer} — the same
- * concrete type the JDK 9+ default resolves to — without touching the real
- * toolkit at all; {@code createComponent} itself is not overridden, since it
- * is not part of Java 8's {@code ComponentFactory} at all and nothing
- * running on a Java 8 JVM can reach it through this interface.
- * {@code getFontPeer}/{@code getDataTransferer} are overridden to return
- * {@code null}, {@code createDragSourceContextPeer} to throw {@link
+ * <p>This class closes that gap: it implements {@link ComponentFactory} and
+ * explicitly overrides every one of its peer-creation methods to throw
+ * {@link HeadlessException}, matching the interface's own JDK 9+ default
+ * body. These overrides are not optional: {@code sun.awt.ComponentFactory}
+ * has those default bodies only from JDK 9 onward -- on Java 8 every one of
+ * its methods is abstract, so a class that merely compiles against a modern
+ * JDK's defaults loads fine on Java 8 but throws {@link AbstractMethodError}
+ * the moment a method nobody overrode is actually called there. {@code
+ * createCanvas}/{@code createPanel} (the lightweight-peer path used by
+ * Swing/{@code JComponent}) are overridden the same way, returning a shared
+ * {@code sun.awt.NullComponentPeer} without touching the real toolkit at
+ * all. {@code getFontPeer}/{@code getDataTransferer} return {@code null},
+ * {@code createDragSourceContextPeer} throws {@link
  * InvalidDnDOperationException}, and the Java-8-only two-argument {@code
- * createRobot(Robot, GraphicsDevice)} — a signature JDK 9+ replaced outright,
- * so it has no modern default to copy — to throw {@link HeadlessException},
- * matching {@code sun.awt.HeadlessToolkit}'s own Java 8 implementation of
- * that exact method. Everything else — the abstract methods {@link Toolkit}
- * itself requires every subclass to implement, plus {@link
- * Toolkit#getSystemEventQueueImpl()} — is delegated to the real toolkit,
- * mirroring the JDK's own {@code sun.awt.HeadlessToolkit} split between
- * "supported" (delegate) and "unsupported" (throw) methods.
+ * createRobot(Robot, GraphicsDevice)} throws {@link HeadlessException},
+ * matching {@code sun.awt.HeadlessToolkit}'s own Java 8 implementation.
+ * Everything else -- the abstract methods {@link Toolkit} itself requires
+ * every subclass to implement, plus {@link Toolkit#getSystemEventQueueImpl()}
+ * -- is delegated to the real toolkit.
  *
- * <p><b>Why this is a separate top-level class, and not nested inside {@code
- * GuiSupport}:</b> {@code sun.awt.ComponentFactory} is a JDK-internal type.
- * Referencing it in an {@code implements} clause requires the {@code sun.awt}
- * package to be <em>exported</em> (not just <em>opened</em>) to this code's
- * module — verified empirically: {@code --add-opens java.desktop/sun.awt=ALL-UNNAMED}
- * alone is not sufficient on every JDK build, some require {@code --add-exports
- * java.desktop/sun.awt=ALL-UNNAMED} too (both are granted where EvoSuite
- * controls the launch, see {@code ExecutionModeUtils.addCommonModuleOpens}).
- * Where the export is missing, resolving this class's supertype fails with
- * {@code IllegalAccessError} — and critically, if that reference lived
- * directly inside one of {@code GuiSupport}'s own methods (as a typed {@code
- * new PeerCreationGuardToolkit(...)} expression), the JVM's verifier resolves
- * it eagerly while preparing the *enclosing* method for its first invocation,
- * so a {@code try/catch (Throwable)} around the construction site inside that
- * method cannot catch it — the whole enclosing method becomes uninvocable,
- * and the error surfaces at its caller instead (observed in practice: it broke
- * Mockito's ability to instrument {@code GuiSupport} at all, since Mockito's
- * bytecode generation touches every member it can reach). Keeping this class
- * separate and constructing it purely via {@code Class.forName(...)}
- * reflection from {@code GuiSupport} means {@code GuiSupport} itself never
- * carries a compile-time reference to {@code ComponentFactory}: a failure to
- * load *this* class is an ordinary, catchable exception at the reflective
- * call site, and {@code GuiSupport}'s own methods remain fully verifiable
- * and invocable regardless of whether this class can load on a given JDK.
+ * <p><b>Why this is a separate top-level class, loaded reflectively, rather
+ * than nested inside {@code GuiSupport}:</b> {@code sun.awt.ComponentFactory}
+ * is a JDK-internal type. Referencing it in an {@code implements} clause
+ * requires the {@code sun.awt} package to be <em>exported</em> (not just
+ * <em>opened</em>) to this code's module -- some JDK builds need {@code
+ * --add-exports java.desktop/sun.awt=ALL-UNNAMED} in addition to
+ * {@code --add-opens} for it (both are granted where EvoSuite controls the
+ * launch). Where the export is missing, resolving this class's supertype
+ * fails with {@code IllegalAccessError}, and the JVM's verifier resolves
+ * that reference eagerly while preparing the *enclosing* method for its
+ * first invocation -- so if the reference lived directly inside one of
+ * {@code GuiSupport}'s own methods, a {@code try/catch (Throwable)} around
+ * it could not catch the failure; the whole enclosing method becomes
+ * uninvocable. Keeping this class separate and constructing it purely via
+ * {@code Class.forName(...)} reflection from {@code GuiSupport} means
+ * {@code GuiSupport} itself never carries a compile-time reference to
+ * {@code ComponentFactory}: a failure to load this class is an ordinary,
+ * catchable exception at the reflective call site, and {@code GuiSupport}'s
+ * own methods remain fully verifiable and invocable regardless of whether
+ * this class can load on a given JDK.
  */
 final class PeerCreationGuardToolkit extends Toolkit
         implements ComponentFactory, KeyboardFocusManagerPeerProvider {

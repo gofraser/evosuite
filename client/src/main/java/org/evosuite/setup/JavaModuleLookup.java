@@ -29,10 +29,8 @@ import java.lang.reflect.Method;
  * compiles against the Java 8 API ({@code --release 8}, project-wide), so {@code Class#getModule()}
  * cannot be called directly; it has to go through {@code Class.getMethod("getModule")} and then
  * {@code Module#isNamed()} / {@code Module#getName()} the same way. This class performs only that
- * lookup, not the classification that each caller builds on top of it: the two callers disagree
- * on purpose about what an unresolvable module system means (one treats it as "assume JDK", the
- * other as "fall back to the bootstrap-loader check"), and about which module-name prefixes count,
- * so unifying the decision itself would silently change one of them.
+ * lookup, not the classification each caller builds on top of it -- see {@link Result} for why an
+ * unavailable module system and a named-but-absent module are kept distinct.
  *
  * <p>The three {@link Method} objects are resolved once, in a static initializer, rather than on
  * every lookup: {@code getMethod} itself -- a scan of the public method table plus a fresh
@@ -87,13 +85,15 @@ final class JavaModuleLookup {
     /**
      * The outcome of trying to read a class's module.
      *
-     * <p>{@link #isUnavailable()} and {@link #isUnnamed()} both mean "no usable module name",
-     * but callers need to tell them apart: one means the module system could not be consulted at
-     * all (no Java 9+ module system, or the reflective call itself threw), the other means it
+     * <p>An unavailable module system ({@link #isUnavailable()}) and a lookup that succeeded but
+     * found no name ({@link #isNamed()} false) both mean "no usable module name", but callers
+     * need to tell them apart: the first means the module system could not be consulted at all
+     * (no Java 9+ module system, or the reflective call itself threw), the second means it
      * answered and the class genuinely has no named module (the ordinary case for an
-     * application/classpath class since Java 9). {@link TestClusterUtils#isJdkClass} and
-     * {@link TestUsageChecker#isPlatformClass} each pick a different fallback for the first case,
-     * so collapsing the two into a single {@code null}/boolean would erase that distinction.
+     * application/classpath class since Java 9). {@link TestClusterUtils#isJdkClass} treats the
+     * first case as "assume JDK"; {@link TestUsageChecker#isPlatformClass} instead falls back to
+     * a bootstrap-loader check -- so collapsing the two into a single {@code null}/boolean would
+     * erase that distinction.
      */
     static final class Result {
 
@@ -140,13 +140,10 @@ final class JavaModuleLookup {
     /**
      * Looks up the named module that loaded {@code c}, if any.
      *
-     * <p>Mirrors, but does not decide between, the two things an absent name can mean: an
-     * unnamed module (the lookup worked; the class simply is not in one) collapses here with a
-     * {@code null} module object or module name, since both read the same way to a caller -- a
-     * {@code getModule()} that returns null, or a module reporting a null name, come from the
-     * same "no name to classify by" situation that {@code isNamed() == false} already covers.
-     * Only a thrown exception -- no module system, or a refusal -- is reported separately as
-     * {@link Result#isUnavailable()}.
+     * <p>A {@code getModule()} that returns null, a module reporting {@code isNamed() == false},
+     * and a named module with a null name all collapse to {@link Result#isNamed()} {@code ==
+     * false}; only a thrown exception (no module system, or a refusal) is reported separately as
+     * {@link Result#isUnavailable()}. See {@link Result} for why that split matters to callers.
      *
      * @param c the class to look up
      * @return the lookup outcome; see {@link Result}

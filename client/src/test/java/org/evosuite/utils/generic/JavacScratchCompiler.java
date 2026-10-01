@@ -44,26 +44,18 @@ import java.util.List;
  * Shared, in-memory {@code javac} compile for the handful of tests in this project that ground a
  * behavioural verdict in an actual compile of a throwaway probe class, rather than this test's own
  * reasoning about the JLS (see {@link GenericAssignabilityMatrixTest}, {@link ClassLiteralVarianceTest}
- * and {@code ClassLiteralRawPathCompileTest}). Those tests used to each inline the same "write a temp
- * source file, run the system compiler against it, check the exit code" boilerplate, and -- since none
- * of them deleted the directory -- each compile left its scratch directory behind;
- * {@code GenericAssignabilityMatrixTest} alone runs this twice per case across 163 cases, so that was
- * hundreds of orphaned directories per run.
+ * and {@code ClassLiteralRawPathCompileTest}).
  *
- * <p>Nothing here touches disk at all, so there is nothing to orphan:
- * <ul>
- *     <li>the probe source is handed to {@code javac} as an in-memory {@link JavaFileObject}, never
- *     written to a file;</li>
- *     <li>compiled class output is discarded as it is produced, by a {@link JavaFileObject} whose
- *     output stream throws nothing away but also keeps nothing -- none of this project's
- *     javac-grounded tests load the compiled classes back, they only inspect the exit code and
- *     stderr, so there is nothing worth keeping;</li>
- *     <li>the {@link JavaCompiler} and the {@link StandardJavaFileManager} that resolves
- *     {@code java.class.path} are each built exactly once, for the lifetime of the JVM, rather than
- *     once per call -- re-resolving every classpath entry (jars included) per compile was most of the
- *     per-call cost once the disk I/O above was removed, and {@code JavaCompiler.getTask} is designed
- *     to be reused across many compiles.</li>
- * </ul>
+ * <p>No source or class output file is ever created: the probe source is handed to {@code javac}
+ * as an in-memory {@link JavaFileObject}, and compiled class output is discarded as it is produced
+ * by a {@link JavaFileObject} whose output stream keeps nothing -- none of this project's
+ * javac-grounded tests load the compiled classes back, they only inspect the exit code and stderr.
+ * The {@link JavaCompiler} and the {@link StandardJavaFileManager} that resolves {@code
+ * java.class.path} are each built exactly once, for the lifetime of the JVM, rather than once per
+ * call; the resolver itself still reads the classpath's actual jars/directories from disk, since
+ * that is the compile's real input. The file manager is shared across every caller in the JVM,
+ * which may span several independent JUnit test classes with no single shared {@code @AfterAll},
+ * so it is closed by a shutdown hook rather than per call.
  */
 public final class JavacScratchCompiler {
 
