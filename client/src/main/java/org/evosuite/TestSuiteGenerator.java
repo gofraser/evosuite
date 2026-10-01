@@ -652,7 +652,9 @@ public class TestSuiteGenerator {
      * and the coverage analysis have each re-executed all of them - on
      * TokenBuffer 70 s of inlining alone, and a minimization that timed out
      * before it had scanned the first goal. Merging here, before any of that,
-     * costs one pass over the suite. Same condition as the writer: with
+     * compares each candidate against the tests already kept, so it is
+     * worst-case quadratic in the number of tests, with each comparison
+     * walking statements. Same condition as the writer: with
      * {@code call_probability} the prefixes are kept as distinct tests.</p>
      */
     void removePrefixTests(TestSuiteChromosome testSuite) {
