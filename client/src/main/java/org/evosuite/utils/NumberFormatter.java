@@ -157,18 +157,27 @@ public class NumberFormatter {
                 enumClass = enumClass.getEnclosingClass();
             }
 
-            // visitor.getClassName(enumClass) trusts Class.getModifiers(), which
-            // lies for a source-private nested enum: AccessibleClassAdapter promotes
-            // its InnerClasses-attribute access flags to ACC_PUBLIC for execution
-            // (see TestCodeVisitor#isClassLiteralReferenceableFromGeneratedTest).
-            // Only take the richer, import-aware path when the enum class is
-            // actually referenceable by name; otherwise fall back to the same
-            // simple-name chaining used when no visitor is available at all, which
-            // at least degrades predictably. Callers that can restructure the
-            // surrounding expression (PrimitiveAssertion, InspectorAssertion) check
-            // referenceability themselves and render a by-name comparison instead,
-            // so they never reach this branch for a non-referenceable enum.
-            if (visitor != null && TestCodeVisitor.isClassLiteralReferenceableFromGeneratedTest(enumClass)) {
+            // Only take the richer, import-aware, conflict-resolving naming path
+            // when the enum constant can actually be named in the generated test;
+            // otherwise fall back to the same simple-name chaining used when no
+            // visitor is available at all, which at least degrades predictably.
+            // This must use the same, narrower check that EnumAssertionCodeRenderer
+            // itself used to decide this branch is reachable at all --
+            // isEnumConstantNameableInGeneratedTest -- rather than the blanket,
+            // deliberately over-conservative isClassLiteralReferenceableFromGeneratedTest
+            // used for ".class" literals. The blanket check rejects every nested
+            // class, including perfectly public, nameable ones, which forced even
+            // reachable nested enums through the naive fallback below: that path
+            // chains raw getSimpleName()s with no import registration and no
+            // conflict resolution, so when another, already-imported class in the
+            // same generated test happens to share the enum's enclosing simple
+            // name, the rendered reference silently resolves to the wrong class
+            // (see ProductionEnumAssertionCompileTest's collision case). Callers
+            // that can restructure the surrounding expression (PrimitiveAssertion,
+            // InspectorAssertion) check referenceability themselves and render a
+            // by-name comparison instead, so they never reach this branch for a
+            // non-referenceable (e.g. source-private) enum.
+            if (visitor != null && TestCodeVisitor.isEnumConstantNameableInGeneratedTest(enumClass)) {
                 className = visitor.getClassName(enumClass);
                 Class<?> enclosingClass = enumClass.getEnclosingClass();
                 if (enclosingClass != null && className.indexOf('.') < 0) {

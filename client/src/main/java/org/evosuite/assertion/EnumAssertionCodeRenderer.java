@@ -96,20 +96,25 @@ public final class EnumAssertionCodeRenderer {
      * {@link NumberFormatter#getNumberString(Object, TestCodeVisitor)} exactly
      * as {@code TestCodeVisitor}'s own (now-removed) direct calls did, so
      * {@code TestCodeVisitor}'s richer, import-aware, conflict-resolving
-     * naming is unchanged for every case it already handled. That internal
-     * import registration is itself too conservative to rely on alone,
-     * though: {@link NumberFormatter}'s referenceability check for it
-     * blanket-rejects any nested class (the same deliberately-conservative
-     * check {@code .class} literals use, see
-     * {@link TestCodeVisitor#isEnumConstantNameableInGeneratedTest}'s javadoc),
-     * so it never fires for a nested enum regardless of visibility. Without an
-     * explicit follow-up {@link TestCodeVisitor#getClassName(Class)} call
-     * here, a nameable <em>nested</em> enum constant (public or
-     * package-accessible, with or without a constant-specific class body)
-     * would render a correct-looking {@code Outer.Inner.CONSTANT} reference
-     * whose {@code Outer} import was never registered -- compiling only by
-     * accident, if some other statement in the same test happened to need
-     * {@code Outer} too.
+     * naming is unchanged for every case it already handled. {@link
+     * NumberFormatter}'s own gate for that richer path uses the same {@link
+     * TestCodeVisitor#isEnumConstantNameableInGeneratedTest} check this method
+     * just used to decide this branch is reachable at all, so whenever this
+     * branch is taken, {@code NumberFormatter} already calls {@link
+     * TestCodeVisitor#getClassName(Class)} on {@code enumClass} (and, if
+     * nested, its enclosing class) itself, registering the import and
+     * resolving any simple-name clash with another already-imported class.
+     * The explicit follow-up call below is therefore a no-op in every case
+     * this method reaches (it just returns the now-cached name) and is kept
+     * only as a defensive safeguard: it used to be load-bearing, back when
+     * {@code NumberFormatter} gated its richer path on the strictly narrower,
+     * blanket-nested-class-rejecting {@link
+     * TestCodeVisitor#isClassLiteralReferenceableFromGeneratedTest} instead,
+     * which silently skipped import registration (and conflict resolution)
+     * for every nested enum -- the exact mismatch that produced a
+     * plausible-looking but wrongly-resolved {@code Outer.Inner.CONSTANT}
+     * reference when some unrelated, already-imported class happened to share
+     * the enum's enclosing simple name.
      *
      * @param visitor the enclosing visitor, or {@code null} outside a visitor pass
      */

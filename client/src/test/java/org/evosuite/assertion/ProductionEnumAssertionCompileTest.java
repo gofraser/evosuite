@@ -143,6 +143,58 @@ public class ProductionEnumAssertionCompileTest {
     }
 
     /**
+     * The independent review's nested-enum-collision reproduction: a public,
+     * perfectly nameable nested enum constant ({@code
+     * com.examples....enumcollision.one.Outer.E.X}) whose enclosing class
+     * shares its simple name, {@code Outer}, with an unrelated class
+     * constructed earlier in the same test ({@code
+     * com.examples....enumcollision.two.Outer}). {@code TestCodeVisitor}
+     * imports the first {@code Outer} it names, so by the time the assertion
+     * is rendered, the bare name {@code Outer} already refers to the wrong
+     * class.
+     *
+     * <p>Before the fix, {@code NumberFormatter.getNumberString} gated its
+     * import-aware, conflict-resolving naming path on
+     * {@code TestCodeVisitor#isClassLiteralReferenceableFromGeneratedTest},
+     * which blanket-rejects every nested class (including this perfectly
+     * public, nameable one) and falls back to naive simple-name chaining.
+     * {@code EnumAssertionCodeRenderer} had already decided the constant
+     * -- correctly -- is nameable via the narrower
+     * {@code isEnumConstantNameableInGeneratedTest}, and its own follow-up
+     * {@code visitor.getClassName(enumClass)} call (to register the import)
+     * cannot retroactively rewrite a name {@code NumberFormatter} already
+     * rendered. The result was a plausible-looking {@code Outer.E.X}
+     * reference that javac rejects, because the imported {@code Outer} is
+     * the other class.
+     */
+    @Test
+    public void testToCodePrimitiveAssertionOnNestedEnumWithCollidingOuterSimpleName() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference collidingOuter = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(
+                        com.examples.with.different.packagename.enumcollision.two.Outer.class.getConstructor(),
+                        com.examples.with.different.packagename.enumcollision.two.Outer.class),
+                0, 0);
+        VariableReference fixture = TestFactory.getInstance().addConstructor(tc,
+                new GenericConstructor(
+                        com.examples.with.different.packagename.enumcollision.one.Outer.class.getConstructor(),
+                        com.examples.with.different.packagename.enumcollision.one.Outer.class),
+                1, 0);
+        VariableReference actual = TestFactory.getInstance().addMethodFor(tc, fixture,
+                new GenericMethod(
+                        com.examples.with.different.packagename.enumcollision.one.Outer.class.getDeclaredMethod("get"),
+                        com.examples.with.different.packagename.enumcollision.one.Outer.class),
+                2);
+
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        assertion.source = actual;
+        assertion.value = com.examples.with.different.packagename.enumcollision.one.Outer.value();
+        tc.getStatement(actual.getStPosition()).addAssertion(assertion);
+
+        assertCompilesAsProductionTest(tc);
+    }
+
+    /**
      * Renders {@code tc} exactly as the real test writer would -- {@code
      * toCode()}'s method body plus the same visitor's recorded
      * {@code getImports()} -- and compiles the result, rather than
