@@ -739,6 +739,23 @@ public class TestUsageChecker {
         }
         */
 
+        // A class compiled against a leaner version of an interface than the one it is now
+        // loaded against can have Class.getMethods() surface that interface's own abstract
+        // declaration as if it were a method of the concrete class: nothing in the hierarchy
+        // actually implements it. Class.getMethods() does the resolution for us -- whenever
+        // some class in the hierarchy implements the method, getMethods() returns that
+        // implementing (non-abstract) Method; the interface's abstract entry only surfaces when
+        // nothing implements it. So an abstract Method on a concrete, non-interface ownerClass
+        // can never be invoked and would throw AbstractMethodError if we tried. On an interface
+        // or abstract ownerClass an abstract method is legitimately usable (mocked, or routed to
+        // a concrete subtype), so only reject when ownerClass itself is concrete.
+        if (Modifier.isAbstract(m.getModifiers())
+                && ownerClass != null
+                && !ownerClass.isInterface()
+                && !Modifier.isAbstract(ownerClass.getModifiers())) {
+            return false;
+        }
+
         // If default or
         if (Modifier.isPublic(m.getModifiers())) {
             TestClusterUtils.makeAccessible(m);
