@@ -406,23 +406,38 @@ public class System {
         return o.getClass().getName() + "@" + String.format("%010d", identityHashCode(o));
     }
 
-    private static final Map<Class<?>, Boolean> overridesHashCode = new HashMap<>();
-    private static final Map<Class<?>, Boolean> overridesToString = new HashMap<>();
+    /*
+     * ClassValue associates its values with the Class object itself (effectively a weak key
+     * managed by the JVM), so an entry here does not keep a disposable JUnit-check class
+     * loader's classes reachable: once nothing else references the Class, both it and this
+     * cached Boolean can be collected together. A plain Map<Class<?>, Boolean> would hold the
+     * Class strongly forever, which is what pinned whole SUT class graphs loaded through
+     * temporary loaders. No explicit clearing from resetRuntime()/fullReset() is needed.
+     */
+    private static final ClassValue<Boolean> overridesHashCode = new ClassValue<Boolean>() {
+        @Override
+        protected Boolean computeValue(Class<?> clazz) {
+            return declaresObjectMethod(clazz, "hashCode");
+        }
+    };
+    private static final ClassValue<Boolean> overridesToString = new ClassValue<Boolean>() {
+        @Override
+        protected Boolean computeValue(Class<?> clazz) {
+            return declaresObjectMethod(clazz, "toString");
+        }
+    };
+
+    private static boolean declaresObjectMethod(Class<?> clazz, String methodName) {
+        try {
+            return clazz.getMethod(methodName).getDeclaringClass() != Object.class;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
 
     private static boolean overridesObjectMethod(Class<?> clazz, String methodName) {
-        Map<Class<?>, Boolean> cache = "hashCode".equals(methodName) ? overridesHashCode : overridesToString;
-        synchronized (cache) {
-            Boolean overrides = cache.get(clazz);
-            if (overrides == null) {
-                try {
-                    overrides = clazz.getMethod(methodName).getDeclaringClass() != Object.class;
-                } catch (NoSuchMethodException e) {
-                    overrides = false;
-                }
-                cache.put(clazz, overrides);
-            }
-            return overrides;
-        }
+        ClassValue<Boolean> cache = "hashCode".equals(methodName) ? overridesHashCode : overridesToString;
+        return cache.get(clazz);
     }
 
     /**
