@@ -342,23 +342,32 @@ public class TestClusterUtils {
      * @return the set of fields
      */
     public static Set<Field> getFields(Class<?> clazz) {
-        // TODO: Helper not necessary here!
+        // Keyed by simple name, not toGenericString(): a field declared in clazz with the
+        // same name as one inherited from its superclass/interfaces *hides* that field (JLS
+        // 8.3), even when the two have unrelated, incompatible types. Inserting the
+        // superclass/interface fields first and clazz's own declared fields last reproduces
+        // that hiding - the later put() for the same name overwrites the earlier one, so only
+        // the hiding field survives, exactly as Java itself resolves `obj.field` through a
+        // clazz-typed reference. Keying by toGenericString() let both fields survive as
+        // independent entries (different modifiers/type/declaring class never collide), which
+        // produced code assigning the inherited field's declared type through a variable typed
+        // as the subclass, where the hiding field's narrower type made that assignment illegal.
         Map<String, Field> helper = new TreeMap<>();
 
         if (clazz.getSuperclass() != null) {
             for (Field f : getFields(clazz.getSuperclass())) {
-                helper.put(f.toGenericString(), f);
+                helper.put(f.getName(), f);
             }
 
         }
         for (Class<?> in : Reflection.getInterfaces(clazz)) {
             for (Field f : getFields(in)) {
-                helper.put(f.toGenericString(), f);
+                helper.put(f.getName(), f);
             }
         }
 
         for (Field f : Reflection.getDeclaredFields(clazz)) {
-            helper.put(f.toGenericString(), f);
+            helper.put(f.getName(), f);
         }
         Set<Field> fields = new LinkedHashSet<>(helper.values());
 
