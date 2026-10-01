@@ -305,9 +305,16 @@ public class MethodDescriptor implements Comparable<MethodDescriptor>, Serializa
             return "anyCollection()";
         } else if (type.equals(Iterable.class)) {
             return "anyIterable()";
-        } else if (type.equals(Object.class)) {
-            return "any()";
         } else {
+            // Includes Object.class: a bare any() returns an unconstrained <T> T, which
+            // javac cannot use to disambiguate an overload set like format(X, Y, Object)
+            // vs. format(X, Y, Object[]) vs. format(X, Y, SomeType). Every other branch
+            // above already renders a matcher whose return type is fixed (anyInt(),
+            // anyString(), anyList(), ...); route Object (and everything else that is not
+            // specially handled) through the same nullable(ActualType.class) form so the
+            // matcher's static type matches the declared parameter type exactly. This is
+            // also what executeMatcher already falls back to for Object.class, so source
+            // and live execution agree.
             String name = type.getCanonicalName();
             if (name == null) {
                 name = type.getName();

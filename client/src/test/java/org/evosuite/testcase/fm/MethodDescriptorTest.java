@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.fm;
 
+import com.examples.with.different.packagename.OverloadedFormatInterface;
 import com.googlecode.gentyref.TypeToken;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.junit.jupiter.api.Test;
@@ -65,5 +66,61 @@ public class MethodDescriptorTest {
         String res = md.getInputParameterMatchers();
         assertTrue(res.contains("anyInt()"), res);
         assertFalse(res.contains("nullable(java.lang.Number.class)"), res);
+    }
+
+    /**
+     * A method overloaded on its last parameter (Wrapper / Wrapper[] / Object / Object[]), shaped
+     * after {@code UnicodeLanguage#format}. The {@code Object} overload used to render a bare
+     * {@code any()} matcher, which javac cannot use to pick between the four overloads because
+     * {@code any()} returns an unconstrained {@code <T> T}. It must now render a matcher whose
+     * static type is fixed to {@code Object}.
+     */
+    @Test
+    public void testOverloadedObjectParameterRendersTypedMatcher() throws Exception {
+        Method m = OverloadedFormatInterface.class.getDeclaredMethod(
+                "format", String.class, String.class, Object.class);
+        MethodDescriptor md = new MethodDescriptor(
+                m, GenericClassFactory.get(OverloadedFormatInterface.class));
+
+        String res = md.getInputParameterMatchers();
+        assertFalse(res.contains("any()"), res);
+        assertTrue(res.contains("nullable(java.lang.Object.class)"), res);
+    }
+
+    /**
+     * A non-overloaded {@code Object} parameter must also render something javac accepts (it
+     * never had an ambiguity problem, but the fix touches every {@code Object}-typed slot, not
+     * just the ambiguous ones).
+     */
+    @Test
+    public void testNonOverloadedObjectParameterRendersValidMatcher() throws Exception {
+        Method m = OverloadedFormatInterface.class.getDeclaredMethod("formatSingleObject", Object.class);
+        MethodDescriptor md = new MethodDescriptor(
+                m, GenericClassFactory.get(OverloadedFormatInterface.class));
+
+        String res = md.getInputParameterMatchers();
+        assertFalse(res.contains("any()"), res);
+        assertTrue(res.contains("nullable(java.lang.Object.class)"), res);
+    }
+
+    /**
+     * Array-typed and primitive-typed parameters must keep rendering valid matchers: arrays via
+     * the existing {@code nullable(X[].class)} fallback, primitives via their dedicated
+     * {@code anyXxx()} methods. Neither path is touched by the {@code Object.class} fix, but both
+     * are exercised here to confirm that is still true.
+     */
+    @Test
+    public void testArrayAndPrimitiveParametersRenderValidMatchers() throws Exception {
+        Method arrayMethod = OverloadedFormatInterface.class.getDeclaredMethod("formatWithArray", Object[].class);
+        MethodDescriptor arrayMd = new MethodDescriptor(
+                arrayMethod, GenericClassFactory.get(OverloadedFormatInterface.class));
+        String arrayRes = arrayMd.getInputParameterMatchers();
+        assertTrue(arrayRes.contains("nullable(java.lang.Object[].class)"), arrayRes);
+
+        Method primitiveMethod = OverloadedFormatInterface.class.getDeclaredMethod("formatWithPrimitive", int.class);
+        MethodDescriptor primitiveMd = new MethodDescriptor(
+                primitiveMethod, GenericClassFactory.get(OverloadedFormatInterface.class));
+        String primitiveRes = primitiveMd.getInputParameterMatchers();
+        assertTrue(primitiveRes.contains("anyInt()"), primitiveRes);
     }
 }
