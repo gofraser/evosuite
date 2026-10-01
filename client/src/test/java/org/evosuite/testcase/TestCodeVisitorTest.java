@@ -21,8 +21,11 @@ package org.evosuite.testcase;
 
 import com.examples.with.different.packagename.AbstractEnumInInnerClass;
 import com.examples.with.different.packagename.AbstractEnumUser;
+import com.examples.with.different.packagename.AccessExamples;
 import com.examples.with.different.packagename.EnumInInnerClass;
 import com.examples.with.different.packagename.EnumUser;
+import com.examples.with.different.packagename.subpackage.AccessExamplesProtectedOverride;
+import com.examples.with.different.packagename.subpackage.AccessExamplesSubclass;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.assertion.EqualsAssertion;
@@ -1226,6 +1229,60 @@ public class TestCodeVisitorTest {
 
         assertTrue(code.contains("(Class) "));
         assertFalse(code.contains("(Class<LinkedList<Integer>>) "));
+    }
+
+    @Test
+    public void testProtectedSuperclassMethodUsesPublicOverrideWithoutCast() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference receiver = TestFactory.getInstance().addConstructor(
+                tc,
+                new GenericConstructor(AccessExamplesProtectedOverride.class.getDeclaredConstructor(),
+                        AccessExamplesProtectedOverride.class),
+                0,
+                0);
+        Method protectedMethod = AccessExamples.class.getDeclaredMethod("protectedMethod");
+        tc.addStatement(new MethodStatement(
+                tc,
+                new GenericMethod(protectedMethod, AccessExamplesProtectedOverride.class),
+                receiver,
+                Collections.emptyList()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertTrue(code.contains("AccessExamplesProtectedOverride accessExamplesProtectedOverride0 ="), code);
+        assertTrue(code.contains("accessExamplesProtectedOverride0.protectedMethod();"), code);
+        assertFalse(code.contains("((AccessExamples)accessExamplesProtectedOverride0)"), code);
+    }
+
+    @Test
+    public void testPackagePrivateSuperclassMethodKeepsSamePackageCast() throws Exception {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = AccessExamples.class.getPackage().getName();
+        try {
+            TestCase tc = new DefaultTestCase();
+            VariableReference receiver = TestFactory.getInstance().addConstructor(
+                    tc,
+                    new GenericConstructor(AccessExamplesSubclass.class.getDeclaredConstructor(),
+                            AccessExamplesSubclass.class),
+                    0,
+                    0);
+            Method packagePrivateMethod = AccessExamples.class.getDeclaredMethod("defaultMethod");
+            tc.addStatement(new MethodStatement(
+                    tc,
+                    new GenericMethod(packagePrivateMethod, AccessExamplesSubclass.class),
+                    receiver,
+                    Collections.emptyList()));
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            tc.accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("((AccessExamples)accessExamplesSubclass0).defaultMethod();"), code);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
     }
 
     @Test

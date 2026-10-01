@@ -3439,12 +3439,14 @@ public class TestCodeVisitor extends TestVisitor {
             } else {
                 boolean calleeDeclaresMethod =
                         hasMethodBySignatureName(callee.getVariableClass(), method.getMethod());
-                // If the method is not public and this is a subclass in a different package we need to cast
-                if (!method.isPublic() && !method.getDeclaringClass().equals(callee.getVariableClass())
+                // Only a package-private method can become accessible through this cast. The
+                // declaring package must also be the package of the generated test.
+                if (method.isDefault() && !method.getDeclaringClass().equals(callee.getVariableClass())
                         && callee.isAssignableTo(method.getMethod().getDeclaringClass())) {
                     String packageName1 = ClassUtils.getPackageName(method.getDeclaringClass());
                     String packageName2 = ClassUtils.getPackageName(callee.getVariableClass());
-                    if (!packageName1.equals(packageName2)) {
+                    if (packageName1.equals(Properties.CLASS_PREFIX)
+                            && !packageName1.equals(packageName2)) {
                         calleeStr += "((" + getClassName(method.getMethod().getDeclaringClass())
                                 + ")" + getVariableName(callee) + ")";
                     } else {
