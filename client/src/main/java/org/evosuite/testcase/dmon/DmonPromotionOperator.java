@@ -262,7 +262,8 @@ public final class DmonPromotionOperator {
                 newStatements.add(buildStaticFieldAssignment(test, staticTargetField, mockRef));
             } else {
                 if (instanceAccessor == null) {
-                    return new PromotionAttempt(originalResult, false, "NO_INSTANCE_ACCESSOR");
+                    return new PromotionAttempt(
+                            rollbackMutatedTestCase(individual, backup, originalResult), false, "NO_INSTANCE_ACCESSOR");
                 }
                 MethodStatement accessorStatement = buildStaticAccessorCall(test, instanceAccessor);
                 VariableReference receiver = accessorStatement.getReturnValue();
@@ -273,7 +274,8 @@ public final class DmonPromotionOperator {
                     newStatements.add(accessorStatement);
                     newStatements.add(buildInstanceFieldAssignment(test, instanceField, receiver, mockRef));
                 } else {
-                    return new PromotionAttempt(originalResult, false, "NO_INSTANCE_INJECTION_TARGET");
+                    return new PromotionAttempt(
+                            rollbackMutatedTestCase(individual, backup, originalResult), false, "NO_INSTANCE_INJECTION_TARGET");
                 }
             }
             int insertionIndex = 1;
@@ -288,12 +290,53 @@ public final class DmonPromotionOperator {
                     instanceAccessor, instanceSetter, instanceField, fieldHint);
             return validateOrRollback(individual, backup, originalResult, restore, plan);
         } catch (ConstructionFailedException | RuntimeException e) {
+            // Covers both a failed mock/statement construction and a statement loop
+            // that added some but not all of newStatements before throwing: either
+            // way the live TestCase was mutated in place, and rollbackMutatedTestCase
+            // discards the whole object (partial statements included) in favour of
+            // the pre-mutation backup, so no separate partial-add cleanup is needed.
             logger.debug("DMoN promotion failed: {}", e.getMessage(), e);
-            return new PromotionAttempt(originalResult, false, "CONSTRUCTION_FAILED");
+            return new PromotionAttempt(
+                    rollbackMutatedTestCase(individual, backup, originalResult), false, "CONSTRUCTION_FAILED");
         } catch (IllegalAccessException e) {
             logger.debug("DMoN validation restore snapshot failed: {}", e.getMessage(), e);
-            return new PromotionAttempt(originalResult, false, "VALIDATION_SNAPSHOT_FAILED");
+            return new PromotionAttempt(
+                    rollbackMutatedTestCase(individual, backup, originalResult), false, "VALIDATION_SNAPSHOT_FAILED");
         }
+    }
+
+    /**
+     * Undo an in-place mutation of {@code individual}'s live {@link TestCase} after a
+     * promotion attempt failed partway through. {@code factory.addFunctionalMock} and
+     * {@code test.addStatement} both mutate the chromosome's TestCase object directly
+     * (there is no copy-on-write), and {@code originalResult} holds that very same
+     * TestCase reference rather than a snapshot, so a failure that merely returns
+     * {@code originalResult} silently leaves the mutated test in the chromosome while
+     * reporting no change -- exactly the stale-fitness hazard this method exists to
+     * avoid.
+     *
+     * <p>This mirrors the restore idiom in {@link #validateOrRollback}'s own failure
+     * path: swap the chromosome back onto the pre-mutation {@code backup}, rebuild an
+     * ExecutionResult around it, mark it so this plan is not retried, and tell the GA
+     * the chromosome is unchanged (because, after the swap, it truly is -- it is back
+     * to exactly what {@code originalResult} was last evaluated against). These are
+     * construction-time failures (no injection target, a failed mock/statement build,
+     * or a failed validation-restore snapshot), not runtime assertion failures, so the
+     * same owner/mock/field resolution will fail again on retry; marking the plan
+     * consumed here prevents the operator from repeatedly re-attempting a plan that
+     * cannot work, the same reasoning validateOrRollback already applies to its own
+     * failed-validation case.
+     */
+    private static ExecutionResult rollbackMutatedTestCase(TestChromosome individual,
+                                                            TestCase backup,
+                                                            ExecutionResult originalResult) {
+        individual.setTestCase(backup);
+        ExecutionResult restored = originalResult.clone();
+        restored.setTest(individual.getTestCase());
+        restored.markDmonPromotionConsumed();
+        individual.setLastExecutionResult(restored);
+        individual.setChanged(false);
+        return restored;
     }
 
     private static PromotionAttempt validateOrRollback(TestChromosome individual,
