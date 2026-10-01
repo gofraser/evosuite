@@ -389,10 +389,10 @@ public class TestUsageChecker {
      *
      * <p>{@code Class#getModule()} is a Java 9+ method, and this module's main source
      * compiles against the Java 8 API (see {@code runtime}'s own Java 8 floor, enforced
-     * on this module the same way). It is therefore invoked reflectively here, mirroring
-     * the established pattern in {@code TestClusterUtils#isJdkClass} for the identical
-     * constraint; on an actual Java 8 JVM the reflective lookup itself fails (there is no
-     * module system yet) and this falls back to the old bootstrap-loader check, which is
+     * on this module the same way). It is therefore looked up reflectively via the shared
+     * {@link JavaModuleLookup}, which also backs {@code TestClusterUtils#isJdkClass} for the
+     * identical constraint; on an actual Java 8 JVM the reflective lookup itself fails (there
+     * is no module system yet) and this falls back to the old bootstrap-loader check, which is
      * exactly correct there, since Java 8 has no platform loader to miss.
      *
      * <p>A user class cannot land in this bucket merely by sitting in a
@@ -419,20 +419,15 @@ public class TestUsageChecker {
      * @return true if {@code c} is a JDK platform class
      */
     static boolean isPlatformClass(Class<?> c) {
-        try {
-            Object module = Class.class.getMethod("getModule").invoke(c);
-            if (module == null) {
-                return false;
-            }
-            boolean named = (Boolean) module.getClass().getMethod("isNamed").invoke(module);
-            if (!named) {
-                return false;
-            }
-            String name = (String) module.getClass().getMethod("getName").invoke(module);
-            return name != null && (name.startsWith("java.") || name.startsWith("jdk."));
-        } catch (ReflectiveOperationException | RuntimeException e) {
+        JavaModuleLookup.Result result = JavaModuleLookup.lookupModule(c);
+        if (result.isUnavailable()) {
             return c.getClassLoader() == null;
         }
+        if (!result.isNamed()) {
+            return false;
+        }
+        String name = result.moduleName();
+        return name.startsWith("java.") || name.startsWith("jdk.");
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {

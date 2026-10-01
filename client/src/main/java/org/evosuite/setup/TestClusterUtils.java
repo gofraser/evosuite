@@ -269,25 +269,20 @@ public class TestClusterUtils {
             return true; // boot loader: JDK
         }
         // The module system is only available from Java 9 on, and this module is compiled
-        // against Java 8, so ask for the module reflectively. On Java 8 there are no modules
-        // and a class that was loaded at all came from the classpath.
-        try {
-            Object module = Class.class.getMethod("getModule").invoke(clazz);
-            if (module == null) {
-                return false;
-            }
-            boolean named = (Boolean) module.getClass().getMethod("isNamed").invoke(module);
-            if (!named) {
-                return false;
-            }
-            String name = (String) module.getClass().getMethod("getName").invoke(module);
-            return name != null && (name.startsWith("java.") || name.startsWith("jdk.")
-                    || name.startsWith("javafx.") || name.equals("java") || name.equals("jdk"));
-        } catch (ReflectiveOperationException | RuntimeException e) {
+        // against Java 8, so ask for the module reflectively (see JavaModuleLookup). On Java 8
+        // there are no modules and a class that was loaded at all came from the classpath.
+        JavaModuleLookup.Result result = JavaModuleLookup.lookupModule(clazz);
+        if (result.isUnavailable()) {
             // No module system, or it refused to answer: fall back to the old, conservative
             // behaviour of treating the prefix as a JDK package.
             return true;
         }
+        if (!result.isNamed()) {
+            return false;
+        }
+        String name = result.moduleName();
+        return name.startsWith("java.") || name.startsWith("jdk.")
+                || name.startsWith("javafx.") || name.equals("java") || name.equals("jdk");
     }
 
     /**
