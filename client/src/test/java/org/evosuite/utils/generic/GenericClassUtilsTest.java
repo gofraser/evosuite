@@ -109,6 +109,20 @@ public class GenericClassUtilsTest {
     }
 
     @Test
+    public void testClassOfSubtypeNotAssignableToClassOfSupertype() {
+        // Class<T> is invariant in T: a Class<Integer> (eg, Integer.class) must not be
+        // accepted where a Class<Object> is required, even though Integer is-a Object.
+        // Getting this wrong let EvoSuite emit
+        //   Class<Object>[] a = ...; a[0] = someClassOfIntegerVariable;
+        // which javac rejects (see the isClassLiteralAssignable shortcut in
+        // GenericClassUtils, which used to fall back to covariant Class#isAssignableFrom).
+        Type classOfObject = new org.evosuite.utils.ParameterizedTypeImpl(Class.class, new Type[]{Object.class}, null);
+        Type classOfInteger = new org.evosuite.utils.ParameterizedTypeImpl(Class.class, new Type[]{Integer.class}, null);
+
+        Assertions.assertFalse(GenericClassUtils.isAssignable(classOfObject, classOfInteger));
+    }
+
+    @Test
     public void testMapUninstantiatedCompatibility() {
         // Map<K, V> should be assignable from HashMap<String, String> if we consider it uninstantiated
         Type mapTypeVar = GenericClassFactory.get(Map.class).getType();

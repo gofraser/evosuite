@@ -309,8 +309,18 @@ public class GenericClassUtils {
 
     /**
      * Class literals are reified only to raw classes (eg, LinkedList.class has type Class&lt;LinkedList&gt;).
-     * Allow assignment to Class&lt;T&gt; when both operands are Class&lt;...&gt; and the nested class erasures match
-     * the normal class-assignability relation.
+     * Allow assignment to Class&lt;T&gt; when both operands are Class&lt;...&gt; and the right-hand type
+     * argument is contained by the left-hand one, so that the raw reification of a class literal
+     * ({@code Class<LinkedList>} from {@code LinkedList.class}) satisfies {@code Class<LinkedList<String>>}.
+     *
+     * <p>Class&lt;T&gt; is invariant in T, so this must compare the <em>full</em> type argument structurally
+     * rather than its raw erasure: a {@code Class<List<Integer>>} is not a {@code Class<List<String>>} even
+     * though both erase to {@code Class<List>}. The one exception is a wildcard, which follows the normal
+     * Java wildcard-containment rules (JLS 4.5.1) instead of plain equality: {@code Class<?>} accepts any
+     * {@code Class<...>}, and {@code Class<? extends Number>} accepts {@code Class<Integer>}. A wildcard
+     * nested *inside* a type argument (eg, the {@code ?} in {@code Class<List<?>>}) does not get this
+     * leniency: at that nesting level {@code List<?>} and {@code List<String>} are compared structurally,
+     * so {@code Class<List<?>>} does not accept {@code Class<List<String>>}.
      */
     private static boolean isClassLiteralAssignable(Type lhsType, Type rhsType) {
         Class<?> lhsRawClass = getRawClass(lhsType);
@@ -319,12 +329,15 @@ public class GenericClassUtils {
             return false;
         }
 
-        Class<?> lhsClassArg = getClassLiteralTypeArgument(lhsType);
-        Class<?> rhsClassArg = getClassLiteralTypeArgument(rhsType);
-        return lhsClassArg != null && rhsClassArg != null && lhsClassArg.isAssignableFrom(rhsClassArg);
+        Type lhsClassArg = getClassLiteralTypeArgument(lhsType);
+        Type rhsClassArg = getClassLiteralTypeArgument(rhsType);
+        if (lhsClassArg == null || rhsClassArg == null) {
+            return false;
+        }
+        return isContainedTypeArgument(rhsClassArg, lhsClassArg);
     }
 
-    private static Class<?> getClassLiteralTypeArgument(Type classType) {
+    private static Type getClassLiteralTypeArgument(Type classType) {
         if (!(classType instanceof ParameterizedType)) {
             return null;
         }
@@ -336,7 +349,124 @@ public class GenericClassUtils {
         if (actualArgs.length != 1) {
             return null;
         }
-        return getRawClass(actualArgs[0]);
+        return actualArgs[0];
+    }
+
+    /**
+     * Tells whether the type argument {@code inner} is contained by the type argument {@code outer}
+     * (ie, {@code inner <= outer} per JLS 4.5.1), which is the rule Java uses to decide whether
+     * {@code C<outer>} is a supertype of {@code C<inner>} for the same generic declaration {@code C}
+     * (here always {@code java.lang.Class}).
+     *
+     * <ul>
+     *     <li>If {@code outer} is an unbounded wildcard ({@code ?}), everything is contained.</li>
+     *     <li>If {@code outer} is {@code ? extends U}, {@code inner} is contained when its own effective
+     *     upper bound is a subtype of {@code U}.</li>
+     *     <li>If {@code outer} is {@code ? super L}, {@code inner} is contained when its own effective
+     *     lower bound is a supertype of {@code L}.</li>
+     *     <li>Otherwise {@code outer} is a concrete (non-wildcard) type argument, and containment requires
+     *     exact structural equality with {@code inner} (Class&lt;T&gt; is invariant in T) -- with one
+     *     legacy exception: a class literal such as {@code LinkedList.class} is reified only to the raw
+     *     {@code Class<LinkedList>}, never to {@code Class<LinkedList<String>>}, so Java itself has no
+     *     syntax to obtain a fully concrete {@code Class<LinkedList<String>>} value from one. EvoSuite
+     *     still needs such a raw class literal to satisfy any instantiation of the same raw class (see
+     *     commit 90e6a0906, which introduced this helper, and the erasure-based comparison it always
+     *     used here), so a raw (type-parameter-missing) {@code inner} is contained whenever its class
+     *     equals the erasure of {@code outer}, regardless of {@code outer}'s own type arguments.</li>
+     * </ul>
+     */
+    private static boolean isContainedTypeArgument(Type inner, Type outer) {
+        if (outer instanceof WildcardType) {
+            WildcardType outerWildcard = (WildcardType) outer;
+            Type[] outerUpperBounds = outerWildcard.getUpperBounds();
+            Type[] outerLowerBounds = outerWildcard.getLowerBounds();
+
+            if (outerLowerBounds.length == 0 && isObjectType(outerUpperBounds[0])) {
+                // outer == "?", the unbounded wildcard: it contains every type argument.
+                return true;
+            }
+
+            if (outerLowerBounds.length == 0) {
+                // outer == "? extends U"
+                Type innerUpperBound = effectiveUpperBoundForContainment(inner);
+                return innerUpperBound != null && isSubtype(innerUpperBound, outerUpperBounds[0]);
+            }
+
+            // outer == "? super L"
+            Type innerLowerBound = effectiveLowerBoundForContainment(inner);
+            return innerLowerBound != null && isSubtype(outerLowerBounds[0], innerLowerBound);
+        }
+
+        // outer is a concrete type argument: Class<T> is invariant in T, so nothing short of
+        // structural equality qualifies, and a wildcard on the inner side can never match a
+        // concrete outer type (eg, Class<List<?>> does not accept Class<List<String>>).
+        if (inner instanceof WildcardType) {
+            return false;
+        }
+
+        // Legacy raw-class-literal leniency (see the class-level javadoc above): a class literal
+        // is always reified to its raw class, so treat that raw class as matching any
+        // instantiation of itself, the same way the erasure-only comparison this helper has
+        // always used for the top-level Class<...> argument did.
+        if (isMissingTypeParameters(inner)) {
+            Class<?> outerRawClass = getRawClass(outer);
+            if (inner.equals(outerRawClass)) {
+                return true;
+            }
+        }
+
+        return TypeUtils.equals(inner, outer);
+    }
+
+    /**
+     * The effective upper bound of a type argument for the purposes of wildcard containment: a plain
+     * type is its own upper bound, {@code ? extends S} contributes {@code S}, and {@code ?}
+     * contributes {@code Object}. A lower-bounded wildcard ({@code ? super S}) has no useful upper
+     * bound other than {@code Object}, which is only reachable when the outer bound is also
+     * {@code Object} (already handled by the unbounded-wildcard short-circuit above), so this
+     * returns {@code null} for it.
+     */
+    private static Type effectiveUpperBoundForContainment(Type inner) {
+        if (inner instanceof WildcardType) {
+            WildcardType innerWildcard = (WildcardType) inner;
+            if (innerWildcard.getLowerBounds().length > 0) {
+                return null;
+            }
+            return innerWildcard.getUpperBounds()[0];
+        }
+        return inner;
+    }
+
+    /**
+     * The effective lower bound of a type argument for the purposes of wildcard containment: a plain
+     * type is its own lower bound, and {@code ? super S} contributes {@code S}. An upper-bounded or
+     * unbounded wildcard has no lower bound to offer.
+     */
+    private static Type effectiveLowerBoundForContainment(Type inner) {
+        if (inner instanceof WildcardType) {
+            WildcardType innerWildcard = (WildcardType) inner;
+            if (innerWildcard.getLowerBounds().length == 0) {
+                return null;
+            }
+            return innerWildcard.getLowerBounds()[0];
+        }
+        return inner;
+    }
+
+    private static boolean isObjectType(Type type) {
+        return Object.class.equals(type);
+    }
+
+    private static boolean isSubtype(Type subType, Type superType) {
+        if (isObjectType(superType) || TypeUtils.equals(subType, superType)) {
+            return true;
+        }
+        try {
+            return TypeUtils.isAssignable(subType, superType);
+        } catch (Throwable e) {
+            logger.debug("Found unassignable type argument bound: " + e);
+            return false;
+        }
     }
 
 
