@@ -1676,9 +1676,7 @@ public class TestCodeVisitor extends TestVisitor {
             if (argumentIsNull) {
                 name = "null";
             }
-            boolean requiresRawClassCast = isClassType(declaredParamType)
-                    && isClassType(actualParamType)
-                    && !declaredParamType.equals(actualParamType);
+            boolean requiresRawClassCast = requiresRawClassCast(declaredParamType, actualParamType);
             Class<?> rawParamClass = declaredParamType instanceof WildcardType ? Object.class
                     : safeErasure(declaredParamType);
             if (!argumentIsNull && !requiresRawClassCast
@@ -2001,8 +1999,7 @@ public class TestCodeVisitor extends TestVisitor {
      * In those cases we fall back to a raw Class cast.
      */
     private String getCastTypeName(Type declaredParamType, Type actualParamType) {
-        if (isClassType(declaredParamType) && isClassType(actualParamType)
-                && !declaredParamType.equals(actualParamType)) {
+        if (requiresRawClassCast(declaredParamType, actualParamType)) {
             return getTypeName(Class.class);
         }
         if (requiresRawCastForInconvertibleParameterizedTypes(declaredParamType, actualParamType)) {
@@ -2096,6 +2093,29 @@ public class TestCodeVisitor extends TestVisitor {
             return rawType instanceof Class<?> && Class.class.equals(rawType);
         }
         return false;
+    }
+
+    /**
+     * True when {@code declaredType} and {@code actualType} are both class-literal types
+     * (raw {@code Class}, or a parameterised {@code Class<...>}) but are not the same type
+     * -- eg a {@code Class<LinkedList>} class-literal variable (the static type of
+     * {@code LinkedList.class} per JLS 15.8.2) reaching a {@code Class<LinkedList<String>>}
+     * target. {@code GenericClassUtils.isClassLiteralAssignable} deliberately treats that
+     * pair as assignable (see {@code 90e6a0906}), but javac rejects the direct
+     * assignment/invocation/cast-to-named-type in both directions. Every rendering path
+     * that can carry such a value across a declared/actual type boundary -- a method-call
+     * argument, a direct or field assignment -- must emit a raw {@code (Class)} cast
+     * instead when this returns true; that erases the mismatched parameterisation and the
+     * conversion from raw {@code Class} to any {@code Class<...>} is always legal
+     * (unchecked). This is the single predicate for that one narrow case: it is distinct
+     * from the broader, recursive "parameterized cast is inconvertible" check used
+     * elsewhere for generic containers in general (eg {@code Set<Class<Object>>} vs raw
+     * {@code Set<Class>}), which both erase through a raw cast but are not the same
+     * decision and must not be collapsed into this one.
+     */
+    private boolean requiresRawClassCast(Type declaredType, Type actualType) {
+        return isClassType(declaredType) && isClassType(actualType)
+                && !declaredType.equals(actualType);
     }
 
     private boolean isUnresolvedTypeVariableOrWildcard(Type type) {
@@ -4963,16 +4983,14 @@ public class TestCodeVisitor extends TestVisitor {
             } else {
                 cast = getReferenceAssignmentCast(retval, parameter);
             }
-        } else if (isClassType(retval.getType()) && isClassType(parameter.getType())
-                && !retval.getType().equals(parameter.getType())) {
+        } else if (requiresRawClassCast(retval.getType(), parameter.getType())) {
             // Both sides erase to the same raw class (java.lang.Class) -- which is why the
             // block above was skipped -- but their generic Class<...> type arguments differ
             // (eg a Class<Raw> literal assigned into a Class<Parameterized> field).
             // GenericClassUtils' documented raw-literal leniency (90e6a0906) accepts this at
-            // the assignability level, but javac rejects the direct assignment. This is the
-            // same structural mismatch getParameterString's requiresRawClassCast compensates
-            // for at a method-call argument; a raw (Class) cast is the equivalent fix here,
-            // for a direct assignment such as a field write.
+            // the assignability level, but javac rejects the direct assignment. requiresRawClassCast
+            // is the single predicate for this; a raw (Class) cast is the fix for a direct
+            // assignment such as a field write, same as at a method-call argument.
             cast = "(" + getTypeName(Class.class) + ") ";
         }
 

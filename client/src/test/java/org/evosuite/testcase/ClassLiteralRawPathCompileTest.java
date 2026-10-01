@@ -53,7 +53,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * {@code testClassLiteralParameterCastUsesRawClass} above. This class checks whether the
  * same compensation exists on the two other paths such a variable can reach a
  * parameterised {@code Class<...>} target: a field assignment, and a value returned from
- * a method whose declared (instantiated) result is a parameterised {@code Class<...>}.
+ * a method whose declared (instantiated) result is a parameterised {@code Class<...>}. It
+ * also covers a second, independent call site for the same predicate within the argument
+ * path itself: {@code getCastTypeName}, reached instead of the plain
+ * {@code requiresRawClassCast} branch when the called method is itself generic (scenario
+ * (c) below).
  *
  * <p>Each case drives the real {@link TestCodeVisitor} over a hand-built {@link TestCase}
  * and feeds the rendered source to {@code javac}, per the precedent in
@@ -106,6 +110,20 @@ public class ClassLiteralRawPathCompileTest {
         }
     }
 
+    /**
+     * Scenario (c): the same class-literal argument as
+     * {@code TestCodeVisitorTest#testClassLiteralParameterCastUsesRawClass}, but at a call
+     * to a method that itself declares a (here unused) type parameter. That makes
+     * {@code TestCodeVisitor#getParameterString} take its {@code isGenericMethod} branch,
+     * which resolves the cast through {@code getCastTypeName} instead of through the
+     * {@code requiresRawClassCast} local in the non-generic branch -- a second,
+     * independent call site for the same {@code requiresRawClassCast} predicate that
+     * {@code testClassLiteralParameterCastUsesRawClass} does not exercise.
+     */
+    public static <T> void consumeGenericLinkedListIntegerClassArgument(Class<LinkedList<Integer>> cls) {
+        // no-op
+    }
+
     @Test
     public void testClassLiteralFieldAssignmentCompiles() throws Exception {
         TestCase tc = new DefaultTestCase();
@@ -152,6 +170,24 @@ public class ClassLiteralRawPathCompileTest {
         Method getType = GenericClassLiteralHolder.class.getDeclaredMethod("getType");
         MethodStatement methodStatement = new MethodStatement(
                 tc, new GenericMethod(getType, holderType), holder, Arrays.asList());
+        tc.addStatement(methodStatement);
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+
+        assertCompiles(visitor);
+    }
+
+    @Test
+    public void testClassLiteralGenericMethodArgumentCastCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference classVar = tc.addStatement(new ClassPrimitiveStatement(tc, LinkedList.class));
+
+        Method method = ClassLiteralRawPathCompileTest.class.getDeclaredMethod(
+                "consumeGenericLinkedListIntegerClassArgument", Class.class);
+        GenericMethod genericMethod = new GenericMethod(method, ClassLiteralRawPathCompileTest.class);
+        MethodStatement methodStatement = new MethodStatement(
+                tc, genericMethod, null, Arrays.asList(classVar));
         tc.addStatement(methodStatement);
 
         TestCodeVisitor visitor = new TestCodeVisitor();
