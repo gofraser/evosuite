@@ -71,6 +71,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         Properties.getInstance().resetToDefaults();
         JUnitAnalyzer.resetMemoryExhaustion();
         TimeController.resetSingleton();
+        TestSuiteGenerator.freeMemoryBytesForTesting = null;
     }
 
     @AfterEach
@@ -84,6 +85,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         Properties.getInstance().resetToDefaults();
         JUnitAnalyzer.resetMemoryExhaustion();
         TimeController.resetSingleton();
+        TestSuiteGenerator.freeMemoryBytesForTesting = null;
     }
 
     // ---- The generator-level exits, driven through the real compileAndCheckTests entry ----
@@ -96,10 +98,11 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         JUnitAnalyzerTestSupport.setFlag("CHECK_INCOMPLETE", true);
         JUnitAnalyzerTestSupport.setIntField("INCOMPLETE_CHECK_ROUNDS", 7);
 
-        // threshold = 2 * MIN_FREE_MEM can never be exceeded by actual free heap (which is itself
-        // bounded above by maxMemory), so this deterministically trips the preflight regardless
-        // of how much heap this test JVM actually has free.
-        Properties.MIN_FREE_MEM = Integer.MAX_VALUE;
+        // Stub the measurement itself rather than relying on Properties.MIN_FREE_MEM against
+        // actual free heap: a JVM with a large enough max heap can have more free than even
+        // Integer.MAX_VALUE bytes, so the doubled threshold would not reliably trip the preflight.
+        TestSuiteGenerator.freeMemoryBytesForTesting = () -> 0L;
+        Properties.MIN_FREE_MEM = 1;
 
         TestSuiteChromosome suite = suiteWithOneTrivialTest();
 

@@ -86,6 +86,7 @@ import org.slf4j.LoggerFactory;
 import java.io.File;
 import java.text.NumberFormat;
 import java.util.*;
+import java.util.function.LongSupplier;
 
 /**
  * Main entry point. Does all the static analysis, invokes a test generation
@@ -1393,6 +1394,16 @@ public class TestSuiteGenerator {
     }
 
     /**
+     * Overrides the free-memory measurement used by {@link #isMemoryTooLowForPhase} below;
+     * {@code null} in production. Setting {@code Properties.MIN_FREE_MEM} alone cannot force this
+     * branch deterministically in a test, because the doubled threshold still has to exceed
+     * actual free heap, and that is not guaranteed on a JVM with a large enough maximum heap.
+     * Tests in this package (see {@code TestSuiteGeneratorJUnitCheckCompletenessTest}) set this
+     * instead, and must reset it to {@code null} afterwards.
+     */
+    static LongSupplier freeMemoryBytesForTesting = null;
+
+    /**
      * Check whether free memory is too low to safely enter a post-search phase
      * that re-executes tests (minimization, assertion generation, JUnit check).
      * Uses {@code MIN_FREE_MEM * 2} as the threshold to leave headroom.
@@ -1401,12 +1412,13 @@ public class TestSuiteGenerator {
      * @return true if memory is too low (caller should skip the phase)
      */
     private boolean isMemoryTooLowForPhase(String phaseName) {
-        Runtime runtime = Runtime.getRuntime();
-        long freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+        LongSupplier freeMemoryBytes =
+                freeMemoryBytesForTesting != null ? freeMemoryBytesForTesting : TestSuiteGenerator::currentFreeMemoryBytes;
+        long freeMem = freeMemoryBytes.getAsLong();
         long threshold = Properties.MIN_FREE_MEM * 2L;
         if (freeMem < threshold) {
             System.gc();
-            freeMem = runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
+            freeMem = freeMemoryBytes.getAsLong();
             if (freeMem < threshold) {
                 LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
                         + "Skipping " + phaseName + " due to low memory: "
@@ -1416,6 +1428,11 @@ public class TestSuiteGenerator {
             }
         }
         return false;
+    }
+
+    private static long currentFreeMemoryBytes() {
+        Runtime runtime = Runtime.getRuntime();
+        return runtime.maxMemory() - runtime.totalMemory() + runtime.freeMemory();
     }
 
     /**
