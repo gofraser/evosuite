@@ -285,7 +285,10 @@ public abstract class AbstractStatement implements Statement, Serializable {
         visitor.setException(this, exception);
         visitor.visitStatement(this);
         String code = visitor.getCode();
-        return code.substring(0, code.length() - 2);
+        // A statement can legitimately render to nothing at all (e.g. an assignment
+        // whose target turned out to be a final field, which TestCodeVisitor drops
+        // rather than emit as illegal code); don't assume a trailing newline to strip.
+        return code.length() >= 2 ? code.substring(0, code.length() - 2) : code;
     }
 
     @Override

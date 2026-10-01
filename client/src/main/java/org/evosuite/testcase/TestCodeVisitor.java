@@ -43,6 +43,7 @@ import org.evosuite.runtime.LenientMockAnswer;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
 import org.evosuite.runtime.mock.EvoSuiteMock;
+import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.EnvironmentDataStatement;
@@ -56,6 +57,8 @@ import org.evosuite.testcase.variable.name.VariableNameStrategyFactory;
 import org.evosuite.utils.NumberFormatter;
 import org.evosuite.utils.StringUtil;
 import org.evosuite.utils.generic.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.*;
 import java.net.URLClassLoader;
@@ -72,6 +75,8 @@ import static java.util.stream.Collectors.toCollection;
  * @author Gordon Fraser
  */
 public class TestCodeVisitor extends TestVisitor {
+
+    private static final Logger logger = LoggerFactory.getLogger(TestCodeVisitor.class);
 
     protected StringBuilder testCode = new StringBuilder();
 
@@ -4753,6 +4758,27 @@ public class TestCodeVisitor extends TestVisitor {
             FieldReference fieldReference = (FieldReference) retval;
             Field field = fieldReference.getField().getField();
             VariableReference source = fieldReference.getSource();
+            // Finality, unlike visibility, is never something a cast or a reflective
+            // PrivateAccess write can legally work around: a direct write is a compile
+            // error, and a reflective write would only "work" because instrumentation
+            // happened to strip ACC_FINAL for the bytecode-level static-reset
+            // machinery - making a generated test silently depend on the agent being
+            // present. So this check runs before, and independently of,
+            // canUseDirectFieldAccess (which only ever reasons about visibility), and
+            // on a final target it drops the statement instead of falling through to
+            // either the direct- or the reflective-write branch below.
+            if (TestClusterUtils.isFinalField(field)) {
+                String targetClassName = source != null
+                        ? source.getVariableClass().getName()
+                        : field.getDeclaringClass().getName();
+                logger.error("Dropping an assignment statement that targets final field "
+                                + "{} (declaring class {}) via target class {}; statement "
+                                + "position {} of test {}. Direct writes to final fields are "
+                                + "never legal Java, so no code is emitted for this statement.",
+                        field.getName(), field.getDeclaringClass().getName(), targetClassName,
+                        statement.getPosition(), test != null ? test.getID() : -1);
+                return;
+            }
             if (!canUseDirectFieldAccess(field, source)) {
                 String valueExpression = cast + getVariableName(parameter);
                 testCode.append(getReflectiveFieldWrite(field, source, valueExpression)
