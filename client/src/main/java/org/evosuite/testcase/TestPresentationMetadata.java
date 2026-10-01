@@ -74,6 +74,89 @@ public final class TestPresentationMetadata implements Serializable {
         }
     }
 
+    /**
+     * Drops the metadata entry at {@code position} (if any) and shifts every entry keyed
+     * at a position greater than {@code position} down by one, across all three
+     * collections. Mirrors {@link #copyTo(TestCase, TestCase, int)}, which already applies
+     * a position offset when metadata is carried from one test case to another; this is
+     * the in-place equivalent for a single statement removal.
+     */
+    public void removePosition(int position) {
+        Map<Integer, String> shiftedVariableNames = new LinkedHashMap<>();
+        for (Map.Entry<Integer, String> entry : variableNames.entrySet()) {
+            int key = entry.getKey();
+            if (key == position) {
+                continue;
+            }
+            shiftedVariableNames.put(key > position ? key - 1 : key, entry.getValue());
+        }
+        variableNames.clear();
+        variableNames.putAll(shiftedVariableNames);
+
+        Map<Integer, List<String>> shiftedCommentsAfter = new LinkedHashMap<>();
+        for (Map.Entry<Integer, List<String>> entry : commentsAfter.entrySet()) {
+            int key = entry.getKey();
+            if (key == position) {
+                continue;
+            }
+            shiftedCommentsAfter.put(key > position ? key - 1 : key, entry.getValue());
+        }
+        commentsAfter.clear();
+        commentsAfter.putAll(shiftedCommentsAfter);
+
+        Set<Integer> shiftedSectionBreaksAfter = new LinkedHashSet<>();
+        for (Integer key : sectionBreaksAfter) {
+            if (key == position) {
+                continue;
+            }
+            shiftedSectionBreaksAfter.add(key > position ? key - 1 : key);
+        }
+        sectionBreaksAfter.clear();
+        sectionBreaksAfter.addAll(shiftedSectionBreaksAfter);
+    }
+
+    /**
+     * Makes room for a statement inserted at {@code position} by shifting every entry
+     * keyed at a position greater than or equal to {@code position} up by one, across all
+     * three collections. The inverse of {@link #removePosition(int)}.
+     */
+    public void insertPosition(int position) {
+        Map<Integer, String> shiftedVariableNames = new LinkedHashMap<>();
+        for (Map.Entry<Integer, String> entry : variableNames.entrySet()) {
+            int key = entry.getKey();
+            shiftedVariableNames.put(key >= position ? key + 1 : key, entry.getValue());
+        }
+        variableNames.clear();
+        variableNames.putAll(shiftedVariableNames);
+
+        Map<Integer, List<String>> shiftedCommentsAfter = new LinkedHashMap<>();
+        for (Map.Entry<Integer, List<String>> entry : commentsAfter.entrySet()) {
+            int key = entry.getKey();
+            shiftedCommentsAfter.put(key >= position ? key + 1 : key, entry.getValue());
+        }
+        commentsAfter.clear();
+        commentsAfter.putAll(shiftedCommentsAfter);
+
+        Set<Integer> shiftedSectionBreaksAfter = new LinkedHashSet<>();
+        for (Integer key : sectionBreaksAfter) {
+            shiftedSectionBreaksAfter.add(key >= position ? key + 1 : key);
+        }
+        sectionBreaksAfter.clear();
+        sectionBreaksAfter.addAll(shiftedSectionBreaksAfter);
+    }
+
+    /**
+     * Drops every metadata entry keyed at or beyond {@code length}, across all three
+     * collections. Used when the statement list is truncated (e.g. {@code chop}), where
+     * surviving positions below {@code length} do not move and only need the dangling
+     * trailing entries removed.
+     */
+    public void truncateFrom(int length) {
+        variableNames.keySet().removeIf(key -> key >= length);
+        commentsAfter.keySet().removeIf(key -> key >= length);
+        sectionBreaksAfter.removeIf(key -> key >= length);
+    }
+
     public TestPresentationMetadata copy() {
         TestPresentationMetadata copy = new TestPresentationMetadata();
         copy.testName = testName;

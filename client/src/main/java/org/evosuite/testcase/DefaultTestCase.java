@@ -277,6 +277,9 @@ public class DefaultTestCase implements TestCase, Serializable {
      */
     @Override
     public VariableReference addStatement(Statement statement, int position) {
+        if (presentationMetadata != null) {
+            presentationMetadata.insertPosition(position);
+        }
         statements.add(position, statement);
         assert (isValid());
         return statement.getReturnValue();
@@ -317,6 +320,9 @@ public class DefaultTestCase implements TestCase, Serializable {
      */
     @Override
     public void chop(int length) {
+        if (presentationMetadata != null) {
+            presentationMetadata.truncateFrom(length);
+        }
         while (statements.size() > length) {
             statements.remove(length);
         }
@@ -1313,6 +1319,12 @@ public class DefaultTestCase implements TestCase, Serializable {
         logger.debug("Removing statement {}", position);
         if (position >= size()) {
             return;
+        }
+        // Re-key the presentation metadata before the removal so it reflects the
+        // statement list exactly as it stood when the entries were recorded; the
+        // arithmetic only needs the position being removed, not the resulting size.
+        if (presentationMetadata != null) {
+            presentationMetadata.removePosition(position);
         }
         statements.remove(position);
         removeDanglingAssertions();
