@@ -52,6 +52,20 @@ public class CoverageCriteriaAnalyzer {
 
     private static final Map<String, StringBuilder> coverageBitString = new TreeMap<>();
 
+    /**
+     * Whether every per-criterion coverage analysis performed so far in this run evaluated all of
+     * its goals. Flipped to false the first time a criterion's goal loop, or the per-criteria
+     * loop itself, is cut short by {@link TimeController} running out of budget. Never reset
+     * mid-run, mirroring {@link #coverageBitString}: one analysis sweep per client JVM.
+     */
+    private static boolean coverageAnalysisComplete = true;
+
+    /** Cumulative number of coverage goals actually evaluated across all analyzed criteria. */
+    private static int coverageAnalysisGoalsChecked = 0;
+
+    /** Cumulative number of coverage goals across all analyzed criteria. */
+    private static int coverageAnalysisGoalsTotal = 0;
+
     private static final Set<Properties.Criterion> MUTATION_CRITERIA = EnumSet.of(
             Properties.Criterion.MUTATION,
             Properties.Criterion.WEAKMUTATION,
@@ -242,6 +256,9 @@ public class CoverageCriteriaAnalyzer {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.warn("Reached maximum time for coverage analysis; {} of {} criteria left unanalysed",
                         criteria.length - Arrays.asList(criteria).indexOf(pc), criteria.length);
+                // The remaining criteria are not analyzed at all, so there is no goal count to add
+                // to the checked/total tally below, but the sweep as a whole is still incomplete.
+                markCoverageAnalysisIncomplete();
                 break;
             }
             logger.debug("Coverage analysis for criterion {}", pc);
@@ -309,8 +326,8 @@ public class CoverageCriteriaAnalyzer {
             }
         }
 
+        int checked = buffer.length();
         if (timedOut) {
-            int checked = buffer.length();
             logger.warn("Reached maximum time for coverage analysis; {} of {} goals checked for criterion {}",
                     checked, goals.size(), criterion);
             // Pad the bit string out to the full goal count so consumers that assume its
@@ -320,6 +337,10 @@ public class CoverageCriteriaAnalyzer {
                 buffer.append("0");
             }
         }
+        // Record completeness and the real denominator before anything below (including the
+        // goals.isEmpty() shortcut) can return early, so a score published for this criterion can
+        // always be checked against how much of it was actually measured.
+        recordCoverageAnalysisProgress(checked, goals.size(), !timedOut);
 
         coverageBitString.put(criterion.name(), buffer);
         ClientServices.getInstance().getClientNode().trackOutputVariable(RuntimeVariable.CoverageBitString,
@@ -381,5 +402,53 @@ public class CoverageCriteriaAnalyzer {
         }
         logger.debug("Criterion not supported: {}", criterion);
         return null;
+    }
+
+    /**
+     * Accumulates how much of one criterion's goal set was actually evaluated, and publishes the
+     * running totals across every criterion analyzed so far in this run.
+     *
+     * @param checkedGoals      number of goals actually evaluated for this criterion
+     * @param totalGoals        total number of goals for this criterion
+     * @param criterionComplete false if this criterion's goal loop was cut short by the time budget
+     */
+    private static void recordCoverageAnalysisProgress(int checkedGoals, int totalGoals,
+                                                        boolean criterionComplete) {
+        coverageAnalysisGoalsChecked += checkedGoals;
+        coverageAnalysisGoalsTotal += totalGoals;
+        if (!criterionComplete) {
+            coverageAnalysisComplete = false;
+        }
+        trackCoverageAnalysisProgress();
+    }
+
+    /**
+     * Marks the overall analysis sweep incomplete without adding to the checked/total goal
+     * tally, for the case where a whole criterion is skipped before its goals are even counted
+     * (the per-criteria loop in {@link #analyzeCoverage(TestSuiteChromosome)} ran out of time).
+     */
+    private static void markCoverageAnalysisIncomplete() {
+        coverageAnalysisComplete = false;
+        trackCoverageAnalysisProgress();
+    }
+
+    private static void trackCoverageAnalysisProgress() {
+        ClientServices.getInstance().getClientNode().trackOutputVariable(
+                RuntimeVariable.CoverageAnalysisComplete, coverageAnalysisComplete);
+        ClientServices.getInstance().getClientNode().trackOutputVariable(
+                RuntimeVariable.CoverageAnalysisGoalsChecked, coverageAnalysisGoalsChecked);
+        ClientServices.getInstance().getClientNode().trackOutputVariable(
+                RuntimeVariable.CoverageAnalysisGoalsTotal, coverageAnalysisGoalsTotal);
+    }
+
+    /**
+     * Resets the coverage-analysis-completeness accumulators. Production code never needs this
+     * (one analysis sweep per client JVM, like {@link #coverageBitString}); it exists so tests can
+     * start each case from a clean slate.
+     */
+    static void resetCoverageAnalysisProgress() {
+        coverageAnalysisComplete = true;
+        coverageAnalysisGoalsChecked = 0;
+        coverageAnalysisGoalsTotal = 0;
     }
 }
