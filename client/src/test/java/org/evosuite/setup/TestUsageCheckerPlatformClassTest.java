@@ -28,7 +28,18 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
+import java.io.File;
+import java.io.IOException;
+import java.lang.module.Configuration;
+import java.lang.module.ModuleFinder;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.SQLPermission;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Pins the fix for {@link TestUsageChecker#isPlatformClass(Class)}: before this fix it
@@ -38,6 +49,12 @@ import java.sql.SQLPermission;
  * {@code USE_DEPRECATED=false}, a platform-loaded class the running JDK happens to
  * annotate {@code @Deprecated} was then wrongly treated as ordinary (non-JDK)
  * deprecated API and dropped from the test cluster.
+ *
+ * <p>Also pins the follow-up fix for the same method: classifying by named-module prefix
+ * alone accepted any module merely <em>named</em> {@code java.*}/{@code jdk.*}, regardless
+ * of who built or loaded it. {@code testUserModuleNamedLikeAJdkModuleIsNotPlatformClass}
+ * compiles and loads such a module through a real {@link ModuleLayer} to confirm the fix
+ * also requires the defining loader to be the boot or platform loader.
  */
 class TestUsageCheckerPlatformClassTest {
 
@@ -123,5 +140,64 @@ class TestUsageCheckerPlatformClassTest {
         // and excluded here, even though LiveAbstractBase (the loaded target) does
         // not itself exempt it from the filter.
         Assertions.assertTrue(TestUsageChecker.canUse(SQLPermission.class));
+    }
+
+    @Test
+    void testUserModuleNamedLikeAJdkModuleIsNotPlatformClass() throws Exception {
+        // A module's name is a string whoever builds it chooses; nothing stops a user
+        // module from calling itself "java.whatever" and defining a class inside it. This
+        // compiles and loads exactly such a module through a real ModuleLayer -- the same
+        // way a dependency assembled with a custom module descriptor could -- to confirm
+        // isPlatformClass() is not fooled by the name prefix alone.
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        Assumptions.assumeTrue(compiler != null,
+                "no system Java compiler available to build the spoofed-module fixture "
+                        + "(running on a JRE rather than a JDK)");
+
+        String moduleName = "java.evosuitespooftest";
+        String packageName = "org.evosuite.setup.spooftest";
+        String className = packageName + ".SpoofedUserType";
+
+        Path moduleDir = Files.createTempDirectory("evosuite-module-spoof");
+        try {
+            Path moduleInfo = moduleDir.resolve("module-info.java");
+            Files.writeString(moduleInfo, "module " + moduleName + " { exports " + packageName + "; }");
+            Path packageDir = moduleDir.resolve(packageName.replace('.', '/'));
+            Files.createDirectories(packageDir);
+            Path userType = packageDir.resolve("SpoofedUserType.java");
+            Files.writeString(userType, "package " + packageName + "; public class SpoofedUserType {}");
+
+            int compileResult = compiler.run(null, null, null,
+                    "-d", moduleDir.toString(), moduleInfo.toString(), userType.toString());
+            Assertions.assertEquals(0, compileResult, "spoofed-module fixture must compile");
+
+            ModuleFinder finder = ModuleFinder.of(moduleDir);
+            Configuration configuration = ModuleLayer.boot().configuration()
+                    .resolve(finder, ModuleFinder.of(), Set.of(moduleName));
+            ModuleLayer layer = ModuleLayer.defineModulesWithOneLoader(
+                    configuration, List.of(ModuleLayer.boot()), ClassLoader.getSystemClassLoader()).layer();
+            Class<?> spoofed = layer.findLoader(moduleName).loadClass(className);
+
+            // Confirm the fixture actually set up the situation the finding describes,
+            // before relying on it to exercise isPlatformClass().
+            Assertions.assertTrue(spoofed.getModule().isNamed());
+            Assertions.assertEquals(moduleName, spoofed.getModule().getName());
+            Assertions.assertTrue(moduleName.startsWith("java."));
+            Assertions.assertNotNull(spoofed.getClassLoader(), "a spoofed module is not boot-loaded");
+            Assertions.assertNotEquals(ClassLoader.getPlatformClassLoader(), spoofed.getClassLoader(),
+                    "a spoofed module is not platform-loaded either");
+
+            Assertions.assertFalse(TestUsageChecker.isPlatformClass(spoofed),
+                    "a java.*-named module must not be classified as JDK platform code "
+                            + "unless its defining loader is actually the boot or platform loader");
+        } finally {
+            deleteRecursively(moduleDir);
+        }
+    }
+
+    private static void deleteRecursively(Path root) throws IOException {
+        try (java.util.stream.Stream<Path> paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).map(Path::toFile).forEach(File::delete);
+        }
     }
 }

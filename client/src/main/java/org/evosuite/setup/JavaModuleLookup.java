@@ -49,6 +49,7 @@ final class JavaModuleLookup {
     private static final Method IS_NAMED;
     private static final Method GET_NAME;
     private static final boolean MODULES_SUPPORTED;
+    private static final ClassLoader PLATFORM_CLASS_LOADER;
 
     static {
         Method getModule;
@@ -70,6 +71,17 @@ final class JavaModuleLookup {
         IS_NAMED = isNamed;
         GET_NAME = getName;
         MODULES_SUPPORTED = GET_MODULE != null;
+
+        ClassLoader platformClassLoader;
+        try {
+            Method getPlatformClassLoader = ClassLoader.class.getMethod("getPlatformClassLoader");
+            platformClassLoader = (ClassLoader) getPlatformClassLoader.invoke(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            // Same Java 8 case as above (no such method), resolved independently of
+            // MODULES_SUPPORTED since it lives on a different class.
+            platformClassLoader = null;
+        }
+        PLATFORM_CLASS_LOADER = platformClassLoader;
     }
 
     /**
@@ -157,5 +169,20 @@ final class JavaModuleLookup {
         } catch (ReflectiveOperationException | RuntimeException e) {
             return Result.UNAVAILABLE;
         }
+    }
+
+    /**
+     * The platform class loader (Java 9+), resolved once and cached: unlike an application
+     * module's name, which a user module can fake, the identity of this loader cannot be
+     * forged by anything that did not come from the running JDK's own module graph.
+     * {@link TestUsageChecker#isPlatformClass} combines this with a named-module check so a
+     * user module cannot pass for the JDK merely by naming itself {@code java.*} or
+     * {@code jdk.*}.
+     *
+     * @return the platform class loader, or {@code null} if it could not be resolved (plain
+     * Java 8, where it does not exist, or the reflective lookup itself failed)
+     */
+    static ClassLoader platformClassLoader() {
+        return PLATFORM_CLASS_LOADER;
     }
 }

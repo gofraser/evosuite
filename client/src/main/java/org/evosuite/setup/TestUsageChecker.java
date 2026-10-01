@@ -379,29 +379,35 @@ public class TestUsageChecker {
      * the <em>platform</em> loader instead, a distinct, non-null loader. Checking for
      * a null loader alone therefore missed most of the modular JDK.
      *
-     * <p>We classify by module membership instead of by loader identity. Every JDK
-     * class -- bootstrap- or platform-loaded alike -- belongs to a named module whose
-     * name starts with {@code java.} or {@code jdk.}; there is no third platform
+     * <p>We classify by module membership instead of by loader identity alone. Every
+     * JDK class -- bootstrap- or platform-loaded alike -- belongs to a named module
+     * whose name starts with {@code java.} or {@code jdk.}; there is no third platform
      * prefix, and {@code Class#getModule()} reports it regardless of which of the two
-     * loaders actually defined the class. That is more robust than comparing against
-     * {@code ClassLoader#getPlatformClassLoader()}: it does not depend on which loader
-     * instance happens to be in play, only on the module the class itself reports.
+     * loaders actually defined the class. But a module's name is just a string the code
+     * that built it chose; nothing stops a user module naming itself {@code java.fake}
+     * or {@code jdk.anything} and defining a class in it, so the name prefix alone does
+     * not prove JDK provenance. We additionally require the class's defining loader to
+     * be the boot loader ({@code null}) or the platform loader ({@code
+     * ClassLoader#getPlatformClassLoader()}): those two loader identities cannot be
+     * forged by application code, so combined with the named-module check they confirm
+     * the class actually came from the running JDK's own module graph rather than from
+     * a module that merely borrowed its naming convention.
      *
-     * <p>{@code Class#getModule()} is a Java 9+ method, and this module's main source
-     * compiles against the Java 8 API (see {@code runtime}'s own Java 8 floor, enforced
-     * on this module the same way). It is therefore looked up reflectively via the shared
-     * {@link JavaModuleLookup}, which also backs {@code TestClusterUtils#isJdkClass} for the
-     * identical constraint; on an actual Java 8 JVM the reflective lookup itself fails (there
-     * is no module system yet) and this falls back to the old bootstrap-loader check, which is
+     * <p>{@code Class#getModule()} and {@code ClassLoader#getPlatformClassLoader()} are
+     * both Java 9+, and this module's main source compiles against the Java 8 API (see
+     * {@code runtime}'s own Java 8 floor, enforced on this module the same way). Both are
+     * therefore looked up reflectively via the shared {@link JavaModuleLookup}, which also
+     * backs {@code TestClusterUtils#isJdkClass} for the module half of the identical
+     * constraint; on an actual Java 8 JVM the module lookup itself fails (there is no
+     * module system yet) and this falls back to the old bootstrap-loader check, which is
      * exactly correct there, since Java 8 has no platform loader to miss.
      *
-     * <p>A user class cannot land in this bucket merely by sitting in a
-     * {@code java.}-prefixed package: the JVM refuses to even define application
-     * classes there ({@code SecurityException: Prohibited package name}) for any
-     * loader but the bootstrap/platform ones. A {@code jdk.}-prefixed package is not
-     * similarly reserved, but a user class loaded the ordinary way (app class loader,
-     * classpath) is always in an <em>unnamed</em> module, which fails the
-     * {@code isNamed()} check regardless of its package name.
+     * <p>A user class loaded the ordinary way (app class loader, classpath) is always in
+     * an <em>unnamed</em> module, which fails the {@code isNamed()} check regardless of
+     * its package name -- except that a {@code java.}-prefixed package is also
+     * independently blocked there ({@code SecurityException: Prohibited package name}).
+     * Neither restriction applies to a module built and loaded the way the spoof above
+     * does, which is why the loader check is also needed.
      *
      * <p>This matters for the {@code USE_DEPRECATED} filter. That option exists to stop
      * us generating tests for API the project itself has deprecated, but several JDK
@@ -427,7 +433,11 @@ public class TestUsageChecker {
             return false;
         }
         String name = result.moduleName();
-        return name.startsWith("java.") || name.startsWith("jdk.");
+        if (!(name.startsWith("java.") || name.startsWith("jdk."))) {
+            return false;
+        }
+        ClassLoader loader = c.getClassLoader();
+        return loader == null || loader == JavaModuleLookup.platformClassLoader();
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {
