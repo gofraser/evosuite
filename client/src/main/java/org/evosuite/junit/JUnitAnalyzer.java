@@ -183,12 +183,23 @@ public abstract class JUnitAnalyzer {
     private static final class BoundedDiagnosticListener implements DiagnosticListener<JavaFileObject> {
         private static final String ERROR_WHILE_WRITING_PREFIX = "error while writing";
         private final int maxDiagnostics;
-        private final List<Diagnostic<? extends JavaFileObject>> diagnostics = new ArrayList<>();
-        private boolean truncated = false;
+        // Errors (and OTHER, which can carry a fatal condition javac has no dedicated kind for)
+        // are kept separate from everything else (warnings, mandatory warnings, notes) so that a
+        // flood of warnings can never evict a real error from the bounded list, and so a caller
+        // can log the two at different levels instead of dumping warnings next to errors as if
+        // they had also kept the file from compiling.
+        private final List<Diagnostic<? extends JavaFileObject>> errorDiagnostics = new ArrayList<>();
+        private final List<Diagnostic<? extends JavaFileObject>> otherDiagnostics = new ArrayList<>();
+        private boolean errorsTruncated = false;
+        private boolean othersTruncated = false;
         private boolean sawErrorWhileWriting = false;
 
         private BoundedDiagnosticListener(int maxDiagnostics) {
             this.maxDiagnostics = Math.max(0, maxDiagnostics);
+        }
+
+        private static boolean isErrorLike(Diagnostic.Kind kind) {
+            return kind == Diagnostic.Kind.ERROR || kind == Diagnostic.Kind.OTHER;
         }
 
         @Override
@@ -197,19 +208,35 @@ public abstract class JUnitAnalyzer {
             if (message != null && message.startsWith(ERROR_WHILE_WRITING_PREFIX)) {
                 sawErrorWhileWriting = true;
             }
-            if (diagnostics.size() < maxDiagnostics) {
-                diagnostics.add(diagnostic);
+            if (isErrorLike(diagnostic.getKind())) {
+                if (errorDiagnostics.size() < maxDiagnostics) {
+                    errorDiagnostics.add(diagnostic);
+                } else {
+                    errorsTruncated = true;
+                }
             } else {
-                truncated = true;
+                if (otherDiagnostics.size() < maxDiagnostics) {
+                    otherDiagnostics.add(diagnostic);
+                } else {
+                    othersTruncated = true;
+                }
             }
         }
 
-        private List<Diagnostic<? extends JavaFileObject>> getDiagnostics() {
-            return diagnostics;
+        private List<Diagnostic<? extends JavaFileObject>> getErrorDiagnostics() {
+            return errorDiagnostics;
         }
 
-        private boolean wasTruncated() {
-            return truncated;
+        private List<Diagnostic<? extends JavaFileObject>> getOtherDiagnostics() {
+            return otherDiagnostics;
+        }
+
+        private boolean wasErrorsTruncated() {
+            return errorsTruncated;
+        }
+
+        private boolean wasOthersTruncated() {
+            return othersTruncated;
         }
 
         private boolean sawErrorWhileWriting() {
@@ -1249,12 +1276,24 @@ public abstract class JUnitAnalyzer {
                     return generated;
                 }
 
-                for (Diagnostic<?> diagnostic : diagnostics.getDiagnostics()) {
-                    logger.error("Diagnostic: {}: {}", diagnostic.getMessage(null),
+                for (Diagnostic<?> diagnostic : diagnostics.getErrorDiagnostics()) {
+                    logger.error("Diagnostic (ERROR): {}: {}", diagnostic.getMessage(null),
                             diagnostic.getLineNumber());
                 }
-                if (diagnostics.wasTruncated()) {
-                    logger.error("Additional compiler diagnostics were omitted after {} entries",
+                if (diagnostics.wasErrorsTruncated()) {
+                    logger.error("Additional compiler error diagnostics were omitted after {} entries",
+                            MAX_STORED_COMPILER_DIAGNOSTICS);
+                }
+                // Warnings/notes never kept the file from compiling - the compiler task's own
+                // boolean result above is what judged that. Logged separately and at a lower
+                // level so they cannot be mistaken for the reason compilation failed, which
+                // previously led to counting warning-only output as a compile failure.
+                for (Diagnostic<?> diagnostic : diagnostics.getOtherDiagnostics()) {
+                    logger.warn("Diagnostic ({}): {}: {}", diagnostic.getKind(),
+                            diagnostic.getMessage(null), diagnostic.getLineNumber());
+                }
+                if (diagnostics.wasOthersTruncated()) {
+                    logger.warn("Additional non-error compiler diagnostics were omitted after {} entries",
                             MAX_STORED_COMPILER_DIAGNOSTICS);
                 }
                 if (compilerOutput != null && !compilerOutput.isEmpty()) {
