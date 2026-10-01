@@ -42,15 +42,58 @@ public class SandboxResilienceTest {
     }
 
     @Test
-    public void resetShouldClearInternalStateWhenRestoreIsDenied() throws Exception {
+    public void resetShouldRetainInternalStateWhenRestoreIsDenied() throws Exception {
         Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
 
         setManager(new ThrowingRestoreManager());
         setCounter(1);
 
         Assertions.assertDoesNotThrow(Sandbox::resetDefaultSecurityManager);
-        Assertions.assertFalse(Sandbox.isSecurityManagerInitialized());
-        Assertions.assertEquals(0, getCounter());
+        Assertions.assertTrue(Sandbox.isSecurityManagerInitialized());
+        Assertions.assertEquals(1, getCounter());
+    }
+
+    @Test
+    public void deniedResetKeepsInstalledManagerAndPrivilegedThreadsUsable() throws Exception {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
+
+        SecurityManager originalManager = System.getSecurityManager();
+        MSecurityManager manager = null;
+        boolean downgraded = false;
+        try {
+            Sandbox.initializeSecurityManagerForSUT();
+            manager = getManager();
+            Thread currentThread = Thread.currentThread();
+            manager.goingToExecuteUnsafeCodeOnSameThread();
+            downgraded = true;
+
+            Assertions.assertDoesNotThrow(Sandbox::resetDefaultSecurityManager);
+
+            Assertions.assertTrue(Sandbox.isSecurityManagerInitialized());
+            Assertions.assertSame(manager, System.getSecurityManager());
+            Assertions.assertDoesNotThrow(() -> Sandbox.addPrivilegedThread(currentThread));
+            Thread additionalThread = new Thread(() -> { }, "sandbox-regression-privileged");
+            Assertions.assertDoesNotThrow(() -> Sandbox.addPrivilegedThread(additionalThread));
+            Assertions.assertTrue(manager.getPrivilegedThreads().contains(additionalThread));
+
+            manager.doneWithExecutingUnsafeCodeOnSameThread();
+            downgraded = false;
+            Sandbox.resetDefaultSecurityManager();
+
+            Assertions.assertFalse(Sandbox.isSecurityManagerInitialized());
+            Assertions.assertSame(originalManager, System.getSecurityManager());
+        } finally {
+            if (downgraded && manager != null) {
+                manager.doneWithExecutingUnsafeCodeOnSameThread();
+            }
+            if (Sandbox.isSecurityManagerInitialized()) {
+                Sandbox.resetDefaultSecurityManager();
+            }
+            if (System.getSecurityManager() != originalManager) {
+                System.setSecurityManager(originalManager);
+            }
+        }
     }
 
     @Test

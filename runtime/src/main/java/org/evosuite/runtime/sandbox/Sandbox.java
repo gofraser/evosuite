@@ -193,9 +193,11 @@ public class Sandbox {
                 try {
                     oldManager.restoreDefaultManager();
                 } catch (SecurityException e) {
+                    manager = oldManager;
+                    counter++;
                     SecurityManager currentManager = System.getSecurityManager();
                     logger.warn("Cannot restore default SecurityManager; current JVM manager is {}. "
-                                    + "Sandbox internal state was cleared for recovery.",
+                                    + "Sandbox internal state was retained for recovery.",
                             currentManager == null ? "null" : currentManager.getClass().getName(), e);
                 }
             }
