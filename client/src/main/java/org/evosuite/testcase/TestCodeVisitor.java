@@ -4963,6 +4963,17 @@ public class TestCodeVisitor extends TestVisitor {
             } else {
                 cast = getReferenceAssignmentCast(retval, parameter);
             }
+        } else if (isClassType(retval.getType()) && isClassType(parameter.getType())
+                && !retval.getType().equals(parameter.getType())) {
+            // Both sides erase to the same raw class (java.lang.Class) -- which is why the
+            // block above was skipped -- but their generic Class<...> type arguments differ
+            // (eg a Class<Raw> literal assigned into a Class<Parameterized> field).
+            // GenericClassUtils' documented raw-literal leniency (90e6a0906) accepts this at
+            // the assignability level, but javac rejects the direct assignment. This is the
+            // same structural mismatch getParameterString's requiresRawClassCast compensates
+            // for at a method-call argument; a raw (Class) cast is the equivalent fix here,
+            // for a direct assignment such as a field write.
+            cast = "(" + getTypeName(Class.class) + ") ";
         }
 
         if (retval instanceof FieldReference) {
