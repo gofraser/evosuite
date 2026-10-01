@@ -23,12 +23,12 @@ import org.evosuite.PackageInfo;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.TooManyResourcesException;
+import org.evosuite.runtime.instrumentation.ArrayAllocationMethodAdapter;
 import org.evosuite.setup.DependencyAnalysis;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
-import org.objectweb.asm.commons.GeneratorAdapter;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -39,21 +39,7 @@ import java.util.Map;
  *
  * @author Gordon Fraser
  */
-public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
-
-    /**
-     * Assumed width, in bytes, of a reference-typed array element (i.e. every element
-     * created by ANEWARRAY, and the reference-typed leaf of a MULTIANEWARRAY) for the
-     * purposes of the cumulative allocation budget.
-     *
-     * <p>The true width depends on the running JVM: 4 bytes with compressed oops
-     * (the default on most modern JVMs for heaps under ~32GB), 8 bytes without. This
-     * picks the conservative (larger) value deliberately: the budget exists to bound
-     * real heap usage, and undercounting would let a test slip more bytes past the
-     * guard than intended on a JVM without compressed oops. Overcounting only means the
-     * guard can trip somewhat earlier than the true byte count would require.
-     */
-    private static final int REFERENCE_ELEMENT_WIDTH_BYTES = 8;
+public class ArrayAllocationLimitMethodAdapter extends ArrayAllocationMethodAdapter {
 
     /**
      * Whether the per-allocation array-size guard is emitted for this class.
@@ -82,7 +68,7 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
      */
     public ArrayAllocationLimitMethodAdapter(MethodVisitor mv, String className,
                                              String methodName, int access, String desc) {
-        super(Opcodes.ASM9, mv, access, methodName, desc);
+        super(mv, className, access, methodName, desc);
         this.sizeGuardEnabled = appliesTo(className);
     }
 
@@ -142,34 +128,8 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
                 throwAllocationRejected("Array allocation exceeds the configured array_limit");
                 super.visitLabel(origTarget);
             }
-            emitCumulativeBudgetCheck(primitiveElementWidthBytes(operand));
         }
         super.visitIntInsn(opcode, operand);
-    }
-
-    /**
-     * Maps a NEWARRAY primitive-type operand (one of the {@code Opcodes.T_*} constants)
-     * to the element width, in bytes, of the resulting array.
-     */
-    private static int primitiveElementWidthBytes(int newArrayTypeOperand) {
-        switch (newArrayTypeOperand) {
-            case Opcodes.T_BOOLEAN:
-            case Opcodes.T_BYTE:
-                return 1;
-            case Opcodes.T_CHAR:
-            case Opcodes.T_SHORT:
-                return 2;
-            case Opcodes.T_FLOAT:
-            case Opcodes.T_INT:
-                return 4;
-            case Opcodes.T_DOUBLE:
-            case Opcodes.T_LONG:
-                return 8;
-            default:
-                // NEWARRAY's operand is only ever one of the eight primitive-type codes
-                // above; this is an unreachable, conservative fallback.
-                return REFERENCE_ELEMENT_WIDTH_BYTES;
-        }
     }
 
     /* (non-Javadoc)
@@ -192,48 +152,8 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
                 throwAllocationRejected("Array allocation exceeds the configured array_limit");
                 super.visitLabel(origTarget);
             }
-            emitCumulativeBudgetCheck(REFERENCE_ELEMENT_WIDTH_BYTES);
         }
         super.visitTypeInsn(opcode, type);
-    }
-
-    /**
-     * Emits a call that records the array size still sitting on top of the stack against
-     * the cumulative allocation budget, and rejects the allocation if that running total
-     * is now too high. Leaves the stack exactly as it found it (the size is duplicated,
-     * not consumed) so the NEWARRAY/ANEWARRAY that follows still sees its operand.
-     *
-     * <p>A single allocation passing the per-call {@code array_limit} check above says
-     * nothing about a loop that repeats such an allocation many times -- e.g. one chunk
-     * per iteration in a chunked-array growth method -- which is exactly the pattern that
-     * can exhaust the heap while every individual allocation looks legal. See
-     * {@link org.evosuite.runtime.ArrayAllocationBudget}.
-     *
-     * <p>Unlike the per-allocation guard this is emitted for <em>every</em> instrumented
-     * class, not only the ones under analysis. The reason the size guard is scoped
-     * ({@link #sizeGuardEnabled}) is that it rejects one legitimately large buffer a library
-     * sizes from its own constant; the cumulative budget cannot make that mistake, because
-     * such a buffer is a few million elements against a per-test total of
-     * {@code cumulative_array_limit_bytes} (400MB by default) that only a runaway
-     * accumulation reaches. Scoping it to the class under test left the common case
-     * unguarded: 44_summa's DoubleIntArrayList is the target and is guarded, but it
-     * delegates to ChunkedLongArray, which is not, and that is where the
-     * {@code while (chunks.size() <= index >>> 20) chunks.add(new long[1 << 20])} loop
-     * allocates 8 MB a time until the heap is gone. All 19 runs that died of low memory
-     * in the 2026-09-24 SF110 replication threw no TooManyResourcesException at all.
-     *
-     * @param elementWidthBytes size in bytes of one element of the array being
-     *                          allocated, so the running total is charged in bytes
-     *                          rather than elements (see
-     *                          {@link org.evosuite.runtime.ArrayAllocationBudget})
-     */
-    private void emitCumulativeBudgetCheck(int elementWidthBytes) {
-        visitInsn(Opcodes.DUP);
-        visitInsn(Opcodes.I2L);
-        push(elementWidthBytes);
-        super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.ArrayAllocationBudget.class),
-                "checkAndRecord", "(JI)V", false);
     }
 
     /**
@@ -350,61 +270,12 @@ public class ArrayAllocationLimitMethodAdapter extends GeneratorAdapter {
             super.visitLabel(origTarget);
         }
 
-        // Cumulative budget: charge the leaf-level element count -- the product of all
-        // dimensions, same computation as the ARRAY_LIMIT product check above -- against
-        // the running total, at the element width of the array's base component type.
-        // Without this a loop of e.g. "new double[a][b]" contributed nothing to the
-        // cumulative budget at all, regardless of sizeGuardEnabled.
-        loadLocal(to.get(0));
-        visitInsn(Opcodes.I2L);
-        for (int i = 1; i < dims; i++) {
-            loadLocal(to.get(i));
-            visitInsn(Opcodes.I2L);
-            visitInsn(Opcodes.LMUL);
-        }
-        push(multiArrayElementWidthBytes(desc, dims));
-        super.visitMethodInsn(Opcodes.INVOKESTATIC,
-                PackageInfo.getNameWithSlash(org.evosuite.runtime.ArrayAllocationBudget.class),
-                "checkAndRecord", "(JI)V", false);
-
-        // Restore original dimensions
+        // Restore dimensions before the runtime adapter performs cumulative accounting.
         for (int i = 0; i < dims; i++) {
             loadLocal(to.get(i));
         }
 
         super.visitMultiANewArrayInsn(desc, dims);
-    }
-
-    /**
-     * Element width, in bytes, of the array MULTIANEWARRAY is about to create, for
-     * cumulative-budget accounting. {@code desc} is the full array type descriptor
-     * (e.g. {@code "[[[D"} or {@code "[[Ljava/lang/Object;"}); {@code dims} of its
-     * leading {@code '['} are consumed by this instruction, so what remains describes
-     * the component type actually being populated at the leaf level.
-     */
-    private static int multiArrayElementWidthBytes(String desc, int dims) {
-        String remainder = dims < desc.length() ? desc.substring(dims) : "";
-        if (remainder.isEmpty()) {
-            return REFERENCE_ELEMENT_WIDTH_BYTES;
-        }
-        switch (remainder.charAt(0)) {
-            case 'Z':
-            case 'B':
-                return 1;
-            case 'C':
-            case 'S':
-                return 2;
-            case 'F':
-            case 'I':
-                return 4;
-            case 'D':
-            case 'J':
-                return 8;
-            default:
-                // 'L' (object type) or '[' (more array dimensions than this instruction
-                // consumes): both are reference-typed as far as this allocation goes.
-                return REFERENCE_ELEMENT_WIDTH_BYTES;
-        }
     }
 
 }

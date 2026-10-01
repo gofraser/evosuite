@@ -207,6 +207,10 @@ public class RuntimeInstrumentation {
             if (RuntimeSettings.maxNumberOfIterationsPerLoop >= 0) {
                 cv = new LoopCounterClassAdapter(cv);
             }
+
+            if (RuntimeSettings.maxCumulativeArrayBytes >= 0) {
+                cv = new ArrayAllocationClassAdapter(cv);
+            }
         }
         ClassNode cn = new AnnotatedClassNode();
 

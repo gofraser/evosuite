@@ -19,6 +19,8 @@
  */
 package org.evosuite.runtime;
 
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Tracks how many bytes a single test execution has allocated across every
  * NEWARRAY/ANEWARRAY/MULTIANEWARRAY site in the classes under analysis, and refuses
@@ -38,18 +40,67 @@ package org.evosuite.runtime;
  * narrow ones before tripping. The caller supplies the element width (in bytes) of the
  * array being allocated, and this class does the multiplication itself.
  *
- * <p>Mirrors the reset lifecycle of {@link LoopCounter}: {@link Runtime#resetRuntime()}
- * clears the running total before every test execution.
+ * <p>Concurrency: {@link #checkAndRecord(long, int)} and
+ * {@link #checkAndRecord(int[], int)} are a single atomic check-and-charge (a
+ * compare-and-swap loop on {@link #allocatedBytes}), not a read-modify-write on a plain
+ * {@code volatile}. Several SUT threads allocating concurrently -- the usual case once a
+ * test starts a thread pool or executor -- therefore all have their charges counted,
+ * instead of racing to overwrite one another's update and silently under-counting.
+ *
+ * <p>Reset lifecycle: {@link Runtime#resetRuntime()} calls {@link #reset()} once per
+ * test, on the thread about to run that test, mirroring {@link LoopCounter}. Unlike
+ * {@link LoopCounter}, which keeps a per-thread snapshot ({@code protectedCounters}) for
+ * a thread TestCaseExecutor has given up on but left running, this class does not: a
+ * leftover SUT thread that keeps allocating arrays after its own test has been abandoned
+ * continues to call {@link #checkAndRecord(long, int)} and so continues to add to
+ * whichever total is current, including a later test's. That is a deliberate choice, not
+ * an oversight -- the two counters fail in opposite directions. {@link LoopCounter}
+ * resetting an abandoned thread's counter to zero lets that thread's own loop spin
+ * forever without ever tripping its limit, which is a loss of protection for that
+ * thread. Here, an abandoned thread folding its charges into a later test's total can
+ * only make that later test look like it allocated more than it did -- tripping the cap
+ * sooner than its own allocations alone would warrant -- never less: the abandoned
+ * thread's allocations are still real heap pressure on the same JVM process while it
+ * keeps running, so still counting them keeps the budget's actual purpose (bounding this
+ * process's cumulative array allocation) intact. The cost is an occasional, misattributed
+ * false rejection of an innocent later test, not a true cap bypass; a dedicated
+ * per-thread quarantine (as {@link LoopCounter} has) was judged unnecessary extra
+ * complexity for that trade-off.
  */
 public class ArrayAllocationBudget {
 
     /**
-     * Running total of bytes allocated so far by whichever test execution is currently
-     * using this thread. Not thread-confined on purpose: like {@link LoopCounter}, this
-     * assumes a single test-execution thread is active at a time and is reset before
-     * each one starts.
+     * Pointer width used to charge a reference-typed array slot (an element of an
+     * {@code Object[]}, or any intermediate level of a multi-dimensional array other
+     * than its innermost, populated dimension): 8 bytes, matching
+     * {@code ArrayAllocationMethodAdapter.REFERENCE_ELEMENT_WIDTH_BYTES}, which charges
+     * the single-dimension {@code ANEWARRAY} case the same way.
      */
-    private static volatile long allocatedBytes = 0L;
+    private static final int REFERENCE_ELEMENT_WIDTH_BYTES = 8;
+
+    /**
+     * Conservative, deliberately approximate per-object overhead charged for every array
+     * object a multi-dimensional allocation creates, in addition to its payload.
+     *
+     * <p>HotSpot's array header on a 64-bit JVM with compressed oops (the default for
+     * heaps under ~32 GB, i.e. the common case) is a mark word (8 bytes) plus a
+     * compressed class pointer (4 bytes) plus a length field (4 bytes), rounded up to
+     * 8-byte alignment: 16 bytes. Without compressed oops it is larger (up to 24 bytes).
+     * 16 is used as a representative, order-of-magnitude figure, not an attempt to
+     * replicate any particular JVM's exact layout: its job is only to make sure every
+     * array object a multi-dimensional allocation creates -- including a zero-length
+     * leaf like the inner arrays of {@code new byte[1000][0]} -- contributes a non-zero
+     * charge, so that shape can no longer bypass the cumulative budget entirely.
+     */
+    private static final int OBJECT_HEADER_OVERHEAD_BYTES = 16;
+
+    /**
+     * Running total of bytes allocated so far by whichever test execution(s) are
+     * currently using this process. See the class-level javadoc for why this is a
+     * single shared counter rather than being thread-confined, and for the reset
+     * lifecycle of a leftover SUT thread.
+     */
+    private static final AtomicLong allocatedBytes = new AtomicLong(0L);
 
     private ArrayAllocationBudget() {
     }
@@ -58,7 +109,7 @@ public class ArrayAllocationBudget {
      * Reset the running total for the next test.
      */
     public static void reset() {
-        allocatedBytes = 0L;
+        allocatedBytes.set(0L);
     }
 
     /**
@@ -67,8 +118,26 @@ public class ArrayAllocationBudget {
      * configured budget.
      *
      * <p>Called from bytecode instrumented into the classes under analysis, right after
-     * a NEWARRAY/ANEWARRAY/MULTIANEWARRAY whose own size already passed the per-call
-     * {@code array_limit} check.
+     * a NEWARRAY/ANEWARRAY whose own size already passed the per-call {@code array_limit}
+     * check.
+     *
+     * <p>{@code elements} can be negative: it is read directly off the stack before the
+     * real array instruction executes, and that instruction has not validated it yet. A
+     * negative count never allocates anything -- the JVM throws
+     * {@code NegativeArraySizeException} from the real NEWARRAY/ANEWARRAY right after
+     * this call returns -- so it must not be charged either way here: charging it as a
+     * negative byte count would credit the budget for an allocation that never happened
+     * (letting a later, legitimate allocation through that should have been refused),
+     * and rejecting it from here instead would substitute
+     * {@link TooManyResourcesException} for the {@code NegativeArraySizeException} the
+     * class under test may itself be catching.
+     *
+     * <p>Charges {@link #OBJECT_HEADER_OVERHEAD_BYTES} in addition to the element
+     * payload, for the same reason {@link #checkAndRecord(int[], int)} charges it at
+     * every level: the array being allocated is itself a real heap object even when
+     * {@code elements} is zero. Without this, every empty array -- primitive or
+     * reference -- would cost nothing at all, so a CUT retaining many empty arrays
+     * could allocate without ever advancing the cumulative guard.
      *
      * @param elements          number of elements the allocation about to happen will occupy
      * @param elementWidthBytes size in bytes of a single element (e.g. 8 for {@code long}/
@@ -80,12 +149,117 @@ public class ArrayAllocationBudget {
         if (RuntimeSettings.maxCumulativeArrayBytes < 0) {
             return; // disabled
         }
-        long bytes = elements * (long) elementWidthBytes;
-        allocatedBytes += bytes;
-        if (allocatedBytes > RuntimeSettings.maxCumulativeArrayBytes) {
+        if (elements < 0) {
+            // Let the real NEWARRAY/ANEWARRAY throw NegativeArraySizeException; see the
+            // javadoc above for why this must neither charge nor reject.
+            return;
+        }
+        long payloadBytes = saturatingMultiply(elements, (long) elementWidthBytes);
+        long bytes = saturatingAdd(OBJECT_HEADER_OVERHEAD_BYTES, payloadBytes);
+        chargeAndCheck(bytes);
+    }
+
+    /**
+     * Record a multi-dimensional allocation and reject it if the cumulative total for
+     * this test now exceeds the configured budget.
+     *
+     * <p>Called from bytecode instrumented right after a MULTIANEWARRAY whose own
+     * dimensions already passed the per-call {@code array_limit} check. A MULTIANEWARRAY
+     * with {@code dimensionSizes.length == n} allocates a full, non-jagged structure of
+     * {@code n} levels: one array object at level 0 with {@code dimensionSizes[0]} slots,
+     * {@code dimensionSizes[0]} array objects at level 1 each with
+     * {@code dimensionSizes[1]} slots, {@code dimensionSizes[0] * dimensionSizes[1]}
+     * array objects at level 2, and so on down to the leaf level, whose
+     * {@code dimensionSizes[0] * ... * dimensionSizes[n - 2]} array objects hold
+     * {@code dimensionSizes[n - 1]} elements of width {@code leafElementWidthBytes}
+     * each. Charging only the product of all dimensions times the leaf width -- as a
+     * single-dimension-shaped charge would -- ignores every reference array at every
+     * level but the leaf, and charges zero for a populated outer dimension whose leaves
+     * are themselves zero-length (e.g. {@code new byte[1000][0]}: the outer array and
+     * all 1000 (empty) inner arrays are real, charged objects, even though the product
+     * of dimensions is zero). This charges every level: its reference slots (or, at the
+     * leaf, its elements) plus {@link #OBJECT_HEADER_OVERHEAD_BYTES} per array object.
+     *
+     * <p>Like {@link #checkAndRecord(long, int)}, a negative size at any level is never
+     * charged -- the real MULTIANEWARRAY throws {@code NegativeArraySizeException} for
+     * the same reason.
+     *
+     * @param dimensionSizes       the sizes given to MULTIANEWARRAY, outermost first
+     * @param leafElementWidthBytes width in bytes of one element at the innermost
+     *                              populated dimension (a primitive width, or a pointer
+     *                              width if that dimension itself holds references)
+     * @throws TooManyResourcesException if the cumulative budget has been exceeded
+     */
+    public static void checkAndRecord(int[] dimensionSizes, int leafElementWidthBytes) {
+        if (RuntimeSettings.maxCumulativeArrayBytes < 0) {
+            return; // disabled
+        }
+        for (int size : dimensionSizes) {
+            if (size < 0) {
+                // Let the real MULTIANEWARRAY throw NegativeArraySizeException.
+                return;
+            }
+        }
+
+        long bytes = 0L;
+        long objectsAtThisLevel = 1L;
+        int leafLevel = dimensionSizes.length - 1;
+        for (int level = 0; level <= leafLevel; level++) {
+            int width = (level == leafLevel) ? leafElementWidthBytes : REFERENCE_ELEMENT_WIDTH_BYTES;
+            long slotBytes = saturatingMultiply((long) dimensionSizes[level], (long) width);
+            long perObjectBytes = saturatingAdd(OBJECT_HEADER_OVERHEAD_BYTES, slotBytes);
+            long levelBytes = saturatingMultiply(objectsAtThisLevel, perObjectBytes);
+            bytes = saturatingAdd(bytes, levelBytes);
+            objectsAtThisLevel = saturatingMultiply(objectsAtThisLevel, (long) dimensionSizes[level]);
+        }
+        chargeAndCheck(bytes);
+    }
+
+    /**
+     * Atomically adds {@code bytes} (never negative -- both callers have already ruled
+     * that out) to {@link #allocatedBytes}, saturating at {@link Long#MAX_VALUE} rather
+     * than wrapping, and rejects once the new total exceeds the configured budget.
+     */
+    private static void chargeAndCheck(long bytes) {
+        long total = addSaturating(bytes);
+        if (total > RuntimeSettings.maxCumulativeArrayBytes) {
             throw new TooManyResourcesException("Cumulative array allocation for this test exceeds the "
                     + "configured cumulative_array_limit_bytes of " + RuntimeSettings.maxCumulativeArrayBytes
-                    + " bytes (" + allocatedBytes + " requested so far)");
+                    + " bytes (" + total + " requested so far)");
+        }
+    }
+
+    /**
+     * Compare-and-swap loop implementing a saturating {@code allocatedBytes += delta},
+     * so that concurrent charges from multiple SUT threads are all counted (finding 6:
+     * a plain {@code volatile long +=} is a read-modify-write and silently loses
+     * concurrent updates) and a running total near {@link Long#MAX_VALUE} saturates
+     * instead of wrapping around to a negative number that would then read as under
+     * budget.
+     */
+    private static long addSaturating(long delta) {
+        while (true) {
+            long current = allocatedBytes.get();
+            long next = saturatingAdd(current, delta);
+            if (allocatedBytes.compareAndSet(current, next)) {
+                return next;
+            }
+        }
+    }
+
+    private static long saturatingAdd(long a, long b) {
+        try {
+            return Math.addExact(a, b);
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
+        }
+    }
+
+    private static long saturatingMultiply(long a, long b) {
+        try {
+            return Math.multiplyExact(a, b);
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE;
         }
     }
 }

@@ -205,14 +205,34 @@ public class ArrayAllocationLimitMethodAdapterTest {
      * all, so a loop of legal-sized multi-dimensional allocations contributed nothing to
      * the running total and could exhaust the heap regardless of cumulative_array_limit_bytes.
      * {@code multiNewArray(rows, columns)} allocates an {@code int[rows][columns]}: each
-     * call here is 10*20 = 200 ints = 800 bytes, well under array_limit (1000) on its own.
+     * call here charges the outer 10-slot reference array, the ten inner 20-element
+     * {@code int[]} leaves, and a header overhead per array object -- 1056 bytes in
+     * total (see {@code ArrayAllocationBudget.checkAndRecord(int[], int)}) -- well
+     * under array_limit (1000 elements) on its own.
      */
     @Test
     public void multiDimensionalAllocationCountsAgainstTheCumulativeBudget() throws Exception {
-        RuntimeSettings.maxCumulativeArrayBytes = 900L;
+        RuntimeSettings.maxCumulativeArrayBytes = 2_000L;
 
-        assertEquals(10, invoke("multiNewArray", 10, 20)); // 800 bytes: within budget
-        assertRejected("multiNewArray", 10, 20); // 1600 bytes total: over budget
+        assertEquals(10, invoke("multiNewArray", 10, 20)); // 1056 bytes: within budget
+        assertRejected("multiNewArray", 10, 20); // 2112 bytes total: over budget
+    }
+
+    /**
+     * {@code visitMultiANewArrayInsn} used to charge the product of all dimensions times
+     * the leaf width, which is zero whenever any dimension -- including a leaf -- is
+     * zero. {@code multiNewArray(1000, 0)} allocates a real outer reference array of
+     * 1000 slots plus 1000 (empty) inner {@code int[]} objects, so repeating this shape
+     * in a loop could exhaust the heap while the old charge stayed at zero regardless of
+     * how large the first dimension got. This exercises the fix through the full chain
+     * the client adapter runs in production: its own per-call size guard first, then the
+     * runtime adapter's cumulative accounting.
+     */
+    @Test
+    public void zeroSizedLeafDimensionStillCountsAgainstTheCumulativeBudget() throws Exception {
+        RuntimeSettings.maxCumulativeArrayBytes = 100L;
+
+        assertRejected("multiNewArray", 1000, 0);
     }
 
     // ---------------------------------------------------------------- helpers
