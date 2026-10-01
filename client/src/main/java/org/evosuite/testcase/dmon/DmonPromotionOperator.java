@@ -22,6 +22,7 @@ package org.evosuite.testcase.dmon;
 import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
+import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.TestCase;
@@ -530,6 +531,8 @@ public final class DmonPromotionOperator {
     }
 
     private static Field findStaticInjectionField(Class<?> ownerClass, Class<?> mockType, String preferredField) {
+        // DmonInjectionDiscovery.findStaticField already screens finality with the
+        // stripping-aware predicate, so this fast path is covered too.
         Field preferred = DmonInjectionDiscovery.findStaticField(ownerClass, preferredField);
         if (preferred != null && preferred.getType().isAssignableFrom(mockType)) {
             return preferred;
@@ -537,7 +540,12 @@ public final class DmonPromotionOperator {
         for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
             for (Field f : c.getDeclaredFields()) {
                 int mods = f.getModifiers();
-                if (!java.lang.reflect.Modifier.isStatic(mods) || java.lang.reflect.Modifier.isFinal(mods)) {
+                // A raw Modifier.isFinal check misses a field whose ACC_FINAL was
+                // stripped by instrumentation for the bytecode-level static-reset
+                // machinery: such a field reflects as non-final but must still never
+                // be used as a generated-test assignment target (only that bytecode
+                // machinery, which never has to compile as Java source, may write it).
+                if (!Modifier.isStatic(mods) || TestClusterUtils.isFinalField(f)) {
                     continue;
                 }
                 if (f.getType().isAssignableFrom(mockType)) {
@@ -549,6 +557,8 @@ public final class DmonPromotionOperator {
     }
 
     private static Field findInstanceInjectionField(Class<?> ownerClass, Class<?> mockType, String preferredField) {
+        // DmonInjectionDiscovery.findInstanceField already screens finality with the
+        // stripping-aware predicate, so this fast path is covered too.
         Field preferred = DmonInjectionDiscovery.findInstanceField(ownerClass, preferredField);
         if (preferred != null && preferred.getType().isAssignableFrom(mockType)) {
             return preferred;
@@ -556,7 +566,7 @@ public final class DmonPromotionOperator {
         for (Class<?> c = ownerClass; c != null; c = c.getSuperclass()) {
             for (Field f : c.getDeclaredFields()) {
                 int mods = f.getModifiers();
-                if (Modifier.isStatic(mods) || Modifier.isFinal(mods)) {
+                if (Modifier.isStatic(mods) || TestClusterUtils.isFinalField(f)) {
                     continue;
                 }
                 if (f.getType().isAssignableFrom(mockType)) {

@@ -20,6 +20,7 @@
 package org.evosuite.testcase.dmon;
 
 import org.evosuite.Properties;
+import org.evosuite.setup.TestClusterUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -115,7 +116,12 @@ public final class DmonInjectionDiscovery {
             try {
                 Field f = c.getDeclaredField(fieldName);
                 int mods = f.getModifiers();
-                if (Modifier.isStatic(mods) && !Modifier.isFinal(mods)) {
+                // TestClusterUtils.isFinalField, unlike a raw Modifier.isFinal check,
+                // also catches a field whose ACC_FINAL was stripped by instrumentation
+                // (CreateClassResetClassAdapter) for the bytecode-level static-reset
+                // machinery: such a field reflects as non-final but must still never be
+                // used as a generated-test assignment target.
+                if (Modifier.isStatic(mods) && !TestClusterUtils.isFinalField(f)) {
                     return f;
                 }
             } catch (NoSuchFieldException expected) {
@@ -139,7 +145,7 @@ public final class DmonInjectionDiscovery {
             try {
                 Field f = c.getDeclaredField(fieldName);
                 int mods = f.getModifiers();
-                if (!Modifier.isStatic(mods) && !Modifier.isFinal(mods)) {
+                if (!Modifier.isStatic(mods) && !TestClusterUtils.isFinalField(f)) {
                     return f;
                 }
             } catch (NoSuchFieldException expected) {

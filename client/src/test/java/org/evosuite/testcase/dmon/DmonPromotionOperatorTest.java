@@ -20,6 +20,7 @@
 package org.evosuite.testcase.dmon;
 
 import org.evosuite.Properties;
+import org.evosuite.runtime.classhandling.ModifiedTargetStaticFields;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
 import org.evosuite.testcase.execution.ExecutionResult;
@@ -311,6 +312,70 @@ public class DmonPromotionOperatorTest {
             Properties.DMON_ENABLED = oldEnabled;
             Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
             Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+        }
+    }
+
+    /**
+     * Regression coverage for the JacksonDatabind-96 Defects4J symptom: with
+     * {@code RESET_STATIC_FINAL_FIELDS=true} (the default), EvoSuite's instrumentation
+     * strips {@code ACC_FINAL} from an originally-final static field and separately
+     * registers it in {@link ModifiedTargetStaticFields} - exactly what
+     * {@code CreateClassResetClassAdapter.visitEnd()} does at class-load time. A field
+     * selector that only checks raw {@code java.lang.reflect.Modifier.isFinal} cannot
+     * see that stripping and will happily select the field as an assignment target,
+     * producing a statement like {@code Owner.field = mock;} that then fails to
+     * compile ("cannot assign a value to final variable") because the field is still
+     * declared {@code final} in source.
+     *
+     * <p>
+     * {@link FieldTarget#dep} is not actually declared final (making the reflective
+     * {@code Field} object itself final is awkward to arrange in a plain unit test),
+     * but registering it in {@link ModifiedTargetStaticFields} reproduces precisely the
+     * state the selector must defend against: a field that reflects as non-final yet
+     * must never be used as a generated-test assignment target.
+     * </p>
+     */
+    @Test
+    public void staticFieldSelectorRefusesFieldWithStrippedFinalModifier() {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        boolean oldReset = Properties.RESET_STATIC_FINAL_FIELDS;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+            Properties.RESET_STATIC_FINAL_FIELDS = true;
+            ModifiedTargetStaticFields.getInstance()
+                    .addFinalField(FieldTarget.class.getName(), "dep");
+
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(new DefaultTestCase());
+            chromosome.setChanged(false);
+
+            ExecutionResult result = new ExecutionResult(chromosome.getTestCase(), null);
+            result.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(FieldTarget.class.getName(), "<init>", 10, DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, result);
+
+            Assert.assertTrue(result.isDmonPromotionConsumed());
+            Assert.assertFalse(
+                    "A field whose final modifier was only stripped by instrumentation "
+                            + "must never be selected as a static assignment target",
+                    chromosome.isChanged());
+            Assert.assertEquals("No statement should have been inserted",
+                    0, chromosome.getTestCase().size());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+            Properties.RESET_STATIC_FINAL_FIELDS = oldReset;
+            ModifiedTargetStaticFields.resetSingleton();
         }
     }
 }
