@@ -31,6 +31,7 @@ import java.net.SocketOption;
 import java.net.StandardSocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.channels.AlreadyConnectedException;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NoConnectionPendingException;
 import java.nio.channels.NotYetConnectedException;
@@ -216,11 +217,84 @@ public class EvoSocketChannel extends SocketChannel {
             return 0;
         }
         byte[] buf = new byte[remaining];
-        int n = in().read(buf, 0, remaining);
+        int n = readBytes(buf, 0, remaining);
         if (n > 0) {
             dst.put(buf, 0, n);
         }
         return n;
+    }
+
+    /**
+     * How long a blocking read waits for data that is not there yet before reporting "nothing
+     * available" rather than blocking indefinitely. The virtual network delivers data
+     * synchronously as soon as a producer calls into it, so the only reason a byte is not
+     * already there is that the producer is running on another thread (eg a background thread
+     * the SUT itself started) and has not been scheduled yet; a short, bounded wait gives it a
+     * chance to run without risking the search budget on a read that may never be satisfied
+     * (for example a connection nothing will ever write to again, short of a real shutdown,
+     * which is reported as soon as it is detected instead of waited out). 20ms matches
+     * {@code EvoServerSocketChannel.ACCEPT_POLL_MS}'s polling cadence for the same kind of
+     * wait; ten polls (200ms total) is enough slack for that handoff while staying small next
+     * to a generation's time budget even if several reads end up waiting it out.
+     */
+    private static final long BLOCKING_READ_POLL_MS = 20L;
+    private static final long BLOCKING_READ_MAX_WAIT_MS = 200L;
+
+    /**
+     * Reads up to {@code len} bytes, distinguishing "nothing available right now" from a real
+     * end-of-stream. The underlying virtual stream ({@link org.evosuite.runtime.mock.java.net.SocketIn}
+     * over {@link org.evosuite.runtime.vnet.NativeTcp}) reports both the same way, as a -1 from
+     * an empty buffer, because that is the correct behaviour for the blocking {@code java.io}
+     * socket streams it was written for: TCP would otherwise block, and the old mock instead
+     * returns the data that is there straight away. A nonblocking {@link SocketChannel} has no
+     * such excuse: "no data right now" must come back as 0, not -1, or the SUT reads a false
+     * end-of-stream and can abort a protocol exchange before the rest of the data arrives.
+     */
+    private int readBytes(byte[] buf, int off, int len) throws IOException {
+        int n = in().read(buf, off, len);
+        if (n != -1) {
+            return n;
+        }
+        if (isShutdownForInput()) {
+            // A genuine end-of-stream: the local side had its input shut down, or the
+            // connection was closed outright. Either way more data is never coming.
+            return -1;
+        }
+        if (!blocking) {
+            // Nonblocking: the connection is still open, there is simply nothing to read yet.
+            return 0;
+        }
+
+        long deadline = System.currentTimeMillis() + BLOCKING_READ_MAX_WAIT_MS;
+        while (true) {
+            if (staleGeneration() || !isOpen()) {
+                throw new ClosedChannelException();
+            }
+            if (isShutdownForInput()) {
+                return -1;
+            }
+            int retry = in().read(buf, off, len);
+            if (retry != -1) {
+                return retry;
+            }
+            if (System.currentTimeMillis() >= deadline) {
+                // Bounded wait exhausted: still open and not shut down, just nothing to read
+                // yet. Returning 0 here is a deliberate compromise for the mock environment --
+                // a real blocking channel would keep waiting -- made so a read with no willing
+                // producer cannot hang a test indefinitely.
+                return 0;
+            }
+            try {
+                Thread.sleep(BLOCKING_READ_POLL_MS);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new ClosedByInterruptException();
+            }
+        }
+    }
+
+    private boolean isShutdownForInput() {
+        return socket.isInputShutdown() || socket.isClosed();
     }
 
     @Override
