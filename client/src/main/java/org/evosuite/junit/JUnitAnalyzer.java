@@ -849,9 +849,15 @@ public abstract class JUnitAnalyzer {
             }
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
+            // Synthesized result, not an observed one: every test is reported failed without
+            // ever having been checked, so this is a give-up like the others above.
+            recordCheckIncomplete("JUnit check runner interrupted while awaiting its result: " + ie);
             return JUnitResult.allFailed(testClasses.length, ie);
         } catch (ExecutionException ee) {
             Throwable cause = ee.getCause() != null ? ee.getCause() : ee;
+            // Same reasoning as the InterruptedException branch above: the result is synthesized,
+            // not observed.
+            recordCheckIncomplete("JUnit check runner failed unexpectedly while awaiting its result: " + cause);
             return JUnitResult.allFailed(testClasses.length, cause);
         } finally {
             executor.shutdownNow();
@@ -1472,6 +1478,23 @@ public abstract class JUnitAnalyzer {
      */
     public static int getIncompleteCheckRounds() {
         return INCOMPLETE_CHECK_ROUNDS;
+    }
+
+    /**
+     * Records, from outside this class, that a JUnit check round was abandoned before this
+     * analyzer was even reached: the generator skipped the whole phase for low memory, its
+     * phase time budget expired, its per-test loop exited early for lack of time, it skipped an
+     * order/reverse-order probe for lack of time, or its memory guard tripped independently of
+     * any check performed here. Has the same effect as this analyzer's own internal give-up call
+     * sites: the suite (and the untouched tests) is kept regardless, but the incompleteness still
+     * reaches {@link RuntimeVariable#JUnit_Check_Incomplete} and
+     * {@link RuntimeVariable#JUnit_Check_Incomplete_Rounds} instead of being invisible outside the
+     * log.
+     *
+     * @param reason short description of what was abandoned, for the debug log
+     */
+    public static void recordCheckIncompleteFromCaller(String reason) {
+        recordCheckIncomplete(reason);
     }
 
     /** Resets the recorded check-incompleteness state and publishes the cleared baseline. */

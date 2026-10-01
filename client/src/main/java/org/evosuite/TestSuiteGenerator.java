@@ -867,36 +867,7 @@ public class TestSuiteGenerator {
             publishMinimizationResult(minimizationResult);
         }
 
-        if (Properties.COVERAGE) {
-            ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
-                        + "Skipping coverage analysis because not enough time is left");
-            } else {
-                // Deliberately not gated on isMemoryTooLowForPhase() like the heavier phases
-                // below: with the criteria unchanged since search (the common case here),
-                // analyzeCoverage() does not re-instrument or re-execute a single test, only
-                // clones the suite and reads already-cached results, so it does not need the
-                // same headroom minimization or JUnit checking do. Attempt it and only fall
-                // back if it actually runs out of memory -- each criterion's output variable
-                // is tracked as soon as that criterion's goals are checked, so a suite this
-                // large that OOMs partway through still leaves whatever was tracked before
-                // the failure, rather than reporting nothing at all.
-                Criterion[] originalCriteria = Properties.CRITERION;
-                if (requestedCriteria != null) {
-                    Properties.CRITERION = requestedCriteria;
-                }
-                try {
-                    CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
-                } catch (OutOfMemoryError e) {
-                    LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
-                            + "Coverage analysis ran out of memory partway through; "
-                            + "keeping whatever coverage numbers were already tracked");
-                } finally {
-                    Properties.CRITERION = originalCriteria;
-                }
-            }
-        }
+        runCoverageAnalysisIfEnabled(testSuite);
 
         double coverage = testSuite.getCoverage();
         if (coverage == 0.0 && Properties.CRITERION.length > 1) {
@@ -1377,6 +1348,51 @@ public class TestSuiteGenerator {
     }
 
     /**
+     * Runs coverage analysis if {@link Properties#COVERAGE} requests it, recording the sweep as
+     * incomplete whenever this method itself gives up before, or partway through, calling
+     * {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome)} -- that analyzer only
+     * tracks completeness for budget exits it hits internally, not for an outer skip or an
+     * uncaught {@link OutOfMemoryError} here.
+     *
+     * @param testSuite the suite to analyze
+     */
+    private void runCoverageAnalysisIfEnabled(TestSuiteChromosome testSuite) {
+        if (!Properties.COVERAGE) {
+            return;
+        }
+        ClientServices.getInstance().getClientNode().changeState(ClientState.COVERAGE_ANALYSIS);
+        if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+            LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Skipping coverage analysis because not enough time is left");
+            CoverageCriteriaAnalyzer.recordCoverageAnalysisIncompleteFromCaller();
+            return;
+        }
+        // Deliberately not gated on isMemoryTooLowForPhase() like the heavier phases
+        // below: with the criteria unchanged since search (the common case here),
+        // analyzeCoverage() does not re-instrument or re-execute a single test, only
+        // clones the suite and reads already-cached results, so it does not need the
+        // same headroom minimization or JUnit checking do. Attempt it and only fall
+        // back if it actually runs out of memory -- each criterion's output variable
+        // is tracked as soon as that criterion's goals are checked, so a suite this
+        // large that OOMs partway through still leaves whatever was tracked before
+        // the failure, rather than reporting nothing at all.
+        Criterion[] originalCriteria = Properties.CRITERION;
+        if (requestedCriteria != null) {
+            Properties.CRITERION = requestedCriteria;
+        }
+        try {
+            CoverageCriteriaAnalyzer.analyzeCoverage(testSuite);
+        } catch (OutOfMemoryError e) {
+            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Coverage analysis ran out of memory partway through; "
+                    + "keeping whatever coverage numbers were already tracked");
+            CoverageCriteriaAnalyzer.recordCoverageAnalysisIncompleteFromCaller();
+        } finally {
+            Properties.CRITERION = originalCriteria;
+        }
+    }
+
+    /**
      * Check whether free memory is too low to safely enter a post-search phase
      * that re-executes tests (minimization, assertion generation, JUnit check).
      * Uses {@code MIN_FREE_MEM * 2} as the threshold to leave headroom.
@@ -1423,12 +1439,19 @@ public class TestSuiteGenerator {
             throw new RuntimeException(msg);
         }
 
+        // Establish this run's validation metadata before the preflight below can return: a
+        // reused JVM (e.g. many checks within one run, or many tests within one JVM) would
+        // otherwise leave whatever a previous check round recorded in place, so a low-memory skip
+        // here could be masked by, or wrongly blamed on, stale incompleteness from earlier.
+        JUnitAnalyzer.resetMemoryExhaustion();
+
         if (isMemoryTooLowForPhase("JUnit check")) {
+            JUnitAnalyzer.recordCheckIncompleteFromCaller(
+                    "skipped the whole JUnit check phase due to low memory");
             return;
         }
 
         ClientServices.getInstance().getClientNode().changeState(ClientState.JUNIT_CHECK);
-        JUnitAnalyzer.resetMemoryExhaustion();
 
         // Store this value; if this option is true then the JUnit check
         // would not succeed, as the JUnit classloader wouldn't find the class
@@ -1439,6 +1462,8 @@ public class TestSuiteGenerator {
 
         // note: compiling and running JUnit tests can be very time consuming
         if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
+            JUnitAnalyzer.recordCheckIncompleteFromCaller(
+                    "JUnit check phase budget expired before any check could run");
             Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
             return;
         }
@@ -1482,6 +1507,10 @@ public class TestSuiteGenerator {
                 break;
             }
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                JUnitAnalyzer.recordCheckIncompleteFromCaller(
+                        "ran out of time before finishing the per-test JUnit checks; "
+                                + (testCases.size() - checkedInSingleTestChecks + removedInSingleTestChecks)
+                                + " test(s) left unchecked");
                 break;
             }
             if (isMemoryExhaustedForJUnitCheck(memoryGuard, "the remaining per-test JUnit checks",
@@ -1514,11 +1543,14 @@ public class TestSuiteGenerator {
         // until the whole-suite check has actually been timed.
         long suiteRunMs = delta;
         if (!JUnitAnalyzer.isCompileCheckDisabledDueToInfrastructure()
-                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the whole-suite JUnit check", 0)
-                && hasTimeForWholeSuiteCheck(delta)) {
-            long suiteCheckStart = java.lang.System.currentTimeMillis();
-            numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
-            suiteRunMs = Math.min(suiteRunMs, java.lang.System.currentTimeMillis() - suiteCheckStart);
+                && !isMemoryExhaustedForJUnitCheck(memoryGuard, "the whole-suite JUnit check", 0)) {
+            if (hasTimeForWholeSuiteCheck(delta)) {
+                long suiteCheckStart = java.lang.System.currentTimeMillis();
+                numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
+                suiteRunMs = Math.min(suiteRunMs, java.lang.System.currentTimeMillis() - suiteCheckStart);
+            } else {
+                JUnitAnalyzer.recordCheckIncompleteFromCaller("ran out of time before the whole-suite JUnit check");
+            }
         }
 
         // second passage on reverse order, this is to spot dependencies among
@@ -1573,11 +1605,16 @@ public class TestSuiteGenerator {
     private static boolean isMemoryExhaustedForJUnitCheck(PhaseMemoryGuard guard, String what, int unchecked) {
         boolean wasExhausted = guard.isExhaustedAlready();
         String cause;
+        // Whether this call is the first to see *this guard's own* JVM-level free-memory check
+        // trip, as opposed to it tripping because JUnitAnalyzer already hit an internal OOM
+        // (which that analyzer already records as incomplete itself).
+        boolean ownGuardTrippedNow = false;
         if (!wasExhausted && JUnitAnalyzer.isMemoryExhaustedDuringCheck()) {
             // A check (e.g. javac, which shares this heap) ran out of memory.
             guard.markExhausted();
             cause = "a check ran out of memory";
         } else if (guard.isExhausted()) {
+            ownGuardTrippedNow = !wasExhausted;
             cause = (guard.getLastFreeBytes() / 1024 / 1024) + " MB free, need "
                     + (guard.getThresholdBytes() / 1024 / 1024) + " MB";
         } else {
@@ -1588,6 +1625,12 @@ public class TestSuiteGenerator {
                     + "Low memory during JUnit check (" + cause + "); skipping "
                     + what + " and all later checks, keeping the suite"
                     + (unchecked > 0 ? " (" + unchecked + " test(s) left unchecked)" : ""));
+            if (ownGuardTrippedNow) {
+                // Only this branch is unrecorded elsewhere: it is this generator-level guard's own
+                // JVM-free-memory reading, independent of anything JUnitAnalyzer observed.
+                JUnitAnalyzer.recordCheckIncompleteFromCaller(
+                        "low free JVM memory during JUnit check; skipping " + what + " and all later checks");
+            }
         }
         return true;
     }
@@ -1596,6 +1639,7 @@ public class TestSuiteGenerator {
         if (hasTimeForWholeSuiteCheck(delta)) {
             return JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
         }
+        JUnitAnalyzer.recordCheckIncompleteFromCaller("ran out of time before the reverse-order JUnit check");
         return 0;
     }
 
@@ -1616,6 +1660,8 @@ public class TestSuiteGenerator {
 
         if (!TimeController.getInstance().hasTimeToExecuteATestCase()
                 || !TimeController.getInstance().isThereStillTimeInThisPhase(delta)) {
+            JUnitAnalyzer.recordCheckIncompleteFromCaller(
+                    "ran out of time before the extension initialization order could be resolved");
             return Collections.emptyList();
         }
 
@@ -1632,6 +1678,8 @@ public class TestSuiteGenerator {
         if (!hasTimeForOrderSensitivityAnalysis(suiteRunMs)) {
             logger.warn("Skipping order-sensitivity analysis: less than twice its expected cost of {} ms "
                     + "left in the JUnit check phase", orderSensitivityAnalysisCostMs(suiteRunMs));
+            JUnitAnalyzer.recordCheckIncompleteFromCaller(
+                    "skipped the order-sensitivity analysis for lack of time");
             return Collections.emptyList();
         }
         JUnitAnalyzer.OrderSensitivityAnalysis analysis = JUnitAnalyzer.analyzeOrderSensitivity(testCases);
