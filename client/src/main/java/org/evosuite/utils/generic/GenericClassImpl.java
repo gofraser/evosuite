@@ -2452,18 +2452,49 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
         this.rawClass = getClass(name);
 
-        // isParameterized is a primitive boolean, not a Boolean object: see
-        // the matching writeBoolean() in writeObject for the rationale.
-        boolean isParameterized;
+        byte typeTag;
         try {
-            isParameterized = ois.readBoolean();
+            typeTag = ois.readByte();
         } catch (IOException e) {
-            logFallback(name, "isParameterized flag", e);
+            logFallback(name, "type tag", e);
             this.type = addTypeParameters(rawClass);
             return;
         }
-        if (!isParameterized) {
+
+        if (typeTag == 0) {
             this.type = addTypeParameters(rawClass); //GenericTypeReflector.addWildcardParameters(raw_class);
+            return;
+        }
+
+        if (typeTag == 2) {
+            try {
+                @SuppressWarnings("unchecked")
+                List<GenericClass> upperBoundClasses = (List<GenericClass>) ois.readObject();
+                @SuppressWarnings("unchecked")
+                List<GenericClass> lowerBoundClasses = (List<GenericClass>) ois.readObject();
+                if (upperBoundClasses == null || lowerBoundClasses == null) {
+                    throw new IOException("null wildcard bounds");
+                }
+                Type[] upperBounds = new Type[upperBoundClasses.size()];
+                for (int i = 0; i < upperBoundClasses.size(); i++) {
+                    upperBounds[i] = upperBoundClasses.get(i).getType();
+                }
+                Type[] lowerBounds = new Type[lowerBoundClasses.size()];
+                for (int i = 0; i < lowerBoundClasses.size(); i++) {
+                    lowerBounds[i] = lowerBoundClasses.get(i).getType();
+                }
+                this.type = new WildcardTypeImpl(upperBounds, lowerBounds);
+            } catch (IOException | RuntimeException e) {
+                logFallback(name, "wildcard bounds", e);
+                this.type = addTypeParameters(rawClass);
+            }
+            return;
+        }
+
+        if (typeTag != 1) {
+            logFallback(name, "unknown type tag " + typeTag,
+                    new IOException("unknown type tag " + typeTag));
+            this.type = addTypeParameters(rawClass);
             return;
         }
 
@@ -2522,16 +2553,30 @@ public class GenericClassImpl implements Serializable, GenericClass<GenericClass
         }
         Class<?> serializableRawClass = normalizeMockitoGeneratedClass(rawClass);
         oos.writeObject(serializableRawClass.getName());
-        if (!(type instanceof ParameterizedType)) {
-            // Primitive boolean byte, not Boolean.FALSE: a Boolean object
-            // participates in the stream's handle table, so back-references
-            // to a previously-serialized Boolean can resolve to the wrong
-            // singleton on the reader when handle indices drift. Writing a
-            // primitive boolean byte sidesteps the handle table.
-            oos.writeBoolean(false);
+        // The discriminator is written as a primitive byte, never as a boxed value: a boxed
+        // object participates in the stream's handle table, so back-references to a previously
+        // serialized one can resolve to the wrong instance on the reader when handle indices
+        // drift. Keep this a primitive write.
+        if (type instanceof WildcardType) {
+            oos.writeByte(2);
+            WildcardType wildcardType = (WildcardType) type;
+            List<GenericClassImpl> upperBoundClasses = new ArrayList<>();
+            for (Type upperBound : wildcardType.getUpperBounds()) {
+                upperBoundClasses.add(new GenericClassImpl(upperBound));
+            }
+            oos.writeObject(upperBoundClasses);
+            List<GenericClassImpl> lowerBoundClasses = new ArrayList<>();
+            for (Type lowerBound : wildcardType.getLowerBounds()) {
+                lowerBoundClasses.add(new GenericClassImpl(lowerBound));
+            }
+            oos.writeObject(lowerBoundClasses);
             return;
         }
-        oos.writeBoolean(true);
+        if (!(type instanceof ParameterizedType)) {
+            oos.writeByte(0);
+            return;
+        }
+        oos.writeByte(1);
         ParameterizedType pt = (ParameterizedType) type;
         oos.writeObject(pt.getOwnerType() == null ? null : new GenericClassImpl(pt.getOwnerType()));
         List<GenericClassImpl> parameterClasses = new ArrayList<>();
