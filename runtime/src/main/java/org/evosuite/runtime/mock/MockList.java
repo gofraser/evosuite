@@ -170,6 +170,8 @@ public class MockList {
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockScopedValueCarrier");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockSemaphore");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockCountDownLatch");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockThreadPoolExecutor");
+            addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockScheduledThreadPoolExecutor");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.util.concurrent.MockStructuredTaskScope");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockProcessBuilder");
             addMockIfPresent(list, "org.evosuite.runtime.mock.java.lang.MockProcessHandle");
