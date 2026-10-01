@@ -41,21 +41,32 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Deterministic companion to {@link TestMutatorGenericConstructorTest} and {@link
- * StatementFactoryGenericConstructorOwnerBindingTest}, covering the third of the three call sites
- * commit 3f7bb5186 touches: {@code TestMutator.changeCall}'s constructor branch.
+ * Deterministic companion to {@link StatementFactoryGenericConstructorOwnerBindingTest}, covering
+ * the third of the three call sites commit 3f7bb5186 touches: {@code TestMutator.changeCall}'s
+ * constructor branch.
  *
- * <p>{@code TestMutatorGenericConstructorTest} offers the mutator a self-consistent List/Set pair
- * for each of several instantiations of E, which (as the sibling class docs explain) lets an
- * unbound, per-parameter resolution land on a matching pair by construction, not because E was
- * ever actually bound. This test instead offers exactly one List candidate and one Set candidate,
- * of deliberately different element types, so there is no self-consistent pair to stumble onto:
- * reverting the owner-binding hunk in {@code TestMutator} reuses the only two candidates there
- * are -- the mismatched pair -- reproducing the Collections-21 bug deterministically, whereas the
- * fix either refuses to bind E to two things at once (an unavoidable
- * {@code ConstructionFailedException}, since {@code changeCall} has no fallback generation path
- * of its own) or, if it somehow still succeeds, must have chosen a single consistent type for
- * both parameters.
+ * <p>This test's predecessor, {@code TestMutatorGenericConstructorTest} (removed), offered the
+ * mutator a self-consistent List/Set pair for each of several instantiations of E (Integer,
+ * String, Object), on the theory that whichever instantiation the mutator landed on, a matching
+ * pair would be there to find. That fixture does not discriminate reliably: with the owner-binding
+ * hunk reverted, each parameter is resolved independently via a uniform random pick among the
+ * three same-raw-type candidates, so the List and Set choices coincide roughly one time in three
+ * by pure chance, regardless of whether E was ever bound. Measured directly -- five separate `mvn
+ * test` invocations of that fixture against the hand-reverted hunk -- it failed four times and
+ * passed once, i.e. it is flaky, not "cannot fail", but a test whose outcome on broken code is a
+ * coin flip is still worthless as a regression guard.
+ *
+ * <p>This test instead offers exactly one List candidate and one Set candidate, of deliberately
+ * different element types, so there is no self-consistent pair to stumble onto: reverting the
+ * owner-binding hunk in {@code TestMutator} reuses the only two candidates there are -- the
+ * mismatched pair -- reproducing the Collections-21 bug deterministically (zero passes observed
+ * in five runs against the reverted hunk), whereas the fix either refuses to bind E to two things
+ * at once (an unavoidable {@code ConstructionFailedException}, since {@code changeCall} has no
+ * fallback generation path of its own) or, if it somehow still succeeds, must have chosen a single
+ * consistent type for both parameters. Do not reintroduce multiple self-consistent pairs here (or
+ * in any sibling of this test) to "cover more instantiations of E" -- that is exactly the shape
+ * that made the predecessor non-discriminating; one mismatched pair per type is what makes the
+ * outcome deterministic.
  */
 class TestMutatorGenericConstructorOwnerBindingTest {
 

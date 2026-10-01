@@ -44,10 +44,11 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
  * {@code X}, which is exactly the hole that let EvoSuite pass a {@code LinkedHashSet<E>} as both
  * a {@code List<Integer>} and a {@code Set<String>} parameter of the same constructor call
  * (Defects4J Collections-21). This test calls the resolver directly, bypassing the mutation
- * machinery that {@link TestMutatorGenericConstructorTest} goes through -- that test offers
- * several self-consistent List/Set pairs for the mutator to pick from and does not fail when the
- * owner-binding fix is reverted, because an unbound pick can still land on a self-consistent pair
- * by chance; this test has only one implementation to pick and asserts its type argument
+ * machinery that {@link TestMutatorGenericConstructorOwnerBindingTest} goes through -- an earlier,
+ * now-removed sibling offered several self-consistent List/Set pairs for the mutator to pick from
+ * and only unreliably failed when the owner-binding fix was reverted, because an unbound pick
+ * could still land on a self-consistent pair by chance (see that class's javadoc for the measured
+ * failure rate); this test has only one implementation to pick and asserts its type argument
  * directly, so it cannot pass by accident.</p>
  */
 class VariableResolverGenericContainerTest {

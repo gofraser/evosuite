@@ -45,15 +45,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Deterministic unit test for the {@code StatementFactory.addConstructor} half of commit
  * 3f7bb5186 ("Bind owner type variables before satisfying generic call parameters").
  *
- * <p>{@link TestMutatorGenericConstructorTest} exercises the same bug (Defects4J Collections-21:
- * a constructor such as {@code SetUniqueList(List<E>, Set<E>)} reaching parameter resolution with
- * E unbound, so the two parameters can be satisfied with unrelated instantiations of E) but offers
- * the mutator a self-consistent List/Set pair for every instantiation it might land on. That
- * fixture cannot actually distinguish fixed from reverted code: whatever strategy independently
- * picks "a List" and "a Set" from parallel-constructed pools of parallel-added pairs tends to pick
- * the same rank from each pool (eg, both the most-recently-added), which accidentally yields a
- * matching pair regardless of whether E was ever bound. Reverting {@code StatementFactory}'s hunk
- * confirmed this: that test stayed green.
+ * <p>An earlier version of this fixture (since removed; see {@link
+ * TestMutatorGenericConstructorOwnerBindingTest}'s javadoc for the full story) exercised the same
+ * bug (Defects4J Collections-21: a constructor such as {@code SetUniqueList(List<E>, Set<E>)}
+ * reaching parameter resolution with E unbound, so the two parameters can be satisfied with
+ * unrelated instantiations of E) but offered the mutator a self-consistent List/Set pair for every
+ * instantiation it might land on. That fixture cannot reliably distinguish fixed from reverted
+ * code: each parameter is resolved independently by a uniform random pick among same-raw-type
+ * candidates, so the two picks coincide only by chance, regardless of whether E was ever bound.
  *
  * <p>This test closes that hole by offering only <em>one</em> candidate for each parameter, and
  * making the two mismatched (an {@code ArrayList<Integer>} and a {@code LinkedHashSet<String>}):
