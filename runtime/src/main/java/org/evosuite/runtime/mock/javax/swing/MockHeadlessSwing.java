@@ -2376,14 +2376,16 @@ public final class MockHeadlessSwing {
     }
 
     /**
-     * Replacement for {@code KeyboardFocusManager.getCurrentKeyboardFocusManager()}.
+     * Replacement for {@code KeyboardFocusManager.getCurrentKeyboardFocusManager()}. Focus
+     * bookkeeping needs no display - the JDK hands out a DefaultKeyboardFocusManager headless too -
+     * and a null here only moves the failure one call later: freemind's IndependantMapViewCreator
+     * dies with "Cannot invoke KeyboardFocusManager.addPropertyChangeListener because
+     * \"focusManager\" is null". With no focus owner the real manager answers everything with null,
+     * which is what a SUT asking about focus in a headless run should see.
      *
-     * @return current keyboard focus manager, or null in headless mode when mocking is enabled
+     * @return the current keyboard focus manager
      */
     public static KeyboardFocusManager replacement_getCurrentKeyboardFocusManager() {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
         return KeyboardFocusManager.getCurrentKeyboardFocusManager();
     }
 
@@ -2400,14 +2402,12 @@ public final class MockHeadlessSwing {
     }
 
     /**
-     * Replacement for {@code new DefaultKeyboardFocusManager()}.
+     * Replacement for {@code new DefaultKeyboardFocusManager()}. Works headless; see
+     * {@link #replacement_getCurrentKeyboardFocusManager()}.
      *
-     * @return a keyboard focus manager or null in headless mode when mocking is enabled
+     * @return a keyboard focus manager
      */
     public static DefaultKeyboardFocusManager replacement_newDefaultKeyboardFocusManager() {
-        if (isMockingInHeadlessEnvironment()) {
-            return null;
-        }
         return new DefaultKeyboardFocusManager();
     }
 

@@ -60,6 +60,17 @@ public class MockHeadlessSwingCursorTest {
                 MockHeadlessSwing.replacement_newCursor(java.awt.Cursor.HAND_CURSOR).getType());
     }
 
+    /**
+     * Focus bookkeeping needs no display either, and a null manager only defers the failure:
+     * freemind's IndependantMapViewCreator threw on addPropertyChangeListener. Same caveat as
+     * above - this only fails on a headless JVM.
+     */
+    @Test
+    public void keyboardFocusManagersAreNotMockedAway() {
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_getCurrentKeyboardFocusManager());
+        Assertions.assertNotNull(MockHeadlessSwing.replacement_newDefaultKeyboardFocusManager());
+    }
+
     @Test
     public void aSystemCustomCursorIsStillMockedAway() throws Exception {
         // This one really does need the display: the JDK throws HeadlessException.
