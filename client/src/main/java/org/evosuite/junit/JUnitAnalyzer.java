@@ -292,6 +292,9 @@ public abstract class JUnitAnalyzer {
             File dir = createNewTmpDir();
             if (dir == null) {
                 logger.warn("Failed to create tmp dir");
+                // Infrastructure setup failure, not a judgment on the remaining test(s): they are
+                // kept unchecked, so record that the compile filter never actually ran on them.
+                recordCheckIncomplete("compile filter: failed to create tmp dir; remaining test(s) kept unchecked");
                 return;
             }
             logger.debug("Created tmp folder: " + dir.getAbsolutePath());
@@ -348,6 +351,9 @@ public abstract class JUnitAnalyzer {
         File dir = createNewTmpDir();
         if (dir == null) {
             logger.error("Failed to create tmp dir");
+            // Infrastructure setup failure: the test(s) are kept unchecked, exactly as the
+            // compile filter's own tmp-dir failure above does, so record it the same way.
+            recordCheckIncomplete("instability check: failed to create tmp dir; test(s) kept unchecked");
             return numUnstable;
         }
         logger.debug("Created tmp folder: " + dir.getAbsolutePath());
@@ -789,6 +795,13 @@ public abstract class JUnitAnalyzer {
                 // Force GC to reclaim before reporting back.
                 System.gc();
                 logger.warn("OutOfMemoryError during JUnit execution — forced GC and treating all tests as failed");
+                // This OOM escaped the whole JUnit runner (runJUnitOnCurrentProcess), rather than
+                // being caught and attributed to one test the way JUnit itself catches per-test
+                // throwables; the result below carries no per-test failure info, so callers that
+                // read result.getFailures() (e.g. handleTestsThatAreUnstable) see an empty list
+                // and treat this exactly like a run that observed nothing wrong. Record it the
+                // same way the other synthesized-result give-ups in this method already do.
+                recordCheckIncomplete("OutOfMemoryError escaped the JUnit runner: " + e);
                 return JUnitResult.allFailed(testClasses.length, e);
             }
         });
@@ -1131,6 +1144,11 @@ public abstract class JUnitAnalyzer {
         }
         File dir = createNewTmpDir();
         if (dir == null) {
+            // Same contract as the compile filter and instability check above: the
+            // order-sensitivity probe never actually ran, so record it as abandoned rather than
+            // let the caller's infrastructure-failure heuristic on "tmp-dir-error" be the only
+            // trace of it.
+            recordCheckIncomplete("order-sensitivity analysis: failed to create tmp dir");
             return Collections.singleton("tmp-dir-error");
         }
         try {
@@ -2255,6 +2273,7 @@ public abstract class JUnitAnalyzer {
         File dir = createNewTmpDir();
         if (dir == null) {
             logger.warn("Failed to create tmp dir");
+            recordCheckIncomplete("verifyCompilationAndExecution: failed to create tmp dir");
             return false;
         }
 

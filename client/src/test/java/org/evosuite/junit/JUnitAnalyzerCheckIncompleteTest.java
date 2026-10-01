@@ -32,12 +32,15 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -206,6 +209,82 @@ public class JUnitAnalyzerCheckIncompleteTest {
         assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
     }
 
+    // ---- Infrastructure setup failures: createNewTmpDir() itself fails ----
+    //
+    // Each of these points java.io.tmpdir at a plain file (not a directory), which is the
+    // probe technique used to reproduce the failure: createNewTmpDir() builds its target path
+    // underneath java.io.tmpdir and then calls File.mkdirs() on it, which fails whenever any
+    // path component already exists as a non-directory. The property is a JVM-wide global, so
+    // every test below restores it in a finally block -- failing to do so would poison every
+    // later test in this fork that needs a real tmp dir.
+
+    @Test
+    public void removeTestsThatDoNotCompileRecordsIncompleteWhenTmpDirCreationFails() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+
+        withPoisonedTmpDir(() -> {
+            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
+
+            assertTrue(JUnitAnalyzer.isCheckIncomplete());
+            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+            assertEquals(1, tests.size(), "the unchecked test must be kept, not removed");
+        });
+    }
+
+    @Test
+    public void handleTestsThatAreUnstableRecordsIncompleteWhenTmpDirCreationFails() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+
+        withPoisonedTmpDir(() -> {
+            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
+
+            assertEquals(0, numUnstable);
+            assertEquals(1, tests.size(), "the unchecked test must be kept, not removed or run");
+            assertTrue(JUnitAnalyzer.isCheckIncomplete());
+            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        });
+    }
+
+    @Test
+    public void verifyCompilationAndExecutionRecordsIncompleteWhenTmpDirCreationFails() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+
+        withPoisonedTmpDir(() -> {
+            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            boolean result = JUnitAnalyzer.verifyCompilationAndExecution(tests);
+
+            assertFalse(result);
+            assertTrue(JUnitAnalyzer.isCheckIncomplete());
+            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        });
+    }
+
+    @Test
+    public void executeAndCollectUnexpectedFailuresRecordsIncompleteWhenTmpDirCreationFails() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+        tests.add(compilingTestCase());
+
+        withPoisonedTmpDir(() -> {
+            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+
+            Method m = JUnitAnalyzer.class.getDeclaredMethod(
+                    "executeAndCollectUnexpectedFailures", List.class);
+            m.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Set<String> failures = (Set<String>) m.invoke(null, tests);
+
+            assertEquals(Collections.singleton("tmp-dir-error"), failures);
+            assertTrue(JUnitAnalyzer.isCheckIncomplete());
+            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        });
+    }
+
     // ---- The normal, completing path ----
 
     @Test
@@ -256,6 +335,31 @@ public class JUnitAnalyzerCheckIncompleteTest {
         } catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    /**
+     * Points {@code java.io.tmpdir} at a plain file for the duration of {@code body}, so that
+     * {@link JUnitAnalyzer#createNewTmpDir()}'s {@code mkdirs()} call fails the way it would if the
+     * real tmp dir were unavailable, then always restores the original property -- even on
+     * failure, this must not leak a poisoned {@code java.io.tmpdir} into later tests.
+     */
+    private static void withPoisonedTmpDir(ThrowingRunnable body) throws Exception {
+        String originalTmpDir = System.getProperty("java.io.tmpdir");
+        File blocker = File.createTempFile("JUnitAnalyzerTmpDirBlocker", ".tmp");
+        try {
+            System.setProperty("java.io.tmpdir", blocker.getAbsolutePath());
+            body.run();
+        } finally {
+            System.setProperty("java.io.tmpdir", originalTmpDir);
+            if (!blocker.delete()) {
+                blocker.deleteOnExit();
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingRunnable {
+        void run() throws Exception;
     }
 
     private static void invokeRecordCheckIncomplete(String reason) throws Exception {

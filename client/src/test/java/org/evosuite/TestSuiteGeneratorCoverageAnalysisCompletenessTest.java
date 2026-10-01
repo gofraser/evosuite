@@ -96,8 +96,19 @@ public class TestSuiteGeneratorCoverageAnalysisCompletenessTest {
         assertEquals(Boolean.FALSE, node.value(RuntimeVariable.CoverageAnalysisComplete));
     }
 
+    /**
+     * Note on what this actually covers: the whole {@code analyzeCoverage(TestSuiteChromosome)}
+     * call is replaced by a throw here, so no criterion ever runs and no "earlier" goal counts or
+     * per-criterion coverage are published before the failure -- this only verifies that an
+     * {@link OutOfMemoryError} out of that single call is caught and republishes the sweep as
+     * incomplete, not that any earlier numbers survive the failure. A test that established real
+     * earlier numbers would need the per-criteria loop itself to run for at least one criterion
+     * before the failure, which is exercised instead by {@code CoverageAnalysisTest
+     * #runDirectCoverageSweepRecordsIncompleteWhenACriterionFailsAfterAnEarlierOneCompleted} for
+     * the sibling SELECTED_JUNIT sweep.
+     */
     @Test
-    public void outOfMemoryPartwayThroughRecordsIncompleteKeepingEarlierNumbers() throws Exception {
+    public void outOfMemoryFromAnalyzeCoverageRecordsIncomplete() throws Exception {
         Properties.COVERAGE = true;
         // Nothing started yet: TimeController.hasTimeToExecuteATestCase() is unconditionally
         // true, so the outer guard above is not what is under test here.

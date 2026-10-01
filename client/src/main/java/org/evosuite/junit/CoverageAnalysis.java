@@ -166,18 +166,7 @@ public class CoverageAnalysis {
             JUnitTestCarvedChromosomeFactory carvedFactory = new JUnitTestCarvedChromosomeFactory(null);
             TestSuiteChromosome testSuite = carvedFactory.getCarvedTestSuite();
 
-            int goals = 0;
-            for (Properties.Criterion pc : Properties.CRITERION) {
-                logger.debug("Coverage analysis for criterion {}", pc);
-
-                TestFitnessFactory<? extends TestFitnessFunction> ffactory = FitnessFunctions.getFitnessFactory(pc);
-                goals += ffactory.getCoverageGoals().size();
-
-                TestSuiteFitnessFunction ffunction = FitnessFunctions.getFitnessFunction(pc);
-                ffunction.getFitness(testSuite);
-
-                CoverageCriteriaAnalyzer.analyzeCoverage(testSuite, pc);
-            }
+            int goals = runDirectCoverageSweep(testSuite);
 
             // Track coverage statistics before writing JUnit tests, since
             // writeJUnitTestsAndCreateResult may fail on some targets.
@@ -199,6 +188,46 @@ public class CoverageAnalysis {
                         "Coverage matrix not yet available when measuring coverage of a carved test suite");
             }
         }
+    }
+
+    /**
+     * Runs the per-criterion coverage sweep for a carved (SELECTED_JUNIT) test suite, calling
+     * {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome, Properties.Criterion)}
+     * directly for each criterion rather than through
+     * {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome)}, which is the only
+     * overload that records give-ups against its own time budget. Without the catch below, an
+     * {@link OutOfMemoryError} after an earlier criterion already completed would propagate out of
+     * {@link #analyzeCoverage()} entirely and reach {@code ClientNodeImpl}'s catch-all, leaving
+     * whatever {@link RuntimeVariable#CoverageAnalysisComplete} an earlier criterion already
+     * published as {@code true} unrevised.
+     *
+     * @param testSuite the carved test suite to analyze
+     * @return the total number of coverage goals across the criteria that were reached
+     */
+    private static int runDirectCoverageSweep(TestSuiteChromosome testSuite) {
+        int goals = 0;
+        try {
+            for (Properties.Criterion pc : Properties.CRITERION) {
+                logger.debug("Coverage analysis for criterion {}", pc);
+
+                TestFitnessFactory<? extends TestFitnessFunction> ffactory = FitnessFunctions.getFitnessFactory(pc);
+                goals += ffactory.getCoverageGoals().size();
+
+                TestSuiteFitnessFunction ffunction = FitnessFunctions.getFitnessFunction(pc);
+                ffunction.getFitness(testSuite);
+
+                CoverageCriteriaAnalyzer.analyzeCoverage(testSuite, pc);
+            }
+        } catch (OutOfMemoryError e) {
+            // Same recovery as TestSuiteGenerator#runCoverageAnalysisIfEnabled: keep whatever
+            // coverage numbers earlier criteria already tracked, but make sure the sweep as a
+            // whole is republished as incomplete rather than silently abandoned.
+            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Coverage analysis ran out of memory partway through; "
+                    + "keeping whatever coverage numbers were already tracked");
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+        }
+        return goals;
     }
 
     /**

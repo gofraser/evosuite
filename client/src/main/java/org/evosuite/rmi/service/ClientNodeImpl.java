@@ -24,6 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.Properties.NoSuchParameterException;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.ClassStatisticsPrinter;
+import org.evosuite.coverage.CoverageCriteriaAnalyzer;
 import org.evosuite.ga.Chromosome;
 import org.evosuite.ga.stoppingconditions.RMIStoppingCondition;
 import org.evosuite.junit.CoverageAnalysis;
@@ -945,6 +946,11 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                             + Properties.TARGET_CLASS + " with seed "
                             + Randomness.getSeed() + ". Configuration id : "
                             + Properties.CONFIGURATION_ID, t);
+                    // Backstop for whatever stage of CoverageAnalysis.analyzeCoverage() this
+                    // escaped from: an earlier criterion in its direct (SELECTED_JUNIT) sweep may
+                    // already have published CoverageAnalysisComplete=true, which would otherwise
+                    // stand unrevised for a sweep that did not actually finish.
+                    CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
                 }
 
                 changeState(ClientState.DONE);
