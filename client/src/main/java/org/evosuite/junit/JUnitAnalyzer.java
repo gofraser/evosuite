@@ -29,6 +29,7 @@ import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.instrumentation.NonInstrumentingClassLoader;
 import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.junit.writer.TestSuiteWriterUtils;
+import org.evosuite.rmi.ClientServices;
 import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.InitializingListener;
 import org.evosuite.runtime.InitializingListenerUtils;
@@ -39,6 +40,7 @@ import org.evosuite.runtime.classhandling.JDKClassResetter;
 import org.evosuite.runtime.mock.MockFramework;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.evosuite.runtime.util.JarPathing;
+import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
@@ -140,6 +142,18 @@ public abstract class JUnitAnalyzer {
      * disable compile filtering for good. Cleared by {@link #resetMemoryExhaustion()}.
      */
     private static volatile boolean MEMORY_EXHAUSTED_DURING_CHECK = false;
+
+    /**
+     * Set when any JUnit check round (compile filter, instability check, or order-sensitivity
+     * probe) during this run had to be abandoned before completing. The suite is kept regardless
+     * (see the call sites of {@link #recordCheckIncomplete(String)}); this only records that it
+     * was never fully validated, so that fact reaches the generation report instead of being
+     * visible only in the log. Cleared by {@link #resetMemoryExhaustion()}.
+     */
+    private static volatile boolean CHECK_INCOMPLETE = false;
+
+    /** Number of distinct give-up events recorded via {@link #recordCheckIncomplete(String)}. */
+    private static volatile int INCOMPLETE_CHECK_ROUNDS = 0;
 
     /**
      * The class loader of the JUnit check in progress. Every check gets a fresh one, which is
@@ -266,6 +280,7 @@ public abstract class JUnitAnalyzer {
 
         while (iter.hasNext()) {
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                recordCheckIncomplete("ran out of time in the compile filter; remaining test(s) kept unchecked");
                 break;
             }
             if (MEMORY_EXHAUSTED_DURING_CHECK) {
@@ -353,6 +368,7 @@ public abstract class JUnitAnalyzer {
 
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
                 logger.error("Ran out of time while checking tests");
+                recordCheckIncomplete("ran out of time before running the instability check");
                 return numUnstable;
             }
 
@@ -817,6 +833,7 @@ public abstract class JUnitAnalyzer {
                 // discover the leak by burning its whole acquisition timeout.
                 Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
                 checkRunnerAbandoned = true;
+                recordCheckIncomplete("runner did not respond " + graceMs + " ms after interrupt");
                 return JUnitResult.allPassed(testClasses.length);
             } catch (CancellationException ce) {
                 // The check was cancelled rather than completed, so it observed no failure for
@@ -827,6 +844,7 @@ public abstract class JUnitAnalyzer {
                         + "keeping the suite as-is without checking it.");
                 Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
                 checkRunnerAbandoned = true;
+                recordCheckIncomplete("runner was cancelled before completing");
                 return JUnitResult.allPassed(testClasses.length);
             }
         } catch (InterruptedException ie) {
@@ -1391,11 +1409,15 @@ public abstract class JUnitAnalyzer {
     }
 
     private static void disableCompileCheckDueToInfrastructure(Throwable failure, String compilerClasspath) {
+        boolean first = !COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE;
         COMPILE_CHECK_DISABLED_DUE_TO_INFRASTRUCTURE = true;
         logger.error("Javac infrastructure failure during compile check. "
                         + "Disabling compile filtering for the remainder of this run and keeping generated tests.",
                 failure);
         logFileSystemProviderClasspathDiagnostics(compilerClasspath);
+        if (first) {
+            recordCheckIncomplete("javac infrastructure failure disabled compile filtering: " + failure);
+        }
     }
 
     public static boolean isCompileCheckDisabledDueToInfrastructure() {
@@ -1412,9 +1434,13 @@ public abstract class JUnitAnalyzer {
         return MEMORY_EXHAUSTED_DURING_CHECK;
     }
 
-    /** Forgets an earlier out-of-memory condition, e.g. at the start of a new JUnit check phase. */
+    /**
+     * Forgets an earlier out-of-memory condition and any recorded check incompleteness, e.g. at
+     * the start of a new JUnit check phase.
+     */
     public static void resetMemoryExhaustion() {
         MEMORY_EXHAUSTED_DURING_CHECK = false;
+        resetCheckIncompleteness();
     }
 
     private static void stopChecksDueToMemoryExhaustion(int numTests, Throwable failure) {
@@ -1424,7 +1450,56 @@ public abstract class JUnitAnalyzer {
             logger.warn("Ran out of memory while compiling {} generated test(s) for the JUnit check ({}). "
                             + "Skipping the remaining checks and keeping the tests not checked yet.",
                     numTests, failure == null ? "no details" : failure.toString());
+            recordCheckIncomplete("out of memory during check: " + failure);
         }
+    }
+
+    /**
+     * Whether any JUnit check round during this run (since the last {@link
+     * #resetMemoryExhaustion()}) had to be abandoned before completing.
+     *
+     * @return true if at least one give-up event was recorded
+     */
+    public static boolean isCheckIncomplete() {
+        return CHECK_INCOMPLETE;
+    }
+
+    /**
+     * Number of distinct JUnit check rounds that were abandoned before completing during this run
+     * (since the last {@link #resetMemoryExhaustion()}).
+     *
+     * @return the count of recorded give-up events
+     */
+    public static int getIncompleteCheckRounds() {
+        return INCOMPLETE_CHECK_ROUNDS;
+    }
+
+    /** Resets the recorded check-incompleteness state and publishes the cleared baseline. */
+    private static void resetCheckIncompleteness() {
+        CHECK_INCOMPLETE = false;
+        INCOMPLETE_CHECK_ROUNDS = 0;
+        trackCheckIncompleteness();
+    }
+
+    /**
+     * Records that a JUnit check round was abandoned before completing: the reason is logged, and
+     * the fact reaches the generation report via {@link RuntimeVariable#JUnit_Check_Incomplete}
+     * and {@link RuntimeVariable#JUnit_Check_Incomplete_Rounds}. Does not change whether the suite
+     * (or the specific tests involved) is kept — that decision is made at each call site, same as
+     * before this method existed.
+     *
+     * @param reason short description of what was abandoned, for the debug log
+     */
+    private static void recordCheckIncomplete(String reason) {
+        INCOMPLETE_CHECK_ROUNDS++;
+        CHECK_INCOMPLETE = true;
+        logger.debug("Recording JUnit check as incomplete: {}", reason);
+        trackCheckIncompleteness();
+    }
+
+    private static void trackCheckIncompleteness() {
+        ClientServices.track(RuntimeVariable.JUnit_Check_Incomplete, CHECK_INCOMPLETE);
+        ClientServices.track(RuntimeVariable.JUnit_Check_Incomplete_Rounds, INCOMPLETE_CHECK_ROUNDS);
     }
 
     /**

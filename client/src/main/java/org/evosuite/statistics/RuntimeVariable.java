@@ -433,6 +433,23 @@ public enum RuntimeVariable {
     NumUnstableTests,
 
     /**
+     * Whether at least one JUnit check round (the compile filter, an instability check, or the
+     * order-sensitivity probe) during this run had to be abandoned before completing — e.g. the
+     * check runner did not respond to a watchdog interrupt, javac's own infrastructure failed, or
+     * the JUnit-check time budget ran out mid-check. The suite is kept in every one of these
+     * cases (see {@code org.evosuite.junit.JUnitAnalyzer}); this flag only reports that the check
+     * meant to validate it did not fully run, so a suite that was never actually checked cannot be
+     * mistaken for one that passed.
+     */
+    JUnit_Check_Incomplete,
+
+    /**
+     * Number of distinct JUnit check rounds (see {@link #JUnit_Check_Incomplete}) that were
+     * abandoned before completing during this run.
+     */
+    JUnit_Check_Incomplete_Rounds,
+
+    /**
      * An estimate (ie not precise) of the maximum number of threads running at the same time in the
      * CUT.
      */
