@@ -32,6 +32,7 @@ import javax.tools.ToolProvider;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -229,13 +230,29 @@ public class Java8ApiFloorTest {
                 return source;
             }
         };
-        // -d is deliberately omitted: with no class output location the compiler still performs
-        // full attribution, which is all this probe needs, and nothing is written to disk.
-        compiler.getTask(null, null, diagnostics,
-                Arrays.asList("--release", release, "-nowarn", "-proc:none",
-                        "-d", java.lang.System.getProperty("java.io.tmpdir")),
-                null, Collections.singletonList(unit)).call();
-        return errorsOf(diagnostics);
+        // -d must name a real, writable directory for this probe to succeed at all -- but the
+        // class file it produces is throwaway, so it gets its own scratch directory (like
+        // compileAtRelease8's) rather than the shared system temp directory, and that directory
+        // is removed again below regardless of the compile's outcome.
+        Path output;
+        try {
+            output = Files.createTempDirectory("evosuite-java8-api-floor-canary");
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        try {
+            compiler.getTask(null, null, diagnostics,
+                    Arrays.asList("--release", release, "-nowarn", "-proc:none",
+                            "-d", output.toString()),
+                    null, Collections.singletonList(unit)).call();
+            return errorsOf(diagnostics);
+        } finally {
+            try {
+                deleteRecursively(output);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
     }
 
     private static JavaCompiler systemCompiler() {

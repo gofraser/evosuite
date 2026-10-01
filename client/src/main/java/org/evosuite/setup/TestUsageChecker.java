@@ -373,24 +373,66 @@ public class TestUsageChecker {
     /**
      * Whether a class comes from the JDK itself rather than from the code under test.
      *
-     * <p>Platform classes are loaded by the bootstrap loader, so they have no defining
-     * class loader; anything the SUT brings with it is loaded by EvoSuite's own loader.
+     * <p>Only {@code java.base} classes are loaded by the bootstrap loader (a null
+     * {@code getClassLoader()}); since Java 9 the rest of the JDK lives in named
+     * modules such as {@code java.sql} or {@code jdk.unsupported} that are defined by
+     * the <em>platform</em> loader instead, a distinct, non-null loader. Checking for
+     * a null loader alone therefore missed most of the modular JDK.
+     *
+     * <p>We classify by module membership instead of by loader identity. Every JDK
+     * class -- bootstrap- or platform-loaded alike -- belongs to a named module whose
+     * name starts with {@code java.} or {@code jdk.}; there is no third platform
+     * prefix, and {@code Class#getModule()} reports it regardless of which of the two
+     * loaders actually defined the class. That is more robust than comparing against
+     * {@code ClassLoader#getPlatformClassLoader()}: it does not depend on which loader
+     * instance happens to be in play, only on the module the class itself reports.
+     *
+     * <p>{@code Class#getModule()} is a Java 9+ method, and this module's main source
+     * compiles against the Java 8 API (see {@code runtime}'s own Java 8 floor, enforced
+     * on this module the same way). It is therefore invoked reflectively here, mirroring
+     * the established pattern in {@code TestClusterUtils#isJdkClass} for the identical
+     * constraint; on an actual Java 8 JVM the reflective lookup itself fails (there is no
+     * module system yet) and this falls back to the old bootstrap-loader check, which is
+     * exactly correct there, since Java 8 has no platform loader to miss.
+     *
+     * <p>A user class cannot land in this bucket merely by sitting in a
+     * {@code java.}-prefixed package: the JVM refuses to even define application
+     * classes there ({@code SecurityException: Prohibited package name}) for any
+     * loader but the bootstrap/platform ones. A {@code jdk.}-prefixed package is not
+     * similarly reserved, but a user class loaded the ordinary way (app class loader,
+     * classpath) is always in an <em>unnamed</em> module, which fails the
+     * {@code isNamed()} check regardless of its package name.
      *
      * <p>This matters for the {@code USE_DEPRECATED} filter. That option exists to stop
      * us generating tests for API the project itself has deprecated, but several JDK
      * types picked up a {@code @Deprecated} annotation after Java 8 -- {@code
      * java.util.Observable} in Java 9, {@code org.xml.sax.AttributeList} long before
-     * that. Excluding those does not spare anyone a test of obsolete API: it makes the
-     * SUT's own undeprecated methods uncallable, because a method whose parameter type
-     * we refuse to use is dropped from the test cluster entirely. So a class like
-     * {@code nu.staldal.xmlutil.ContentHandlerAdapter}, whose whole contract is
-     * {@code startElement(String, AttributeList)}, loses the branches that matter.
+     * that, and (depending on the running JDK) platform-loaded types such as {@code
+     * java.sql.SQLPermission}. Excluding those does not spare anyone a test of obsolete
+     * API: it makes the SUT's own undeprecated methods uncallable, because a method
+     * whose parameter type we refuse to use is dropped from the test cluster entirely.
+     * So a class like {@code nu.staldal.xmlutil.ContentHandlerAdapter}, whose whole
+     * contract is {@code startElement(String, AttributeList)}, loses the branches that
+     * matter.
      *
      * @param c the class to check
      * @return true if {@code c} is a JDK platform class
      */
-    private static boolean isPlatformClass(Class<?> c) {
-        return c.getClassLoader() == null;
+    static boolean isPlatformClass(Class<?> c) {
+        try {
+            Object module = Class.class.getMethod("getModule").invoke(c);
+            if (module == null) {
+                return false;
+            }
+            boolean named = (Boolean) module.getClass().getMethod("isNamed").invoke(module);
+            if (!named) {
+                return false;
+            }
+            String name = (String) module.getClass().getMethod("getName").invoke(module);
+            return name != null && (name.startsWith("java.") || name.startsWith("jdk."));
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return c.getClassLoader() == null;
+        }
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {

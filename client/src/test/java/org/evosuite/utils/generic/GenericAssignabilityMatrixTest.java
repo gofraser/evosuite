@@ -22,18 +22,9 @@ package org.evosuite.utils.generic;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
 import java.io.Serializable;
-import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -42,7 +33,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Differential oracle for {@link GenericClassUtils#isAssignable(Type, Type)} (and, transitively,
@@ -671,32 +661,18 @@ class GenericAssignabilityMatrixTest {
 
     /**
      * Compiles the given self-contained Java source (which must declare its own top-level class)
-     * and reports whether it succeeded.
+     * and reports whether it succeeded. See {@link JavacScratchCompiler}, which owns the scratch
+     * directory this needs and cleans it up again -- shared with {@link ClassLiteralVarianceTest}
+     * since this is otherwise the same compile-a-throwaway-probe boilerplate, run twice per case
+     * across the 163 cases in {@link #CASES}.
      */
     private static boolean compiles(String source) {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        assertTrue(compiler != null, "a system Java compiler is required to run this test");
-
         String classNameLine = source.lines().filter(l -> l.contains("public class")).findFirst()
                 .orElseThrow();
         String className = classNameLine.substring(classNameLine.indexOf("class") + 6,
                 classNameLine.indexOf('{')).trim();
 
-        try {
-            Path tempDir = Files.createTempDirectory("evosuite-generic-assignability-matrix");
-            Path sourceFile = tempDir.resolve(className + ".java");
-            Files.write(sourceFile, source.getBytes(StandardCharsets.UTF_8));
-
-            ByteArrayOutputStream err = new ByteArrayOutputStream();
-            String classpath = System.getProperty("java.class.path");
-            int result = compiler.run(null, null, new PrintStream(err, true, StandardCharsets.UTF_8),
-                    "-classpath", classpath,
-                    "-d", tempDir.toString(),
-                    sourceFile.toString());
-
-            return result == 0;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return JavacScratchCompiler.compile(
+                "evosuite-generic-assignability-matrix", className, source).success;
     }
 }

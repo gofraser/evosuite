@@ -22,23 +22,13 @@ package org.evosuite.utils.generic;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.UncheckedIOException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Table-driven coverage for {@code GenericClassUtils.isClassLiteralAssignable}, the helper behind
@@ -212,12 +202,11 @@ class ClassLiteralVarianceTest {
      * Compiles {@code static void target(<targetType> p) {}} plus
      * {@code static void call(<argType> a) { target(a); }} and reports whether it succeeded, so test
      * expectations are grounded in an actual javac verdict rather than reasoning about JLS variance
-     * rules by hand.
+     * rules by hand. See {@link JavacScratchCompiler}, which owns the scratch directory this needs
+     * and cleans it up again -- shared with {@link GenericAssignabilityMatrixTest} since this is
+     * otherwise the same compile-a-throwaway-probe boilerplate.
      */
     private static boolean compiles(String targetType, String argType) {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        assertTrue(compiler != null, "a system Java compiler is required to run this test");
-
         String className = "ClassLiteralVarianceProbe" + System.nanoTime();
         String source = "import java.util.List;\n"
                 + "import java.util.ArrayList;\n"
@@ -226,21 +215,7 @@ class ClassLiteralVarianceTest {
                 + "    static void call(" + argType + " a) { target(a); }\n"
                 + "}\n";
 
-        try {
-            Path tempDir = Files.createTempDirectory("evosuite-class-literal-variance-compile");
-            Path sourceFile = tempDir.resolve(className + ".java");
-            Files.write(sourceFile, source.getBytes(StandardCharsets.UTF_8));
-
-            ByteArrayOutputStream err = new ByteArrayOutputStream();
-            String classpath = System.getProperty("java.class.path");
-            int result = compiler.run(null, null, new PrintStream(err, true, StandardCharsets.UTF_8),
-                    "-classpath", classpath,
-                    "-d", tempDir.toString(),
-                    sourceFile.toString());
-
-            return result == 0;
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        return JavacScratchCompiler.compile(
+                "evosuite-class-literal-variance-compile", className, source).success;
     }
 }

@@ -33,18 +33,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.UncheckedIOException;
+import org.evosuite.utils.generic.JavacScratchCompiler;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedList;
 
@@ -173,7 +166,10 @@ public class ClassLiteralRawPathCompileTest {
      * Wraps the rendered statements as the body of a synthetic method in package
      * {@code org.evosuite.testcase} (so the package-visible fixture classes above resolve
      * by simple/outer-qualified name exactly as rendered) and compiles it with the real
-     * system compiler.
+     * system compiler. See {@link JavacScratchCompiler}, which owns the scratch directory
+     * this needs and cleans it up again -- shared with {@code GenericAssignabilityMatrixTest}
+     * and {@code ClassLiteralVarianceTest} since this is otherwise the same
+     * compile-a-throwaway-probe boilerplate.
      */
     private static void assertCompiles(TestCodeVisitor visitor) {
         String code = visitor.getCode();
@@ -195,24 +191,9 @@ public class ClassLiteralRawPathCompileTest {
         source.append("    }\n")
                 .append("}\n");
 
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        assertTrue(compiler != null, "a system Java compiler is required to run this test");
-        try {
-            Path tempDir = Files.createTempDirectory("evosuite-class-literal-raw-path-compile");
-            Path sourceFile = tempDir.resolve(className + ".java");
-            Files.write(sourceFile, source.toString().getBytes(StandardCharsets.UTF_8));
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-class-literal-raw-path-compile", className, source.toString());
 
-            ByteArrayOutputStream err = new ByteArrayOutputStream();
-            String classpath = System.getProperty("java.class.path");
-            int result = compiler.run(null, null, new PrintStream(err, true, StandardCharsets.UTF_8),
-                    "-classpath", classpath,
-                    "-d", tempDir.toString(),
-                    sourceFile.toString());
-
-            assertTrue(result == 0, "Rendered test did not compile:\n" + source
-                    + "\n" + err.toString(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
     }
 }
