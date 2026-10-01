@@ -40,16 +40,22 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  *
  * <p>What the existing tests never check is whether the <em>call sites</em> that
  * {@link StringTransformation} and {@link ContainerTransformation} rewrite still interpret that
- * contract. They do not interpret it themselves: the pass that rewrites every consumer of a
- * boolean to test the sign is {@link BooleanTestabilityTransformation}, and that one is gated on
- * {@code shouldTransform()}, i.e. on {@code Properties.TT}, which is off by default.
- * {@code StringTransformation} is gated separately, on {@code Properties.STRING_REPLACEMENT},
- * which is on by default, and applies to the class under test regardless of {@code TT}.
+ * contract. {@code StringTransformation} does take care of this itself, and mostly gets it right:
+ * {@code transformMethod} runs an ASM dataflow analysis with {@link StringBooleanInterpreter},
+ * finds the jumps that consume a tagged value and rewrites them to be sign-aware
+ * ({@code IFEQ -> IFLE}, {@code IFNE -> IFGT}). So most shapes are fine, which is why most of the
+ * cases below pass. They are here to keep it that way: a change that disabled the transformation
+ * rather than fixing it would leave them passing while the interesting case below regressed.
  *
- * <p>So by default the rewritten call returns a signed int straight into untouched {@code IFEQ}
- * bytecode, where plain Java boolean semantics apply: <em>any</em> nonzero value is true. A
- * positive {@code K} reads as true, and so does a negative distance. Every rewritten comparison
- * inside the class under test therefore evaluates as true whatever the arguments are.
+ * <p>The defect this class was written for is narrower. The interpreter tags the result of a
+ * {@code StringHelper.String*} call but, before the fix, never overrode {@code merge}, and ASM's
+ * {@code BasicInterpreter.merge} collapses two unequal values to {@code UNINITIALIZED_VALUE}. So
+ * wherever a tagged value reached a branch through a control-flow merge, the tag was lost, the
+ * jump stayed {@code IFEQ}, and the signed distance was read with plain boolean semantics -- where
+ * any nonzero value is true, including the large negative "false" distances
+ * ({@code StringEquals("SW", "SH")} is -30561911). The canonical shape is a boolean local
+ * initialised to {@code false} and assigned a comparison result only on some paths, which is
+ * exactly Apache {@code Metaphone.regionMatch}.
  *
  * <p>These tests pin the observable consequence, not the sign convention: each fixture method
  * returns 1 from the true branch and 2 from the false branch, so an instrumented class that still
