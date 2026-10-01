@@ -666,7 +666,7 @@ public final class MockHeadlessSwing {
             throw new NullPointerException();
         }
         if (!isMockingInHeadlessEnvironment()) {
-            source.setMixingCutoutShape(shape);
+            invokeComponentSetMixingCutoutShapeReflective(source, shape);
             return;
         }
         // Headless and mocking enabled: skip expensive shape mixing computation.
@@ -2522,6 +2522,51 @@ public final class MockHeadlessSwing {
             throw new IllegalArgumentException("No setDropTarget(DropTarget) on " + source.getClass().getName(), e);
         } catch (IllegalAccessException e) {
             throw new IllegalStateException("Cannot access setDropTarget(DropTarget) on "
+                    + source.getClass().getName(), e);
+        }
+    }
+
+    /**
+     * The {@code Component.setMixingCutoutShape(Shape)} method, resolved once reflectively, or
+     * {@code null} if it does not exist. {@code Component.setMixingCutoutShape(Shape)} is a Java
+     * 9+ API -- absent from {@code java.awt.Component} on a Java 8 JVM, confirmed with
+     * {@code javap} against Corretto 8 -- so a direct, statically typed call to it (as this
+     * replacement used to make) compiles cleanly against a modern JDK but throws
+     * {@link NoSuchMethodError} the first time it executes on Java 8. Resolving it reflectively
+     * and checking for {@code null} lets {@link #replacement_setMixingCutoutShape(Component, Shape)}
+     * degrade to a no-op on Java 8, the same way it already skips the call when headless mocking
+     * is enabled.
+     */
+    private static final Method COMPONENT_SET_MIXING_CUTOUT_SHAPE_METHOD =
+            resolveComponentSetMixingCutoutShapeMethod();
+
+    private static Method resolveComponentSetMixingCutoutShapeMethod() {
+        try {
+            return Component.class.getMethod("setMixingCutoutShape", Shape.class);
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Invoke {@code Component.setMixingCutoutShape(Shape)} reflectively, no-op'ing on a JVM
+     * (Java 8) where the method does not exist instead of failing with {@link NoSuchMethodError}.
+     *
+     * @param source the source component
+     * @param shape  the shape
+     */
+    private static void invokeComponentSetMixingCutoutShapeReflective(Component source, Shape shape) {
+        if (COMPONENT_SET_MIXING_CUTOUT_SHAPE_METHOD == null) {
+            // Java 8: Component.setMixingCutoutShape(Shape) does not exist. There is no shape
+            // mixing optimisation to apply, so there is nothing to do.
+            return;
+        }
+        try {
+            COMPONENT_SET_MIXING_CUTOUT_SHAPE_METHOD.invoke(source, shape);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access setMixingCutoutShape(Shape) on "
                     + source.getClass().getName(), e);
         }
     }

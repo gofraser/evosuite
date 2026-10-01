@@ -64,8 +64,16 @@ public class MockPrintWriter extends PrintWriter implements OverrideMock {
         super(out, autoFlush);
     }
 
+    /**
+     * Mirrors {@link PrintWriter#PrintWriter(OutputStream, boolean, Charset)}, which is a Java 10
+     * API and does not exist on a Java 8 JVM (confirmed via {@code javap} against Corretto 8:
+     * {@link java.io.PrintWriter} has no {@code Charset}-taking constructor at all before Java 10).
+     * Built the same way the private {@code (Charset, File)} constructor below already does: wrap
+     * the stream in an {@link OutputStreamWriter} with the given charset, which is a Java 8 API,
+     * then delegate to the Java 8 {@code (Writer, boolean)} constructor.
+     */
     public MockPrintWriter(OutputStream out, boolean autoFlush, Charset charset) {
-        super(out, autoFlush, charset);
+        this(new BufferedWriter(new OutputStreamWriter(out, charset)), autoFlush);
     }
 
     /**
