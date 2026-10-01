@@ -1364,7 +1364,7 @@ public class TestSuiteGenerator {
         if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
             LoggingUtils.getEvoLogger().info("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Skipping coverage analysis because not enough time is left");
-            CoverageCriteriaAnalyzer.recordCoverageAnalysisIncompleteFromCaller();
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
             return;
         }
         // Deliberately not gated on isMemoryTooLowForPhase() like the heavier phases
@@ -1386,7 +1386,7 @@ public class TestSuiteGenerator {
             LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
                     + "Coverage analysis ran out of memory partway through; "
                     + "keeping whatever coverage numbers were already tracked");
-            CoverageCriteriaAnalyzer.recordCoverageAnalysisIncompleteFromCaller();
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
         } finally {
             Properties.CRITERION = originalCriteria;
         }
@@ -1446,7 +1446,7 @@ public class TestSuiteGenerator {
         JUnitAnalyzer.resetMemoryExhaustion();
 
         if (isMemoryTooLowForPhase("JUnit check")) {
-            JUnitAnalyzer.recordCheckIncompleteFromCaller(
+            JUnitAnalyzer.recordCheckIncomplete(
                     "skipped the whole JUnit check phase due to low memory");
             return;
         }
@@ -1462,7 +1462,7 @@ public class TestSuiteGenerator {
 
         // note: compiling and running JUnit tests can be very time consuming
         if (!TimeController.getInstance().isThereStillTimeInThisPhase()) {
-            JUnitAnalyzer.recordCheckIncompleteFromCaller(
+            JUnitAnalyzer.recordCheckIncomplete(
                     "JUnit check phase budget expired before any check could run");
             Properties.USE_SEPARATE_CLASSLOADER = junitSeparateClassLoader;
             return;
@@ -1507,7 +1507,7 @@ public class TestSuiteGenerator {
                 break;
             }
             if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                JUnitAnalyzer.recordCheckIncompleteFromCaller(
+                JUnitAnalyzer.recordCheckIncomplete(
                         "ran out of time before finishing the per-test JUnit checks; "
                                 + (testCases.size() - checkedInSingleTestChecks + removedInSingleTestChecks)
                                 + " test(s) left unchecked");
@@ -1549,7 +1549,7 @@ public class TestSuiteGenerator {
                 numUnstable += JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
                 suiteRunMs = Math.min(suiteRunMs, java.lang.System.currentTimeMillis() - suiteCheckStart);
             } else {
-                JUnitAnalyzer.recordCheckIncompleteFromCaller("ran out of time before the whole-suite JUnit check");
+                JUnitAnalyzer.recordCheckIncomplete("ran out of time before the whole-suite JUnit check");
             }
         }
 
@@ -1628,7 +1628,7 @@ public class TestSuiteGenerator {
             if (ownGuardTrippedNow) {
                 // Only this branch is unrecorded elsewhere: it is this generator-level guard's own
                 // JVM-free-memory reading, independent of anything JUnitAnalyzer observed.
-                JUnitAnalyzer.recordCheckIncompleteFromCaller(
+                JUnitAnalyzer.recordCheckIncomplete(
                         "low free JVM memory during JUnit check; skipping " + what + " and all later checks");
             }
         }
@@ -1639,7 +1639,7 @@ public class TestSuiteGenerator {
         if (hasTimeForWholeSuiteCheck(delta)) {
             return JUnitAnalyzer.handleTestsThatAreUnstable(testCases);
         }
-        JUnitAnalyzer.recordCheckIncompleteFromCaller("ran out of time before the reverse-order JUnit check");
+        JUnitAnalyzer.recordCheckIncomplete("ran out of time before the reverse-order JUnit check");
         return 0;
     }
 
@@ -1660,7 +1660,7 @@ public class TestSuiteGenerator {
 
         if (!TimeController.getInstance().hasTimeToExecuteATestCase()
                 || !TimeController.getInstance().isThereStillTimeInThisPhase(delta)) {
-            JUnitAnalyzer.recordCheckIncompleteFromCaller(
+            JUnitAnalyzer.recordCheckIncomplete(
                     "ran out of time before the extension initialization order could be resolved");
             return Collections.emptyList();
         }
@@ -1678,7 +1678,7 @@ public class TestSuiteGenerator {
         if (!hasTimeForOrderSensitivityAnalysis(suiteRunMs)) {
             logger.warn("Skipping order-sensitivity analysis: less than twice its expected cost of {} ms "
                     + "left in the JUnit check phase", orderSensitivityAnalysisCostMs(suiteRunMs));
-            JUnitAnalyzer.recordCheckIncompleteFromCaller(
+            JUnitAnalyzer.recordCheckIncomplete(
                     "skipped the order-sensitivity analysis for lack of time");
             return Collections.emptyList();
         }

@@ -1480,23 +1480,6 @@ public abstract class JUnitAnalyzer {
         return INCOMPLETE_CHECK_ROUNDS;
     }
 
-    /**
-     * Records, from outside this class, that a JUnit check round was abandoned before this
-     * analyzer was even reached: the generator skipped the whole phase for low memory, its
-     * phase time budget expired, its per-test loop exited early for lack of time, it skipped an
-     * order/reverse-order probe for lack of time, or its memory guard tripped independently of
-     * any check performed here. Has the same effect as this analyzer's own internal give-up call
-     * sites: the suite (and the untouched tests) is kept regardless, but the incompleteness still
-     * reaches {@link RuntimeVariable#JUnit_Check_Incomplete} and
-     * {@link RuntimeVariable#JUnit_Check_Incomplete_Rounds} instead of being invisible outside the
-     * log.
-     *
-     * @param reason short description of what was abandoned, for the debug log
-     */
-    public static void recordCheckIncompleteFromCaller(String reason) {
-        recordCheckIncomplete(reason);
-    }
-
     /** Resets the recorded check-incompleteness state and publishes the cleared baseline. */
     private static void resetCheckIncompleteness() {
         CHECK_INCOMPLETE = false;
@@ -1511,9 +1494,14 @@ public abstract class JUnitAnalyzer {
      * (or the specific tests involved) is kept — that decision is made at each call site, same as
      * before this method existed.
      *
+     * <p>Also called by {@code TestSuiteGenerator} for the rounds abandoned before this analyzer is
+     * reached at all — the phase skipped for low memory, its time budget expired, its per-test loop
+     * exited early, an order probe skipped, or its memory guard tripped. Those exits used to be
+     * invisible outside the log, which is indistinguishable from a validated suite.
+     *
      * @param reason short description of what was abandoned, for the debug log
      */
-    private static void recordCheckIncomplete(String reason) {
+    public static void recordCheckIncomplete(String reason) {
         INCOMPLETE_CHECK_ROUNDS++;
         CHECK_INCOMPLETE = true;
         logger.debug("Recording JUnit check as incomplete: {}", reason);

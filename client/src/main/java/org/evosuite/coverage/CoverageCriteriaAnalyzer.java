@@ -426,25 +426,16 @@ public class CoverageCriteriaAnalyzer {
      * Marks the overall analysis sweep incomplete without adding to the checked/total goal
      * tally, for the case where a whole criterion is skipped before its goals are even counted
      * (the per-criteria loop in {@link #analyzeCoverage(TestSuiteChromosome)} ran out of time).
+     *
+     * <p>Also called by {@code TestSuiteGenerator} when its own outer time guard skips the sweep
+     * before {@link #analyzeCoverage(TestSuiteChromosome)} is reached, and when a criterion throws
+     * an uncaught {@link OutOfMemoryError} partway through — earlier criteria may already have
+     * published {@link RuntimeVariable#CoverageAnalysisComplete} as {@code true}, so a consumer
+     * would otherwise see {@code true} for a sweep that did not finish.
      */
-    private static void markCoverageAnalysisIncomplete() {
+    public static void markCoverageAnalysisIncomplete() {
         coverageAnalysisComplete = false;
         trackCoverageAnalysisProgress();
-    }
-
-    /**
-     * Records, from outside this class, that the coverage-analysis sweep was abandoned without
-     * this analyzer itself ever observing a budget exit: either the caller's own outer time guard
-     * skipped the whole sweep before calling {@link #analyzeCoverage(TestSuiteChromosome)} at all,
-     * or a criterion threw an uncaught {@link OutOfMemoryError} partway through, leaving that
-     * criterion's goals never counted even though earlier criteria may already have published
-     * {@link RuntimeVariable#CoverageAnalysisComplete} as {@code true}. Same effect as
-     * {@link #markCoverageAnalysisIncomplete()}: the goal tallies are left untouched, but the
-     * completeness marker is republished as {@code false} so a consumer cannot see {@code true}
-     * for a sweep that did not actually finish.
-     */
-    public static void recordCoverageAnalysisIncompleteFromCaller() {
-        markCoverageAnalysisIncomplete();
     }
 
     private static void trackCoverageAnalysisProgress() {
