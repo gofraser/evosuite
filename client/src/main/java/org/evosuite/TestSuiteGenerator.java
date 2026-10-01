@@ -683,6 +683,21 @@ public class TestSuiteGenerator {
             for (TestFitnessFunction goal : test.getTestCase().getCoveredGoals()) {
                 container.getTestCase().addCoveredGoal(goal);
             }
+            // isPrefix(candidate) only matches when test's statement i equals
+            // candidate's statement i for every i < test.size(), so the dropped
+            // test's statements line up one-to-one with the surviving test's
+            // leading statements; addAssertions(TestCase) walks the same shared
+            // range and copies across positions it finds, skipping assertions
+            // already present (the same machinery TestSuiteWriter#insertTest and
+            // TestSuiteMinimizer use to merge prefixes). LLM/seed tests carry
+            // oracles the assertion phase never regenerates, so without this
+            // they are lost outright when the shorter test is discarded below.
+            //
+            // Presentation metadata (test names, comments, section breaks) is
+            // not merged here: it is only ever attached by the LLM post-processing
+            // phase, which runs after this method in the pipeline, so there is
+            // never anything on either test case to carry over at this point.
+            container.getTestCase().addAssertions(test.getTestCase());
             prefixes.add(test);
         }
         if (prefixes.isEmpty()) {

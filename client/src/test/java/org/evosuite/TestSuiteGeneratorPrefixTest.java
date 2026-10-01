@@ -19,6 +19,8 @@
  */
 package org.evosuite;
 
+import org.evosuite.assertion.Assertion;
+import org.evosuite.assertion.PrimitiveAssertion;
 import org.evosuite.coverage.line.LineCoverageTestFitness;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.TestChromosome;
@@ -59,6 +61,13 @@ class TestSuiteGeneratorPrefixTest {
         return new LineCoverageTestFitness("Foo", "bar()V", line);
     }
 
+    private static void addPrimitiveAssertion(TestChromosome test, int position, int value) {
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        assertion.setSource(test.getTestCase().getStatement(position).getReturnValue());
+        assertion.setValue(value);
+        test.getTestCase().getStatement(position).addAssertion(assertion);
+    }
+
     @Test
     void prefixesAreMergedIntoTheTestThatContainsThem() {
         TestChromosome longer = test(1, 2, 3);
@@ -86,6 +95,68 @@ class TestSuiteGeneratorPrefixTest {
         assertTrue(longer.getTestCase().getCoveredGoals().containsAll(
                 java.util.Arrays.asList(goal(1), goal(2), goal(3))));
         assertEquals(4, suite.getCoveredGoals().size());
+    }
+
+    @Test
+    void prefixAssertionsSurviveOnTheMergedTest() {
+        // The review's reproduction: a short test with one assertion, and a longer
+        // test without any. Before the fix, removing the prefix also discarded its
+        // only assertion; the merged test must keep it, at the same position.
+        TestChromosome prefix = test(1);
+        addPrimitiveAssertion(prefix, 0, 1);
+        TestChromosome longer = test(1, 2);
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(prefix);
+        suite.addTest(longer);
+
+        new TestSuiteGenerator().removePrefixTests(suite);
+
+        assertEquals(1, suite.size());
+        assertSame(longer, suite.getTestChromosome(0));
+        assertEquals(1, longer.getTestCase().getStatement(0).getAssertions().size());
+        Assertion merged = longer.getTestCase().getStatement(0).getAssertions().iterator().next();
+        assertEquals(1, merged.getValue());
+        assertEquals(0, longer.getTestCase().getStatement(1).getAssertions().size());
+    }
+
+    @Test
+    void duplicateAssertionsAreNotAddedTwice() {
+        // Both tests already carry an equal assertion at the shared position;
+        // addAssertions' existing contains() guard must stop a second copy.
+        TestChromosome prefix = test(1);
+        addPrimitiveAssertion(prefix, 0, 1);
+        TestChromosome longer = test(1, 2);
+        addPrimitiveAssertion(longer, 0, 1);
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(prefix);
+        suite.addTest(longer);
+
+        new TestSuiteGenerator().removePrefixTests(suite);
+
+        assertEquals(1, suite.size());
+        assertEquals(1, longer.getTestCase().getStatement(0).getAssertions().size());
+    }
+
+    @Test
+    void prefixAssertionsMergeAlongsideTheLongerTestsOwnAssertions() {
+        // The prefix's assertion sits on a statement the longer test also has, and
+        // the longer test carries further assertions beyond the prefix's length.
+        // Both sets of assertions must be present on the merged test afterward.
+        TestChromosome prefix = test(1, 2);
+        addPrimitiveAssertion(prefix, 0, 1);
+        TestChromosome longer = test(1, 2, 3);
+        addPrimitiveAssertion(longer, 2, 3);
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+        suite.addTest(prefix);
+        suite.addTest(longer);
+
+        new TestSuiteGenerator().removePrefixTests(suite);
+
+        assertEquals(1, suite.size());
+        assertSame(longer, suite.getTestChromosome(0));
+        assertEquals(1, longer.getTestCase().getStatement(0).getAssertions().size());
+        assertEquals(0, longer.getTestCase().getStatement(1).getAssertions().size());
+        assertEquals(1, longer.getTestCase().getStatement(2).getAssertions().size());
     }
 
     @Test
