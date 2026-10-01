@@ -1129,8 +1129,10 @@ public class TestSuiteGenerator {
                     retainedAssertionSource == null ? assertionSource : retainedAssertionSource);
             if (useProcessedAssertions) {
                 structural.addAssertions(assertionSource);
+                structural.setUnstable(structural.isUnstable() || assertionSource.isUnstable());
             } else if (fallbackSource != null && fallbackSource.size() == structural.size()) {
                 structural.addAssertions(fallbackSource);
+                structural.setUnstable(structural.isUnstable() || fallbackSource.isUnstable());
                 logger.info("Restoring replay test {} with its baseline mutation assertions after "
                         + "hybrid oracle validation rejected the LLM-processed oracle", index);
             } else if (retained.contains(assertionSource)) {

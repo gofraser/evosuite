@@ -60,6 +60,18 @@ class TestSuiteGeneratorReplayTest {
     }
 
     @Test
+    void restoringReplayStructurePreservesUnstableVerdict() {
+        TestSuiteChromosome suite = suiteWithValue(7);
+        TestSuiteGenerator.ReplayStructureSnapshot snapshot =
+                TestSuiteGenerator.ReplayStructureSnapshot.capture(suite);
+        suite.getTestChromosome(0).getTestCase().setUnstable(true);
+
+        TestSuiteGenerator.restoreReplayStructure(suite, snapshot);
+
+        assertTrue(suite.getTestChromosome(0).getTestCase().isUnstable());
+    }
+
+    @Test
     void hybridRestoreRetainsMutationAssertionsWhenLlmOracleIsRejected() {
         TestSuiteChromosome suite = suiteWithValue(7);
         TestCase mutationSource = suite.getTestChromosome(0).getTestCase();
