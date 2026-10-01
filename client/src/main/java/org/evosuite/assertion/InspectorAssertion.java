@@ -99,7 +99,7 @@ public class InspectorAssertion extends Assertion {
         } else if (value.getClass().equals(String.class)) {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + "." + inspector.getMethodCall() + "());";
-        } else if (value.getClass().isEnum()) {
+        } else if (NumberFormatter.isEnum(value)) {
             return EnumAssertionCodeRenderer.getEnumAssertionCode(value,
                     source.getName() + "." + inspector.getMethodCall() + "()");
 

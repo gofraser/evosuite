@@ -43,7 +43,7 @@ public class PrimitiveAssertion extends Assertion {
         } else if (source.getVariableClass().equals(double.class)) {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
-        } else if (value.getClass().isEnum()) {
+        } else if (NumberFormatter.isEnum(value)) {
             return EnumAssertionCodeRenderer.getEnumAssertionCode(value, source.getName());
         } else if (source.isWrapperType()) {
             if (source.getVariableClass().equals(Float.class)) {
@@ -52,7 +52,7 @@ public class PrimitiveAssertion extends Assertion {
             } else if (source.getVariableClass().equals(Double.class)) {
                 return "assertEquals(" + NumberFormatter.getNumberString(value)
                         + ", (double)" + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
-            } else if (value.getClass().isEnum()) {
+            } else if (NumberFormatter.isEnum(value)) {
                 return EnumAssertionCodeRenderer.getEnumAssertionCode(value, source.getName());
             } else {
                 return "assertEquals(" + NumberFormatter.getNumberString(value) + ", ("

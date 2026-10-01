@@ -894,11 +894,8 @@ public class TestCodeVisitor extends TestVisitor {
             stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
                     + getVariableName(source) + ", "
                     + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
-        } else if (value.getClass().isEnum()) {
-            stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + getVariableName(source) + ");";
-            // Make sure the enum is imported in the JUnit test
-            getClassName(value.getClass());
+        } else if (NumberFormatter.isEnum(value)) {
+            stmt += EnumAssertionCodeRenderer.getEnumAssertionCode(value, getVariableName(source), this);
         } else if (source.getVariableClass().equals(boolean.class) || source.getVariableClass().equals(Boolean.class)) {
             Boolean flag;
             if (value instanceof Boolean) {
@@ -936,9 +933,8 @@ public class TestCodeVisitor extends TestVisitor {
                 stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this)
                         + ", (double)" + getVariableName(source) + ", "
                         + NumberFormatter.getNumberString(Properties.DOUBLE_PRECISION, this) + ");";
-            } else if (value.getClass().isEnum()) {
-                stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this)
-                        + ", " + getVariableName(source) + ");";
+            } else if (NumberFormatter.isEnum(value)) {
+                stmt += EnumAssertionCodeRenderer.getEnumAssertionCode(value, getVariableName(source), this);
             } else {
                 stmt += "assertEquals(" + NumberFormatter.getNumberString(value, this)
                         + ", (" + NumberFormatter.getBoxedClassName(value) + ")"
@@ -1137,11 +1133,9 @@ public class TestCodeVisitor extends TestVisitor {
         } else if (value.getClass().equals(String.class)) {
             testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", ");
             testCode.append(inspectorTarget + "." + inspector.getMethodCall() + "());");
-        } else if (value.getClass().isEnum() || value instanceof Enum) {
-            testCode.append("assertEquals(" + NumberFormatter.getNumberString(value, this) + ", "
-                    + inspectorTarget + "." + inspector.getMethodCall() + "());");
-            // Make sure the enum is imported in the JUnit test
-            getClassName(value.getClass());
+        } else if (NumberFormatter.isEnum(value)) {
+            testCode.append(EnumAssertionCodeRenderer.getEnumAssertionCode(value,
+                    inspectorTarget + "." + inspector.getMethodCall() + "()", this));
 
         } else if (value.getClass().equals(boolean.class) || value.getClass().equals(Boolean.class)) {
             if ((Boolean) value) {

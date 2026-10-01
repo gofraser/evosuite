@@ -36,6 +36,38 @@ public class NumberFormatter {
     }
 
     /**
+     * Decides whether {@code value} is an enum constant, for the purpose of
+     * routing it to the enum-specific assertion/rendering code.
+     *
+     * <p>This is simply {@code value instanceof Enum}. An earlier form of this
+     * check, {@code value.getClass().isEnum() || value instanceof Enum}, also
+     * tested {@code getClass().isEnum()}, but that clause is dead: a value for
+     * which it is true is necessarily an instance of a class declared as an
+     * {@code enum}, which always extends {@link Enum}, so
+     * {@code value instanceof Enum} already holds. The converse is where
+     * {@code getClass().isEnum()} actually fails -- an enum constant with its
+     * own constant-specific class body (e.g. one overriding a method, such as
+     * {@code java.util.concurrent.TimeUnit}'s constants) has an anonymous
+     * subclass as its runtime class, for which {@code isEnum()} is false --
+     * which is exactly the case {@code instanceof} is needed for. So the
+     * combined expression reduces to {@code instanceof} alone.
+     *
+     * <p>Two other sites in the codebase still use the narrower,
+     * {@code isEnum()}-only check and deliberately do not call this method:
+     * {@code TestCodeVisitor#visitPrimitiveFieldAssertion} (a field assertion
+     * never had an enum-specific branch to begin with) and
+     * {@code Assertion#changeClassLoader} (reattaching an enum constant across
+     * a classloader, not rendering code). Both are pre-existing behaviour and
+     * out of scope here.
+     *
+     * @param value the value to check, possibly {@code null}
+     * @return {@code true} if {@code value} is an enum constant
+     */
+    public static boolean isEnum(Object value) {
+        return value instanceof Enum;
+    }
+
+    /**
      * <p>
      * getNumberString.
      * </p>
@@ -118,11 +150,7 @@ public class NumberFormatter {
             } else {
                 return "" + val;
             }
-        } else if (value.getClass().isEnum() || value instanceof Enum) {
-            // java.util.concurrent.TimeUnit is an example where the enum
-            // elements are anonymous inner classes, and then isEnum does
-            // not return true apparently? So we check using instanceof as well.
-
+        } else if (isEnum(value)) {
             String className;
             Class<?> enumClass = value.getClass();
             if (enumClass.isAnonymousClass()) {

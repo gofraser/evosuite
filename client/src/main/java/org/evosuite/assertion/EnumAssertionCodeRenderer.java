@@ -25,11 +25,17 @@ import org.evosuite.utils.NumberFormatter;
 /**
  * Renders an {@code assertEquals} comparing a known enum constant against the
  * generated-test expression that is expected to yield it. Shared by
- * {@link PrimitiveAssertion} and {@link InspectorAssertion}, whose enum handling
- * is otherwise identical except for how they compute {@code actualExpression}
- * (a bare variable name versus an inspector-method call on one).
+ * {@link PrimitiveAssertion} and {@link InspectorAssertion} (via the
+ * visitor-less {@link #getEnumAssertionCode(Object, String)}) and by
+ * {@link TestCodeVisitor}'s own {@code visitPrimitiveAssertion}/
+ * {@code visitInspectorAssertion} (via
+ * {@link #getEnumAssertionCode(Object, String, TestCodeVisitor)}), whose enum
+ * handling is otherwise identical except for how they compute
+ * {@code actualExpression} (a bare variable name versus an inspector-method
+ * call on one) and whether a {@link TestCodeVisitor} is available to track
+ * imports and resolve naming conflicts.
  */
-final class EnumAssertionCodeRenderer {
+public final class EnumAssertionCodeRenderer {
 
     private EnumAssertionCodeRenderer() {
     }
@@ -75,14 +81,53 @@ final class EnumAssertionCodeRenderer {
      *                         value
      * @return the rendered {@code assertEquals} statement
      */
-    static String getEnumAssertionCode(Object value, String actualExpression) {
+    public static String getEnumAssertionCode(Object value, String actualExpression) {
+        return getEnumAssertionCode(value, actualExpression, null);
+    }
+
+    /**
+     * As {@link #getEnumAssertionCode(Object, String)}, but also given the
+     * {@link TestCodeVisitor} rendering the surrounding test, when one is
+     * available (callers outside a visitor pass, i.e. {@link PrimitiveAssertion}
+     * and {@link InspectorAssertion}'s own {@code getCode()}, pass {@code null}
+     * and get identical behaviour to the two-argument overload).
+     *
+     * <p>In the nameable branch, the visitor -- when given -- is threaded into
+     * {@link NumberFormatter#getNumberString(Object, TestCodeVisitor)} exactly
+     * as {@code TestCodeVisitor}'s own (now-removed) direct calls did, so
+     * {@code TestCodeVisitor}'s richer, import-aware, conflict-resolving
+     * naming is unchanged for every case it already handled. That internal
+     * import registration is itself too conservative to rely on alone,
+     * though: {@link NumberFormatter}'s referenceability check for it
+     * blanket-rejects any nested class (the same deliberately-conservative
+     * check {@code .class} literals use, see
+     * {@link TestCodeVisitor#isEnumConstantNameableInGeneratedTest}'s javadoc),
+     * so it never fires for a nested enum regardless of visibility. Without an
+     * explicit follow-up {@link TestCodeVisitor#getClassName(Class)} call
+     * here, a nameable <em>nested</em> enum constant (public or
+     * package-accessible, with or without a constant-specific class body)
+     * would render a correct-looking {@code Outer.Inner.CONSTANT} reference
+     * whose {@code Outer} import was never registered -- compiling only by
+     * accident, if some other statement in the same test happened to need
+     * {@code Outer} too.
+     *
+     * @param visitor the enclosing visitor, or {@code null} outside a visitor pass
+     */
+    public static String getEnumAssertionCode(Object value, String actualExpression, TestCodeVisitor visitor) {
         Class<?> enumClass = value.getClass();
         if (enumClass.isAnonymousClass()) {
             enumClass = enumClass.getEnclosingClass();
         }
         if (TestCodeVisitor.isEnumConstantNameableInGeneratedTest(enumClass)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
+            String rendered = "assertEquals(" + NumberFormatter.getNumberString(value, visitor) + ", "
                     + actualExpression + ");";
+            if (visitor != null) {
+                // Make sure the enum (and its enclosing classes, if nested) is
+                // imported in the JUnit test -- see the note above on why this
+                // cannot be left to NumberFormatter alone.
+                visitor.getClassName(enumClass);
+            }
+            return rendered;
         }
         return "assertEquals(" + NumberFormatter.getNumberString(((Enum<?>) value).name()) + ", "
                 + "((Enum<?>) " + actualExpression + ").name());";
