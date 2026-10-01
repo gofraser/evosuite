@@ -22,6 +22,7 @@ package org.evosuite.testcase;
 import com.examples.with.different.packagename.AbstractEnumInInnerClass;
 import com.examples.with.different.packagename.AbstractEnumUser;
 import com.examples.with.different.packagename.AccessExamples;
+import com.examples.with.different.packagename.ClassWithPublicField;
 import com.examples.with.different.packagename.EnumInInnerClass;
 import com.examples.with.different.packagename.PackagePrivateNestedConstructorExample;
 import com.examples.with.different.packagename.PrivateNestedReflectiveConstructorExample;
@@ -58,6 +59,7 @@ import org.evosuite.testcase.variable.ConstantValue;
 import org.evosuite.testcase.variable.FieldReference;
 import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testcase.variable.VariableReferenceImpl;
 import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericField;
@@ -87,6 +89,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Vector;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -2688,6 +2692,245 @@ public class TestCodeVisitorTest {
             assertFalse(code.contains("(Object) constructor"), "Must not cast to Object:\n" + code);
         } finally {
             Properties.CLASS_PREFIX = oldClassPrefix;
+        }
+    }
+
+    /*
+     * visitAssignmentStatement declaration-decision matrix.
+     *
+     * TestCodeVisitor#visitAssignmentStatement decides whether to print a type
+     * declaration for its target by asking whether that target was already a
+     * registered key in declarationVariableNames (see getDeclarationVariableName),
+     * rather than comparing an unrelated signal (the old retval.getStPosition() ==
+     * statement.getPosition() check) that can disagree with what actually got
+     * written to that registry. The following tests pin both failure directions:
+     * too few declarations (an identifier used but never declared, the original
+     * SF110 bug) and too many (a duplicate declaration, the residual risk of the
+     * fix itself).
+     */
+
+    /**
+     * Scans generated code for a plain, untyped assignment line ({@code name =
+     * value;}) whose target identifier was never introduced with a type on an
+     * earlier line (nor on that same line). This is the strongest form of the
+     * regression guard for the SF110 bug: it does not merely check one specific
+     * rendering, it checks that nothing anywhere in the generated method is used
+     * as an assignment target without first being declared.
+     */
+    private static void assertNoUndeclaredAssignmentTargets(String code) {
+        Set<String> declaredIdentifiers = new java.util.HashSet<>();
+        Pattern typedDeclaration = Pattern.compile(
+                "^[A-Za-z_][\\w.<>\\[\\], ]*[ >\\]]([A-Za-z_]\\w*)\\s*=[^=].*;$");
+        Pattern plainAssignment = Pattern.compile("^([A-Za-z_]\\w*)\\s*=[^=].*;$");
+        for (String rawLine : code.split("\n")) {
+            String line = rawLine.trim();
+            if (line.isEmpty()) {
+                continue;
+            }
+            Matcher typed = typedDeclaration.matcher(line);
+            if (typed.matches()) {
+                declaredIdentifiers.add(typed.group(1));
+                continue;
+            }
+            Matcher plain = plainAssignment.matcher(line);
+            if (plain.matches()) {
+                String name = plain.group(1);
+                assertTrue(declaredIdentifiers.contains(name),
+                        "Identifier '" + name + "' is used as an assignment target but was "
+                                + "never declared with a type anywhere earlier:\n" + code);
+            }
+        }
+    }
+
+    @Test
+    public void testAssignmentStatementDeclaresTypeOnFirstVariableIntroduction() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        ConstructorStatement sourceStatement = new ConstructorStatement(
+                tc,
+                new GenericConstructor(ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class),
+                Collections.<VariableReference>emptyList());
+        VariableReference source = tc.addStatement(sourceStatement);
+
+        // A variable reference that has never appeared as the return value of any
+        // earlier statement: this is the "first assignment introduces the variable"
+        // case.
+        VariableReference target = new VariableReferenceImpl(tc, ClassWithPublicField.class);
+        tc.addStatement(new AssignmentStatement(tc, target, source));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String targetName = visitor.getVariableName(target);
+
+        String declarationLine = "ClassWithPublicField " + targetName + " = ";
+        int firstIndex = code.indexOf(declarationLine);
+        assertTrue(firstIndex >= 0, "Expected a typed declaration for the new variable:\n" + code);
+        assertEquals(firstIndex, code.lastIndexOf(declarationLine),
+                "Expected the type declaration to appear exactly once:\n" + code);
+    }
+
+    @Test
+    public void testAssignmentStatementReassignmentOmitsTypeAndKeepsOriginalName() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        GenericConstructor ctor = new GenericConstructor(
+                ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class);
+        VariableReference source1 = tc.addStatement(
+                new ConstructorStatement(tc, ctor, Collections.<VariableReference>emptyList()));
+        VariableReference source2 = tc.addStatement(
+                new ConstructorStatement(tc, ctor, Collections.<VariableReference>emptyList()));
+
+        VariableReference target = new VariableReferenceImpl(tc, ClassWithPublicField.class);
+        tc.addStatement(new AssignmentStatement(tc, target, source1));
+        tc.addStatement(new AssignmentStatement(tc, target, source2));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String targetName = visitor.getVariableName(target);
+        String source2Name = visitor.getVariableName(source2);
+
+        String typedDeclaration = "ClassWithPublicField " + targetName + " = ";
+        String plainReassignment = targetName + " = " + source2Name + ";";
+
+        assertTrue(code.contains(typedDeclaration), "Expected the first use to declare the type:\n" + code);
+        assertTrue(code.contains(plainReassignment),
+                "Expected the reassignment to reuse the same identifier with no type:\n" + code);
+        assertFalse(code.contains("ClassWithPublicField " + plainReassignment),
+                "Reassignment must not repeat the type declaration:\n" + code);
+    }
+
+    @Test
+    public void testAssignmentStatementFieldReferenceTargetStaysUndeclared() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference holder = tc.addStatement(new ConstructorStatement(
+                tc,
+                new GenericConstructor(ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class),
+                Collections.<VariableReference>emptyList()));
+        StringPrimitiveStatement value = new StringPrimitiveStatement(tc, "updated");
+        tc.addStatement(value);
+
+        java.lang.reflect.Field yField = ClassWithPublicField.class.getDeclaredField("y");
+        FieldReference yReference = new FieldReference(tc, new GenericField(yField, ClassWithPublicField.class), holder);
+        tc.addStatement(new AssignmentStatement(tc, yReference, value.getReturnValue()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String holderName = visitor.getVariableName(holder);
+        String valueName = visitor.getVariableName(value.getReturnValue());
+
+        assertTrue(code.contains(holderName + ".y = " + valueName + ";"),
+                "Expected a direct, undeclared field write:\n" + code);
+        assertFalse(code.contains("ClassWithPublicField " + holderName + ".y"),
+                "Field reference targets must never carry a type declaration:\n" + code);
+    }
+
+    @Test
+    public void testAssignmentStatementArrayIndexTargetStaysUndeclared() {
+        TestCase tc = new DefaultTestCase();
+        ArrayStatement arrayStatement = new ArrayStatement(tc, int[].class, 3);
+        tc.addStatement(arrayStatement);
+        IntPrimitiveStatement valueStatement = new IntPrimitiveStatement(tc, 7);
+        tc.addStatement(valueStatement);
+
+        ArrayIndex index = new ArrayIndex(tc, arrayStatement.getArrayReference(), 0);
+        tc.addStatement(new AssignmentStatement(tc, index, valueStatement.getReturnValue()));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+        String arrayName = visitor.getVariableName(arrayStatement.getArrayReference());
+        String valueName = visitor.getVariableName(valueStatement.getReturnValue());
+
+        assertTrue(code.contains(arrayName + "[0] = " + valueName + ";"),
+                "Expected a direct, undeclared array write:\n" + code);
+        assertFalse(code.contains("int " + arrayName + "[0]"),
+                "Array index targets must never carry a type declaration:\n" + code);
+    }
+
+    /**
+     * Reproduces the SF110 {@code RegistryAwareMBeanServer} bug: an assignment
+     * target whose own cached {@link VariableReference#getStPosition()} disagrees
+     * with where it is actually used when rendering this test case (simulated here
+     * with a VariableReference minted against a different, throwaway TestCase,
+     * standing in for a stale/cloned reference), alongside two other statements
+     * (a real object and a functional mock) of the same type so that a
+     * position-based recovery of the identity would be ambiguous. Old code decided
+     * "needs a type" from the stale position and got it wrong, printing a freshly
+     * minted name with no declaration anywhere. The fix decides from the same
+     * declarationVariableNames registry that minted the name, so the two can never
+     * disagree.
+     */
+    @Test
+    public void testAssignmentStatementWithStaleRetvalPositionStillDeclaresType() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference realObject = tc.addStatement(new ConstructorStatement(
+                tc,
+                new GenericConstructor(ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class),
+                Collections.<VariableReference>emptyList()));
+        FunctionalMockStatement mockStatement = new FunctionalMockStatement(
+                tc, ClassWithPublicField.class, GenericClassFactory.get(ClassWithPublicField.class));
+        tc.addStatement(mockStatement);
+
+        TestCase staleOwner = new DefaultTestCase();
+        VariableReference orphanRetval = staleOwner.addStatement(new ConstructorStatement(
+                staleOwner,
+                new GenericConstructor(ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class),
+                Collections.<VariableReference>emptyList()));
+        assertEquals(0, orphanRetval.getStPosition());
+
+        tc.addStatement(new AssignmentStatement(tc, orphanRetval, realObject));
+
+        TestCodeVisitor visitor = new TestCodeVisitor();
+        tc.accept(visitor);
+        String code = visitor.getCode();
+
+        assertNoUndeclaredAssignmentTargets(code);
+    }
+
+    /**
+     * The constructor visitor pre-declares a retval above a try block
+     * ({@code Type var = null;}) when the call can throw, then assigns the result
+     * inside the try with a plain, type-free assignment
+     * (visitConstructorStatement's {@code declarationPrefix = ""} path). A later,
+     * ordinary AssignmentStatement that targets the same already-declared variable
+     * must not print a second type declaration: that is the "too many
+     * declarations" failure mode the fix must avoid.
+     */
+    @Test
+    public void testAssignmentStatementAfterTryCatchPreDeclaredRetvalDoesNotDuplicateDeclaration() throws Exception {
+        boolean oldCatchUndeclared = Properties.CATCH_UNDECLARED_EXCEPTIONS;
+        Properties.CATCH_UNDECLARED_EXCEPTIONS = true;
+        try {
+            TestCase tc = new DefaultTestCase();
+            GenericConstructor ctor = new GenericConstructor(
+                    ClassWithPublicField.class.getDeclaredConstructor(), ClassWithPublicField.class);
+            ConstructorStatement ctorStatement = new ConstructorStatement(
+                    tc, ctor, Collections.<VariableReference>emptyList());
+            VariableReference instance = tc.addStatement(ctorStatement);
+            VariableReference replacement = tc.addStatement(
+                    new ConstructorStatement(tc, ctor, Collections.<VariableReference>emptyList()));
+            tc.addStatement(new AssignmentStatement(tc, instance, replacement));
+
+            TestCodeVisitor visitor = new TestCodeVisitor();
+            visitor.setExceptions(Collections.singletonMap(
+                    ctorStatement.getPosition(), new RuntimeException("boom")));
+            tc.accept(visitor);
+            String code = visitor.getCode();
+            String instanceName = visitor.getVariableName(instance);
+
+            String declarationLine = "ClassWithPublicField " + instanceName + " = null;";
+            assertTrue(code.contains(declarationLine),
+                    "Expected the constructor path to pre-declare above the try block:\n" + code);
+            assertTrue(code.contains("try {"), "Expected a try block:\n" + code);
+
+            long declarationCount = Pattern.compile(Pattern.quote("ClassWithPublicField " + instanceName))
+                    .matcher(code).results().count();
+            assertEquals(1, declarationCount,
+                    "Variable must be declared exactly once, including by the later reassignment:\n" + code);
+            assertNoUndeclaredAssignmentTargets(code);
+        } finally {
+            Properties.CATCH_UNDECLARED_EXCEPTIONS = oldCatchUndeclared;
         }
     }
 }

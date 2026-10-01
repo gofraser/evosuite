@@ -4929,6 +4929,14 @@ public class TestCodeVisitor extends TestVisitor {
     public void visitAssignmentStatement(AssignmentStatement statement) {
         String cast = "";
         VariableReference retval = statement.getReturnValue();
+        // Resolve once and reuse the same registry for both the naming and the
+        // declaration decision below. getDeclarationVariableName mints a name AND
+        // registers it as a side effect, so whether the normalized reference was
+        // already a key in declarationVariableNames must be captured before that
+        // call runs, not re-derived afterwards from something unrelated (e.g.
+        // retval.getStPosition()) that can disagree with what actually got written.
+        VariableReference normalizedRetval = normalizeVariableReference(retval);
+        boolean alreadyNamed = declarationVariableNames.containsKey(normalizedRetval);
         String declarationVarName = getDeclarationVariableName(retval);
         VariableReference parameter = statement.getValue();
 
@@ -4991,20 +4999,22 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
 
-        // If this assignment statement introduces a new variable (i.e., the retval is
-        // "owned" by this statement), we need to include the type declaration.
-        // For reassignments to existing variables, field references, or array indices,
-        // we omit the type since the variable was already declared.
+        // If this assignment statement introduces a new variable (i.e., declarationVarName
+        // was not already a registered name for the normalized retval), we need to include
+        // the type declaration. For reassignments to already-named variables, field
+        // references, or array indices, we omit the type since the variable was already
+        // declared. This is derived from the same declarationVariableNames registry that
+        // getDeclarationVariableName above just consulted/wrote, rather than from an
+        // unrelated signal like retval.getStPosition(), which can disagree with it when
+        // retval failed to resolve to its canonical defining-statement reference.
         boolean needsTypeDeclaration = !(retval instanceof FieldReference)
                 && !(retval instanceof ArrayIndex)
-                && retval.getStPosition() == statement.getPosition();
+                && !alreadyNamed;
 
         if (needsTypeDeclaration) {
             testCode.append(getClassName(retval) + " ");
-            testCode.append(declarationVarName);
-        } else {
-            testCode.append(getVariableName(retval));
         }
+        testCode.append(declarationVarName);
         testCode.append(" = " + cast + getVariableName(parameter)
                 + ";" + NEWLINE);
         addAssertions(statement);
