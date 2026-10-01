@@ -41,6 +41,22 @@ import static org.mockito.Mockito.when;
 
 class LlmPoolEnrichmentOrchestratorTest {
 
+    /**
+     * Upper bound for "returned promptly instead of waiting for the slow dependency".
+     *
+     * <p>Every slow dependency in this class either never completes or sleeps 30 seconds, so any
+     * bound comfortably under 30s discriminates a prompt return from a blocking one just as well
+     * as a tight one does. It is deliberately loose because the original 1-5s bounds measured the
+     * machine rather than the orchestrator: a full-suite run with parallel forks took 12087ms here
+     * while the log confirmed the orchestrator had correctly cancelled at its 1s deadline. That is
+     * a starved test JVM, not a regression, and a test that fails on an unrelated build's CPU
+     * contention trains people to ignore it.
+     *
+     * <p>The behavioural assertions next to each of these bounds -- that the slow future is still
+     * pending, or was cancelled -- are the real checks; the clock only rules out having blocked.
+     */
+    private static final long PROMPT_RETURN_MS = 20_000L;
+
     private Properties.LlmProvider savedProvider;
     private boolean savedEnrichConstants;
     private boolean savedEnrichObjects;
@@ -145,7 +161,9 @@ class LlmPoolEnrichmentOrchestratorTest {
         orchestrator.enrichPools("com.example.Foo", null);
         long elapsed = System.currentTimeMillis() - start;
 
-        assertTrue(elapsed < 5000, "Orchestrator should respect timeout, took " + elapsed + "ms");
+        assertTrue(elapsed < PROMPT_RETURN_MS,
+                "Orchestrator should respect its 1s timeout rather than wait for the 30s enricher, "
+                        + "took " + elapsed + "ms");
     }
 
     @Test
@@ -168,7 +186,9 @@ class LlmPoolEnrichmentOrchestratorTest {
         orchestrator.finishStructuralEnrichment();
         long elapsed = System.currentTimeMillis() - start;
 
-        assertTrue(elapsed < 1000, "finishStructuralEnrichment should not block on data enrichment");
+        assertTrue(elapsed < PROMPT_RETURN_MS,
+                "finishStructuralEnrichment should not block on data enrichment, took "
+                        + elapsed + "ms");
         assertFalse(neverCompletes.isDone());
         assertFalse(neverCompletes.isCancelled());
     }
@@ -315,7 +335,8 @@ class LlmPoolEnrichmentOrchestratorTest {
         long elapsed = System.currentTimeMillis() - start;
 
         // enrichPools returns without waiting for data enrichment
-        assertTrue(elapsed < 2000, "enrichPools should not block on data enrichment");
+        assertTrue(elapsed < PROMPT_RETURN_MS,
+                "enrichPools should not block on data enrichment, took " + elapsed + "ms");
         assertFalse(slowConstant.isDone());
         assertFalse(slowObject.isDone());
     }
@@ -421,7 +442,8 @@ class LlmPoolEnrichmentOrchestratorTest {
         orchestrator.awaitAll(1);
         long elapsed = System.currentTimeMillis() - start;
 
-        assertTrue(elapsed < 3000, "awaitAll should respect timeout");
+        assertTrue(elapsed < PROMPT_RETURN_MS,
+                "awaitAll should respect its 1s timeout, took " + elapsed + "ms");
         assertTrue(neverCompletes.isCancelled(), "awaitAll should cancel timed-out futures");
     }
 
