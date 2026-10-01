@@ -19,32 +19,51 @@
  */
 package org.evosuite.utils.generic;
 
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.FileObject;
+import javax.tools.ForwardingJavaFileManager;
 import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.SimpleJavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.OutputStream;
+import java.io.StringWriter;
 import java.io.UncheckedIOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Comparator;
-import java.util.stream.Stream;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
- * Shared scratch-directory lifecycle for the handful of tests in this project that ground a
- * behavioural verdict in an actual {@code javac} compile of a throwaway probe class, rather than
- * this test's own reasoning about the JLS (see {@link GenericAssignabilityMatrixTest},
- * {@link ClassLiteralVarianceTest} and {@code ClassLiteralRawPathCompileTest}). Those tests used
- * to each inline the same "write a temp source file, run the system compiler against it,
- * check the exit code" boilerplate, and -- since none of them deleted the directory -- each
- * compile left its scratch directory behind; {@code GenericAssignabilityMatrixTest} alone runs
- * this twice per case across 163 cases, so that is hundreds of orphaned directories per run.
+ * Shared, in-memory {@code javac} compile for the handful of tests in this project that ground a
+ * behavioural verdict in an actual compile of a throwaway probe class, rather than this test's own
+ * reasoning about the JLS (see {@link GenericAssignabilityMatrixTest}, {@link ClassLiteralVarianceTest}
+ * and {@code ClassLiteralRawPathCompileTest}). Those tests used to each inline the same "write a temp
+ * source file, run the system compiler against it, check the exit code" boilerplate, and -- since none
+ * of them deleted the directory -- each compile left its scratch directory behind;
+ * {@code GenericAssignabilityMatrixTest} alone runs this twice per case across 163 cases, so that was
+ * hundreds of orphaned directories per run.
  *
- * <p>This class owns that directory for the caller: it creates a fresh one per call, uses it for
- * both the probe source and the compiled output (there is nothing else to clean up), and removes
- * it again in a {@code finally} block before returning -- compile success and compile failure are
- * both ordinary, expected outcomes here, not exceptional ones that would excuse skipping cleanup.
+ * <p>Nothing here touches disk at all, so there is nothing to orphan:
+ * <ul>
+ *     <li>the probe source is handed to {@code javac} as an in-memory {@link JavaFileObject}, never
+ *     written to a file;</li>
+ *     <li>compiled class output is discarded as it is produced, by a {@link JavaFileObject} whose
+ *     output stream throws nothing away but also keeps nothing -- none of this project's
+ *     javac-grounded tests load the compiled classes back, they only inspect the exit code and
+ *     stderr, so there is nothing worth keeping;</li>
+ *     <li>the {@link JavaCompiler} and the {@link StandardJavaFileManager} that resolves
+ *     {@code java.class.path} are each built exactly once, for the lifetime of the JVM, rather than
+ *     once per call -- re-resolving every classpath entry (jars included) per compile was most of the
+ *     per-call cost once the disk I/O above was removed, and {@code JavaCompiler.getTask} is designed
+ *     to be reused across many compiles.</li>
+ * </ul>
  */
 public final class JavacScratchCompiler {
 
@@ -62,59 +81,130 @@ public final class JavacScratchCompiler {
         }
     }
 
+    private static final JavaCompiler COMPILER = ToolProvider.getSystemJavaCompiler();
+
+    /**
+     * Wraps the compiler's own {@link StandardJavaFileManager} so that class output is discarded
+     * instead of written to disk. The underlying {@code StandardJavaFileManager} is what actually
+     * resolves {@code java.class.path} (set once, below, rather than re-parsed per call), and is
+     * closed by a shutdown hook rather than per call, since this is shared across every caller in
+     * the JVM, which may span several independent JUnit test classes with no single shared
+     * {@code @AfterAll}.
+     */
+    private static final DiscardingOutputFileManager FILE_MANAGER = buildFileManager();
+
+    private static DiscardingOutputFileManager buildFileManager() {
+        if (COMPILER == null) {
+            return null;
+        }
+        StandardJavaFileManager standard = COMPILER.getStandardFileManager(null, null, StandardCharsets.UTF_8);
+        try {
+            String classpath = System.getProperty("java.class.path");
+            List<File> entries = new ArrayList<>();
+            for (String entry : classpath.split(File.pathSeparator)) {
+                if (!entry.isEmpty()) {
+                    entries.add(new File(entry));
+                }
+            }
+            standard.setLocation(StandardLocation.CLASS_PATH, entries);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        DiscardingOutputFileManager wrapped = new DiscardingOutputFileManager(standard);
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            try {
+                wrapped.close();
+            } catch (IOException ignored) {
+                // Best-effort cleanup on JVM exit: nothing downstream can act on this any more.
+            }
+        }, "JavacScratchCompiler-shutdown"));
+        return wrapped;
+    }
+
     /**
      * Compiles {@code source} (which must declare a single top-level class named
-     * {@code className}) against the current test classpath, in a private temporary directory
-     * created under {@code scratchPrefix} and deleted again before this method returns.
+     * {@code className}) against the current test classpath, entirely in memory.
      *
-     * @param scratchPrefix a {@link Files#createTempDirectory} prefix identifying the caller, so
-     *                       that any directory which does somehow survive (eg the JVM being
-     *                       killed mid-test) is still easy to trace back to its source
+     * @param scratchPrefix a label identifying the caller, folded into the in-memory source's URI
+     *                       purely so that any javac diagnostic naming it is easy to trace back to
+     *                       its source (no directory is created under it any more)
      * @param className      the probe class's name, matching what {@code source} declares
      * @param source         the complete, self-contained Java source of the probe class
      * @return whether the compile succeeded, and its stderr output
      */
     public static Result compile(String scratchPrefix, String className, String source) {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
+        if (COMPILER == null) {
             throw new IllegalStateException("a system Java compiler is required to run this test");
         }
 
-        Path tempDir = null;
-        try {
-            tempDir = Files.createTempDirectory(scratchPrefix);
-            Path sourceFile = tempDir.resolve(className + ".java");
-            Files.write(sourceFile, source.getBytes(StandardCharsets.UTF_8));
+        JavaFileObject sourceFile = new InMemorySource(scratchPrefix, className, source);
+        StringWriter extraOutput = new StringWriter();
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 
-            ByteArrayOutputStream err = new ByteArrayOutputStream();
-            String classpath = System.getProperty("java.class.path");
-            int result = compiler.run(null, null, new PrintStream(err, true, StandardCharsets.UTF_8),
-                    "-classpath", classpath,
-                    "-d", tempDir.toString(),
-                    sourceFile.toString());
+        JavaCompiler.CompilationTask task = COMPILER.getTask(
+                extraOutput,
+                FILE_MANAGER,
+                diagnostics,
+                null,
+                null,
+                Collections.singletonList(sourceFile));
 
-            return new Result(result == 0, err.toString(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        } finally {
-            if (tempDir != null) {
-                deleteRecursively(tempDir);
-            }
+        boolean success = task.call();
+
+        StringBuilder err = new StringBuilder(extraOutput.toString());
+        for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+            err.append(diagnostic).append('\n');
+        }
+        return new Result(success, err.toString());
+    }
+
+    /** An in-memory probe source, so nothing is ever written to disk. */
+    private static final class InMemorySource extends SimpleJavaFileObject {
+        private final String source;
+
+        InMemorySource(String scratchPrefix, String className, String source) {
+            super(URI.create("string:///" + scratchPrefix + "/" + className + ".java"), Kind.SOURCE);
+            this.source = source;
+        }
+
+        @Override
+        public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+            return source;
         }
     }
 
-    private static void deleteRecursively(Path root) {
-        try (Stream<Path> paths = Files.walk(root)) {
-            paths.sorted(Comparator.reverseOrder()).forEach(p -> {
-                try {
-                    Files.deleteIfExists(p);
-                } catch (IOException ignored) {
-                    // Best-effort cleanup: a leftover file here is orphaned scratch noise,
-                    // not a reason to fail the test that actually exercised the compiler.
+    /**
+     * Forwards everything except class output (classpath/platform resolution, in particular) to
+     * the real {@link StandardJavaFileManager}, but hands back a {@link DiscardedOutput} for every
+     * compiled class instead of a real file -- so output is never materialised on disk and there is
+     * no per-call scratch directory to clear or delete.
+     */
+    private static final class DiscardingOutputFileManager extends ForwardingJavaFileManager<StandardJavaFileManager> {
+        DiscardingOutputFileManager(StandardJavaFileManager fileManager) {
+            super(fileManager);
+        }
+
+        @Override
+        public JavaFileObject getJavaFileForOutput(Location location, String className, JavaFileObject.Kind kind,
+                FileObject sibling) {
+            return new DiscardedOutput(className, kind);
+        }
+    }
+
+    /** A compiled-class sink that keeps nothing: see {@link DiscardingOutputFileManager}. */
+    private static final class DiscardedOutput extends SimpleJavaFileObject {
+        DiscardedOutput(String className, Kind kind) {
+            super(URI.create("string:///" + className.replace('.', '/') + kind.extension), kind);
+        }
+
+        @Override
+        public OutputStream openOutputStream() {
+            return new OutputStream() {
+                @Override
+                public void write(int b) {
+                    // Discarded: nothing downstream reads compiled output back.
                 }
-            });
-        } catch (IOException ignored) {
-            // Best-effort cleanup; see above.
+            };
         }
     }
 }

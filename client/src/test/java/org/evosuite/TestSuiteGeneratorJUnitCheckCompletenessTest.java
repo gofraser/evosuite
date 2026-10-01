@@ -20,6 +20,7 @@
 package org.evosuite;
 
 import org.evosuite.junit.JUnitAnalyzer;
+import org.evosuite.junit.JUnitAnalyzerTestSupport;
 import org.evosuite.llm.postprocess.LlmPostProcessingPhaseContext;
 import org.evosuite.rmi.service.ClientState;
 import org.evosuite.statistics.RuntimeVariable;
@@ -32,7 +33,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -93,8 +93,8 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         // Simulate a reused JVM where an earlier, unrelated check round already left the
         // flag/counter dirty. The fix resets this *before* the preflight can return, so the
         // skip below must be recorded as exactly one fresh give-up, not seven stale ones plus one.
-        setJUnitAnalyzerFlag("CHECK_INCOMPLETE", true);
-        setJUnitAnalyzerIntField("INCOMPLETE_CHECK_ROUNDS", 7);
+        JUnitAnalyzerTestSupport.setFlag("CHECK_INCOMPLETE", true);
+        JUnitAnalyzerTestSupport.setIntField("INCOMPLETE_CHECK_ROUNDS", 7);
 
         // threshold = 2 * MIN_FREE_MEM can never be exceeded by actual free heap (which is itself
         // bounded above by maxMemory), so this deterministically trips the preflight regardless
@@ -114,7 +114,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
     @Test
     public void phaseBudgetExpiredBeforeAnyCheckRecordsIncomplete() throws Exception {
         Properties.MIN_FREE_MEM = 0;
-        forceNoTimeLeftInJUnitCheckPhase();
+        JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
 
         TestSuiteChromosome suite = suiteWithOneTrivialTest();
 
@@ -221,7 +221,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
 
     @Test
     public void checkAllTestsIfTimeSkipRecordsIncomplete() throws Exception {
-        forceNoTimeLeftInJUnitCheckPhase();
+        JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
         List<TestCase> tests = new ArrayList<>();
         tests.add(trivialTestCase());
 
@@ -237,7 +237,7 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         Properties.TEST_FORMAT = Properties.OutputFormat.JUNIT5;
         Properties.TEST_EXTENSION_MODE = true;
         Properties.RESET_STATIC_FIELDS = true;
-        forceNoTimeLeftInJUnitCheckPhase();
+        JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
 
         List<TestCase> tests = new ArrayList<>();
         tests.add(trivialTestCase());
@@ -308,22 +308,6 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
         return testCase;
     }
 
-    /**
-     * Gives the JUnit-check phase a zero-length timeout and enters it, so that
-     * {@code TimeController.getInstance().hasTimeToExecuteATestCase()} (and even the weaker
-     * {@code isThereStillTimeInThisPhase()}) is false from the first call onward, without
-     * sleeping or mocking. Mirrors {@code JUnitAnalyzerCheckIncompleteTest}'s identical helper.
-     */
-    private static void forceNoTimeLeftInJUnitCheckPhase() {
-        Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXTIME;
-        Properties.JUNIT_CHECK_TIMEOUT = 0;
-        TimeController.resetSingleton();
-        TimeController.getInstance().updateState(ClientState.STARTED);
-        TimeController.getInstance().updateState(ClientState.JUNIT_CHECK);
-        assertFalse(TimeController.getInstance().hasTimeToExecuteATestCase(),
-                "test setup must actually exhaust the phase budget");
-    }
-
     private static void invokeCompileAndCheckTests(TestSuiteChromosome suite) throws Exception {
         Method m = TestSuiteGenerator.class.getDeclaredMethod(
                 "compileAndCheckTests", TestSuiteChromosome.class, LlmPostProcessingPhaseContext.class);
@@ -353,18 +337,6 @@ public class TestSuiteGeneratorJUnitCheckCompletenessTest {
                 "resolveExtensionInitializationOrderIfNeeded", List.class, long.class, long.class);
         m.setAccessible(true);
         return (List<String>) m.invoke(null, tests, delta, suiteRunMs);
-    }
-
-    private static void setJUnitAnalyzerFlag(String fieldName, boolean value) throws Exception {
-        Field field = JUnitAnalyzer.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(null, value);
-    }
-
-    private static void setJUnitAnalyzerIntField(String fieldName, int value) throws Exception {
-        Field field = JUnitAnalyzer.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(null, value);
     }
 
 }

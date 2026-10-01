@@ -19,15 +19,7 @@
  */
 package org.evosuite.assertion;
 
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.PrintStream;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import org.evosuite.utils.generic.JavacScratchCompiler;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,7 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Compiles a single rendered assertion statement, so assertion-rendering tests
  * fail the way a generated test suite actually would -- at javac time -- rather
  * than merely string-matching rendered code that is never compiled and so could
- * be invalid Java.
+ * be invalid Java. Delegates the actual compile (and, since it used to leak one
+ * scratch directory per call, the lack of any cleanup to delegate) to
+ * {@link JavacScratchCompiler}, which compiles entirely in memory.
  */
 final class GeneratedAssertionCompileCheck {
 
@@ -69,9 +63,6 @@ final class GeneratedAssertionCompileCheck {
      * @param imports extra {@code import ...;} lines, or {@code ""} for none
      */
     static void assertCompiles(String packageName, String imports, String declaration, String assertionStatement) {
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        assertTrue(compiler != null, "a system Java compiler is required to run this test");
-
         String className = "GeneratedAssertionSnippet" + System.nanoTime();
         StringBuilder source = new StringBuilder();
         if (!packageName.isEmpty()) {
@@ -89,22 +80,10 @@ final class GeneratedAssertionCompileCheck {
                 .append("    }\n")
                 .append("}\n");
 
-        try {
-            Path tempDir = Files.createTempDirectory("evosuite-enum-assertion-compile");
-            Path sourceFile = tempDir.resolve(className + ".java");
-            Files.write(sourceFile, source.toString().getBytes(StandardCharsets.UTF_8));
+        JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
+                "evosuite-enum-assertion-compile", className, source.toString());
 
-            ByteArrayOutputStream err = new ByteArrayOutputStream();
-            String classpath = System.getProperty("java.class.path");
-            int result = compiler.run(null, null, new PrintStream(err, true, StandardCharsets.UTF_8),
-                    "-classpath", classpath,
-                    "-d", tempDir.toString(),
-                    sourceFile.toString());
-
-            assertTrue(result == 0, "Generated assertion did not compile:\n" + source
-                    + "\n" + err.toString(StandardCharsets.UTF_8));
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+        assertTrue(result.success, "Generated assertion did not compile:\n" + source
+                + "\n" + result.stderr);
     }
 }

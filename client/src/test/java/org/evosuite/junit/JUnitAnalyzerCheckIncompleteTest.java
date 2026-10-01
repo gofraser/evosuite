@@ -24,7 +24,6 @@ import org.evosuite.Properties;
 import org.evosuite.TimeController;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeImpl;
-import org.evosuite.rmi.service.ClientState;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.symbolic.TestCaseBuilder;
@@ -88,8 +87,8 @@ public class JUnitAnalyzerCheckIncompleteTest {
 
     @Test
     public void resetMemoryExhaustionClearsCheckIncompletenessAndTracksFalseBaseline() throws Exception {
-        setFlag("CHECK_INCOMPLETE", true);
-        setIntField("INCOMPLETE_CHECK_ROUNDS", 5);
+        JUnitAnalyzerTestSupport.setFlag("CHECK_INCOMPLETE", true);
+        JUnitAnalyzerTestSupport.setIntField("INCOMPLETE_CHECK_ROUNDS", 5);
 
         CapturingClientNode node = installCapturingClientNode();
         JUnitAnalyzer.resetMemoryExhaustion();
@@ -180,7 +179,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
         List<TestCase> tests = new ArrayList<>();
         tests.add(compilingTestCase());
 
-        forceNoTimeLeftInJUnitCheckPhase();
+        JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
 
         assertFalse(JUnitAnalyzer.isCheckIncomplete());
         JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
@@ -196,7 +195,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
         List<TestCase> tests = new ArrayList<>();
         tests.add(compilingTestCase());
 
-        forceNoTimeLeftInJUnitCheckPhase();
+        JUnitAnalyzerTestSupport.forceNoTimeLeftInJUnitCheckPhase();
 
         assertFalse(JUnitAnalyzer.isCheckIncomplete());
         int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
@@ -257,33 +256,6 @@ public class JUnitAnalyzerCheckIncompleteTest {
         } catch (NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
-    }
-
-    /**
-     * Gives the JUnit-check phase a zero-length timeout and enters it, so that
-     * {@code TimeController.getInstance().hasTimeToExecuteATestCase()} is false from the first
-     * call onward, without sleeping or mocking.
-     */
-    private static void forceNoTimeLeftInJUnitCheckPhase() {
-        Properties.STOPPING_CONDITION = Properties.StoppingCondition.MAXTIME;
-        Properties.JUNIT_CHECK_TIMEOUT = 0;
-        TimeController.resetSingleton();
-        TimeController.getInstance().updateState(ClientState.STARTED);
-        TimeController.getInstance().updateState(ClientState.JUNIT_CHECK);
-        assertFalse(TimeController.getInstance().hasTimeToExecuteATestCase(),
-                "test setup must actually exhaust the phase budget");
-    }
-
-    private static void setFlag(String fieldName, boolean value) throws Exception {
-        Field field = JUnitAnalyzer.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(null, value);
-    }
-
-    private static void setIntField(String fieldName, int value) throws Exception {
-        Field field = JUnitAnalyzer.class.getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(null, value);
     }
 
     private static void invokeRecordCheckIncomplete(String reason) throws Exception {
