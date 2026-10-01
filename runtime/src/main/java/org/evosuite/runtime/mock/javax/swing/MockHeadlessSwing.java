@@ -51,6 +51,7 @@ import javax.swing.text.BadLocationException;
 import javax.swing.JColorChooser;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.UndoableEditListener;
+import java.awt.AWTError;
 import java.awt.AWTException;
 import java.awt.Button;
 import java.awt.Component;
@@ -61,6 +62,7 @@ import java.awt.DefaultKeyboardFocusManager;
 import java.awt.Dialog;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.HeadlessException;
 import java.awt.Frame;
 import java.awt.GraphicsEnvironment;
 import java.awt.GraphicsConfiguration;
@@ -1621,6 +1623,44 @@ public final class MockHeadlessSwing {
     }
 
     /**
+     * Replacement for {@code Container.remove(Component)}. The symmetric case to
+     * {@link #replacement_containerAdd(Container, Component)}: {@code Container.remove} reads
+     * {@code comp.parent} exactly as {@code addImpl} does, so a component the mock layer replaced
+     * with {@code null} blows up here too. 102_squirrel-sql's ButtonTabComponent does
+     * {@code remove(null)} and threw on all ten seeds of the SF110 replication.
+     *
+     * @param source source container
+     * @param comp component to remove
+     */
+    public static void replacement_containerRemove(Container source, Component comp) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (isMockedAwayComponent(comp)) {
+            // The add was skipped for this null, so there is nothing to take out again.
+            return;
+        }
+        source.remove(comp);
+    }
+
+    /**
+     * Generic replacement for {@code remove(Component)}.
+     *
+     * @param source source object
+     * @param comp component to remove
+     */
+    public static void replacement_removeComponentGeneric(Object source, Component comp) {
+        if (source == null) {
+            throw new NullPointerException();
+        }
+        if (source instanceof Container) {
+            replacement_containerRemove((Container) source, comp);
+            return;
+        }
+        invokeRemoveComponentReflective(source, comp);
+    }
+
+    /**
      * Generic replacement for {@code add(String, Component)}.
      *
      * @param source source object
@@ -1782,10 +1822,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
-            return;
-        }
-        source.addTab(title, component);
+        addOrDegrade(() -> {
+            source.addTab(title, component);
+            return component;
+        }, component);
     }
 
     /**
@@ -1796,10 +1836,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
-            return;
-        }
-        source.addTab(title, icon, component);
+        addOrDegrade(() -> {
+            source.addTab(title, icon, component);
+            return component;
+        }, component);
     }
 
     /**
@@ -1810,10 +1850,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
-            return;
-        }
-        source.addTab(title, icon, component, tip);
+        addOrDegrade(() -> {
+            source.addTab(title, icon, component, tip);
+            return component;
+        }, component);
     }
 
     /**
@@ -1824,10 +1864,62 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
-            return;
+        addOrDegrade(() -> {
+            source.insertTab(title, icon, component, tip, index);
+            return component;
+        }, component);
+    }
+
+    /**
+     * Adding a component to a container is bookkeeping: it needs no native peer and works under
+     * {@code java.awt.headless=true}. Skipping it while GUI mocking is on left the container and
+     * the component inconsistent, and the next call that reads the tree failed - 10_water-simulator's
+     * ProgressGui does {@code mainPanel.add(tab1, null)} and then
+     * {@code mainPanel.setSelectedComponent(tab1)}, which threw "component not found in tabbed pane"
+     * on every seed. So do the real work and only fall back to the previous no-op if the environment
+     * really refuses it.
+     *
+     * @param add       the real add call
+     * @param mocked    what to return when a headless environment refuses the call
+     * @return the result of the real call, or {@code mocked}
+     */
+    private static <T> T addOrDegrade(java.util.function.Supplier<T> add, T mocked) {
+        try {
+            return add.get();
+        } catch (HeadlessException | AWTError e) {
+            // HeadlessException is how AWT/Swing normally report "no display"; AWTError is
+            // what Toolkit throws when it cannot create a native peer. Both are environment
+            // refusals, which is what this method exists to paper over.
+            //
+            // Nothing else is caught here. In particular an AssertionError, LinkageError or
+            // ExceptionInInitializerError can reach this call from inside a SUT override of
+            // addImpl/insertTab/etc (Container and JTabbedPane invoke those virtually), and
+            // those are real SUT failures, not a headless refusal - swallowing them would
+            // turn a genuine defect into apparent success. A ThreadDeath (EvoSuite
+            // force-stopping a wedged test thread) or a VirtualMachineError (the SUT
+            // exhausted the JVM) are likewise real outcomes, not ours to hide; they were
+            // never caught here even before this needed to be more selective.
+            if (!isGuiMockingEnabled()) {
+                throw e;
+            }
+            logger.debug("Headless environment refused a container add; leaving it out", e);
+            return mocked;
         }
-        source.insertTab(title, icon, component, tip, index);
+    }
+
+    /**
+     * The AWT constructor replacements hand back {@code null} for a heavyweight component in a
+     * headless environment ({@link #replacement_newLabel(String)} and its siblings), so a rewritten
+     * container add can be handed a null the SUT never created. {@code Container.addImpl}
+     * dereferences it and the NullPointerException escapes whatever the SUT was building. There is
+     * nothing to add, so skip the call instead. {@code JTabbedPane.addTab}/{@code insertTab} are
+     * deliberately not covered: a null component is legal there and still adds a tab.
+     *
+     * @param comp the component the SUT is adding
+     * @return whether the mock layer, not the SUT, is the source of this null
+     */
+    private static boolean isMockedAwayComponent(Component comp) {
+        return comp == null && isGuiMockingEnabled();
     }
 
     /**
@@ -1841,10 +1933,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return comp;
         }
-        return source.add(comp);
+        return addOrDegrade(() -> source.add(comp), comp);
     }
 
     /**
@@ -1859,10 +1951,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return comp;
         }
-        return source.add(name, comp);
+        return addOrDegrade(() -> source.add(name, comp), comp);
     }
 
     /**
@@ -1877,10 +1969,10 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return comp;
         }
-        return source.add(comp, index);
+        return addOrDegrade(() -> source.add(comp, index), comp);
     }
 
     /**
@@ -1894,10 +1986,13 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return;
         }
-        source.add(comp, constraints);
+        addOrDegrade(() -> {
+            source.add(comp, constraints);
+            return comp;
+        }, comp);
     }
 
     /**
@@ -1912,10 +2007,13 @@ public final class MockHeadlessSwing {
         if (source == null) {
             throw new NullPointerException();
         }
-        if (isGuiMockingEnabled()) {
+        if (isMockedAwayComponent(comp)) {
             return;
         }
-        source.add(comp, constraints, index);
+        addOrDegrade(() -> {
+            source.add(comp, constraints, index);
+            return comp;
+        }, comp);
     }
 
     /**
@@ -2479,6 +2577,20 @@ public final class MockHeadlessSwing {
             throw new IllegalArgumentException("No add(Component) on " + source.getClass().getName(), e);
         } catch (IllegalAccessException e) {
             throw new IllegalStateException("Cannot access add(Component) on " + source.getClass().getName(), e);
+        }
+    }
+
+    private static void invokeRemoveComponentReflective(Object source, Component comp) {
+        try {
+            Method method = source.getClass().getMethod("remove", Component.class);
+            method.invoke(source, comp);
+        } catch (InvocationTargetException e) {
+            rethrowCause(e);
+        } catch (NoSuchMethodException e) {
+            throw new IllegalArgumentException("No remove(Component) on " + source.getClass().getName(), e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalStateException("Cannot access remove(Component) on "
+                    + source.getClass().getName(), e);
         }
     }
 

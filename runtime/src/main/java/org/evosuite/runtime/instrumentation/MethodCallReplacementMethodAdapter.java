@@ -289,6 +289,19 @@ public class MethodCallReplacementMethodAdapter extends GeneratorAdapter {
         }
 
         if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
+                && "remove".equals(name)
+                && "(Ljava/awt/Component;)V".equals(desc)
+                && isSwingAwtOrAppOwner(owner)) {
+            super.visitMethodInsn(Opcodes.INVOKESTATIC,
+                    PackageInfo.getNameWithSlash(org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing.class),
+                    "replacement_removeComponentGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/Component;)V",
+                    false);
+            hasBeenInstrumented = true;
+            isReplaced = true;
+        }
+
+        if (!isReplaced && opcode == Opcodes.INVOKEVIRTUAL
                 && "add".equals(name)
                 && "(Ljava/awt/Component;)Ljava/awt/Component;".equals(desc)
                 && isSwingAwtOrAppOwner(owner)) {

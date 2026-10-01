@@ -110,8 +110,13 @@ public class MockHeadlessSwingAwtCtorTest {
         Assertions.assertNull(MockHeadlessSwing.replacement_newDefaultKeyboardFocusManager());
     }
 
+    /**
+     * These replacements used to drop the component on the floor while mocking was on. Adding
+     * needs no native peer, and a container that silently stays empty breaks the SUT's next call
+     * (see MockHeadlessSwingContainerAddTest), so the add now really happens.
+     */
     @Test
-    public void containerAddReplacementsNoOpWhenMockingEnabled() {
+    public void containerAddReplacementsAddWhenMockingEnabled() {
         PlainContainer container = new PlainContainer();
         PlainComponent component = new PlainComponent();
 
@@ -121,7 +126,9 @@ public class MockHeadlessSwingAwtCtorTest {
         Assertions.assertDoesNotThrow(() -> MockHeadlessSwing.replacement_containerAdd(container, component, "north"));
         Assertions.assertDoesNotThrow(
                 () -> MockHeadlessSwing.replacement_containerAdd(container, component, "north", 0));
-        Assertions.assertEquals(0, container.getComponentCount());
+        // the same component added repeatedly moves rather than duplicating, as in real AWT
+        Assertions.assertEquals(1, container.getComponentCount());
+        Assertions.assertSame(component, container.getComponent(0));
     }
 
 }

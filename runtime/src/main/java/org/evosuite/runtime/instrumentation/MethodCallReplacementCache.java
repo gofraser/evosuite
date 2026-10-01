@@ -313,6 +313,10 @@ public class MethodCallReplacementCache {
                     "(Ljava/awt/Component;Ljava/lang/Object;I)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_addComponentConstraintsIndexGeneric",
                     "(Ljava/lang/Object;Ljava/awt/Component;Ljava/lang/Object;I)V", false, false));
+            addReplacementCall(new MethodCallReplacement("java/awt/Container", "remove",
+                    "(Ljava/awt/Component;)V", Opcodes.INVOKEVIRTUAL,
+                    headlessSwing, "replacement_removeComponentGeneric",
+                    "(Ljava/lang/Object;Ljava/awt/Component;)V", false, false));
             addReplacementCall(new MethodCallReplacement("javax/swing/JTabbedPane", "addTab",
                     "(Ljava/lang/String;Ljava/awt/Component;)V", Opcodes.INVOKEVIRTUAL,
                     headlessSwing, "replacement_addTabTitleComponentGeneric",
