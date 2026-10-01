@@ -21,7 +21,6 @@ package org.evosuite.assertion;
 
 import org.evosuite.Properties;
 import org.evosuite.testcase.TestCase;
-import org.evosuite.testcase.TestCodeVisitor;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.utils.NumberFormatter;
@@ -45,7 +44,7 @@ public class PrimitiveAssertion extends Assertion {
             return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
                     + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
         } else if (value.getClass().isEnum()) {
-            return getEnumAssertionCode(source.getName());
+            return EnumAssertionCodeRenderer.getEnumAssertionCode(value, source.getName());
         } else if (source.isWrapperType()) {
             if (source.getVariableClass().equals(Float.class)) {
                 return "assertEquals(" + NumberFormatter.getNumberString(value)
@@ -54,7 +53,7 @@ public class PrimitiveAssertion extends Assertion {
                 return "assertEquals(" + NumberFormatter.getNumberString(value)
                         + ", (double)" + source.getName() + ", " + Properties.DOUBLE_PRECISION + ");";
             } else if (value.getClass().isEnum()) {
-                return getEnumAssertionCode(source.getName());
+                return EnumAssertionCodeRenderer.getEnumAssertionCode(value, source.getName());
             } else {
                 return "assertEquals(" + NumberFormatter.getNumberString(value) + ", ("
                         + NumberFormatter.getBoxedClassName(value) + ")"
@@ -65,40 +64,6 @@ public class PrimitiveAssertion extends Assertion {
                     + source.getName() + ");";
         }
 
-    }
-
-    /**
-     * Renders an {@code assertEquals} comparing {@link #value} (a known enum
-     * constant) against {@code actualExpression}.
-     *
-     * <p>{@code value}'s declaring class may be a source-private nested enum (e.g.
-     * {@code jigl.image.io.ImageInputStream.ImageFileType}), whose name can never
-     * be written -- not even as {@code Type.CONSTANT} from the same package. There
-     * is no reflective escape hatch here (unlike a {@code Class} literal): the
-     * expression must denote the constant's value, not a {@code Class}. So when
-     * {@link TestCodeVisitor#isEnumConstantNameableInGeneratedTest} says the
-     * declaring class cannot be named, the comparison is rendered by name instead,
-     * comparing {@link Enum#name()} strings rather than the constants themselves.
-     * See that method's javadoc for why this uses it rather than the stricter,
-     * blanket-conservative {@code isClassLiteralReferenceableFromGeneratedTest}
-     * used for {@code .class} literals: unlike a {@code .class} literal, falling
-     * back unnecessarily here is not free, so the check needs to be accurate
-     * rather than merely safe.
-     *
-     * @param actualExpression the generated-test expression yielding the actual value
-     * @return the rendered {@code assertEquals} statement
-     */
-    private String getEnumAssertionCode(String actualExpression) {
-        Class<?> enumClass = value.getClass();
-        if (enumClass.isAnonymousClass()) {
-            enumClass = enumClass.getEnclosingClass();
-        }
-        if (TestCodeVisitor.isEnumConstantNameableInGeneratedTest(enumClass)) {
-            return "assertEquals(" + NumberFormatter.getNumberString(value) + ", "
-                    + actualExpression + ");";
-        }
-        return "assertEquals(" + NumberFormatter.getNumberString(((Enum<?>) value).name()) + ", "
-                + actualExpression + ".name());";
     }
 
     /**

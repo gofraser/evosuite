@@ -69,7 +69,127 @@ public class PrimitiveAssertionTest {
         assertion.value = activeStatus;
 
         String code = assertion.getCode();
-        assertEquals("assertEquals(\"ACTIVE\", privateNestedEnumFixture0.name());", code);
+        assertEquals("assertEquals(\"ACTIVE\", ((Enum<?>) privateNestedEnumFixture0).name());", code);
+    }
+
+    /**
+     * The exact failing case from the independent review: a private nested enum
+     * constant reached through an accessor declared to return {@code Object}. The
+     * by-name fallback must cast to {@code Enum<?>} before calling {@code name()},
+     * or the rendered assertion does not compile ({@code cannot find symbol:
+     * method name(), location: class java.lang.Object}).
+     */
+    @Test
+    public void testGetCodeForPrivateNestedEnumBehindObjectAccessorCompiles() {
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        VariableReference source = mock(VariableReference.class);
+        Object activeStatus = PrivateNestedEnumFixture.activeStatus();
+        doReturn(activeStatus.getClass()).when(source).getVariableClass();
+        when(source.getName()).thenReturn("activeStatus0");
+
+        assertion.source = source;
+        assertion.value = activeStatus;
+
+        String code = assertion.getCode();
+        GeneratedAssertionCompileCheck.assertCompiles("",
+                "Object activeStatus0 = "
+                        + "com.examples.with.different.packagename.PrivateNestedEnumFixture.activeStatus();",
+                code);
+    }
+
+    /**
+     * Same private enum constant, this time reached through an accessor already
+     * declared to return the nearest concrete, accessible enum supertype
+     * ({@code Enum}) rather than {@code Object}. The cast must still compile.
+     */
+    @Test
+    public void testGetCodeForPrivateNestedEnumBehindEnumSupertypeAccessorCompiles() {
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        VariableReference source = mock(VariableReference.class);
+        Object activeStatus = PrivateNestedEnumFixture.activeStatus();
+        doReturn(activeStatus.getClass()).when(source).getVariableClass();
+        when(source.getName()).thenReturn("activeStatus1");
+
+        assertion.source = source;
+        assertion.value = activeStatus;
+
+        String code = assertion.getCode();
+        GeneratedAssertionCompileCheck.assertCompiles("",
+                "Enum<?> activeStatus1 = (Enum<?>) "
+                        + "com.examples.with.different.packagename.PrivateNestedEnumFixture.activeStatus();",
+                code);
+    }
+
+    /**
+     * A public, top-level enum constant's {@code Type.CONSTANT} rendering must
+     * still compile (unchanged nameable branch).
+     */
+    @Test
+    public void testGetCodeForPublicTopLevelEnumCompiles() {
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        VariableReference source = mock(VariableReference.class);
+        doReturn(PureEnumFixture.class).when(source).getVariableClass();
+        when(source.getName()).thenReturn("pureEnumFixture0");
+
+        assertion.source = source;
+        assertion.value = PureEnumFixture.ONE;
+
+        String code = assertion.getCode();
+        GeneratedAssertionCompileCheck.assertCompiles("",
+                "import com.examples.with.different.packagename.PureEnumFixture;",
+                "Object pureEnumFixture0 = com.examples.with.different.packagename.PureEnumFixture.ONE;", code);
+    }
+
+    /**
+     * A public nested enum constant's {@code Type.CONSTANT} rendering must still
+     * compile (unchanged nameable branch).
+     */
+    @Test
+    public void testGetCodeForPublicNestedEnumCompiles() {
+        PrimitiveAssertion assertion = new PrimitiveAssertion();
+        VariableReference source = mock(VariableReference.class);
+        Object activeStatus = NestedEnumAccessibilityFixture.activePublicStatus();
+        doReturn(activeStatus.getClass()).when(source).getVariableClass();
+        when(source.getName()).thenReturn("nestedEnumAccessibilityFixture0");
+
+        assertion.source = source;
+        assertion.value = activeStatus;
+
+        String code = assertion.getCode();
+        GeneratedAssertionCompileCheck.assertCompiles("",
+                "import com.examples.with.different.packagename.NestedEnumAccessibilityFixture;",
+                "Object nestedEnumAccessibilityFixture0 = "
+                        + "com.examples.with.different.packagename.NestedEnumAccessibilityFixture.activePublicStatus();",
+                code);
+    }
+
+    /**
+     * A package-private nested enum constant's {@code Type.CONSTANT} rendering,
+     * from a generated test in the fixture's own package, must still compile.
+     */
+    @Test
+    public void testGetCodeForPackagePrivateNestedEnumInSamePackageCompiles() {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = NestedEnumAccessibilityFixture.class.getPackage().getName();
+        try {
+            PrimitiveAssertion assertion = new PrimitiveAssertion();
+            VariableReference source = mock(VariableReference.class);
+            Object activeStatus = NestedEnumAccessibilityFixture.activePackagePrivateStatus();
+            doReturn(activeStatus.getClass()).when(source).getVariableClass();
+            when(source.getName()).thenReturn("nestedEnumAccessibilityFixture1");
+
+            assertion.source = source;
+            assertion.value = activeStatus;
+
+            String code = assertion.getCode();
+            GeneratedAssertionCompileCheck.assertCompiles(
+                    NestedEnumAccessibilityFixture.class.getPackage().getName(),
+                    "Object nestedEnumAccessibilityFixture1 = "
+                            + "NestedEnumAccessibilityFixture.activePackagePrivateStatus();",
+                    code);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
     }
 
     /**

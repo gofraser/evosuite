@@ -37,6 +37,15 @@ public class PrivateNestedEnumFixture {
         return status;
     }
 
+    /**
+     * Same private-enum value as {@link #status()}, but declared to return
+     * {@link Enum} rather than {@link Object}: the nearest concrete, accessible
+     * supertype a source-private enum constant can be exposed as.
+     */
+    public Enum<?> statusAsEnum() {
+        return status;
+    }
+
     public static Object activeStatus() {
         return Status.ACTIVE;
     }

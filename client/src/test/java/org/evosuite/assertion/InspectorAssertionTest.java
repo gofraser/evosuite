@@ -55,7 +55,142 @@ public class InspectorAssertionTest {
         assertion.value = activeStatus;
 
         String code = assertion.getCode();
-        assertEquals("assertEquals(\"ACTIVE\", privateNestedEnumFixture0.status().name());", code);
+        assertEquals("assertEquals(\"ACTIVE\", ((Enum<?>) privateNestedEnumFixture0.status()).name());", code);
+    }
+
+    /**
+     * The exact failing case from the independent review: an inspector call on a
+     * private nested enum, declared to return {@code Object}. The by-name
+     * fallback must cast to {@code Enum<?>} before calling {@code name()}, or the
+     * rendered assertion does not compile ({@code cannot find symbol: method
+     * name(), location: class java.lang.Object}).
+     */
+    @Test
+    public void testGetCodeForPrivateNestedEnumBehindObjectAccessorCompiles() throws NoSuchMethodException {
+        InspectorAssertion assertion = new InspectorAssertion();
+        VariableReference source = mock(VariableReference.class);
+        when(source.getName()).thenReturn("fixture0");
+
+        Object activeStatus = PrivateNestedEnumFixture.activeStatus();
+        Inspector inspector = new Inspector(PrivateNestedEnumFixture.class,
+                PrivateNestedEnumFixture.class.getDeclaredMethod("status"));
+
+        assertion.source = source;
+        assertion.inspector = inspector;
+        assertion.value = activeStatus;
+
+        String code = assertion.getCode();
+        GeneratedAssertionCompileCheck.assertCompiles("",
+                "com.examples.with.different.packagename.PrivateNestedEnumFixture fixture0 = "
+                        + "new com.examples.with.different.packagename.PrivateNestedEnumFixture();",
+                code);
+    }
+
+    /**
+     * Same private enum constant, reached through an inspector method already
+     * declared to return the nearest concrete, accessible enum supertype
+     * ({@code Enum}) rather than {@code Object}. The cast must still compile.
+     */
+    @Test
+    public void testGetCodeForPrivateNestedEnumBehindEnumSupertypeAccessorCompiles() throws NoSuchMethodException {
+        InspectorAssertion assertion = new InspectorAssertion();
+        VariableReference source = mock(VariableReference.class);
+        when(source.getName()).thenReturn("fixture1");
+
+        Object activeStatus = PrivateNestedEnumFixture.activeStatus();
+        Inspector inspector = new Inspector(PrivateNestedEnumFixture.class,
+                PrivateNestedEnumFixture.class.getDeclaredMethod("statusAsEnum"));
+
+        assertion.source = source;
+        assertion.inspector = inspector;
+        assertion.value = activeStatus;
+
+        String code = assertion.getCode();
+        GeneratedAssertionCompileCheck.assertCompiles("",
+                "com.examples.with.different.packagename.PrivateNestedEnumFixture fixture1 = "
+                        + "new com.examples.with.different.packagename.PrivateNestedEnumFixture();",
+                code);
+    }
+
+    /**
+     * A public, top-level enum constant's {@code Type.CONSTANT} rendering must
+     * still compile (unchanged nameable branch).
+     */
+    @Test
+    public void testGetCodeForPublicTopLevelEnumCompiles() throws NoSuchMethodException {
+        InspectorAssertion assertion = new InspectorAssertion();
+        VariableReference source = mock(VariableReference.class);
+        when(source.getName()).thenReturn("pureEnumFixtureHolder0");
+
+        Inspector inspector = new Inspector(Object.class, Object.class.getDeclaredMethod("hashCode"));
+
+        assertion.source = source;
+        assertion.inspector = inspector;
+        assertion.value = PureEnumFixture.ONE;
+
+        String code = assertion.getCode();
+        GeneratedAssertionCompileCheck.assertCompiles("",
+                "import com.examples.with.different.packagename.PureEnumFixture;",
+                "Object pureEnumFixtureHolder0 = new Object();", code);
+    }
+
+    /**
+     * A public nested enum constant's {@code Type.CONSTANT} rendering must still
+     * compile (unchanged nameable branch).
+     */
+    @Test
+    public void testGetCodeForPublicNestedEnumCompiles() throws NoSuchMethodException {
+        InspectorAssertion assertion = new InspectorAssertion();
+        VariableReference source = mock(VariableReference.class);
+        when(source.getName()).thenReturn("nestedEnumAccessibilityFixture0");
+
+        Object activeStatus = NestedEnumAccessibilityFixture.activePublicStatus();
+        Inspector inspector = new Inspector(NestedEnumAccessibilityFixture.class,
+                NestedEnumAccessibilityFixture.class.getDeclaredMethod("publicStatus"));
+
+        assertion.source = source;
+        assertion.inspector = inspector;
+        assertion.value = activeStatus;
+
+        String code = assertion.getCode();
+        GeneratedAssertionCompileCheck.assertCompiles("",
+                "import com.examples.with.different.packagename.NestedEnumAccessibilityFixture;",
+                "com.examples.with.different.packagename.NestedEnumAccessibilityFixture "
+                        + "nestedEnumAccessibilityFixture0 = "
+                        + "new com.examples.with.different.packagename.NestedEnumAccessibilityFixture();",
+                code);
+    }
+
+    /**
+     * A package-private nested enum constant's {@code Type.CONSTANT} rendering,
+     * from a generated test in the fixture's own package, must still compile.
+     */
+    @Test
+    public void testGetCodeForPackagePrivateNestedEnumInSamePackageCompiles() throws NoSuchMethodException {
+        String oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = NestedEnumAccessibilityFixture.class.getPackage().getName();
+        try {
+            InspectorAssertion assertion = new InspectorAssertion();
+            VariableReference source = mock(VariableReference.class);
+            when(source.getName()).thenReturn("nestedEnumAccessibilityFixture1");
+
+            Object activeStatus = NestedEnumAccessibilityFixture.activePackagePrivateStatus();
+            Inspector inspector = new Inspector(NestedEnumAccessibilityFixture.class,
+                    NestedEnumAccessibilityFixture.class.getDeclaredMethod("packagePrivateStatus"));
+
+            assertion.source = source;
+            assertion.inspector = inspector;
+            assertion.value = activeStatus;
+
+            String code = assertion.getCode();
+            GeneratedAssertionCompileCheck.assertCompiles(
+                    NestedEnumAccessibilityFixture.class.getPackage().getName(),
+                    "NestedEnumAccessibilityFixture nestedEnumAccessibilityFixture1 = "
+                            + "new NestedEnumAccessibilityFixture();",
+                    code);
+        } finally {
+            Properties.CLASS_PREFIX = oldClassPrefix;
+        }
     }
 
     /**
