@@ -386,28 +386,37 @@ public class TestUsageChecker {
      * loaders actually defined the class. But a module's name is just a string the code
      * that built it chose; nothing stops a user module naming itself {@code java.fake}
      * or {@code jdk.anything} and defining a class in it, so the name prefix alone does
-     * not prove JDK provenance. We additionally require the class's defining loader to
-     * be the boot loader ({@code null}) or the platform loader ({@code
-     * ClassLoader#getPlatformClassLoader()}): those two loader identities cannot be
-     * forged by application code, so combined with the named-module check they confirm
-     * the class actually came from the running JDK's own module graph rather than from
-     * a module that merely borrowed its naming convention.
+     * not prove JDK provenance. We additionally require the class's module to be resolved
+     * into the <em>boot layer</em> ({@code Module#getLayer() == ModuleLayer.boot()}): that
+     * module graph is built once by the JVM at startup from the running JDK's own image,
+     * and an application cannot make a dynamically defined layer equal to it, so combined
+     * with the named-module check this confirms the class actually came from the running
+     * JDK's own module graph rather than from a module that merely borrowed its naming
+     * convention.
      *
-     * <p>{@code Class#getModule()} and {@code ClassLoader#getPlatformClassLoader()} are
-     * both Java 9+, and this module's main source compiles against the Java 8 API (see
-     * {@code runtime}'s own Java 8 floor, enforced on this module the same way). Both are
-     * therefore looked up reflectively via the shared {@link JavaModuleLookup}, which also
-     * backs {@code TestClusterUtils#isJdkClass} for the module half of the identical
-     * constraint; on an actual Java 8 JVM the module lookup itself fails (there is no
-     * module system yet) and this falls back to the old bootstrap-loader check, which is
-     * exactly correct there, since Java 8 has no platform loader to miss.
+     * <p>The defining loader cannot play the same role: although the boot and platform
+     * loaders can never be forged, not every genuine JDK module uses either of them. Several
+     * JDK tool modules -- {@code jdk.jdi} and {@code jdk.attach} among them -- are defined by
+     * the ordinary system/application class loader, the same loader an application's own
+     * classpath classes use, so a loader-identity check rejects those modules outright. Boot
+     * layer membership does not have this gap: it is a property of the module's resolution,
+     * not of which loader happened to define it.
+     *
+     * <p>{@code Class#getModule()} and {@code ModuleLayer#boot()} are both Java 9+, and this
+     * module's main source compiles against the Java 8 API (see {@code runtime}'s own Java 8
+     * floor, enforced on this module the same way). Both are therefore looked up reflectively
+     * via the shared {@link JavaModuleLookup}, which also backs {@code
+     * TestClusterUtils#isJdkClass} for the module half of the identical constraint; on an
+     * actual Java 8 JVM the module lookup itself fails (there is no module system yet) and
+     * this falls back to the old bootstrap-loader check, which is exactly correct there,
+     * since Java 8 has no boot layer distinction to miss.
      *
      * <p>A user class loaded the ordinary way (app class loader, classpath) is always in
      * an <em>unnamed</em> module, which fails the {@code isNamed()} check regardless of
      * its package name -- except that a {@code java.}-prefixed package is also
      * independently blocked there ({@code SecurityException: Prohibited package name}).
      * Neither restriction applies to a module built and loaded the way the spoof above
-     * does, which is why the loader check is also needed.
+     * does, which is why the boot-layer check is also needed.
      *
      * <p>This matters for the {@code USE_DEPRECATED} filter. That option exists to stop
      * us generating tests for API the project itself has deprecated, but several JDK
@@ -436,8 +445,7 @@ public class TestUsageChecker {
         if (!(name.startsWith("java.") || name.startsWith("jdk."))) {
             return false;
         }
-        ClassLoader loader = c.getClassLoader();
-        return loader == null || loader == JavaModuleLookup.platformClassLoader();
+        return JavaModuleLookup.isInBootLayer(c);
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {

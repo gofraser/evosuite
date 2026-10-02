@@ -46,40 +46,50 @@ final class JavaModuleLookup {
     private static final Method GET_MODULE;
     private static final Method IS_NAMED;
     private static final Method GET_NAME;
+    private static final Method GET_LAYER;
     private static final boolean MODULES_SUPPORTED;
-    private static final ClassLoader PLATFORM_CLASS_LOADER;
+    private static final Object BOOT_LAYER;
 
     static {
         Method getModule;
         Method isNamed;
         Method getName;
+        Method getLayer;
         try {
             getModule = Class.class.getMethod("getModule");
             Class<?> moduleClass = getModule.getReturnType();
             isNamed = moduleClass.getMethod("isNamed");
             getName = moduleClass.getMethod("getName");
+            getLayer = moduleClass.getMethod("getLayer");
         } catch (ReflectiveOperationException | RuntimeException e) {
             // No module system on this JVM (plain Java 8), or something refused to resolve.
-            // Leave all three null; every lookup will then report UNAVAILABLE below.
+            // Leave all four null; every lookup will then report UNAVAILABLE below.
             getModule = null;
             isNamed = null;
             getName = null;
+            getLayer = null;
         }
         GET_MODULE = getModule;
         IS_NAMED = isNamed;
         GET_NAME = getName;
+        GET_LAYER = getLayer;
         MODULES_SUPPORTED = GET_MODULE != null;
 
-        ClassLoader platformClassLoader;
+        Object bootLayer;
         try {
-            Method getPlatformClassLoader = ClassLoader.class.getMethod("getPlatformClassLoader");
-            platformClassLoader = (ClassLoader) getPlatformClassLoader.invoke(null);
+            // java.lang.ModuleLayer is itself Java 9+, so even naming it in a reflective
+            // Method/Class signature would not compile under this module's Java 8 release
+            // target; look the class up by name too, independently of the Module accessors
+            // above since it is resolved from a different class entirely.
+            Class<?> moduleLayerClass = Class.forName("java.lang.ModuleLayer");
+            Method boot = moduleLayerClass.getMethod("boot");
+            bootLayer = boot.invoke(null);
         } catch (ReflectiveOperationException | RuntimeException e) {
-            // Same Java 8 case as above (no such method), resolved independently of
-            // MODULES_SUPPORTED since it lives on a different class.
-            platformClassLoader = null;
+            // Same Java 8 case as above (no such class), resolved independently of
+            // MODULES_SUPPORTED.
+            bootLayer = null;
         }
-        PLATFORM_CLASS_LOADER = platformClassLoader;
+        BOOT_LAYER = bootLayer;
     }
 
     /**
@@ -169,17 +179,37 @@ final class JavaModuleLookup {
     }
 
     /**
-     * The platform class loader (Java 9+), resolved once and cached: unlike an application
-     * module's name, which a user module can fake, the identity of this loader cannot be
-     * forged by anything that did not come from the running JDK's own module graph.
-     * {@link TestUsageChecker#isPlatformClass} combines this with a named-module check so a
-     * user module cannot pass for the JDK merely by naming itself {@code java.*} or
-     * {@code jdk.*}.
+     * Whether {@code c}'s module was resolved into the boot layer -- the module graph the JVM
+     * builds once at startup from the running JDK's own image -- rather than into a layer an
+     * application created later at run time (for example via {@code
+     * ModuleLayer.defineModulesWithOneLoader}).
      *
-     * @return the platform class loader, or {@code null} if it could not be resolved (plain
-     * Java 8, where it does not exist, or the reflective lookup itself failed)
+     * <p>Unlike a module's name, which whoever builds it chooses freely, or its defining loader,
+     * which is not always the boot or platform loader even for genuine JDK modules (several JDK
+     * tool modules, such as {@code jdk.jdi} and {@code jdk.attach}, are defined by the ordinary
+     * system/application class loader, not the platform loader), membership in the boot layer
+     * cannot be forged by application code: a dynamically defined layer is never {@code equal} to
+     * {@code ModuleLayer.boot()}, even if the application reuses the system class loader as its
+     * new layer's parent. {@link TestUsageChecker#isPlatformClass} combines this with the
+     * named-module check so a user module cannot pass for the JDK merely by naming itself
+     * {@code java.*} or {@code jdk.*}.
+     *
+     * @param c the class to check
+     * @return true if {@code c}'s module is named and resolved into the boot layer
      */
-    static ClassLoader platformClassLoader() {
-        return PLATFORM_CLASS_LOADER;
+    static boolean isInBootLayer(Class<?> c) {
+        if (GET_LAYER == null || BOOT_LAYER == null) {
+            return false;
+        }
+        try {
+            Object module = GET_MODULE.invoke(c);
+            if (module == null) {
+                return false;
+            }
+            Object layer = GET_LAYER.invoke(module);
+            return BOOT_LAYER.equals(layer);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return false;
+        }
     }
 }

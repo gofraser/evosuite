@@ -54,7 +54,14 @@ import java.util.Set;
  * alone accepted any module merely <em>named</em> {@code java.*}/{@code jdk.*}, regardless
  * of who built or loaded it. {@code testUserModuleNamedLikeAJdkModuleIsNotPlatformClass}
  * compiles and loads such a module through a real {@link ModuleLayer} to confirm the fix
- * also requires the defining loader to be the boot or platform loader.
+ * also requires the class's module to be resolved into the boot layer.
+ *
+ * <p>Also pins the counter-regression that fix introduced: it checked the defining
+ * loader's identity (boot or platform loader) rather than boot layer membership, which
+ * rejected genuine JDK tool modules -- {@code jdk.jdi} among them -- that the JDK itself
+ * defines with the ordinary system/application class loader.
+ * {@code testAppLoadedGenuineJdkModuleIsPlatformClass} pins that such a module is still
+ * recognised as platform code.
  */
 class TestUsageCheckerPlatformClassTest {
 
@@ -121,6 +128,26 @@ class TestUsageCheckerPlatformClassTest {
     }
 
     @Test
+    void testAppLoadedGenuineJdkModuleIsPlatformClass() throws Exception {
+        // com.sun.jdi.JDIPermission belongs to the real JDK module jdk.jdi, but unlike
+        // java.sql.SQLPermission above, the JDK defines this module's classes with the
+        // ordinary system/application class loader, not the platform loader -- the same
+        // loader an application's own classpath classes use. A check that trusted loader
+        // identity instead of boot-layer membership would misclassify it as non-JDK,
+        // exactly like the user-module spoof it was meant to catch.
+        Class<?> jdiPermission = Class.forName("com.sun.jdi.JDIPermission");
+        Assertions.assertTrue(jdiPermission.getModule().isNamed());
+        Assertions.assertTrue(jdiPermission.getModule().getName().startsWith("jdk."));
+        Assertions.assertNotNull(jdiPermission.getClassLoader(), "jdk.jdi is not boot-loaded");
+        Assertions.assertNotEquals(ClassLoader.getPlatformClassLoader(), jdiPermission.getClassLoader(),
+                "jdk.jdi classes are defined by the system/application loader, not the platform loader");
+
+        Assertions.assertTrue(TestUsageChecker.isPlatformClass(jdiPermission),
+                "a genuine JDK module must be classified as platform code even when its "
+                        + "defining loader is the ordinary system/application class loader");
+    }
+
+    @Test
     void testDeprecatedPlatformLoaderClassExemptFromDeprecationFilterWhenAnnotated() {
         // Whether java.sql.SQLPermission actually carries @Deprecated depends on the
         // running JDK: Corretto 17.0.5 platform-loads it without the annotation, while
@@ -179,17 +206,23 @@ class TestUsageCheckerPlatformClassTest {
             Class<?> spoofed = layer.findLoader(moduleName).loadClass(className);
 
             // Confirm the fixture actually set up the situation the finding describes,
-            // before relying on it to exercise isPlatformClass().
+            // before relying on it to exercise isPlatformClass(). The defining loader is
+            // deliberately not asserted here beyond non-boot/non-platform: the real
+            // distinguishing signal isPlatformClass() relies on is boot-layer membership
+            // (see testAppLoadedGenuineJdkModuleIsPlatformClass for why loader identity
+            // alone would also reject a genuine JDK tool module).
             Assertions.assertTrue(spoofed.getModule().isNamed());
             Assertions.assertEquals(moduleName, spoofed.getModule().getName());
             Assertions.assertTrue(moduleName.startsWith("java."));
             Assertions.assertNotNull(spoofed.getClassLoader(), "a spoofed module is not boot-loaded");
             Assertions.assertNotEquals(ClassLoader.getPlatformClassLoader(), spoofed.getClassLoader(),
                     "a spoofed module is not platform-loaded either");
+            Assertions.assertNotEquals(ModuleLayer.boot(), spoofed.getModule().getLayer(),
+                    "a dynamically defined layer must not equal the boot layer");
 
             Assertions.assertFalse(TestUsageChecker.isPlatformClass(spoofed),
                     "a java.*-named module must not be classified as JDK platform code "
-                            + "unless its defining loader is actually the boot or platform loader");
+                            + "unless its module is actually resolved into the boot layer");
         } finally {
             deleteRecursively(moduleDir);
         }
