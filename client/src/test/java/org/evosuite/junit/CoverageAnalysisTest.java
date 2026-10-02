@@ -20,6 +20,7 @@
 package org.evosuite.junit;
 
 import org.evosuite.Properties;
+import org.evosuite.TimeController;
 import org.evosuite.coverage.CoverageCriteriaAnalyzer;
 import org.evosuite.coverage.FitnessFunctions;
 import org.evosuite.coverage.TestFitnessFactory;
@@ -39,6 +40,8 @@ import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -136,6 +139,96 @@ public class CoverageAnalysisTest {
         } finally {
             Properties.CRITERION = originalCriteria;
             resetCoverageAnalysisProgress();
+            if (previousClientNode != null) {
+                clientNodeField.set(ClientServices.getInstance(), previousClientNode);
+            }
+        }
+    }
+
+    /**
+     * {@link org.evosuite.rmi.service.ClientNodeImpl#doCoverageAnalysis()} is the only call site
+     * of {@link CoverageAnalysis#analyzeCoverage()}, used exclusively by the standalone
+     * {@code -measureCoverage} mode. Its {@code catch (Throwable t)} now calls
+     * {@link CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()} as a backstop: without it,
+     * a failure part-way through {@code analyzeCoverage()} could leave a previously-published
+     * {@link RuntimeVariable#CoverageAnalysisComplete}{@code =true} (from an earlier criterion in
+     * its direct sweep) standing unrevised for a sweep that did not actually finish.
+     *
+     * <p>This drives the real {@code doCoverageAnalysis()} end to end, via the
+     * test-only {@code ClientNodeImpl(Registry, String)} constructor with a {@code null} registry
+     * (every master notification then becomes a no-op).
+     *
+     * <p>Two things rule out stubbing {@code CoverageAnalysis.analyzeCoverage()} itself as the
+     * injection point. First, {@code doCoverageAnalysis()} always calls it from a dedicated
+     * {@code searchExecutor} worker thread, and Mockito's static mocking only intercepts calls
+     * made from the thread that registered the mock (confirmed experimentally: a trivial
+     * {@code mockStatic} stub is not observed by a call made from an {@code ExecutorService}
+     * thread) -- so a {@code mockStatic(CoverageAnalysis.class)} stub here silently lets the real
+     * method run instead. Second, even on the right thread, the real method would not help: its
+     * first stage (target-class dependency analysis) has its own {@code catch (Throwable e)} that
+     * logs and returns normally, so a failure injected via, say, an invalid {@code TARGET_CLASS}
+     * never reaches {@code ClientNodeImpl}'s backstop at all.
+     *
+     * <p><b>Test-only production seam:</b> this test instead uses {@link
+     * org.evosuite.rmi.service.ClientNodeImpl#COVERAGE_ANALYSIS_FOR_TESTING}, a package-private
+     * field added specifically for this test (default {@code null}; {@code doCoverageAnalysis()}
+     * calls the real {@code CoverageAnalysis.analyzeCoverage()} whenever it is unset, so production
+     * behavior is unchanged). It is a plain static field read directly by the worker thread, not a
+     * Mockito construct, so it works regardless of which thread performs the read, and lets this
+     * test make that call throw directly rather than forcing a real failure through genuine memory
+     * pressure or classpath breakage.
+     */
+    @Test
+    public void doCoverageAnalysisBackstopMarksIncompleteWhenAnalyzeCoverageFails() throws Exception {
+        boolean previousSandbox = Properties.SANDBOX;
+        boolean previousTestArchive = Properties.TEST_ARCHIVE;
+        ClientNodeImpl<?> previousClientNode = null;
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        ClientNodeImpl<TestSuiteChromosome> client = null;
+        try {
+            // Keep this test from touching the process-wide security manager; doCoverageAnalysis()
+            // only (de)activates the sandbox when this is on, which is orthogonal to what is tested.
+            Properties.SANDBOX = false;
+
+            previousClientNode = (ClientNodeImpl<?>) clientNodeField.get(ClientServices.getInstance());
+            CapturingClientNode node = new CapturingClientNode();
+            clientNodeField.set(ClientServices.getInstance(), node);
+
+            client = new ClientNodeImpl<>(null, "test-client");
+
+            // Package-private seam field on a class in a different package; set reflectively.
+            Field analysisOverrideField = ClientNodeImpl.class.getDeclaredField(
+                    "COVERAGE_ANALYSIS_FOR_TESTING");
+            analysisOverrideField.setAccessible(true);
+            analysisOverrideField.set(null, (Runnable) () -> {
+                throw new OutOfMemoryError("test");
+            });
+            try {
+                client.doCoverageAnalysis();
+
+                // doCoverageAnalysis() runs on its own searchExecutor thread; wait for it to reach
+                // ClientState.DONE (reached unconditionally, after the catch block runs) rather
+                // than racing the assertion below against that thread.
+                Field doneLatchField = ClientNodeImpl.class.getDeclaredField("doneLatch");
+                doneLatchField.setAccessible(true);
+                CountDownLatch doneLatch = (CountDownLatch) doneLatchField.get(client);
+                assertTrue(doneLatch.await(10, TimeUnit.SECONDS),
+                        "doCoverageAnalysis() must still reach ClientState.DONE after the failure");
+            } finally {
+                analysisOverrideField.set(null, null);
+            }
+
+            assertEquals(Boolean.FALSE, node.value(RuntimeVariable.CoverageAnalysisComplete),
+                    "a failure inside analyzeCoverage() must (re)publish the sweep as incomplete");
+        } finally {
+            Properties.SANDBOX = previousSandbox;
+            Properties.TEST_ARCHIVE = previousTestArchive;
+            TimeController.resetSingleton();
+            resetCoverageAnalysisProgress();
+            if (client != null) {
+                client.stop();
+            }
             if (previousClientNode != null) {
                 clientNodeField.set(ClientServices.getInstance(), previousClientNode);
             }

@@ -31,6 +31,7 @@ import org.evosuite.testcase.TestCase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.io.File;
 import java.lang.reflect.Field;
@@ -207,6 +208,72 @@ public class JUnitAnalyzerCheckIncompleteTest {
         assertEquals(1, tests.size(), "the unchecked test must be kept, not removed or run");
         assertTrue(JUnitAnalyzer.isCheckIncomplete());
         assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+    }
+
+    // ---- OOM escaping the JUnit runner itself ----
+
+    /**
+     * {@code runJUnitOnCurrentProcess} submits the version-dependent runner to a worker thread
+     * and catches an {@link OutOfMemoryError} that escapes that call, synthesizing an all-failed
+     * {@link JUnitResult} whose {@code getFailures()} is empty. The failure-matching loop in
+     * {@link JUnitAnalyzer#handleTestsThatAreUnstable(List)} then has nothing to act on, which
+     * looks exactly like a check that observed no problems at all -- unless the give-up is
+     * recorded separately via {@link JUnitAnalyzer#recordCheckIncomplete(String)}.
+     *
+     * <p>JUnit itself attributes a per-test {@link OutOfMemoryError} to that test before it would
+     * ever reach the outer catch, so a SUT test method that throws does not exercise this path.
+     * The natural fix -- stubbing the {@code JUnitCore}/launcher invocation itself via Mockito's
+     * {@code mockConstruction}/{@code mockStatic} -- does not work here either: that call happens
+     * inside the submitted {@link java.util.concurrent.Callable}, on a dedicated worker thread,
+     * and Mockito's static/construction mocking only intercepts calls made from the thread that
+     * registered the mock (confirmed experimentally: a trivial {@code mockStatic} stub is not
+     * observed by a call made from an {@code ExecutorService} thread). This is also why no
+     * existing test in this file drives {@code runJUnitOnCurrentProcess} far enough to reach that
+     * worker thread at all.
+     *
+     * <p><b>Test-only production seam:</b> this test instead uses
+     * {@link JUnitAnalyzer#VERSION_DEPENDENT_ANALYZER_FOR_TESTING}, a package-private field added
+     * specifically for this test (default {@code null}; {@link JUnitAnalyzer#getVersionDependentAnalyzer()}
+     * falls back to the real analyzers whenever it is unset, so production behavior is unchanged).
+     * It is a plain static field read directly by the worker thread, not a Mockito construct, so
+     * it works regardless of which thread performs the read. The replacement itself is a Mockito
+     * {@code mock(Class, Answer)} of the private {@code VersionDependentAnalyzing} type (obtained
+     * via {@code Class.forName}, since the type cannot be named from this file) whose every method
+     * throws -- an ordinary mock instance, not a static/construction mock, so it is unaffected by
+     * the thread restriction above.
+     */
+    @Test
+    public void outOfMemoryEscapingTheJUnitRunnerRecordsIncomplete() throws Exception {
+        CapturingClientNode node = installCapturingClientNode();
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase()); // also selects TEST_FORMAT=JUNIT4
+
+        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+
+        Field analyzerOverrideField = JUnitAnalyzer.class.getDeclaredField(
+                "VERSION_DEPENDENT_ANALYZER_FOR_TESTING");
+        analyzerOverrideField.setAccessible(true);
+        Class<?> analyzerType = Class.forName("org.evosuite.junit.JUnitAnalyzer$VersionDependentAnalyzing");
+        Object throwingAnalyzer = Mockito.mock(analyzerType,
+                invocation -> {
+                    throw new OutOfMemoryError("test");
+                });
+
+        analyzerOverrideField.set(null, throwingAnalyzer);
+        try {
+            int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
+
+            assertEquals(0, numUnstable, "the synthetic all-failed result carries no per-test "
+                    + "failure to match, so nothing is marked unstable");
+            assertEquals(1, tests.size(), "the unchecked test must be kept, not removed");
+        } finally {
+            analyzerOverrideField.set(null, null);
+        }
+
+        assertTrue(JUnitAnalyzer.isCheckIncomplete());
+        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        assertEquals(Boolean.TRUE, node.value(RuntimeVariable.JUnit_Check_Incomplete));
+        assertEquals(1, node.value(RuntimeVariable.JUnit_Check_Incomplete_Rounds));
     }
 
     // ---- Infrastructure setup failures: createNewTmpDir() itself fails ----

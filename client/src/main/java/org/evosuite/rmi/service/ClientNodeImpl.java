@@ -114,6 +114,19 @@ public class ClientNodeImpl<T extends Chromosome<T>>
 
     private final Object remoteActionLock = new Object();
 
+    /**
+     * Test-only override for the {@code CoverageAnalysis.analyzeCoverage()} call in {@link
+     * #doCoverageAnalysis()}. {@code null} in production. {@code doCoverageAnalysis()} always
+     * runs that call on a dedicated {@link #searchExecutor} worker thread, where Mockito's
+     * {@code mockStatic} of {@code CoverageAnalysis} cannot reach it -- static mocking only
+     * intercepts calls made from the thread that registered the mock. This is a plain static field
+     * read directly by that worker thread instead, so it works regardless of which thread performs
+     * the read, letting a test make the call throw (e.g. to drive the backstop in the surrounding
+     * {@code catch (Throwable t)}) without forcing a real failure through genuine memory pressure
+     * or classpath breakage.
+     */
+    static Runnable COVERAGE_ANALYSIS_FOR_TESTING = null;
+
     //only for testing
     protected ClientNodeImpl() {
     }
@@ -938,7 +951,11 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     // otherwise it would complain about unknown goals
                     boolean archive = Properties.TEST_ARCHIVE;
                     Properties.TEST_ARCHIVE = false;
-                    CoverageAnalysis.analyzeCoverage();
+                    if (COVERAGE_ANALYSIS_FOR_TESTING != null) {
+                        COVERAGE_ANALYSIS_FOR_TESTING.run();
+                    } else {
+                        CoverageAnalysis.analyzeCoverage();
+                    }
                     Properties.TEST_ARCHIVE = archive;
 
                 } catch (Throwable t) {

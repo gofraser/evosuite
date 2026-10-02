@@ -172,6 +172,19 @@ public abstract class JUnitAnalyzer {
     private static final VersionDependentAnalyzing JUNIT4_ANALYZER = new JUnit4Analyzing();
     private static final VersionDependentAnalyzing JUNIT5_ANALYZER = new JUnit5Analyzing();
 
+    /**
+     * Test-only override for {@link #getVersionDependentAnalyzer()}. {@code null} in production
+     * (and never set outside tests). The call it replaces happens inside the submitted
+     * {@link Callable} of {@link #runJUnitOnCurrentProcess(Class[])}, on a dedicated worker
+     * thread -- Mockito's static/construction mocking only intercepts calls made from the thread
+     * that registered the mock, so it cannot reach that call. This field is the seam that lets a
+     * test make the runner invocation itself throw (e.g. simulating an {@link OutOfMemoryError}
+     * that already escaped JUnit's own per-test handling), the same way
+     * {@code TestSuiteGenerator.freeMemoryBytesForTesting} overrides a production supplier for
+     * tests.
+     */
+    static VersionDependentAnalyzing VERSION_DEPENDENT_ANALYZER_FOR_TESTING = null;
+
     public static final class OrderSensitivityAnalysis {
         private final Set<String> forwardFailures;
         private final Set<String> reverseFailures;
@@ -1054,6 +1067,9 @@ public abstract class JUnitAnalyzer {
     }
 
     private static VersionDependentAnalyzing getVersionDependentAnalyzer() {
+        if (VERSION_DEPENDENT_ANALYZER_FOR_TESTING != null) {
+            return VERSION_DEPENDENT_ANALYZER_FOR_TESTING;
+        }
         return Properties.TEST_FORMAT == Properties.OutputFormat.JUNIT5
                 ? JUNIT5_ANALYZER
                 : JUNIT4_ANALYZER;
