@@ -970,11 +970,11 @@ public class ClientNodeImpl<T extends Chromosome<T>>
                     // escaped from: an earlier criterion in its direct (SELECTED_JUNIT) sweep may
                     // already have published CoverageAnalysisComplete=true, which would otherwise
                     // stand unrevised for a sweep that did not actually finish. But if measurement
-                    // already finished before this failure (e.g. a writer or COVERAGE_MATRIX
-                    // failure in the output phase that follows it), CoverageCriteriaAnalyzer
-                    // already holds the correct, final completeness verdict for the sweep that did
-                    // finish, and must not be overwritten just because unrelated output work failed
-                    // afterward.
+                    // already finished before this failure (e.g. a statistics-export, writer or
+                    // COVERAGE_MATRIX failure in the output phase that follows it),
+                    // CoverageCriteriaAnalyzer already holds the correct, final completeness
+                    // verdict for the sweep that did finish, and must not be overwritten just
+                    // because unrelated output work failed afterward.
                     if (!CoverageAnalysis.isMeasurementFinished()) {
                         CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
                     }

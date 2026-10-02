@@ -28,11 +28,14 @@ import org.evosuite.junit.examples.*;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeImpl;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
+import org.evosuite.setup.DependencyAnalysis;
 import org.evosuite.statistics.RuntimeVariable;
 import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testcase.factories.JUnitTestCarvedChromosomeFactory;
 import org.evosuite.testsuite.TestSuiteChromosome;
 import org.evosuite.testsuite.TestSuiteFitnessFunction;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
@@ -52,6 +55,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
@@ -385,6 +389,155 @@ public class CoverageAnalysisTest {
         }
     }
 
+    /**
+     * Rereview5 finding 3: {@code analyzeCoverage()}'s target/classpath initialization catch
+     * (lines ~123-128) logs any {@link Throwable} and returns normally without marking the sweep
+     * incomplete. Because it does not rethrow, {@code ClientNodeImpl}'s own backstop -- which only
+     * runs when {@code analyzeCoverage()} escapes via an exception -- never gets a chance to
+     * correct this either, so a genuinely failed measurement left {@link
+     * CoverageCriteriaAnalyzer#isCoverageAnalysisComplete()} at its default {@code true} and never
+     * published {@link RuntimeVariable#CoverageAnalysisComplete} at all.
+     *
+     * <p>This drives the real {@link CoverageAnalysis#analyzeCoverage()} entry point directly --
+     * not the {@code COVERAGE_ANALYSIS_FOR_TESTING} seam, which replaces the whole call and so
+     * never reaches this inner catch -- with a {@code TARGET_CLASS} that cannot be found on an
+     * otherwise valid classpath, the same way {@code ClientNodeImpl.doCoverageAnalysis()} would if
+     * the standalone {@code -measureCoverage} target were missing from the configured classpath.
+     */
+    @Test
+    public void analyzeCoverageMarksSweepIncompleteWhenInitialSetupFails() throws Exception {
+        String previousTargetClass = Properties.TARGET_CLASS;
+        ClientNodeImpl<?> previousClientNode = null;
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        try {
+            previousClientNode = (ClientNodeImpl<?>) clientNodeField.get(ClientServices.getInstance());
+            CapturingClientNode node = new CapturingClientNode();
+            clientNodeField.set(ClientServices.getInstance(), node);
+
+            Properties.TARGET_CLASS = "org.evosuite.junit.NoSuchClassForRereview5Finding3";
+
+            CoverageAnalysis.analyzeCoverage();
+
+            assertFalse(CoverageAnalysis.isMeasurementFinished(),
+                    "a failed initialization never attempted any criterion, so measurement "
+                            + "cannot be considered finished");
+            assertFalse(CoverageCriteriaAnalyzer.isCoverageAnalysisComplete(),
+                    "a failed target/classpath initialization must not leave completeness at "
+                            + "its default true");
+            assertEquals(Boolean.FALSE, node.value(RuntimeVariable.CoverageAnalysisComplete),
+                    "a failed initialization must publish CoverageAnalysisComplete=false, not "
+                            + "leave it unpublished");
+        } finally {
+            Properties.TARGET_CLASS = previousTargetClass;
+            resetCoverageAnalysisProgress();
+            CoverageAnalysis.resetMeasurementFinished();
+            CoverageAnalysis.reset();
+            DependencyAnalysis.clear();
+            if (previousClientNode != null) {
+                clientNodeField.set(ClientServices.getInstance(), previousClientNode);
+            }
+        }
+    }
+
+    /**
+     * Rereview5 finding 4: {@code analyzeCoverage()}'s SELECTED_JUNIT branch used to call {@link
+     * CoverageAnalysis#markMeasurementFinished()} only after sending statistics and publishing
+     * aggregates, so a failure inside either of those still looked -- to {@code ClientNodeImpl}'s
+     * backstop -- like a failure during measurement itself, even though {@code
+     * runDirectCoverageSweep} had already finished and recorded its own, correct, completeness
+     * verdict.
+     *
+     * <p>This drives the real {@code analyzeCoverage()} method body -- not a hand-rolled
+     * re-sequencing of its private helpers, which would miss a regression in the method's actual
+     * statement order -- through the {@code COVERAGE_ANALYSIS_FOR_TESTING} seam: the override
+     * {@code Runnable} registers the carving/dependency-analysis mocks on the {@code
+     * searchExecutor} worker thread that runs it (mockStatic/mockConstruction only intercept calls
+     * from the thread that registered them) and then calls {@code CoverageAnalysis.analyzeCoverage()}
+     * for real, with an empty configured-criteria sweep (trivially complete) and a client node that
+     * throws only once the real code tries to publish {@code Total_Goals} -- an injected failure
+     * strictly after measurement, simulating a statistics-export failure.
+     */
+    @Test
+    public void analyzeCoverageSetsMeasurementFinishedBeforeStatisticsOutputWork() throws Exception {
+        boolean previousSandbox = Properties.SANDBOX;
+        boolean previousTestArchive = Properties.TEST_ARCHIVE;
+        boolean previousNewStatistics = Properties.NEW_STATISTICS;
+        String previousSelectedJunit = Properties.SELECTED_JUNIT;
+        String previousJunit = Properties.JUNIT;
+        Properties.Criterion[] previousCriteria = Properties.CRITERION;
+        ClientNodeImpl<?> previousClientNode = null;
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        ClientNodeImpl<TestSuiteChromosome> client = null;
+        try {
+            Properties.SANDBOX = false;
+            Properties.NEW_STATISTICS = false; // isolate the Total_Goals publish from StatisticsSender
+            Properties.SELECTED_JUNIT = "dummy"; // take the carved-suite (SELECTED_JUNIT) branch
+            Properties.JUNIT = JUnit4Test.class.getName(); // resolved directly via Class.forName
+            Properties.CRITERION = new Properties.Criterion[0]; // trivial, zero-goal sweep
+
+            previousClientNode = (ClientNodeImpl<?>) clientNodeField.get(ClientServices.getInstance());
+            ThrowingOnTotalGoalsClientNode node = new ThrowingOnTotalGoalsClientNode();
+            clientNodeField.set(ClientServices.getInstance(), node);
+
+            client = new ClientNodeImpl<>(null, "test-client");
+
+            Field analysisOverrideField = ClientNodeImpl.class.getDeclaredField(
+                    "COVERAGE_ANALYSIS_FOR_TESTING");
+            analysisOverrideField.setAccessible(true);
+            analysisOverrideField.set(null, (Runnable) () -> {
+                try (MockedStatic<DependencyAnalysis> dependencyMock = mockStatic(DependencyAnalysis.class);
+                     MockedConstruction<JUnitTestCarvedChromosomeFactory> carvedMock = mockConstruction(
+                             JUnitTestCarvedChromosomeFactory.class,
+                             (mock, context) ->
+                                     when(mock.getCarvedTestSuite()).thenReturn(new TestSuiteChromosome()))) {
+                    CoverageAnalysis.analyzeCoverage();
+                }
+            });
+            try {
+                client.doCoverageAnalysis();
+
+                Field doneLatchField = ClientNodeImpl.class.getDeclaredField("doneLatch");
+                doneLatchField.setAccessible(true);
+                CountDownLatch doneLatch = (CountDownLatch) doneLatchField.get(client);
+                assertTrue(doneLatch.await(10, TimeUnit.SECONDS),
+                        "doCoverageAnalysis() must still reach ClientState.DONE after the failure");
+            } finally {
+                analysisOverrideField.set(null, null);
+            }
+
+            assertTrue(node.sawTotalGoalsThrow,
+                    "the injected failure must have actually fired while publishing Total_Goals, "
+                            + "otherwise this test proves nothing");
+            assertTrue(CoverageCriteriaAnalyzer.isCoverageAnalysisComplete(),
+                    "a failure that happens only while publishing already-measured aggregates "
+                            + "must not retroactively mark a genuinely finished (if trivial) "
+                            + "sweep incomplete");
+            assertNotEquals(Boolean.FALSE, node.value(RuntimeVariable.CoverageAnalysisComplete),
+                    "the backstop must not have (re)published CoverageAnalysisComplete=false");
+        } finally {
+            Properties.SANDBOX = previousSandbox;
+            Properties.TEST_ARCHIVE = previousTestArchive;
+            Properties.NEW_STATISTICS = previousNewStatistics;
+            Properties.SELECTED_JUNIT = previousSelectedJunit;
+            Properties.JUNIT = previousJunit;
+            Properties.CRITERION = previousCriteria;
+            resetCoverageAnalysisProgress();
+            CoverageAnalysis.resetMeasurementFinished();
+            CoverageAnalysis.reset();
+            // See the ordering note in doCoverageAnalysisBackstopMarksIncompleteWhenAnalyzeCoverageFails:
+            // client.stop() must run before TimeController.resetSingleton(), not after.
+            if (client != null) {
+                client.stop();
+            }
+            TimeController.resetSingleton();
+            if (previousClientNode != null) {
+                clientNodeField.set(ClientServices.getInstance(), previousClientNode);
+            }
+        }
+    }
+
     // ---- helpers ----
 
     private static void invokePublishDirectCoverageSweepResult(TestSuiteChromosome testSuite, int goals)
@@ -430,6 +583,29 @@ public class CoverageAnalysisTest {
 
         @Override
         public void trackOutputVariable(RuntimeVariable name, Object value) {
+            values.put(name, value);
+        }
+
+        private Object value(RuntimeVariable variable) {
+            return values.get(variable);
+        }
+    }
+
+    /**
+     * Captures every published variable like {@link CapturingClientNode}, but throws once {@link
+     * RuntimeVariable#Total_Goals} is published -- simulating a statistics-export failure that
+     * happens strictly after {@code runDirectCoverageSweep} already finished measuring.
+     */
+    private static final class ThrowingOnTotalGoalsClientNode extends DummyClientNodeImpl {
+        private final Map<RuntimeVariable, Object> values = new LinkedHashMap<>();
+        private boolean sawTotalGoalsThrow = false;
+
+        @Override
+        public void trackOutputVariable(RuntimeVariable name, Object value) {
+            if (name == RuntimeVariable.Total_Goals) {
+                sawTotalGoalsThrow = true;
+                throw new RuntimeException("simulated statistics-export failure");
+            }
             values.put(name, value);
         }
 

@@ -620,28 +620,42 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             return false;
         }
 
-        Double coverageValue = normalizeGoalsAndCoverage(map, individual);
-        normalizeCriterionCoverage(map, coverageValue);
-        if (coverageValue == null || coverageValue == 0.0) {
-            OutputVariable<?> lineCoverageVar = map.get(RuntimeVariable.LineCoverage.name());
-            if (lineCoverageVar == null) {
-                lineCoverageVar = outputVariables.get(RuntimeVariable.LineCoverage.name());
-            }
-            OutputVariable<?> criterionVar = map.get("criterion");
-            Double lineCoverage = lineCoverageVar == null ? null : toDouble(lineCoverageVar.getValue());
-            String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
-            boolean isLineCriterion = criterion.equalsIgnoreCase("LINE")
-                    || criterion.equalsIgnoreCase("ONLYLINE")
-                    || criterion.isEmpty();
-            OutputVariable<?> totalGoalsOut = map.get(RuntimeVariable.Total_Goals.toString());
-            OutputVariable<?> coveredGoalsOut = map.get(RuntimeVariable.Covered_Goals.toString());
-            boolean missingTotals =
-                    totalGoalsOut == null || coveredGoalsOut == null
-                            || toDouble(totalGoalsOut.getValue()) == null
-                            || toDouble(coveredGoalsOut.getValue()) == null;
-            if (lineCoverage != null && isLineCriterion && missingTotals) {
-                map.put(RuntimeVariable.Coverage.toString(),
-                        new OutputVariable<>(RuntimeVariable.Coverage.toString(), lineCoverage));
+        if (isCoverageAnalysisReportedIncomplete()) {
+            // The client explicitly reported that this sweep did not finish (see
+            // CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()), but Total_Goals,
+            // Covered_Goals and Coverage can still have reached this map through paths that never
+            // consult that marker: StatisticsSender#executedAndThenSendIndividualToMaster always
+            // sends Covered_Goals, and sending the suite itself re-extracts Coverage via
+            // currentIndividual()/ChromosomeCoverageOutputVariableFactory from whichever
+            // criterion's TestSuiteFitnessFunction#getFitness(suite) call last ran -- a stale,
+            // partial average with nothing to do with completeness. Withhold all three here,
+            // immediately before this method would otherwise normalize them as if the sweep had
+            // actually finished, rather than trusting whatever already made it into the map.
+            withholdAggregatesForIncompleteCoverageAnalysis(map);
+        } else {
+            Double coverageValue = normalizeGoalsAndCoverage(map, individual);
+            normalizeCriterionCoverage(map, coverageValue);
+            if (coverageValue == null || coverageValue == 0.0) {
+                OutputVariable<?> lineCoverageVar = map.get(RuntimeVariable.LineCoverage.name());
+                if (lineCoverageVar == null) {
+                    lineCoverageVar = outputVariables.get(RuntimeVariable.LineCoverage.name());
+                }
+                OutputVariable<?> criterionVar = map.get("criterion");
+                Double lineCoverage = lineCoverageVar == null ? null : toDouble(lineCoverageVar.getValue());
+                String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
+                boolean isLineCriterion = criterion.equalsIgnoreCase("LINE")
+                        || criterion.equalsIgnoreCase("ONLYLINE")
+                        || criterion.isEmpty();
+                OutputVariable<?> totalGoalsOut = map.get(RuntimeVariable.Total_Goals.toString());
+                OutputVariable<?> coveredGoalsOut = map.get(RuntimeVariable.Covered_Goals.toString());
+                boolean missingTotals =
+                        totalGoalsOut == null || coveredGoalsOut == null
+                                || toDouble(totalGoalsOut.getValue()) == null
+                                || toDouble(coveredGoalsOut.getValue()) == null;
+                if (lineCoverage != null && isLineCriterion && missingTotals) {
+                    map.put(RuntimeVariable.Coverage.toString(),
+                            new OutputVariable<>(RuntimeVariable.Coverage.toString(), lineCoverage));
+                }
             }
         }
 
@@ -655,6 +669,42 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
             backend.writeData(individual, map);
             return true;
         }
+    }
+
+    /**
+     * @return true if the client explicitly reported an incomplete coverage-analysis sweep via
+     *         {@link RuntimeVariable#CoverageAnalysisComplete} (see {@link
+     *         org.evosuite.coverage.CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()}).
+     *         Read from the raw {@link #outputVariables} map directly, not from a per-call {@code
+     *         map} built by {@link #getOutputVariables(TestSuiteChromosome)}, because the marker
+     *         is opt-in output (only present in a written row when {@code -Doutput_variables}
+     *         requests it) and must still gate this boundary when it does not.
+     */
+    private boolean isCoverageAnalysisReportedIncomplete() {
+        OutputVariable<?> completeVar = outputVariables.get(RuntimeVariable.CoverageAnalysisComplete.toString());
+        if (completeVar == null || completeVar.getValue() == null) {
+            return false;
+        }
+        return "false".equalsIgnoreCase(String.valueOf(completeVar.getValue()).trim());
+    }
+
+    /**
+     * Blanks the ordinary {@link RuntimeVariable#Coverage}, {@link RuntimeVariable#Total_Goals}
+     * and {@link RuntimeVariable#Covered_Goals} entries for an incomplete coverage-analysis
+     * sweep, so the default CSV never represents a sweep that is missing one or more configured
+     * criteria entirely as an ordinary, trustworthy score -- regardless of how a suite-derived
+     * Coverage average or an unconditionally sent Covered_Goals count made it into {@code map}
+     * before this runs. {@link RuntimeVariable#CoverageAnalysisGoalsChecked}/{@code
+     * CoverageAnalysisGoalsTotal} (the already-accurate per-criterion progress) are untouched.
+     *
+     * @param map the output-variable map about to be written
+     */
+    private static void withholdAggregatesForIncompleteCoverageAnalysis(Map<String, OutputVariable<?>> map) {
+        map.remove(RuntimeVariable.Coverage.toString());
+        map.put(RuntimeVariable.Total_Goals.toString(),
+                new OutputVariable<>(RuntimeVariable.Total_Goals.toString(), ""));
+        map.put(RuntimeVariable.Covered_Goals.toString(),
+                new OutputVariable<>(RuntimeVariable.Covered_Goals.toString(), ""));
     }
 
     private static Double toDouble(Object value) {

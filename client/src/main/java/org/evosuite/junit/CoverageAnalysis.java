@@ -125,6 +125,14 @@ public class CoverageAnalysis {
                     + "Error while initializing target class: "
                     + (e.getMessage() != null ? e.getMessage() : e.toString()));
             logger.error("Problem for " + Properties.TARGET_CLASS + ". Full stack:", e);
+            // This failure happens before any criterion is even attempted -- nothing has been
+            // measured at all -- so mark the sweep incomplete here rather than leaving
+            // CoverageCriteriaAnalyzer's default completeness (true) stand unrevised. Returning
+            // normally (not rethrowing) means ClientNodeImpl's own backstop, which only runs when
+            // analyzeCoverage() escapes via an exception, never gets a chance to correct this on
+            // its own for this path. measurementFinished deliberately stays false: nothing was
+            // ever measured, so this is not the "measurement finished" case that marker guards.
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
             return;
         } finally {
             Sandbox.doneWithExecutingUnsafeCodeOnSameThread();
@@ -171,17 +179,20 @@ public class CoverageAnalysis {
 
             int goals = runDirectCoverageSweep(testSuite);
 
+            // The sweep's own measurement is finished as soon as runDirectCoverageSweep returns --
+            // completely or not, CoverageCriteriaAnalyzer already has the final word via
+            // markCoverageAnalysisIncomplete() inside it. Everything from here on (sending
+            // statistics, publishing aggregates, writing the generated suite, the COVERAGE_MATRIX
+            // check) is output-phase work: a failure there must not be mistaken by ClientNodeImpl's
+            // backstop for a measurement failure and overwrite that verdict. This must be set
+            // before the statistics/publish calls below, not after them -- otherwise a failure
+            // inside those two calls would still be blamed on measurement itself.
+            markMeasurementFinished();
+
             // Track coverage statistics before writing JUnit tests, since
             // writeJUnitTestsAndCreateResult may fail on some targets.
             StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
             publishDirectCoverageSweepResult(testSuite, goals);
-
-            // The sweep's own measurement is finished at this point -- completely or not,
-            // CoverageCriteriaAnalyzer already has the final word via markCoverageAnalysisIncomplete()
-            // inside runDirectCoverageSweep. Everything from here on (writing the generated suite,
-            // the COVERAGE_MATRIX check) is output-phase work: a failure there must not be mistaken
-            // by ClientNodeImpl's backstop for a measurement failure and overwrite that verdict.
-            markMeasurementFinished();
 
             // Generate test suite (may fail, but coverage is already tracked)
             TestSuiteGenerator.writeJUnitTestsAndCreateResult(testSuite);
@@ -195,14 +206,19 @@ public class CoverageAnalysis {
 
     /**
      * Whether the measurement phase of the most recent {@link #analyzeCoverage()} call has
-     * finished -- successfully or with incompleteness already recorded via {@link
-     * CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()} -- before any output-phase work
-     * (writing the generated JUnit suite, the {@code COVERAGE_MATRIX} check) begins.
+     * finished -- successfully, with incompleteness already recorded via {@link
+     * CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()}, or because target/classpath
+     * initialization itself failed before any criterion was attempted -- before any output-phase
+     * work (sending statistics, publishing aggregates, writing the generated JUnit suite, the
+     * {@code COVERAGE_MATRIX} check) begins. It is set immediately once the measurement itself is
+     * known to be over, specifically before any of that output-phase work runs, so a failure
+     * inside that work is never mistaken for a measurement failure.
      *
      * <p>{@link org.evosuite.rmi.service.ClientNodeImpl#doCoverageAnalysis()} resets this to
      * {@code false} before each attempt and consults it in its catch-all backstop, so that a
-     * failure which happens only after measurement finished (e.g. while writing the generated
-     * suite) does not retroactively mark an already-measured sweep incomplete.
+     * failure which happens only after measurement finished (e.g. while sending statistics or
+     * writing the generated suite) does not retroactively mark an already-measured sweep
+     * incomplete.
      */
     private static volatile boolean measurementFinished = false;
 
@@ -237,9 +253,19 @@ public class CoverageAnalysis {
      * entirely) as an ordinary, trustworthy score -- and, if the failure happened before the first
      * criterion's goal count was even read, {@code goals == 0} would additionally trigger the
      * empty-criterion convention and publish {@code Coverage=1.0} for a sweep that measured
-     * nothing at all. Withholding them here leaves only the already-accurate per-criterion
-     * progress ({@code CoverageAnalysisGoalsChecked}/{@code CoverageAnalysisGoalsTotal}) and the
-     * {@code CoverageAnalysisComplete=false} marker published for an incomplete sweep.
+     * nothing at all.
+     *
+     * <p><b>This alone does not keep a partial score out of the default output.</b> The
+     * SELECTED_JUNIT caller also runs {@link org.evosuite.statistics.StatisticsSender
+     * StatisticsSender} on the same {@code testSuite}, which (a) sends {@code Covered_Goals}
+     * unconditionally, and (b) forwards the suite itself to the master, where {@code
+     * SearchStatistics.currentIndividual} re-extracts an ordinary {@code Coverage} value directly
+     * from whichever criterion's {@code TestSuiteFitnessFunction#getFitness(suite)} call last ran
+     * -- a stale, partial average with no connection to this method's withholding. The actual
+     * analysis-output boundary that must (and does) respect {@link
+     * RuntimeVariable#CoverageAnalysisComplete} for all three is {@code
+     * SearchStatistics#writeStatisticsForAnalysis()}; this method only avoids being one more
+     * incorrect source feeding into it.
      *
      * @param testSuite the carved test suite the sweep ran against
      * @param goals     the total goal count {@link #runDirectCoverageSweep} returned
