@@ -45,6 +45,8 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -224,11 +226,173 @@ public class CoverageAnalysisTest {
         } finally {
             Properties.SANDBOX = previousSandbox;
             Properties.TEST_ARCHIVE = previousTestArchive;
-            TimeController.resetSingleton();
             resetCoverageAnalysisProgress();
+            // client.stop() itself calls changeState(FINISHED), which advances the shared
+            // TimeController singleton's phase; resetting the singleton before stop() would
+            // leave it on that later phase for whichever test runs next, so stop() must come
+            // first here.
             if (client != null) {
                 client.stop();
             }
+            TimeController.resetSingleton();
+            if (previousClientNode != null) {
+                clientNodeField.set(ClientServices.getInstance(), previousClientNode);
+            }
+        }
+    }
+
+    /**
+     * Rereview4 finding 1: {@code runDirectCoverageSweep} catches an {@link OutOfMemoryError},
+     * marks the sweep incomplete, and returns the goal count accumulated so far -- but the
+     * SELECTED_JUNIT branch of {@link CoverageAnalysis#analyzeCoverage()} used to publish ordinary
+     * {@link RuntimeVariable#Total_Goals}, {@link RuntimeVariable#Covered_Goals} and {@link
+     * RuntimeVariable#Coverage} from that partial count regardless, representing a sweep that is
+     * missing one or more configured criteria entirely as an ordinary, trustworthy score. These
+     * three are default/essential output variables (unlike the opt-in {@code
+     * CoverageAnalysisComplete} marker), so every consumer relying on the default output set would
+     * see them. This drives the extracted {@code publishDirectCoverageSweepResult} directly with
+     * {@code goals=2} after marking the analysis incomplete, simulating a third configured
+     * criterion that {@code runDirectCoverageSweep} never reached: asserting only the incomplete
+     * marker (as the pinned {@code runDirectCoverageSweepRecordsIncompleteWhenACriterionFails...}
+     * test does) would miss this regression entirely, since that test never inspects what the
+     * caller publishes for the omitted third criterion.
+     */
+    @Test
+    public void incompleteDirectSweepWithholdsOrdinaryAggregates() throws Exception {
+        ClientNodeImpl<?> previousClientNode = null;
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        try {
+            previousClientNode = (ClientNodeImpl<?>) clientNodeField.get(ClientServices.getInstance());
+            CapturingClientNode node = new CapturingClientNode();
+            clientNodeField.set(ClientServices.getInstance(), node);
+
+            // Simulate runDirectCoverageSweep's own OOM catch: LINE and BRANCH (2 goals) measured,
+            // METHOD (the third configured criterion) never reached.
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+
+            TestSuiteChromosome testSuite = new TestSuiteChromosome();
+            invokePublishDirectCoverageSweepResult(testSuite, 2);
+
+            assertNull(node.value(RuntimeVariable.Total_Goals),
+                    "an incomplete sweep must not publish a goal total that silently omits "
+                            + "the criterion that was never reached");
+            assertNull(node.value(RuntimeVariable.Covered_Goals),
+                    "an incomplete sweep must not publish a covered-goal count alongside a "
+                            + "goal total known to be short");
+            assertNull(node.value(RuntimeVariable.Coverage),
+                    "an incomplete sweep must not publish a coverage ratio computed over "
+                            + "a partial goal set");
+        } finally {
+            resetCoverageAnalysisProgress();
+            if (previousClientNode != null) {
+                clientNodeField.set(ClientServices.getInstance(), previousClientNode);
+            }
+        }
+    }
+
+    /**
+     * Companion to {@link #incompleteDirectSweepWithholdsOrdinaryAggregates()}: the review also
+     * flagged that if the failure happens before the very first criterion's goal count is even
+     * read, {@code runDirectCoverageSweep} returns {@code goals=0}, and the (pre-fix) caller's
+     * {@code goals == 0 ? 1.0 : ...} shortcut would publish {@code Coverage=1.0} -- a claim of full
+     * coverage for a sweep that measured nothing at all.
+     */
+    @Test
+    public void incompleteDirectSweepWithZeroGoalsDoesNotPublishFullCoverage() throws Exception {
+        ClientNodeImpl<?> previousClientNode = null;
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        try {
+            previousClientNode = (ClientNodeImpl<?>) clientNodeField.get(ClientServices.getInstance());
+            CapturingClientNode node = new CapturingClientNode();
+            clientNodeField.set(ClientServices.getInstance(), node);
+
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+
+            TestSuiteChromosome testSuite = new TestSuiteChromosome();
+            invokePublishDirectCoverageSweepResult(testSuite, 0);
+
+            assertNull(node.value(RuntimeVariable.Coverage),
+                    "a sweep that failed before measuring anything must not publish "
+                            + "Coverage=1.0 via the zero-goal shortcut");
+            assertNull(node.value(RuntimeVariable.Total_Goals));
+            assertNull(node.value(RuntimeVariable.Covered_Goals));
+        } finally {
+            resetCoverageAnalysisProgress();
+            if (previousClientNode != null) {
+                clientNodeField.set(ClientServices.getInstance(), previousClientNode);
+            }
+        }
+    }
+
+    /**
+     * Rereview4 finding 5: {@link org.evosuite.rmi.service.ClientNodeImpl#doCoverageAnalysis()}'s
+     * {@code catch (Throwable t)} backstop used to call {@code markCoverageAnalysisIncomplete()}
+     * unconditionally. In SELECTED_JUNIT mode, the coverage sweep and aggregate publication finish
+     * before {@code analyzeCoverage()} writes the generated JUnit suite; a writer failure, or the
+     * explicit unsupported {@code COVERAGE_MATRIX} exception that follows it, both happen strictly
+     * after measurement is done. The unconditional backstop rewrote completeness to {@code false}
+     * for these too, even though coverage measurement genuinely finished -- a false-incomplete on
+     * the opt-in signal.
+     *
+     * <p>This reuses the {@code COVERAGE_ANALYSIS_FOR_TESTING} seam, but this time the stub first
+     * marks measurement finished (the same call {@code analyzeCoverage()}'s SELECTED_JUNIT branch
+     * makes right after publishing its aggregates, before the output-phase work that follows), then
+     * throws -- simulating a writer/COVERAGE_MATRIX failure after a genuinely completed sweep.
+     */
+    @Test
+    public void doCoverageAnalysisBackstopDoesNotMarkIncompleteAfterMeasurementFinished() throws Exception {
+        boolean previousSandbox = Properties.SANDBOX;
+        boolean previousTestArchive = Properties.TEST_ARCHIVE;
+        ClientNodeImpl<?> previousClientNode = null;
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        ClientNodeImpl<TestSuiteChromosome> client = null;
+        try {
+            Properties.SANDBOX = false;
+
+            previousClientNode = (ClientNodeImpl<?>) clientNodeField.get(ClientServices.getInstance());
+            CapturingClientNode node = new CapturingClientNode();
+            clientNodeField.set(ClientServices.getInstance(), node);
+
+            client = new ClientNodeImpl<>(null, "test-client");
+
+            Field analysisOverrideField = ClientNodeImpl.class.getDeclaredField(
+                    "COVERAGE_ANALYSIS_FOR_TESTING");
+            analysisOverrideField.setAccessible(true);
+            analysisOverrideField.set(null, (Runnable) () -> {
+                markMeasurementFinishedForTest();
+                throw new IllegalArgumentException(
+                        "Coverage matrix not yet available when measuring coverage of a "
+                                + "carved test suite");
+            });
+            try {
+                client.doCoverageAnalysis();
+
+                Field doneLatchField = ClientNodeImpl.class.getDeclaredField("doneLatch");
+                doneLatchField.setAccessible(true);
+                CountDownLatch doneLatch = (CountDownLatch) doneLatchField.get(client);
+                assertTrue(doneLatch.await(10, TimeUnit.SECONDS),
+                        "doCoverageAnalysis() must still reach ClientState.DONE after the failure");
+            } finally {
+                analysisOverrideField.set(null, null);
+            }
+
+            assertNotEquals(Boolean.FALSE, node.value(RuntimeVariable.CoverageAnalysisComplete),
+                    "a failure after measurement already finished must not retroactively mark "
+                            + "an already-completed sweep incomplete");
+        } finally {
+            Properties.SANDBOX = previousSandbox;
+            Properties.TEST_ARCHIVE = previousTestArchive;
+            resetCoverageAnalysisProgress();
+            CoverageAnalysis.resetMeasurementFinished();
+            // See the ordering note in doCoverageAnalysisBackstopMarksIncompleteWhenAnalyzeCoverageFails:
+            // client.stop() must run before TimeController.resetSingleton(), not after.
+            if (client != null) {
+                client.stop();
+            }
+            TimeController.resetSingleton();
             if (previousClientNode != null) {
                 clientNodeField.set(ClientServices.getInstance(), previousClientNode);
             }
@@ -236,6 +400,24 @@ public class CoverageAnalysisTest {
     }
 
     // ---- helpers ----
+
+    private static void invokePublishDirectCoverageSweepResult(TestSuiteChromosome testSuite, int goals)
+            throws Exception {
+        Method m = CoverageAnalysis.class.getDeclaredMethod(
+                "publishDirectCoverageSweepResult", TestSuiteChromosome.class, int.class);
+        m.setAccessible(true);
+        m.invoke(null, testSuite, goals);
+    }
+
+    private static void markMeasurementFinishedForTest() {
+        try {
+            Method m = CoverageAnalysis.class.getDeclaredMethod("markMeasurementFinished");
+            m.setAccessible(true);
+            m.invoke(null);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private static int invokeRunDirectCoverageSweep(TestSuiteChromosome testSuite) throws Exception {
         Method m = CoverageAnalysis.class.getDeclaredMethod("runDirectCoverageSweep", TestSuiteChromosome.class);

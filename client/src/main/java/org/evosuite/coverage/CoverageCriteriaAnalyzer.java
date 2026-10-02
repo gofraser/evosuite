@@ -438,6 +438,14 @@ public class CoverageCriteriaAnalyzer {
         trackCoverageAnalysisProgress();
     }
 
+    /**
+     * @return whether every per-criterion coverage analysis performed so far in this run
+     *         evaluated all of its goals (see {@link #coverageAnalysisComplete}).
+     */
+    public static boolean isCoverageAnalysisComplete() {
+        return coverageAnalysisComplete;
+    }
+
     private static void trackCoverageAnalysisProgress() {
         ClientServices.getInstance().getClientNode().trackOutputVariable(
                 RuntimeVariable.CoverageAnalysisComplete, coverageAnalysisComplete);

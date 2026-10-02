@@ -161,6 +161,9 @@ public class CoverageAnalysis {
                 EvoRunner.useAgent = origUseAgent;
                 EvoRunner.useClassLoader = origUseClassLoader;
             }
+            // Measurement is done here: this branch has no output-phase work of its own
+            // after the report is printed, unlike the SELECTED_JUNIT branch below.
+            markMeasurementFinished();
         } else {
             // instead of just running junit tests, carve them
             JUnitTestCarvedChromosomeFactory carvedFactory = new JUnitTestCarvedChromosomeFactory(null);
@@ -171,14 +174,14 @@ public class CoverageAnalysis {
             // Track coverage statistics before writing JUnit tests, since
             // writeJUnitTestsAndCreateResult may fail on some targets.
             StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
-            int coveredGoals = testSuite.getCoveredGoals().size();
-            double coverage = goals == 0 ? 1.0 : ((double) coveredGoals) / ((double) goals);
-            ClientServices.getInstance().getClientNode()
-                    .trackOutputVariable(RuntimeVariable.Total_Goals, goals);
-            ClientServices.getInstance().getClientNode()
-                    .trackOutputVariable(RuntimeVariable.Covered_Goals, coveredGoals);
-            ClientServices.getInstance().getClientNode()
-                    .trackOutputVariable(RuntimeVariable.Coverage, coverage);
+            publishDirectCoverageSweepResult(testSuite, goals);
+
+            // The sweep's own measurement is finished at this point -- completely or not,
+            // CoverageCriteriaAnalyzer already has the final word via markCoverageAnalysisIncomplete()
+            // inside runDirectCoverageSweep. Everything from here on (writing the generated suite,
+            // the COVERAGE_MATRIX check) is output-phase work: a failure there must not be mistaken
+            // by ClientNodeImpl's backstop for a measurement failure and overwrite that verdict.
+            markMeasurementFinished();
 
             // Generate test suite (may fail, but coverage is already tracked)
             TestSuiteGenerator.writeJUnitTestsAndCreateResult(testSuite);
@@ -188,6 +191,75 @@ public class CoverageAnalysis {
                         "Coverage matrix not yet available when measuring coverage of a carved test suite");
             }
         }
+    }
+
+    /**
+     * Whether the measurement phase of the most recent {@link #analyzeCoverage()} call has
+     * finished -- successfully or with incompleteness already recorded via {@link
+     * CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()} -- before any output-phase work
+     * (writing the generated JUnit suite, the {@code COVERAGE_MATRIX} check) begins.
+     *
+     * <p>{@link org.evosuite.rmi.service.ClientNodeImpl#doCoverageAnalysis()} resets this to
+     * {@code false} before each attempt and consults it in its catch-all backstop, so that a
+     * failure which happens only after measurement finished (e.g. while writing the generated
+     * suite) does not retroactively mark an already-measured sweep incomplete.
+     */
+    private static volatile boolean measurementFinished = false;
+
+    private static void markMeasurementFinished() {
+        measurementFinished = true;
+    }
+
+    /**
+     * Resets the measurement-finished marker. Called by {@code ClientNodeImpl} before each
+     * {@code doCoverageAnalysis()} attempt so a prior run's state cannot leak into the next one.
+     */
+    public static void resetMeasurementFinished() {
+        measurementFinished = false;
+    }
+
+    /**
+     * @return whether {@link #analyzeCoverage()}'s measurement phase has already finished for the
+     *         most recent attempt (see {@link #measurementFinished}).
+     */
+    public static boolean isMeasurementFinished() {
+        return measurementFinished;
+    }
+
+    /**
+     * Publishes the ordinary {@link RuntimeVariable#Total_Goals}, {@link
+     * RuntimeVariable#Covered_Goals} and {@link RuntimeVariable#Coverage} output variables for a
+     * {@link #runDirectCoverageSweep} result, unless {@link CoverageCriteriaAnalyzer} recorded the
+     * sweep as incomplete (a criterion threw {@link OutOfMemoryError} before all configured
+     * criteria were measured). These three are default/essential output variables, unlike the
+     * opt-in {@link RuntimeVariable#CoverageAnalysisComplete} marker, so publishing them
+     * unconditionally would represent a partial sweep (missing one or more configured criteria
+     * entirely) as an ordinary, trustworthy score -- and, if the failure happened before the first
+     * criterion's goal count was even read, {@code goals == 0} would additionally trigger the
+     * empty-criterion convention and publish {@code Coverage=1.0} for a sweep that measured
+     * nothing at all. Withholding them here leaves only the already-accurate per-criterion
+     * progress ({@code CoverageAnalysisGoalsChecked}/{@code CoverageAnalysisGoalsTotal}) and the
+     * {@code CoverageAnalysisComplete=false} marker published for an incomplete sweep.
+     *
+     * @param testSuite the carved test suite the sweep ran against
+     * @param goals     the total goal count {@link #runDirectCoverageSweep} returned
+     */
+    private static void publishDirectCoverageSweepResult(TestSuiteChromosome testSuite, int goals) {
+        if (!CoverageCriteriaAnalyzer.isCoverageAnalysisComplete()) {
+            LoggingUtils.getEvoLogger().warn("* " + ClientProcess.getPrettyPrintIdentifier()
+                    + "Coverage analysis sweep did not finish; withholding Total_Goals, "
+                    + "Covered_Goals and Coverage rather than publishing a partial sweep as "
+                    + "if it were complete");
+            return;
+        }
+        int coveredGoals = testSuite.getCoveredGoals().size();
+        double coverage = goals == 0 ? 1.0 : ((double) coveredGoals) / ((double) goals);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.Total_Goals, goals);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.Covered_Goals, coveredGoals);
+        ClientServices.getInstance().getClientNode()
+                .trackOutputVariable(RuntimeVariable.Coverage, coverage);
     }
 
     /**
