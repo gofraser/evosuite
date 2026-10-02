@@ -19,21 +19,34 @@
  */
 package org.evosuite.coverage;
 
+import org.evosuite.Properties;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeImpl;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
 import org.evosuite.statistics.RuntimeVariable;
+import org.evosuite.testcase.TestFitnessFunction;
+import org.evosuite.testsuite.TestSuiteChromosome;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 
 /**
  * On a coverage-analysis timeout, {@code CoverageCriteriaAnalyzer} used to pad the unchecked
@@ -131,6 +144,56 @@ public class CoverageCriteriaAnalyzerTest {
         assertEquals(Boolean.TRUE, node.value(RuntimeVariable.CoverageAnalysisComplete));
         assertEquals(0, node.value(RuntimeVariable.CoverageAnalysisGoalsChecked));
         assertEquals(0, node.value(RuntimeVariable.CoverageAnalysisGoalsTotal));
+    }
+
+    @Test
+    public void midCriterionOutOfMemoryRecordsGoalsAlreadyEvaluatedBeforeRethrowing() throws Exception {
+        // Three goals: the first is covered, the second is not, and the third throws a
+        // synthetic OutOfMemoryError from isCoveredBy -- mirroring a real criterion that OOMs
+        // partway through its goal set rather than before starting or after finishing.
+        TestFitnessFunction first = mock(TestFitnessFunction.class);
+        TestFitnessFunction second = mock(TestFitnessFunction.class);
+        TestFitnessFunction third = mock(TestFitnessFunction.class);
+        doReturn(0).when(first).compareTo(any(TestFitnessFunction.class));
+        doReturn(0).when(second).compareTo(any(TestFitnessFunction.class));
+        doReturn(0).when(third).compareTo(any(TestFitnessFunction.class));
+        doReturn(true).when(first).isCoveredBy(any(TestSuiteChromosome.class));
+        doReturn(false).when(second).isCoveredBy(any(TestSuiteChromosome.class));
+        doThrow(new OutOfMemoryError("synthetic OOM on third goal"))
+                .when(third).isCoveredBy(any(TestSuiteChromosome.class));
+
+        TestFitnessFactory<TestFitnessFunction> factory = mock(TestFitnessFactory.class);
+        List<TestFitnessFunction> goals = new ArrayList<>(List.of(first, second, third));
+        doReturn(goals).when(factory).getCoverageGoals();
+
+        TestSuiteChromosome suite = new TestSuiteChromosome();
+
+        Method analyzeCoverage = CoverageCriteriaAnalyzer.class.getDeclaredMethod(
+                "analyzeCoverage", TestSuiteChromosome.class, Properties.Criterion.class, boolean.class);
+        analyzeCoverage.setAccessible(true);
+
+        try (MockedStatic<FitnessFunctions> fitnessFunctions = mockStatic(FitnessFunctions.class)) {
+            // recalculate=false skips reinstrument()/clearCoveredGoals(), which are unrelated to
+            // this goal loop and would otherwise need a live instrumented target class.
+            fitnessFunctions.when(() -> FitnessFunctions.getFitnessFactory(Properties.Criterion.LINE))
+                    .thenReturn(factory);
+
+            InvocationTargetException wrapped = assertThrows(InvocationTargetException.class,
+                    () -> analyzeCoverage.invoke(null, suite, Properties.Criterion.LINE, false),
+                    "the OutOfMemoryError from the third goal must propagate out of the goal loop, "
+                            + "exactly as it does today without the fix");
+            assertTrue(wrapped.getCause() instanceof OutOfMemoryError,
+                    "expected the synthetic OutOfMemoryError, got " + wrapped.getCause());
+        }
+
+        // The defect: without recording progress before rethrowing, these come back as
+        // false/0/0 (the fields' initial state) instead of reflecting the two goals the
+        // criterion actually evaluated before the OOM.
+        assertEquals(Boolean.FALSE, node.value(RuntimeVariable.CoverageAnalysisComplete));
+        assertEquals(2, node.value(RuntimeVariable.CoverageAnalysisGoalsChecked),
+                "two goals (first covered, second not) were evaluated before the OOM");
+        assertEquals(3, node.value(RuntimeVariable.CoverageAnalysisGoalsTotal),
+                "the criterion's known denominator is all three goals, not just the ones reached");
     }
 
     // ---- helpers ----

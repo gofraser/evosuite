@@ -301,29 +301,45 @@ public class CoverageCriteriaAnalyzer {
         int covered = 0;
         boolean timedOut = false;
 
-        for (TestFitnessFunction goal : goals) {
-            // Checking a goal against every test in the suite is O(goals x tests), and this
-            // phase has no timeout of its own in TimeController. A single criterion with a
-            // large goal set (eg weak mutation on a big suite) can be the whole cost, so the
-            // per-criterion check above is not enough by itself -- bail here too, mid
-            // criterion, rather than run unbounded. The goals already checked keep their
-            // real result; the rest are conservatively recorded as not (yet known) covered,
-            // same as a goal the search never reached.
-            if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
-                timedOut = true;
-                break;
-            }
-            if (goal.isCoveredBy(testSuiteCopy)) {
-                logger.debug("Goal {} is covered", goal);
-                covered++;
-                buffer.append("1");
-            } else {
-                logger.debug("Goal {} is not covered", goal);
-                buffer.append("0");
-                if (Properties.PRINT_MISSED_GOALS) {
-                    LoggingUtils.getEvoLogger().info(" - Missed goal {}", goal);
+        try {
+            for (TestFitnessFunction goal : goals) {
+                // Checking a goal against every test in the suite is O(goals x tests), and this
+                // phase has no timeout of its own in TimeController. A single criterion with a
+                // large goal set (eg weak mutation on a big suite) can be the whole cost, so the
+                // per-criterion check above is not enough by itself -- bail here too, mid
+                // criterion, rather than run unbounded. The goals already checked keep their
+                // real result; the rest are conservatively recorded as not (yet known) covered,
+                // same as a goal the search never reached.
+                if (!TimeController.getInstance().hasTimeToExecuteATestCase()) {
+                    timedOut = true;
+                    break;
+                }
+                if (goal.isCoveredBy(testSuiteCopy)) {
+                    logger.debug("Goal {} is covered", goal);
+                    covered++;
+                    buffer.append("1");
+                } else {
+                    logger.debug("Goal {} is not covered", goal);
+                    buffer.append("0");
+                    if (Properties.PRINT_MISSED_GOALS) {
+                        LoggingUtils.getEvoLogger().info(" - Missed goal {}", goal);
+                    }
                 }
             }
+        } catch (OutOfMemoryError e) {
+            // Unlike the time-budget break above, an OutOfMemoryError here unwinds past the
+            // normal recordCoverageAnalysisProgress() call below entirely, so without this catch
+            // the goals this criterion already evaluated (buffer.length() of them) would never
+            // be added to the cumulative checked/total tally -- the caller's own OOM recovery
+            // (CoverageAnalysis#runDirectCoverageSweep / TestSuiteGenerator
+            // #runCoverageAnalysisIfEnabled) only calls markCoverageAnalysisIncomplete(), which
+            // republishes the existing totals rather than contributing this criterion's count.
+            // Record this criterion's real progress before rethrowing, so RuntimeVariable
+            // #CoverageAnalysisGoalsChecked/Total still reflect the work actually done. Rethrowing
+            // means the normal recordCoverageAnalysisProgress() call below is never reached for
+            // this criterion, so it cannot be counted twice.
+            recordCoverageAnalysisProgress(buffer.length(), goals.size(), false);
+            throw e;
         }
 
         int checked = buffer.length();
