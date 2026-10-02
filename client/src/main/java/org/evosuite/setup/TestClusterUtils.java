@@ -261,12 +261,15 @@ public class TestClusterUtils {
      * Whether the class comes from the JDK itself rather than from the project's classpath.
      *
      * <p>A {@code java.}/{@code jdk.}-named module is additionally required to be one
-     * {@link JavaModuleLookup#isSystemModule(String) the running JDK's own install image ships},
-     * not merely named that way: a user module can call itself {@code java.fake} and export an
-     * arbitrary package from it. Without this check, such a module made every class it exports
-     * -- including one in an otherwise-ambiguous package like {@code com.sun.} -- look like JDK
-     * code to {@link #checkIfCanUse(String, Class)}'s ambiguous-prefix exception, silently
-     * rejecting a genuine user-library class for a reason unrelated to its own package.
+     * {@link JavaModuleLookup#isFromSystemImage the running JDK's own install image actually
+     * resolved this class's module from}, not merely named that way or named like a module that
+     * exists somewhere in the image: a user module can call itself {@code java.fake}, or reuse the
+     * name of a real image module that the default boot layer does not include (such as
+     * {@code jdk.hotspot.agent}), and export an arbitrary package from it. Without this check,
+     * such a module made every class it exports -- including one in an otherwise-ambiguous
+     * package like {@code com.sun.} -- look like JDK code to {@link #checkIfCanUse(String, Class)}
+     * 's ambiguous-prefix exception, silently rejecting a genuine user-library class for a reason
+     * unrelated to its own package.
      *
      * <p>{@code javafx.}, and the bare module names {@code "java"}/{@code "jdk"}, are
      * deliberately exempt from that image check: unlike {@code java.}/{@code jdk.}-named
@@ -296,9 +299,10 @@ public class TestClusterUtils {
         }
         String name = result.moduleName();
         if (name.startsWith("java.") || name.startsWith("jdk.")) {
-            // Prefix alone is not provenance (see the Javadoc above): confirm the module is
-            // actually one the running JDK ships, not merely named like one.
-            return JavaModuleLookup.isSystemModule(name);
+            // Prefix alone is not provenance (see the Javadoc above): confirm this class's own
+            // module was actually resolved from the running JDK's image, not merely named like
+            // one that exists somewhere in it.
+            return JavaModuleLookup.isFromSystemImage(result);
         }
         return name.startsWith("javafx.") || name.equals("java") || name.equals("jdk");
     }

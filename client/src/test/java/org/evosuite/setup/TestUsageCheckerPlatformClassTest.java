@@ -30,10 +30,8 @@ import org.junit.jupiter.api.Test;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.lang.module.Configuration;
 import java.lang.module.ModuleFinder;
 import java.nio.charset.StandardCharsets;
@@ -78,7 +76,7 @@ import java.util.stream.Collectors;
  * launches exactly such a module in a child JVM -- an in-process {@link ModuleLayer}
  * cannot reproduce startup resolution -- to confirm the current check, which instead
  * requires the module's name to be one {@code java.lang.module.ModuleFinder#ofSystem()}
- * enumerates (see {@link JavaModuleLookup#isSystemModule(String)}), rejects it too.
+ * enumerates (see {@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)}), rejects it too.
  */
 class TestUsageCheckerPlatformClassTest {
 
@@ -259,7 +257,7 @@ class TestUsageCheckerPlatformClassTest {
      * have passed the previous (boot-layer-membership) version of this check even though it is
      * ordinary application code with no connection to the running JDK -- see the corrected class
      * and method Javadoc on {@link TestUsageChecker#isPlatformClass(Class)} and
-     * {@link JavaModuleLookup#isSystemModule(String)} for the measured proof. An in-process test
+     * {@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)} for the measured proof. An in-process test
      * cannot create this situation: {@code ModuleLayer.boot()} is fixed before any test method
      * runs, so this launches a real child JVM instead, with the spoofed module pre-declared on
      * its command line exactly the way a dependency assembled that way would be, and reads back
@@ -316,30 +314,152 @@ class TestUsageCheckerPlatformClassTest {
                     "-cp", testClasspath + File.pathSeparator + runnerDir,
                     runnerClassName, userTypeClassName);
 
-            Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
-            String output;
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                output = reader.lines().collect(Collectors.joining(System.lineSeparator()));
-            }
-            boolean exited = process.waitFor(60, TimeUnit.SECONDS);
-            Assertions.assertTrue(exited, "child JVM did not terminate within the timeout");
-            Assertions.assertEquals(0, process.exitValue(),
-                    "child JVM must run the classification cleanly; output was:" + System.lineSeparator()
-                            + output);
+            // Redirect the child's output to a file instead of a pipe: reading a pipe to EOF
+            // before waitFor() blocks forever if the child stays alive with the stream open, and
+            // waiting on a bounded pipe first can just as easily block the child if its output
+            // overflows the pipe buffer before anything drains it. A file avoids both failure
+            // modes, so the bounded wait below is the only thing that can block.
+            Path childOutputFile = runnerDir.resolve("child-output.txt");
+            Process process = new ProcessBuilder(command)
+                    .redirectErrorStream(true)
+                    .redirectOutput(childOutputFile.toFile())
+                    .start();
+            try {
+                boolean exited = process.waitFor(60, TimeUnit.SECONDS);
+                if (!exited) {
+                    Assertions.fail("child JVM did not terminate within the timeout");
+                }
+                String output = Files.readString(childOutputFile, StandardCharsets.UTF_8);
+                Assertions.assertEquals(0, process.exitValue(),
+                        "child JVM must run the classification cleanly; output was:"
+                                + System.lineSeparator() + output);
 
-            // A module placed on --module-path and named in --add-modules at JVM startup is
-            // resolved into ModuleLayer.boot() -- unlike the runtime-created layer above, there is
-            // no way to construct this situation in-process. Exactly this case passed the
-            // previous (boot-layer-membership) version of isPlatformClass(): the measured output
-            // there was "true", with the module's layer reported as ModuleLayer.boot().
-            Assertions.assertEquals("false", output.trim(),
-                    "a startup-resolved java.*-named module must not be classified as JDK "
-                            + "platform code; child JVM output was:" + System.lineSeparator() + output);
+                // A module placed on --module-path and named in --add-modules at JVM startup is
+                // resolved into ModuleLayer.boot() -- unlike the runtime-created layer above,
+                // there is no way to construct this situation in-process. Exactly this case
+                // passed the previous (boot-layer-membership) version of isPlatformClass(): the
+                // measured output there was "true", with the module's layer reported as
+                // ModuleLayer.boot().
+                Assertions.assertEquals("false", output.trim(),
+                        "a startup-resolved java.*-named module must not be classified as JDK "
+                                + "platform code; child JVM output was:" + System.lineSeparator()
+                                + output);
+            } finally {
+                // No-op if the child already exited; bounds the child's lifetime to this test
+                // even when an assertion above fails or the timeout above fired.
+                process.destroyForcibly();
+            }
         } finally {
             deleteRecursively(moduleDir);
             deleteRecursively(runnerDir);
         }
+    }
+
+    /**
+     * The sixth direction, on top of the four above: a module that reuses the <em>name of a real
+     * image module</em> -- one {@code java.lang.module.ModuleFinder#ofSystem()} actually enumerates
+     * -- but is resolved from somewhere other than the image. This is not the same situation as
+     * {@link #testUserModuleNamedLikeAJdkModuleIsNotPlatformClass}, whose module name
+     * ({@code java.evosuitespooftest}) matches no real module anywhere: the fix that replaced
+     * name-prefix matching with {@code java.lang.module.ModuleFinder#ofSystem()} name membership
+     * (see {@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)}) is itself
+     * insufficient here, because image-wide name membership does not say that <em>this particular
+     * class's own module</em> is the image's copy. A module name can exist in the image while being
+     * absent from the default boot layer -- {@code jdk.hotspot.agent} is such a name on both
+     * Corretto 17 and OpenJDK 27 -- which lets a user module resolve its own, separately compiled
+     * copy of that exact name into a layer of its own, the same way the fixture below does, without
+     * colliding with the JVM's own copy. The module name to reuse is discovered from the running
+     * JDK itself, rather than hard-coded, so the test self-documents as skipped rather than passing
+     * vacuously if a future JDK's image has no such name.
+     */
+    @Test
+    void testSameNameAsImageModuleButDifferentOriginIsNotPlatformClass() throws Exception {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        Assumptions.assumeTrue(compiler != null,
+                "no system Java compiler available to build the duplicate-name module fixture "
+                        + "(running on a JRE rather than a JDK)");
+
+        String moduleName = findImageModuleNameAbsentFromBootLayer();
+        Assumptions.assumeTrue(moduleName != null,
+                "no module in the running JDK's own image (ModuleFinder.ofSystem()) is absent "
+                        + "from the default boot layer; cannot reproduce a same-name, "
+                        + "different-origin module on this JDK");
+
+        String packageName = "org.evosuite.setup.spooftest.dupename";
+        String className = packageName + ".DuplicateNameUserType";
+
+        Path moduleDir = Files.createTempDirectory("evosuite-module-dupe-name");
+        try {
+            Path moduleInfo = moduleDir.resolve("module-info.java");
+            Files.writeString(moduleInfo, "module " + moduleName + " { exports " + packageName + "; }");
+            Path packageDir = moduleDir.resolve(packageName.replace('.', '/'));
+            Files.createDirectories(packageDir);
+            Path userType = packageDir.resolve("DuplicateNameUserType.java");
+            Files.writeString(userType, "package " + packageName + "; public class DuplicateNameUserType {}");
+
+            int compileResult = compiler.run(null, null, null,
+                    "-d", moduleDir.toString(), moduleInfo.toString(), userType.toString());
+            Assertions.assertEquals(0, compileResult, "duplicate-name module fixture must compile");
+
+            ModuleFinder finder = ModuleFinder.of(moduleDir);
+            Configuration configuration = ModuleLayer.boot().configuration()
+                    .resolve(finder, ModuleFinder.of(), Set.of(moduleName));
+            ModuleLayer layer = ModuleLayer.defineModulesWithOneLoader(
+                    configuration, List.of(ModuleLayer.boot()), ClassLoader.getSystemClassLoader()).layer();
+            Class<?> duplicate = layer.findLoader(moduleName).loadClass(className);
+
+            // Confirm the fixture reproduces the finding: a module that reuses the name of a real
+            // image module, resolved here from a temp directory rather than the image, in a layer
+            // this JVM can actually construct precisely because that name is absent from its own
+            // boot layer.
+            Assertions.assertTrue(duplicate.getModule().isNamed());
+            Assertions.assertEquals(moduleName, duplicate.getModule().getName());
+            Assertions.assertTrue(ModuleFinder.ofSystem().find(moduleName).isPresent(),
+                    moduleName + " must be a name the running JDK's own image actually ships");
+            Assertions.assertFalse(ModuleLayer.boot().findModule(moduleName).isPresent(),
+                    moduleName + " must be absent from the default boot layer, or this fixture "
+                            + "could not coexist with the JVM's own copy of that name");
+            Assertions.assertNotEquals(ModuleFinder.ofSystem().find(moduleName).get(),
+                    duplicate.getModule().getLayer().configuration().findModule(moduleName)
+                            .get().reference(),
+                    "the fixture's module reference must differ from the image's own, or this "
+                            + "is not the same-name/different-origin situation the finding describes");
+
+            Assertions.assertFalse(TestUsageChecker.isPlatformClass(duplicate),
+                    "a module merely reusing the name of a real image module, resolved from "
+                            + "somewhere other than the image itself, must not be classified as "
+                            + "JDK platform code");
+        } finally {
+            deleteRecursively(moduleDir);
+        }
+    }
+
+    /**
+     * A name the running JDK's own image ships (per {@code ModuleFinder.ofSystem()}) but that is
+     * not part of the default boot layer, so a user module can safely resolve its own copy of that
+     * name into a layer of its own without colliding with the JVM's.
+     */
+    private static String findImageModuleNameAbsentFromBootLayer() {
+        Set<String> bootNames = ModuleLayer.boot().modules().stream()
+                .map(Module::getName)
+                .collect(Collectors.toSet());
+        return ModuleFinder.ofSystem().findAll().stream()
+                .map(ref -> ref.descriptor().name())
+                .filter(name -> !bootNames.contains(name))
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Baseline/control: an ordinary non-modular classpath library class -- unaffected by either the
+     * module-name-prefix check or the image-origin check above, since it has no named module at all
+     * -- must still classify as non-JDK.
+     */
+    @Test
+    void testOrdinaryClasspathLibraryClassIsNotPlatformClass() {
+        Assertions.assertFalse(org.apache.commons.lang3.ClassUtils.class.getModule().isNamed(),
+                "commons-lang3 is expected to be an ordinary, non-modular classpath dependency here");
+        Assertions.assertFalse(TestUsageChecker.isPlatformClass(org.apache.commons.lang3.ClassUtils.class));
     }
 
     private static void deleteRecursively(Path root) throws IOException {

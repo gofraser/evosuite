@@ -20,8 +20,8 @@
 package org.evosuite.setup;
 
 import java.lang.reflect.Method;
-import java.util.Collections;
-import java.util.HashSet;
+import java.net.URI;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -35,11 +35,11 @@ import java.util.Set;
  * lookup, not the classification each caller builds on top of it -- see {@link Result} for why an
  * unavailable module system and a named-but-absent module are kept distinct.
  *
- * <p>The three {@link Method} objects are resolved once, in a static initializer, rather than on
- * every lookup: {@code getMethod} itself -- a scan of the public method table plus a fresh
- * {@code Method} allocation -- is the expensive part, not the three {@code invoke} calls that
- * follow. Resolution can fail wholesale (a real Java 8 JVM has no module system at all), which is
- * recorded once in {@link #MODULES_SUPPORTED} instead of being rediscovered on every call.
+ * <p>The {@link Method} objects are resolved once, in static initializers, rather than on every
+ * lookup: {@code getMethod} itself -- a scan of the public method table plus a fresh {@code Method}
+ * allocation -- is the expensive part, not the {@code invoke} calls that follow. Resolution can fail
+ * wholesale (a real Java 8 JVM has no module system at all), which is recorded once in
+ * {@link #MODULES_SUPPORTED} instead of being rediscovered on every call.
  */
 final class JavaModuleLookup {
 
@@ -52,13 +52,22 @@ final class JavaModuleLookup {
     private static final boolean MODULES_SUPPORTED;
 
     /**
-     * Names of every module in the running JDK's own install image, i.e. exactly the modules
-     * {@code java.lang.module.ModuleFinder#ofSystem()} enumerates -- or {@code null} if that
-     * enumeration itself is unavailable (plain Java 8, or a refusal). See
-     * {@link #isSystemModule(String)} for why this, and not boot-layer membership, is the
-     * signal that actually answers "did this module come from the running JDK's image?".
+     * Reflective access to the chain {@code Module#getLayer()} -> {@code ModuleLayer#configuration()}
+     * -> {@code Configuration#findModule(String)} -> {@code ResolvedModule#reference()} ->
+     * {@code ModuleReference#location()} used by {@link #isFromSystemImage(Result)} to find where a
+     * module's own resolved reference actually came from, plus {@code ModuleLayer.boot()} and
+     * {@code ModuleLayer#modules()} used there to recover a boot-layer module whose
+     * {@code getLayer()} reports {@code null} (see that method). Resolved independently of
+     * {@link #GET_MODULE} and friends, the same way the rest of this class's Java 9+ accessors are.
      */
-    private static final Set<String> SYSTEM_MODULE_NAMES;
+    private static final Method GET_LAYER;
+    private static final Method LAYER_BOOT;
+    private static final Method LAYER_MODULES;
+    private static final Method LAYER_CONFIGURATION;
+    private static final Method CONFIGURATION_FIND_MODULE;
+    private static final Method RESOLVED_MODULE_REFERENCE;
+    private static final Method MODULE_REFERENCE_LOCATION;
+    private static final boolean IMAGE_ORIGIN_LOOKUP_SUPPORTED;
 
     static {
         Method getModule;
@@ -81,32 +90,48 @@ final class JavaModuleLookup {
         GET_NAME = getName;
         MODULES_SUPPORTED = GET_MODULE != null;
 
-        Set<String> systemModuleNames;
+        Method getLayer;
+        Method layerBoot;
+        Method layerModules;
+        Method layerConfiguration;
+        Method configurationFindModule;
+        Method resolvedModuleReference;
+        Method moduleReferenceLocation;
         try {
-            // java.lang.module.ModuleFinder is itself Java 9+, so even naming it in a
-            // reflective Method/Class signature would not compile under this module's Java 8
-            // release target; look everything up by name, independently of the Module
-            // accessors above since it is resolved from entirely different classes.
-            Class<?> moduleFinderClass = Class.forName("java.lang.module.ModuleFinder");
-            Object systemFinder = moduleFinderClass.getMethod("ofSystem").invoke(null);
-            Set<?> systemRefs = (Set<?>) moduleFinderClass.getMethod("findAll").invoke(systemFinder);
-
+            // Named independently of the Module/Class accessors above -- same Java 8 floor, same
+            // "look it up by name because it cannot be named in a reflective signature" reasoning.
+            Class<?> moduleClass = Class.forName("java.lang.Module");
+            Class<?> moduleLayerClass = Class.forName("java.lang.ModuleLayer");
+            Class<?> configurationClass = Class.forName("java.lang.module.Configuration");
+            Class<?> resolvedModuleClass = Class.forName("java.lang.module.ResolvedModule");
             Class<?> moduleReferenceClass = Class.forName("java.lang.module.ModuleReference");
-            Method descriptorOf = moduleReferenceClass.getMethod("descriptor");
-            Class<?> moduleDescriptorClass = Class.forName("java.lang.module.ModuleDescriptor");
-            Method nameOf = moduleDescriptorClass.getMethod("name");
 
-            Set<String> names = new HashSet<>();
-            for (Object ref : systemRefs) {
-                names.add((String) nameOf.invoke(descriptorOf.invoke(ref)));
-            }
-            systemModuleNames = Collections.unmodifiableSet(names);
+            getLayer = moduleClass.getMethod("getLayer");
+            layerBoot = moduleLayerClass.getMethod("boot");
+            layerModules = moduleLayerClass.getMethod("modules");
+            layerConfiguration = moduleLayerClass.getMethod("configuration");
+            configurationFindModule = configurationClass.getMethod("findModule", String.class);
+            resolvedModuleReference = resolvedModuleClass.getMethod("reference");
+            moduleReferenceLocation = moduleReferenceClass.getMethod("location");
         } catch (ReflectiveOperationException | RuntimeException e) {
             // Same Java 8 case as above (no such classes), resolved independently of
             // MODULES_SUPPORTED.
-            systemModuleNames = null;
+            getLayer = null;
+            layerBoot = null;
+            layerModules = null;
+            layerConfiguration = null;
+            configurationFindModule = null;
+            resolvedModuleReference = null;
+            moduleReferenceLocation = null;
         }
-        SYSTEM_MODULE_NAMES = systemModuleNames;
+        GET_LAYER = getLayer;
+        LAYER_BOOT = layerBoot;
+        LAYER_MODULES = layerModules;
+        LAYER_CONFIGURATION = layerConfiguration;
+        CONFIGURATION_FIND_MODULE = configurationFindModule;
+        RESOLVED_MODULE_REFERENCE = resolvedModuleReference;
+        MODULE_REFERENCE_LOCATION = moduleReferenceLocation;
+        IMAGE_ORIGIN_LOOKUP_SUPPORTED = GET_LAYER != null;
     }
 
     /**
@@ -121,24 +146,31 @@ final class JavaModuleLookup {
      * first case as "assume JDK"; {@link TestUsageChecker#isPlatformClass} instead falls back to
      * a bootstrap-loader check -- so collapsing the two into a single {@code null}/boolean would
      * erase that distinction.
+     *
+     * <p>A named result also carries the raw {@code Module} instance (as an untyped {@code
+     * Object}, since this module's Java 8 release target cannot name {@code java.lang.Module} in a
+     * field signature) so {@link #isFromSystemImage(Result)} can trace that specific module's own
+     * resolved reference, rather than only its name.
      */
     static final class Result {
 
         private enum Kind {UNAVAILABLE, UNNAMED, NAMED}
 
-        private static final Result UNAVAILABLE = new Result(Kind.UNAVAILABLE, null);
-        private static final Result UNNAMED = new Result(Kind.UNNAMED, null);
+        private static final Result UNAVAILABLE = new Result(Kind.UNAVAILABLE, null, null);
+        private static final Result UNNAMED = new Result(Kind.UNNAMED, null, null);
 
         private final Kind kind;
         private final String moduleName;
+        private final Object rawModule;
 
-        private Result(Kind kind, String moduleName) {
+        private Result(Kind kind, String moduleName, Object rawModule) {
             this.kind = kind;
             this.moduleName = moduleName;
+            this.rawModule = rawModule;
         }
 
-        private static Result named(String moduleName) {
-            return new Result(Kind.NAMED, moduleName);
+        private static Result named(String moduleName, Object rawModule) {
+            return new Result(Kind.NAMED, moduleName, rawModule);
         }
 
         /**
@@ -161,6 +193,14 @@ final class JavaModuleLookup {
          */
         String moduleName() {
             return moduleName;
+        }
+
+        /**
+         * @return the underlying {@code java.lang.Module} instance, untyped; only valid when
+         * {@link #isNamed()} is true.
+         */
+        Object rawModule() {
+            return rawModule;
         }
     }
 
@@ -189,46 +229,82 @@ final class JavaModuleLookup {
                 return Result.UNNAMED;
             }
             String name = (String) GET_NAME.invoke(module);
-            return name == null ? Result.UNNAMED : Result.named(name);
+            return name == null ? Result.UNNAMED : Result.named(name, module);
         } catch (ReflectiveOperationException | RuntimeException e) {
             return Result.UNAVAILABLE;
         }
     }
 
     /**
-     * Whether {@code moduleName} names a module that ships in the <em>running JDK's own install
-     * image</em> -- i.e. one {@code java.lang.module.ModuleFinder#ofSystem()} enumerates --
-     * rather than one merely resolved by the JVM at some point, from wherever it was found.
+     * Whether {@code result}'s module is one the <em>running JDK's own install image</em> actually
+     * shipped it from, rather than merely one with a {@code java.}/{@code jdk.}-prefixed name.
      *
-     * <p>This replaces an earlier, incorrect signal: whether the class's module was resolved
-     * into {@code ModuleLayer.boot()}. Boot-layer membership was meant to catch a user module
-     * that names itself {@code java.fake} or {@code jdk.whatever} to spoof {@link
-     * TestUsageChecker#isPlatformClass} or {@code TestClusterUtils#isJdkClass}, on the reasoning
-     * that an application cannot make a dynamically defined layer ({@code
-     * ModuleLayer.defineModulesWithOneLoader} and friends) equal to the boot layer. That
-     * reasoning only covers a layer the application builds itself at run time. It does not cover
-     * a module placed on {@code --module-path} and named in {@code --add-modules} at JVM
-     * <em>startup</em>: that module is resolved into {@code ModuleLayer.boot()} right alongside
-     * every genuine JDK module, by the same startup resolution step, so a spoof launched that
-     * way passed the boot-layer check -- measurably, on a module named {@code java.fake} started
-     * with {@code --module-path}/{@code --add-modules} -- even though it is ordinary application
-     * code with no connection to the running JDK.
+     * <p>This replaces two earlier, incorrect signals in turn. First, boot-layer membership: a
+     * module placed on {@code --module-path} and named in {@code --add-modules} at JVM
+     * <em>startup</em> resolves into {@code ModuleLayer.boot()} right alongside every genuine JDK
+     * module, by the same startup resolution step, so a module named {@code java.fake} launched
+     * that way passed a boot-layer check even though it is ordinary application code. Second,
+     * module-name membership in {@code java.lang.module.ModuleFinder#ofSystem()}'s enumeration of
+     * the image: that enumeration answers "does a module of this name exist somewhere in the
+     * image", not "is this particular module the one the image shipped". A user module can reuse
+     * the name of a module that the image does contain but that is not part of the default boot
+     * layer -- {@code jdk.hotspot.agent} is such a name on both Corretto 17 and OpenJDK 27 -- and
+     * resolve its own, separately compiled copy of that name into a layer of its own. Name
+     * membership alone then says yes, even though the resolved module in hand is not the image's.
      *
-     * <p>Module name is a red herring here too: the question is not what a module calls itself,
-     * nor which layer or loader it ends up in, but whether its name is one the running JDK
-     * actually ships. {@code ModuleFinder.ofSystem()} answers exactly that, directly from the
-     * JDK's own module graph, independently of how or when the class being classified was
-     * resolved -- so it correctly accepts {@code jdk.jdi} (an app-loader-defined but genuine JDK
-     * tool module) and correctly rejects {@code java.fake} whether that spoof is built into a
-     * runtime-created layer or resolved by the JVM at startup. {@link
-     * TestUsageChecker#isPlatformClass} combines this with the named-module and prefix checks so
-     * a user module cannot pass for the JDK merely by naming itself {@code java.*} or {@code
-     * jdk.*}.
+     * <p>The question that actually answers "did this module come from the image" is where the
+     * specific {@code ResolvedModule} backing {@code result}'s own module -- found by looking its
+     * own name up in its own layer's own {@code Configuration}, not in some global enumeration --
+     * says it was loaded from: {@code ModuleReference#location()} is {@code jrt:/<module>} for a
+     * module the image shipped, and a {@code file:}/{@code jar:} URI (or everything else) for one
+     * resolved from anywhere else, including a same-named user module on {@code --module-path}.
+     * This also makes a separate image-wide name enumeration unnecessary: the per-class lookup
+     * below answers the real question directly, for the specific module the class actually came
+     * from.
      *
-     * @param moduleName the module name to check, as returned by {@link Result#moduleName()}
-     * @return true if a module of that name is part of the running JDK's install image
+     * <p>{@code Module#getLayer()} can report {@code null} for a boot-layer class on some JDKs,
+     * which is not the same as the class being in the unnamed module (that case is already
+     * filtered out by {@link Result#isNamed()} before this method is ever called, since an
+     * unnamed-module class has no module name to prefix-check in the first place). When the layer
+     * is {@code null}, this falls back to {@code ModuleLayer.boot()} only if {@code result}'s exact
+     * module instance is a member of it (checked by identity, via {@code ModuleLayer#modules()});
+     * a module built or resolved any other way is never boot's own object, so this recovery cannot
+     * promote a non-boot module. If membership cannot be established this way either, the method
+     * reports {@code false} rather than assuming JDK provenance: an inability to trace the
+     * reference is treated as a negative, never a default "yes".
+     *
+     * @param result a {@link #lookupModule(Class)} outcome with {@link Result#isNamed()} true
+     * @return true if the specific module {@code result} describes was resolved from the running
+     * JDK's own install image
      */
-    static boolean isSystemModule(String moduleName) {
-        return SYSTEM_MODULE_NAMES != null && SYSTEM_MODULE_NAMES.contains(moduleName);
+    static boolean isFromSystemImage(Result result) {
+        if (!result.isNamed() || !IMAGE_ORIGIN_LOOKUP_SUPPORTED) {
+            return false;
+        }
+        try {
+            Object module = result.rawModule();
+            Object layer = GET_LAYER.invoke(module);
+            if (layer == null) {
+                Object bootLayer = LAYER_BOOT.invoke(null);
+                Set<?> bootModules = (Set<?>) LAYER_MODULES.invoke(bootLayer);
+                if (!bootModules.contains(module)) {
+                    return false;
+                }
+                layer = bootLayer;
+            }
+            Object configuration = LAYER_CONFIGURATION.invoke(layer);
+            @SuppressWarnings("unchecked")
+            Optional<Object> resolvedModule =
+                    (Optional<Object>) CONFIGURATION_FIND_MODULE.invoke(configuration, result.moduleName());
+            if (!resolvedModule.isPresent()) {
+                return false;
+            }
+            Object moduleReference = RESOLVED_MODULE_REFERENCE.invoke(resolvedModule.get());
+            @SuppressWarnings("unchecked")
+            Optional<URI> location = (Optional<URI>) MODULE_REFERENCE_LOCATION.invoke(moduleReference);
+            return location.isPresent() && "jrt".equals(location.get().getScheme());
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return false;
+        }
     }
 }

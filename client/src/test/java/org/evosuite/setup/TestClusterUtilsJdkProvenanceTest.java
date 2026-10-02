@@ -51,7 +51,7 @@ import java.util.Set;
  *
  * <p>This is the same class of defect {@link TestUsageCheckerPlatformClassTest} pins for
  * {@link TestUsageChecker#isPlatformClass(Class)}, and the fix reuses the same signal
- * ({@link JavaModuleLookup#isSystemModule(String)}): a {@code java.}/{@code jdk.}-named module
+ * ({@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)}): a {@code java.}/{@code jdk.}-named module
  * must also be one the running JDK's own install image actually ships.
  */
 class TestClusterUtilsJdkProvenanceTest {

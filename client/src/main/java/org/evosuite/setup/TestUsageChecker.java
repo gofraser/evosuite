@@ -404,15 +404,15 @@ public class TestUsageChecker {
      * check (layer == boot, loader == the application class loader) although it is
      * ordinary application code with no connection to the running JDK.
      *
-     * <p>The actual question is not which layer or which loader, but whether the module's
-     * name is one the <em>running JDK's own install image</em> ships -- which
-     * {@code java.lang.module.ModuleFinder#ofSystem()} enumerates directly, independent of
-     * how or when the class's own module happened to be resolved. {@code jdk.jdi} is in
-     * that enumeration (so {@code com.sun.jdi.JDIPermission} above is correctly accepted
-     * regardless of boot-layer membership or loader identity); a startup-resolved
-     * {@code java.fake} is not, so it is correctly rejected even though it reached the boot
-     * layer by the same path a genuine JDK module would. See
-     * {@link JavaModuleLookup#isSystemModule(String)}.
+     * <p>The actual question is not which layer or which loader, nor even whether some
+     * module of that name exists anywhere in the image, but whether <em>this class's own
+     * module</em> was resolved from the image: {@link JavaModuleLookup#isFromSystemImage}
+     * follows the class's module to its own layer's own {@code Configuration} and checks
+     * where that module's resolved reference actually points. A module name can be reused --
+     * {@code jdk.hotspot.agent} ships in the image but is absent from the default boot
+     * layer, so a user module can resolve its own copy of that name into a layer of its own --
+     * so even image-wide name membership is not enough; only the specific module in hand's
+     * own reference location settles it.
      *
      * <p>{@code Class#getModule()} and {@code ModuleFinder#ofSystem()} are both Java 9+, and
      * this module's main source compiles against the Java 8 API (see {@code runtime}'s own
@@ -457,7 +457,7 @@ public class TestUsageChecker {
         if (!(name.startsWith("java.") || name.startsWith("jdk."))) {
             return false;
         }
-        return JavaModuleLookup.isSystemModule(name);
+        return JavaModuleLookup.isFromSystemImage(result);
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {
