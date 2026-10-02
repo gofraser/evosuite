@@ -39,18 +39,13 @@ public class NumberFormatter {
      * Decides whether {@code value} is an enum constant, for the purpose of
      * routing it to the enum-specific assertion/rendering code.
      *
-     * <p>This is simply {@code value instanceof Enum}. An earlier form of this
-     * check, {@code value.getClass().isEnum() || value instanceof Enum}, also
-     * tested {@code getClass().isEnum()}, but that clause is dead: a value for
-     * which it is true is necessarily an instance of a class declared as an
-     * {@code enum}, which always extends {@link Enum}, so
-     * {@code value instanceof Enum} already holds. The converse is where
-     * {@code getClass().isEnum()} actually fails -- an enum constant with its
-     * own constant-specific class body (e.g. one overriding a method, such as
-     * {@code java.util.concurrent.TimeUnit}'s constants) has an anonymous
-     * subclass as its runtime class, for which {@code isEnum()} is false --
-     * which is exactly the case {@code instanceof} is needed for. So the
-     * combined expression reduces to {@code instanceof} alone.
+     * <p>This is simply {@code value instanceof Enum}; checking
+     * {@code value.getClass().isEnum()} as well would be redundant, since every
+     * enum class extends {@link Enum} already. {@code instanceof} alone is also
+     * the form that stays correct for an enum constant with its own
+     * constant-specific class body (one overriding a method per constant): its
+     * runtime class is an anonymous subclass, for which {@code isEnum()} is
+     * false but {@code instanceof Enum} still holds.
      *
      * @param value the value to check, possibly {@code null}
      * @return {@code true} if {@code value} is an enum constant

@@ -69,10 +69,9 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
      * Guards {@link #close()}'s custom encoder finalization so it runs exactly once. {@link
      * PrintStream}'s own (always-present, unused) {@code charOut} writer is built from {@code
      * this} as its destination {@link OutputStream}, so closing it in {@code super.close()}
-     * re-enters this override before the real underlying stream is closed. Without this guard,
-     * that reentrant call -- and any later explicit {@code close()} call -- would redo the custom
-     * finalization and, since draining {@link #encoderSink} alone does not stop it being read
-     * again, replay the same final bytes.
+     * re-enters this override before the real underlying stream is closed; a later explicit
+     * {@code close()} call reaches the same guard. Set before {@link #encoder} is touched, so a
+     * thrown {@link IOException} from finalizing it still leaves this one-time guard tripped.
      */
     private boolean encoderClosed;
 

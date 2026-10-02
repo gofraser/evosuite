@@ -388,31 +388,16 @@ public class TestUsageChecker {
      * or {@code jdk.anything} and defining a class in it, so the name prefix alone does
      * not prove JDK provenance.
      *
-     * <p><b>Boot-layer membership does not prove it either, and must not be used for
-     * this.</b> An earlier version of this check additionally required the class's module
-     * to be resolved into the <em>boot layer</em> ({@code Module#getLayer() ==
-     * ModuleLayer.boot()}), reasoning that the boot layer's module graph is built once by
-     * the JVM at startup and an application cannot make a dynamically defined layer equal
-     * to it. That is true of a layer the application builds itself at run time ({@code
-     * ModuleLayer.defineModulesWithOneLoader} and friends) -- see
-     * {@code testUserModuleNamedLikeAJdkModuleIsNotPlatformClass} in
-     * {@code TestUsageCheckerPlatformClassTest}, which is still a true negative. But the
-     * boot layer is not exclusively populated from the JDK's own image: a module placed on
-     * {@code --module-path} and named in {@code --add-modules} at JVM <em>startup</em> is
-     * resolved into {@code ModuleLayer.boot()} too, the same as any genuine JDK module. A
-     * module named {@code java.fake} launched that way measurably passed the boot-layer
-     * check (layer == boot, loader == the application class loader) although it is
-     * ordinary application code with no connection to the running JDK.
-     *
-     * <p>The actual question is not which layer or which loader, nor even whether some
-     * module of that name exists anywhere in the image, but whether <em>this class's own
-     * module</em> was resolved from the image: {@link JavaModuleLookup#isFromSystemImage}
-     * follows the class's module to its own layer's own {@code Configuration} and checks
-     * where that module's resolved reference actually points. A module name can be reused --
-     * {@code jdk.hotspot.agent} ships in the image but is absent from the default boot
-     * layer, so a user module can resolve its own copy of that name into a layer of its own --
-     * so even image-wide name membership is not enough; only the specific module in hand's
-     * own reference location settles it.
+     * <p>Boot-layer membership is insufficient too, and for the same kind of reason: a module
+     * placed on {@code --module-path} and named in {@code --add-modules} at JVM
+     * <em>startup</em> resolves into {@code ModuleLayer.boot()} the same as any genuine JDK
+     * module, so a {@code java.fake} launched that way would pass a boot-layer check while
+     * being ordinary application code. {@link JavaModuleLookup#isFromSystemImage} is the
+     * per-class resolution that replaced both that check and the name-enumeration one above --
+     * see its documentation for the full history and for why only a module's own reference
+     * location, found via its own layer's own {@code Configuration}, actually settles the
+     * question (including against a same-name-different-origin module such as {@code
+     * jdk.hotspot.agent}).
      *
      * <p>{@code Class#getModule()} and {@code ModuleFinder#ofSystem()} are both Java 9+, and
      * this module's main source compiles against the Java 8 API (see {@code runtime}'s own

@@ -693,7 +693,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * and {@link RuntimeVariable#Covered_Goals} entries for an incomplete coverage-analysis
      * sweep, so the default CSV never represents a sweep that is missing one or more configured
      * criteria entirely as an ordinary, trustworthy score -- regardless of how a suite-derived
-     * Coverage average or an unconditionally sent Covered_Goals count made it into {@code map}
+     * Coverage average or a {@code Covered_Goals} count that {@link
+     * org.evosuite.statistics.StatisticsSender} sends unconditionally made it into {@code map}
      * before this runs. {@link RuntimeVariable#CoverageAnalysisGoalsChecked}/{@code
      * CoverageAnalysisGoalsTotal} (the already-accurate per-criterion progress) are untouched.
      *

@@ -44,10 +44,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 /**
- * Rereview5 finding 1: {@code publishDirectCoverageSweepResult} withholding
- * {@link RuntimeVariable#Total_Goals}, {@link RuntimeVariable#Covered_Goals} and {@link
- * RuntimeVariable#Coverage} for an incomplete sweep is not enough, because the standalone
- * {@code -measureCoverage} (SELECTED_JUNIT) path does not rely on that publisher alone:
+ * Verifies that real client-to-master delivery for the standalone {@code -measureCoverage}
+ * (SELECTED_JUNIT) path never publishes an incomplete sweep's aggregates as if it were complete,
+ * and that a complete and an incomplete row keep the same column order when appended to the same
+ * report file. The guarded {@code publishDirectCoverageSweepResult} withholding {@link
+ * RuntimeVariable#Total_Goals}, {@link RuntimeVariable#Covered_Goals} and {@link
+ * RuntimeVariable#Coverage} is not the only route those three can reach the master through:
  *
  * <ul>
  *   <li>{@link org.evosuite.statistics.StatisticsSender#executedAndThenSendIndividualToMaster}
@@ -59,20 +61,20 @@ import static org.mockito.Mockito.mock;
  *   <li>The same call also sends {@link RuntimeVariable#Covered_Goals} directly (from the
  *       suite's covered goals), independent of whatever the guarded publisher withheld.</li>
  *   <li>{@link SearchStatistics#writeStatisticsForAnalysis()} -- the actual default-CSV writer
- *       for this mode -- never consulted {@link RuntimeVariable#CoverageAnalysisComplete} before
- *       writing the row.</li>
+ *       for this mode -- is the one place that must consult {@link
+ *       RuntimeVariable#CoverageAnalysisComplete} before writing the row.</li>
  * </ul>
  *
  * <p>This test drives the real {@link org.evosuite.statistics.StatisticsSender}, the real
- * (package-private) {@code publishDirectCoverageSweepResult}, and the real {@link
- * SearchStatistics#writeStatisticsForAnalysis()} with a real {@link
+ * (private, invoked here via reflection) {@code publishDirectCoverageSweepResult}, and the real
+ * {@link SearchStatistics#writeStatisticsForAnalysis()} with a real {@link
  * org.evosuite.statistics.backend.CSVStatisticsBackend} writing to a scratch report directory --
  * in the same order {@code CoverageAnalysis.analyzeCoverage()}'s SELECTED_JUNIT branch calls them
  * -- rather than calling the guarded publisher in isolation, which is all the existing
- * {@code CoverageAnalysisTest} coverage does and why it missed this path. {@code
- * Properties.CLIENT_ON_THREAD} makes {@link ClientNodeImpl} forward statistics synchronously to
- * the real {@link SearchStatistics} instance in this same JVM (the same fallback production uses
- * when no master RMI connection is available), without needing an actual RMI registry.
+ * {@code CoverageAnalysisTest} coverage does. {@code Properties.CLIENT_ON_THREAD} makes {@link
+ * ClientNodeImpl} forward statistics synchronously to the real {@link SearchStatistics} instance
+ * in this same JVM (the same fallback production uses when no master RMI connection is
+ * available), without needing an actual RMI registry.
  */
 public class CoverageAnalysisDefaultOutputCompletenessTest {
 

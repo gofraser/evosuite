@@ -390,13 +390,12 @@ public class CoverageAnalysisTest {
     }
 
     /**
-     * Rereview5 finding 3: {@code analyzeCoverage()}'s target/classpath initialization catch
-     * (lines ~123-128) logs any {@link Throwable} and returns normally without marking the sweep
-     * incomplete. Because it does not rethrow, {@code ClientNodeImpl}'s own backstop -- which only
-     * runs when {@code analyzeCoverage()} escapes via an exception -- never gets a chance to
-     * correct this either, so a genuinely failed measurement left {@link
-     * CoverageCriteriaAnalyzer#isCoverageAnalysisComplete()} at its default {@code true} and never
-     * published {@link RuntimeVariable#CoverageAnalysisComplete} at all.
+     * An unresolvable {@code TARGET_CLASS} fails inside {@code analyzeCoverage()}'s
+     * target/classpath initialization catch, which logs the {@link Throwable} and returns
+     * normally without rethrowing. Because it does not rethrow, {@code ClientNodeImpl}'s own
+     * backstop -- which only runs when {@code analyzeCoverage()} escapes via an exception -- is
+     * never reached, so this catch must itself mark the sweep incomplete and publish {@link
+     * RuntimeVariable#CoverageAnalysisComplete}.
      *
      * <p>This drives the real {@link CoverageAnalysis#analyzeCoverage()} entry point directly --
      * not the {@code COVERAGE_ANALYSIS_FOR_TESTING} seam, which replaces the whole call and so
@@ -441,12 +440,11 @@ public class CoverageAnalysisTest {
     }
 
     /**
-     * Rereview5 finding 4: {@code analyzeCoverage()}'s SELECTED_JUNIT branch used to call {@link
-     * CoverageAnalysis#markMeasurementFinished()} only after sending statistics and publishing
-     * aggregates, so a failure inside either of those still looked -- to {@code ClientNodeImpl}'s
-     * backstop -- like a failure during measurement itself, even though {@code
-     * runDirectCoverageSweep} had already finished and recorded its own, correct, completeness
-     * verdict.
+     * {@code analyzeCoverage()}'s SELECTED_JUNIT branch must mark measurement finished as soon as
+     * {@code runDirectCoverageSweep} returns, before sending statistics or publishing aggregates:
+     * otherwise a failure inside either of those would look, to {@code ClientNodeImpl}'s backstop,
+     * like a failure during measurement itself, even though the sweep already recorded its own
+     * correct completeness verdict.
      *
      * <p>This drives the real {@code analyzeCoverage()} method body -- not a hand-rolled
      * re-sequencing of its private helpers, which would miss a regression in the method's actual

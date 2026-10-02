@@ -359,11 +359,9 @@ public class JUnitAnalyzerCheckIncompleteTest {
     /**
      * Forces {@code compileTests} to return null from inside the real
      * {@link JUnitAnalyzer#handleTestsThatAreUnstable(List)} call by making the mocked
-     * {@link TestSuiteWriter} claim it generated a source file that was never written -- the same
-     * fault-injection technique as the fourth-review-pass probe
-     * ({@code /private/tmp/Rereview4FailureProbe.java}): {@code compileTests} checks
-     * {@code file.exists()} on each entry of the writer's own returned list and gives up with
-     * {@code null} if one is missing.
+     * {@link TestSuiteWriter} claim it generated a source file that was never written:
+     * {@code compileTests} checks {@code file.exists()} on each entry of the writer's own
+     * returned list and gives up with {@code null} if one is missing.
      */
     @Test
     public void handleTestsThatAreUnstableRecordsIncompleteWhenWholeSuiteCompileFails() throws Exception {
@@ -391,8 +389,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
      * Forces {@code loadTests} to return null from inside the real
      * {@link JUnitAnalyzer#handleTestsThatAreUnstable(List)} call after a genuinely successful
      * compile -- unlike the missing-source-file fault above, this exercises the
-     * {@code testClasses == null} branch at the loading step, which the fourth-review-pass report
-     * flagged as verified by source inspection only. The fault: point
+     * {@code testClasses == null} branch at the loading step. The fault: point
      * {@link Properties#SCAFFOLDING_SUFFIX} at the same suffix the compile-check naming already
      * uses ({@link Properties#JUNIT_SUFFIX}, minus its leading underscore), so the real compiled
      * test file is misclassified as pure scaffolding by {@code isScaffolding(File)} and
@@ -471,8 +468,7 @@ public class JUnitAnalyzerCheckIncompleteTest {
      * maps {@code TestCase::clone} over the list before its own try/catch begins, so a null
      * element throws a plain {@link NullPointerException} that propagates out of
      * {@code compileTests} uncaught and lands in {@code executeAndCollectUnexpectedFailures}'s
-     * outer catch -- a different, genuinely-reachable route to the same sentinel the
-     * fourth-review-pass report flagged.
+     * outer catch -- a genuinely-reachable route to that sentinel.
      */
     @Test
     public void executeAndCollectUnexpectedFailuresRecordsIncompleteOnExecutionError() throws Exception {

@@ -125,13 +125,11 @@ public class CoverageAnalysis {
                     + "Error while initializing target class: "
                     + (e.getMessage() != null ? e.getMessage() : e.toString()));
             logger.error("Problem for " + Properties.TARGET_CLASS + ". Full stack:", e);
-            // This failure happens before any criterion is even attempted -- nothing has been
-            // measured at all -- so mark the sweep incomplete here rather than leaving
-            // CoverageCriteriaAnalyzer's default completeness (true) stand unrevised. Returning
-            // normally (not rethrowing) means ClientNodeImpl's own backstop, which only runs when
-            // analyzeCoverage() escapes via an exception, never gets a chance to correct this on
-            // its own for this path. measurementFinished deliberately stays false: nothing was
-            // ever measured, so this is not the "measurement finished" case that marker guards.
+            // Initialization failed before any criterion was attempted, so mark the sweep
+            // incomplete directly: returning normally (not rethrowing) means ClientNodeImpl's
+            // backstop, which only fires when an exception escapes analyzeCoverage(), never runs
+            // for this path. measurementFinished (see its contract below) is irrelevant here and
+            // stays false.
             CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
             return;
         } finally {
@@ -179,14 +177,10 @@ public class CoverageAnalysis {
 
             int goals = runDirectCoverageSweep(testSuite);
 
-            // The sweep's own measurement is finished as soon as runDirectCoverageSweep returns --
-            // completely or not, CoverageCriteriaAnalyzer already has the final word via
-            // markCoverageAnalysisIncomplete() inside it. Everything from here on (sending
-            // statistics, publishing aggregates, writing the generated suite, the COVERAGE_MATRIX
-            // check) is output-phase work: a failure there must not be mistaken by ClientNodeImpl's
-            // backstop for a measurement failure and overwrite that verdict. This must be set
-            // before the statistics/publish calls below, not after them -- otherwise a failure
-            // inside those two calls would still be blamed on measurement itself.
+            // The sweep's own measurement is finished as soon as runDirectCoverageSweep returns,
+            // complete or not -- CoverageCriteriaAnalyzer already has the final word via
+            // markCoverageAnalysisIncomplete() inside it. Mark it here, before the output-phase
+            // work below (see measurementFinished's contract for why the ordering matters).
             markMeasurementFinished();
 
             // Track coverage statistics before writing JUnit tests, since
@@ -206,19 +200,23 @@ public class CoverageAnalysis {
 
     /**
      * Whether the measurement phase of the most recent {@link #analyzeCoverage()} call has
-     * finished -- successfully, with incompleteness already recorded via {@link
-     * CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()}, or because target/classpath
-     * initialization itself failed before any criterion was attempted -- before any output-phase
-     * work (sending statistics, publishing aggregates, writing the generated JUnit suite, the
+     * finished -- successfully, or with incompleteness already recorded via {@link
+     * CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()} -- before any output-phase work
+     * (sending statistics, publishing aggregates, writing the generated JUnit suite, the
      * {@code COVERAGE_MATRIX} check) begins. It is set immediately once the measurement itself is
      * known to be over, specifically before any of that output-phase work runs, so a failure
      * inside that work is never mistaken for a measurement failure.
      *
+     * <p>When target/classpath initialization itself fails before any criterion is attempted,
+     * this stays {@code false}: that catch (see below) records the incompleteness directly and
+     * returns normally, so this marker is never reached and never needs to be. It is meant only
+     * for the backstop described next, which that path never triggers in the first place.
+     *
      * <p>{@link org.evosuite.rmi.service.ClientNodeImpl#doCoverageAnalysis()} resets this to
-     * {@code false} before each attempt and consults it in its catch-all backstop, so that a
-     * failure which happens only after measurement finished (e.g. while sending statistics or
-     * writing the generated suite) does not retroactively mark an already-measured sweep
-     * incomplete.
+     * {@code false} before each attempt and consults it in its catch-all backstop -- reached only
+     * when an exception escapes {@link #analyzeCoverage()} -- so that a failure which happens only
+     * after measurement finished (e.g. while sending statistics or writing the generated suite)
+     * does not retroactively mark an already-measured sweep incomplete.
      */
     private static volatile boolean measurementFinished = false;
 
@@ -257,12 +255,10 @@ public class CoverageAnalysis {
      *
      * <p><b>This alone does not keep a partial score out of the default output.</b> The
      * SELECTED_JUNIT caller also runs {@link org.evosuite.statistics.StatisticsSender
-     * StatisticsSender} on the same {@code testSuite}, which (a) sends {@code Covered_Goals}
-     * unconditionally, and (b) forwards the suite itself to the master, where {@code
-     * SearchStatistics.currentIndividual} re-extracts an ordinary {@code Coverage} value directly
-     * from whichever criterion's {@code TestSuiteFitnessFunction#getFitness(suite)} call last ran
-     * -- a stale, partial average with no connection to this method's withholding. The actual
-     * analysis-output boundary that must (and does) respect {@link
+     * StatisticsSender} on the same {@code testSuite}, which can still let a partial {@code
+     * Covered_Goals}/{@code Coverage} reach the master independently of this method -- see {@code
+     * SearchStatistics#withholdAggregatesForIncompleteCoverageAnalysis(Map)} for that mechanism.
+     * The actual analysis-output boundary that must (and does) respect {@link
      * RuntimeVariable#CoverageAnalysisComplete} for all three is {@code
      * SearchStatistics#writeStatisticsForAnalysis()}; this method only avoids being one more
      * incorrect source feeding into it.

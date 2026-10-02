@@ -116,7 +116,7 @@ public class MockPrintStreamCloseTest {
         } catch (NoSuchMethodException e) {
             fail("encoder sink (" + sink.getClass()
                     + ") exposes no way to report its retained capacity, "
-                    + "so nothing bounds it after a large drain");
+                    + "so this test cannot observe whether the backing array was released");
             return;
         }
         capacityMethod.setAccessible(true);
