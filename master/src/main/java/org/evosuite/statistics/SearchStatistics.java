@@ -683,11 +683,19 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * Blanks {@link RuntimeVariable#Coverage}, {@link RuntimeVariable#Total_Goals} and {@link
      * RuntimeVariable#Covered_Goals} in {@code map} for an incomplete sweep, so the CSV never
      * reports a sweep missing one or more configured criteria as an ordinary, trustworthy score.
-     * Each entry already present is replaced in place via {@link LinkedHashMap#put} on its
-     * existing key, never removed and never inserted for a key the {@code -Doutput_variables}
-     * selection omitted: the projected column order and field count must match a complete
-     * sweep's for the same selection. {@link RuntimeVariable#CoverageAnalysisGoalsChecked}/{@code
-     * CoverageAnalysisGoalsTotal} (the already-accurate per-criterion progress) are untouched.
+     * Each of those three entries is replaced in place via {@link LinkedHashMap#put} on its
+     * existing key only if already present, never removed and never inserted for a key the
+     * {@code -Doutput_variables} selection omitted. {@link
+     * RuntimeVariable#CoverageAnalysisGoalsChecked}/{@code CoverageAnalysisGoalsTotal} (the
+     * already-accurate per-criterion progress) are untouched.
+     *
+     * <p>{@link #withholdCriterionCoverageForIncompleteCoverageAnalysis(Map)} is also applied
+     * here so the final projected schema -- the key set {@link
+     * org.evosuite.statistics.backend.CSVStatisticsBackend} actually writes -- does not depend on
+     * whether this method or {@link #normalizeCriterionCoverage(Map, Double)} ran: both insert
+     * {@link RuntimeVariable#BranchCoverage} under the same single-{@code BRANCH}-criterion
+     * condition, so together they keep the column order and field count identical between a
+     * complete and an incomplete sweep for the same selection.
      *
      * @param map the output-variable map about to be written
      */
@@ -695,6 +703,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         blankIfPresent(map, RuntimeVariable.Coverage.toString());
         blankIfPresent(map, RuntimeVariable.Total_Goals.toString());
         blankIfPresent(map, RuntimeVariable.Covered_Goals.toString());
+        withholdCriterionCoverageForIncompleteCoverageAnalysis(map);
     }
 
     /**
@@ -704,6 +713,27 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     private static void blankIfPresent(Map<String, OutputVariable<?>> map, String key) {
         if (map.containsKey(key)) {
             map.put(key, new OutputVariable<>(key, ""));
+        }
+    }
+
+    /**
+     * Mirrors, for an incomplete sweep, the schema effect that {@link
+     * #normalizeCriterionCoverage(Map, Double)} has on a complete one: when the projected {@code
+     * criterion} is exactly {@code BRANCH}, {@link RuntimeVariable#BranchCoverage} ends up in the
+     * final map either way, whether or not {@code -Doutput_variables} selected it, so {@link
+     * org.evosuite.statistics.backend.CSVStatisticsBackend}'s header and every row it appends keep
+     * the same key set regardless of completeness. Unlike the complete-sweep path -- which fills
+     * the value with the sweep's derived coverage -- this always blanks it, present or not,
+     * exactly like {@link #blankIfPresent(Map, String)} does for {@link
+     * RuntimeVariable#Coverage}: an abandoned sweep must not report a plausible-looking number for
+     * the one configured criterion, even if {@code BranchCoverage} itself was selected.
+     */
+    private static void withholdCriterionCoverageForIncompleteCoverageAnalysis(Map<String, OutputVariable<?>> map) {
+        OutputVariable<?> criterionVar = map.get("criterion");
+        String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
+        if (criterion.equalsIgnoreCase("BRANCH")) {
+            map.put(RuntimeVariable.BranchCoverage.toString(),
+                    new OutputVariable<>(RuntimeVariable.BranchCoverage.toString(), ""));
         }
     }
 
@@ -800,7 +830,10 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Fill criterion-specific coverage variables when they are missing.
+     * Fill criterion-specific coverage variables when they are missing. Only called for a
+     * complete sweep; {@link #withholdCriterionCoverageForIncompleteCoverageAnalysis(Map)} is its
+     * incomplete-sweep counterpart, inserting the same {@link RuntimeVariable#BranchCoverage} key
+     * (blanked, not derived) so the final schema does not depend on completeness.
      */
     private static void normalizeCriterionCoverage(Map<String, OutputVariable<?>> map, Double coverageValue) {
         if (coverageValue == null) {
