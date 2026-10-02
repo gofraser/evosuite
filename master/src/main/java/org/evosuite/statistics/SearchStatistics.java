@@ -633,9 +633,8 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 if (lineCoverageVar == null) {
                     lineCoverageVar = outputVariables.get(RuntimeVariable.LineCoverage.name());
                 }
-                OutputVariable<?> criterionVar = map.get("criterion");
                 Double lineCoverage = lineCoverageVar == null ? null : toDouble(lineCoverageVar.getValue());
-                String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
+                String criterion = projectedCriterionName(map);
                 boolean isLineCriterion = criterion.equalsIgnoreCase("LINE")
                         || criterion.equalsIgnoreCase("ONLYLINE")
                         || criterion.isEmpty();
@@ -729,9 +728,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * the one configured criterion, even if {@code BranchCoverage} itself was selected.
      */
     private static void withholdCriterionCoverageForIncompleteCoverageAnalysis(Map<String, OutputVariable<?>> map) {
-        OutputVariable<?> criterionVar = map.get("criterion");
-        String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
-        if (criterion.equalsIgnoreCase("BRANCH")) {
+        if (isBranchOnlyCriterion(map)) {
             map.put(RuntimeVariable.BranchCoverage.toString(),
                     new OutputVariable<>(RuntimeVariable.BranchCoverage.toString(), ""));
         }
@@ -839,9 +836,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         if (coverageValue == null) {
             return;
         }
-        OutputVariable<?> criterionVar = map.get("criterion");
-        String criterion = criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
-        if (criterion.equalsIgnoreCase("BRANCH")) {
+        if (isBranchOnlyCriterion(map)) {
             OutputVariable<?> branchCoverageVar = map.get(RuntimeVariable.BranchCoverage.toString());
             Double branchCoverage = branchCoverageVar == null ? null : toDouble(branchCoverageVar.getValue());
             if (branchCoverage == null) {
@@ -849,6 +844,28 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                         new OutputVariable<>(RuntimeVariable.BranchCoverage.toString(), coverageValue));
             }
         }
+    }
+
+    /**
+     * The projected {@code criterion} column's value, trimmed, or {@code ""} when the column is not
+     * part of this projection. Read in one place because the complete and incomplete paths must agree
+     * on it: they decide the same thing about the same column from opposite sides, and when each kept
+     * its own copy of this read they produced rows of different widths for the same configuration.
+     */
+    private static String projectedCriterionName(Map<String, OutputVariable<?>> map) {
+        OutputVariable<?> criterionVar = map.get("criterion");
+        return criterionVar == null ? "" : String.valueOf(criterionVar.getValue()).trim();
+    }
+
+    /**
+     * Whether exactly one criterion is configured and it is {@code BRANCH} -- the case in which
+     * {@link #normalizeCriterionCoverage(Map, Double)} derives a {@code BranchCoverage} column for a
+     * complete sweep and {@link #withholdCriterionCoverageForIncompleteCoverageAnalysis(Map)} blanks
+     * the same column for an incomplete one. Both must answer this question identically or the two
+     * outcomes emit different schemas.
+     */
+    private static boolean isBranchOnlyCriterion(Map<String, OutputVariable<?>> map) {
+        return projectedCriterionName(map).equalsIgnoreCase("BRANCH");
     }
 
     private void setCoverageUnavailableIfMissing(Map<String, OutputVariable<?>> map) {
