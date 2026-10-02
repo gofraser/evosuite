@@ -44,37 +44,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 /**
- * Verifies that real client-to-master delivery for the standalone {@code -measureCoverage}
- * (SELECTED_JUNIT) path never publishes an incomplete sweep's aggregates as if it were complete,
- * and that a complete and an incomplete row keep the same column order when appended to the same
- * report file. The guarded {@code publishDirectCoverageSweepResult} withholding {@link
- * RuntimeVariable#Total_Goals}, {@link RuntimeVariable#Covered_Goals} and {@link
- * RuntimeVariable#Coverage} is not the only route those three can reach the master through:
- *
- * <ul>
- *   <li>{@link org.evosuite.statistics.StatisticsSender#executedAndThenSendIndividualToMaster}
- *       runs first and always sends the carved suite to the master, which -- via {@link
- *       SearchStatistics#currentIndividual} and the {@code ChromosomeCoverageOutputVariableFactory}
- *       registered in {@link SearchStatistics#initFactories()} -- republishes whatever average
- *       {@link RuntimeVariable#Coverage} is still sitting on the suite from the last criterion
- *       that actually ran its fitness function, regardless of completeness.</li>
- *   <li>The same call also sends {@link RuntimeVariable#Covered_Goals} directly (from the
- *       suite's covered goals), independent of whatever the guarded publisher withheld.</li>
- *   <li>{@link SearchStatistics#writeStatisticsForAnalysis()} -- the actual default-CSV writer
- *       for this mode -- is the one place that must consult {@link
- *       RuntimeVariable#CoverageAnalysisComplete} before writing the row.</li>
- * </ul>
+ * Verifies the contract for the standalone {@code -measureCoverage} (SELECTED_JUNIT) path: an
+ * incomplete coverage-analysis sweep never has its {@link RuntimeVariable#Total_Goals}, {@link
+ * RuntimeVariable#Covered_Goals} or {@link RuntimeVariable#Coverage} published as if the sweep
+ * had finished, and a row written for an incomplete sweep keeps the same column order and field
+ * count as one written for a complete sweep under the same {@code -Doutput_variables} selection
+ * -- including the default selection and selections that omit one or both goal counters. Paths
+ * other than the guarded {@code publishDirectCoverageSweepResult} (e.g. {@link
+ * org.evosuite.statistics.StatisticsSender#executedAndThenSendIndividualToMaster}) can still put
+ * a stale, per-criterion {@link RuntimeVariable#Coverage}/{@link RuntimeVariable#Covered_Goals}
+ * into the written map; {@link SearchStatistics#writeStatisticsForAnalysis()} is the one place
+ * that must consult {@link RuntimeVariable#CoverageAnalysisComplete} before writing the row
+ * regardless of how the map got there.
  *
  * <p>This test drives the real {@link org.evosuite.statistics.StatisticsSender}, the real
  * (private, invoked here via reflection) {@code publishDirectCoverageSweepResult}, and the real
  * {@link SearchStatistics#writeStatisticsForAnalysis()} with a real {@link
- * org.evosuite.statistics.backend.CSVStatisticsBackend} writing to a scratch report directory --
- * in the same order {@code CoverageAnalysis.analyzeCoverage()}'s SELECTED_JUNIT branch calls them
- * -- rather than calling the guarded publisher in isolation, which is all the existing
- * {@code CoverageAnalysisTest} coverage does. {@code Properties.CLIENT_ON_THREAD} makes {@link
- * ClientNodeImpl} forward statistics synchronously to the real {@link SearchStatistics} instance
- * in this same JVM (the same fallback production uses when no master RMI connection is
- * available), without needing an actual RMI registry.
+ * org.evosuite.statistics.backend.CSVStatisticsBackend} writing to a scratch report directory, in
+ * the same order {@code CoverageAnalysis.analyzeCoverage()}'s SELECTED_JUNIT branch calls them.
+ * The suite/completeness state driving each call is synthetic -- {@link #runSweep(boolean)} sets
+ * it directly rather than running the analyzer's actual per-goal sweep. {@code
+ * Properties.CLIENT_ON_THREAD} makes {@link ClientNodeImpl} forward statistics synchronously to
+ * the real {@link SearchStatistics} instance in this same JVM, without needing an RMI registry.
  */
 public class CoverageAnalysisDefaultOutputCompletenessTest {
 
@@ -218,17 +209,17 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
     }
 
     /**
-     * Rereview6 finding 1: the two single-row tests above each write to a fresh, empty file, so
-     * neither can see that {@link SearchStatistics#writeStatisticsForAnalysis()} and {@link
-     * org.evosuite.statistics.backend.CSVStatisticsBackend} only write a header for the first row
-     * of a report file and then append every later row in that row's own {@link
-     * java.util.LinkedHashMap} key order, without realigning it to the header already on disk.
-     * The fifth-pass completeness fix removed {@link RuntimeVariable#Coverage} from the map for an
-     * incomplete sweep and let the unavailable-coverage fallback reinsert it at the end, so an
-     * incomplete row's columns no longer lined up with a complete row's columns from the same
-     * output configuration. This test drives two real sweeps -- one complete, one incomplete --
-     * through the same report directory, so both rows share one header, and reads every value back
-     * by column name against that one header rather than by position.
+     * The two single-row tests above each write to a fresh, empty file, so neither can see the
+     * shared-file schema contract: {@link SearchStatistics#writeStatisticsForAnalysis()} and
+     * {@link org.evosuite.statistics.backend.CSVStatisticsBackend} write a header only for the
+     * first row of a report file, then append every later row in that row's own {@link
+     * java.util.LinkedHashMap} key order without realigning it to the header already on disk, so
+     * every row appended to one file must share the same key set and order regardless of
+     * completeness. This test calls {@link #runSweep(boolean)} twice -- once complete, once
+     * incomplete -- against the same report directory, so both rows share one header, and reads
+     * every value back by column name against that one header rather than by position. {@code
+     * runSweep} sets synthetic suite/completeness state and invokes the real reporting calls; it
+     * does not run the analyzer's actual per-goal sweep.
      */
     @Test
     public void appendedRowsKeepIdenticalColumnOrderCompleteThenIncomplete() throws Exception {
@@ -295,6 +286,131 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
                         + "incomplete row with a different column order was appended ahead of it");
         assertEquals("0", columnValue(header, completeRow, RuntimeVariable.Total_Goals.toString()));
         assertEquals("0", columnValue(header, completeRow, RuntimeVariable.Covered_Goals.toString()));
+    }
+
+    /**
+     * Rereview7 finding 1: a custom {@code -Doutput_variables} selection that omits both goal
+     * counters must still get the same column count on every row, whatever the completeness of
+     * each sweep. {@code TARGET_CLASS,Coverage} selects neither {@link RuntimeVariable#Total_Goals}
+     * nor {@link RuntimeVariable#Covered_Goals}, so {@code withholdAggregatesForIncompleteCoverageAnalysis}
+     * must not insert either for the incomplete row.
+     */
+    @Test
+    public void customSelectionOmittingBothGoalColumnsCompleteThenIncomplete() throws Exception {
+        Properties.OUTPUT_VARIABLES = "TARGET_CLASS,Coverage";
+
+        runSweep(false);
+        runSweep(true);
+
+        List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+        assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+        assertEquals("TARGET_CLASS,Coverage", lines.get(0),
+                "the header must be exactly the requested selection, nothing inserted");
+
+        String[] header = lines.get(0).split(",", -1);
+        String[] completeRow = lines.get(1).split(",", -1);
+        String[] incompleteRow = lines.get(2).split(",", -1);
+
+        assertEquals(header.length, completeRow.length,
+                "the complete row must have exactly as many fields as the two-column header");
+        assertEquals(header.length, incompleteRow.length,
+                "the incomplete row must not grow extra fields for goal counters nobody selected");
+
+        assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.Coverage.toString()));
+        assertEquals("N/A", columnValue(header, incompleteRow, RuntimeVariable.Coverage.toString()));
+    }
+
+    /** Companion to the test above, with the two sweeps in the opposite order. */
+    @Test
+    public void customSelectionOmittingBothGoalColumnsIncompleteThenComplete() throws Exception {
+        Properties.OUTPUT_VARIABLES = "TARGET_CLASS,Coverage";
+
+        runSweep(true);
+        runSweep(false);
+
+        List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+        assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+        assertEquals("TARGET_CLASS,Coverage", lines.get(0),
+                "the header must not depend on which run wrote the first row");
+
+        String[] header = lines.get(0).split(",", -1);
+        String[] incompleteRow = lines.get(1).split(",", -1);
+        String[] completeRow = lines.get(2).split(",", -1);
+
+        assertEquals(header.length, incompleteRow.length,
+                "the incomplete row must not invent columns nobody selected");
+        assertEquals(header.length, completeRow.length,
+                "the complete row must not come up short against a header the incomplete row "
+                        + "inflated");
+
+        assertEquals("N/A", columnValue(header, incompleteRow, RuntimeVariable.Coverage.toString()));
+        assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.Coverage.toString()));
+    }
+
+    /**
+     * Same defect, with a selection that keeps one goal counter ({@link
+     * RuntimeVariable#Total_Goals}) but omits the other ({@link RuntimeVariable#Covered_Goals}).
+     * The kept counter must still be blanked for the incomplete row; the omitted one must never
+     * appear.
+     */
+    @Test
+    public void customSelectionOmittingOneGoalColumnCompleteThenIncomplete() throws Exception {
+        Properties.OUTPUT_VARIABLES = "TARGET_CLASS,Coverage,Total_Goals";
+
+        runSweep(false);
+        runSweep(true);
+
+        List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+        assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+        assertEquals("TARGET_CLASS,Coverage,Total_Goals", lines.get(0),
+                "the header must be exactly the requested selection, nothing inserted");
+
+        String[] header = lines.get(0).split(",", -1);
+        String[] completeRow = lines.get(1).split(",", -1);
+        String[] incompleteRow = lines.get(2).split(",", -1);
+
+        assertEquals(header.length, completeRow.length,
+                "the complete row must have exactly as many fields as the three-column header");
+        assertEquals(header.length, incompleteRow.length,
+                "the incomplete row must not grow a fourth field for the unselected Covered_Goals");
+
+        assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.Coverage.toString()));
+        assertEquals("0", columnValue(header, completeRow, RuntimeVariable.Total_Goals.toString()));
+
+        assertEquals("N/A", columnValue(header, incompleteRow, RuntimeVariable.Coverage.toString()));
+        assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.Total_Goals.toString())),
+                "the selected Total_Goals counter must be blanked, not left as a stale value");
+    }
+
+    /** Companion to the test above, with the two sweeps in the opposite order. */
+    @Test
+    public void customSelectionOmittingOneGoalColumnIncompleteThenComplete() throws Exception {
+        Properties.OUTPUT_VARIABLES = "TARGET_CLASS,Coverage,Total_Goals";
+
+        runSweep(true);
+        runSweep(false);
+
+        List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+        assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+        assertEquals("TARGET_CLASS,Coverage,Total_Goals", lines.get(0),
+                "the header must not depend on which run wrote the first row");
+
+        String[] header = lines.get(0).split(",", -1);
+        String[] incompleteRow = lines.get(1).split(",", -1);
+        String[] completeRow = lines.get(2).split(",", -1);
+
+        assertEquals(header.length, incompleteRow.length,
+                "the incomplete row must not invent a fourth field for the unselected "
+                        + "Covered_Goals");
+        assertEquals(header.length, completeRow.length,
+                "the complete row must not come up short against a header the incomplete row "
+                        + "inflated");
+
+        assertEquals("N/A", columnValue(header, incompleteRow, RuntimeVariable.Coverage.toString()));
+        assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.Total_Goals.toString())));
+
+        assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.Coverage.toString()));
+        assertEquals("0", columnValue(header, completeRow, RuntimeVariable.Total_Goals.toString()));
     }
 
     private static boolean isBlank(String value) {

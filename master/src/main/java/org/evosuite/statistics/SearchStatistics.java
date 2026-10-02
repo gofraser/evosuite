@@ -621,16 +621,9 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
         }
 
         if (isCoverageAnalysisReportedIncomplete()) {
-            // The client explicitly reported that this sweep did not finish (see
-            // CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()), but Total_Goals,
-            // Covered_Goals and Coverage can still have reached this map through paths that never
-            // consult that marker: StatisticsSender#executedAndThenSendIndividualToMaster always
-            // sends Covered_Goals, and sending the suite itself re-extracts Coverage via
-            // currentIndividual()/ChromosomeCoverageOutputVariableFactory from whichever
-            // criterion's TestSuiteFitnessFunction#getFitness(suite) call last ran -- a stale,
-            // partial average with nothing to do with completeness. Withhold all three here,
-            // immediately before this method would otherwise normalize them as if the sweep had
-            // actually finished, rather than trusting whatever already made it into the map.
+            // Raw completeness gates this branch, so Coverage and the goal counters are
+            // withheld here instead of normalized as if the sweep had finished, even though
+            // other paths (e.g. StatisticsSender) can still have written them into map.
             withholdAggregatesForIncompleteCoverageAnalysis(map);
         } else {
             Double coverageValue = normalizeGoalsAndCoverage(map, individual);
@@ -672,13 +665,11 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * @return true if the client explicitly reported an incomplete coverage-analysis sweep via
-     *         {@link RuntimeVariable#CoverageAnalysisComplete} (see {@link
+     * @return true if the client reported an incomplete coverage-analysis sweep via {@link
+     *         RuntimeVariable#CoverageAnalysisComplete} (see {@link
      *         org.evosuite.coverage.CoverageCriteriaAnalyzer#markCoverageAnalysisIncomplete()}).
-     *         Read from the raw {@link #outputVariables} map directly, not from a per-call {@code
-     *         map} built by {@link #getOutputVariables(TestSuiteChromosome)}, because the marker
-     *         is opt-in output (only present in a written row when {@code -Doutput_variables}
-     *         requests it) and must still gate this boundary when it does not.
+     *         Reads the raw {@link #outputVariables} map, not a projected {@code map}, because
+     *         this gate must apply even when the marker itself was not selected into the output.
      */
     private boolean isCoverageAnalysisReportedIncomplete() {
         OutputVariable<?> completeVar = outputVariables.get(RuntimeVariable.CoverageAnalysisComplete.toString());
@@ -689,34 +680,31 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Blanks the ordinary {@link RuntimeVariable#Coverage}, {@link RuntimeVariable#Total_Goals}
-     * and {@link RuntimeVariable#Covered_Goals} entries for an incomplete coverage-analysis
-     * sweep, so the default CSV never represents a sweep that is missing one or more configured
-     * criteria entirely as an ordinary, trustworthy score -- regardless of how a suite-derived
-     * Coverage average or a {@code Covered_Goals} count that {@link
-     * org.evosuite.statistics.StatisticsSender} sends unconditionally made it into {@code map}
-     * before this runs. {@link RuntimeVariable#CoverageAnalysisGoalsChecked}/{@code
+     * Blanks {@link RuntimeVariable#Coverage}, {@link RuntimeVariable#Total_Goals} and {@link
+     * RuntimeVariable#Covered_Goals} in {@code map} for an incomplete sweep, so the CSV never
+     * reports a sweep missing one or more configured criteria as an ordinary, trustworthy score.
+     * Each entry already present is replaced in place via {@link LinkedHashMap#put} on its
+     * existing key, never removed and never inserted for a key the {@code -Doutput_variables}
+     * selection omitted: the projected column order and field count must match a complete
+     * sweep's for the same selection. {@link RuntimeVariable#CoverageAnalysisGoalsChecked}/{@code
      * CoverageAnalysisGoalsTotal} (the already-accurate per-criterion progress) are untouched.
-     *
-     * <p>{@code map} is the {@link LinkedHashMap} built by {@link
-     * #getOutputVariables(TestSuiteChromosome, boolean)} in output-column order, and {@link
-     * CSVStatisticsBackend} writes each row in that map's own key order, never realigning it to an
-     * already-written header. Coverage's entry is therefore replaced in place with {@link
-     * LinkedHashMap#put} on its existing key -- never removed -- exactly like the two goal
-     * counters below it, so an incomplete sweep's row keeps the same column order as a complete
-     * one. {@link #setCoverageUnavailableIfMissing(Map)}, called unconditionally right after this
-     * method returns, then overwrites this blank with the backend's own unavailable-coverage
-     * representation, again via {@code put} on the same existing key.
      *
      * @param map the output-variable map about to be written
      */
     private static void withholdAggregatesForIncompleteCoverageAnalysis(Map<String, OutputVariable<?>> map) {
-        map.put(RuntimeVariable.Coverage.toString(),
-                new OutputVariable<>(RuntimeVariable.Coverage.toString(), ""));
-        map.put(RuntimeVariable.Total_Goals.toString(),
-                new OutputVariable<>(RuntimeVariable.Total_Goals.toString(), ""));
-        map.put(RuntimeVariable.Covered_Goals.toString(),
-                new OutputVariable<>(RuntimeVariable.Covered_Goals.toString(), ""));
+        blankIfPresent(map, RuntimeVariable.Coverage.toString());
+        blankIfPresent(map, RuntimeVariable.Total_Goals.toString());
+        blankIfPresent(map, RuntimeVariable.Covered_Goals.toString());
+    }
+
+    /**
+     * Replaces {@code key}'s entry with a blank value, in place, only if {@code map} already has
+     * that key -- see {@link #withholdAggregatesForIncompleteCoverageAnalysis(Map)}.
+     */
+    private static void blankIfPresent(Map<String, OutputVariable<?>> map, String key) {
+        if (map.containsKey(key)) {
+            map.put(key, new OutputVariable<>(key, ""));
+        }
     }
 
     private static Double toDouble(Object value) {
