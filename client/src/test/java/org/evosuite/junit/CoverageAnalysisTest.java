@@ -326,8 +326,9 @@ public class CoverageAnalysisTest {
      *
      * <p>This reuses the {@code COVERAGE_ANALYSIS_FOR_TESTING} seam, but this time the stub first
      * marks measurement finished (the same call {@code analyzeCoverage()}'s SELECTED_JUNIT branch
-     * makes right after publishing its aggregates, before the output-phase work that follows), then
-     * throws -- simulating a writer/COVERAGE_MATRIX failure after a genuinely completed sweep.
+     * makes immediately after the sweep returns, before both {@code StatisticsSender} and aggregate
+     * publication), then throws -- simulating a writer/COVERAGE_MATRIX failure after a genuinely
+     * completed sweep.
      */
     @Test
     public void doCoverageAnalysisBackstopDoesNotMarkIncompleteAfterMeasurementFinished() throws Exception {

@@ -373,11 +373,11 @@ public class TestUsageChecker {
     /**
      * Whether a class comes from the JDK itself rather than from the code under test.
      *
-     * <p>Only {@code java.base} classes are loaded by the bootstrap loader (a null
-     * {@code getClassLoader()}); since Java 9 the rest of the JDK lives in named
-     * modules such as {@code java.sql} or {@code jdk.unsupported} that are defined by
-     * the <em>platform</em> loader instead, a distinct, non-null loader. Checking for
-     * a null loader alone therefore missed most of the modular JDK.
+     * <p>Since Java 9 the JDK's named modules are not all loaded the same way: a module
+     * such as {@code java.base} or {@code jdk.unsupported} can still be defined by the
+     * bootstrap loader (a null {@code getClassLoader()}), while another such as
+     * {@code java.sql} is defined by the <em>platform</em> loader instead. Loader
+     * identity alone is therefore insufficient to recognise JDK classes.
      *
      * <p>We classify by module origin, not by module name or loader identity: a module's
      * name is just a string the code that built it chose, and a module placed on
