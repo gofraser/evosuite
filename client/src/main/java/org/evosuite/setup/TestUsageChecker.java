@@ -394,13 +394,10 @@ public class TestUsageChecker {
      * JDK's own module graph rather than from a module that merely borrowed its naming
      * convention.
      *
-     * <p>The defining loader cannot play the same role: although the boot and platform
-     * loaders can never be forged, not every genuine JDK module uses either of them. Several
-     * JDK tool modules -- {@code jdk.jdi} and {@code jdk.attach} among them -- are defined by
-     * the ordinary system/application class loader, the same loader an application's own
-     * classpath classes use, so a loader-identity check rejects those modules outright. Boot
-     * layer membership does not have this gap: it is a property of the module's resolution,
-     * not of which loader happened to define it.
+     * <p>The defining loader cannot substitute for the boot-layer check: not every genuine JDK
+     * module is defined by the boot or platform loader (see {@link JavaModuleLookup#isInBootLayer}
+     * for the counterexample), so boot-layer membership -- not loader identity -- is what that
+     * method checks.
      *
      * <p>{@code Class#getModule()} and {@code ModuleLayer#boot()} are both Java 9+, and this
      * module's main source compiles against the Java 8 API (see {@code runtime}'s own Java 8

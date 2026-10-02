@@ -141,52 +141,22 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
     }
 
     /**
-     * Mirrors {@link PrintStream#PrintStream(OutputStream, boolean, Charset)}, which is a Java 10
-     * API and does not exist on a Java 8 JVM (confirmed via {@code javap} against Corretto 8: only
-     * the {@code (OutputStream, boolean, String)} overload is present).
+     * Mirrors {@link PrintStream#PrintStream(OutputStream, boolean, Charset)}, a Java 10 API that
+     * does not exist under this runtime module's Java 8 floor. Java also requires the
+     * super-constructor call to be the unconditional first statement, so a single constructor
+     * cannot choose between that call and a Java 8 fallback at runtime.
      *
-     * <p>There is no way to fix this by choosing a different {@code super(...)} call: Java
-     * requires the super-constructor call to be the unconditional first statement, so a single
-     * constructor cannot pick between "call the Java 10+ {@code (OutputStream, boolean, Charset)}
-     * constructor" and "fall back for Java 8" at runtime -- unlike a static method, which {@link
-     * org.evosuite.runtime.mock.javax.swing.MockHeadlessSwing
-     * #invokeComponentSetMixingCutoutShapeReflective} can resolve reflectively once and either
-     * call or no-op. Reflection cannot help on the other side either: constructing the charset
-     * directly into an already-{@code super()}-initialized {@code this} would require rewriting
-     * {@link PrintStream}'s private {@code charOut}/{@code textOut} fields, and {@code
-     * Field.setAccessible} on them is refused since Java 17 ({@code module java.base does not
-     * "opens java.io"}), confirmed empirically against this module's own Corretto 17 runtime.
+     * <p>So this always calls the Java 8-safe {@code (OutputStream, boolean)} constructor, and
+     * overrides every {@code print}/{@code println} overload -- including the no-argument
+     * {@link #println()} -- to route its text through {@link #encoder} instead: one {@link
+     * OutputStreamWriter} built directly from the given {@link Charset} -- a Java 8 API. Building
+     * the encoder this way, instead of resolving the charset back to a name via {@link
+     * Charset#forName(String)}, also means an unregistered {@link Charset} (one that implements
+     * {@link Charset#newEncoder()} without registering a {@code
+     * java.nio.charset.spi.CharsetProvider}) works exactly as well as a registered one.
      *
-     * <p>So instead this always calls the Java 8-safe {@code (OutputStream, boolean)}
-     * constructor purely to satisfy that first-statement requirement, and overrides every
-     * {@code print}/{@code println} overload -- including the no-argument {@link #println()} --
-     * to route its text through {@link #encoder} instead: one {@link OutputStreamWriter} built
-     * directly from the given {@link
-     * Charset} -- a Java 8 API -- and kept for the stream's lifetime. Building the encoder this
-     * way, instead of resolving the charset back to a name via {@link Charset#forName(String)},
-     * also means an unregistered {@link Charset} (one that implements {@link
-     * Charset#newEncoder()} without registering a {@code java.nio.charset.spi.CharsetProvider})
-     * works exactly as well as a registered one -- {@code Charset.forName} cannot find such a
-     * charset by name at all.
-     *
-     * <p>Keeping one encoder for the stream's lifetime (rather than re-encoding each fragment
-     * with {@link String#getBytes(Charset)}, as an earlier version of this constructor did) is
-     * required for correctness, not just efficiency: a stateful charset like UTF-16 only emits its
-     * byte-order mark on the encoder's first write, and a code point outside the BMP can arrive as
-     * a surrogate pair split across two {@code print} calls, which only encodes correctly if the
-     * high surrogate's encoder remembers it is waiting for the low surrogate. Per-fragment
-     * encoding starts a fresh encoder -- and so a fresh "have I written the BOM yet" / "am I
-     * mid-surrogate-pair" state -- on every single call, which re-emits the BOM mid-stream and
-     * turns a split surrogate pair into two replacement characters. See {@link #writeEncoded} for
-     * how the encoder's output reaches the underlying stream.
-     *
-     * <p>{@link MockPrintWriter}'s equivalent constructor does not need any override machinery at
-     * all for the same reason this one needs {@link #encoder}: {@link java.io.PrintWriter} keeps
-     * its destination in a {@code protected Writer out} field, so handing it an {@link
-     * OutputStreamWriter} built from the given {@link Charset} directly *is* giving it the
-     * long-lived encoder. {@link PrintStream}'s character encoding is bolted on top of a byte
-     * stream through private fields instead, which is why this class has to keep its own encoder
-     * alongside {@code super}'s (unused) one and funnel every text-producing override through it.
+     * <p>See {@link #encoder} for why one encoder is kept for the stream's lifetime, and
+     * {@link #writeEncoded} for how its output reaches the underlying stream.
      */
     public MockPrintStream(OutputStream out, boolean autoFlush, Charset charset) {
         super(out, autoFlush);
@@ -399,26 +369,23 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
      * already implements {@code ensureOpen}/error-tracking/{@code autoFlush} correctly for raw
      * bytes.
      *
-     * <p>{@link #encoder}'s {@link Writer#write(String)} only appends {@code s} to the encoder's
-     * internal buffers; it does not by itself push bytes out to {@link #encoderSink}. {@link
-     * Writer#flush()} does that (via the encoder's package-private {@code flushBuffer}, which is
-     * the only part of this reachable through the public {@link Writer} API) without resetting
-     * the encoder itself, so a pending leftover high surrogate or an already-written byte-order
-     * mark survives into the next call -- that persistence is the entire point of keeping
-     * {@link #encoder} around. {@link #encoderSink} is a plain in-memory buffer ({@link
-     * ByteArrayOutputStream#flush()} is a no-op), so this never touches the real underlying
-     * stream or its {@code autoFlush} setting; only the final {@link #write(byte[], int, int)}
-     * call below does, exactly as it did before this method kept any encoder state.
+     * <p>{@link Writer#write(String)} can itself push bytes into {@link #encoderSink} once the
+     * encoder's internal buffer fills (e.g. on a large {@code s}); {@link Writer#flush()} always
+     * pushes whatever remains afterwards, without resetting the encoder itself, so a pending
+     * leftover high surrogate or an already-written byte-order mark survives into the next call --
+     * that persistence is the entire point of keeping {@link #encoder} around. {@link
+     * #encoderSink} is a plain in-memory buffer ({@link ByteArrayOutputStream#flush()} is a
+     * no-op), so only the final {@link #write(byte[], int, int)} call below touches the real
+     * underlying stream or its {@code autoFlush} setting.
      *
      * <p>The whole encode-drain-write sequence is synchronized because {@link #encoder} and
-     * {@link #encoderSink} are now mutable state shared across calls -- unlike the stateless
-     * {@link String#getBytes(Charset)} this replaces, a second thread's write interleaved between
-     * encoding and draining here could corrupt or reorder output. {@link Writer#write(String)}
-     * and {@link Writer#flush()} are declared to throw {@link IOException}, but cannot really do
-     * so here: {@link #encoderSink} never throws, and an unmappable or malformed character is
-     * replaced by the encoder, not rejected. The {@code catch} only exists so that a theoretical
-     * failure is translated into {@link #setError()} rather than escaping -- a real {@link
-     * PrintStream} never throws from a print/println call.
+     * {@link #encoderSink} are mutable state shared across calls: a second thread's write
+     * interleaved between encoding and draining here could corrupt or reorder output. {@link
+     * Writer#write(String)} and {@link Writer#flush()} are declared to throw {@link IOException}
+     * but cannot really do so here -- {@link #encoderSink} never throws, and an unmappable or
+     * malformed character is replaced by the encoder, not rejected -- so the {@code catch} only
+     * translates a theoretical failure into {@link #setError()} rather than letting it escape, as
+     * a real {@link PrintStream} never throws from a print/println call.
      *
      * <p>One observable difference from {@link PrintStream}'s own text path: under
      * {@code autoFlush}, a tracking-output probe records one flush of the real underlying stream
@@ -449,16 +416,12 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
      * {@link PrintStream} does the equivalent for its own {@code charOut} as part of closing
      * {@code textOut}: closing the encoder flushes any still-pending state -- in particular, a
      * leftover high surrogate from a split pair that never got its partner is turned into a
-     * replacement character instead of silently vanishing. Guarded by {@link #charset} so the
-     * no-charset path is unaffected and keeps delegating straight to {@code super}.
+     * replacement character instead of silently vanishing, which {@link #writeEncoded}'s call to
+     * {@code flush()} deliberately leaves pending. Guarded by {@link #charset} so the no-charset
+     * path is unaffected and keeps delegating straight to {@code super}.
      *
-     * <p>{@link #encoderClosed} makes this idempotent and reentry-safe: {@code super.close()}
-     * below closes {@link PrintStream}'s own {@code charOut}, an {@link OutputStreamWriter} built
-     * directly from {@code this}, so closing it writes through to {@code this} and then closes
-     * {@code this} again -- reentering this very method before the underlying stream is actually
-     * closed. The guard, together with resetting {@link #encoderSink} immediately after reading
-     * it, ensures the finalization bytes are written exactly once no matter how many times -- or
-     * how deeply nested -- {@code close()} ends up being called.
+     * <p>See {@link #encoderClosed} for why this must be idempotent: {@code super.close()} below
+     * re-enters this method before the underlying stream is actually closed.
      */
     @Override
     public void close() {

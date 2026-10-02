@@ -157,23 +157,18 @@ public class NumberFormatter {
                 enumClass = enumClass.getEnclosingClass();
             }
 
-            // Only take the richer, import-aware, conflict-resolving naming path
-            // when the enum constant can actually be named in the generated test;
-            // otherwise fall back to the same simple-name chaining used when no
-            // visitor is available at all, which at least degrades predictably.
-            // This must use the same, narrower check that EnumAssertionCodeRenderer
-            // itself used to decide this branch is reachable at all --
-            // isEnumConstantNameableInGeneratedTest -- rather than the blanket,
-            // deliberately over-conservative isClassLiteralReferenceableFromGeneratedTest
-            // used for ".class" literals. The blanket check rejects every nested
-            // class, including perfectly public, nameable ones, which forced even
-            // reachable nested enums through the naive fallback below: that path
-            // chains raw getSimpleName()s with no import registration and no
-            // conflict resolution, so when another, already-imported class in the
-            // same generated test happens to share the enum's enclosing simple
-            // name, the rendered reference silently resolves to the wrong class
-            // (see ProductionEnumAssertionCompileTest's collision case). Callers
-            // that can restructure the surrounding expression (PrimitiveAssertion,
+            // Use the narrower isEnumConstantNameableInGeneratedTest here, not the
+            // blanket, deliberately over-conservative
+            // isClassLiteralReferenceableFromGeneratedTest used for ".class" literals
+            // -- see that method's javadoc for why the two predicates must differ (a
+            // class literal has a Class.forName(...) escape hatch; an enum constant
+            // rendered as a value does not). Falling back to the blanket check here
+            // forced reachable nested enums through the naive fallback below -- raw
+            // getSimpleName() chaining with no import registration or conflict
+            // resolution -- which silently resolves to the wrong class when another,
+            // already-imported class shares the enum's enclosing simple name (see
+            // ProductionEnumAssertionCompileTest's collision case). Callers that can
+            // restructure the surrounding expression (PrimitiveAssertion,
             // InspectorAssertion) check referenceability themselves and render a
             // by-name comparison instead, so they never reach this branch for a
             // non-referenceable (e.g. source-private) enum.

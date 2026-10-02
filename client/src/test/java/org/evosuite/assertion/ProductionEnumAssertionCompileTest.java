@@ -153,21 +153,10 @@ public class ProductionEnumAssertionCompileTest {
      * com.examples....enumcollision.two.Outer}). {@code TestCodeVisitor}
      * imports the first {@code Outer} it names, so by the time the assertion
      * is rendered, the bare name {@code Outer} already refers to the wrong
-     * class.
-     *
-     * <p>Before the fix, {@code NumberFormatter.getNumberString} gated its
-     * import-aware, conflict-resolving naming path on
-     * {@code TestCodeVisitor#isClassLiteralReferenceableFromGeneratedTest},
-     * which blanket-rejects every nested class (including this perfectly
-     * public, nameable one) and falls back to naive simple-name chaining.
-     * {@code EnumAssertionCodeRenderer} had already decided the constant
-     * -- correctly -- is nameable via the narrower
-     * {@code isEnumConstantNameableInGeneratedTest}, and its own follow-up
-     * {@code visitor.getClassName(enumClass)} call (to register the import)
-     * cannot retroactively rewrite a name {@code NumberFormatter} already
-     * rendered. The result was a plausible-looking {@code Outer.E.X}
-     * reference that javac rejects, because the imported {@code Outer} is
-     * the other class.
+     * class unless {@code NumberFormatter.getNumberString}'s enum branch uses
+     * the same narrower nameability check {@code EnumAssertionCodeRenderer}
+     * already applied (see that branch's comment for why it must differ from
+     * the {@code .class}-literal check).
      */
     @Test
     public void testToCodePrimitiveAssertionOnNestedEnumWithCollidingOuterSimpleName() throws Exception {

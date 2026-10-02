@@ -73,16 +73,12 @@ public class CoverageAnalysisTest {
     }
 
     /**
-     * The SELECTED_JUNIT (carved-suite) branch of {@link CoverageAnalysis#analyzeCoverage()} loops
-     * criteria and calls {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome,
-     * Properties.Criterion)} directly, bypassing {@link
-     * CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome)}, which is the only overload
-     * that records a give-up against its own time budget. Before the fix, a failure after an
-     * earlier criterion already completed propagated out of the sweep entirely, leaving whatever
-     * {@link RuntimeVariable#CoverageAnalysisComplete} that earlier criterion already published as
-     * {@code true} unrevised. This drives the extracted {@code runDirectCoverageSweep} with two
-     * criteria: the first completes (and publishes complete=true, simulating the real analyzer),
-     * the second throws {@link OutOfMemoryError}.
+     * Drives the extracted {@code runDirectCoverageSweep} with two criteria: the first completes
+     * (and publishes complete=true, simulating the real analyzer), the second throws {@link
+     * OutOfMemoryError}. The sweep must still end up recording {@link
+     * RuntimeVariable#CoverageAnalysisComplete} as incomplete rather than leaving the first
+     * criterion's complete=true unrevised; see {@code runDirectCoverageSweep}'s own comment for
+     * why it bypasses the overload that tracks its own time budget.
      */
     @Test
     public void runDirectCoverageSweepRecordsIncompleteWhenACriterionFailsAfterAnEarlierOneCompleted()
@@ -160,25 +156,15 @@ public class CoverageAnalysisTest {
      * test-only {@code ClientNodeImpl(Registry, String)} constructor with a {@code null} registry
      * (every master notification then becomes a no-op).
      *
-     * <p>Two things rule out stubbing {@code CoverageAnalysis.analyzeCoverage()} itself as the
-     * injection point. First, {@code doCoverageAnalysis()} always calls it from a dedicated
-     * {@code searchExecutor} worker thread, and Mockito's static mocking only intercepts calls
-     * made from the thread that registered the mock (confirmed experimentally: a trivial
-     * {@code mockStatic} stub is not observed by a call made from an {@code ExecutorService}
-     * thread) -- so a {@code mockStatic(CoverageAnalysis.class)} stub here silently lets the real
-     * method run instead. Second, even on the right thread, the real method would not help: its
-     * first stage (target-class dependency analysis) has its own {@code catch (Throwable e)} that
-     * logs and returns normally, so a failure injected via, say, an invalid {@code TARGET_CLASS}
-     * never reaches {@code ClientNodeImpl}'s backstop at all.
-     *
-     * <p><b>Test-only production seam:</b> this test instead uses {@link
-     * org.evosuite.rmi.service.ClientNodeImpl#COVERAGE_ANALYSIS_FOR_TESTING}, a package-private
-     * field added specifically for this test (default {@code null}; {@code doCoverageAnalysis()}
-     * calls the real {@code CoverageAnalysis.analyzeCoverage()} whenever it is unset, so production
-     * behavior is unchanged). It is a plain static field read directly by the worker thread, not a
-     * Mockito construct, so it works regardless of which thread performs the read, and lets this
-     * test make that call throw directly rather than forcing a real failure through genuine memory
-     * pressure or classpath breakage.
+     * <p>Stubbing {@code CoverageAnalysis.analyzeCoverage()} itself cannot inject the failure:
+     * besides running on a worker thread a static mock cannot reach (see {@link
+     * org.evosuite.rmi.service.ClientNodeImpl#COVERAGE_ANALYSIS_FOR_TESTING}'s javadoc for why),
+     * the real method's first stage (target-class dependency analysis) has its own
+     * {@code catch (Throwable e)} that logs and returns normally, so a failure injected via, say,
+     * an invalid {@code TARGET_CLASS} never reaches {@code ClientNodeImpl}'s backstop at all. This
+     * test instead sets {@link
+     * org.evosuite.rmi.service.ClientNodeImpl#COVERAGE_ANALYSIS_FOR_TESTING} directly to make the
+     * call throw.
      */
     @Test
     public void doCoverageAnalysisBackstopMarksIncompleteWhenAnalyzeCoverageFails() throws Exception {

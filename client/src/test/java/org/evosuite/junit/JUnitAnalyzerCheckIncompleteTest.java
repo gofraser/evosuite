@@ -232,25 +232,13 @@ public class JUnitAnalyzerCheckIncompleteTest {
      *
      * <p>JUnit itself attributes a per-test {@link OutOfMemoryError} to that test before it would
      * ever reach the outer catch, so a SUT test method that throws does not exercise this path.
-     * The natural fix -- stubbing the {@code JUnitCore}/launcher invocation itself via Mockito's
-     * {@code mockConstruction}/{@code mockStatic} -- does not work here either: that call happens
-     * inside the submitted {@link java.util.concurrent.Callable}, on a dedicated worker thread,
-     * and Mockito's static/construction mocking only intercepts calls made from the thread that
-     * registered the mock (confirmed experimentally: a trivial {@code mockStatic} stub is not
-     * observed by a call made from an {@code ExecutorService} thread). This is also why no
-     * existing test in this file drives {@code runJUnitOnCurrentProcess} far enough to reach that
-     * worker thread at all.
-     *
-     * <p><b>Test-only production seam:</b> this test instead uses
-     * {@link JUnitAnalyzer#VERSION_DEPENDENT_ANALYZER_FOR_TESTING}, a package-private field added
-     * specifically for this test (default {@code null}; {@link JUnitAnalyzer#getVersionDependentAnalyzer()}
-     * falls back to the real analyzers whenever it is unset, so production behavior is unchanged).
-     * It is a plain static field read directly by the worker thread, not a Mockito construct, so
-     * it works regardless of which thread performs the read. The replacement itself is a Mockito
-     * {@code mock(Class, Answer)} of the private {@code VersionDependentAnalyzing} type (obtained
-     * via {@code Class.forName}, since the type cannot be named from this file) whose every method
-     * throws -- an ordinary mock instance, not a static/construction mock, so it is unaffected by
-     * the thread restriction above.
+     * This test instead injects the failure via {@link
+     * JUnitAnalyzer#VERSION_DEPENDENT_ANALYZER_FOR_TESTING} (see that field's javadoc for why a
+     * Mockito static/construction mock cannot reach the worker thread instead): an ordinary
+     * Mockito {@code mock(Class, Answer)} of the private {@code VersionDependentAnalyzing} type
+     * (obtained via {@code Class.forName}, since the type cannot be named from this file) whose
+     * every method throws, read directly by the worker thread so it is unaffected by the thread
+     * restriction that rules out a static mock.
      */
     @Test
     public void outOfMemoryEscapingTheJUnitRunnerRecordsIncomplete() throws Exception {
