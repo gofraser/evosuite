@@ -288,8 +288,11 @@ public class CoverageAnalysis {
      * Runs the per-criterion coverage sweep for a carved (SELECTED_JUNIT) test suite, calling
      * {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome, Properties.Criterion)}
      * directly for each criterion rather than through
-     * {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome)}, which is the only
-     * overload that records give-ups against its own time budget. Without the catch below, an
+     * {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome)}. That overload checks
+     * the time budget only <em>between</em> criteria; the per-criterion overload used here also
+     * checks it inside its own goal loop, so a budget give-up mid-criterion is already handled --
+     * what is missing here is a backstop for the exception path, not for the budget check. Without
+     * the catch below, an
      * {@link OutOfMemoryError} after an earlier criterion already completed would propagate out of
      * {@link #analyzeCoverage()} entirely, skipping the statistics-send, aggregate-publish and
      * generated-suite-write that follow it in the SELECTED_JUNIT branch. {@code ClientNodeImpl}'s

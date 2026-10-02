@@ -75,8 +75,9 @@ import java.util.stream.Collectors;
  * module. {@code testStartupResolvedUserModuleNamedLikeAJdkModuleIsNotPlatformClass}
  * launches exactly such a module in a child JVM -- an in-process {@link ModuleLayer}
  * cannot reproduce startup resolution -- to confirm the current check, which instead
- * requires the module's name to be one {@code java.lang.module.ModuleFinder#ofSystem()}
- * enumerates (see {@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)}), rejects it too.
+ * traces the module's own reference through its own layer's {@code Configuration} to
+ * confirm it was actually resolved from the running JDK's own system image (see
+ * {@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)}), rejects it too.
  */
 class TestUsageCheckerPlatformClassTest {
 
@@ -223,12 +224,12 @@ class TestUsageCheckerPlatformClassTest {
             // Confirm the fixture actually set up the situation the finding describes,
             // before relying on it to exercise isPlatformClass(). The defining loader is
             // deliberately not asserted here beyond non-boot/non-platform: the real
-            // distinguishing signal isPlatformClass() relies on is module-name membership
-            // in java.lang.module.ModuleFinder#ofSystem() (see
+            // distinguishing signal isPlatformClass() relies on is the module's own traced
+            // reference origin (see JavaModuleLookup#isFromSystemImage) -- see
             // testAppLoadedGenuineJdkModuleIsPlatformClass for why loader identity alone
             // would also reject a genuine JDK tool module, and
             // testStartupResolvedUserModuleNamedLikeAJdkModuleIsNotPlatformClass for why
-            // boot-layer membership alone is not sufficient either).
+            // boot-layer membership alone is not sufficient either.
             Assertions.assertTrue(spoofed.getModule().isNamed());
             Assertions.assertEquals(moduleName, spoofed.getModule().getName());
             Assertions.assertTrue(moduleName.startsWith("java."));
@@ -360,11 +361,11 @@ class TestUsageCheckerPlatformClassTest {
      * image module</em> -- one {@code java.lang.module.ModuleFinder#ofSystem()} actually enumerates
      * -- but is resolved from somewhere other than the image. This is not the same situation as
      * {@link #testUserModuleNamedLikeAJdkModuleIsNotPlatformClass}, whose module name
-     * ({@code java.evosuitespooftest}) matches no real module anywhere: the fix that replaced
-     * name-prefix matching with {@code java.lang.module.ModuleFinder#ofSystem()} name membership
-     * (see {@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)}) is itself
-     * insufficient here, because image-wide name membership does not say that <em>this particular
-     * class's own module</em> is the image's copy. A module name can exist in the image while being
+     * ({@code java.evosuitespooftest}) matches no real module anywhere: mere image-wide name
+     * membership (an enumeration {@link JavaModuleLookup#isFromSystemImage(JavaModuleLookup.Result)}
+     * deliberately does not rely on) would not distinguish this case, because it does not say that
+     * <em>this particular class's own module</em> is the image's copy. A module name can exist in
+     * the image while being
      * absent from the default boot layer -- {@code jdk.hotspot.agent} is such a name on both
      * Corretto 17 and OpenJDK 27 -- which lets a user module resolve its own, separately compiled
      * copy of that exact name into a layer of its own, the same way the fixture below does, without

@@ -239,38 +239,29 @@ final class JavaModuleLookup {
      * Whether {@code result}'s module is one the <em>running JDK's own install image</em> actually
      * shipped it from, rather than merely one with a {@code java.}/{@code jdk.}-prefixed name.
      *
-     * <p>This replaces two earlier, incorrect signals in turn. First, boot-layer membership: a
-     * module placed on {@code --module-path} and named in {@code --add-modules} at JVM
-     * <em>startup</em> resolves into {@code ModuleLayer.boot()} right alongside every genuine JDK
-     * module, by the same startup resolution step, so a module named {@code java.fake} launched
-     * that way passed a boot-layer check even though it is ordinary application code. Second,
-     * module-name membership in {@code java.lang.module.ModuleFinder#ofSystem()}'s enumeration of
-     * the image: that enumeration answers "does a module of this name exist somewhere in the
-     * image", not "is this particular module the one the image shipped". A user module can reuse
-     * the name of a module that the image does contain but that is not part of the default boot
+     * <p>Neither a module's name nor its boot-layer membership proves this. A user module can
+     * reuse the name of a module the image does contain but that is not part of the default boot
      * layer -- {@code jdk.hotspot.agent} is such a name on both Corretto 17 and OpenJDK 27 -- and
-     * resolve its own, separately compiled copy of that name into a layer of its own. Name
-     * membership alone then says yes, even though the resolved module in hand is not the image's.
-     *
-     * <p>The question that actually answers "did this module come from the image" is where the
-     * specific {@code ResolvedModule} backing {@code result}'s own module -- found by looking its
-     * own name up in its own layer's own {@code Configuration}, not in some global enumeration --
-     * says it was loaded from: {@code ModuleReference#location()} is {@code jrt:/<module>} for a
-     * module the image shipped, and a {@code file:}/{@code jar:} URI (or everything else) for one
-     * resolved from anywhere else, including a same-named user module on {@code --module-path}.
-     * This also makes a separate image-wide name enumeration unnecessary: the per-class lookup
-     * below answers the real question directly, for the specific module the class actually came
-     * from.
+     * resolve its own, separately compiled copy of that name into a layer of its own. And a module
+     * placed on {@code --module-path} and named in {@code --add-modules} at JVM <em>startup</em>
+     * resolves into {@code ModuleLayer.boot()} the same as any genuine JDK module. The question
+     * that actually settles it is where the specific {@code ResolvedModule} backing {@code
+     * result}'s own module -- found by looking its own name up in its own layer's own {@code
+     * Configuration}, never a global enumeration -- says it was loaded from: {@code
+     * ModuleReference#location()} is {@code jrt:/<module>} for a module the image shipped, and a
+     * {@code file:}/{@code jar:} URI (or anything else) for one resolved from anywhere else. This
+     * check is independent of which loader actually defined the class, so a genuine image module
+     * that the ordinary system/application loader defines -- {@code jdk.jdi} is such a module --
+     * is still accepted.
      *
      * <p>{@code Module#getLayer()} can report {@code null} for a boot-layer class on some JDKs,
      * which is not the same as the class being in the unnamed module (that case is already
-     * filtered out by {@link Result#isNamed()} before this method is ever called, since an
-     * unnamed-module class has no module name to prefix-check in the first place). When the layer
+     * filtered out by {@link Result#isNamed()} before this method is ever called). When the layer
      * is {@code null}, this falls back to {@code ModuleLayer.boot()} only if {@code result}'s exact
      * module instance is a member of it (checked by identity, via {@code ModuleLayer#modules()});
      * a module built or resolved any other way is never boot's own object, so this recovery cannot
-     * promote a non-boot module. If membership cannot be established this way either, the method
-     * reports {@code false} rather than assuming JDK provenance: an inability to trace the
+     * promote a non-boot module. If the module's reference cannot be traced this way either, the
+     * method reports {@code false} rather than assuming JDK provenance: an inability to trace the
      * reference is treated as a negative, never a default "yes".
      *
      * @param result a {@link #lookupModule(Class)} outcome with {@link Result#isNamed()} true

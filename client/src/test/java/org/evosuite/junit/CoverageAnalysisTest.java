@@ -232,20 +232,18 @@ public class CoverageAnalysisTest {
     }
 
     /**
-     * Rereview4 finding 1: {@code runDirectCoverageSweep} catches an {@link OutOfMemoryError},
-     * marks the sweep incomplete, and returns the goal count accumulated so far -- but the
-     * SELECTED_JUNIT branch of {@link CoverageAnalysis#analyzeCoverage()} used to publish ordinary
-     * {@link RuntimeVariable#Total_Goals}, {@link RuntimeVariable#Covered_Goals} and {@link
-     * RuntimeVariable#Coverage} from that partial count regardless, representing a sweep that is
-     * missing one or more configured criteria entirely as an ordinary, trustworthy score. These
-     * three are default/essential output variables (unlike the opt-in {@code
-     * CoverageAnalysisComplete} marker), so every consumer relying on the default output set would
-     * see them. This drives the extracted {@code publishDirectCoverageSweepResult} directly with
-     * {@code goals=2} after marking the analysis incomplete, simulating a third configured
-     * criterion that {@code runDirectCoverageSweep} never reached: asserting only the incomplete
-     * marker (as the pinned {@code runDirectCoverageSweepRecordsIncompleteWhenACriterionFails...}
-     * test does) would miss this regression entirely, since that test never inspects what the
-     * caller publishes for the omitted third criterion.
+     * When {@code runDirectCoverageSweep} catches an {@link OutOfMemoryError} partway through,
+     * marks the sweep incomplete, and returns the goal count accumulated so far, the SELECTED_JUNIT
+     * branch of {@link CoverageAnalysis#analyzeCoverage()} must not still publish ordinary {@link
+     * RuntimeVariable#Total_Goals}, {@link RuntimeVariable#Covered_Goals} and {@link
+     * RuntimeVariable#Coverage} from that partial count as an ordinary, trustworthy score: a sweep
+     * missing one or more configured criteria entirely must withhold these default/essential output
+     * variables, not just the opt-in {@code CoverageAnalysisComplete} marker. This drives the
+     * extracted {@code publishDirectCoverageSweepResult} directly with {@code goals=2} after marking
+     * the analysis incomplete, simulating a third configured criterion that {@code
+     * runDirectCoverageSweep} never reached, and asserts that none of the three are published --
+     * asserting only the incomplete marker would miss a caller that still publishes them for the
+     * omitted third criterion.
      */
     @Test
     public void incompleteDirectSweepWithholdsOrdinaryAggregates() throws Exception {
@@ -317,14 +315,14 @@ public class CoverageAnalysisTest {
     }
 
     /**
-     * Rereview4 finding 5: {@link org.evosuite.rmi.service.ClientNodeImpl#doCoverageAnalysis()}'s
-     * {@code catch (Throwable t)} backstop used to call {@code markCoverageAnalysisIncomplete()}
-     * unconditionally. In SELECTED_JUNIT mode, the coverage sweep and aggregate publication finish
-     * before {@code analyzeCoverage()} writes the generated JUnit suite; a writer failure, or the
-     * explicit unsupported {@code COVERAGE_MATRIX} exception that follows it, both happen strictly
-     * after measurement is done. The unconditional backstop rewrote completeness to {@code false}
-     * for these too, even though coverage measurement genuinely finished -- a false-incomplete on
-     * the opt-in signal.
+     * In SELECTED_JUNIT mode, the coverage sweep and aggregate publication finish before {@code
+     * analyzeCoverage()} writes the generated JUnit suite; a writer failure, or the explicit
+     * unsupported {@code COVERAGE_MATRIX} exception that follows it, both happen strictly after
+     * measurement is done. {@link org.evosuite.rmi.service.ClientNodeImpl#doCoverageAnalysis()}'s
+     * {@code catch (Throwable t)} backstop must not rewrite completeness to {@code false} for a
+     * failure at that point, since coverage measurement genuinely finished -- this is the opt-in
+     * {@code CoverageAnalysisComplete} signal, so a false-incomplete there is as wrong as a
+     * false-complete.
      *
      * <p>This reuses the {@code COVERAGE_ANALYSIS_FOR_TESTING} seam, but this time the stub first
      * marks measurement finished (the same call {@code analyzeCoverage()}'s SELECTED_JUNIT branch

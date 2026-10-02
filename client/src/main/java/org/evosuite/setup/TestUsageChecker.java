@@ -379,34 +379,24 @@ public class TestUsageChecker {
      * the <em>platform</em> loader instead, a distinct, non-null loader. Checking for
      * a null loader alone therefore missed most of the modular JDK.
      *
-     * <p>We classify by module membership instead of by loader identity alone. Every
-     * JDK class -- bootstrap- or platform-loaded alike -- belongs to a named module
-     * whose name starts with {@code java.} or {@code jdk.}; there is no third platform
-     * prefix, and {@code Class#getModule()} reports it regardless of which of the two
-     * loaders actually defined the class. But a module's name is just a string the code
-     * that built it chose; nothing stops a user module naming itself {@code java.fake}
-     * or {@code jdk.anything} and defining a class in it, so the name prefix alone does
-     * not prove JDK provenance.
+     * <p>We classify by module origin, not by module name or loader identity: a module's
+     * name is just a string the code that built it chose, and a module placed on
+     * {@code --module-path} and named in {@code --add-modules} at JVM <em>startup</em>
+     * resolves into the same boot layer, and can be defined by the same loader, as genuine
+     * JDK code -- so neither a {@code java.}/{@code jdk.}-prefixed name nor loader identity
+     * proves JDK provenance. {@link JavaModuleLookup#isFromSystemImage} is the authoritative
+     * per-class check; see its documentation for the actual reference-origin contract
+     * (including why it still accepts a genuine, system-image module that the ordinary
+     * system/application loader defines, such as {@code jdk.jdi}, and rejects a same-named
+     * user module such as a spoofed {@code jdk.hotspot.agent}).
      *
-     * <p>Boot-layer membership is insufficient too, and for the same kind of reason: a module
-     * placed on {@code --module-path} and named in {@code --add-modules} at JVM
-     * <em>startup</em> resolves into {@code ModuleLayer.boot()} the same as any genuine JDK
-     * module, so a {@code java.fake} launched that way would pass a boot-layer check while
-     * being ordinary application code. {@link JavaModuleLookup#isFromSystemImage} is the
-     * per-class resolution that replaced both that check and the name-enumeration one above --
-     * see its documentation for the full history and for why only a module's own reference
-     * location, found via its own layer's own {@code Configuration}, actually settles the
-     * question (including against a same-name-different-origin module such as {@code
-     * jdk.hotspot.agent}).
-     *
-     * <p>{@code Class#getModule()} and {@code ModuleFinder#ofSystem()} are both Java 9+, and
-     * this module's main source compiles against the Java 8 API (see {@code runtime}'s own
-     * Java 8 floor, enforced on this module the same way). Both are therefore looked up
-     * reflectively via the shared {@link JavaModuleLookup}, which also backs {@code
-     * TestClusterUtils#isJdkClass} for the module half of the identical constraint; on an
-     * actual Java 8 JVM the module lookup itself fails (there is no module system yet) and
-     * this falls back to the old bootstrap-loader check, which is exactly correct there,
-     * since Java 8 predates both named modules and the boot layer entirely.
+     * <p>{@code Class#getModule()} is Java 9+, and this module's main source compiles against
+     * the Java 8 API (see {@code runtime}'s own Java 8 floor, enforced on this module the same
+     * way), so it is looked up reflectively via the shared {@link JavaModuleLookup}, which also
+     * backs {@code TestClusterUtils#isJdkClass} for the module half of the identical
+     * constraint; on an actual Java 8 JVM the module lookup itself fails (there is no module
+     * system yet) and this falls back to the old bootstrap-loader check, which is exactly
+     * correct there, since Java 8 predates both named modules and the boot layer entirely.
      *
      * <p>A user class loaded the ordinary way (app class loader, classpath) is always in
      * an <em>unnamed</em> module, which fails the {@code isNamed()} check regardless of

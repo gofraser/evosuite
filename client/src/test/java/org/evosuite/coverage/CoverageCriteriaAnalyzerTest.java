@@ -180,15 +180,14 @@ public class CoverageCriteriaAnalyzerTest {
 
             InvocationTargetException wrapped = assertThrows(InvocationTargetException.class,
                     () -> analyzeCoverage.invoke(null, suite, Properties.Criterion.LINE, false),
-                    "the OutOfMemoryError from the third goal must propagate out of the goal loop, "
-                            + "exactly as it does today without the fix");
+                    "the OutOfMemoryError from the third goal must propagate out of the goal loop");
             assertTrue(wrapped.getCause() instanceof OutOfMemoryError,
                     "expected the synthetic OutOfMemoryError, got " + wrapped.getCause());
         }
 
-        // The defect: without recording progress before rethrowing, these come back as
-        // false/0/0 (the fields' initial state) instead of reflecting the two goals the
-        // criterion actually evaluated before the OOM.
+        // The goal loop records this criterion's real progress before rethrowing, so completeness
+        // and the checked/total tally reflect the two goals (first covered, second not) actually
+        // evaluated before the OOM on the third, even though the exception still propagates.
         assertEquals(Boolean.FALSE, node.value(RuntimeVariable.CoverageAnalysisComplete));
         assertEquals(2, node.value(RuntimeVariable.CoverageAnalysisGoalsChecked),
                 "two goals (first covered, second not) were evaluated before the OOM");

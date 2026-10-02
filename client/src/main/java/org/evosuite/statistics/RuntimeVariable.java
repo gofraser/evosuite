@@ -343,7 +343,9 @@ public enum RuntimeVariable {
      * Whether the post-search coverage/mutation analysis ({@code CoverageCriteriaAnalyzer})
      * finished evaluating every goal of every criterion analyzed in this run. False if the
      * per-goal loop for a criterion, or the per-criteria loop itself, had to stop early because
-     * {@code TimeController} ran out of budget. The goals already evaluated keep their real
+     * {@code TimeController} ran out of budget; false also if a criterion's goal loop was cut
+     * short by an {@link OutOfMemoryError}, or if setup (target/classpath initialization) failed
+     * before any criterion was even attempted. The goals already evaluated keep their real
      * result, but a coverage/mutation score published for an incomplete criterion is then a lower
      * bound over a non-random (sorted) subset of its goals, not a full measurement — see
      * {@link #CoverageAnalysisGoalsChecked} and {@link #CoverageAnalysisGoalsTotal}.

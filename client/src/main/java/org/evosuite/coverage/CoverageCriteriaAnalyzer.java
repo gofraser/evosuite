@@ -327,17 +327,10 @@ public class CoverageCriteriaAnalyzer {
                 }
             }
         } catch (OutOfMemoryError e) {
-            // Unlike the time-budget break above, an OutOfMemoryError here unwinds past the
-            // normal recordCoverageAnalysisProgress() call below entirely, so without this catch
-            // the goals this criterion already evaluated (buffer.length() of them) would never
-            // be added to the cumulative checked/total tally -- the caller's own OOM recovery
-            // (CoverageAnalysis#runDirectCoverageSweep / TestSuiteGenerator
-            // #runCoverageAnalysisIfEnabled) only calls markCoverageAnalysisIncomplete(), which
-            // republishes the existing totals rather than contributing this criterion's count.
-            // Record this criterion's real progress before rethrowing, so RuntimeVariable
-            // #CoverageAnalysisGoalsChecked/Total still reflect the work actually done. Rethrowing
-            // means the normal recordCoverageAnalysisProgress() call below is never reached for
-            // this criterion, so it cannot be counted twice.
+            // Partial progress must be recorded before an exceptional exit: rethrowing skips the
+            // normal recordCoverageAnalysisProgress() call below, so this criterion's goals already
+            // evaluated (buffer.length() of them) must be recorded here instead, or they would never
+            // be added to the cumulative checked/total tally.
             recordCoverageAnalysisProgress(buffer.length(), goals.size(), false);
             throw e;
         }
@@ -426,7 +419,8 @@ public class CoverageCriteriaAnalyzer {
      *
      * @param checkedGoals      number of goals actually evaluated for this criterion
      * @param totalGoals        total number of goals for this criterion
-     * @param criterionComplete false if this criterion's goal loop was cut short by the time budget
+     * @param criterionComplete false if this criterion's goal loop was cut short, whether by the
+     *                          time budget or by an {@link OutOfMemoryError} partway through
      */
     private static void recordCoverageAnalysisProgress(int checkedGoals, int totalGoals,
                                                         boolean criterionComplete) {
