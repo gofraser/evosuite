@@ -723,14 +723,25 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * org.evosuite.statistics.backend.CSVStatisticsBackend}'s header and every row it appends keep
      * the same key set regardless of completeness. Unlike the complete-sweep path -- which fills
      * the value with the sweep's derived coverage -- this always blanks it, present or not,
-     * exactly like {@link #blankIfPresent(Map, String)} does for {@link
-     * RuntimeVariable#Coverage}: an abandoned sweep must not report a plausible-looking number for
-     * the one configured criterion, even if {@code BranchCoverage} itself was selected.
+     * exactly like {@link #blankIfPresent(Map, String)} does for {@link RuntimeVariable#Coverage}:
+     * an abandoned sweep must not report a plausible-looking number for the one configured
+     * criterion, even if {@code BranchCoverage} itself was selected.
+     *
+     * <p>That schema effect is deliberately governed by {@link #isBranchOnlyCriterion(Map)} alone
+     * -- the projected {@code criterion} column -- so an unselected {@code BranchCoverage} is
+     * never inserted here. But a run can be configured single-{@code BRANCH} in {@link Properties}
+     * while {@code -Doutput_variables} omits the {@code criterion} column itself; in that case
+     * {@link #isBranchOnlyCriterion(Map)} is false, yet an already selected {@code BranchCoverage}
+     * must still be blanked, not retained as an ordinary-looking score. {@link
+     * #isConfiguredBranchOnlyCriterion()} answers that from run configuration directly, and only
+     * ever blanks a value already present -- it never inserts the column either.
      */
     private static void withholdCriterionCoverageForIncompleteCoverageAnalysis(Map<String, OutputVariable<?>> map) {
         if (isBranchOnlyCriterion(map)) {
             map.put(RuntimeVariable.BranchCoverage.toString(),
                     new OutputVariable<>(RuntimeVariable.BranchCoverage.toString(), ""));
+        } else if (isConfiguredBranchOnlyCriterion()) {
+            blankIfPresent(map, RuntimeVariable.BranchCoverage.toString());
         }
     }
 
@@ -848,9 +859,7 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
 
     /**
      * The projected {@code criterion} column's value, trimmed, or {@code ""} when the column is not
-     * part of this projection. Read in one place because the complete and incomplete paths must agree
-     * on it: they decide the same thing about the same column from opposite sides, and when each kept
-     * its own copy of this read they produced rows of different widths for the same configuration.
+     * part of this projection.
      */
     private static String projectedCriterionName(Map<String, OutputVariable<?>> map) {
         OutputVariable<?> criterionVar = map.get("criterion");
@@ -858,14 +867,39 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
     }
 
     /**
-     * Whether exactly one criterion is configured and it is {@code BRANCH} -- the case in which
-     * {@link #normalizeCriterionCoverage(Map, Double)} derives a {@code BranchCoverage} column for a
-     * complete sweep and {@link #withholdCriterionCoverageForIncompleteCoverageAnalysis(Map)} blanks
-     * the same column for an incomplete one. Both must answer this question identically or the two
+     * Whether the projected {@code criterion} column -- see {@link #projectedCriterionName(Map)} --
+     * is exactly {@code BRANCH}: the case in which {@link #normalizeCriterionCoverage(Map, Double)}
+     * derives a {@code BranchCoverage} column for a complete sweep and {@link
+     * #withholdCriterionCoverageForIncompleteCoverageAnalysis(Map)} inserts the same column
+     * (blanked) for an incomplete one. Both must answer this question identically or the two
      * outcomes emit different schemas.
+     *
+     * <p>This governs SCHEMA only -- whether {@code BranchCoverage} is inserted at all -- and is
+     * {@code false} whenever {@code -Doutput_variables} did not select {@code criterion}, even if
+     * the run is actually configured single-{@code BRANCH}. It does not, and must not, decide
+     * whether an already selected {@code BranchCoverage} VALUE should be blanked; see {@link
+     * #isConfiguredBranchOnlyCriterion()} for that question.
      */
     private static boolean isBranchOnlyCriterion(Map<String, OutputVariable<?>> map) {
         return projectedCriterionName(map).equalsIgnoreCase("BRANCH");
+    }
+
+    /**
+     * Whether this run is actually configured, in {@link Properties#CRITERION}, with exactly one
+     * criterion and it is {@code BRANCH} -- independent of whether {@code -Doutput_variables}
+     * selected the {@code criterion} column for output. This is the same array that populates the
+     * projected {@code criterion} column itself when it is selected ({@link
+     * PropertyOutputVariableFactory} reads it via {@link Properties#getStringValue(String)}), read
+     * here directly instead of through that projection.
+     *
+     * <p>Used only to decide whether an EXISTING selected {@link RuntimeVariable#BranchCoverage}
+     * value must be blanked for an incomplete sweep -- never to decide whether to INSERT the
+     * column. {@link #isBranchOnlyCriterion(Map)} alone governs insertion, so an unselected {@code
+     * BranchCoverage} is never invented from this check.
+     */
+    private static boolean isConfiguredBranchOnlyCriterion() {
+        Properties.Criterion[] criteria = Properties.CRITERION;
+        return criteria != null && criteria.length == 1 && criteria[0] == Properties.Criterion.BRANCH;
     }
 
     private void setCoverageUnavailableIfMissing(Map<String, OutputVariable<?>> map) {

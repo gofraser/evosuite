@@ -585,6 +585,251 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
         }
     }
 
+    /**
+     * Rereview9 finding 1: an incomplete single-{@code BRANCH} sweep must not retain an
+     * already-selected, already-published numeric {@link RuntimeVariable#BranchCoverage} just
+     * because {@code -Doutput_variables} did not also select {@code criterion}. {@link
+     * org.evosuite.coverage.CoverageCriteriaAnalyzer} tracks a conservative partial score for the
+     * criterion it was analyzing when the time budget ran out -- independent of the overall
+     * completeness marker -- so {@link #runSweepWithRawBranchCoverage(boolean, double)} seeds that
+     * raw value directly, the same way the analyzer does, before {@code writeStatisticsForAnalysis}
+     * ever runs. Unlike {@link #branchOnlyCriterionCustomSelectionCompleteThenIncomplete}, this
+     * selection never names {@code criterion}, so {@link
+     * SearchStatistics#isBranchOnlyCriterion(Map)}'s projected check cannot see that the run is
+     * single-{@code BRANCH}; only the configured-criterion check can.
+     */
+    @Test
+    public void selectedRawBranchCoverageWithoutCriterionBlankedCompleteThenIncomplete() throws Exception {
+        Criterion[] previousCriterion = Properties.CRITERION;
+        String previousOutputVariables = Properties.OUTPUT_VARIABLES;
+        try {
+            Properties.CRITERION = new Criterion[]{Criterion.BRANCH};
+            Properties.OUTPUT_VARIABLES = "TARGET_CLASS,Coverage,BranchCoverage";
+
+            runSweepWithRawBranchCoverage(false, 1.0);
+            runSweepWithRawBranchCoverage(true, 1.0 / 3.0);
+
+            List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+            assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+            assertEquals("TARGET_CLASS,Coverage,BranchCoverage", lines.get(0),
+                    "omitting criterion must not change the selected schema");
+
+            String[] header = lines.get(0).split(",", -1);
+            String[] completeRow = lines.get(1).split(",", -1);
+            String[] incompleteRow = lines.get(2).split(",", -1);
+
+            assertEquals(header.length, completeRow.length);
+            assertEquals(header.length, incompleteRow.length);
+
+            assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.Coverage.toString()));
+            assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.BranchCoverage.toString()),
+                    "a completed criterion's measured BranchCoverage must still be retained");
+
+            assertEquals("N/A", columnValue(header, incompleteRow, RuntimeVariable.Coverage.toString()));
+            assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.BranchCoverage.toString())),
+                    "an incomplete single-BRANCH sweep must blank an already-published partial "
+                            + "BranchCoverage even though criterion was not selected");
+        } finally {
+            Properties.CRITERION = previousCriterion;
+            Properties.OUTPUT_VARIABLES = previousOutputVariables;
+        }
+    }
+
+    /** Companion to the test above, with the two sweeps in the opposite order. */
+    @Test
+    public void selectedRawBranchCoverageWithoutCriterionBlankedIncompleteThenComplete() throws Exception {
+        Criterion[] previousCriterion = Properties.CRITERION;
+        String previousOutputVariables = Properties.OUTPUT_VARIABLES;
+        try {
+            Properties.CRITERION = new Criterion[]{Criterion.BRANCH};
+            Properties.OUTPUT_VARIABLES = "TARGET_CLASS,Coverage,BranchCoverage";
+
+            runSweepWithRawBranchCoverage(true, 1.0 / 3.0);
+            runSweepWithRawBranchCoverage(false, 1.0);
+
+            List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+            assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+            assertEquals("TARGET_CLASS,Coverage,BranchCoverage", lines.get(0),
+                    "the header must not depend on which run wrote the first row");
+
+            String[] header = lines.get(0).split(",", -1);
+            String[] incompleteRow = lines.get(1).split(",", -1);
+            String[] completeRow = lines.get(2).split(",", -1);
+
+            assertEquals(header.length, incompleteRow.length);
+            assertEquals(header.length, completeRow.length);
+
+            assertEquals("N/A", columnValue(header, incompleteRow, RuntimeVariable.Coverage.toString()));
+            assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.BranchCoverage.toString())),
+                    "an incomplete single-BRANCH sweep must blank an already-published partial "
+                            + "BranchCoverage even though criterion was not selected");
+
+            assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.Coverage.toString()));
+            assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.BranchCoverage.toString()),
+                    "a completed criterion's measured BranchCoverage must still be retained");
+        } finally {
+            Properties.CRITERION = previousCriterion;
+            Properties.OUTPUT_VARIABLES = previousOutputVariables;
+        }
+    }
+
+    /**
+     * Same as {@link #selectedRawBranchCoverageWithoutCriterionBlankedCompleteThenIncomplete}, but
+     * also selecting {@link RuntimeVariable#CoverageAnalysisComplete}: the completeness marker
+     * being visible in the row must not be a substitute for actually blanking the value -- a
+     * reader selecting only {@code BranchCoverage} and the marker must still see the partial value
+     * blanked, not an ordinary-looking number next to {@code complete=false}.
+     */
+    @Test
+    public void selectedRawBranchCoverageWithoutCriterionAndWithMarkerBlankedCompleteThenIncomplete()
+            throws Exception {
+        Criterion[] previousCriterion = Properties.CRITERION;
+        String previousOutputVariables = Properties.OUTPUT_VARIABLES;
+        try {
+            Properties.CRITERION = new Criterion[]{Criterion.BRANCH};
+            Properties.OUTPUT_VARIABLES =
+                    "TARGET_CLASS,Coverage,BranchCoverage,CoverageAnalysisComplete";
+
+            runSweepWithRawBranchCoverage(false, 1.0);
+            runSweepWithRawBranchCoverage(true, 1.0 / 3.0);
+
+            List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+            assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+            assertEquals("TARGET_CLASS,Coverage,BranchCoverage,CoverageAnalysisComplete", lines.get(0));
+
+            String[] header = lines.get(0).split(",", -1);
+            String[] completeRow = lines.get(1).split(",", -1);
+            String[] incompleteRow = lines.get(2).split(",", -1);
+
+            assertEquals(header.length, completeRow.length);
+            assertEquals(header.length, incompleteRow.length);
+
+            assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.BranchCoverage.toString()),
+                    "a completed criterion's measured BranchCoverage must still be retained");
+
+            assertEquals("false",
+                    columnValue(header, incompleteRow, RuntimeVariable.CoverageAnalysisComplete.toString()));
+            assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.BranchCoverage.toString())),
+                    "selecting the completeness marker must not be a substitute for blanking the "
+                            + "partial BranchCoverage value itself");
+        } finally {
+            Properties.CRITERION = previousCriterion;
+            Properties.OUTPUT_VARIABLES = previousOutputVariables;
+        }
+    }
+
+    /** Companion to the test above, with the two sweeps in the opposite order. */
+    @Test
+    public void selectedRawBranchCoverageWithoutCriterionAndWithMarkerBlankedIncompleteThenComplete()
+            throws Exception {
+        Criterion[] previousCriterion = Properties.CRITERION;
+        String previousOutputVariables = Properties.OUTPUT_VARIABLES;
+        try {
+            Properties.CRITERION = new Criterion[]{Criterion.BRANCH};
+            Properties.OUTPUT_VARIABLES =
+                    "TARGET_CLASS,Coverage,BranchCoverage,CoverageAnalysisComplete";
+
+            runSweepWithRawBranchCoverage(true, 1.0 / 3.0);
+            runSweepWithRawBranchCoverage(false, 1.0);
+
+            List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+            assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+            assertEquals("TARGET_CLASS,Coverage,BranchCoverage,CoverageAnalysisComplete", lines.get(0));
+
+            String[] header = lines.get(0).split(",", -1);
+            String[] incompleteRow = lines.get(1).split(",", -1);
+            String[] completeRow = lines.get(2).split(",", -1);
+
+            assertEquals(header.length, incompleteRow.length);
+            assertEquals(header.length, completeRow.length);
+
+            assertEquals("false",
+                    columnValue(header, incompleteRow, RuntimeVariable.CoverageAnalysisComplete.toString()));
+            assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.BranchCoverage.toString())),
+                    "selecting the completeness marker must not be a substitute for blanking the "
+                            + "partial BranchCoverage value itself");
+
+            assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.BranchCoverage.toString()),
+                    "a completed criterion's measured BranchCoverage must still be retained");
+        } finally {
+            Properties.CRITERION = previousCriterion;
+            Properties.OUTPUT_VARIABLES = previousOutputVariables;
+        }
+    }
+
+    /**
+     * Control retained from the eighth-pass schema fix: a single-{@code BRANCH} configuration
+     * whose selection names neither {@code criterion} nor {@link
+     * RuntimeVariable#BranchCoverage} must still emit no extra metric field. This is what stops a
+     * configured-criterion check for finding 1 from reintroducing the eighth-pass defect (inventing
+     * an unselected column): the configured check only ever blanks an existing entry ({@link
+     * SearchStatistics#blankIfPresent}), never inserts one.
+     */
+    @Test
+    public void omittingCriterionAndBranchCoverageEmitsNoExtraFieldForConfiguredBranch() throws Exception {
+        Criterion[] previousCriterion = Properties.CRITERION;
+        String previousOutputVariables = Properties.OUTPUT_VARIABLES;
+        try {
+            Properties.CRITERION = new Criterion[]{Criterion.BRANCH};
+            Properties.OUTPUT_VARIABLES = "TARGET_CLASS,Coverage";
+
+            runSweep(false);
+            runSweep(true);
+
+            List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+            assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+            assertEquals("TARGET_CLASS,Coverage", lines.get(0),
+                    "neither criterion nor BranchCoverage was selected, so neither may appear");
+
+            String[] header = lines.get(0).split(",", -1);
+            String[] completeRow = lines.get(1).split(",", -1);
+            String[] incompleteRow = lines.get(2).split(",", -1);
+
+            assertEquals(header.length, completeRow.length);
+            assertEquals(header.length, incompleteRow.length);
+        } finally {
+            Properties.CRITERION = previousCriterion;
+            Properties.OUTPUT_VARIABLES = previousOutputVariables;
+        }
+    }
+
+    /**
+     * Rereview9 "preserve measured per-criterion values" requirement: when more than one criterion
+     * is configured, an incomplete overall sweep must not imply that every individual criterion
+     * failed. With two configured criteria, a selected {@link RuntimeVariable#BranchCoverage} that
+     * was already measured must survive an aggregate-incomplete sweep -- the configured-criterion
+     * check in {@code withholdCriterionCoverageForIncompleteCoverageAnalysis} only fires for a
+     * single-{@code BRANCH} configuration, exactly so this multi-criterion case is left alone.
+     */
+    @Test
+    public void multiCriterionIncompleteSweepPreservesSelectedBranchCoverage() throws Exception {
+        Criterion[] previousCriterion = Properties.CRITERION;
+        String previousOutputVariables = Properties.OUTPUT_VARIABLES;
+        try {
+            Properties.CRITERION = new Criterion[]{Criterion.BRANCH, Criterion.LINE};
+            Properties.OUTPUT_VARIABLES = "TARGET_CLASS,Coverage,BranchCoverage";
+
+            runSweepWithRawBranchCoverage(true, 1.0);
+
+            List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+            assertEquals(2, lines.size(), "expected a header line and exactly one data row");
+            assertEquals("TARGET_CLASS,Coverage,BranchCoverage", lines.get(0));
+
+            String[] header = lines.get(0).split(",", -1);
+            String[] row = lines.get(1).split(",", -1);
+            assertEquals(header.length, row.length);
+
+            assertEquals("N/A", columnValue(header, row, RuntimeVariable.Coverage.toString()),
+                    "the aggregate Coverage must still be withheld for the incomplete sweep");
+            assertEquals("1.0", columnValue(header, row, RuntimeVariable.BranchCoverage.toString()),
+                    "a completed criterion's measured value must not be blanked just because the "
+                            + "overall sweep was incomplete");
+        } finally {
+            Properties.CRITERION = previousCriterion;
+            Properties.OUTPUT_VARIABLES = previousOutputVariables;
+        }
+    }
+
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
     }
@@ -622,6 +867,49 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
         } else {
             goals = 0;
         }
+
+        StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
+        invokePublishDirectCoverageSweepResult(testSuite, goals);
+
+        boolean wrote = SearchStatistics.getInstance().writeStatisticsForAnalysis();
+        assertTrue(wrote, "writeStatisticsForAnalysis() must still write a row for this run");
+    }
+
+    /**
+     * Variant of {@link #runSweep(boolean)} that also seeds a raw {@link
+     * RuntimeVariable#BranchCoverage} value directly via {@link
+     * ClientNodeImpl#trackOutputVariable}, the same call {@link
+     * org.evosuite.coverage.CoverageCriteriaAnalyzer} makes with its conservative partial score
+     * for the criterion it was analyzing -- independent of the overall completeness marker --
+     * when the time budget runs out mid-criterion. {@link #runSweep(boolean)} never seeds this
+     * raw value, which is exactly why it cannot catch rereview9 finding 1.
+     */
+    private void runSweepWithRawBranchCoverage(boolean incomplete, double rawBranchCoverage) throws Exception {
+        SearchStatistics.clearAllInstances();
+        resetCoverageAnalysisProgress();
+
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        if (client != null) {
+            client.stop();
+        }
+        client = new ClientNodeImpl<>(null, ClientProcess.DEFAULT_CLIENT_NAME);
+        clientNodeField.set(ClientServices.getInstance(), client);
+
+        SearchStatistics.getInstance();
+
+        TestSuiteChromosome testSuite = new TestSuiteChromosome();
+        int goals;
+        if (incomplete) {
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+            TestSuiteFitnessFunction earlierCriterion = mock(TestSuiteFitnessFunction.class);
+            testSuite.setCoverage(earlierCriterion, 0.75);
+            goals = 2;
+        } else {
+            goals = 0;
+        }
+
+        client.trackOutputVariable(RuntimeVariable.BranchCoverage, rawBranchCoverage);
 
         StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
         invokePublishDirectCoverageSweepResult(testSuite, goals);
