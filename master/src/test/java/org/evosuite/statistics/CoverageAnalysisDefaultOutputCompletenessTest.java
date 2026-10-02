@@ -215,6 +215,131 @@ public class CoverageAnalysisDefaultOutputCompletenessTest {
         assertEquals("0", columnValue(header, data, RuntimeVariable.Covered_Goals.toString()));
     }
 
+    /**
+     * Rereview6 finding 1: the two single-row tests above each write to a fresh, empty file, so
+     * neither can see that {@link SearchStatistics#writeStatisticsForAnalysis()} and {@link
+     * org.evosuite.statistics.backend.CSVStatisticsBackend} only write a header for the first row
+     * of a report file and then append every later row in that row's own {@link
+     * java.util.LinkedHashMap} key order, without realigning it to the header already on disk.
+     * The fifth-pass completeness fix removed {@link RuntimeVariable#Coverage} from the map for an
+     * incomplete sweep and let the unavailable-coverage fallback reinsert it at the end, so an
+     * incomplete row's columns no longer lined up with a complete row's columns from the same
+     * output configuration. This test drives two real sweeps -- one complete, one incomplete --
+     * through the same report directory, so both rows share one header, and reads every value back
+     * by column name against that one header rather than by position.
+     */
+    @Test
+    public void appendedRowsKeepIdenticalColumnOrderCompleteThenIncomplete() throws Exception {
+        runSweep(false);
+        runSweep(true);
+
+        List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+        assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+
+        assertEquals("TARGET_CLASS,criterion,Test_Generation_Status,Coverage,Total_Goals,Covered_Goals",
+                lines.get(0), "default essential output variables fix this column order");
+
+        String[] header = lines.get(0).split(",", -1);
+        String[] completeRow = lines.get(1).split(",", -1);
+        String[] incompleteRow = lines.get(2).split(",", -1);
+
+        assertEquals(header.length, completeRow.length,
+                "the complete row must have exactly as many columns as the shared header");
+        assertEquals(header.length, incompleteRow.length,
+                "the incomplete row must have exactly as many columns as the shared header, not "
+                        + "shift its unavailable-Coverage value into Covered_Goals' column");
+
+        assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.Coverage.toString()));
+        assertEquals("0", columnValue(header, completeRow, RuntimeVariable.Total_Goals.toString()));
+        assertEquals("0", columnValue(header, completeRow, RuntimeVariable.Covered_Goals.toString()));
+
+        assertEquals("N/A", columnValue(header, incompleteRow, RuntimeVariable.Coverage.toString()),
+                "an incomplete sweep's Coverage column must hold the CSV backend's own "
+                        + "unavailable-coverage value, read back by name");
+        assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.Total_Goals.toString())));
+        assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.Covered_Goals.toString())));
+    }
+
+    /** Companion to the test above, with the two sweeps in the opposite order. */
+    @Test
+    public void appendedRowsKeepIdenticalColumnOrderIncompleteThenComplete() throws Exception {
+        runSweep(true);
+        runSweep(false);
+
+        List<String> lines = Files.readAllLines(new File(reportDir, "statistics.csv").toPath());
+        assertEquals(3, lines.size(), "expected one shared header line and two data rows");
+
+        assertEquals("TARGET_CLASS,criterion,Test_Generation_Status,Coverage,Total_Goals,Covered_Goals",
+                lines.get(0), "the header must not depend on which run wrote the first row");
+
+        String[] header = lines.get(0).split(",", -1);
+        String[] incompleteRow = lines.get(1).split(",", -1);
+        String[] completeRow = lines.get(2).split(",", -1);
+
+        assertEquals(header.length, incompleteRow.length,
+                "the incomplete row must have exactly as many columns as the shared header");
+        assertEquals(header.length, completeRow.length,
+                "the complete row must have exactly as many columns as the shared header, not "
+                        + "read its Total_Goals/Covered_Goals out of Coverage's column");
+
+        assertEquals("N/A", columnValue(header, incompleteRow, RuntimeVariable.Coverage.toString()),
+                "an incomplete sweep's Coverage column must hold the CSV backend's own "
+                        + "unavailable-coverage value, read back by name");
+        assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.Total_Goals.toString())));
+        assertTrue(isBlank(columnValue(header, incompleteRow, RuntimeVariable.Covered_Goals.toString())));
+
+        assertEquals("1.0", columnValue(header, completeRow, RuntimeVariable.Coverage.toString()),
+                "a complete sweep's row must stay exactly as before this fix, even though an "
+                        + "incomplete row with a different column order was appended ahead of it");
+        assertEquals("0", columnValue(header, completeRow, RuntimeVariable.Total_Goals.toString()));
+        assertEquals("0", columnValue(header, completeRow, RuntimeVariable.Covered_Goals.toString()));
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    /**
+     * Runs one full sweep -- complete or incomplete -- through the same production call sequence
+     * as the two single-row tests above ({@link StatisticsSender#executedAndThenSendIndividualToMaster},
+     * the guarded publisher, then {@link SearchStatistics#writeStatisticsForAnalysis()}) and
+     * appends its row to the shared {@code reportDir}. Each call resets {@link SearchStatistics}
+     * and the coverage-analysis progress tracker and installs a fresh {@link ClientNodeImpl}, the
+     * same way a fresh client process would for each run, without touching {@code
+     * Properties.REPORT_DIR} so the CSV file -- and its header -- carries over between calls.
+     */
+    private void runSweep(boolean incomplete) throws Exception {
+        SearchStatistics.clearAllInstances();
+        resetCoverageAnalysisProgress();
+
+        Field clientNodeField = ClientServices.class.getDeclaredField("clientNode");
+        clientNodeField.setAccessible(true);
+        if (client != null) {
+            client.stop();
+        }
+        client = new ClientNodeImpl<>(null, ClientProcess.DEFAULT_CLIENT_NAME);
+        clientNodeField.set(ClientServices.getInstance(), client);
+
+        SearchStatistics.getInstance();
+
+        TestSuiteChromosome testSuite = new TestSuiteChromosome();
+        int goals;
+        if (incomplete) {
+            CoverageCriteriaAnalyzer.markCoverageAnalysisIncomplete();
+            TestSuiteFitnessFunction earlierCriterion = mock(TestSuiteFitnessFunction.class);
+            testSuite.setCoverage(earlierCriterion, 0.75);
+            goals = 2;
+        } else {
+            goals = 0;
+        }
+
+        StatisticsSender.executedAndThenSendIndividualToMaster(testSuite);
+        invokePublishDirectCoverageSweepResult(testSuite, goals);
+
+        boolean wrote = SearchStatistics.getInstance().writeStatisticsForAnalysis();
+        assertTrue(wrote, "writeStatisticsForAnalysis() must still write a row for this run");
+    }
+
     private static String columnValue(String[] header, String[] data, String column) {
         for (int i = 0; i < header.length; i++) {
             if (header[i].equals(column)) {

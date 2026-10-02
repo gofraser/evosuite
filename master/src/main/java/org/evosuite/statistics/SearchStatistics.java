@@ -697,10 +697,21 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
      * before this runs. {@link RuntimeVariable#CoverageAnalysisGoalsChecked}/{@code
      * CoverageAnalysisGoalsTotal} (the already-accurate per-criterion progress) are untouched.
      *
+     * <p>{@code map} is the {@link LinkedHashMap} built by {@link
+     * #getOutputVariables(TestSuiteChromosome, boolean)} in output-column order, and {@link
+     * CSVStatisticsBackend} writes each row in that map's own key order, never realigning it to an
+     * already-written header. Coverage's entry is therefore replaced in place with {@link
+     * LinkedHashMap#put} on its existing key -- never removed -- exactly like the two goal
+     * counters below it, so an incomplete sweep's row keeps the same column order as a complete
+     * one. {@link #setCoverageUnavailableIfMissing(Map)}, called unconditionally right after this
+     * method returns, then overwrites this blank with the backend's own unavailable-coverage
+     * representation, again via {@code put} on the same existing key.
+     *
      * @param map the output-variable map about to be written
      */
     private static void withholdAggregatesForIncompleteCoverageAnalysis(Map<String, OutputVariable<?>> map) {
-        map.remove(RuntimeVariable.Coverage.toString());
+        map.put(RuntimeVariable.Coverage.toString(),
+                new OutputVariable<>(RuntimeVariable.Coverage.toString(), ""));
         map.put(RuntimeVariable.Total_Goals.toString(),
                 new OutputVariable<>(RuntimeVariable.Total_Goals.toString(), ""));
         map.put(RuntimeVariable.Covered_Goals.toString(),
