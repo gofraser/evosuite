@@ -260,6 +260,20 @@ public class TestClusterUtils {
     /**
      * Whether the class comes from the JDK itself rather than from the project's classpath.
      *
+     * <p>A {@code java.}/{@code jdk.}-named module is additionally required to be one
+     * {@link JavaModuleLookup#isSystemModule(String) the running JDK's own install image ships},
+     * not merely named that way: a user module can call itself {@code java.fake} and export an
+     * arbitrary package from it. Without this check, such a module made every class it exports
+     * -- including one in an otherwise-ambiguous package like {@code com.sun.} -- look like JDK
+     * code to {@link #checkIfCanUse(String, Class)}'s ambiguous-prefix exception, silently
+     * rejecting a genuine user-library class for a reason unrelated to its own package.
+     *
+     * <p>{@code javafx.}, and the bare module names {@code "java"}/{@code "jdk"}, are
+     * deliberately exempt from that image check: unlike {@code java.}/{@code jdk.}-named
+     * modules, a genuine {@code javafx.*} module (OpenJFX) is an ordinary external dependency
+     * resolved from the project's own module/classpath, not part of every running JDK's image,
+     * so requiring image membership there would reject genuine JavaFX classes, not just spoofs.
+     *
      * @param clazz the loaded class
      * @return true if the class belongs to a JDK module or was loaded by the boot/platform loader
      */
@@ -281,8 +295,12 @@ public class TestClusterUtils {
             return false;
         }
         String name = result.moduleName();
-        return name.startsWith("java.") || name.startsWith("jdk.")
-                || name.startsWith("javafx.") || name.equals("java") || name.equals("jdk");
+        if (name.startsWith("java.") || name.startsWith("jdk.")) {
+            // Prefix alone is not provenance (see the Javadoc above): confirm the module is
+            // actually one the running JDK ships, not merely named like one.
+            return JavaModuleLookup.isSystemModule(name);
+        }
+        return name.startsWith("javafx.") || name.equals("java") || name.equals("jdk");
     }
 
     /**

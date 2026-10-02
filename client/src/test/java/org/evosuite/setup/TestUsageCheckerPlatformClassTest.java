@@ -30,16 +30,22 @@ import org.junit.jupiter.api.Test;
 
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.module.Configuration;
 import java.lang.module.ModuleFinder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.SQLPermission;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * Pins the fix for {@link TestUsageChecker#isPlatformClass(Class)}: before this fix it
@@ -54,14 +60,25 @@ import java.util.Set;
  * alone accepted any module merely <em>named</em> {@code java.*}/{@code jdk.*}, regardless
  * of who built or loaded it. {@code testUserModuleNamedLikeAJdkModuleIsNotPlatformClass}
  * compiles and loads such a module through a real {@link ModuleLayer} to confirm the fix
- * also requires the class's module to be resolved into the boot layer.
+ * rejects it.
  *
  * <p>Also pins the counter-regression that fix introduced: it checked the defining
- * loader's identity (boot or platform loader) rather than boot layer membership, which
- * rejected genuine JDK tool modules -- {@code jdk.jdi} among them -- that the JDK itself
- * defines with the ordinary system/application class loader.
- * {@code testAppLoadedGenuineJdkModuleIsPlatformClass} pins that such a module is still
- * recognised as platform code.
+ * loader's identity (boot or platform loader), which rejected genuine JDK tool modules --
+ * {@code jdk.jdi} among them -- that the JDK itself defines with the ordinary
+ * system/application class loader. {@code testAppLoadedGenuineJdkModuleIsPlatformClass}
+ * pins that such a module is still recognised as platform code.
+ *
+ * <p>The loader-identity check was then replaced with a check that the class's module is
+ * resolved into {@code ModuleLayer.boot()} -- which fixed the above but is <em>also</em>
+ * wrong: the boot layer is not exclusively populated from the JDK's own image. A module
+ * placed on {@code --module-path} and named in {@code --add-modules} at JVM
+ * <em>startup</em> (as opposed to one an application assembles into a new layer at run
+ * time) is resolved into {@code ModuleLayer.boot()} too, the same as a genuine JDK
+ * module. {@code testStartupResolvedUserModuleNamedLikeAJdkModuleIsNotPlatformClass}
+ * launches exactly such a module in a child JVM -- an in-process {@link ModuleLayer}
+ * cannot reproduce startup resolution -- to confirm the current check, which instead
+ * requires the module's name to be one {@code java.lang.module.ModuleFinder#ofSystem()}
+ * enumerates (see {@link JavaModuleLookup#isSystemModule(String)}), rejects it too.
  */
 class TestUsageCheckerPlatformClassTest {
 
@@ -208,9 +225,12 @@ class TestUsageCheckerPlatformClassTest {
             // Confirm the fixture actually set up the situation the finding describes,
             // before relying on it to exercise isPlatformClass(). The defining loader is
             // deliberately not asserted here beyond non-boot/non-platform: the real
-            // distinguishing signal isPlatformClass() relies on is boot-layer membership
-            // (see testAppLoadedGenuineJdkModuleIsPlatformClass for why loader identity
-            // alone would also reject a genuine JDK tool module).
+            // distinguishing signal isPlatformClass() relies on is module-name membership
+            // in java.lang.module.ModuleFinder#ofSystem() (see
+            // testAppLoadedGenuineJdkModuleIsPlatformClass for why loader identity alone
+            // would also reject a genuine JDK tool module, and
+            // testStartupResolvedUserModuleNamedLikeAJdkModuleIsNotPlatformClass for why
+            // boot-layer membership alone is not sufficient either).
             Assertions.assertTrue(spoofed.getModule().isNamed());
             Assertions.assertEquals(moduleName, spoofed.getModule().getName());
             Assertions.assertTrue(moduleName.startsWith("java."));
@@ -218,13 +238,107 @@ class TestUsageCheckerPlatformClassTest {
             Assertions.assertNotEquals(ClassLoader.getPlatformClassLoader(), spoofed.getClassLoader(),
                     "a spoofed module is not platform-loaded either");
             Assertions.assertNotEquals(ModuleLayer.boot(), spoofed.getModule().getLayer(),
-                    "a dynamically defined layer must not equal the boot layer");
+                    "a dynamically defined layer must not equal the boot layer (this alone would "
+                            + "already have failed the now-retired boot-layer check; the startup-resolved "
+                            + "case below is the one that check missed)");
 
             Assertions.assertFalse(TestUsageChecker.isPlatformClass(spoofed),
-                    "a java.*-named module must not be classified as JDK platform code "
-                            + "unless its module is actually resolved into the boot layer");
+                    "a java.*-named module must not be classified as JDK platform code merely "
+                            + "because of its name");
         } finally {
             deleteRecursively(moduleDir);
+        }
+    }
+
+    /**
+     * The fourth and last direction the module-provenance history requires: a module named like
+     * a JDK module but <em>resolved at JVM startup</em> via {@code --module-path}/
+     * {@code --add-modules}, rather than assembled into a new {@link ModuleLayer} at run time as
+     * {@link #testUserModuleNamedLikeAJdkModuleIsNotPlatformClass} does. The two are not
+     * interchangeable: a startup-resolved module lands in {@code ModuleLayer.boot()}, so it would
+     * have passed the previous (boot-layer-membership) version of this check even though it is
+     * ordinary application code with no connection to the running JDK -- see the corrected class
+     * and method Javadoc on {@link TestUsageChecker#isPlatformClass(Class)} and
+     * {@link JavaModuleLookup#isSystemModule(String)} for the measured proof. An in-process test
+     * cannot create this situation: {@code ModuleLayer.boot()} is fixed before any test method
+     * runs, so this launches a real child JVM instead, with the spoofed module pre-declared on
+     * its command line exactly the way a dependency assembled that way would be, and reads back
+     * what {@link TestUsageChecker#isPlatformClass(Class)} reports for a class it exports.
+     */
+    @Test
+    void testStartupResolvedUserModuleNamedLikeAJdkModuleIsNotPlatformClass() throws Exception {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        Assumptions.assumeTrue(compiler != null,
+                "no system Java compiler available to build the startup-module fixture "
+                        + "(running on a JRE rather than a JDK)");
+
+        String moduleName = "java.evosuitespooftest.startup";
+        String packageName = "org.evosuite.setup.spooftest.startup";
+        String userTypeClassName = packageName + ".StartupSpoofedUserType";
+        String runnerClassName = "org.evosuite.setup.StartupModulePlatformClassRunner";
+
+        Path moduleDir = Files.createTempDirectory("evosuite-module-spoof-startup");
+        Path runnerDir = Files.createTempDirectory("evosuite-module-spoof-startup-runner");
+        try {
+            Path moduleInfo = moduleDir.resolve("module-info.java");
+            Files.writeString(moduleInfo, "module " + moduleName + " { exports " + packageName + "; }");
+            Path packageDir = moduleDir.resolve(packageName.replace('.', '/'));
+            Files.createDirectories(packageDir);
+            Path userType = packageDir.resolve("StartupSpoofedUserType.java");
+            Files.writeString(userType, "package " + packageName + ";"
+                    + " public class StartupSpoofedUserType {}");
+
+            int moduleCompileResult = compiler.run(null, null, null,
+                    "-d", moduleDir.toString(), moduleInfo.toString(), userType.toString());
+            Assertions.assertEquals(0, moduleCompileResult, "startup-module fixture must compile");
+
+            // The child JVM's runner must live in the same package as TestUsageChecker to call
+            // its package-private isPlatformClass(Class); compile it against this test's own
+            // classpath so it can resolve that class.
+            Path runnerSource = runnerDir.resolve("StartupModulePlatformClassRunner.java");
+            Files.writeString(runnerSource, "package org.evosuite.setup;"
+                    + " public class StartupModulePlatformClassRunner {"
+                    + "   public static void main(String[] args) throws Exception {"
+                    + "     Class<?> target = Class.forName(args[0]);"
+                    + "     System.out.println(TestUsageChecker.isPlatformClass(target));"
+                    + "   }"
+                    + " }");
+            String testClasspath = System.getProperty("java.class.path");
+            int runnerCompileResult = compiler.run(null, null, null,
+                    "-cp", testClasspath, "-d", runnerDir.toString(), runnerSource.toString());
+            Assertions.assertEquals(0, runnerCompileResult, "runner fixture must compile");
+
+            String javaBinary = System.getProperty("java.home") + File.separator + "bin"
+                    + File.separator + "java";
+            List<String> command = Arrays.asList(javaBinary,
+                    "--module-path", moduleDir.toString(),
+                    "--add-modules", moduleName,
+                    "-cp", testClasspath + File.pathSeparator + runnerDir,
+                    runnerClassName, userTypeClassName);
+
+            Process process = new ProcessBuilder(command).redirectErrorStream(true).start();
+            String output;
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                output = reader.lines().collect(Collectors.joining(System.lineSeparator()));
+            }
+            boolean exited = process.waitFor(60, TimeUnit.SECONDS);
+            Assertions.assertTrue(exited, "child JVM did not terminate within the timeout");
+            Assertions.assertEquals(0, process.exitValue(),
+                    "child JVM must run the classification cleanly; output was:" + System.lineSeparator()
+                            + output);
+
+            // A module placed on --module-path and named in --add-modules at JVM startup is
+            // resolved into ModuleLayer.boot() -- unlike the runtime-created layer above, there is
+            // no way to construct this situation in-process. Exactly this case passed the
+            // previous (boot-layer-membership) version of isPlatformClass(): the measured output
+            // there was "true", with the module's layer reported as ModuleLayer.boot().
+            Assertions.assertEquals("false", output.trim(),
+                    "a startup-resolved java.*-named module must not be classified as JDK "
+                            + "platform code; child JVM output was:" + System.lineSeparator() + output);
+        } finally {
+            deleteRecursively(moduleDir);
+            deleteRecursively(runnerDir);
         }
     }
 

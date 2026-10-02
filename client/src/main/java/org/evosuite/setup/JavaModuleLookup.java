@@ -20,6 +20,9 @@
 package org.evosuite.setup;
 
 import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Reflective access to a class's Java 9+ module, shared by {@link TestUsageChecker#isPlatformClass}
@@ -46,50 +49,64 @@ final class JavaModuleLookup {
     private static final Method GET_MODULE;
     private static final Method IS_NAMED;
     private static final Method GET_NAME;
-    private static final Method GET_LAYER;
     private static final boolean MODULES_SUPPORTED;
-    private static final Object BOOT_LAYER;
+
+    /**
+     * Names of every module in the running JDK's own install image, i.e. exactly the modules
+     * {@code java.lang.module.ModuleFinder#ofSystem()} enumerates -- or {@code null} if that
+     * enumeration itself is unavailable (plain Java 8, or a refusal). See
+     * {@link #isSystemModule(String)} for why this, and not boot-layer membership, is the
+     * signal that actually answers "did this module come from the running JDK's image?".
+     */
+    private static final Set<String> SYSTEM_MODULE_NAMES;
 
     static {
         Method getModule;
         Method isNamed;
         Method getName;
-        Method getLayer;
         try {
             getModule = Class.class.getMethod("getModule");
             Class<?> moduleClass = getModule.getReturnType();
             isNamed = moduleClass.getMethod("isNamed");
             getName = moduleClass.getMethod("getName");
-            getLayer = moduleClass.getMethod("getLayer");
         } catch (ReflectiveOperationException | RuntimeException e) {
             // No module system on this JVM (plain Java 8), or something refused to resolve.
-            // Leave all four null; every lookup will then report UNAVAILABLE below.
+            // Leave all three null; every lookup will then report UNAVAILABLE below.
             getModule = null;
             isNamed = null;
             getName = null;
-            getLayer = null;
         }
         GET_MODULE = getModule;
         IS_NAMED = isNamed;
         GET_NAME = getName;
-        GET_LAYER = getLayer;
         MODULES_SUPPORTED = GET_MODULE != null;
 
-        Object bootLayer;
+        Set<String> systemModuleNames;
         try {
-            // java.lang.ModuleLayer is itself Java 9+, so even naming it in a reflective
-            // Method/Class signature would not compile under this module's Java 8 release
-            // target; look the class up by name too, independently of the Module accessors
-            // above since it is resolved from a different class entirely.
-            Class<?> moduleLayerClass = Class.forName("java.lang.ModuleLayer");
-            Method boot = moduleLayerClass.getMethod("boot");
-            bootLayer = boot.invoke(null);
+            // java.lang.module.ModuleFinder is itself Java 9+, so even naming it in a
+            // reflective Method/Class signature would not compile under this module's Java 8
+            // release target; look everything up by name, independently of the Module
+            // accessors above since it is resolved from entirely different classes.
+            Class<?> moduleFinderClass = Class.forName("java.lang.module.ModuleFinder");
+            Object systemFinder = moduleFinderClass.getMethod("ofSystem").invoke(null);
+            Set<?> systemRefs = (Set<?>) moduleFinderClass.getMethod("findAll").invoke(systemFinder);
+
+            Class<?> moduleReferenceClass = Class.forName("java.lang.module.ModuleReference");
+            Method descriptorOf = moduleReferenceClass.getMethod("descriptor");
+            Class<?> moduleDescriptorClass = Class.forName("java.lang.module.ModuleDescriptor");
+            Method nameOf = moduleDescriptorClass.getMethod("name");
+
+            Set<String> names = new HashSet<>();
+            for (Object ref : systemRefs) {
+                names.add((String) nameOf.invoke(descriptorOf.invoke(ref)));
+            }
+            systemModuleNames = Collections.unmodifiableSet(names);
         } catch (ReflectiveOperationException | RuntimeException e) {
-            // Same Java 8 case as above (no such class), resolved independently of
+            // Same Java 8 case as above (no such classes), resolved independently of
             // MODULES_SUPPORTED.
-            bootLayer = null;
+            systemModuleNames = null;
         }
-        BOOT_LAYER = bootLayer;
+        SYSTEM_MODULE_NAMES = systemModuleNames;
     }
 
     /**
@@ -179,37 +196,39 @@ final class JavaModuleLookup {
     }
 
     /**
-     * Whether {@code c}'s module was resolved into the boot layer -- the module graph the JVM
-     * builds once at startup from the running JDK's own image -- rather than into a layer an
-     * application created later at run time (for example via {@code
-     * ModuleLayer.defineModulesWithOneLoader}).
+     * Whether {@code moduleName} names a module that ships in the <em>running JDK's own install
+     * image</em> -- i.e. one {@code java.lang.module.ModuleFinder#ofSystem()} enumerates --
+     * rather than one merely resolved by the JVM at some point, from wherever it was found.
      *
-     * <p>Unlike a module's name, which whoever builds it chooses freely, or its defining loader,
-     * which is not always the boot or platform loader even for genuine JDK modules (several JDK
-     * tool modules, such as {@code jdk.jdi} and {@code jdk.attach}, are defined by the ordinary
-     * system/application class loader, not the platform loader), membership in the boot layer
-     * cannot be forged by application code: a dynamically defined layer is never {@code equal} to
-     * {@code ModuleLayer.boot()}, even if the application reuses the system class loader as its
-     * new layer's parent. {@link TestUsageChecker#isPlatformClass} combines this with the
-     * named-module check so a user module cannot pass for the JDK merely by naming itself
-     * {@code java.*} or {@code jdk.*}.
+     * <p>This replaces an earlier, incorrect signal: whether the class's module was resolved
+     * into {@code ModuleLayer.boot()}. Boot-layer membership was meant to catch a user module
+     * that names itself {@code java.fake} or {@code jdk.whatever} to spoof {@link
+     * TestUsageChecker#isPlatformClass} or {@code TestClusterUtils#isJdkClass}, on the reasoning
+     * that an application cannot make a dynamically defined layer ({@code
+     * ModuleLayer.defineModulesWithOneLoader} and friends) equal to the boot layer. That
+     * reasoning only covers a layer the application builds itself at run time. It does not cover
+     * a module placed on {@code --module-path} and named in {@code --add-modules} at JVM
+     * <em>startup</em>: that module is resolved into {@code ModuleLayer.boot()} right alongside
+     * every genuine JDK module, by the same startup resolution step, so a spoof launched that
+     * way passed the boot-layer check -- measurably, on a module named {@code java.fake} started
+     * with {@code --module-path}/{@code --add-modules} -- even though it is ordinary application
+     * code with no connection to the running JDK.
      *
-     * @param c the class to check
-     * @return true if {@code c}'s module is named and resolved into the boot layer
+     * <p>Module name is a red herring here too: the question is not what a module calls itself,
+     * nor which layer or loader it ends up in, but whether its name is one the running JDK
+     * actually ships. {@code ModuleFinder.ofSystem()} answers exactly that, directly from the
+     * JDK's own module graph, independently of how or when the class being classified was
+     * resolved -- so it correctly accepts {@code jdk.jdi} (an app-loader-defined but genuine JDK
+     * tool module) and correctly rejects {@code java.fake} whether that spoof is built into a
+     * runtime-created layer or resolved by the JVM at startup. {@link
+     * TestUsageChecker#isPlatformClass} combines this with the named-module and prefix checks so
+     * a user module cannot pass for the JDK merely by naming itself {@code java.*} or {@code
+     * jdk.*}.
+     *
+     * @param moduleName the module name to check, as returned by {@link Result#moduleName()}
+     * @return true if a module of that name is part of the running JDK's install image
      */
-    static boolean isInBootLayer(Class<?> c) {
-        if (GET_LAYER == null || BOOT_LAYER == null) {
-            return false;
-        }
-        try {
-            Object module = GET_MODULE.invoke(c);
-            if (module == null) {
-                return false;
-            }
-            Object layer = GET_LAYER.invoke(module);
-            return BOOT_LAYER.equals(layer);
-        } catch (ReflectiveOperationException | RuntimeException e) {
-            return false;
-        }
+    static boolean isSystemModule(String moduleName) {
+        return SYSTEM_MODULE_NAMES != null && SYSTEM_MODULE_NAMES.contains(moduleName);
     }
 }

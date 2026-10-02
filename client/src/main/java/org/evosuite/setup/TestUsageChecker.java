@@ -386,34 +386,49 @@ public class TestUsageChecker {
      * loaders actually defined the class. But a module's name is just a string the code
      * that built it chose; nothing stops a user module naming itself {@code java.fake}
      * or {@code jdk.anything} and defining a class in it, so the name prefix alone does
-     * not prove JDK provenance. We additionally require the class's module to be resolved
-     * into the <em>boot layer</em> ({@code Module#getLayer() == ModuleLayer.boot()}): that
-     * module graph is built once by the JVM at startup from the running JDK's own image,
-     * and an application cannot make a dynamically defined layer equal to it, so combined
-     * with the named-module check this confirms the class actually came from the running
-     * JDK's own module graph rather than from a module that merely borrowed its naming
-     * convention.
+     * not prove JDK provenance.
      *
-     * <p>The defining loader cannot substitute for the boot-layer check: not every genuine JDK
-     * module is defined by the boot or platform loader (see {@link JavaModuleLookup#isInBootLayer}
-     * for the counterexample), so boot-layer membership -- not loader identity -- is what that
-     * method checks.
+     * <p><b>Boot-layer membership does not prove it either, and must not be used for
+     * this.</b> An earlier version of this check additionally required the class's module
+     * to be resolved into the <em>boot layer</em> ({@code Module#getLayer() ==
+     * ModuleLayer.boot()}), reasoning that the boot layer's module graph is built once by
+     * the JVM at startup and an application cannot make a dynamically defined layer equal
+     * to it. That is true of a layer the application builds itself at run time ({@code
+     * ModuleLayer.defineModulesWithOneLoader} and friends) -- see
+     * {@code testUserModuleNamedLikeAJdkModuleIsNotPlatformClass} in
+     * {@code TestUsageCheckerPlatformClassTest}, which is still a true negative. But the
+     * boot layer is not exclusively populated from the JDK's own image: a module placed on
+     * {@code --module-path} and named in {@code --add-modules} at JVM <em>startup</em> is
+     * resolved into {@code ModuleLayer.boot()} too, the same as any genuine JDK module. A
+     * module named {@code java.fake} launched that way measurably passed the boot-layer
+     * check (layer == boot, loader == the application class loader) although it is
+     * ordinary application code with no connection to the running JDK.
      *
-     * <p>{@code Class#getModule()} and {@code ModuleLayer#boot()} are both Java 9+, and this
-     * module's main source compiles against the Java 8 API (see {@code runtime}'s own Java 8
-     * floor, enforced on this module the same way). Both are therefore looked up reflectively
-     * via the shared {@link JavaModuleLookup}, which also backs {@code
+     * <p>The actual question is not which layer or which loader, but whether the module's
+     * name is one the <em>running JDK's own install image</em> ships -- which
+     * {@code java.lang.module.ModuleFinder#ofSystem()} enumerates directly, independent of
+     * how or when the class's own module happened to be resolved. {@code jdk.jdi} is in
+     * that enumeration (so {@code com.sun.jdi.JDIPermission} above is correctly accepted
+     * regardless of boot-layer membership or loader identity); a startup-resolved
+     * {@code java.fake} is not, so it is correctly rejected even though it reached the boot
+     * layer by the same path a genuine JDK module would. See
+     * {@link JavaModuleLookup#isSystemModule(String)}.
+     *
+     * <p>{@code Class#getModule()} and {@code ModuleFinder#ofSystem()} are both Java 9+, and
+     * this module's main source compiles against the Java 8 API (see {@code runtime}'s own
+     * Java 8 floor, enforced on this module the same way). Both are therefore looked up
+     * reflectively via the shared {@link JavaModuleLookup}, which also backs {@code
      * TestClusterUtils#isJdkClass} for the module half of the identical constraint; on an
      * actual Java 8 JVM the module lookup itself fails (there is no module system yet) and
      * this falls back to the old bootstrap-loader check, which is exactly correct there,
-     * since Java 8 has no boot layer distinction to miss.
+     * since Java 8 predates both named modules and the boot layer entirely.
      *
      * <p>A user class loaded the ordinary way (app class loader, classpath) is always in
      * an <em>unnamed</em> module, which fails the {@code isNamed()} check regardless of
      * its package name -- except that a {@code java.}-prefixed package is also
      * independently blocked there ({@code SecurityException: Prohibited package name}).
-     * Neither restriction applies to a module built and loaded the way the spoof above
-     * does, which is why the boot-layer check is also needed.
+     * Neither restriction applies to a module built and loaded the way the spoofs above
+     * do, which is why the system-module check is also needed.
      *
      * <p>This matters for the {@code USE_DEPRECATED} filter. That option exists to stop
      * us generating tests for API the project itself has deprecated, but several JDK
@@ -442,7 +457,7 @@ public class TestUsageChecker {
         if (!(name.startsWith("java.") || name.startsWith("jdk."))) {
             return false;
         }
-        return JavaModuleLookup.isInBootLayer(c);
+        return JavaModuleLookup.isSystemModule(name);
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {
