@@ -381,11 +381,14 @@ public class MockPrintStream extends PrintStream implements OverrideMock {
      * <p>The whole encode-drain-write sequence is synchronized because {@link #encoder} and
      * {@link #encoderSink} are mutable state shared across calls: a second thread's write
      * interleaved between encoding and draining here could corrupt or reorder output. {@link
-     * Writer#write(String)} and {@link Writer#flush()} are declared to throw {@link IOException}
-     * but cannot really do so here -- {@link #encoderSink} never throws, and an unmappable or
-     * malformed character is replaced by the encoder, not rejected -- so the {@code catch} only
-     * translates a theoretical failure into {@link #setError()} rather than letting it escape, as
-     * a real {@link PrintStream} never throws from a print/println call.
+     * Writer#write(String)} and {@link Writer#flush()} are declared to throw {@link IOException},
+     * and genuinely can: a call here after {@link #close()} has already closed {@link #encoder}
+     * hits the ordinary closed-stream {@link IOException}. {@link #encoderSink} never throwing,
+     * and an unmappable or malformed character being replaced by the encoder rather than rejected,
+     * only rules out those two sources -- it does not make every {@link Writer} operation
+     * non-throwing. The {@code catch} below is this helper's real error path: it translates that
+     * {@link IOException} into {@link #setError()} rather than letting it escape, matching a real
+     * {@link PrintStream}, which never throws from a print/println call.
      *
      * <p>One observable difference from {@link PrintStream}'s own text path: under
      * {@code autoFlush}, a tracking-output probe records one flush of the real underlying stream

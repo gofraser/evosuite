@@ -295,9 +295,12 @@ public class CoverageAnalysis {
      * {@link CoverageCriteriaAnalyzer#analyzeCoverage(TestSuiteChromosome)}, which is the only
      * overload that records give-ups against its own time budget. Without the catch below, an
      * {@link OutOfMemoryError} after an earlier criterion already completed would propagate out of
-     * {@link #analyzeCoverage()} entirely and reach {@code ClientNodeImpl}'s catch-all, leaving
-     * whatever {@link RuntimeVariable#CoverageAnalysisComplete} an earlier criterion already
-     * published as {@code true} unrevised.
+     * {@link #analyzeCoverage()} entirely, skipping the statistics-send, aggregate-publish and
+     * generated-suite-write that follow it in the SELECTED_JUNIT branch. {@code ClientNodeImpl}'s
+     * catch-all backstop would still mark the sweep incomplete in that case (it consults {@link
+     * #isMeasurementFinished()}, which would still be {@code false}), but none of that output-phase
+     * work would run at all; catching here lets the sweep still produce that output using whatever
+     * criteria already completed.
      *
      * @param testSuite the carved test suite to analyze
      * @return the total number of coverage goals across the criteria that were reached

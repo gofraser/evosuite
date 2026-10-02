@@ -52,14 +52,6 @@ public class NumberFormatter {
      * which is exactly the case {@code instanceof} is needed for. So the
      * combined expression reduces to {@code instanceof} alone.
      *
-     * <p>Two other sites in the codebase still use the narrower,
-     * {@code isEnum()}-only check and deliberately do not call this method:
-     * {@code TestCodeVisitor#visitPrimitiveFieldAssertion} (a field assertion
-     * never had an enum-specific branch to begin with) and
-     * {@code Assertion#changeClassLoader} (reattaching an enum constant across
-     * a classloader, not rendering code). Both are pre-existing behaviour and
-     * out of scope here.
-     *
      * @param value the value to check, possibly {@code null}
      * @return {@code true} if {@code value} is an enum constant
      */

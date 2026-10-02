@@ -33,20 +33,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 /**
- * Pins two {@code close()} regressions introduced by the persistent-encoder fix in
- * {@code 436b722c2} (fourth-pass review findings 2 and 6).
- *
- * <p>Finding 2: {@link MockPrintStream#close()} drains {@code encoderSink} and writes its bytes,
- * but never resets the sink. {@link PrintStream#close()}'s own (always-present, unused) {@code
- * charOut} writer wraps {@code this} as its destination {@link java.io.OutputStream}, so closing
- * it re-enters this override before the real underlying stream is closed -- and the stale,
- * never-reset bytes get written a second time. A second explicit {@code close()} call replays
- * them a third time, this time against an already-closed stream, which sets the error flag where
- * a real {@link PrintStream} would not.
- *
- * <p>Finding 6: {@code encoderSink} is a plain {@link ByteArrayOutputStream}, whose {@code
- * reset()} clears the logical size but keeps the backing array at its largest-ever capacity for
- * the lifetime of the stream.
+ * Verifies that {@link MockPrintStream#close()} finalizes pending encoder state exactly once,
+ * that a second explicit {@code close()} is idempotent (no error flag, no replayed bytes), and
+ * that a large print's oversized scratch capacity is released afterward; see {@link
+ * MockPrintStream#close()}'s own javadoc for the reentrancy and finalization mechanics this
+ * guards against. The third test reaches the private {@code encoderSink} field via reflection to
+ * read back its retained capacity.
  */
 public class MockPrintStreamCloseTest {
 
@@ -110,8 +102,10 @@ public class MockPrintStreamCloseTest {
 
         // java.io.ByteArrayOutputStream's own backing array is not reflectively accessible here
         // without opening java.base/java.io, so capacity is queried through whatever sink type
-        // MockPrintStream actually uses -- a plain ByteArrayOutputStream exposes no such thing,
-        // which is itself evidence that nothing bounds its retained capacity.
+        // MockPrintStream actually uses at runtime (declared as ByteArrayOutputStream, but the
+        // runtime instance's class can expose more). If that type has no capacity() accessor,
+        // this test cannot observe the backing array's size at all -- that is a limitation of
+        // this test, not evidence that the sink's retained capacity is actually unbounded.
         Field sinkField = MockPrintStream.class.getDeclaredField("encoderSink");
         sinkField.setAccessible(true);
         Object sink = sinkField.get(mock);
