@@ -375,10 +375,17 @@ public abstract class JUnitAnalyzer {
             List<File> generated = compileTests(tests, dir);
             if (generated == null) {
                 /*
-                 * Note: in theory this shouldn't really happen, as check for compilation
-                 * is done before calling this method
+                 * By this point each test already passed the single-test compile filter
+                 * individually, so this is not that filter's ordinary "rejected test" verdict:
+                 * it means the whole-suite compile unit (or the writer output it depends on)
+                 * failed in a way the per-test filter never saw. The suite is kept unchecked,
+                 * so record that this round never actually validated it, same as the
+                 * tmp-dir/time-budget give-ups above. Infrastructure failures that compileTests
+                 * already recorded itself (OOM, javac crashes, etc.) return a non-null
+                 * "generated" instead and are not re-recorded here.
                  */
                 logger.warn("Failed to compile the test cases ");
+                recordCheckIncomplete("instability check: whole-suite compile failed unexpectedly; test(s) kept unchecked");
                 return numUnstable;
             }
             if (shouldSkipCompileDependentExecutionAfterCompile()) {
@@ -400,7 +407,11 @@ public abstract class JUnitAnalyzer {
             Class<?>[] testClasses = loadTests(generated);
 
             if (testClasses == null) {
+                // Compilation already succeeded here, so this is an unexpected loading failure,
+                // not an ordinary compile rejection: the suite is kept unchecked and the round
+                // never validated it.
                 logger.error("Found no classes for compiled tests");
+                recordCheckIncomplete("instability check: failed to load compiled test classes; test(s) kept unchecked");
                 return numUnstable;
             }
 
@@ -1170,6 +1181,12 @@ public abstract class JUnitAnalyzer {
         try {
             List<File> generated = compileTests(tests, dir);
             if (generated == null) {
+                // Same reasoning as the instability check: these tests already passed the
+                // per-test compile filter, so a null here is the whole-suite compile unit (or
+                // its writer output) failing in a way that filter never saw, not an ordinary
+                // rejected-test verdict. compileTests itself already records incompleteness for
+                // the infrastructure failures that return non-null "generated" instead.
+                recordCheckIncomplete("order-sensitivity analysis: whole-suite compile failed unexpectedly");
                 return Collections.singleton("compilation-error");
             }
             if (shouldSkipCompileDependentExecutionAfterCompile()) {
@@ -1178,6 +1195,7 @@ public abstract class JUnitAnalyzer {
             loader = createInitialJUnitClassLoader(tests);
             Class<?>[] testClasses = loadTests(generated);
             if (testClasses == null) {
+                recordCheckIncomplete("order-sensitivity analysis: failed to load compiled test classes");
                 return Collections.singleton("load-error");
             }
             JUnitResult result = runTests(testClasses, dir, generated);
@@ -1187,6 +1205,7 @@ public abstract class JUnitAnalyzer {
             return mapUnexpectedFailureNames(result, tests);
         } catch (Exception e) {
             logger.warn("Order-sensitivity analysis failed: {}", e.getMessage());
+            recordCheckIncomplete("order-sensitivity analysis: unexpected exception during execution: " + e);
             return Collections.singleton("execution-error");
         } finally {
             releaseCheckLoader();

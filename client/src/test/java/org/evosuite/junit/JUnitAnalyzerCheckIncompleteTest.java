@@ -22,6 +22,7 @@ package org.evosuite.junit;
 import com.examples.with.different.packagename.test.DowncastExample;
 import org.evosuite.Properties;
 import org.evosuite.TimeController;
+import org.evosuite.junit.writer.TestSuiteWriter;
 import org.evosuite.rmi.ClientServices;
 import org.evosuite.rmi.service.ClientNodeImpl;
 import org.evosuite.rmi.service.DummyClientNodeImpl;
@@ -31,12 +32,14 @@ import org.evosuite.testcase.TestCase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import java.io.File;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,6 +68,11 @@ public class JUnitAnalyzerCheckIncompleteTest {
     private static final boolean defaultScaffolding = Properties.TEST_SCAFFOLDING;
     private static final int defaultJunitCheckTimeout = Properties.JUNIT_CHECK_TIMEOUT;
     private static final Properties.StoppingCondition defaultStoppingCondition = Properties.STOPPING_CONDITION;
+    private static final String defaultClassPrefix = Properties.CLASS_PREFIX;
+    private static final String defaultScaffoldingSuffix = Properties.SCAFFOLDING_SUFFIX;
+
+    /** Real directory used as the parent of the never-written files in the writer-loss probes below. */
+    private static final File DUMMY_DIR = new File(System.getProperty("java.io.tmpdir"));
 
     private ClientNodeImpl<?> previousClientNode;
 
@@ -83,6 +91,8 @@ public class JUnitAnalyzerCheckIncompleteTest {
         Properties.TEST_SCAFFOLDING = defaultScaffolding;
         Properties.JUNIT_CHECK_TIMEOUT = defaultJunitCheckTimeout;
         Properties.STOPPING_CONDITION = defaultStoppingCondition;
+        Properties.CLASS_PREFIX = defaultClassPrefix;
+        Properties.SCAFFOLDING_SUFFIX = defaultScaffoldingSuffix;
         TimeController.resetSingleton();
         restoreClientNodeIfInstalled();
     }
@@ -350,6 +360,173 @@ public class JUnitAnalyzerCheckIncompleteTest {
             assertTrue(JUnitAnalyzer.isCheckIncomplete());
             assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
         });
+    }
+
+    // ---- Retained-suite give-ups: the whole-suite compile/load and order-probe sentinels that
+    // the per-test compile filter never saw, because by this point every test already passed
+    // that filter individually. A null here is not the filter's ordinary "this generated test
+    // does not compile" verdict (that case is pinned below as a non-regression), but an
+    // unexpected failure of the writer/compiler/loader on a suite the filter already approved.
+
+    /**
+     * Forces {@code compileTests} to return null from inside the real
+     * {@link JUnitAnalyzer#handleTestsThatAreUnstable(List)} call by making the mocked
+     * {@link TestSuiteWriter} claim it generated a source file that was never written -- the same
+     * fault-injection technique as the fourth-review-pass probe
+     * ({@code /private/tmp/Rereview4FailureProbe.java}): {@code compileTests} checks
+     * {@code file.exists()} on each entry of the writer's own returned list and gives up with
+     * {@code null} if one is missing.
+     */
+    @Test
+    public void handleTestsThatAreUnstableRecordsIncompleteWhenWholeSuiteCompileFails() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+
+        try (MockedConstruction<TestSuiteWriter> ignored = Mockito.mockConstruction(
+                TestSuiteWriter.class,
+                (mock, context) -> Mockito.when(mock.writeTestSuite(
+                                Mockito.anyString(), Mockito.anyString(), Mockito.anyList()))
+                        .thenReturn(Collections.singletonList(
+                                new File(DUMMY_DIR, "missing-generated-source.java"))))) {
+
+            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
+
+            assertEquals(0, numUnstable);
+            assertEquals(1, tests.size(), "the unchecked test must be kept, not removed");
+            assertTrue(JUnitAnalyzer.isCheckIncomplete());
+            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        }
+    }
+
+    /**
+     * Forces {@code loadTests} to return null from inside the real
+     * {@link JUnitAnalyzer#handleTestsThatAreUnstable(List)} call after a genuinely successful
+     * compile -- unlike the missing-source-file fault above, this exercises the
+     * {@code testClasses == null} branch at the loading step, which the fourth-review-pass report
+     * flagged as verified by source inspection only. The fault: point
+     * {@link Properties#SCAFFOLDING_SUFFIX} at the same suffix the compile-check naming already
+     * uses ({@link Properties#JUNIT_SUFFIX}, minus its leading underscore), so the real compiled
+     * test file is misclassified as pure scaffolding by {@code isScaffolding(File)} and
+     * contributes zero non-scaffolding classes -- {@code getClassesFromFiles} returns an empty
+     * (not null) array, which {@code loadTests} also treats as "nothing to load".
+     */
+    @Test
+    public void handleTestsThatAreUnstableRecordsIncompleteWhenLoadingCompiledClassesFails() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+        Properties.CLASS_PREFIX = "";
+        Properties.SCAFFOLDING_SUFFIX = Properties.JUNIT_SUFFIX.startsWith("_")
+                ? Properties.JUNIT_SUFFIX.substring(1) : Properties.JUNIT_SUFFIX;
+
+        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+        int numUnstable = JUnitAnalyzer.handleTestsThatAreUnstable(tests);
+
+        assertEquals(0, numUnstable);
+        assertEquals(1, tests.size(), "the unchecked test must be kept, not removed");
+        assertTrue(JUnitAnalyzer.isCheckIncomplete());
+        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+    }
+
+    @Test
+    public void executeAndCollectUnexpectedFailuresRecordsIncompleteOnCompilationError() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+        tests.add(compilingTestCase());
+
+        try (MockedConstruction<TestSuiteWriter> ignored = Mockito.mockConstruction(
+                TestSuiteWriter.class,
+                (mock, context) -> Mockito.when(mock.writeTestSuite(
+                                Mockito.anyString(), Mockito.anyString(), Mockito.anyList()))
+                        .thenReturn(Collections.singletonList(
+                                new File(DUMMY_DIR, "missing-generated-source.java"))))) {
+
+            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+
+            Method m = JUnitAnalyzer.class.getDeclaredMethod(
+                    "executeAndCollectUnexpectedFailures", List.class);
+            m.setAccessible(true);
+            @SuppressWarnings("unchecked")
+            Set<String> failures = (Set<String>) m.invoke(null, tests);
+
+            assertEquals(Collections.singleton("compilation-error"), failures);
+            assertTrue(JUnitAnalyzer.isCheckIncomplete());
+            assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+        }
+    }
+
+    @Test
+    public void executeAndCollectUnexpectedFailuresRecordsIncompleteOnLoadError() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+        tests.add(compilingTestCase());
+        Properties.CLASS_PREFIX = "";
+        Properties.SCAFFOLDING_SUFFIX = Properties.JUNIT_SUFFIX.startsWith("_")
+                ? Properties.JUNIT_SUFFIX.substring(1) : Properties.JUNIT_SUFFIX;
+
+        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+
+        Method m = JUnitAnalyzer.class.getDeclaredMethod(
+                "executeAndCollectUnexpectedFailures", List.class);
+        m.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Set<String> failures = (Set<String>) m.invoke(null, tests);
+
+        assertEquals(Collections.singleton("load-error"), failures);
+        assertTrue(JUnitAnalyzer.isCheckIncomplete());
+        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+    }
+
+    /**
+     * Forces the order probe's catch-all {@code catch (Exception e)} branch (the
+     * {@code "execution-error"} sentinel) via a null entry in the test list: {@code compileTests}
+     * maps {@code TestCase::clone} over the list before its own try/catch begins, so a null
+     * element throws a plain {@link NullPointerException} that propagates out of
+     * {@code compileTests} uncaught and lands in {@code executeAndCollectUnexpectedFailures}'s
+     * outer catch -- a different, genuinely-reachable route to the same sentinel the
+     * fourth-review-pass report flagged.
+     */
+    @Test
+    public void executeAndCollectUnexpectedFailuresRecordsIncompleteOnExecutionError() throws Exception {
+        List<TestCase> tests = new ArrayList<>(Arrays.asList(compilingTestCase(), null));
+
+        assertFalse(JUnitAnalyzer.isCheckIncomplete());
+
+        Method m = JUnitAnalyzer.class.getDeclaredMethod(
+                "executeAndCollectUnexpectedFailures", List.class);
+        m.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Set<String> failures = (Set<String>) m.invoke(null, tests);
+
+        assertEquals(Collections.singleton("execution-error"), failures);
+        assertTrue(JUnitAnalyzer.isCheckIncomplete());
+        assertEquals(1, JUnitAnalyzer.getIncompleteCheckRounds());
+    }
+
+    // ---- Non-regression: the per-test compile filter's ordinary rejected-test verdict must stay
+    // a plain removal, not an incomplete-check give-up, even though it shares compileTests()'s
+    // null return with the paths above. ----
+
+    @Test
+    public void removeTestsThatDoNotCompileLeavesCheckIncompleteFalseWhenWriterLosesGeneratedSource() throws Exception {
+        List<TestCase> tests = new ArrayList<>();
+        tests.add(compilingTestCase());
+
+        try (MockedConstruction<TestSuiteWriter> ignored = Mockito.mockConstruction(
+                TestSuiteWriter.class,
+                (mock, context) -> Mockito.when(mock.writeTestSuite(
+                                Mockito.anyString(), Mockito.anyString(), Mockito.anyList()))
+                        .thenReturn(Collections.singletonList(
+                                new File(DUMMY_DIR, "missing-generated-source.java"))))) {
+
+            assertFalse(JUnitAnalyzer.isCheckIncomplete());
+            JUnitAnalyzer.removeTestsThatDoNotCompile(tests);
+
+            assertEquals(0, tests.size(), "a test that fails the compile filter is removed, as normal");
+            assertFalse(JUnitAnalyzer.isCheckIncomplete(),
+                    "the per-test compile filter's ordinary rejection is not an incomplete check");
+            assertEquals(0, JUnitAnalyzer.getIncompleteCheckRounds());
+        }
     }
 
     // ---- The normal, completing path ----
