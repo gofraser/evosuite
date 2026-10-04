@@ -90,6 +90,47 @@ public class DmonPromotionOperatorTest {
         }
     }
 
+    /** Inherits Inflater's private field "input", which java.base does not open on JDK 9+. */
+    public static class InflaterSubclass extends java.util.zip.Inflater {
+    }
+
+    @Test
+    public void unopenedJdkFieldIsNotAnInjectionTargetAndDoesNotEscape() {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(new DefaultTestCase());
+            chromosome.setChanged(false);
+
+            ExecutionResult result = new ExecutionResult(chromosome.getTestCase(), null);
+            // No inferred type or member token: the mock type must come from the field,
+            // which forces setAccessible on the JDK-private field.
+            result.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(InflaterSubclass.class.getName(), "<init>", 10,
+                            DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.input"),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty()));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, result);
+
+            Assert.assertTrue(result.isDmonPromotionConsumed());
+            Assert.assertFalse(chromosome.isChanged());
+            Assert.assertEquals(0, chromosome.getTestCase().size());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+        }
+    }
+
     @Test
     public void promotesUsingStaticSetter() {
         boolean oldEnabled = Properties.DMON_ENABLED;

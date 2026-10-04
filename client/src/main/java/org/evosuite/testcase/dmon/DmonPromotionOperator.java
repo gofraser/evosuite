@@ -146,7 +146,16 @@ public final class DmonPromotionOperator {
 
         DmonPromotionPlan plan = result.getDmonPromotionPlan();
         registerOwnerForStaticReset(plan);
-        PromotionAttempt attempt = tryPromoteInPlace(individual, plan, result);
+        PromotionAttempt attempt;
+        try {
+            attempt = tryPromoteInPlace(individual, plan, result);
+        } catch (RuntimeException e) {
+            // Defence in depth: a failure while resolving the injection target happens
+            // before the test case is touched, and failures after that point are rolled
+            // back inside tryPromoteInPlace. Either way the search must not die here.
+            logger.warn("DMoN promotion aborted: {}", e.toString());
+            attempt = new PromotionAttempt(result, false, "UNEXPECTED_FAILURE");
+        }
         logger.debug("{} DMoN promotion plan at {}.{}:{} [reason={}]",
                 attempt.applied ? "Applied" : "Consumed",
                 plan.getFailureSite().getOwnerClass(),
@@ -683,7 +692,9 @@ public final class DmonPromotionOperator {
             if (rollbackField == null) {
                 return null;
             }
-            rollbackField.setAccessible(true);
+            if (!trySetAccessible(rollbackField)) {
+                return null;
+            }
             Object oldValue = rollbackField.get(null);
             return new FieldValidationRestore(rollbackField, oldValue);
         }
@@ -693,7 +704,9 @@ public final class DmonPromotionOperator {
         }
         Object receiver;
         try {
-            instanceAccessor.setAccessible(true);
+            if (!trySetAccessible(instanceAccessor)) {
+                return null;
+            }
             receiver = instanceAccessor.invoke(null);
         } catch (ReflectiveOperationException e) {
             return null;
@@ -709,7 +722,9 @@ public final class DmonPromotionOperator {
         if (rollbackField == null) {
             return null;
         }
-        rollbackField.setAccessible(true);
+        if (!trySetAccessible(rollbackField)) {
+            return null;
+        }
         Object oldValue = rollbackField.get(receiver);
         return new InstanceFieldValidationRestore(rollbackField, receiver, oldValue);
     }
@@ -718,12 +733,30 @@ public final class DmonPromotionOperator {
         for (Class<?> c = type; c != null; c = c.getSuperclass()) {
             try {
                 Field f = c.getDeclaredField(fieldName);
-                f.setAccessible(true);
-                return f;
+                if (trySetAccessible(f)) {
+                    return f;
+                }
             } catch (NoSuchFieldException expected) {
             }
         }
         return null;
+    }
+
+    /**
+     * Make a member accessible, reporting failure instead of throwing. On JDK 9+ a
+     * member of a JDK class in a package its module does not open throws
+     * InaccessibleObjectException (a RuntimeException, unavailable at this module's
+     * Java 8 source level), and a SecurityManager may throw SecurityException. Such a
+     * member is not a usable injection or rollback target.
+     */
+    private static boolean trySetAccessible(java.lang.reflect.AccessibleObject member) {
+        try {
+            member.setAccessible(true);
+            return true;
+        } catch (RuntimeException e) {
+            logger.debug("DMoN cannot make {} accessible: {}", member, e.toString());
+            return false;
+        }
     }
 
     private static Method findInstanceSetter(Class<?> ownerClass, Class<?> dependencyType, String fieldNameHint) {
