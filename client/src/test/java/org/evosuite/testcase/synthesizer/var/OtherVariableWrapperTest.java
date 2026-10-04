@@ -146,6 +146,44 @@ public class OtherVariableWrapperTest {
         assertEquals(1, builderCalls);
     }
 
+    @Test
+    public void collectionMutationsExcludeNonPublicMethodsOfOtherPackages() {
+        String previous = org.evosuite.Properties.CLASS_PREFIX;
+        try {
+            // The tests are generated into a package that is not the receiver's own.
+            org.evosuite.Properties.CLASS_PREFIX = "com.example.elsewhere";
+            List<String> names = new ArrayList<>();
+            for (Method m : OtherVariableWrapper.collectionMutationCandidates(Registry.class)) {
+                names.add(m.getName());
+            }
+            assertEquals(Collections.singletonList("addPublic"), names);
+
+            // In the receiver's own package the package-private method is callable.
+            org.evosuite.Properties.CLASS_PREFIX = Registry.class.getPackage().getName();
+            names.clear();
+            for (Method m : OtherVariableWrapper.collectionMutationCandidates(Registry.class)) {
+                names.add(m.getName());
+            }
+            assertTrue(names.contains("addHidden") && names.contains("addPublic"), names.toString());
+        } finally {
+            org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
+    public static final class Registry {
+        public boolean addPublic(String s) {
+            return true;
+        }
+
+        boolean addHidden(String s) {
+            return true;
+        }
+
+        protected boolean putProtected(String s) {
+            return true;
+        }
+    }
+
     public static final class Element {
     }
 

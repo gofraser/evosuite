@@ -6,6 +6,7 @@ import org.evosuite.coverage.branch.Branch;
 import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.statements.ConstructorStatement;
@@ -587,26 +588,7 @@ public class OtherVariableWrapper extends DepVariableWrapper {
                         || Iterable.class.isAssignableFrom(observation.getReturnType()))) {
             return null;
         }
-        List<Method> mutations = new ArrayList<>();
-        for (Method candidate : receiver.getVariableClass().getDeclaredMethods()) {
-            String name = candidate.getName();
-            if (Modifier.isPrivate(candidate.getModifiers())
-                    || Modifier.isStatic(candidate.getModifiers())
-                    || candidate.getParameterCount() < 1
-                    || candidate.getParameterCount() > 2
-                    || !(name.startsWith("add") || name.startsWith("put"))) {
-                continue;
-            }
-            mutations.add(candidate);
-        }
-        mutations.sort(
-                (left, right) -> {
-                    int count =
-                            Integer.compare(left.getParameterCount(), right.getParameterCount());
-                    return count != 0
-                            ? count
-                            : left.toGenericString().compareTo(right.toGenericString());
-                });
+        List<Method> mutations = collectionMutationCandidates(receiver.getVariableClass());
         for (Method mutation : mutations) {
             EntityWithParametersStatement target = test.findTargetExecutableStatement();
             int position = target == null ? test.size() : target.getPosition();
@@ -649,6 +631,35 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             return observed;
         }
         return null;
+    }
+
+    /**
+     * The receiver's own {@code add*}/{@code put*} methods that the generated test can call,
+     * fewest parameters first. A non-public method qualifies only when its class is in the
+     * package the tests are generated into.
+     */
+    static List<Method> collectionMutationCandidates(Class<?> receiverClass) {
+        List<Method> mutations = new ArrayList<>();
+        for (Method candidate : receiverClass.getDeclaredMethods()) {
+            String name = candidate.getName();
+            if (!TestUsageChecker.isCallableFromTestPackage(candidate)
+                    || Modifier.isStatic(candidate.getModifiers())
+                    || candidate.getParameterCount() < 1
+                    || candidate.getParameterCount() > 2
+                    || !(name.startsWith("add") || name.startsWith("put"))) {
+                continue;
+            }
+            mutations.add(candidate);
+        }
+        mutations.sort(
+                (left, right) -> {
+                    int count =
+                            Integer.compare(left.getParameterCount(), right.getParameterCount());
+                    return count != 0
+                            ? count
+                            : left.toGenericString().compareTo(right.toGenericString());
+                });
+        return mutations;
     }
 
     private static VariableReference deterministicMutationArgument(
