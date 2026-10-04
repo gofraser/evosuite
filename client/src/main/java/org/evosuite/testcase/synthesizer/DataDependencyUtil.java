@@ -10,6 +10,7 @@ import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.interprocedural.var.DepVariable;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.setup.DependencyAnalysis;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.utils.MethodUtil;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.AbstractInsnNode;
@@ -566,7 +567,7 @@ public class DataDependencyUtil {
                     if (setterAnalysisTimedOut()) {
                         break;
                     }
-                    if (Modifier.isPrivate(constructor.getModifiers())
+                    if (!TestUsageChecker.isCallableFromTestPackage(constructor)
                             || constructor.isSynthetic()) {
                         continue;
                     }
@@ -600,7 +601,7 @@ public class DataDependencyUtil {
     }
 
     private static boolean isSetterCandidate(Method method) {
-        return !Modifier.isPrivate(method.getModifiers())
+        return TestUsageChecker.isCallableFromTestPackage(method)
                 && !Modifier.isAbstract(method.getModifiers())
                 && !method.isBridge()
                 && !method.isSynthetic();

@@ -455,6 +455,28 @@ public class TestUsageChecker {
         return JavaModuleLookup.isInUnexportedPackage(c);
     }
 
+    /**
+     * Whether generated test code, which lives in the package of the class under test
+     * ({@code Properties.CLASS_PREFIX}) and is not a subclass of anything, can call {@code member}
+     * (or a constructor): public members always, package-private and protected ones only when
+     * their declaring class is in that same package. A protected method inherited from a class
+     * in another package is not callable from the test, however deep in the hierarchy it is
+     * found by {@code getDeclaredMethods()}.
+     *
+     * @param member the method or constructor to check
+     * @return true if javac accepts a call to it from the generated test
+     */
+    public static boolean isCallableFromTestPackage(java.lang.reflect.Member member) {
+        int modifiers = member.getModifiers();
+        if (Modifier.isPrivate(modifiers)) {
+            return false;
+        }
+        if (Modifier.isPublic(modifiers)) {
+            return true;
+        }
+        return ClassUtils.getPackageName(member.getDeclaringClass()).equals(Properties.CLASS_PREFIX);
+    }
+
     private static boolean isUnsafeDependencyClass(Class<?> c) {
         String className = c.getName();
         return UNSAFE_DEPENDENCY_CLASS_PREFIXES.stream()

@@ -552,7 +552,7 @@ public class VariableCodeGenerationUtil {
             // valid construction APIs. getMethods() silently omitted precisely those accessors
             // (for example CompoundByteTransition.expand()), leaving a public factory input
             // disconnected from the private final field it initializes.
-            if (Modifier.isPrivate(method.getModifiers())) {
+            if (!TestUsageChecker.isCallableFromTestPackage(method)) {
                 continue;
             }
             // javac's access$NNN stubs (and bridges) read the field but are not callable from
