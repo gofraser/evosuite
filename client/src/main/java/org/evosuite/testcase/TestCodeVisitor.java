@@ -1773,6 +1773,14 @@ public class TestCodeVisitor extends TestVisitor {
     private String getParameterString(Type[] parameterTypes,
                                       List<VariableReference> parameters, boolean isGenericMethod,
                                       boolean isOverloaded, int startPos, Type ownerType) {
+        return getParameterString(parameterTypes, parameters, isGenericMethod, isOverloaded,
+                startPos, ownerType, null);
+    }
+
+    private String getParameterString(Type[] parameterTypes,
+                                      List<VariableReference> parameters, boolean isGenericMethod,
+                                      boolean isOverloaded, int startPos, Type ownerType,
+                                      Type[] genericParameterTypes) {
         String parameterString = "";
 
         for (int i = startPos; i < parameters.size(); i++) {
@@ -1805,9 +1813,12 @@ public class TestCodeVisitor extends TestVisitor {
             if (rawParamClass.isPrimitive() && argumentIsNull) {
                 parameterString += getPrimitiveNullCast(rawParamClass);
             } else if (isGenericMethod && !(declaredParamType instanceof WildcardType)) {
-                if (!declaredParamType.equals(actualParamType) || argumentIsNull) {
-                    parameterString += "(" + getNullSafeCastTypeName(declaredParamType, actualParamType,
-                            argumentIsNull) + ") ";
+                if (!declaredParamType.equals(actualParamType) || argumentIsNull
+                        || (genericParameterTypes != null && isHiddenConcreteClass(declaredParamType))) {
+                    Type genericParameterType = genericParameterTypes == null
+                            ? null : genericParameterTypes[i];
+                    parameterString += "(" + getAccessibleGenericCastTypeName(declaredParamType, actualParamType,
+                            argumentIsNull, genericParameterType) + ") ";
                     if (name.contains("(short")) {
                         name = name.replace("(short)", "");
                     }
@@ -2132,21 +2143,46 @@ public class TestCodeVisitor extends TestVisitor {
      * In those cases we fall back to a raw Class cast.
      */
     /**
-     * A null argument carries no value, so the cast only has to select a type. When the
-     * declared type is a class the generated test cannot name (a package-private owner in
-     * another package, as in the static-field receiver of PrivateAccess.setVariable), cast
-     * to its nearest accessible supertype instead of emitting an uncompilable cast.
+     * Generic method instantiation can select a hidden class even though its argument
+     * is rendered with an accessible supertype. Use that supertype for concrete class
+     * casts, just as for null arguments, instead of naming an inaccessible inferred type.
+     * Keep non-null parameterized types on the existing generic conversion path.
      */
-    private String getNullSafeCastTypeName(Type declaredParamType, Type actualParamType,
-                                           boolean argumentIsNull) {
-        if (argumentIsNull) {
+    private String getAccessibleGenericCastTypeName(Type declaredParamType, Type actualParamType,
+                                                    boolean argumentIsNull, Type genericParameterType) {
+        if (argumentIsNull || declaredParamType instanceof Class<?>) {
             Class<?> erased = safeErasure(declaredParamType);
             if (erased != null && !erased.isPrimitive() && !erased.isArray()
                     && !isDeclaredTypeNameableInGeneratedTest(erased)) {
-                return getTypeName(findAccessibleRenderableSupertype(erased));
+                return getTypeName(findAccessibleGenericSupertype(erased, genericParameterType));
             }
         }
         return getCastTypeName(declaredParamType, actualParamType);
+    }
+
+    private boolean isHiddenConcreteClass(Type type) {
+        if (!(type instanceof Class<?>)) {
+            return false;
+        }
+        Class<?> clazz = (Class<?>) type;
+        return !clazz.isPrimitive() && !clazz.isArray()
+                && !isDeclaredTypeNameableInGeneratedTest(clazz);
+    }
+
+    /** Preserve a simple public method bound when another accessible interface would violate it. */
+    private Class<?> findAccessibleGenericSupertype(Class<?> inferredType, Type genericType) {
+        Class<?> accessibleType = findAccessibleRenderableSupertype(inferredType);
+        if (genericType instanceof TypeVariable<?>) {
+            Type[] bounds = ((TypeVariable<?>) genericType).getBounds();
+            if (bounds.length == 1 && bounds[0] instanceof Class<?>) {
+                Class<?> bound = (Class<?>) bounds[0];
+                if (!bound.isAssignableFrom(accessibleType) && bound.isAssignableFrom(inferredType)
+                        && isDeclaredTypeNameableInGeneratedTest(bound)) {
+                    return bound;
+                }
+            }
+        }
+        return accessibleType;
     }
 
     private String getCastTypeName(Type declaredParamType, Type actualParamType) {
@@ -3556,7 +3592,8 @@ public class TestCodeVisitor extends TestVisitor {
                         method.getMethod(), parameters, 0, overloadReceiverType);
         String parameterString = getParameterString(renderedParameterTypes,
                 parameters, isGenericMethod,
-                overloadedMethodCall, 0, parameterRenderingOwnerType);
+                overloadedMethodCall, 0, parameterRenderingOwnerType,
+                method.getMethod().getGenericParameterTypes());
 
         String calleeStr = "";
         boolean requiresReturnCast = !unused
@@ -3570,7 +3607,7 @@ public class TestCodeVisitor extends TestVisitor {
                 // Static generic methods are a special case where we shouldn't add a cast
                 && !(isGenericMethod && method.getParameterTypes().length == 0 && method.isStatic());
         if (requiresReturnCast) {
-            String name = getClassName(retval);
+            String name = getAccessibleGenericReturnTypeName(method, retval);
             if (!name.matches(".*\\.\\d+$")) {
                 if (retval.getType() instanceof ParameterizedType
                         && returnCastIsInconvertible(retval.getType(),
@@ -3837,8 +3874,23 @@ public class TestCodeVisitor extends TestVisitor {
         return true;
     }
 
+    /** Match the accessible declaration of a hidden class inferred for a method type variable. */
+    private String getAccessibleGenericReturnTypeName(GenericMethod method, VariableReference retval) {
+        if (method != null && retval != null && retval.getType() instanceof Class<?>
+                && method.getMethod().getTypeParameters().length > 0
+                && method.getMethod().getGenericReturnType() instanceof TypeVariable<?>) {
+            Class<?> inferredType = (Class<?>) retval.getType();
+            if (!inferredType.isPrimitive() && !inferredType.isArray()
+                    && !isDeclaredTypeNameableInGeneratedTest(inferredType)) {
+                return getTypeName(findAccessibleGenericSupertype(inferredType,
+                        method.getMethod().getGenericReturnType()));
+            }
+        }
+        return getClassName(retval);
+    }
+
     private String getMethodReturnDeclarationType(GenericMethod method, VariableReference retval) {
-        String renderedType = getClassName(retval);
+        String renderedType = getAccessibleGenericReturnTypeName(method, retval);
         if (method == null || retval == null || retval.isVoid()) {
             return renderedType;
         }
