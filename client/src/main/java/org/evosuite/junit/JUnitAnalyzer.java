@@ -898,6 +898,13 @@ public abstract class JUnitAnalyzer {
             return JUnitResult.allFailed(testClasses.length, cause);
         } finally {
             executor.shutdownNow();
+            // Whichever way we leave, the runner is done with the sandbox: it either returned a
+            // result (and released it itself, making this a no-op) or we are walking away from it.
+            // That covers exits the paths above do not, such as an Error escaping this method while
+            // it waits (OutOfMemoryError under heap pressure), an interrupt of this thread, or a
+            // runner that died inside the sandbox without reaching its own release. Without it the
+            // dead runner's lock stalls the next test execution for the whole acquisition timeout.
+            Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
             if (firedTimeout) {
                 // Clear any signals we raised so subsequent work isn't poisoned.
                 // Note: cannot clear the orphan runner's interrupt — it isn't us.
@@ -2673,6 +2680,15 @@ public abstract class JUnitAnalyzer {
 
     private static void restoreSandboxStateAfterJUnitRun(boolean wasSandboxOn, Set<Thread> privileged) {
         try {
+            if (Sandbox.isSecurityManagerInitialized()) {
+                // A test whose @After throws before reaching doneWithExecutingSUTCode() (for
+                // example a class reset that fails) leaves this runner thread inside the sandbox:
+                // still downgraded, still owning the sandbox lock. The suite's @AfterClass
+                // cannot then restore the security manager, so the manager is retained, and the
+                // dead runner's lock would stall every later test execution for the whole lock
+                // timeout. This is a no-op when the suite left the sandbox cleanly.
+                Sandbox.doneWithExecutingSUTCode();
+            }
             if (wasSandboxOn) {
                 // only activate Sandbox if it was already active before
                 if (!Sandbox.isSecurityManagerInitialized()) {
