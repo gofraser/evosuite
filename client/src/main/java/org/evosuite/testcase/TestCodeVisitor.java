@@ -4170,6 +4170,55 @@ public class TestCodeVisitor extends TestVisitor {
         return typeName;
     }
 
+    /**
+     * The receiver expression of {@code outer.new Inner(...)}. javac resolves the simple name
+     * {@code Inner} as a member type of the <em>static type</em> of {@code outer}, so when a
+     * subclass declares a member class of the same name as the inherited one (weka's
+     * {@code CoverTree.MyHeap} hides {@code NearestNeighbourSearch.MyHeap}), the expression
+     * would create the subclass's member instead. Casting the receiver to the class that really
+     * declares {@code inner} selects the right one.
+     */
+    private String getInnerClassCreationReceiver(Class<?> inner, VariableReference outer) {
+        String outerName = getVariableName(outer);
+        Class<?> enclosing = inner.getEnclosingClass();
+        Class<?> outerClass = outer.getVariableClass();
+        if (enclosing == null || outerClass == null || outerClass.equals(enclosing)
+                || !enclosing.isAssignableFrom(outerClass)) {
+            return outerName;
+        }
+        try {
+            if (findMemberClass(outerClass, inner.getSimpleName()) == inner) {
+                return outerName;
+            }
+        } catch (LinkageError e) {
+            return outerName;
+        }
+        return "((" + getClassName(enclosing) + ")" + outerName + ")";
+    }
+
+    /** The member class javac finds for {@code simpleName} in {@code type}: own, then inherited. */
+    private static Class<?> findMemberClass(Class<?> type, String simpleName) {
+        if (type == null) {
+            return null;
+        }
+        for (Class<?> member : type.getDeclaredClasses()) {
+            if (member.getSimpleName().equals(simpleName)) {
+                return member;
+            }
+        }
+        Class<?> found = findMemberClass(type.getSuperclass(), simpleName);
+        if (found != null) {
+            return found;
+        }
+        for (Class<?> iface : type.getInterfaces()) {
+            found = findMemberClass(iface, simpleName);
+            if (found != null) {
+                return found;
+            }
+        }
+        return null;
+    }
+
     private String getConstructorInvocationTypeName(Type type) {
         if (type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
@@ -4284,7 +4333,8 @@ public class TestCodeVisitor extends TestVisitor {
         if (constructorAccessible) {
             if (isNonStaticMemberClass) {
                 result += declarationPrefix + declarationVarName + " = "
-                        + getVariableName(parameters.get(0))
+                        + getInnerClassCreationReceiver(rawConstructor.getDeclaringClass(),
+                                parameters.get(0))
                         + ".new "
                         + getSimpleConstructorInvocationTypeName(constructor.getOwnerType()) + "("
                         + parameterString + ");";
