@@ -131,6 +131,54 @@ public class DmonPromotionOperatorTest {
         }
     }
 
+    /** Fails when the injection statement is added, i.e. after the mock is already in place. */
+    private static class FailingInjectionTestCase extends DefaultTestCase {
+        @Override
+        public org.evosuite.testcase.variable.VariableReference addStatement(
+                org.evosuite.testcase.statements.Statement statement, int position) {
+            if (statement instanceof MethodStatement) {
+                throw new IllegalStateException("injected failure after the mock was added");
+            }
+            return super.addStatement(statement, position);
+        }
+    }
+
+    @Test
+    public void failureAfterMockWasAddedLeavesNoOrphanedMock() {
+        boolean oldEnabled = Properties.DMON_ENABLED;
+        boolean oldPromote = Properties.DMON_PROMOTE_IN_PLACE;
+        boolean oldReflection = Properties.DMON_ALLOW_REFLECTION_FALLBACK;
+        try {
+            Properties.DMON_ENABLED = true;
+            Properties.DMON_PROMOTE_IN_PLACE = true;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = true;
+
+            TestChromosome chromosome = new TestChromosome();
+            chromosome.setTestCase(new FailingInjectionTestCase());
+            chromosome.setChanged(false);
+
+            ExecutionResult result = new ExecutionResult(chromosome.getTestCase(), null);
+            result.setTrace(new ExecutionTraceImpl());
+            chromosome.setLastExecutionResult(result);
+            result.setDmonPromotionPlan(new DmonPromotionPlan(
+                    new DmonFailureSite(SetterTarget.class.getName(), "<init>", 10, DmonFailureSiteKind.CONSTRUCTOR_INIT),
+                    Optional.of("this.dep"),
+                    Optional.of("this"),
+                    Optional.of("dep"),
+                    Optional.of(Runnable.class.getName())));
+
+            DmonPromotionOperator.applyIfNeeded(chromosome, result);
+
+            Assert.assertEquals("the orphaned mock must be rolled back", 0, chromosome.getTestCase().size());
+            Assert.assertFalse(chromosome.isChanged());
+            Assert.assertTrue(chromosome.getLastExecutionResult().isDmonPromotionConsumed());
+        } finally {
+            Properties.DMON_ENABLED = oldEnabled;
+            Properties.DMON_PROMOTE_IN_PLACE = oldPromote;
+            Properties.DMON_ALLOW_REFLECTION_FALLBACK = oldReflection;
+        }
+    }
+
     @Test
     public void promotesUsingStaticSetter() {
         boolean oldEnabled = Properties.DMON_ENABLED;
