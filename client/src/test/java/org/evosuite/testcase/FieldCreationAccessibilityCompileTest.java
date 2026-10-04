@@ -170,6 +170,9 @@ class FieldCreationAccessibilityCompileTest {
         assertCompiles(test);
         assertInstanceOf(PrivateFieldStatement.class, statement,
                 "DMoN must route inaccessible non-private fields through its reflective path");
+        TestCase cloned = test.clone();
+        assertCompiles(cloned);
+        assertCompiles(cloned.clone());
     }
 
     private static VariableReference addChild(TestCase test) throws Exception {
