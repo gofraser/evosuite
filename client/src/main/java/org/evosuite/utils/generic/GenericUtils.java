@@ -19,6 +19,7 @@
  */
 package org.evosuite.utils.generic;
 
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.utils.ParameterizedTypeImpl;
@@ -552,5 +553,34 @@ public class GenericUtils {
         return false;
     }
 
-
+    /**
+     * Like {@link GenericTypeReflector#getExactSuperType}, but without its treatment of a static
+     * nested class of a generic outer class as raw. gentyref's raw check walks the enclosing
+     * classes without looking at {@code static}, so for {@code DefaultContig.Builder extends
+     * AbstractContigBuilder<AssembledRead, ...>} it answers the erased
+     * {@code AbstractContigBuilder}, and every parameter that mentions the superclass's type
+     * variable ({@code Iterable<P>}) is erased with it.
+     */
+    public static Type getExactSuperType(Type type, Class<?> searchClass) {
+        Type exact = GenericTypeReflector.getExactSuperType(type, searchClass);
+        if (!(exact instanceof Class<?>) || searchClass.getTypeParameters().length == 0
+                || !(type instanceof Class<?>)) {
+            return exact;
+        }
+        Class<?> clazz = (Class<?>) type;
+        if (clazz.getTypeParameters().length != 0 || !clazz.isMemberClass()
+                || !Modifier.isStatic(clazz.getModifiers())) {
+            return exact;
+        }
+        Map<TypeVariable<?>, Type> arguments = TypeUtils.getTypeArguments(clazz, searchClass);
+        if (arguments == null) {
+            return exact;
+        }
+        for (TypeVariable<?> variable : searchClass.getTypeParameters()) {
+            if (arguments.get(variable) == null) {
+                return exact;
+            }
+        }
+        return TypeUtils.parameterize(searchClass, arguments);
+    }
 }

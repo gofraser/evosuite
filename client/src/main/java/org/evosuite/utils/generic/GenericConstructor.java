@@ -167,7 +167,7 @@ public class GenericConstructor extends GenericExecutable<GenericConstructor, Co
         Type[] parameterTypes = m.getGenericParameterTypes();
         Type exactDeclaringType = null;
         try {
-            exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
+            exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
                     m.getDeclaringClass());
         } catch (java.lang.TypeNotPresentException e) {
             // May happen with dependency issues involving annotations:

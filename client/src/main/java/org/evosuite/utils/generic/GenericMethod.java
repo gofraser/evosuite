@@ -164,7 +164,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         //        + " - declared in " + m.getDeclaringClass());
         Type exactDeclaringType = null;
         try {
-            exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
+            exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
                     m.getDeclaringClass());
         } catch (java.lang.TypeNotPresentException e) {
             // May happen in completely intransparent circumstances when there are dependency issues with annotations:
@@ -198,7 +198,7 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
      */
     public Type[] getExactParameterTypes(Method m, Type type) {
         Type[] parameterTypes = m.getGenericParameterTypes();
-        Type exactDeclaringType = GenericTypeReflector.getExactSuperType(GenericTypeReflector.capture(type),
+        Type exactDeclaringType = GenericUtils.getExactSuperType(GenericTypeReflector.capture(type),
                 m.getDeclaringClass());
         if (exactDeclaringType == null) { // capture(type) is not a subtype of m.getDeclaringClass()
             Class<?> rawType = getRawClass(type);
