@@ -56,6 +56,7 @@ import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.testcase.variable.name.VariableNameStrategy;
 import org.evosuite.testcase.variable.name.VariableNameStrategyFactory;
 import org.evosuite.utils.NumberFormatter;
+import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.StringUtil;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
@@ -263,7 +264,8 @@ public class TestCodeVisitor extends TestVisitor {
                         name += ", ";
                     }
 
-                    if (objectViolatesTypeParameterBound(rawClass, i, types[i])) {
+                    if (objectViolatesTypeParameterBound(rawClass, i, types[i])
+                            || violatesRecursiveTypeParameterBound(type, i)) {
                         // EvoSuite substitutes Object for an unresolved type variable,
                         // but for an F-bounded parameter (e.g. VisibilityChecker<T
                         // extends VisibilityChecker<T>>) Object is not within the bound
@@ -297,6 +299,59 @@ public class TestCodeVisitor extends TestVisitor {
         }
         String owner = getTypeName((ParameterizedType) type.getOwnerType());
         return owner.indexOf('<') < 0 ? "" : owner + ".";
+    }
+
+    /**
+     * Returns true when the {@code index}-th type argument is a concrete type that is not within
+     * a recursive bound of its type parameter, eg {@code TypeResolverBuilder<DefaultTypeResolverBuilder>}
+     * where {@code T extends TypeResolverBuilder<T>} and {@code DefaultTypeResolverBuilder}
+     * implements {@code TypeResolverBuilder<StdTypeResolverBuilder>}. javac rejects such a type
+     * ("type argument ... is not within bounds of type-variable T"); the generator can produce
+     * one because it instantiates the parameter without substituting it into its own bound.
+     */
+    private boolean violatesRecursiveTypeParameterBound(ParameterizedType type, int index) {
+        if (!(type.getRawType() instanceof Class<?>)) {
+            return false;
+        }
+        TypeVariable<?>[] typeParams = ((Class<?>) type.getRawType()).getTypeParameters();
+        Type[] arguments = type.getActualTypeArguments();
+        if (index >= typeParams.length || arguments.length != typeParams.length) {
+            return false;
+        }
+        Type argument = arguments[index];
+        if (!(argument instanceof Class<?> || argument instanceof ParameterizedType)) {
+            return false;
+        }
+        Map<TypeVariable<?>, Type> assignments = new HashMap<>();
+        for (int i = 0; i < typeParams.length; i++) {
+            assignments.put(typeParams[i], arguments[i]);
+        }
+        for (Type bound : typeParams[index].getBounds()) {
+            if (!(bound instanceof ParameterizedType)) {
+                continue;
+            }
+            ParameterizedType parameterizedBound = (ParameterizedType) bound;
+            Type[] boundArguments = parameterizedBound.getActualTypeArguments().clone();
+            boolean substitutable = true;
+            for (int i = 0; i < boundArguments.length; i++) {
+                if (boundArguments[i] instanceof TypeVariable<?>
+                        && assignments.containsKey(boundArguments[i])) {
+                    boundArguments[i] = assignments.get(boundArguments[i]);
+                } else if (boundArguments[i] instanceof TypeVariable<?>
+                        || boundArguments[i] instanceof WildcardType) {
+                    substitutable = false;
+                }
+            }
+            if (!substitutable) {
+                continue;
+            }
+            Type substituted = new ParameterizedTypeImpl((Class<?>) parameterizedBound.getRawType(),
+                    boundArguments, parameterizedBound.getOwnerType());
+            if (!TypeUtils.isAssignable(argument, substituted)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
