@@ -11,6 +11,12 @@ public abstract class ProtectedInitBase {
         this.items = input;
     }
 
+    /** Package-private: callable only from this package, like JSDocInfo.declareParam. */
+    boolean declareItems(List<String> input) {
+        this.items = input;
+        return true;
+    }
+
     public void setItems(List<String> input) {
         this.items = input;
     }

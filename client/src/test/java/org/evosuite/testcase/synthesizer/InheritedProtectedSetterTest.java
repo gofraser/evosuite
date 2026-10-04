@@ -72,6 +72,8 @@ public class InheritedProtectedSetterTest {
         boolean hasPublicSetter = false;
         for (Executable e : setters.keySet()) {
             assertFalse(e.getName().equals("initialize"), "protected inherited method offered: " + e);
+            assertFalse(e.getName().equals("declareItems"),
+                    "package-private method of another package offered: " + e);
             hasPublicSetter |= e.getName().equals("setItems");
         }
         assertTrue(hasPublicSetter, "the public setter must still be found: " + setters.keySet());
