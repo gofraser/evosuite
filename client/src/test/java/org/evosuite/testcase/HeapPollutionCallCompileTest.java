@@ -23,6 +23,7 @@ import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.StringPrimitiveStatement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
@@ -35,6 +36,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -77,6 +79,28 @@ public class HeapPollutionCallCompileTest {
                 ArrayList.class);
         tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(object)));
 
+        assertCompiles(tc);
+    }
+
+    @Test
+    public void testPutOfObjectToStringStringMapCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type mapType = TypeUtils.parameterize(LinkedHashMap.class, String.class, String.class);
+        VariableReference map = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(LinkedHashMap.class.getConstructor(), mapType),
+                Arrays.asList()));
+        VariableReference key = tc.addStatement(new StringPrimitiveStatement(tc, "H%"));
+        VariableReference object = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Object.class.getConstructor(), Object.class),
+                Arrays.asList()));
+        GenericMethod put = new GenericMethod(
+                LinkedHashMap.class.getMethod("put", Object.class, Object.class),
+                LinkedHashMap.class);
+        tc.addStatement(new MethodStatement(tc, put, map, Arrays.asList(key, object)));
+        assertCompiles(tc);
+    }
+
+    private void assertCompiles(TestCase tc) throws IOException {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
         String code = visitor.getCode();
