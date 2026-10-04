@@ -276,7 +276,6 @@ public class Scaffolding {
             list.add(java.util.concurrent.ExecutorService.class.getCanonicalName());
             list.add(java.util.concurrent.Executors.class.getCanonicalName());
             list.add(java.util.concurrent.Future.class.getCanonicalName());
-            list.add(java.util.concurrent.TimeUnit.class.getCanonicalName());
         }
 
         if (Properties.RESET_STANDARD_STREAMS) {

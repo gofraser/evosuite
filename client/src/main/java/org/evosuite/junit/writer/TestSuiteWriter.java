@@ -607,7 +607,6 @@ public class TestSuiteWriter implements Opcodes {
             importNames.add(java.util.concurrent.ExecutorService.class.getCanonicalName());
             importNames.add(java.util.concurrent.Executors.class.getCanonicalName());
             importNames.add(java.util.concurrent.Future.class.getCanonicalName());
-            importNames.add(java.util.concurrent.TimeUnit.class.getCanonicalName());
         }
 
         if (requirements.isInlineScaffoldingMode()) {
@@ -970,7 +969,7 @@ public class TestSuiteWriter implements Opcodes {
             builder.append(NEWLINE);
 
             builder.append(BLOCK_SPACE);
-            builder.append("future.get(" + Properties.TIMEOUT + ", TimeUnit.MILLISECONDS);");
+            builder.append("future.get(" + Properties.TIMEOUT + ", java.util.concurrent.TimeUnit.MILLISECONDS);");
             builder.append(NEWLINE);
             if (!Properties.TEST_SCAFFOLDING) {
                 builder.append(BLOCK_SPACE);
