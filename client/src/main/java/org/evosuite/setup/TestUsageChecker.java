@@ -239,6 +239,14 @@ public class TestUsageChecker {
             return false;
         }
 
+        // javac refuses any mention of a class whose package its named module does not export
+        // (java.awt.peer.ComponentPeer, sun.security.validator.*): a method returning or taking one
+        // cannot even be called from a test, so it must not enter the cluster.
+        if (isInUnexportedPackage(c)) {
+            logger.debug("Skipping class in a package its module does not export: {}", c.getName());
+            return false;
+        }
+
         if (!TestClusterUtils.checkIfCanUse(c.getName(), c)) {
             return false;
         }
@@ -433,6 +441,18 @@ public class TestUsageChecker {
             return false;
         }
         return JavaModuleLookup.isFromSystemImage(result);
+    }
+
+    /**
+     * Whether {@code c} is declared in a package its named module does not export to everyone
+     * (e.g. {@code java.awt.peer}, {@code sun.security.validator}). Generated tests cannot import
+     * or name such a class: javac reports "package ... is not visible".
+     *
+     * @param c the class to check
+     * @return true if generated source cannot refer to {@code c} by name
+     */
+    public static boolean isInUnexportedPackage(Class<?> c) {
+        return JavaModuleLookup.isInUnexportedPackage(c);
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {

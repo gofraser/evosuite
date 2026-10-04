@@ -44,6 +44,7 @@ import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
 import org.evosuite.runtime.mock.EvoSuiteMock;
 import org.evosuite.setup.TestClusterUtils;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.fm.MethodDescriptor;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.statements.environment.EnvironmentDataStatement;
@@ -4112,7 +4113,8 @@ public class TestCodeVisitor extends TestVisitor {
         Class<?> ex = exception.getClass();
         while (!Modifier.isPublic(ex.getModifiers())
                 || EvoSuiteMock.class.isAssignableFrom(ex)
-                || ex.getCanonicalName().startsWith("com.sun.")) {
+                || ex.getCanonicalName().startsWith("com.sun.")
+                || TestUsageChecker.isInUnexportedPackage(ex)) {
             ex = ex.getSuperclass();
         }
         return ex;
@@ -4604,6 +4606,11 @@ public class TestCodeVisitor extends TestVisitor {
 
     private static boolean isTypeAccessibleFromGeneratedTest(Class<?> type, String testPackageName) {
         if (type == null) {
+            return false;
+        }
+        // Public, but in a package its module does not export (java.awt.peer,
+        // sun.security.validator, ...): javac rejects any reference, imports included.
+        if (TestUsageChecker.isInUnexportedPackage(type)) {
             return false;
         }
 

@@ -205,6 +205,42 @@ final class JavaModuleLookup {
     }
 
     /**
+     * Whether {@code c} lives in a named module that does not export its package to everyone, such
+     * as {@code java.awt.peer} or {@code sun.security.validator}. javac rejects a generated test
+     * that imports or names such a class ("package ... is not visible"), whatever the test does
+     * with it. Classes in the unnamed module (the classpath) and on a JVM without modules are
+     * never hidden. Any lookup failure is reported as "not hidden", so this can only ever remove
+     * references, never invent them.
+     */
+    static boolean isInUnexportedPackage(Class<?> c) {
+        if (!MODULES_SUPPORTED) {
+            return false;
+        }
+        try {
+            Class<?> top = c;
+            while (top.isArray()) {
+                top = top.getComponentType();
+            }
+            if (top.isPrimitive()) {
+                return false;
+            }
+            Object module = GET_MODULE.invoke(top);
+            if (module == null || !(Boolean) IS_NAMED.invoke(module)) {
+                return false;
+            }
+            String name = top.getName();
+            int dot = name.lastIndexOf('.');
+            if (dot < 0) {
+                return false;
+            }
+            Method isExported = module.getClass().getMethod("isExported", String.class);
+            return !(Boolean) isExported.invoke(module, name.substring(0, dot));
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return false;
+        }
+    }
+
+    /**
      * Looks up the named module that loaded {@code c}, if any.
      *
      * <p>A {@code getModule()} that returns null, a module reporting {@code isNamed() == false},
