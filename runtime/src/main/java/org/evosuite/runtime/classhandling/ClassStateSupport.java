@@ -56,6 +56,15 @@ public class ClassStateSupport {
      * This method will usually be called in a @BeforeClass initialization
      * </p>
      *
+     * <p>Classes loaded while the JVM verifies a test, before the agent is active,
+     * can only have their method bodies retransformed. The JVM cannot add the
+     * InstrumentedClass interface or __STATIC_RESET method at that point. Their
+     * static mutations therefore survive resetClasses calls and can make tests
+     * depend on execution order. A scaffolding static initializer or initialization
+     * list cannot undo this: verification may load SUT classes before the scaffolding
+     * is initialized. Load through the InstrumentingClassLoader, or activate the
+     * agent at JVM startup before loading the tests, when static reset is required.</p>
+     *
      * @param classLoader the class loader to use
      * @param classNames  the names of the classes to load
      * @return true if there was a problem loading any class, false otherwise
@@ -365,10 +374,15 @@ public class ClassStateSupport {
             if (!classToReInstrument.isEmpty()) {
                 instrumentation.retransformClasses(
                         classToReInstrument.toArray(new Class<?>[0]));
+                for (Class<?> clazz : classToReInstrument) {
+                    if (!InstrumentedClass.class.isAssignableFrom(clazz)) {
+                        logger.warn("Class {} was retransformed for mocking but does not have InstrumentedClass "
+                                + "interface; static state cannot be reset between tests", clazz.getName());
+                    }
+                }
             }
         } catch (UnmodifiableClassException e) {
-            //this shouldn't really happen, as already checked in previous loop
-            java.lang.System.err.println("Could not re-instrument classes");
+            logger.error("Could not re-instrument classes", e);
         } catch (UnsupportedOperationException e) {
             //if this happens, then it is a bug in EvoSuite :(
             logger.error("EvoSuite wrong re-instrumentation: " + e.getMessage());

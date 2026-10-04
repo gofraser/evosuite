@@ -41,7 +41,11 @@ import org.junit.jupiter.api.Test;
  * A class that the JVM loads while verifying the test class, before EvoRunner has activated the
  * agent, used to stay uninstrumented, so its file access reached the real file system and was
  * rejected by the sandbox. This runs a generated-style JUnit 4 test through JUnitCore in a fresh
- * JVM, the order of events a build tool produces, and expects it to pass.
+ * JVM, the order of events a build tool produces, and expects it to pass. The two
+ * ordered tests also demonstrate the remaining reset limitation: a static mutation
+ * survives the scaffolding's reset attempt because retransformation cannot add the
+ * reset method. Assertions that instead assumed fresh static state would depend on
+ * which test ran first.
  */
 public class LoadedBeforeAgentTest {
 
@@ -84,6 +88,11 @@ public class LoadedBeforeAgentTest {
 
         Assertions.assertEquals(0, process.exitValue(), output.toString());
         Assertions.assertTrue(output.toString().contains("OK (2 tests)"), output.toString());
+        String retransformationWarning = "does not have InstrumentedClass";
+        Assertions.assertTrue(output.toString().lines().anyMatch(line ->
+                line.startsWith("WARN") && line.contains(retransformationWarning)), output.toString());
+        Assertions.assertFalse(output.toString().lines().anyMatch(line ->
+                line.startsWith("ERROR") && line.contains(retransformationWarning)), output.toString());
         Assertions.assertFalse(new File(workDir, "late_fixture_output.txt").exists(),
                 "the file was written to the real file system");
     }

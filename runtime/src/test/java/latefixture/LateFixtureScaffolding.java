@@ -4,6 +4,7 @@ import org.evosuite.runtime.RuntimeSettings;
 import org.evosuite.runtime.Runtime;
 import org.evosuite.runtime.agent.InstrumentingAgent;
 import org.evosuite.runtime.classhandling.ClassStateSupport;
+import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.sandbox.Sandbox;
 import org.junit.After;
 import org.junit.AfterClass;
@@ -39,5 +40,7 @@ public class LateFixtureScaffolding {
     public void doneWithTestCase() {
         Sandbox.doneWithExecutingSUTCode();
         InstrumentingAgent.deactivate();
+        ClassResetter.getInstance().setClassLoader(getClass().getClassLoader());
+        ClassStateSupport.resetClasses("latefixture.SutSub");
     }
 }
