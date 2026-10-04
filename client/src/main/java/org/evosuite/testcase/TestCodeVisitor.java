@@ -1009,9 +1009,37 @@ public class TestCodeVisitor extends TestVisitor {
         testCode.append(stmt);
     }
 
+    /**
+     * The raw class of the type a declaration of {@code var} is rendered with: mirrors
+     * {@link #getTypeName(Type)}, which prints {@code Object} for type variables, wildcards and
+     * captures, so {@link VariableReference#getVariableClass()} (which may report a bound or a
+     * narrowed runtime class) is not always what the source says.
+     */
+    private static Class<?> getRenderedDeclarationClass(VariableReference var) {
+        Type type = var.getType();
+        if (type instanceof Class<?>) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType && ((ParameterizedType) type).getRawType() instanceof Class<?>) {
+            return (Class<?>) ((ParameterizedType) type).getRawType();
+        }
+        if (type instanceof GenericArrayType) {
+            return Object[].class;
+        }
+        return Object.class;
+    }
+
     protected void visitContainsAssertion(ContainsAssertion assertion) {
         VariableReference containerObject = assertion.getSource();
         VariableReference containedObject = assertion.getContainedVariable();
+
+        // The observer saw the variable after Scope#setObject narrowed it to its runtime class,
+        // but the declaration is rendered from the variable's type in *this* test (a method
+        // returning Object, a type variable, ...), and contains() only compiles if that rendered
+        // type is a Collection. Render nothing rather than "object0.contains(0)" on an Object.
+        if (!Collection.class.isAssignableFrom(getRenderedDeclarationClass(containerObject))) {
+            return;
+        }
 
         Boolean contains = (Boolean) assertion.getValue();
 

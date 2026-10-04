@@ -59,6 +59,18 @@ public class ContainsAssertion extends Assertion {
      */
     @Override
     public String getCode() {
+        if (!Collection.class.isAssignableFrom(source.getVariableClass())) {
+            // Defensive check mirroring ContainsTraceObserver#visit: that observer now refuses
+            // to create a ContainsAssertion unless the *declared* type of `source` exposes
+            // contains(Object), because the generated assertion is rendered against the
+            // declared type (eg "iterable0.contains(...)" when iterable0 is only an
+            // Iterable<String>). But getCode() has callers that never go through the observer -
+            // a ContainsAssertion deserialized from an archive, debug logging, mutation-based
+            // assertion generation, LLM postprocessing's fallback candidate projection - and
+            // none of those expect or handle an exception from here. Render nothing rather than
+            // code that javac would reject.
+            return "";
+        }
         return "assertTrue(" + source.getName() + ".contains(" + containedVariable.getName() + "));";
     }
 

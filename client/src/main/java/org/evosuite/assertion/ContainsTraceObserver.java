@@ -60,6 +60,17 @@ public class ContainsTraceObserver extends AssertionTraceObserver<ContainsTraceE
                 return;
             }
 
+            // The runtime object being a Collection is not enough: the assertion is rendered
+            // against the variable's *declared* (static) type (eg "iterable0.contains(...)"),
+            // and that type must actually expose contains(Object). Scope#setObject only narrows
+            // a variable's rendered type to its runtime class for non-generic references
+            // (getNumParameters() == 0), so a variable declared as Iterable<String> whose
+            // runtime value happens to be a Collection keeps its Iterable<String> declaration -
+            // Iterable has no contains method, and javac rejects the generated call.
+            if (!Collection.class.isAssignableFrom(var.getVariableClass())) {
+                return;
+            }
+
             Collection<?> collectionObject = (Collection<?>) object;
 
             List<GenericClass<?>> parameterClasses = var.getGenericClass().getParameterClasses();
