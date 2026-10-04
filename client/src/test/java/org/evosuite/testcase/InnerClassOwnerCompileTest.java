@@ -21,7 +21,9 @@ package org.evosuite.testcase;
 
 import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
+import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.testcase.statements.ConstructorStatement;
+import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
@@ -56,6 +58,10 @@ public class InnerClassOwnerCompileTest {
 
             public E next() {
                 return value;
+            }
+
+            public void set(E element) {
+                value = element;
             }
         }
     }
@@ -211,6 +217,39 @@ public class InnerClassOwnerCompileTest {
         TestFactory.getInstance().changeCall(clone, clonedInner,
                 new GenericConstructor(Outer.Inner.class.getConstructor(Outer.class), modelOwner));
         assertCompiles(clone);
+    }
+
+    /**
+     * Mutating {@code Outer<Integer>.Inner inner = o1.new Inner()} may pick the
+     * {@code Outer<String>} instance; the variable must not be retyped under the existing
+     * {@code inner.set(int0)}. Repeated so the random draw selects o2 at least once.
+     */
+    @Test
+    public void testChangeCallDoesNotRetypeInnerUnderExistingUses() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        Type intOuter = TypeUtils.parameterize(Outer.class, Integer.class);
+        addOuter(tc, intOuter);
+        addOuter(tc, TypeUtils.parameterize(Outer.class, String.class));
+        Type intInner = TypeUtils.parameterizeWithOwner(intOuter, Outer.Inner.class);
+        VariableReference inner = addInner(tc, intInner, tc.getReturnValue(0));
+        VariableReference int0 = tc.addStatement(new IntPrimitiveStatement(tc, 3));
+        GenericMethod set = new GenericMethod(
+                Outer.Inner.class.getMethod("set", Object.class), intInner);
+        tc.addStatement(new MethodStatement(tc, set, inner, Arrays.asList(int0)));
+        assertCompiles(tc);
+
+        GenericConstructor ctor = new GenericConstructor(
+                Outer.Inner.class.getConstructor(Outer.class), intInner);
+        for (int i = 0; i < 30; i++) {
+            DefaultTestCase clone = tc.clone();
+            try {
+                TestFactory.getInstance().changeCall(clone,
+                        clone.getStatement(inner.getStPosition()), ctor);
+            } catch (ConstructionFailedException expected) {
+                // refusing a disagreeing enclosing instance is acceptable
+            }
+            assertCompiles(clone);
+        }
     }
 
     private static VariableReference addDerived(TestCase tc) throws Exception {

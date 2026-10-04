@@ -136,8 +136,36 @@ public class TestMutator {
                 effectiveType = TestFactory.normalizeClassLiteralTypeArgumentByErasure(effectiveType);
                 parameters.add(test.getRandomObject(effectiveType, position));
             }
-            constructor = StatementFactory.bindInnerClassOwnerToEnclosingArgument(
-                    constructor, parameters);
+            GenericConstructor reboundConstructor =
+                    StatementFactory.bindInnerClassOwnerToEnclosingArgument(constructor, parameters);
+            if (reboundConstructor != constructor
+                    && !reboundConstructor.getOwnerClass().equals(retval.getGenericClass())) {
+                // The enclosing argument would turn the declaration into a different
+                // instantiation (Outer<String>.Inner) while the return variable and its later
+                // uses stay typed Outer<Integer>.Inner. Retyping a variable under existing
+                // uses breaks them, so only accept an enclosing instance that agrees.
+                reboundConstructor = null;
+                Class<?> declaring = constructor.getRawGeneratedType().getDeclaringClass();
+                for (VariableReference candidate : test.getObjects(declaring, position)) {
+                    if (candidate.equals(retval)) {
+                        continue;
+                    }
+                    List<VariableReference> alternative = new ArrayList<>(parameters);
+                    alternative.set(0, candidate);
+                    GenericConstructor bound = StatementFactory
+                            .bindInnerClassOwnerToEnclosingArgument(constructor, alternative);
+                    if (bound.getOwnerClass().equals(retval.getGenericClass())) {
+                        parameters = alternative;
+                        reboundConstructor = bound;
+                        break;
+                    }
+                }
+                if (reboundConstructor == null) {
+                    throw new ConstructionFailedException("No enclosing instance of "
+                            + retval.getGenericClass() + " for " + constructor);
+                }
+            }
+            constructor = reboundConstructor;
             ConstructorStatement c = new ConstructorStatement(test, constructor, retval, parameters);
             c.setParsedFromLlm(statement.isParsedFromLlm());
             test.setStatement(c, position);
