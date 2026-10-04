@@ -4931,10 +4931,11 @@ public class TestCodeVisitor extends TestVisitor {
         if (loader == null) {
             return false;
         }
+        Map<String, String> enclosingTypes = new HashMap<>();
+        Map<String, Integer> memberAccess = new HashMap<>();
         for (int dollar = binaryName.lastIndexOf('$'); dollar > simpleNameStart;
              dollar = binaryName.lastIndexOf('$', dollar - 1)) {
             String resource = binaryName.substring(0, dollar).replace('.', '/') + ".class";
-            final boolean[] inaccessible = {false};
             try (InputStream input = loader.getResourceAsStream(resource)) {
                 if (input == null) {
                     continue;
@@ -4943,14 +4944,9 @@ public class TestCodeVisitor extends TestVisitor {
                     @Override
                     public void visitInnerClass(String name, String outerName, String innerName,
                                                 int access) {
-                        if (outerName != null && (internalName.equals(name)
-                                || internalName.startsWith(name + "$"))) {
-                            if (Modifier.isPrivate(access)
-                                    || (!Modifier.isPublic(access)
-                                    && !isEmptyPackageName(testPackageName)
-                                    && !isSamePackage(type, testPackageName))) {
-                                inaccessible[0] = true;
-                            }
+                        if (outerName != null) {
+                            enclosingTypes.putIfAbsent(name, outerName);
+                            memberAccess.putIfAbsent(name, access);
                         }
                     }
                 }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
@@ -4958,7 +4954,17 @@ public class TestCodeVisitor extends TestVisitor {
                 // Missing/unreadable metadata keeps the established reflection fallback.
                 logger.debug("Cannot inspect enclosing metadata for {}", binaryName, exception);
             }
-            if (inaccessible[0]) {
+        }
+        // Only an exact member entry establishes nesting. A private binary-name
+        // prefix can belong to an unrelated class when an identifier contains '$'.
+        Set<String> visited = new HashSet<>();
+        for (String member = internalName; enclosingTypes.containsKey(member)
+                && visited.add(member); member = enclosingTypes.get(member)) {
+            int access = memberAccess.get(member);
+            if (Modifier.isPrivate(access)
+                    || (!Modifier.isPublic(access)
+                    && !isEmptyPackageName(testPackageName)
+                    && !isSamePackage(type, testPackageName))) {
                 return true;
             }
         }
