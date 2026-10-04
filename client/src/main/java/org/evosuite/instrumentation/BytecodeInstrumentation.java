@@ -661,7 +661,7 @@ public class BytecodeInstrumentation {
 
     private ClassVisitor addTargetTransformationAdapters(ClassVisitor cv, String className, ClassLoader classLoader) {
         if (!config.testCarving() && config.makeAccessible()) {
-            cv = new AccessibleClassAdapter(cv, className);
+            cv = new AccessibleClassAdapter(cv, className, classLoader);
         }
 
         cv = new RemoveFinalClassAdapter(cv);
@@ -685,7 +685,7 @@ public class BytecodeInstrumentation {
         cv = new NonTargetClassAdapter(cv, className);
 
         if (config.makeAccessible()) {
-            cv = new AccessibleClassAdapter(cv, className);
+            cv = new AccessibleClassAdapter(cv, className, classLoader);
         }
 
         // If we are doing testability transformation on all classes we need

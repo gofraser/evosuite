@@ -1361,6 +1361,9 @@ public class VariableCodeGenerationUtil {
             boolean allowNullValue,
             Branch branch)
             throws ConstructionFailedException {
+        if (!TestUsageChecker.isCallableFromTestPackage(genericField.getField())) {
+            return null;
+        }
         AbstractStatement stmt;
         if (java.util.Arrays.asList("Z", "B", "C", "S", "I", "J", "F", "D").contains(fieldType)) {
             stmt =

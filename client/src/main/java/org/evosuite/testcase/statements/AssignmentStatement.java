@@ -23,6 +23,7 @@ import org.apache.commons.lang3.ClassUtils;
 import org.evosuite.Properties;
 import org.evosuite.setup.TestClusterGenerator;
 import org.evosuite.setup.TestClusterUtils;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
@@ -478,7 +479,8 @@ public class AssignmentStatement extends AbstractStatement {
                 if (!value.isPrimitive() && !(value instanceof NullReference)) {
                     // add fields of this object to list
                     for (Field field : TestClusterUtils.getAccessibleFields(value.getVariableClass())) {
-                        if (TestClusterGenerator.isFinalField(field)) {
+                        if (!TestUsageChecker.isCallableFromTestPackage(field)
+                                || TestClusterGenerator.isFinalField(field)) {
                             continue;
                         }
                         FieldReference f = new FieldReference(tc, new GenericField(field,

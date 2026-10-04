@@ -40,6 +40,9 @@ import org.objectweb.asm.Opcodes;
 public class AccessibleClassAdapter extends ClassVisitor {
 
     private boolean exclude = false;
+    private final String className;
+    private final ClassLoader classLoader;
+    private final boolean recordVisibility;
 
     /**
      * <p>Constructor for AccessibleClassAdapter.</p>
@@ -48,8 +51,20 @@ public class AccessibleClassAdapter extends ClassVisitor {
      * @param className a {@link java.lang.String} object.
      */
     public AccessibleClassAdapter(ClassVisitor cv, String className) {
+        this(cv, className, null, false);
+    }
+
+    public AccessibleClassAdapter(ClassVisitor cv, String className, ClassLoader classLoader) {
+        this(cv, className, classLoader, true);
+    }
+
+    private AccessibleClassAdapter(ClassVisitor cv, String className, ClassLoader classLoader,
+                                   boolean recordVisibility) {
         super(Opcodes.ASM9, cv);
-        className = ResourceList.getClassNameFromResourcePath(className);
+        this.className = ResourceList.getClassNameFromResourcePath(className);
+        this.classLoader = classLoader;
+        this.recordVisibility = recordVisibility;
+        className = this.className;
         String packageName = "";
         if (className.contains(".")) {
             packageName = className.substring(0, className.lastIndexOf('.'));
@@ -85,6 +100,9 @@ public class AccessibleClassAdapter extends ClassVisitor {
                                    String signature, Object value) {
         if (!exclude && (access & Opcodes.ACC_PRIVATE) != Opcodes.ACC_PRIVATE
                 && (access & Opcodes.ACC_PROTECTED) != Opcodes.ACC_PROTECTED) {
+            if (recordVisibility) {
+                OriginalFieldVisibility.record(classLoader, className, name, desc, access);
+            }
             access = access | Opcodes.ACC_PUBLIC;
             // access = access & ~Opcodes.ACC_PROTECTED;
             //System.out.println("Setting field to public: "+name);

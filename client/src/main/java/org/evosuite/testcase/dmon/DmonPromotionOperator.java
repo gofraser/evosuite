@@ -23,6 +23,7 @@ import org.evosuite.Properties;
 import org.evosuite.TestGenerationContext;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.setup.TestClusterUtils;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.DefaultTestCase;
 import org.evosuite.testcase.GenerationContext;
 import org.evosuite.testcase.TestCase;
@@ -37,6 +38,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.statements.reflection.PrivateFieldStatement;
 import org.evosuite.testcase.variable.FieldReference;
+import org.evosuite.testcase.variable.NullReference;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericField;
 import org.evosuite.utils.generic.GenericMethod;
@@ -642,9 +644,10 @@ public final class DmonPromotionOperator {
     }
 
     private static Statement buildStaticFieldAssignment(TestCase test, Field field, VariableReference mockRef) {
-        if (Modifier.isPrivate(field.getModifiers())) {
+        if (!TestUsageChecker.isCallableFromTestPackage(field)) {
             try {
-                return new PrivateFieldStatement(test, field.getDeclaringClass(), field.getName(), null, mockRef);
+                return new PrivateFieldStatement(test, field.getDeclaringClass(), field.getName(),
+                        new NullReference(test, field.getDeclaringClass()), mockRef);
             } catch (NoSuchFieldException | ConstructionFailedException e) {
                 throw new RuntimeException("Failed to create private static field assignment for DMoN promotion", e);
             }
@@ -671,7 +674,7 @@ public final class DmonPromotionOperator {
                                                           Field field,
                                                           VariableReference receiver,
                                                           VariableReference mockRef) {
-        if (Modifier.isPrivate(field.getModifiers())) {
+        if (!TestUsageChecker.isCallableFromTestPackage(field)) {
             try {
                 return new PrivateFieldStatement(test, field.getDeclaringClass(), field.getName(), receiver, mockRef);
             } catch (NoSuchFieldException | ConstructionFailedException e) {

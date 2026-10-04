@@ -29,6 +29,7 @@ import org.evosuite.ga.ConstructionFailedException;
 // Presentation metadata is stored natively on the test case.
 import org.evosuite.runtime.util.Inputs;
 import org.evosuite.setup.TestClusterUtils;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.execution.CodeUnderTestException;
 import org.evosuite.testcase.execution.Scope;
 import org.evosuite.testcase.statements.*;
@@ -199,6 +200,10 @@ public class DefaultTestCase implements TestCase, Serializable {
         if (!var.isPrimitive() && !(var instanceof NullReference)) {
             // add fields of this object to list
             for (Field field : TestClusterUtils.getAccessibleFields(var.getVariableClass())) {
+                // The cache is keyed by class; visibility also depends on the current test package.
+                if (!TestUsageChecker.isCallableFromTestPackage(field)) {
+                    continue;
+                }
                 GenericField genericField = new GenericField(field, var.getGenericClass());
                 FieldReference f;
                 try {

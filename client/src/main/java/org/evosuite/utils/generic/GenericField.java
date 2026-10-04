@@ -368,17 +368,17 @@ public class GenericField extends GenericAccessibleObject<GenericField> {
 
     @Override
     public boolean isPublic() {
-        return Modifier.isPublic(field.getModifiers());
+        return Modifier.isPublic(TestUsageChecker.getOriginalFieldModifiers(field));
     }
 
     @Override
     public boolean isPrivate() {
-        return Modifier.isPrivate(field.getModifiers());
+        return Modifier.isPrivate(TestUsageChecker.getOriginalFieldModifiers(field));
     }
 
     @Override
     public boolean isProtected() {
-        return Modifier.isProtected(field.getModifiers());
+        return Modifier.isProtected(TestUsageChecker.getOriginalFieldModifiers(field));
     }
 
     @Override

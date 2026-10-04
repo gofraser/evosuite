@@ -836,6 +836,9 @@ public class StatementFactory {
     public VariableReference addField(TestCase test, GenericField field, int position,
                                       GenerationContext context) throws ConstructionFailedException {
 
+        if (!TestUsageChecker.isCallableFromTestPackage(field.getField())) {
+            throw new ConstructionFailedException("Cannot access field from the test package");
+        }
         if (context.getDepth() > Properties.MAX_RECURSION) {
             throw new ConstructionFailedException("Max recursion depth reached");
         }
@@ -890,6 +893,9 @@ public class StatementFactory {
             throws ConstructionFailedException {
         if (TestClusterUtils.isFinalField(field.getField())) {
             throw new ConstructionFailedException("Cannot assign to final field " + field.getName());
+        }
+        if (!TestUsageChecker.isCallableFromTestPackage(field.getField())) {
+            throw new ConstructionFailedException("Cannot access field from the test package");
         }
 
         if (context.getDepth() > Properties.MAX_RECURSION) {
@@ -956,6 +962,9 @@ public class StatementFactory {
             throws ConstructionFailedException {
         if (TestClusterUtils.isFinalField(field.getField())) {
             throw new ConstructionFailedException("Cannot assign to final field " + field.getName());
+        }
+        if (!TestUsageChecker.isCallableFromTestPackage(field.getField())) {
+            throw new ConstructionFailedException("Cannot access field from the test package");
         }
 
         if (position <= callee.getStPosition()) {

@@ -24,6 +24,7 @@ import org.evosuite.Properties;
 import org.evosuite.annotations.EvoSuiteTest;
 import org.evosuite.coverage.MethodNameMatcher;
 import org.evosuite.graphs.GraphPool;
+import org.evosuite.instrumentation.OriginalFieldVisibility;
 import org.evosuite.runtime.annotation.EvoSuiteExclude;
 import org.evosuite.runtime.classhandling.ClassResetter;
 import org.evosuite.runtime.mock.MockList;
@@ -458,16 +459,17 @@ public class TestUsageChecker {
     /**
      * Whether generated test code, which lives in the package of the class under test
      * ({@code Properties.CLASS_PREFIX}) and is not a subclass of anything, can call {@code member}
-     * (or a constructor): public members always, package-private and protected ones only when
+     * (or a constructor or field): public members always, package-private and protected ones only when
      * their declaring class is in that same package. A protected method inherited from a class
      * in another package is not callable from the test, however deep in the hierarchy it is
      * found by {@code getDeclaredMethods()}.
      *
-     * @param member the method or constructor to check
+     * @param member the method, constructor or field to check
      * @return true if javac accepts a call to it from the generated test
      */
     public static boolean isCallableFromTestPackage(java.lang.reflect.Member member) {
-        int modifiers = member.getModifiers();
+        int modifiers = member instanceof Field
+                ? getOriginalFieldModifiers((Field) member) : member.getModifiers();
         if (Modifier.isPrivate(modifiers)) {
             return false;
         }
@@ -475,6 +477,11 @@ public class TestUsageChecker {
             return true;
         }
         return ClassUtils.getPackageName(member.getDeclaringClass()).equals(Properties.CLASS_PREFIX);
+    }
+
+    /** Field modifiers as javac sees them, before accessibility instrumentation promotes them. */
+    public static int getOriginalFieldModifiers(Field field) {
+        return OriginalFieldVisibility.getModifiers(field);
     }
 
     private static boolean isUnsafeDependencyClass(Class<?> c) {
@@ -575,27 +582,22 @@ public class TestUsageChecker {
             return false;
         }
 
-        if (Modifier.isPublic(f.getModifiers())) {
-            // It may still be the case that the field is defined in a non-visible superclass of the class
-            // we already know we can use. In that case, the compiler would be fine with accessing the
-            // field, but reflection would start complaining about IllegalAccess!
-            // Therefore, we set the field accessible to be on the safe side
+        if (!isCallableFromTestPackage(f)) {
+            return false;
+        }
+        int modifiers = getOriginalFieldModifiers(f);
+        if (Modifier.isPublic(modifiers)) {
+            // Reflection may still need access to a public field declared in a hidden superclass.
             TestClusterUtils.makeAccessible(f);
             return true;
         }
 
-        // If default access rights, then check if this class is in the same package as the target class
-        if (!Modifier.isPrivate(f.getModifiers())) {
-            // && !Modifier.isProtected(f.getModifiers())) {
-            String packageName = ClassUtils.getPackageName(ownerClass);
-
-            String declaredPackageName = ClassUtils.getPackageName(f.getDeclaringClass());
-
-            if (packageName.equals(Properties.CLASS_PREFIX)
-                    && packageName.equals(declaredPackageName)) {
-                TestClusterUtils.makeAccessible(f);
-                return true;
-            }
+        // A package-private field is not inherited by an owner in a different package.
+        // FieldStatement renders owner.field directly, without a cast to the declaring type.
+        if (ClassUtils.getPackageName(ownerClass).equals(
+                ClassUtils.getPackageName(f.getDeclaringClass()))) {
+            TestClusterUtils.makeAccessible(f);
+            return true;
         }
 
         return false;

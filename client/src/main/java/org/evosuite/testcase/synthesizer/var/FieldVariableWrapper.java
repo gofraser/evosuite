@@ -1,5 +1,7 @@
 package org.evosuite.testcase.synthesizer.var;
 
+import org.evosuite.setup.TestUsageChecker;
+
 import org.evosuite.TestGenerationContext;
 import org.evosuite.coverage.branch.Branch;
 import org.evosuite.ga.ConstructionFailedException;
@@ -163,7 +165,7 @@ public class FieldVariableWrapper extends DepVariableWrapper{
 
             /** now we try to generate the relevant statement in the test case. */
             GenericField genericField = new GenericField(field, field.getDeclaringClass());
-            int fieldModifiers = field.getModifiers();
+            int fieldModifiers = TestUsageChecker.getOriginalFieldModifiers(field);
 
             /**
              * deal with public field, we handle the public field getter/setter in the same way,

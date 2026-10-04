@@ -34,6 +34,8 @@ import org.evosuite.testcase.statements.FunctionalMockStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.After;
 import org.junit.Test;
 
 import java.lang.reflect.Method;
@@ -41,6 +43,20 @@ import java.util.Collections;
 import java.util.Optional;
 
 public class DmonPromotionOperatorTest {
+
+    private String oldClassPrefix;
+
+    @Before
+    public void useFixturePackageForDirectFieldAccess() {
+        oldClassPrefix = Properties.CLASS_PREFIX;
+        Properties.CLASS_PREFIX = getClass().getPackage().getName();
+    }
+
+    @After
+    public void restoreTestPackage() {
+        Properties.CLASS_PREFIX = oldClassPrefix;
+    }
+
 
     public static class SetterTarget {
         private static Runnable dep;
