@@ -27,6 +27,9 @@ import org.evosuite.testcase.statements.numeric.IntPrimitiveStatement;
 import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
+import org.evosuite.testcase.variable.VariableReferenceImpl;
+import org.evosuite.utils.Randomness;
+import org.evosuite.utils.generic.GenericClassFactory;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
 import org.evosuite.utils.generic.JavacScratchCompiler;
@@ -38,6 +41,8 @@ import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.Iterator;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -74,6 +79,22 @@ public class InnerClassOwnerCompileTest {
         }
     }
 
+    public static Outer.Inner rawInner() {
+        return new Outer<String>().new Inner();
+    }
+
+    public static Outer<? extends CharSequence>.Inner charsInner() {
+        return new Outer<String>().new Inner();
+    }
+
+    public static Outer<Integer>.Inner integerInner() {
+        return new Outer<Integer>().new Inner();
+    }
+
+    public static int useChars(CharSequence value) {
+        return value == null ? 0 : value.length();
+    }
+
     public static int useString(String value) {
         return value == null ? 0 : value.length();
     }
@@ -84,9 +105,12 @@ public class InnerClassOwnerCompileTest {
 
     private String originalTargetClass;
     private double originalObjectReuseProbability;
+    private long originalRandomSeed;
 
     @BeforeEach
     public void setUp() {
+        originalRandomSeed = Randomness.getSeed();
+        Randomness.setSeed(481516L);
         originalTargetClass = Properties.TARGET_CLASS;
         originalObjectReuseProbability = Properties.OBJECT_REUSE_PROBABILITY;
         Properties.TARGET_CLASS = InnerClassOwnerCompileTest.class.getName();
@@ -96,6 +120,7 @@ public class InnerClassOwnerCompileTest {
 
     @AfterEach
     public void tearDown() {
+        Randomness.setSeed(originalRandomSeed);
         Properties.TARGET_CLASS = originalTargetClass;
         Properties.OBJECT_REUSE_PROBABILITY = originalObjectReuseProbability;
         Properties.resetTargetClass();
@@ -250,6 +275,98 @@ public class InnerClassOwnerCompileTest {
             }
             assertCompiles(clone);
         }
+    }
+
+    @Test
+    public void testChangeCallAcceptsRawInnerReturnVariable() throws Exception {
+        assertSafeRebinding("rawInner", null);
+    }
+
+    @Test
+    public void testChangeCallAcceptsBoundedWildcardInnerReturnVariable() throws Exception {
+        assertSafeRebinding("charsInner", "useChars");
+    }
+
+    private static void assertSafeRebinding(String factoryName, String consumerName)
+            throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        Type stringOuter = TypeUtils.parameterize(Outer.class, String.class);
+        VariableReference outer = addOuter(tc, stringOuter);
+        GenericMethod factory = new GenericMethod(
+                InnerClassOwnerCompileTest.class.getMethod(factoryName),
+                InnerClassOwnerCompileTest.class);
+        MethodStatement creation = new MethodStatement(tc, factory, null, Arrays.asList());
+        if (consumerName == null) {
+            // The exact raw model differs from GenericClassFactory.get(Class), which adds
+            // synthetic E to the enclosing Outer. Keep those unresolved E models strict.
+            creation = new MethodStatement(tc, factory, null, Arrays.asList(),
+                    new VariableReferenceImpl(tc, GenericClassFactory.get(
+                            (Type) Outer.Inner.class, Outer.Inner.class)));
+        }
+        VariableReference inner = tc.addStatement(creation);
+        Type returnType = inner.getType();
+        if (consumerName == null) {
+            VariableReference int0 = tc.addStatement(new IntPrimitiveStatement(tc, 3));
+            tc.addStatement(new MethodStatement(tc,
+                    new GenericMethod(Outer.Inner.class.getMethod("set", Object.class), inner.getGenericClass()),
+                    inner, Arrays.asList(int0)));
+        }
+        VariableReference element = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Outer.Inner.class.getMethod("next"), returnType),
+                inner, Arrays.asList()));
+        if (consumerName != null) {
+            tc.addStatement(new MethodStatement(tc, new GenericMethod(
+                    InnerClassOwnerCompileTest.class.getMethod(consumerName, CharSequence.class),
+                    InnerClassOwnerCompileTest.class), null, Arrays.asList(element)));
+        }
+        assertCompiles(tc);
+
+        // Only one enclosing candidate exists. The mutation's proposed Integer owner must
+        // bind to that String variable, which fits a raw or ? extends CharSequence result.
+        Type proposedOwner = TypeUtils.parameterizeWithOwner(
+                TypeUtils.parameterize(Outer.class, Integer.class), Outer.Inner.class);
+        GenericConstructor replacement = new GenericConstructor(
+                Outer.Inner.class.getConstructor(Outer.class), proposedOwner);
+        assertCompiles(tc.clone());
+        TestFactory.getInstance().changeCall(tc, tc.getStatement(inner.getStPosition()), replacement);
+        ConstructorStatement changed = (ConstructorStatement) tc.getStatement(inner.getStPosition());
+        assertEquals(returnType, changed.getReturnValue().getType());
+        assertEquals(TypeUtils.parameterizeWithOwner(stringOuter, Outer.Inner.class),
+                changed.getConstructor().getOwnerType());
+        assertEquals(outer.getStPosition(), changed.getParameterReferences().get(0).getStPosition());
+        assertCompiles(tc);
+        DefaultTestCase clone = tc.clone();
+        assertEquals(returnType, clone.getReturnValue(inner.getStPosition()).getType());
+        assertCompiles(clone);
+        TestFactory.getInstance().changeCall(clone,
+                clone.getStatement(inner.getStPosition()), replacement);
+        assertCompiles(clone);
+        assertCompiles(clone.clone());
+    }
+
+    @Test
+    public void testChangeCallRejectsConcreteOwnerMismatchWithOnlyForeignCandidate()
+            throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        addOuter(tc, TypeUtils.parameterize(Outer.class, String.class));
+        Type intInner = TypeUtils.parameterizeWithOwner(
+                TypeUtils.parameterize(Outer.class, Integer.class), Outer.Inner.class);
+        VariableReference inner = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(InnerClassOwnerCompileTest.class.getMethod("integerInner"),
+                        InnerClassOwnerCompileTest.class), null, Arrays.asList()));
+        VariableReference int0 = tc.addStatement(new IntPrimitiveStatement(tc, 3));
+        tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(Outer.Inner.class.getMethod("set", Object.class), intInner),
+                inner, Arrays.asList(int0)));
+        assertCompiles(tc);
+        DefaultTestCase clone = tc.clone();
+        GenericConstructor replacement = new GenericConstructor(
+                Outer.Inner.class.getConstructor(Outer.class), intInner);
+        assertThrows(ConstructionFailedException.class, () -> TestFactory.getInstance().changeCall(
+                clone, clone.getStatement(inner.getStPosition()), replacement));
+        assertEquals(intInner, clone.getReturnValue(inner.getStPosition()).getType());
+        assertCompiles(clone);
+        assertCompiles(clone.clone());
     }
 
     private static VariableReference addDerived(TestCase tc) throws Exception {

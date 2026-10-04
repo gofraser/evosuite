@@ -139,11 +139,12 @@ public class TestMutator {
             GenericConstructor reboundConstructor =
                     StatementFactory.bindInnerClassOwnerToEnclosingArgument(constructor, parameters);
             if (reboundConstructor != constructor
-                    && !reboundConstructor.getOwnerClass().equals(retval.getGenericClass())) {
+                    && !retval.getGenericClass().isAssignableFrom(reboundConstructor.getOwnerClass())) {
                 // The enclosing argument would turn the declaration into a different
                 // instantiation (Outer<String>.Inner) while the return variable and its later
                 // uses stay typed Outer<Integer>.Inner. Retyping a variable under existing
-                // uses breaks them, so only accept an enclosing instance that agrees.
+                // uses breaks them. Raw and wildcard return types can accept more specific
+                // owners, but a disagreeing concrete owner must still be rejected.
                 reboundConstructor = null;
                 Class<?> declaring = constructor.getRawGeneratedType().getDeclaringClass();
                 for (VariableReference candidate : test.getObjects(declaring, position)) {
@@ -154,7 +155,7 @@ public class TestMutator {
                     alternative.set(0, candidate);
                     GenericConstructor bound = StatementFactory
                             .bindInnerClassOwnerToEnclosingArgument(constructor, alternative);
-                    if (bound.getOwnerClass().equals(retval.getGenericClass())) {
+                    if (retval.getGenericClass().isAssignableFrom(bound.getOwnerClass())) {
                         parameters = alternative;
                         reboundConstructor = bound;
                         break;

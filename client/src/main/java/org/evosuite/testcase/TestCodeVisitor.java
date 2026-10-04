@@ -4521,10 +4521,22 @@ public class TestCodeVisitor extends TestVisitor {
         // isDeclaredTypeNameableInGeneratedTest) does the declared/cast type need to
         // fall back to the nearest accessible supertype instead.
         boolean constructorAccessible = isSourceAccessibleFromGeneratedTest(rawConstructor);
-        String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
-                ? getTypeName(isNonStaticMemberClass
+        Type constructorDeclarationType = isNonStaticMemberClass
                 ? withEnclosingInstanceOwner(constructor.getOwnerType(), parameters.get(0))
-                : constructor.getOwnerType())
+                : constructor.getOwnerType();
+        if (isNonStaticMemberClass
+                && constructorDeclarationType.equals(constructor.getOwnerType())
+                && retval.getVariableClass() == rawConstructor.getDeclaringClass()
+                && (retval.getType() instanceof Class<?>
+                || retval.getGenericClass().hasWildcardOrTypeVariables())
+                && retval.getGenericClass().isAssignableFrom(constructorDeclarationType)) {
+            // A mutation can bind the constructor to Outer<String>.Inner while retaining a
+            // raw or wildcard result variable. Narrowing that declaration changes the types
+            // accepted by later calls, such as a raw inner.set(Integer).
+            constructorDeclarationType = retval.getType();
+        }
+        String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
+                ? getTypeName(constructorDeclarationType)
                 : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
 
         // The declaration prefix ("Type ") is prepended at the point where the
