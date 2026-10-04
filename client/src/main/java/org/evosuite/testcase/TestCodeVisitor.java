@@ -3640,6 +3640,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (declaredParameterTypes.length != parameters.size()) {
             return false;
         }
+        Type[] modelParameterTypes = method.getParameterTypes();
 
         for (int i = 0; i < declaredParameterTypes.length; i++) {
             VariableReference argument = parameters.get(i);
@@ -3656,6 +3657,17 @@ public class TestCodeVisitor extends TestVisitor {
                 return true;
             }
             if (isDefinitelyInconvertibleReferenceCast(declaredParameterType, actualParameterType)) {
+                return true;
+            }
+            // javac checks the argument against the receiver's declared parameterization
+            // (eg ArrayList<IOException>.add(IOException)), but the argument is rendered
+            // against the method's own model, which can still accept it (eg add(E) with E
+            // unresolved), so neither the call nor an argument cast would be emitted.
+            if (modelParameterTypes.length == declaredParameterTypes.length
+                    && (GenericClassUtils.isAssignable(modelParameterTypes[i], actualParameterType)
+                    || (isUnresolvedTypeVariableOrWildcard(modelParameterTypes[i])
+                    && safeErasure(modelParameterTypes[i]).isAssignableFrom(
+                    ClassUtils.primitiveToWrapper(safeErasure(actualParameterType)))))) {
                 return true;
             }
         }
