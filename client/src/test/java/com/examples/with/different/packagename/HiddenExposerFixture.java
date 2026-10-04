@@ -23,6 +23,22 @@ import java.util.ArrayList;
 
 /** Like Jython exposers: only the enclosing class records the member's source privacy. */
 public class HiddenExposerFixture {
+    public static void consume(java.io.Serializable value) {
+    }
+
+    public static void consumeCloneable(Cloneable value) {
+    }
+
+    private static class CloneableOnlyExposer implements Cloneable {
+        public CloneableOnlyExposer(String value) {
+        }
+    }
+
+    private static class MarkerOnlyExposer implements java.io.Serializable {
+        public MarkerOnlyExposer(String value) {
+        }
+    }
+
     private static class MarkerExposer extends MarkerExposerApi {
         public MarkerExposer(String value) {
         }

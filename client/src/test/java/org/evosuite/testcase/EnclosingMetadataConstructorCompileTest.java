@@ -53,7 +53,21 @@ public class EnclosingMetadataConstructorCompileTest {
         renderAndCompile("MarkerExposer", MarkerExposerApi.class);
     }
 
+    @Test
+    public void directMarkerInterfaceRemainsUsableAsAConsumerArgument() throws Exception {
+        renderAndCompile("MarkerOnlyExposer", java.io.Serializable.class, true);
+    }
+
+    @Test
+    public void directCloneableInterfaceRemainsUsableAsAConsumerArgument() throws Exception {
+        renderAndCompile("CloneableOnlyExposer", Cloneable.class, true);
+    }
+
     private void renderAndCompile(String memberName, Class<?> api) throws Exception {
+        renderAndCompile(memberName, api, false);
+    }
+
+    private void renderAndCompile(String memberName, Class<?> api, boolean consumer) throws Exception {
         String binaryName = HiddenExposerFixture.class.getName() + "$" + memberName;
         ClassLoader loader = new ClassLoader(getClass().getClassLoader()) {
             @Override
@@ -101,9 +115,16 @@ public class EnclosingMetadataConstructorCompileTest {
             VariableReference instance = test.addStatement(new ConstructorStatement(test,
                     new GenericConstructor(exposer.getConstructor(String.class), exposer),
                     Collections.singletonList(label)));
-            test.addStatement(new MethodStatement(test,
-                    new GenericMethod(api.getMethod("size"), exposer), instance,
-                    Collections.emptyList()));
+            if (consumer) {
+                String methodName = api == Cloneable.class ? "consumeCloneable" : "consume";
+                test.addStatement(new MethodStatement(test,
+                        new GenericMethod(HiddenExposerFixture.class.getMethod(methodName, api),
+                                HiddenExposerFixture.class), null, Collections.singletonList(instance)));
+            } else {
+                test.addStatement(new MethodStatement(test,
+                        new GenericMethod(api.getMethod("size"), exposer), instance,
+                        Collections.emptyList()));
+            }
             TestCodeVisitor visitor = new TestCodeVisitor();
             test.accept(visitor);
             StringBuilder source = new StringBuilder("package org.evosuite.testcase;\n");

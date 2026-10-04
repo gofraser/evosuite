@@ -4780,12 +4780,12 @@ public class TestCodeVisitor extends TestVisitor {
      * interface is far more likely to carry the API that later statements in the
      * generated test actually invoke on the variable. The superclass chain, by
      * contrast, commonly bottoms out at {@code Object}, which offers nothing useful.
-     * Marker interfaces with no instance methods are skipped: declaring a Jython
-     * exposer as Serializable would hide the PyObject/PyBuiltinCallable API inherited
-     * from its accessible superclass. Direct interfaces are tried before inherited
-     * ones (breadth-first), and the superclass chain is consulted once no usable
-     * accessible interface is found at
-     * all. {@code Object} -- always accessible -- is the ultimate fallback, so this
+     * A marker interface with no instance methods is replaced by the nearest
+     * accessible superclass only when that superclass also implements the marker.
+     * This keeps Jython's inherited PyObject/PyBuiltinCallable API visible without
+     * losing the Serializable/Cloneable typing of classes that implement a marker
+     * directly. Direct interfaces are tried before inherited ones (breadth-first).
+     * {@code Object} -- always accessible -- is the ultimate fallback, so this
      * method never returns {@code null}.
      *
      * @param inaccessibleType the (possibly source-private) declaring class of a
@@ -4795,7 +4795,6 @@ public class TestCodeVisitor extends TestVisitor {
      */
     private static Class<?> findAccessibleRenderableSupertype(Class<?> inaccessibleType) {
         String testPackageName = getGeneratedTestPackageName();
-
         Deque<Class<?>> interfaceQueue = new ArrayDeque<>();
         Set<Class<?>> seenInterfaces = new LinkedHashSet<>();
         for (Class<?> current = inaccessibleType; current != null; current = current.getSuperclass()) {
@@ -4807,8 +4806,13 @@ public class TestCodeVisitor extends TestVisitor {
         }
         while (!interfaceQueue.isEmpty()) {
             Class<?> iface = interfaceQueue.removeFirst();
-            if (isTypeAccessibleFromGeneratedTest(iface, testPackageName)
-                    && hasInstanceMethods(iface)) {
+            if (isTypeAccessibleFromGeneratedTest(iface, testPackageName)) {
+                if (!hasInstanceMethods(iface)) {
+                    Class<?> superclass = findAccessibleSuperclass(inaccessibleType, testPackageName);
+                    if (iface.isAssignableFrom(superclass)) {
+                        return superclass;
+                    }
+                }
                 return iface;
             }
             for (Class<?> superInterface : iface.getInterfaces()) {
@@ -4818,15 +4822,15 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
 
-        for (Class<?> current = inaccessibleType.getSuperclass(); current != null;
-             current = current.getSuperclass()) {
+        return findAccessibleSuperclass(inaccessibleType, testPackageName);
+    }
+
+    private static Class<?> findAccessibleSuperclass(Class<?> type, String testPackageName) {
+        for (Class<?> current = type.getSuperclass(); current != null; current = current.getSuperclass()) {
             if (isTypeAccessibleFromGeneratedTest(current, testPackageName)) {
                 return current;
             }
         }
-
-        // Object is always public, so the loop above is guaranteed to return before
-        // this point is reached; kept as an explicit, documented default.
         return Object.class;
     }
 
