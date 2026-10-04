@@ -19,7 +19,6 @@
  */
 package org.evosuite.testcase;
 
-import com.googlecode.gentyref.GenericTypeReflector;
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.runtime.util.Inputs;
@@ -219,7 +218,7 @@ public class StatementFactory {
 
         Type enclosingType;
         try {
-            enclosingType = GenericTypeReflector.getExactSuperType(
+            enclosingType = GenericUtils.getExactSuperType(
                     enclosingArgument.getType(), innerClass.getDeclaringClass());
         } catch (RuntimeException e) {
             logger.debug("Cannot resolve enclosing type for {}", constructor, e);

@@ -77,17 +77,21 @@ public class InnerClassOwnerCompileTest {
     }
 
     private String originalTargetClass;
+    private double originalObjectReuseProbability;
 
     @BeforeEach
     public void setUp() {
         originalTargetClass = Properties.TARGET_CLASS;
+        originalObjectReuseProbability = Properties.OBJECT_REUSE_PROBABILITY;
         Properties.TARGET_CLASS = InnerClassOwnerCompileTest.class.getName();
+        Properties.OBJECT_REUSE_PROBABILITY = 1.0;
         Properties.resetTargetClass();
     }
 
     @AfterEach
     public void tearDown() {
         Properties.TARGET_CLASS = originalTargetClass;
+        Properties.OBJECT_REUSE_PROBABILITY = originalObjectReuseProbability;
         Properties.resetTargetClass();
     }
 
