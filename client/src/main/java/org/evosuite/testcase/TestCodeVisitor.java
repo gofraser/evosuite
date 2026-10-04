@@ -4342,20 +4342,29 @@ public class TestCodeVisitor extends TestVisitor {
      * owner type that agrees with the enclosing instance keeps its qualifier.
      */
     private Type withEnclosingInstanceOwner(Type ownerType, VariableReference enclosingInstance) {
-        Type enclosingType = enclosingInstance.getType();
         Class<?> rawInner = safeErasure(ownerType);
-        if (rawInner == null || !(enclosingType instanceof ParameterizedType)
-                || safeErasure(enclosingType) != rawInner.getDeclaringClass()) {
+        if (rawInner == null || rawInner.getDeclaringClass() == null
+                || !(ownerType instanceof ParameterizedType)
+                || !(((ParameterizedType) ownerType).getOwnerType() instanceof ParameterizedType)) {
             return ownerType;
         }
-        if (ownerType instanceof ParameterizedType
-                && !enclosingType.equals(((ParameterizedType) ownerType).getOwnerType())) {
-            // The model's instantiation of the outer disagrees with the enclosing instance's
-            // declared type; later calls are chosen against the model, so a qualified
-            // declaration would only move the compile error. Stay raw.
-            return rawInner;
+        // The enclosing instance may only inherit the outer class (class Derived extends
+        // Outer<String>), so look at its supertype that is the inner class's declaring class.
+        Type enclosingOuter = null;
+        try {
+            enclosingOuter = GenericUtils.getExactSuperType(
+                    enclosingInstance.getType(), rawInner.getDeclaringClass());
+        } catch (RuntimeException e) {
+            // unresolvable: fall through to the raw declaration
         }
-        return ownerType;
+        if (enclosingOuter instanceof ParameterizedType
+                && enclosingOuter.equals(((ParameterizedType) ownerType).getOwnerType())) {
+            return ownerType;
+        }
+        // The model's instantiation of the outer disagrees with, or cannot be reconciled with,
+        // the enclosing instance's type; later calls are chosen against the model, so a
+        // qualified declaration would only move the compile error. Stay raw.
+        return rawInner;
     }
 
     private String getSimpleConstructorInvocationTypeName(Type type) {

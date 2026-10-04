@@ -59,6 +59,18 @@ public class InnerClassOwnerCompileTest {
         }
     }
 
+    public static class Derived extends Outer<String> {
+    }
+
+    public static class Holder<U> {
+        public static class NestedDerived extends Outer<String> {
+        }
+    }
+
+    public static int useString(String value) {
+        return value == null ? 0 : value.length();
+    }
+
     public static int use(Integer value) {
         return value == null ? 0 : value;
     }
@@ -110,6 +122,65 @@ public class InnerClassOwnerCompileTest {
         assertCompiles(tc);
     }
 
+    /**
+     * The enclosing instance's class only inherits the outer's type arguments
+     * (Derived extends Outer&lt;String&gt;); a model owner of Outer&lt;Integer&gt;.Inner
+     * disagrees with them and must not be declared.
+     */
+    @Test
+    public void testInnerOfSubclassOfInstantiatedOuterDisagreeingModelCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference derived = addDerived(tc);
+        Type modelOwner = TypeUtils.parameterizeWithOwner(
+                TypeUtils.parameterize(Outer.class, Integer.class), Outer.Inner.class);
+        addInner(tc, modelOwner, derived);
+        assertCompiles(tc);
+    }
+
+    @Test
+    public void testInnerOfSubclassOfInstantiatedOuterAgreeingModelKeepsTypeArgument()
+            throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference derived = addDerived(tc);
+        Type modelOwner = TypeUtils.parameterizeWithOwner(
+                TypeUtils.parameterize(Outer.class, String.class), Outer.Inner.class);
+        addInner(tc, modelOwner, derived);
+        String code = assertCompiles(tc);
+        assertTrue(code.contains("Outer<String>.Inner"), code);
+    }
+
+    /**
+     * gentyref treats a static nested class of a generic outer (Holder.NestedDerived) as raw
+     * and erases its supertype to Outer, which would declare the raw Outer.Inner and make
+     * {@code String value = inner.next()} fail to compile.
+     */
+    @Test
+    public void testInnerOfStaticNestedSubclassOfGenericHolderKeepsTypeArgument() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference derived = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Holder.NestedDerived.class.getConstructor(),
+                        Holder.NestedDerived.class),
+                Arrays.asList()));
+        Type innerType = TypeUtils.parameterizeWithOwner(
+                TypeUtils.parameterize(Outer.class, String.class), Outer.Inner.class);
+        VariableReference inner = addInner(tc, innerType, derived);
+        GenericMethod next = new GenericMethod(Outer.Inner.class.getMethod("next"), innerType);
+        VariableReference element = tc.addStatement(
+                new MethodStatement(tc, next, inner, Arrays.asList()));
+        GenericMethod use = new GenericMethod(
+                InnerClassOwnerCompileTest.class.getMethod("useString", String.class),
+                InnerClassOwnerCompileTest.class);
+        tc.addStatement(new MethodStatement(tc, use, null, Arrays.asList(element)));
+        String code = assertCompiles(tc);
+        assertTrue(code.contains("Outer<String>.Inner"), code);
+    }
+
+    private static VariableReference addDerived(TestCase tc) throws Exception {
+        return tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(Derived.class.getConstructor(), Derived.class),
+                Arrays.asList()));
+    }
+
     private static VariableReference addOuter(TestCase tc, Type outerType) throws Exception {
         return tc.addStatement(new ConstructorStatement(tc,
                 new GenericConstructor(Outer.class.getConstructor(), outerType),
@@ -123,7 +194,7 @@ public class InnerClassOwnerCompileTest {
                 Arrays.asList(outer)));
     }
 
-    private static void assertCompiles(TestCase tc) {
+    private static String assertCompiles(TestCase tc) {
         TestCodeVisitor visitor = new TestCodeVisitor();
         tc.accept(visitor);
         String code = visitor.getCode();
@@ -146,5 +217,6 @@ public class InnerClassOwnerCompileTest {
         JavacScratchCompiler.Result result = JavacScratchCompiler.compile(
                 "evosuite-inner-owner", className, source.toString());
         assertTrue(result.success, "Rendered test did not compile:\n" + source + "\n" + result.stderr);
+        return code;
     }
 }
