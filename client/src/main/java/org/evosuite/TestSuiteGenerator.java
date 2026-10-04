@@ -1945,7 +1945,7 @@ public class TestSuiteGenerator {
                 && renderedSuite.totalLengthOfTestCases() <= inputStatements;
     }
 
-    private static TestSuiteChromosome cloneSuiteForWriting(TestSuiteChromosome source) {
+    static TestSuiteChromosome cloneSuiteForWriting(TestSuiteChromosome source) {
         TestSuiteChromosome copy = new TestSuiteChromosome();
         for (TestCase test : source.getTests()) {
             copy.addTest(test.clone());

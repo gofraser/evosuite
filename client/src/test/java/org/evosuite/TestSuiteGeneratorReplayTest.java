@@ -72,6 +72,38 @@ class TestSuiteGeneratorReplayTest {
     }
 
     @Test
+    void unstableTestIsRenderedWithCommentedFailAfterCloneForWriting() throws Exception {
+        boolean old = org.evosuite.Properties.CATCH_UNDECLARED_EXCEPTIONS;
+        org.evosuite.Properties.CATCH_UNDECLARED_EXCEPTIONS = true;
+        try {
+            DefaultTestCase test = new DefaultTestCase();
+            org.evosuite.testcase.statements.ConstructorStatement ctor =
+                    new org.evosuite.testcase.statements.ConstructorStatement(test,
+                            new org.evosuite.utils.generic.GenericConstructor(
+                                    Object.class.getConstructor(), Object.class),
+                            java.util.Collections.<org.evosuite.testcase.variable.VariableReference>emptyList());
+            test.addStatement(ctor);
+            test.setUnstable(true);
+            TestSuiteChromosome suite = suiteContaining(test);
+
+            TestSuiteChromosome written = TestSuiteGenerator.cloneSuiteForWriting(suite);
+            TestCase writtenTest = written.getTestChromosome(0).getTestCase();
+            assertTrue(writtenTest.isUnstable());
+
+            org.evosuite.testcase.TestCodeVisitor visitor = new org.evosuite.testcase.TestCodeVisitor();
+            visitor.setExceptions(java.util.Collections.singletonMap(0, new NullPointerException("x")));
+            writtenTest.accept(visitor);
+            String code = visitor.getCode();
+
+            assertTrue(code.contains("// fail(\"Expecting exception: NullPointerException\");"), code);
+            assertTrue(code.contains("Unstable assertion"), code);
+            assertFalse(code.matches("(?s).*(^|\\n)\\s*fail\\(.*"), code);
+        } finally {
+            org.evosuite.Properties.CATCH_UNDECLARED_EXCEPTIONS = old;
+        }
+    }
+
+    @Test
     void hybridRestoreRetainsMutationAssertionsWhenLlmOracleIsRejected() {
         TestSuiteChromosome suite = suiteWithValue(7);
         TestCase mutationSource = suite.getTestChromosome(0).getTestCase();

@@ -444,6 +444,9 @@ public class DefaultTestCase implements TestCase, Serializable {
         t.coveredGoals.addAll(coveredGoals);
         t.accessedEnvironment.copyFrom(accessedEnvironment);
         t.isFailing = isFailing;
+        // The JUnitAnalyzer verdict decides whether TestCodeVisitor comments out
+        // fail()/assertions, so a clone that is rendered must keep it.
+        t.unstable = unstable;
         t.id = idGenerator.getAndIncrement(); //always create new ID when making a clone
         //t.exception_statement = exception_statement;
         //t.exceptionThrown = exceptionThrown;
