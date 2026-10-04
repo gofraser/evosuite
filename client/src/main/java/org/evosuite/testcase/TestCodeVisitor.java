@@ -4590,8 +4590,19 @@ public class TestCodeVisitor extends TestVisitor {
      *         source-private
      */
     private static boolean isDeclaredTypeNameableInGeneratedTest(Class<?> type) {
+        String testPackageName = getGeneratedTestPackageName();
         for (Class<?> current = type; current != null; current = current.getEnclosingClass()) {
-            if (Modifier.isPrivate(current.getModifiers())) {
+            int modifiers = current.getModifiers();
+            if (Modifier.isPrivate(modifiers)) {
+                return false;
+            }
+            // A non-public type of another package cannot be named either (xerces'
+            // package-private PSVIErrorList, built through the reflective constructor
+            // fallback). Only types of the class under test's package are promoted by the
+            // instrumentation, so outside that package the public flag is truthful. With no
+            // known test package the long-standing optimism stays.
+            if (!Modifier.isPublic(modifiers) && !isEmptyPackageName(testPackageName)
+                    && !isSamePackage(current, testPackageName)) {
                 return false;
             }
         }
