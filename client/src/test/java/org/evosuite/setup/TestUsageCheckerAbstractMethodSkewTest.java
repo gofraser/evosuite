@@ -277,6 +277,56 @@ class TestUsageCheckerAbstractMethodSkewTest {
                 "String value() does not implement Object value() without a bridge");
     }
 
+    @Test
+    void canUseFindsInheritedImplementationDespiteMissingSignatureType() throws Exception {
+        FixtureClassLoader loader = new FixtureClassLoader();
+        Class<?> iface = loader.define("org.evosuite.setup.vskew.SkewInterface", buildInterfaceBytes());
+        loader.define("org.evosuite.setup.vskew.SkewImpl", buildImplBytes());
+        Class<?> owner = loader.define("org.evosuite.setup.vskew.MissingSignatureOwner",
+                missingSignatureBytes(IMPL_INTERNAL_NAME));
+        Method declared = iface.getMethod("value");
+
+        Assertions.assertThrows(NoClassDefFoundError.class, owner::getMethods);
+        Assertions.assertThrows(NoClassDefFoundError.class, owner::getDeclaredMethods);
+        Assertions.assertEquals(42, declared.invoke(owner.getDeclaredConstructor().newInstance()));
+        Assertions.assertTrue(TestUsageChecker.canUse(declared, owner),
+                "the superclass implementation remains inspectable despite the owner's missing type");
+    }
+
+    @Test
+    void missingSignatureDoesNotMakeAnUnimplementedAbstractMethodUsable() throws Exception {
+        FixtureClassLoader loader = new FixtureClassLoader();
+        Class<?> iface = loader.define("org.evosuite.setup.vskew.SkewInterface", buildInterfaceBytes());
+        loader.define("org.evosuite.setup.vskew.SkewGap", buildGapBytes());
+        Class<?> owner = loader.define("org.evosuite.setup.vskew.MissingSignatureOwner",
+                missingSignatureBytes(GAP_INTERNAL_NAME));
+
+        Assertions.assertThrows(NoClassDefFoundError.class, owner::getMethods);
+        Assertions.assertFalse(TestUsageChecker.canUse(iface.getMethod("value"), owner));
+    }
+
+    private static byte[] missingSignatureBytes(String superclass) {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+                "org/evosuite/setup/vskew/MissingSignatureOwner", null, superclass, null);
+        MethodVisitor ctor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
+        ctor.visitCode();
+        ctor.visitVarInsn(Opcodes.ALOAD, 0);
+        ctor.visitMethodInsn(Opcodes.INVOKESPECIAL, superclass, "<init>", "()V", false);
+        ctor.visitInsn(Opcodes.RETURN);
+        ctor.visitMaxs(1, 1);
+        ctor.visitEnd();
+        MethodVisitor unrelated = cw.visitMethod(Opcodes.ACC_PUBLIC, "unrelated",
+                "()Lorg/evosuite/setup/vskew/AbsentSignatureType;", null, null);
+        unrelated.visitCode();
+        unrelated.visitInsn(Opcodes.ACONST_NULL);
+        unrelated.visitInsn(Opcodes.ARETURN);
+        unrelated.visitMaxs(1, 1);
+        unrelated.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
     private static byte[] objectValueInterfaceBytes() {
         ClassWriter cw = new ClassWriter(0);
         cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,

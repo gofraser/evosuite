@@ -651,20 +651,42 @@ public class TestUsageChecker {
     private static boolean hasConcreteImplementation(Class<?> ownerClass, Method abstractMethod) {
         try {
             for (Method candidate : ownerClass.getMethods()) {
-                if (!Modifier.isAbstract(candidate.getModifiers())
-                        && !Modifier.isStatic(candidate.getModifiers())
-                        && candidate.getName().equals(abstractMethod.getName())
-                        && candidate.getReturnType().equals(abstractMethod.getReturnType())
-                        && Arrays.equals(candidate.getParameterTypes(),
-                        abstractMethod.getParameterTypes())) {
+                if (matchesDescriptor(candidate, abstractMethod) && isConcretePublicMethod(candidate)) {
                     return true;
                 }
             }
+            return false;
         } catch (Throwable t) {
-            // A class whose methods cannot be enumerated: keep the conservative rejection.
+            // A missing type in an unrelated signature can prevent getMethods() from linking
+            // the whole hierarchy. Individual superclass declarations may still be inspectable.
             logger.debug("Cannot enumerate methods of " + ownerClass.getName() + ": " + t);
         }
+        for (Class<?> current = ownerClass; current != null; current = current.getSuperclass()) {
+            try {
+                for (Method candidate : current.getDeclaredMethods()) {
+                    if (matchesDescriptor(candidate, abstractMethod)) {
+                        // Stop at the nearest declaration: an abstract override must not expose
+                        // a concrete implementation which it hides farther up the hierarchy.
+                        return isConcretePublicMethod(candidate);
+                    }
+                }
+            } catch (Throwable t) {
+                logger.debug("Cannot enumerate declared methods of " + current.getName() + ": " + t);
+            }
+        }
         return false;
+    }
+
+    private static boolean isConcretePublicMethod(Method method) {
+        int modifiers = method.getModifiers();
+        return Modifier.isPublic(modifiers) && !Modifier.isAbstract(modifiers)
+                && !Modifier.isStatic(modifiers);
+    }
+
+    private static boolean matchesDescriptor(Method candidate, Method method) {
+        return candidate.getName().equals(method.getName())
+                && candidate.getReturnType().equals(method.getReturnType())
+                && Arrays.equals(candidate.getParameterTypes(), method.getParameterTypes());
     }
 
     /**
