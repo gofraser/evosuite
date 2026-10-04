@@ -23,6 +23,11 @@ import java.util.ArrayList;
 
 /** Like Jython exposers: only the enclosing class records the member's source privacy. */
 public class HiddenExposerFixture {
+    private static class MarkerExposer extends MarkerExposerApi {
+        public MarkerExposer(String value) {
+        }
+    }
+
     private static class HiddenExposer extends ArrayList<String> {
         public HiddenExposer(String value) {
             add(value);

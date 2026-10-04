@@ -4780,8 +4780,11 @@ public class TestCodeVisitor extends TestVisitor {
      * interface is far more likely to carry the API that later statements in the
      * generated test actually invoke on the variable. The superclass chain, by
      * contrast, commonly bottoms out at {@code Object}, which offers nothing useful.
-     * Direct interfaces are tried before inherited ones (breadth-first), and the
-     * superclass chain is only consulted once no accessible interface is found at
+     * Marker interfaces with no instance methods are skipped: declaring a Jython
+     * exposer as Serializable would hide the PyObject/PyBuiltinCallable API inherited
+     * from its accessible superclass. Direct interfaces are tried before inherited
+     * ones (breadth-first), and the superclass chain is consulted once no usable
+     * accessible interface is found at
      * all. {@code Object} -- always accessible -- is the ultimate fallback, so this
      * method never returns {@code null}.
      *
@@ -4804,7 +4807,8 @@ public class TestCodeVisitor extends TestVisitor {
         }
         while (!interfaceQueue.isEmpty()) {
             Class<?> iface = interfaceQueue.removeFirst();
-            if (isTypeAccessibleFromGeneratedTest(iface, testPackageName)) {
+            if (isTypeAccessibleFromGeneratedTest(iface, testPackageName)
+                    && hasInstanceMethods(iface)) {
                 return iface;
             }
             for (Class<?> superInterface : iface.getInterfaces()) {
@@ -4824,6 +4828,20 @@ public class TestCodeVisitor extends TestVisitor {
         // Object is always public, so the loop above is guaranteed to return before
         // this point is reached; kept as an explicit, documented default.
         return Object.class;
+    }
+
+    private static boolean hasInstanceMethods(Class<?> iface) {
+        try {
+            for (Method method : iface.getMethods()) {
+                if (!Modifier.isStatic(method.getModifiers())) {
+                    return true;
+                }
+            }
+        } catch (RuntimeException | LinkageError exception) {
+            // A type whose API cannot be linked is not a useful declared receiver.
+            logger.debug("Cannot inspect interface methods for {}", iface.getName(), exception);
+        }
+        return false;
     }
 
     /**

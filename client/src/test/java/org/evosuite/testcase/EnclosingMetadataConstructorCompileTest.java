@@ -20,6 +20,7 @@
 package org.evosuite.testcase;
 
 import com.examples.with.different.packagename.HiddenExposerFixture;
+import com.examples.with.different.packagename.MarkerExposerApi;
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
@@ -44,7 +45,16 @@ import static org.junit.jupiter.api.Assertions.*;
 public class EnclosingMetadataConstructorCompileTest {
     @Test
     public void privateMemberWithoutItsOwnInnerClassesAttributeCompiles() throws Exception {
-        String binaryName = HiddenExposerFixture.class.getName() + "$HiddenExposer";
+        renderAndCompile("HiddenExposer", ArrayList.class);
+    }
+
+    @Test
+    public void inheritedMarkerInterfaceDoesNotHideSuperclassApi() throws Exception {
+        renderAndCompile("MarkerExposer", MarkerExposerApi.class);
+    }
+
+    private void renderAndCompile(String memberName, Class<?> api) throws Exception {
+        String binaryName = HiddenExposerFixture.class.getName() + "$" + memberName;
         ClassLoader loader = new ClassLoader(getClass().getClassLoader()) {
             @Override
             protected Class<?> loadClass(String name, boolean resolve) throws ClassNotFoundException {
@@ -92,7 +102,7 @@ public class EnclosingMetadataConstructorCompileTest {
                     new GenericConstructor(exposer.getConstructor(String.class), exposer),
                     Collections.singletonList(label)));
             test.addStatement(new MethodStatement(test,
-                    new GenericMethod(ArrayList.class.getMethod("size"), exposer), instance,
+                    new GenericMethod(api.getMethod("size"), exposer), instance,
                     Collections.emptyList()));
             TestCodeVisitor visitor = new TestCodeVisitor();
             test.accept(visitor);
