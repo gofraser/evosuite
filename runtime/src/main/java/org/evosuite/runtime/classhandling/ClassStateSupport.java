@@ -73,6 +73,7 @@ public class ClassStateSupport {
 
         if (RuntimeSettings.isUsingAnyMocking() || RuntimeSettings.resetStaticState) {
 
+            List<Class<?>> notInstrumented = new ArrayList<>();
             for (Class<?> clazz : classes) {
 
                 if (clazz.isInterface()) {
@@ -84,6 +85,7 @@ public class ClassStateSupport {
                 }
 
                 if (!InstrumentedClass.class.isAssignableFrom(clazz)) {
+                    notInstrumented.add(clazz);
                     String msg = "Class " + clazz.getName() + " was not instrumented by EvoSuite. "
                             + "This can happen during the initial JUnit verification pass with "
                             + "NonInstrumentingClassLoader and breaks EvoSuite features that depend on "
@@ -93,6 +95,16 @@ public class ClassStateSupport {
                     nonInstrumentedClassDetected = true;
                     problem = true;
                 }
+            }
+            /*
+             * A class that the JVM loaded before the agent was active (typically while
+             * verifying the test class, whose bytecode passes a SUT value where a
+             * superclass is expected) stays uninstrumented, so its file, network and
+             * System.exit calls would reach the real JDK. Re-instrument what can still be
+             * re-instrumented: method bodies are rewritten, the class shape is not.
+             */
+            if (!notInstrumented.isEmpty() && RuntimeSettings.isUsingAnyMocking()) {
+                retransformIfNeeded(notInstrumented);
             }
         }
 
