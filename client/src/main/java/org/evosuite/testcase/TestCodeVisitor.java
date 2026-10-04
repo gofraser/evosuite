@@ -241,7 +241,9 @@ public class TestCodeVisitor extends TestVisitor {
 
     private String getTypeName(ParameterizedType type) {
         Class<?> rawClass = (Class<?>) type.getRawType();
-        String name = getClassName(rawClass);
+        String ownerQualifier = getParameterizedOwnerQualifier(type);
+        String name = ownerQualifier.isEmpty()
+                ? getClassName(rawClass) : ownerQualifier + rawClass.getSimpleName();
         Type[] types = type.getActualTypeArguments();
         boolean isDefined = false;
         for (Type parameterType : types) {
@@ -276,6 +278,25 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
         return name;
+    }
+
+    /**
+     * For a non-static inner class of a generic outer class, the qualifier that carries the
+     * owner's type arguments (eg {@code LazyList<Integer>.}); empty when the owner is not
+     * parameterised. Without it the declaration is the raw {@code LazyList.LazyListIterator},
+     * whose members are all erased.
+     */
+    private String getParameterizedOwnerQualifier(ParameterizedType type) {
+        if (!(type.getOwnerType() instanceof ParameterizedType)
+                || !(type.getRawType() instanceof Class<?>)) {
+            return "";
+        }
+        Class<?> rawClass = (Class<?>) type.getRawType();
+        if (Modifier.isStatic(rawClass.getModifiers())) {
+            return "";
+        }
+        String owner = getTypeName((ParameterizedType) type.getOwnerType());
+        return owner.indexOf('<') < 0 ? "" : owner + ".";
     }
 
     /**
@@ -4162,6 +4183,12 @@ public class TestCodeVisitor extends TestVisitor {
 
     private String getSimpleTypeName(Type type) {
         String typeName = getTypeName(type);
+        if (type instanceof ParameterizedType) {
+            String qualifier = getParameterizedOwnerQualifier((ParameterizedType) type);
+            if (!qualifier.isEmpty() && typeName.startsWith(qualifier)) {
+                return typeName.substring(qualifier.length());
+            }
+        }
         int dotIndex = typeName.lastIndexOf(".");
         if (dotIndex >= 0 && (dotIndex + 1) < typeName.length()) {
             typeName = typeName.substring(dotIndex + 1);
@@ -4229,6 +4256,30 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
         return getTypeName(type);
+    }
+
+    /**
+     * The type javac gives {@code outer.new Inner(...)} is {@code Outer<X>.Inner}, where X comes
+     * from the declared type of the enclosing instance, not from the constructor model's own
+     * owner type (which can carry a different instantiation of the outer's type parameters).
+     * Declaring the variable with the model's owner type then fails to compile, so only an
+     * owner type that agrees with the enclosing instance keeps its qualifier.
+     */
+    private Type withEnclosingInstanceOwner(Type ownerType, VariableReference enclosingInstance) {
+        Type enclosingType = enclosingInstance.getType();
+        Class<?> rawInner = safeErasure(ownerType);
+        if (rawInner == null || !(enclosingType instanceof ParameterizedType)
+                || safeErasure(enclosingType) != rawInner.getDeclaringClass()) {
+            return ownerType;
+        }
+        if (ownerType instanceof ParameterizedType
+                && !enclosingType.equals(((ParameterizedType) ownerType).getOwnerType())) {
+            // The model's instantiation of the outer disagrees with the enclosing instance's
+            // declared type; later calls are chosen against the model, so a qualified
+            // declaration would only move the compile error. Stay raw.
+            return rawInner;
+        }
+        return ownerType;
     }
 
     private String getSimpleConstructorInvocationTypeName(Type type) {
@@ -4303,7 +4354,9 @@ public class TestCodeVisitor extends TestVisitor {
         // fall back to the nearest accessible supertype instead.
         boolean constructorAccessible = isSourceAccessibleFromGeneratedTest(rawConstructor);
         String constructorTypeName = isDeclaredTypeNameableInGeneratedTest(rawConstructor.getDeclaringClass())
-                ? getTypeName(constructor.getOwnerType())
+                ? getTypeName(isNonStaticMemberClass
+                ? withEnclosingInstanceOwner(constructor.getOwnerType(), parameters.get(0))
+                : constructor.getOwnerType())
                 : getTypeName(findAccessibleRenderableSupertype(rawConstructor.getDeclaringClass()));
 
         // The declaration prefix ("Type ") is prepended at the point where the
