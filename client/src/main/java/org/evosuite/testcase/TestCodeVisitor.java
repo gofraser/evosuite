@@ -4915,6 +4915,33 @@ public class TestCodeVisitor extends TestVisitor {
                     && !targetArgs[i].equals(valueArgs[i])) {
                 return true;
             }
+            // An unresolved type variable in the value's type (eg the constructor's E leaking
+            // into LinkedHashMap<E, Boolean>) is declared as "?". A G<?> variable cannot be
+            // passed, nor cast with a plain cast skipped, where G<String> is expected, even
+            // though erasure-based assignability accepts it.
+            if (valueArgs[i] instanceof TypeVariable && requiresExactTypeArgument(targetArgs[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** True when {@code typeArgument} is anything other than an unbounded wildcard or type variable. */
+    private boolean requiresExactTypeArgument(Type typeArgument) {
+        if (typeArgument instanceof Class<?> || typeArgument instanceof ParameterizedType
+                || typeArgument instanceof GenericArrayType) {
+            return true;
+        }
+        if (typeArgument instanceof WildcardType) {
+            WildcardType wildcard = (WildcardType) typeArgument;
+            if (wildcard.getLowerBounds().length > 0) {
+                return true;
+            }
+            for (Type upper : wildcard.getUpperBounds()) {
+                if (upper != null && !Object.class.equals(upper)) {
+                    return true;
+                }
+            }
         }
         return false;
     }
