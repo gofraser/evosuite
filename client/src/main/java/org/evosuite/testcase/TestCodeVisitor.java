@@ -764,7 +764,7 @@ public class TestCodeVisitor extends TestVisitor {
         if (!isTypeAccessibleFromGeneratedTest(field.getDeclaringClass(), testPackageName)) {
             return false;
         }
-        int modifiers = field.getModifiers();
+        int modifiers = TestUsageChecker.getOriginalFieldModifiers(field);
         if (Modifier.isPublic(modifiers)) {
             return true;
         }
@@ -776,7 +776,14 @@ public class TestCodeVisitor extends TestVisitor {
         if (isEmptyPackageName(testPackageName)) {
             return false;
         }
-        return isSamePackage(field.getDeclaringClass(), testPackageName);
+        if (!isSamePackage(field.getDeclaringClass(), testPackageName)) {
+            return false;
+        }
+        // A package-private field is not inherited by a subclass in another
+        // package. FieldStatement emits receiver.field without FieldReference's
+        // declaring-type cast, so use the shared reflective path for that receiver.
+        return Modifier.isProtected(modifiers) || source == null
+                || isSamePackage(getRenderedDeclarationClass(source), testPackageName);
     }
 
     private String getReflectiveFieldAccess(Field field, VariableReference source) {
