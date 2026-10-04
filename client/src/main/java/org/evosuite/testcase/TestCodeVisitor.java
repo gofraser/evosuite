@@ -59,9 +59,14 @@ import org.evosuite.utils.NumberFormatter;
 import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.StringUtil;
 import org.evosuite.utils.generic.*;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.*;
 import java.net.URLClassLoader;
 import java.util.*;
@@ -4729,6 +4734,9 @@ public class TestCodeVisitor extends TestVisitor {
      */
     private static boolean isDeclaredTypeNameableInGeneratedTest(Class<?> type) {
         String testPackageName = getGeneratedTestPackageName();
+        if (hasInaccessibleEnclosingMetadata(type, testPackageName)) {
+            return false;
+        }
         for (Class<?> current = type; current != null; current = current.getEnclosingClass()) {
             int modifiers = current.getModifiers();
             if (Modifier.isPrivate(modifiers)) {
@@ -4853,6 +4861,9 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
 
+        if (hasInaccessibleEnclosingMetadata(type, testPackageName)) {
+            return false;
+        }
         Class<?> enclosing = type.getEnclosingClass();
         if (enclosing != null && !isTypeAccessibleFromGeneratedTest(enclosing, testPackageName)) {
             return false;
@@ -4871,6 +4882,58 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
         return isSamePackage(type, testPackageName);
+    }
+
+    /**
+     * Some generated member classes (Jython's exposers) omit their own InnerClasses
+     * attribute. Reflection then reports a public top-level class, although javac
+     * reads the enclosing class's table and rejects the private member. Consult that
+     * table only when reflection has lost the enclosing type; a dollar in an ordinary
+     * top-level identifier alone does not establish nesting or make it inaccessible.
+     */
+    private static boolean hasInaccessibleEnclosingMetadata(Class<?> type, String testPackageName) {
+        if (type.getEnclosingClass() != null) {
+            return false;
+        }
+        String binaryName = type.getName();
+        int simpleNameStart = binaryName.lastIndexOf('.') + 1;
+        String internalName = binaryName.replace('.', '/');
+        ClassLoader loader = type.getClassLoader();
+        if (loader == null) {
+            return false;
+        }
+        for (int dollar = binaryName.lastIndexOf('$'); dollar > simpleNameStart;
+             dollar = binaryName.lastIndexOf('$', dollar - 1)) {
+            String resource = binaryName.substring(0, dollar).replace('.', '/') + ".class";
+            final boolean[] inaccessible = {false};
+            try (InputStream input = loader.getResourceAsStream(resource)) {
+                if (input == null) {
+                    continue;
+                }
+                new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitInnerClass(String name, String outerName, String innerName,
+                                                int access) {
+                        if (outerName != null && (internalName.equals(name)
+                                || internalName.startsWith(name + "$"))) {
+                            if (Modifier.isPrivate(access)
+                                    || (!Modifier.isPublic(access)
+                                    && !isEmptyPackageName(testPackageName)
+                                    && !isSamePackage(type, testPackageName))) {
+                                inaccessible[0] = true;
+                            }
+                        }
+                    }
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            } catch (IOException | RuntimeException exception) {
+                // Missing/unreadable metadata keeps the established reflection fallback.
+                logger.debug("Cannot inspect enclosing metadata for {}", binaryName, exception);
+            }
+            if (inaccessible[0]) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static boolean isEmptyPackageName(String packageName) {
