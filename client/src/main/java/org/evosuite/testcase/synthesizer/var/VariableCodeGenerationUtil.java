@@ -8,6 +8,7 @@ import org.evosuite.graphs.cfg.BytecodeInstruction;
 import org.evosuite.graphs.cfg.BytecodeInstructionPool;
 import org.evosuite.graphs.interprocedural.ObjectConstructionBoundary;
 import org.evosuite.runtime.instrumentation.RuntimeInstrumentation;
+import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.TestCase;
 import org.evosuite.testcase.TestFactory;
 import org.evosuite.testcase.execution.CodeUnderTestException;
@@ -552,6 +553,13 @@ public class VariableCodeGenerationUtil {
             // (for example CompoundByteTransition.expand()), leaving a public factory input
             // disconnected from the private final field it initializes.
             if (Modifier.isPrivate(method.getModifiers())) {
+                continue;
+            }
+            // javac's access$NNN stubs (and bridges) read the field but are not callable from
+            // source: the generated test would not compile. registerAllMethods() gives them a CFG,
+            // so isFieldGetter() would otherwise accept them.
+            if (method.isSynthetic() || method.isBridge()
+                    || TestUsageChecker.isCompilerGeneratedAccessorMethod(method)) {
                 continue;
             }
             boolean isValid = DataDependencyUtil.isFieldGetter(method, field);
