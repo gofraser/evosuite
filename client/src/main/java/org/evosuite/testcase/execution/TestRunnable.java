@@ -730,7 +730,17 @@ public class TestRunnable implements InterfaceTestRunnable {
                         attempt + 1);
                 return lastThrown;
             }
-            if (!tryEphemeralInjection(statement, analyzedPlan.get())) {
+            boolean injected;
+            try {
+                injected = tryEphemeralInjection(statement, analyzedPlan.get());
+            } catch (LinkageError e) {
+                // Reflection over a SUT class links the types it mentions; a missing one
+                // only makes this assist impossible.
+                logger.debug("DMoN runtime: ephemeral injection abandoned, SUT class cannot be linked: {}",
+                        e.toString());
+                injected = false;
+            }
+            if (!injected) {
                 logger.debug("DMoN runtime: cascading assist stopped [attempt={}, reason=INJECTION_FAILED]",
                         attempt + 1);
                 return lastThrown;

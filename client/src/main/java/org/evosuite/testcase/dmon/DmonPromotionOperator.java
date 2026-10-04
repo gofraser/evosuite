@@ -155,6 +155,13 @@ public final class DmonPromotionOperator {
             // back inside tryPromoteInPlace. Either way the search must not die here.
             logger.warn("DMoN promotion aborted: {}", e.toString());
             attempt = new PromotionAttempt(result, false, "UNEXPECTED_FAILURE");
+        } catch (LinkageError e) {
+            // Reflecting over a SUT class (getMethods, getDeclaredField, ...) links the
+            // types it mentions; one that is absent from the classpath raises
+            // NoClassDefFoundError here. That makes this promotion impossible, nothing more:
+            // left to propagate it ends the whole client run.
+            logger.debug("DMoN promotion abandoned, SUT class cannot be linked: {}", e.toString());
+            attempt = new PromotionAttempt(result, false, "LINKAGE_ERROR");
         }
         logger.debug("{} DMoN promotion plan at {}.{}:{} [reason={}]",
                 attempt.applied ? "Applied" : "Consumed",
