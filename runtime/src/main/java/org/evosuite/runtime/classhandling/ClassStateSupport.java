@@ -62,8 +62,10 @@ public class ClassStateSupport {
      * static mutations therefore survive resetClasses calls and can make tests
      * depend on execution order. A scaffolding static initializer or initialization
      * list cannot undo this: verification may load SUT classes before the scaffolding
-     * is initialized. Load through the InstrumentingClassLoader, or activate the
-     * agent at JVM startup before loading the tests, when static reset is required.</p>
+     * is initialized. Load through the InstrumentingClassLoader with static reset
+     * enabled, or configure static-reset instrumentation and activate the agent at
+     * JVM startup before loading the tests. Agent activation alone does not enable
+     * RuntimeSettings.resetStaticState, which defaults to false.</p>
      *
      * @param classLoader the class loader to use
      * @param classNames  the names of the classes to load
