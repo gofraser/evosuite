@@ -34,10 +34,18 @@ import org.evosuite.utils.Java9InvisiblePackage;
 import org.evosuite.utils.LoggingUtils;
 import org.junit.*;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.FileDescriptor;
+import java.io.InputStream;
+import java.net.URL;
+import java.net.JarURLConnection;
+import java.security.CodeSource;
 import java.lang.reflect.*;
 import java.text.MessageFormat;
 import java.util.*;
@@ -674,9 +682,87 @@ public class TestUsageChecker {
                 }
             } catch (Throwable t) {
                 logger.debug("Cannot enumerate declared methods of " + current.getName() + ": " + t);
+                Boolean implementation = inspectClassfileImplementation(current, abstractMethod);
+                if (implementation != null) {
+                    return implementation;
+                }
             }
         }
         return false;
+    }
+
+    /** Null means the verified class file has no matching declaration; false also covers unreadable metadata. */
+    private static Boolean inspectClassfileImplementation(Class<?> owner, Method method) {
+        String resourceName = owner.getName().replace('.', '/') + ".class";
+        try {
+            URL resource = owner.getResource("/" + resourceName);
+            if (resource == null || !matchesDefiningSource(owner, resource, resourceName)) {
+                return false;
+            }
+            try (InputStream stream = resource.openStream()) {
+                ClassReader reader = new ClassReader(stream);
+                if (!reader.getClassName().equals(owner.getName().replace('.', '/'))) {
+                    return false;
+                }
+                String descriptor = Type.getMethodDescriptor(method);
+                final Boolean[] implementation = {null};
+                reader.accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public MethodVisitor visitMethod(int access, String name, String desc,
+                                                     String signature, String[] exceptions) {
+                        if (name.equals(method.getName()) && desc.equals(descriptor)) {
+                            implementation[0] = Modifier.isPublic(access) && !Modifier.isAbstract(access)
+                                    && !Modifier.isStatic(access) && descriptorTypesMatch(owner, method);
+                        }
+                        return null;
+                    }
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+                return implementation[0];
+            }
+        } catch (Throwable t) {
+            logger.debug("Cannot inspect classfile methods of " + owner.getName() + ": " + t);
+            return false;
+        }
+    }
+
+    private static boolean matchesDefiningSource(Class<?> owner, URL resource, String resourceName)
+            throws java.io.IOException {
+        CodeSource source = owner.getProtectionDomain().getCodeSource();
+        if (source == null || source.getLocation() == null) {
+            return false;
+        }
+        String location = source.getLocation().toExternalForm();
+        // InstrumentingClassLoader records the exact class resource; URLClassLoader records its root.
+        if (location.equals(resource.toExternalForm())) {
+            return true;
+        }
+        if ("jar".equals(resource.getProtocol())) {
+            JarURLConnection connection = (JarURLConnection) resource.openConnection();
+            return location.equals(connection.getJarFileURL().toExternalForm());
+        }
+        return "file".equals(resource.getProtocol()) && "file".equals(source.getLocation().getProtocol())
+                && location.endsWith("/")
+                && new URL(source.getLocation(), resourceName).toExternalForm().equals(resource.toExternalForm());
+    }
+
+    private static boolean descriptorTypesMatch(Class<?> owner, Method method) {
+        try {
+            if (!descriptorTypeMatches(owner, method.getReturnType())) {
+                return false;
+            }
+            for (Class<?> parameter : method.getParameterTypes()) {
+                if (!descriptorTypeMatches(owner, parameter)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (ClassNotFoundException | LinkageError e) {
+            return false;
+        }
+    }
+
+    private static boolean descriptorTypeMatches(Class<?> owner, Class<?> type) throws ClassNotFoundException {
+        return type.isPrimitive() || Class.forName(type.getName(), false, owner.getClassLoader()) == type;
     }
 
     private static boolean isConcretePublicMethod(Method method) {

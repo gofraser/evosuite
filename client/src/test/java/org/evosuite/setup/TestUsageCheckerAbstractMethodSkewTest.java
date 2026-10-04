@@ -23,10 +23,19 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.CodeSource;
+import java.security.ProtectionDomain;
+import java.security.cert.Certificate;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.InvocationTargetException;
@@ -61,6 +70,9 @@ import java.lang.reflect.Modifier;
  * </ul>
  */
 class TestUsageCheckerAbstractMethodSkewTest {
+
+    @TempDir
+    private static Path fixtureRoot;
 
     private static Class<?> skewInterface;
     private static Class<?> skewImpl;
@@ -434,8 +446,40 @@ class TestUsageCheckerAbstractMethodSkewTest {
     }
 
     private static final class FixtureClassLoader extends ClassLoader {
+        private final Path directory;
+
+        FixtureClassLoader() {
+            try {
+                directory = Files.createTempDirectory(fixtureRoot, "loader-");
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
         Class<?> define(String binaryName, byte[] bytes) {
-            return defineClass(binaryName, bytes, 0, bytes.length);
+            try {
+                Path resource = directory.resolve(binaryName.replace('.', '/') + ".class");
+                Files.createDirectories(resource.getParent());
+                Files.write(resource, bytes);
+                CodeSource source = new CodeSource(directory.toUri().toURL(), (Certificate[]) null);
+                return defineClass(binaryName, bytes, 0, bytes.length,
+                        new ProtectionDomain(source, null, this, null));
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        }
+
+        @Override
+        public URL getResource(String name) {
+            Path resource = directory.resolve(name);
+            if (!Files.isRegularFile(resource)) {
+                return super.getResource(name);
+            }
+            try {
+                return resource.toUri().toURL();
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
         }
     }
 }
