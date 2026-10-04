@@ -643,15 +643,18 @@ public class TestUsageChecker {
     }
 
     /**
-     * Whether {@code ownerClass} has a public, non-abstract method with the same name and
-     * parameter types as {@code abstractMethod}, i.e. whether invoking the abstract declaration
-     * on an instance of {@code ownerClass} reaches an implementation.
+     * Whether {@code ownerClass} has a public, non-abstract, non-static method with the same
+     * name, parameter types and return type (the JVM descriptor, so a compiler-generated bridge
+     * counts) as {@code abstractMethod}, i.e. whether invoking the abstract
+     * declaration on an instance of {@code ownerClass} reaches an implementation.
      */
     private static boolean hasConcreteImplementation(Class<?> ownerClass, Method abstractMethod) {
         try {
             for (Method candidate : ownerClass.getMethods()) {
                 if (!Modifier.isAbstract(candidate.getModifiers())
+                        && !Modifier.isStatic(candidate.getModifiers())
                         && candidate.getName().equals(abstractMethod.getName())
+                        && candidate.getReturnType().equals(abstractMethod.getReturnType())
                         && Arrays.equals(candidate.getParameterTypes(),
                         abstractMethod.getParameterTypes())) {
                     return true;

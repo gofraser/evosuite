@@ -234,6 +234,75 @@ class TestUsageCheckerAbstractMethodSkewTest {
         Assertions.assertTrue(TestUsageChecker.canUse(abstractEntry, InheritedImpl.class));
     }
 
+
+    // ------------------------------------------------------------------------------------
+    // (e) the implementation must match the full JVM descriptor, return type included
+    // ------------------------------------------------------------------------------------
+
+    public interface CovariantInterface {
+        Object value();
+    }
+
+    /** javac emits the bridge {@code Object value()} for this covariant override. */
+    public static class CovariantImplWithBridge implements CovariantInterface {
+        @Override
+        public String value() {
+            return "x";
+        }
+    }
+
+    @Test
+    void canUseAcceptsCovariantOverrideBecauseJavacEmitsTheBridge() throws Exception {
+        Method declared = CovariantInterface.class.getMethod("value");
+        Assertions.assertEquals("x", declared.invoke(new CovariantImplWithBridge()),
+                "premise: the interface method is invocable on the javac-compiled class");
+        Assertions.assertTrue(TestUsageChecker.canUse(declared, CovariantImplWithBridge.class));
+    }
+
+    @Test
+    void canUseRejectsReturnTypeOnlyMatchWithoutBridge() throws Throwable {
+        FixtureClassLoader loader = new FixtureClassLoader();
+        Class<?> iface = loader.define("org.evosuite.setup.vskew.ObjIface", objectValueInterfaceBytes());
+        Class<?> impl = loader.define("org.evosuite.setup.vskew.StringOnlyImpl", stringOnlyImplBytes());
+        Method declared = iface.getMethod("value");
+        Object instance = impl.getDeclaredConstructor().newInstance();
+
+        try {
+            declared.invoke(instance);
+            Assertions.fail("premise: Object value() has no implementation, expected AbstractMethodError");
+        } catch (InvocationTargetException e) {
+            Assertions.assertTrue(e.getCause() instanceof AbstractMethodError, String.valueOf(e.getCause()));
+        }
+        Assertions.assertFalse(TestUsageChecker.canUse(declared, impl),
+                "String value() does not implement Object value() without a bridge");
+    }
+
+    private static byte[] objectValueInterfaceBytes() {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,
+                "org/evosuite/setup/vskew/ObjIface", null, "java/lang/Object", null);
+        cw.visitMethod(Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT, "value", "()Ljava/lang/Object;",
+                null, null).visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
+    private static byte[] stringOnlyImplBytes() {
+        ClassWriter cw = new ClassWriter(0);
+        cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_SUPER,
+                "org/evosuite/setup/vskew/StringOnlyImpl", null, "java/lang/Object",
+                new String[]{"org/evosuite/setup/vskew/ObjIface"});
+        writeNoArgConstructor(cw);
+        MethodVisitor value = cw.visitMethod(Opcodes.ACC_PUBLIC, "value", "()Ljava/lang/String;", null, null);
+        value.visitCode();
+        value.visitLdcInsn("x");
+        value.visitInsn(Opcodes.ARETURN);
+        value.visitMaxs(1, 1);
+        value.visitEnd();
+        cw.visitEnd();
+        return cw.toByteArray();
+    }
+
     private static byte[] buildInterfaceBytes() {
         ClassWriter cw = new ClassWriter(0);
         cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,
