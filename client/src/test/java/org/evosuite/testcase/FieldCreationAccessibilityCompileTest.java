@@ -175,6 +175,24 @@ class FieldCreationAccessibilityCompileTest {
         assertCompiles(cloned.clone());
     }
 
+    @Test
+    void dmonStaticFieldOnHiddenClassRendersWithoutInaccessibleCast() throws Exception {
+        TestCase test = new DefaultTestCase();
+        VariableReference value = test.addStatement(new IntPrimitiveStatement(test, 1));
+        Field field = com.examples.with.different.packagename.fields.HiddenStaticHolderAccess.holderClass()
+                .getDeclaredField("hiddenStatic");
+        Method builder = DmonPromotionOperator.class.getDeclaredMethod("buildStaticFieldAssignment",
+                TestCase.class, Field.class, VariableReference.class);
+        builder.setAccessible(true);
+        Statement statement = (Statement) builder.invoke(null, test, field, value);
+        test.addStatement(statement);
+        assertInstanceOf(PrivateFieldStatement.class, statement);
+        assertCompiles(test);
+        TestCase cloned = test.clone();
+        assertCompiles(cloned);
+        assertCompiles(cloned.clone());
+    }
+
     private static VariableReference addChild(TestCase test) throws Exception {
         return test.addStatement(new ConstructorStatement(test,
                 new GenericConstructor(FieldAccessChild.class.getConstructor(), FieldAccessChild.class),

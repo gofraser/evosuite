@@ -1806,7 +1806,8 @@ public class TestCodeVisitor extends TestVisitor {
                 parameterString += getPrimitiveNullCast(rawParamClass);
             } else if (isGenericMethod && !(declaredParamType instanceof WildcardType)) {
                 if (!declaredParamType.equals(actualParamType) || argumentIsNull) {
-                    parameterString += "(" + getCastTypeName(declaredParamType, actualParamType) + ") ";
+                    parameterString += "(" + getNullSafeCastTypeName(declaredParamType, actualParamType,
+                            argumentIsNull) + ") ";
                     if (name.contains("(short")) {
                         name = name.replace("(short)", "");
                     }
@@ -2130,6 +2131,24 @@ public class TestCodeVisitor extends TestVisitor {
      * type may be a compile-time error (e.g. Class&lt;LinkedList&gt; to Class&lt;LinkedList&lt;Integer&gt;&gt;).
      * In those cases we fall back to a raw Class cast.
      */
+    /**
+     * A null argument carries no value, so the cast only has to select a type. When the
+     * declared type is a class the generated test cannot name (a package-private owner in
+     * another package, as in the static-field receiver of PrivateAccess.setVariable), cast
+     * to its nearest accessible supertype instead of emitting an uncompilable cast.
+     */
+    private String getNullSafeCastTypeName(Type declaredParamType, Type actualParamType,
+                                           boolean argumentIsNull) {
+        if (argumentIsNull) {
+            Class<?> erased = safeErasure(declaredParamType);
+            if (erased != null && !erased.isPrimitive() && !erased.isArray()
+                    && !isDeclaredTypeNameableInGeneratedTest(erased)) {
+                return getTypeName(findAccessibleRenderableSupertype(erased));
+            }
+        }
+        return getCastTypeName(declaredParamType, actualParamType);
+    }
+
     private String getCastTypeName(Type declaredParamType, Type actualParamType) {
         if (requiresRawClassCast(declaredParamType, actualParamType)) {
             return getTypeName(Class.class);
