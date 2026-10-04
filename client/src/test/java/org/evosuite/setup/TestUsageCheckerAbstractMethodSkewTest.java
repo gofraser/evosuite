@@ -198,6 +198,42 @@ class TestUsageCheckerAbstractMethodSkewTest {
     private static final String GAP_INTERNAL_NAME = "org/evosuite/setup/vskew/SkewGap";
     private static final String ABSTRACT_OWNER_INTERNAL_NAME = "org/evosuite/setup/vskew/SkewAbstractOwner";
 
+    // ------------------------------------------------------------------------------------
+    // (d) an inherited implementation hidden by the cluster's merged method list
+    // ------------------------------------------------------------------------------------
+
+    public static class InheritedImplBase {
+        public int value() {
+            return 7;
+        }
+    }
+
+    public interface InheritedImplInterface {
+        int value();
+    }
+
+    /** Ordinary javac-compiled shape: the implementation comes from the superclass. */
+    public static class InheritedImpl extends InheritedImplBase implements InheritedImplInterface {
+    }
+
+    @Test
+    void canUseAcceptsAbstractDeclarationWhoseImplementationIsInherited() throws Exception {
+        // TestClusterUtils.getMethods lets the interface's declaration replace the superclass
+        // implementation, so the cluster hands canUse an abstract Method on a concrete owner.
+        Method abstractEntry = null;
+        for (Method m : TestClusterUtils.getMethods(InheritedImpl.class)) {
+            if (m.getName().equals("value")) {
+                abstractEntry = m;
+            }
+        }
+        Assertions.assertNotNull(abstractEntry);
+        Assertions.assertTrue(Modifier.isAbstract(abstractEntry.getModifiers()),
+                "premise: the cluster method list holds the interface's abstract declaration");
+        Assertions.assertEquals(7, abstractEntry.invoke(new InheritedImpl()),
+                "premise: the abstract declaration is invocable on the concrete receiver");
+        Assertions.assertTrue(TestUsageChecker.canUse(abstractEntry, InheritedImpl.class));
+    }
+
     private static byte[] buildInterfaceBytes() {
         ClassWriter cw = new ClassWriter(0);
         cw.visit(Opcodes.V1_8, Opcodes.ACC_PUBLIC | Opcodes.ACC_ABSTRACT | Opcodes.ACC_INTERFACE,

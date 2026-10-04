@@ -601,6 +601,28 @@ public class TestUsageChecker {
     }
 
     /**
+     * Whether {@code ownerClass} has a public, non-abstract method with the same name and
+     * parameter types as {@code abstractMethod}, i.e. whether invoking the abstract declaration
+     * on an instance of {@code ownerClass} reaches an implementation.
+     */
+    private static boolean hasConcreteImplementation(Class<?> ownerClass, Method abstractMethod) {
+        try {
+            for (Method candidate : ownerClass.getMethods()) {
+                if (!Modifier.isAbstract(candidate.getModifiers())
+                        && candidate.getName().equals(abstractMethod.getName())
+                        && Arrays.equals(candidate.getParameterTypes(),
+                        abstractMethod.getParameterTypes())) {
+                    return true;
+                }
+            }
+        } catch (Throwable t) {
+            // A class whose methods cannot be enumerated: keep the conservative rejection.
+            logger.debug("Cannot enumerate methods of " + ownerClass.getName() + ": " + t);
+        }
+        return false;
+    }
+
+    /**
      * Determine if a method can be used for testing.
      *
      * @param m the method to check
@@ -782,19 +804,22 @@ public class TestUsageChecker {
         */
 
         // A class compiled against a leaner version of an interface than the one it is now
-        // loaded against can have Class.getMethods() surface that interface's own abstract
+        // loaded against can have its method list contain that interface's own abstract
         // declaration as if it were a method of the concrete class: nothing in the hierarchy
-        // actually implements it. Class.getMethods() does the resolution for us -- whenever
-        // some class in the hierarchy implements the method, getMethods() returns that
-        // implementing (non-abstract) Method; the interface's abstract entry only surfaces when
-        // nothing implements it. So an abstract Method on a concrete, non-interface ownerClass
-        // can never be invoked and would throw AbstractMethodError if we tried. On an interface
-        // or abstract ownerClass an abstract method is legitimately usable (mocked, or routed to
-        // a concrete subtype), so only reject when ownerClass itself is concrete.
+        // actually implements it, so invoking it would throw AbstractMethodError. But an abstract
+        // Method object on a concrete ownerClass is not by itself proof of that: the cluster's
+        // TestClusterUtils.getMethods lets an interface's declaration replace an implementation
+        // inherited from a superclass (class C extends Base implements I, with Base.m()
+        // implementing I.m()). Such a Method is still invocable, because the call dispatches
+        // virtually to Base.m(). So reject only when the owner's public methods contain no
+        // concrete method with this name and parameter types. On an interface or abstract
+        // ownerClass an abstract method is legitimately usable (mocked, or routed to a concrete
+        // subtype).
         if (Modifier.isAbstract(m.getModifiers())
                 && ownerClass != null
                 && !ownerClass.isInterface()
-                && !Modifier.isAbstract(ownerClass.getModifiers())) {
+                && !Modifier.isAbstract(ownerClass.getModifiers())
+                && !hasConcreteImplementation(ownerClass, m)) {
             return false;
         }
 
