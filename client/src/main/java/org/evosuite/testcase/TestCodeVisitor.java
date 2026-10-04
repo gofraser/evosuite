@@ -5200,7 +5200,7 @@ public class TestCodeVisitor extends TestVisitor {
         }
         Type valueAsTarget;
         try {
-            valueAsTarget = GenericTypeReflector.getExactSuperType(value.getType(), rawTarget);
+            valueAsTarget = GenericUtils.getExactSuperType(value.getType(), rawTarget);
         } catch (Throwable ignored) {
             return false;
         }
