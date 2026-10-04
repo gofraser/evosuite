@@ -1845,7 +1845,28 @@ public class TestCodeVisitor extends TestVisitor {
             }
             return getTypeName(erasedType);
         }
+        if (declaredParamType instanceof ParameterizedType
+                && hasRawGenericTypeArgument((ParameterizedType) declaredParamType)) {
+            // A raw generic class as a type argument (List<Functor>) is rendered with
+            // wildcards (List<Functor<?, ?, ?>>), which is a different type and no longer
+            // matches the declared parameter. The raw cast is enough to pick the overload.
+            return getClassName((Class<?>) ((ParameterizedType) declaredParamType).getRawType());
+        }
         return getTypeName(declaredParamType);
+    }
+
+    private boolean hasRawGenericTypeArgument(ParameterizedType type) {
+        for (Type argument : type.getActualTypeArguments()) {
+            if (argument instanceof Class<?> && argument != Class.class
+                    && ((Class<?>) argument).getTypeParameters().length > 0) {
+                return true;
+            }
+            if (argument instanceof ParameterizedType
+                    && hasRawGenericTypeArgument((ParameterizedType) argument)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isRenderedNullArgument(VariableReference parameter) {
