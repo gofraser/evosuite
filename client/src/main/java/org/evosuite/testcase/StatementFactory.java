@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase;
 
+import com.googlecode.gentyref.GenericTypeReflector;
 import org.evosuite.Properties;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.runtime.util.Inputs;
@@ -26,12 +27,15 @@ import org.evosuite.setup.TestClusterUtils;
 import org.evosuite.setup.TestUsageChecker;
 import org.evosuite.testcase.statements.*;
 import org.evosuite.testcase.variable.*;
+import org.evosuite.utils.ParameterizedTypeImpl;
 import org.evosuite.utils.Randomness;
 import org.evosuite.utils.generic.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Type;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -177,6 +181,7 @@ public class StatementFactory {
             if (isCapacitySensitiveConstructor(constructor)) {
                 validateOrAdjustCapacityParameters(test, constructor, position, parameters);
             }
+            constructor = bindInnerClassOwnerToEnclosingArgument(constructor, parameters);
             int newLength = test.size();
             position += (newLength - length);
 
@@ -187,6 +192,53 @@ public class StatementFactory {
                     + constructor.getRawGeneratedType().getName()
                     + " due to " + e.getClass().getCanonicalName() + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * A non-static member constructor has an erased synthetic parameter for its enclosing
+     * instance. A generator can therefore carry (for example) {@code Outer<String>.Inner} while
+     * parameter resolution selects an {@code Outer<Integer>} argument. Bind the constructor model
+     * to that actual argument before storing the statement, so subsequent calls use the same
+     * owner type that the renderer sees on the inner variable.
+     */
+    static GenericConstructor bindInnerClassOwnerToEnclosingArgument(
+            GenericConstructor constructor, List<VariableReference> parameters) {
+        Class<?> innerClass = constructor.getRawGeneratedType();
+        if (innerClass == null || !innerClass.isMemberClass()
+                || Modifier.isStatic(innerClass.getModifiers())
+                || innerClass.getDeclaringClass() == null || parameters.isEmpty()) {
+            return constructor;
+        }
+
+        VariableReference enclosingArgument = parameters.get(0);
+        Class<?> enclosingClass = enclosingArgument.getVariableClass();
+        if (enclosingClass == null
+                || !innerClass.getDeclaringClass().isAssignableFrom(enclosingClass)) {
+            return constructor;
+        }
+
+        Type enclosingType;
+        try {
+            enclosingType = GenericTypeReflector.getExactSuperType(
+                    enclosingArgument.getType(), innerClass.getDeclaringClass());
+        } catch (RuntimeException e) {
+            logger.debug("Cannot resolve enclosing type for {}", constructor, e);
+            return constructor;
+        }
+        if (enclosingType == null) {
+            return constructor;
+        }
+
+        Type currentType = constructor.getOwnerClass().getType();
+        Type[] innerArguments = currentType instanceof ParameterizedType
+                ? ((ParameterizedType) currentType).getActualTypeArguments()
+                : innerClass.getTypeParameters();
+        Type reboundType = new ParameterizedTypeImpl(innerClass, innerArguments, enclosingType);
+        GenericClass<?> reboundOwner = GenericClassFactory.get(reboundType);
+        if (reboundOwner.equals(constructor.getOwnerClass())) {
+            return constructor;
+        }
+        return constructor.copyWithNewOwner(reboundOwner);
     }
 
     /**

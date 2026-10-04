@@ -23,6 +23,7 @@ import org.apache.commons.lang3.reflect.TypeUtils;
 import org.evosuite.Properties;
 import org.evosuite.testcase.statements.ConstructorStatement;
 import org.evosuite.testcase.statements.MethodStatement;
+import org.evosuite.testcase.statements.Statement;
 import org.evosuite.testcase.variable.VariableReference;
 import org.evosuite.utils.generic.GenericConstructor;
 import org.evosuite.utils.generic.GenericMethod;
@@ -173,6 +174,39 @@ public class InnerClassOwnerCompileTest {
         tc.addStatement(new MethodStatement(tc, use, null, Arrays.asList(element)));
         String code = assertCompiles(tc);
         assertTrue(code.contains("Outer<String>.Inner"), code);
+    }
+
+    @Test
+    public void testFactoryBindsInnerOwnerToEnclosingVariableAndClone() throws Exception {
+        DefaultTestCase tc = new DefaultTestCase();
+        VariableReference outer = addOuter(tc, TypeUtils.parameterize(Outer.class, Integer.class));
+
+        // A generator can carry a separately instantiated owner. The reflective constructor's
+        // synthetic Outer parameter is erased, so only the actual argument can tell us that this
+        // call is Outer<Integer>.Inner.
+        Type modelOwner = TypeUtils.parameterizeWithOwner(
+                TypeUtils.parameterize(Outer.class, String.class), Outer.Inner.class);
+        GenericConstructor constructor = new GenericConstructor(
+                Outer.Inner.class.getConstructor(Outer.class), modelOwner);
+        VariableReference inner = TestFactory.getInstance().addConstructor(
+                tc, constructor, tc.size(), 0);
+        GenericMethod next = new GenericMethod(Outer.Inner.class.getMethod("next"),
+                inner.getGenericClass());
+        VariableReference element = TestFactory.getInstance().addMethodFor(
+                tc, inner, next, tc.size(), new GenerationContext());
+        GenericMethod use = new GenericMethod(
+                InnerClassOwnerCompileTest.class.getMethod("use", Integer.class),
+                InnerClassOwnerCompileTest.class);
+        tc.addStatement(new MethodStatement(tc, use, null, Arrays.asList(element)));
+
+        assertCompiles(tc);
+        DefaultTestCase clone = tc.clone();
+        assertCompiles(clone);
+
+        Statement clonedInner = clone.getStatement(inner.getStPosition());
+        TestFactory.getInstance().changeCall(clone, clonedInner,
+                new GenericConstructor(Outer.Inner.class.getConstructor(Outer.class), modelOwner));
+        assertCompiles(clone);
     }
 
     private static VariableReference addDerived(TestCase tc) throws Exception {

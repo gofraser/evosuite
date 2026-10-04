@@ -136,6 +136,8 @@ public class TestMutator {
                 effectiveType = TestFactory.normalizeClassLiteralTypeArgumentByErasure(effectiveType);
                 parameters.add(test.getRandomObject(effectiveType, position));
             }
+            constructor = StatementFactory.bindInnerClassOwnerToEnclosingArgument(
+                    constructor, parameters);
             ConstructorStatement c = new ConstructorStatement(test, constructor, retval, parameters);
             c.setParsedFromLlm(statement.isParsedFromLlm());
             test.setStatement(c, position);
