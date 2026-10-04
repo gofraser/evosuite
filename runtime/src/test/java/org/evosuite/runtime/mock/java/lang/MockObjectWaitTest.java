@@ -86,6 +86,67 @@ public class MockObjectWaitTest {
         assertTrue("Expected TooManyResourcesException after exhausting budget", exceededBudget);
     }
 
+    /**
+     * A wait loop on the test's own thread that never ends (78_caloriecount's NewScheduler)
+     * is cut by the cumulative budget on every evaluation of the test. A real millisecond
+     * for each of its ~200 waits made every such test last 250-450 ms and left the search
+     * with a handful of generations.
+     */
+    @Test
+    public void testTestThreadWaitLoopIsCheap() {
+        Object lock = new Object();
+        long start = System.nanoTime();
+        boolean exceededBudget = false;
+        synchronized (lock) {
+            try {
+                while (true) {
+                    MockObjectWait.wait(lock, 50);
+                }
+            } catch (TooManyResourcesException e) {
+                exceededBudget = true;
+            } catch (InterruptedException e) {
+                fail("Unexpected InterruptedException");
+            }
+        }
+        long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
+        assertTrue(exceededBudget);
+        assertTrue("A budget-exhausting wait loop took " + elapsedMs + " ms", elapsedMs < 100L);
+    }
+
+    @Test
+    public void testWaitWithoutOwningTheMonitorStillFailsAfterTheRealWaits() throws InterruptedException {
+        Object lock = new Object();
+        synchronized (lock) {
+            for (int i = 0; i < 10; i++) {
+                MockObjectWait.wait(lock, 1);
+            }
+        }
+        try {
+            MockObjectWait.wait(lock, 1);
+            fail("Expected IllegalMonitorStateException");
+        } catch (IllegalMonitorStateException expected) {
+            // like Object.wait()
+        }
+    }
+
+    @Test
+    public void testWaitAfterTheRealWaitsStillObservesAnInterrupt() throws InterruptedException {
+        Object lock = new Object();
+        synchronized (lock) {
+            for (int i = 0; i < 10; i++) {
+                MockObjectWait.wait(lock, 1);
+            }
+            Thread.currentThread().interrupt();
+            try {
+                MockObjectWait.wait(lock, 1);
+                fail("Expected InterruptedException");
+            } catch (InterruptedException expected) {
+                // like Object.wait(), which also clears the flag
+                assertFalse(Thread.currentThread().isInterrupted());
+            }
+        }
+    }
+
     @Test
     public void testResetClearsBudget() throws InterruptedException {
         Object lock = new Object();
@@ -129,5 +190,36 @@ public class MockObjectWaitTest {
             // and return after ~1ms timeout
             MockObjectWait.wait(lock, 1);
         }
+    }
+
+    @Test(timeout = 30_000)
+    public void testLaterWaitsStillReleaseTheMonitorToANotifier() throws Exception {
+        final Object lock = new Object();
+        final boolean[] flag = new boolean[1];
+        Thread notifier = new Thread(() -> {
+            synchronized (lock) {
+                flag[0] = true;
+                lock.notifyAll();
+            }
+        });
+        notifier.setDaemon(true);
+        synchronized (lock) {
+            // Use up the real waits the test thread is given
+            for (int i = 0; i < 5; i++) {
+                MockObjectWait.wait(lock, 1);
+            }
+            notifier.start();
+            while (notifier.getState() != Thread.State.BLOCKED) {
+                Thread.sleep(1);
+            }
+            int waits = 0;
+            while (!flag[0]) {
+                waits++;
+                MockObjectWait.wait(lock, 1000);
+            }
+            assertTrue("notified after " + waits + " waits", waits > 0);
+        }
+        notifier.join(5000);
+        assertFalse(notifier.isAlive());
     }
 }

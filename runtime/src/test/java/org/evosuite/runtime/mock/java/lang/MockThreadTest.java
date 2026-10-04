@@ -87,8 +87,59 @@ public class MockThreadTest {
         assertTrue("Expected TooManyResourcesException after exceeding the sleep-call cap", exceededCap);
     }
 
+    /**
+     * An uninstrumented polling loop on the test thread (HSQLDB's Server.start())
+     * runs into the call cap on every test evaluation. Paying a full real
+     * millisecond for each of the 10,000 calls made such tests last 7-13 s and
+     * starved the search of generations.
+     */
+    @Test(timeout = 20_000)
+    public void testTestThreadPollingLoopReachesCapQuickly() {
+        long start = System.nanoTime();
+        boolean exceededCap = false;
+        try {
+            while (true) {
+                MockThread.sleep(100L);
+            }
+        } catch (TooManyResourcesException e) {
+            exceededCap = true;
+        } catch (InterruptedException e) {
+            fail("Unexpected InterruptedException");
+        }
+        long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
+        assertTrue(exceededCap);
+        assertTrue("Reaching the cap took " + elapsedMs + " ms", elapsedMs < 3_000L);
+    }
+
+    /**
+     * The test's own thread only yields in a mocked sleep(). 200 ms of real sleeping per test
+     * (the first calls) made every evaluation of a test with a polling loop last that long
+     * (27_gangup's Kernel.run()), and the search saw a handful of generations.
+     */
     @Test
-    public void testResetClearsCallCap() throws InterruptedException {
+    public void testTestThreadSleepDoesNotPause() throws InterruptedException {
+        long start = System.nanoTime();
+        for (int i = 0; i < 40; i++) {
+            MockThread.sleep(10L);
+        }
+        long elapsedMs = (System.nanoTime() - start) / 1_000_000L;
+        assertTrue("40 sleep() calls took " + elapsedMs + " ms", elapsedMs < 100L);
+    }
+
+    @Test
+    public void testTestThreadSleepObservesInterrupt() {
+        Thread.currentThread().interrupt();
+        try {
+            MockThread.sleep(10L);
+            fail("Expected InterruptedException");
+        } catch (InterruptedException expected) {
+            // the interrupt was observed, and cleared
+            assertFalse(Thread.currentThread().isInterrupted());
+        }
+    }
+
+    @Test
+    public void testResetClearsCallCap()throws InterruptedException {
         for (int i = 0; i < 100; i++) {
             MockThread.sleep(1L);
         }

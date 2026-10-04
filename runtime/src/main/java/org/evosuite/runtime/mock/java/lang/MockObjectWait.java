@@ -22,6 +22,7 @@ package org.evosuite.runtime.mock.java.lang;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.mock.MockFramework;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -58,6 +59,16 @@ public class MockObjectWait {
      */
     private static final long REAL_WAIT_MILLIS = 1L;
 
+    /**
+     * How many real waits of {@link #REAL_WAIT_MILLIS} the test's own thread performs per
+     * test, see {@link #doMockedWait(Object, long)}.
+     */
+    private static final int MAX_TEST_THREAD_REAL_WAITS = 3;
+
+    private static final int REAL_WAIT_STRIDE = 64;
+
+    private static final AtomicInteger testThreadRealWaits = new AtomicInteger(0);
+
     private static final AtomicLong cumulativeWaitRequested = new AtomicLong(0L);
 
     /**
@@ -66,6 +77,7 @@ public class MockObjectWait {
      */
     public static void reset() {
         cumulativeWaitRequested.set(0L);
+        testThreadRealWaits.set(0);
     }
 
     /**
@@ -133,6 +145,44 @@ public class MockObjectWait {
         obj.notifyAll();
     }
 
+    /**
+     * The test thread's first few waits of a test are real. After those a wait only is
+     * while another thread is blocked on a monitor: it may be one this thread holds, and
+     * a wait that never gave it up would leave a thread that needs it to notify blocked
+     * for ever, so the waiting loop would run into the budget instead of seeing the
+     * notification. A wait loop that nothing ever notifies (it makes about 200 calls)
+     * must not pay for real waits, nor let the threads the SUT started run on, which
+     * costs the search a lot (78_caloriecount's NewScheduler).
+     * Finding out is not free (listing the threads on every wait halved the search's
+     * generations), so it is done on every {@link #REAL_WAIT_STRIDE}th wait only; a thread
+     * that is blocked stays so until the monitor is given up.
+     */
+    private static boolean shouldWaitForReal(int waitNumber) {
+        return waitNumber <= MAX_TEST_THREAD_REAL_WAITS
+                || (waitNumber % REAL_WAIT_STRIDE == 0 && isAnotherThreadBlocked());
+    }
+
+    private static boolean isAnotherThreadBlocked() {
+        try {
+            ThreadGroup root = Thread.currentThread().getThreadGroup();
+            while (root.getParent() != null) {
+                root = root.getParent();
+            }
+            Thread[] threads = new Thread[root.activeCount() + 8];
+            int n = root.enumerate(threads, true);
+            Thread self = Thread.currentThread();
+            for (int i = 0; i < n; i++) {
+                if (threads[i] != self && threads[i].getState() == Thread.State.BLOCKED) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Throwable t) {
+            // No way to tell: giving the monitor up is the safe answer.
+            return true;
+        }
+    }
+
     private static void doMockedWait(Object obj, long requestedMillis) throws InterruptedException {
         // Object.wait() is almost always called inside a while(condition)
         // loop; with the mock the condition never changes, so the loop spins
@@ -163,13 +213,53 @@ public class MockObjectWait {
         // with no real wait, that thread held the AEMonitor's lock for its
         // entire spin, permanently starving any other thread also trying to
         // enter() the same AEMonitor. Bounding it at REAL_WAIT_MILLIS keeps
-        // the worst case cheap (~200 calls * 1ms = 200ms before the budget
-        // above fires) while restoring the "wait() releases the monitor"
+        // it cheap while restoring the "wait() releases the monitor"
         // contract the SUT relies on.
         // A SUT thread can afford the full capped wait: it runs alongside the test,
         // and releasing the monitor for longer is what lets the test thread in (see
-        // MockThread.sleep). The test's own thread keeps the minimal real wait.
-        obj.wait(Thread.currentThread() instanceof MockThread ? effectiveMillis : REAL_WAIT_MILLIS);
+        // MockThread.sleep). The test's own thread waits for real only for its first
+        // few waits of a test, enough to let a thread the SUT started take the monitor
+        // and act: a wait loop that never ends (78_caloriecount's NewScheduler) would
+        // otherwise pay ~200 real milliseconds on every evaluation, and the search
+        // saw a handful of generations.
+        boolean sutThread = Thread.currentThread() instanceof MockThread;
+        if (sutThread && org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
+            // The test has ended and this leftover thread is being asked to stop; see MockThread.sleep.
+            // Wait briefly for real so the monitor is released and a loop that swallows the
+            // exception is no hot spin; see MockThread.STOPPING_REAL_PAUSE_MS.
+            // ThreadStopper has interrupted the thread: with the flag still set every real
+            // wait would throw at once, and a loop that swallows the exception would spin.
+            // Clear it around the pause, and set it again for the loop to see.
+            boolean wasInterrupted = Thread.interrupted();
+            try {
+                obj.wait(MockThread.STOPPING_REAL_PAUSE_MS);
+            } catch (InterruptedException e) {
+                wasInterrupted = true;
+            }
+            if (wasInterrupted) {
+                Thread.currentThread().interrupt();
+            }
+            throw new TooManyResourcesException("MockObjectWait: thread kept waiting after its test ended");
+        }
+        if (sutThread || shouldWaitForReal(testThreadRealWaits.incrementAndGet())) {
+            try {
+                obj.wait(sutThread ? effectiveMillis : REAL_WAIT_MILLIS);
+            } catch (InterruptedException e) {
+                // Keep the interrupt visible to a leftover thread's loop; see MockThread.sleep.
+                if (sutThread && org.evosuite.runtime.thread.KillSwitchHandler.isStoppingLeftoverThreads()) {
+                    Thread.currentThread().interrupt();
+                }
+                throw e;
+            }
+        } else {
+            // What a real wait would still have done.
+            if (!Thread.holdsLock(obj)) {
+                throw new IllegalMonitorStateException("current thread is not owner");
+            }
+            if (Thread.interrupted()) {
+                throw new InterruptedException();
+            }
+        }
 
         // Only after really giving the monitor up: a wait() loop that swallows
         // this exception must never turn into a busy loop holding the monitor.

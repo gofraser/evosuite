@@ -149,6 +149,7 @@ public class ThreadStopper {
          * to prevent issues with code that do not handle interrupt
          */
         killSwitch.setKillSwitch(true);
+        KillSwitchHandler.setStoppingLeftoverThreads(true);
         // In total the test case should not run for more than the timeout. A test that
         // already used it up (typically because it was blocked on a lock held by one of
         // these very threads) would leave no time at all: the kill switch would be on
@@ -219,6 +220,7 @@ public class ThreadStopper {
          * and so throw a TimeoutExceeded exception
          */
         killSwitch.setKillSwitch(false);
+        KillSwitchHandler.setStoppingLeftoverThreads(false);
 
         /*
          * important. this is used to later check if current threads are set
