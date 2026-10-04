@@ -931,12 +931,12 @@ public class TestSuiteWriter implements Opcodes {
             builder.append(INNER_BLOCK_SPACE);
             builder.append("@Override public void run() { ");
             builder.append(NEWLINE);
-            Set<Class<?>> exceptions = test.getDeclaredExceptions();
-            if (!exceptions.isEmpty()) {
-                builder.append(INNER_INNER_BLOCK_SPACE);
-                builder.append("try {");
-                builder.append(NEWLINE);
-            }
+            // run() cannot throw checked exceptions, and the body may throw some that are not
+            // among the statements' declared exceptions (reflective fallbacks, PrivateAccess
+            // helpers, assertion calls on methods that declare checked exceptions), so always wrap
+            builder.append(INNER_INNER_BLOCK_SPACE);
+            builder.append("try {");
+            builder.append(NEWLINE);
             codeSpace = INNER_INNER_INNER_BLOCK_SPACE;
         }
 
@@ -949,17 +949,30 @@ public class TestSuiteWriter implements Opcodes {
 
         if (needsThreadWrapper) {
             Set<Class<?>> exceptions = test.getDeclaredExceptions();
+            builder.append(INNER_INNER_BLOCK_SPACE);
             if (!exceptions.isEmpty()) {
-                builder.append(INNER_INNER_BLOCK_SPACE);
                 builder.append("} catch(Throwable t) {");
                 builder.append(NEWLINE);
                 builder.append(INNER_INNER_INNER_BLOCK_SPACE);
                 builder.append("  // Need to catch declared exceptions");
                 builder.append(NEWLINE);
+            } else {
+                // Not declared by any statement: still surface it through future.get()
+                builder.append("} catch(RuntimeException | Error e) {");
+                builder.append(NEWLINE);
+                builder.append(INNER_INNER_INNER_BLOCK_SPACE);
+                builder.append("  throw e;");
+                builder.append(NEWLINE);
                 builder.append(INNER_INNER_BLOCK_SPACE);
-                builder.append("}");
+                builder.append("} catch(Throwable t) {");
+                builder.append(NEWLINE);
+                builder.append(INNER_INNER_INNER_BLOCK_SPACE);
+                builder.append("  throw new RuntimeException(t);");
                 builder.append(NEWLINE);
             }
+            builder.append(INNER_INNER_BLOCK_SPACE);
+            builder.append("}");
+            builder.append(NEWLINE);
 
             builder.append(INNER_BLOCK_SPACE);
             builder.append("} "); //closing run(){
