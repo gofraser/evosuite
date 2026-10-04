@@ -4949,9 +4949,18 @@ public class TestCodeVisitor extends TestVisitor {
         // already a key in declarationVariableNames must be captured before that
         // call runs, not re-derived afterwards from something unrelated (e.g.
         // retval.getStPosition()) that can disagree with what actually got written.
-        VariableReference normalizedRetval = normalizeVariableReference(retval);
-        boolean alreadyNamed = declarationVariableNames.containsKey(normalizedRetval);
-        String declarationVarName = getDeclarationVariableName(retval);
+        // Field and array-element targets are never declared locals: they must not touch
+        // the registry at all (a second write to the same target would otherwise mint a
+        // fresh suffixed name such as "obj.field_1"). They print their access expression.
+        boolean isLocalTarget = !(retval instanceof FieldReference) && !(retval instanceof ArrayIndex);
+        boolean alreadyNamed = false;
+        String declarationVarName;
+        if (isLocalTarget) {
+            alreadyNamed = declarationVariableNames.containsKey(normalizeVariableReference(retval));
+            declarationVarName = getDeclarationVariableName(retval);
+        } else {
+            declarationVarName = getVariableName(retval);
+        }
         VariableReference parameter = statement.getValue();
 
         if (!retval.getVariableClass().equals(parameter.getVariableClass())) {
@@ -5030,9 +5039,7 @@ public class TestCodeVisitor extends TestVisitor {
         // getDeclarationVariableName above just consulted/wrote, rather than from an
         // unrelated signal like retval.getStPosition(), which can disagree with it when
         // retval failed to resolve to its canonical defining-statement reference.
-        boolean needsTypeDeclaration = !(retval instanceof FieldReference)
-                && !(retval instanceof ArrayIndex)
-                && !alreadyNamed;
+        boolean needsTypeDeclaration = isLocalTarget && !alreadyNamed;
 
         if (needsTypeDeclaration) {
             testCode.append(getClassName(retval) + " ");
