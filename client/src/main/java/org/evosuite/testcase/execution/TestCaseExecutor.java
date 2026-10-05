@@ -1147,7 +1147,14 @@ public class TestCaseExecutor implements ThreadFactory {
             }
         }
         if (executor != null) {
-            executor.shutdownNow();
+            if (lastTimeoutWasStuckClinit) {
+                // shutdownNow() would interrupt the active initializer we deliberately
+                // abandoned, potentially poisoning its class. Retire the pool without
+                // interrupting that task; its per-thread abandonment deadline stays armed.
+                executor.shutdown();
+            } else {
+                executor.shutdownNow();
+            }
         }
         totalRotationCount++;
         lastRotationTimestamp = now;
