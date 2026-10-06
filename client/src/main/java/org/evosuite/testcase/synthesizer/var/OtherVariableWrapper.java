@@ -111,6 +111,30 @@ public class OtherVariableWrapper extends DepVariableWrapper {
         return null;
     }
 
+    /**
+     * The method a call instruction of the class under test refers to, provided the generated
+     * test can call it from source. A protected or package-private method declared in a class
+     * outside the test's package (for example {@code DefaultElement.contentList()} reached
+     * from a subclass in another package) is not callable by a test that is not a subclass:
+     * javac reports "has protected access".
+     */
+    static Method findSourceCallableMethod(
+            Class<?> declaringClass, String name, Class<?>[] parameterTypes) {
+        try {
+            return declaringClass.getMethod(name, parameterTypes);
+        } catch (Exception e) {
+            try {
+                Method declared = declaringClass.getDeclaredMethod(name, parameterTypes);
+                if (TestUsageChecker.isCallableFromTestPackage(declared)) {
+                    return declared;
+                }
+            } catch (Exception ignored) {
+                // No source-level callable method represents this node.
+            }
+        }
+        return null;
+    }
+
     private VariableReference generateMethodCallStatement(
             TestCase test,
             Map<DepVariableWrapper, VarRelevance> map,
@@ -137,23 +161,11 @@ public class OtherVariableWrapper extends DepVariableWrapper {
             }
 
             if (!fullName.contains("<init>")) {
-                Method call = null;
-                try {
-                    call =
-                            fieldDeclaringClass.getMethod(
-                                    fullName.substring(0, fullName.indexOf("(")), paramClasses);
-                } catch (Exception e) {
-                    try {
-                        Method declared =
-                                fieldDeclaringClass.getDeclaredMethod(
-                                        fullName.substring(0, fullName.indexOf("(")), paramClasses);
-                        if (!Modifier.isPrivate(declared.getModifiers())) {
-                            call = declared;
-                        }
-                    } catch (Exception ignored) {
-                        // No source-level callable method represents this node.
-                    }
-                }
+                Method call =
+                        findSourceCallableMethod(
+                                fieldDeclaringClass,
+                                fullName.substring(0, fullName.indexOf("(")),
+                                paramClasses);
 
                 if (call == null) {
                     /*

@@ -277,6 +277,8 @@ public class TestCodeVisitor extends TestVisitor {
                         // and Foo<Object> never compiles. An unbounded wildcard is
                         // always legal, so emit Foo<?> instead.
                         name += "?";
+                    } else if (containsUnnameableType(types[i])) {
+                        name += getAccessibleTypeArgumentName(types[i]);
                     } else {
                         name += getTypeParameterName(types[i]);
                     }
@@ -285,6 +287,76 @@ public class TestCodeVisitor extends TestVisitor {
             }
         }
         return name;
+    }
+
+    /**
+     * Whether writing {@code type} in generated source would name a class that javac rejects
+     * ("has private access", "has protected access"): a private or foreign non-public nested
+     * class, or one in a package its module does not export. Arguments of a parameterized
+     * type are visited too, because they are written out as well.
+     */
+    private static boolean containsUnnameableType(Type type) {
+        if (type instanceof Class<?>) {
+            Class<?> clazz = (Class<?>) type;
+            while (clazz.isArray()) {
+                clazz = clazz.getComponentType();
+            }
+            return !clazz.isPrimitive()
+                    && (!isDeclaredTypeNameableInGeneratedTest(clazz)
+                    || TestUsageChecker.isInUnexportedPackage(clazz));
+        } else if (type instanceof ParameterizedType) {
+            ParameterizedType parameterized = (ParameterizedType) type;
+            if (containsUnnameableType(parameterized.getRawType())) {
+                return true;
+            }
+            for (Type argument : parameterized.getActualTypeArguments()) {
+                if (containsUnnameableType(argument)) {
+                    return true;
+                }
+            }
+            return false;
+        } else if (type instanceof WildcardType) {
+            WildcardType wildcard = (WildcardType) type;
+            for (Type bound : wildcard.getUpperBounds()) {
+                if (bound != null && containsUnnameableType(bound)) {
+                    return true;
+                }
+            }
+            for (Type bound : wildcard.getLowerBounds()) {
+                if (bound != null && containsUnnameableType(bound)) {
+                    return true;
+                }
+            }
+            return false;
+        } else if (type instanceof GenericArrayType) {
+            return containsUnnameableType(((GenericArrayType) type).getGenericComponentType());
+        }
+        return false;
+    }
+
+    /**
+     * A type argument that cannot be named, rendered as a wildcard at the argument's own
+     * position: {@code LinkedHashMap<String, Hidden>} becomes
+     * {@code LinkedHashMap<String, ?>}, a legal target for the real value. For
+     * {@code List<Map<String, Hidden>>} the wildcard cannot sit one level down (generics are
+     * invariant), so it becomes {@code List<? extends Map<?, ?>>}. The wildcard is bounded by
+     * the nearest nameable supertype when there is a useful one.
+     */
+    private String getAccessibleTypeArgumentName(Type argument) {
+        Class<?> erased = argument instanceof Class<?> || argument instanceof ParameterizedType
+                ? safeErasure(argument) : null;
+        if (erased == null || erased.isArray()) {
+            return "?";
+        }
+        if (containsUnnameableType(erased)) {
+            Class<?> bound = findAccessibleRenderableSupertype(erased);
+            if (bound == Object.class || containsUnnameableType(bound)) {
+                return "?";
+            }
+            return "? extends " + getTypeParameterName(bound);
+        }
+        // A nameable raw type with a hidden type argument somewhere inside.
+        return erased == Object.class ? "?" : "? extends " + getTypeParameterName(erased);
     }
 
     /**
@@ -3649,6 +3721,13 @@ public class TestCodeVisitor extends TestVisitor {
                 } else {
                     calleeStr += "((" + getClassName(declaringClass) + ")" + calleeName + ")";
                 }
+            } else if (isShadowedByInaccessibleOverride(method.getMethod(), callee.getVariableClass())) {
+                // The receiver's static type overrides this protected/package-private method in
+                // another package, where javac resolves the call and finds it inaccessible.
+                // Viewing the receiver as the declaring class (which is in the test's package)
+                // resolves it there; the call still dispatches to the override at run time.
+                calleeStr += "((" + getTypeName(method.getMethod().getDeclaringClass()) + ") "
+                        + getVariableName(callee) + ")";
             } else {
                 boolean calleeDeclaresMethod =
                         hasMethodBySignatureName(callee.getVariableClass(), method.getMethod());
@@ -3721,6 +3800,46 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    /**
+     * Whether javac, resolving {@code method} on a receiver of static type {@code calleeClass},
+     * would find a non-public override declared in a package other than the generated test's
+     * (JLS 6.6.2: the test is neither in that package nor a subclass), although {@code method}
+     * itself is declared in the test's package. The instrumentation widens the members of
+     * classes in the test's package to public, so reflection cannot reveal this on
+     * {@code method}; the override's class lives elsewhere and keeps its real modifiers.
+     * Only then is a cast to the declaring class both necessary and legal.
+     */
+    private static boolean isShadowedByInaccessibleOverride(Method method, Class<?> calleeClass) {
+        if (method == null || calleeClass == null || Modifier.isStatic(method.getModifiers())) {
+            return false;
+        }
+        Class<?> declaringClass = method.getDeclaringClass();
+        String testPackageName = getGeneratedTestPackageName();
+        if (declaringClass == calleeClass || isEmptyPackageName(testPackageName)
+                || !declaringClass.isAssignableFrom(calleeClass)
+                || !isSamePackage(declaringClass, testPackageName)
+                || !isTypeAccessibleFromGeneratedTest(declaringClass, testPackageName)) {
+            return false;
+        }
+        for (Class<?> current = calleeClass; current != null && current != declaringClass;
+             current = current.getSuperclass()) {
+            Method override;
+            try {
+                override = current.getDeclaredMethod(method.getName(), method.getParameterTypes());
+            } catch (NoSuchMethodException | LinkageError e) {
+                continue;
+            }
+            int modifiers = override.getModifiers();
+            if (Modifier.isPrivate(modifiers) || Modifier.isStatic(modifiers)
+                    || override.isBridge()) {
+                continue;
+            }
+            // The most derived declaration is the one javac picks.
+            return !Modifier.isPublic(modifiers) && !isSamePackage(current, testPackageName);
+        }
+        return false;
     }
 
     private boolean requiresStaticGenericReturnCast(GenericMethod method, VariableReference retval) {
@@ -4409,7 +4528,8 @@ public class TestCodeVisitor extends TestVisitor {
         if (type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
             for (Type argumentType : parameterizedType.getActualTypeArguments()) {
-                if (isUnresolvedTypeVariableOrWildcard(argumentType)) {
+                if (isUnresolvedTypeVariableOrWildcard(argumentType)
+                        || containsUnnameableType(argumentType)) {
                     return getClassName((Class<?>) parameterizedType.getRawType()) + "<>";
                 }
             }
@@ -4454,7 +4574,8 @@ public class TestCodeVisitor extends TestVisitor {
         if (type instanceof ParameterizedType) {
             ParameterizedType parameterizedType = (ParameterizedType) type;
             for (Type argumentType : parameterizedType.getActualTypeArguments()) {
-                if (isUnresolvedTypeVariableOrWildcard(argumentType)) {
+                if (isUnresolvedTypeVariableOrWildcard(argumentType)
+                        || containsUnnameableType(argumentType)) {
                     return getSimpleTypeName(parameterizedType.getRawType()) + "<>";
                 }
             }

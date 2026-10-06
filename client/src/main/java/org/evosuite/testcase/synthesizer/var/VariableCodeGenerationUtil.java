@@ -626,7 +626,8 @@ public class VariableCodeGenerationUtil {
 
         Method addMethod = null;
         for (Method m : type.getDeclaredMethods()) {
-            if (m.getName().equals("add") && m.getParameterCount() == 1) {
+            if (m.getName().equals("add") && m.getParameterCount() == 1
+                    && TestUsageChecker.isCallableFromTestPackage(m)) {
                 addMethod = m;
                 break;
             }

@@ -170,6 +170,28 @@ public class OtherVariableWrapperTest {
         }
     }
 
+    @Test
+    public void callInstructionOnProtectedMethodOfOtherPackageIsNotSourceCallable() {
+        String previous = org.evosuite.Properties.CLASS_PREFIX;
+        try {
+            org.evosuite.Properties.CLASS_PREFIX =
+                    org.evosuite.testcase.accessfixture.TableBase.class.getPackage().getName();
+            Class<?>[] none = new Class<?>[0];
+
+            // Protected in a class of another package: javac says "has protected access".
+            assertNull(OtherVariableWrapper.findSourceCallableMethod(
+                    org.evosuite.testcase.accessfixture.other.Exposer.class, "protectedCount", none));
+            // Public: always callable.
+            assertNotNull(OtherVariableWrapper.findSourceCallableMethod(
+                    org.evosuite.testcase.accessfixture.other.Exposer.class, "hiddenMap", none));
+            // Protected, but declared in the test's own package.
+            assertNotNull(OtherVariableWrapper.findSourceCallableMethod(
+                    org.evosuite.testcase.accessfixture.TableBase.class, "rows", none));
+        } finally {
+            org.evosuite.Properties.CLASS_PREFIX = previous;
+        }
+    }
+
     public static final class Registry {
         public boolean addPublic(String s) {
             return true;
