@@ -180,7 +180,10 @@ public class TargetContext {
         return false;
     }
 
-    private static boolean isDirectlyAccessibleEntry(Method method, Class<?> owner) {
+    static boolean isDirectlyAccessibleEntry(Method method, Class<?> owner) {
+        if (TestUsageChecker.isNotCallableFromSource(method)) {
+            return false;
+        }
         int modifiers = method.getModifiers();
         return Modifier.isPublic(modifiers)
                 || Modifier.isProtected(modifiers)

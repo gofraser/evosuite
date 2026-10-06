@@ -530,6 +530,10 @@ public class TestClusterGenerator {
                     continue;
                 }
 
+                if (!TestUsageChecker.canUse(method, clazz)) {
+                    continue;
+                }
+
                 GenericMethod genericMethod = new GenericMethod(method, clazz);
 
                 // Setting static fields is a modifier of a SUT

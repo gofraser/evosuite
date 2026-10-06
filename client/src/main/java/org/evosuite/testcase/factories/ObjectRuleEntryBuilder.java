@@ -748,8 +748,11 @@ class ObjectRuleEntryBuilder {
                 ? type : null;
     }
 
-    private static java.lang.reflect.Method findEntryMethod(Class<?> clazz, String signature) {
+    static java.lang.reflect.Method findEntryMethod(Class<?> clazz, String signature) {
         for (java.lang.reflect.Method method : clazz.getDeclaredMethods()) {
+            if (org.evosuite.setup.TestUsageChecker.isNotCallableFromSource(method)) {
+                continue;
+            }
             if ((method.getName() + org.evosuite.utils.MethodUtil.getSignature(method)).equals(signature)) {
                 return method;
             }

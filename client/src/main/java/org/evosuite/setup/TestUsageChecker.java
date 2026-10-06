@@ -1073,6 +1073,16 @@ public class TestUsageChecker {
      * Some instrumented class-loading paths can drop the synthetic flag while
      * keeping the compiler-assigned accessor name.
      */
+    /**
+     * Whether javac cannot resolve the method from source: bridges, synthetic members (access$NNN
+     * stubs, lambda bodies) and accessor stubs whose modifiers instrumentation may have widened.
+     * Such a method must never be rendered, whatever its visibility.
+     */
+    public static boolean isNotCallableFromSource(Method m) {
+        return m.isSynthetic() || m.isBridge() || isCompilerGeneratedAccessorMethod(m)
+                || COMPILER_ACCESSOR_NAME.matcher(m.getName()).matches();
+    }
+
     public static boolean isCompilerGeneratedAccessorMethod(Method m) {
         int modifiers = m.getModifiers();
         return Modifier.isStatic(modifiers)

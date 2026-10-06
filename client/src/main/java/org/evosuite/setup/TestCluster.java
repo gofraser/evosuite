@@ -387,7 +387,17 @@ public class TestCluster {
      * @param target is assumed to have wildcard types
      * @param call the generator call
      */
+    private static boolean isNotCallableFromSource(GenericAccessibleObject<?> call) {
+        return call.isMethod() && call.getAccessibleObject() instanceof java.lang.reflect.Method
+                && TestUsageChecker.isNotCallableFromSource(
+                        (java.lang.reflect.Method) call.getAccessibleObject());
+    }
+
     public void addGenerator(GenericClass<?> target, GenericAccessibleObject<?> call) {
+        if (isNotCallableFromSource(call)) {
+            logger.debug("Skipping synthetic or bridge method {}", call);
+            return;
+        }
         if (!call.isAccessible()) {
             logger.warn("Skipping inaccessible generator {} for target {}", call, target);
             return;
@@ -412,6 +422,10 @@ public class TestCluster {
      * @param call the modifier call
      */
     public void addModifier(GenericClass<?> target, GenericAccessibleObject<?> call) {
+        if (isNotCallableFromSource(call)) {
+            logger.debug("Skipping synthetic or bridge method {}", call);
+            return;
+        }
         if (!call.isAccessible()) {
             logger.warn("Skipping inaccessible modifier {} for target {}", call, target);
             return;
@@ -432,6 +446,10 @@ public class TestCluster {
      */
     public void addTestCall(GenericAccessibleObject<?> call) throws IllegalArgumentException {
         Inputs.checkNull(call);
+        if (isNotCallableFromSource(call)) {
+            logger.debug("Skipping synthetic or bridge method {}", call);
+            return;
+        }
         allDiscoveredTestMethods.add(call);
         if (shouldFilterHeadlessIncompatibleTestCall(call)) {
             logger.debug("Skipping headless-incompatible test call: {}", call);
