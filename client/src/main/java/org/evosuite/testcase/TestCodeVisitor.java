@@ -5458,6 +5458,14 @@ public class TestCodeVisitor extends TestVisitor {
                     && !targetArgs[i].equals(valueArgs[i])) {
                 return true;
             }
+            // A concrete class against a parameterized type (eg Object against Map<?, ?>,
+            // as in MapSerializer -> JsonSerializer<Map<?, ?>> cast to JsonSerializer<Object>)
+            // is just as invariant-distinct: javac rejects the direct cast.
+            if ((targetArgs[i] instanceof Class<?> && valueArgs[i] instanceof ParameterizedType)
+                    || (targetArgs[i] instanceof ParameterizedType && valueArgs[i] instanceof Class<?>
+                    && !valueArgs[i].equals(((ParameterizedType) targetArgs[i]).getRawType()))) {
+                return true;
+            }
             // An unresolved type variable in the value's type (eg the constructor's E leaking
             // into LinkedHashMap<E, Boolean>) is declared as "?". A G<?> variable cannot be
             // passed, nor cast with a plain cast skipped, where G<String> is expected, even
