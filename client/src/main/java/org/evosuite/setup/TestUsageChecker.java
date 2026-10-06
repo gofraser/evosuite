@@ -672,16 +672,16 @@ public class TestUsageChecker {
             logger.debug("Cannot enumerate methods of " + ownerClass.getName() + ": " + t);
         }
         for (Class<?> current = ownerClass; current != null; current = current.getSuperclass()) {
-            try {
-                for (Method candidate : current.getDeclaredMethods()) {
+            Method[] declared = getDeclaredMethodsOrNull(current);
+            if (declared != null) {
+                for (Method candidate : declared) {
                     if (matchesDescriptor(candidate, abstractMethod)) {
                         // Stop at the nearest declaration: an abstract override must not expose
                         // a concrete implementation which it hides farther up the hierarchy.
                         return isConcretePublicMethod(candidate);
                     }
                 }
-            } catch (Throwable t) {
-                logger.debug("Cannot enumerate declared methods of " + current.getName() + ": " + t);
+            } else {
                 Boolean implementation = inspectClassfileImplementation(current, abstractMethod);
                 if (implementation != null) {
                     return implementation;
@@ -691,37 +691,98 @@ public class TestUsageChecker {
         return false;
     }
 
+    /**
+     * Declared methods of a class, or null if its signatures cannot be linked. A failure is
+     * remembered per class: a failing lookup is not free, because every attempt makes the
+     * instrumenting class loader load and instrument the types in the signatures again, and this
+     * is asked once per abstract method of every analysed class.
+     */
+    private static Method[] getDeclaredMethodsOrNull(Class<?> clazz) {
+        synchronized (unlinkableDeclaredMethods) {
+            if (unlinkableDeclaredMethods.contains(clazz)) {
+                return null;
+            }
+        }
+        try {
+            return clazz.getDeclaredMethods();
+        } catch (Throwable t) {
+            logger.debug("Cannot enumerate declared methods of " + clazz.getName() + ": " + t);
+            synchronized (unlinkableDeclaredMethods) {
+                unlinkableDeclaredMethods.add(clazz);
+            }
+            return null;
+        }
+    }
+
+    /** Weakly held, and only failures: a cached Method[] would keep its class alive. */
+    private static final Set<Class<?>> unlinkableDeclaredMethods =
+            Collections.newSetFromMap(new WeakHashMap<>());
+
     /** Null means the verified class file has no matching declaration; false also covers unreadable metadata. */
     private static Boolean inspectClassfileImplementation(Class<?> owner, Method method) {
+        Map<String, Integer> declarations = getClassfileMethods(owner);
+        if (declarations == UNREADABLE_CLASSFILE) {
+            return false;
+        }
+        Integer access = declarations.get(method.getName() + Type.getMethodDescriptor(method));
+        if (access == null) {
+            return null;
+        }
+        return Modifier.isPublic(access) && !Modifier.isAbstract(access)
+                && !Modifier.isStatic(access) && descriptorTypesMatch(owner, method);
+    }
+
+    /**
+     * Method name plus descriptor mapped to the access flags of the verified class file of
+     * {@code owner}, or {@link #UNREADABLE_CLASSFILE}. Parsed once per class: this runs for every
+     * abstract method of every class whose reflective method table cannot be linked, and a
+     * hierarchy such as Xerces' HTML DOM has hundreds of those, each with a large class file.
+     * Values are plain integers, so the weak keys are not kept alive by the cache.
+     */
+    private static Map<String, Integer> getClassfileMethods(Class<?> owner) {
+        synchronized (classfileMethodsCache) {
+            Map<String, Integer> cached = classfileMethodsCache.get(owner);
+            if (cached != null) {
+                return cached;
+            }
+        }
+        Map<String, Integer> result = readClassfileMethods(owner);
+        synchronized (classfileMethodsCache) {
+            classfileMethodsCache.put(owner, result);
+        }
+        return result;
+    }
+
+    private static final Map<String, Integer> UNREADABLE_CLASSFILE = Collections.unmodifiableMap(new HashMap<>());
+
+    private static final Map<Class<?>, Map<String, Integer>> classfileMethodsCache = new WeakHashMap<>();
+
+    private static Map<String, Integer> readClassfileMethods(Class<?> owner) {
         String resourceName = owner.getName().replace('.', '/') + ".class";
         try {
             URL resource = owner.getResource("/" + resourceName);
             if (resource == null || !matchesDefiningSource(owner, resource, resourceName)) {
-                return false;
+                return UNREADABLE_CLASSFILE;
             }
             try (InputStream stream = resource.openStream()) {
                 ClassReader reader = new ClassReader(stream);
                 if (!reader.getClassName().equals(owner.getName().replace('.', '/'))) {
-                    return false;
+                    return UNREADABLE_CLASSFILE;
                 }
-                String descriptor = Type.getMethodDescriptor(method);
-                final Boolean[] implementation = {null};
+                final Map<String, Integer> declarations = new HashMap<>();
                 reader.accept(new ClassVisitor(Opcodes.ASM9) {
                     @Override
                     public MethodVisitor visitMethod(int access, String name, String desc,
                                                      String signature, String[] exceptions) {
-                        if (name.equals(method.getName()) && desc.equals(descriptor)) {
-                            implementation[0] = Modifier.isPublic(access) && !Modifier.isAbstract(access)
-                                    && !Modifier.isStatic(access) && descriptorTypesMatch(owner, method);
-                        }
+                        declarations.put(name + desc, access);
                         return null;
                     }
                 }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-                return implementation[0];
+                return declarations;
             }
         } catch (Throwable t) {
             logger.debug("Cannot inspect classfile methods of " + owner.getName() + ": " + t);
-            return false;
+            return UNREADABLE_CLASSFILE;
         }
     }
 

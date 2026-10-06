@@ -75,16 +75,39 @@ class TestUsageCheckerMissingSignatureTest {
     }
 
     @Test
-    void missingOrWrongClassResourcesRemainConservative() throws Exception {
+    void missingClassResourceRemainsConservative() throws Exception {
+        FixtureLoader loader = new FixtureLoader(fixtureRoot);
+        Class<?> contract = loader.define(CONTRACT, interfaceBytes("I"));
+        Class<?> owner = loader.define(OWNER, classBytes(OWNER, "java/lang/Object", CONTRACT, "I", false, true));
+        loader.resources.remove(OWNER + ".class");
+        assertFalse(TestUsageChecker.canUse(contract.getMethod("value"), owner));
+    }
+
+    @Test
+    void wrongClassResourceRemainsConservative() throws Exception {
+        FixtureLoader loader = new FixtureLoader(fixtureRoot);
+        Class<?> contract = loader.define(CONTRACT, interfaceBytes("I"));
+        Class<?> owner = loader.define(OWNER, classBytes(OWNER, "java/lang/Object", CONTRACT, "I", false, true));
+        loader.replaceResource(OWNER + ".class", classBytes(PREFIX + "OtherOwner", "java/lang/Object",
+                CONTRACT, "I", false, false));
+        assertFalse(TestUsageChecker.canUse(contract.getMethod("value"), owner));
+    }
+
+    /**
+     * Classes whose reflective method table cannot be linked are asked about once per abstract
+     * method. Re-reading and re-parsing the class file each time made the analysis of Xerces'
+     * HTML DOM hierarchy (hundreds of such classes) exhaust the initialization budget.
+     */
+    @Test
+    void classfileOfAnUnlinkableOwnerIsReadOnce() throws Exception {
         FixtureLoader loader = new FixtureLoader(fixtureRoot);
         Class<?> contract = loader.define(CONTRACT, interfaceBytes("I"));
         Class<?> owner = loader.define(OWNER, classBytes(OWNER, "java/lang/Object", CONTRACT, "I", false, true));
         Method method = contract.getMethod("value");
-        loader.resources.remove(OWNER + ".class");
-        assertFalse(TestUsageChecker.canUse(method, owner));
-        loader.replaceResource(OWNER + ".class", classBytes(PREFIX + "OtherOwner", "java/lang/Object",
-                CONTRACT, "I", false, false));
-        assertFalse(TestUsageChecker.canUse(method, owner));
+        for (int i = 0; i < 5; i++) {
+            assertTrue(TestUsageChecker.canUse(method, owner));
+        }
+        assertEquals(1, loader.resourceLookups.getOrDefault(OWNER + ".class", 0));
     }
 
     @Test
@@ -157,6 +180,7 @@ class TestUsageCheckerMissingSignatureTest {
         private final Map<String, byte[]> resources = new HashMap<>();
         private final Path directory;
         private URL resourceOverride;
+        private final Map<String, Integer> resourceLookups = new HashMap<>();
 
         FixtureLoader(Path root) {
             this(root, TestUsageCheckerMissingSignatureTest.class.getClassLoader());
@@ -187,6 +211,7 @@ class TestUsageCheckerMissingSignatureTest {
 
         @Override
         public URL getResource(String name) {
+            resourceLookups.merge(name, 1, Integer::sum);
             if (resourceOverride != null && name.equals(OWNER + ".class")) {
                 return resourceOverride;
             }
