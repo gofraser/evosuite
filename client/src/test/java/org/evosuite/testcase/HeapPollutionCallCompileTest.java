@@ -83,6 +83,65 @@ public class HeapPollutionCallCompileTest {
     }
 
     @Test
+    public void testAddOfStringLiteralToConcretelyTypedListCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        Type listType = TypeUtils.parameterize(ArrayList.class, IOException.class);
+        VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                Arrays.asList()));
+        VariableReference value = tc.addStatement(new StringPrimitiveStatement(tc, "value"));
+        GenericMethod add = new GenericMethod(ArrayList.class.getMethod("add", Object.class),
+                ArrayList.class);
+        tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(value)));
+
+        assertCompiles(tc);
+    }
+
+    @Test
+    public void testAddOfStringConstantToConcretelyTypedListCompiles() throws Exception {
+        for (Type constantType : new Type[] {String.class, Object.class}) {
+            TestCase tc = new DefaultTestCase();
+            Type listType = TypeUtils.parameterize(ArrayList.class, IOException.class);
+            VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                    Arrays.asList()));
+            VariableReference value = new org.evosuite.testcase.variable.ConstantValue(
+                    tc, org.evosuite.utils.generic.GenericClassFactory.get(constantType), "value");
+            GenericMethod add = new GenericMethod(ArrayList.class.getMethod("add", Object.class),
+                    ArrayList.class);
+            tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(value)));
+
+            assertCompiles(tc);
+        }
+    }
+
+    @Test
+    public void testAddToListWhoseModelIsAlreadyResolvedCompiles() throws Exception {
+        for (Class<?> owner : new Class<?>[] {ArrayList.class, java.util.List.class,
+                java.util.Collection.class, java.util.AbstractList.class}) {
+            for (Type constantType : new Type[] {String.class, Object.class}) {
+                TestCase tc = new DefaultTestCase();
+                Type listType = TypeUtils.parameterize(ArrayList.class, IOException.class);
+                VariableReference list = tc.addStatement(new ConstructorStatement(tc,
+                        new GenericConstructor(ArrayList.class.getConstructor(), listType),
+                        Arrays.asList()));
+                VariableReference value = new org.evosuite.testcase.variable.ConstantValue(tc,
+                        org.evosuite.utils.generic.GenericClassFactory.get(constantType),
+                        "value");
+                GenericMethod add = new GenericMethod(owner.getMethod("add", Object.class),
+                        TypeUtils.parameterize(owner, IOException.class));
+                tc.addStatement(new MethodStatement(tc, add, list, Arrays.asList(value)));
+
+                try {
+                    assertCompiles(tc);
+                } catch (AssertionError e) {
+                    throw new AssertionError(owner + " / " + constantType + ": " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    @Test
     public void testPutOfObjectToStringStringMapCompiles() throws Exception {
         TestCase tc = new DefaultTestCase();
         Type mapType = TypeUtils.parameterize(LinkedHashMap.class, String.class, String.class);

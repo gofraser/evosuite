@@ -3951,6 +3951,13 @@ public class TestCodeVisitor extends TestVisitor {
             if (isDefinitelyInconvertibleReferenceCast(declaredParameterType, actualParameterType)) {
                 return true;
             }
+            // A constant is rendered as its literal, whatever type the variable declares: an
+            // Object-typed "value" is a String to javac, and (Foo) "value" does not compile.
+            if (argument instanceof ConstantValue && ((ConstantValue) argument).getValue() != null
+                    && isDefinitelyInconvertibleReferenceCast(declaredParameterType,
+                    ((ConstantValue) argument).getValue().getClass())) {
+                return true;
+            }
             // javac checks the argument against the receiver's declared parameterization
             // (eg ArrayList<IOException>.add(IOException)), but the argument is rendered
             // against the method's own model, which can still accept it (eg add(E) with E
