@@ -301,6 +301,16 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
 
     @Override
     public boolean isOverloaded(List<VariableReference> parameters) {
+        return isOverloaded(parameters, null);
+    }
+
+    /**
+     * As {@link #isOverloaded(List)}, but a sibling overload declared by a subclass of the
+     * method's declaring class also counts when the call is made on a receiver of that subclass.
+     *
+     * @param receiverClass the static class of the receiver, or null
+     */
+    public boolean isOverloaded(List<VariableReference> parameters, Class<?> receiverClass) {
         String methodName = getName();
         Class<?> declaringClass = method.getDeclaringClass();
         Class<?>[] parameterTypes = method.getParameterTypes();
@@ -330,7 +340,12 @@ public class GenericMethod extends GenericExecutable<GenericMethod, Method> {
         boolean thisMethodApplicable = false;
         boolean hasSiblingWithSameName = false;
         try {
-            for (java.lang.reflect.Method otherMethod : getCandidateMethods(declaringClass)) {
+            Set<Method> candidates = getCandidateMethods(declaringClass);
+            if (receiverClass != null && !receiverClass.equals(declaringClass)
+                    && declaringClass.isAssignableFrom(receiverClass)) {
+                candidates.addAll(getCandidateMethods(receiverClass));
+            }
+            for (java.lang.reflect.Method otherMethod : candidates) {
                 if (!otherMethod.getName().equals(methodName)) {
                     continue;
                 }

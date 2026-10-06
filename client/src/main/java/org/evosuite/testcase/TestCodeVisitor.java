@@ -3682,7 +3682,7 @@ public class TestCodeVisitor extends TestVisitor {
                 : ownerTypeForParameterRendering;
         Class<?> overloadReceiverType = statement.getCallee() != null
                 ? statement.getCallee().getVariableClass() : null;
-        boolean overloadedMethodCall = method.isOverloaded(parameters)
+        boolean overloadedMethodCall = method.isOverloaded(parameters, overloadReceiverType)
                 || requiresNullArgumentDisambiguation(
                         method.getMethod(), parameters, 0, overloadReceiverType);
         String parameterString = getParameterString(renderedParameterTypes,
