@@ -19,6 +19,7 @@
  */
 package org.evosuite.instrumentation.coverage;
 
+import org.evosuite.TestGenerationContext;
 import org.evosuite.Properties;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.coverage.mutation.Mutation;
@@ -113,6 +114,14 @@ public class MutationInstrumentation implements MethodInstrumentation {
         }
 
         if (methodName.startsWith(ClassResetter.STATIC_RESET)) {
+            return;
+        }
+
+        // The mutation operators register their mutants in the pool of the context's class loader
+        // for the SUT. A throw-away loader, such as the one of each JUnit check, would add a
+        // second copy of every mutant to that pool, which nothing ever releases, and a large SUT
+        // ran the client out of heap after a few dozen checks.
+        if (classLoader != TestGenerationContext.getInstance().getClassLoaderForSUT()) {
             return;
         }
 

@@ -22,6 +22,7 @@ package org.evosuite;
 import com.examples.with.different.packagename.FlagExample1;
 import org.evosuite.classpath.ClassPathHandler;
 import org.evosuite.coverage.branch.BranchPool;
+import org.evosuite.coverage.mutation.MutationPool;
 import org.evosuite.graphs.GraphPool;
 import org.evosuite.instrumentation.InstrumentingClassLoader;
 import org.evosuite.runtime.classhandling.ClassResetter;
@@ -31,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.ref.WeakReference;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -80,6 +82,22 @@ public class TestGenerationContextReleaseClassLoaderTest {
         TestGenerationContext.getInstance().releaseClassLoader(sutLoader);
 
         assertSame(pool, GraphPool.getInstance(sutLoader));
+    }
+
+    @Test
+    public void aCheckLoaderAddsNoMutantsToThePoolOfTheContext() throws Exception {
+        Properties.CRITERION = new Properties.Criterion[]{Properties.Criterion.WEAKMUTATION};
+        TestGenerationContext.getInstance().resetContext();
+        ClassLoader sutLoader = TestGenerationContext.getInstance().getClassLoaderForSUT();
+        sutLoader.loadClass(TARGET_CLASS);
+        int mutants = MutationPool.getInstance(sutLoader).getMutants().size();
+        assertTrue(mutants > 0, "the SUT loader should have registered mutants");
+
+        InstrumentingClassLoader checkLoader = new InstrumentingClassLoader();
+        checkLoader.loadClass(TARGET_CLASS);
+        TestGenerationContext.getInstance().releaseClassLoader(checkLoader);
+
+        assertEquals(mutants, MutationPool.getInstance(sutLoader).getMutants().size());
     }
 
     private WeakReference<ClassLoader> instrumentReleaseAndForget() throws Exception {
