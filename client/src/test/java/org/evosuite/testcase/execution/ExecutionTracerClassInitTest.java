@@ -19,6 +19,7 @@
  */
 package org.evosuite.testcase.execution;
 
+import org.evosuite.runtime.LoopCounter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -26,8 +27,10 @@ import org.junit.jupiter.api.Timeout;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Tests for the &lt;clinit&gt; bookkeeping of {@link ExecutionTracer}: which class is
@@ -173,5 +176,61 @@ public class ExecutionTracerClassInitTest {
         }
 
         assertEquals(10, ExecutionTracer.getKillSwitchProbeCount());
+    }
+
+    /**
+     * An abandoned initializer must still terminate through a timeout probe when
+     * the ordinary kill switch has been disarmed by the executor's grace path.
+     */
+    @Test
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
+    @SuppressWarnings("deprecation")
+    public void testAbandonedClassInitTimeoutProbeTerminatesAfterKillSwitchIsDisarmed()
+            throws InterruptedException {
+        Thread worker = new Thread(() -> {
+            try {
+                Class.forName(AbandonedTimeoutProbe.class.getName());
+            } catch (Throwable ignored) {
+                // The abandoned initializer is intentionally terminated through
+                // TimeoutExceeded, so class initialization fails here.
+            }
+        }, "abandoned-timeout-probe");
+        worker.setDaemon(true);
+        abandonTimeoutProbeStop = false;
+        LoopCounter.getInstance().abandonStaticInitializer(worker);
+        ExecutionTracer.setKillSwitch(false);
+
+        try {
+            worker.start();
+            worker.join(5000);
+            assertFalse(worker.isAlive(),
+                    "a disarmed kill switch must not leave an abandoned <clinit> running forever");
+            assertTrue(abandonedTimeoutProbeEntered,
+                    "the probe should have entered its static initializer");
+        } finally {
+            if (worker.isAlive()) {
+                abandonTimeoutProbeStop = true;
+                worker.interrupt();
+                worker.join(1000);
+            }
+            if (worker.isAlive()) {
+                worker.stop();
+                worker.join(1000);
+            }
+        }
+    }
+
+    private static volatile boolean abandonedTimeoutProbeEntered;
+
+    private static volatile boolean abandonTimeoutProbeStop;
+
+    private static class AbandonedTimeoutProbe {
+
+        static {
+            abandonedTimeoutProbeEntered = true;
+            while (!abandonTimeoutProbeStop) {
+                ExecutionTracer.checkTimeout();
+            }
+        }
     }
 }

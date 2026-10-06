@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 /**
  * In some cases, we can end up with infinite loops: eg due to a bug, a seeded mutation,
@@ -73,6 +74,35 @@ public class LoopCounter {
     private final Map<Thread, List<Long>> protectedCounters = new ConcurrentHashMap<>();
 
     /**
+     * Deadlines for workers that were abandoned while still running a static
+     * initializer.  A normal interrupt cannot be used for those workers: an
+     * exception escaping {@code <clinit>} poisons the class, and the executor
+     * therefore leaves the worker alone after its grace period.  The deadline
+     * gives an instrumented loop one final, bounded escape once the initializer
+     * has been identified as stuck.
+     */
+    private final Map<Thread, Long> abandonedStaticInitDeadlines = new ConcurrentHashMap<>();
+
+    /**
+     * True while {@link #abandonedStaticInitDeadlines} may be non-empty.  Loop
+     * back-edges run on deep SUT stacks, so the common case (nothing abandoned)
+     * must be a single volatile read: no Thread.currentThread(), no map lookup and
+     * no extra frame.  Writers hold {@link #abandonedStaticInitLock} so the flag
+     * never claims "empty" while an entry exists.
+     */
+    private volatile boolean abandonedStaticInitArmed = false;
+
+    private final Object abandonedStaticInitLock = new Object();
+
+    /**
+     * Once an initializer has been abandoned, let it run briefly before the
+     * loop counter terminates it.  This small window lets a worker that is just
+     * leaving the initializer complete normally, while ensuring that a tight
+     * abandoned loop cannot retain the class-initialization lock forever.
+     */
+    private static final long ABANDONED_STATIC_INIT_GRACE_MILLIS = 1000L;
+
+    /**
      * How many interrupted back-edges we let pass between two stack walks, once we have
      * established that we are inside a static initializer. The interrupt flag stays set
      * until the thread is stopped, so from the first interrupted back-edge onwards
@@ -121,7 +151,54 @@ public class LoopCounter {
         // Opportunistic cleanup: a dead thread can never call checkLoop() again, so
         // there is no point holding its snapshot for the rest of the process.
         protectedCounters.keySet().removeIf(t -> !t.isAlive());
+        synchronized (abandonedStaticInitLock) {
+            abandonedStaticInitDeadlines.keySet().removeIf(t -> !t.isAlive());
+            abandonedStaticInitArmed = !abandonedStaticInitDeadlines.isEmpty();
+        }
         protectedCounters.putIfAbsent(thread, new ArrayList<>(counters));
+    }
+
+    /**
+     * Arms the bounded escape used for a worker that the test executor has
+     * abandoned while it is still inside a static initializer.
+     *
+     * <p>The marker is deliberately per-thread.  A new test may reset the
+     * shared counters immediately after the executor rotates, but that reset
+     * must not either erase the abandoned worker's progress or disable its
+     * final termination guard.</p>
+     *
+     * @param thread the worker that was abandoned
+     */
+    public void abandonStaticInitializer(Thread thread) {
+        if (delegate != null) {
+            invokeDelegate("abandonStaticInitializer", thread);
+            return;
+        }
+        if (thread == null) {
+            return;
+        }
+        protectFromReset(thread);
+        long deadline = java.lang.System.nanoTime()
+                + TimeUnit.MILLISECONDS.toNanos(ABANDONED_STATIC_INIT_GRACE_MILLIS);
+        synchronized (abandonedStaticInitLock) {
+            abandonedStaticInitDeadlines.put(thread, deadline);
+            abandonedStaticInitArmed = true;
+        }
+    }
+
+    /**
+     * Returns whether the calling thread has reached the termination deadline
+     * for an abandoned static initializer.  This is also used by
+     * {@code ExecutionTracer.checkTimeout()}, because class-initializer loops
+     * can reach a timeout probe without reaching a {@code LoopCounter} probe.
+     *
+     * @return true when the abandoned initializer should be terminated
+     */
+    public boolean shouldTerminateAbandonedStaticInitializer() {
+        if (delegate != null) {
+            return (Boolean) invokeDelegate("shouldTerminateAbandonedStaticInitializer");
+        }
+        return abandonedStaticInitArmed && abandonedStaticInitializerExpired();
     }
 
     /**
@@ -212,6 +289,10 @@ public class LoopCounter {
             // reflection which is slow, and we want fast termination.
             // Never on an interrupt alone inside a static initializer though:
             // see the comment at the interrupt check further down.
+            if (abandonedStaticInitArmed && abandonedStaticInitializerExpired()) {
+                throw new TooManyResourcesException(
+                        "Abandoned static initializer exceeded its termination grace period");
+            }
             if (Thread.currentThread().isInterrupted() && !isInterruptInStaticInit()) {
                 throw new TooManyResourcesException(
                         "Loop terminated early: thread was interrupted (likely timeout)");
@@ -233,6 +314,15 @@ public class LoopCounter {
         }
         if (index < 0) {
             throw new IllegalArgumentException("Loop index cannot be negative");
+        }
+
+        // This check intentionally precedes both the active flag and the
+        // ordinary iteration limit.  TestCaseExecutor disables those controls
+        // while it waits out a static initializer, and leaves them disabled for
+        // an abandoned worker; the per-thread deadline is the remaining guard.
+        if (abandonedStaticInitArmed && abandonedStaticInitializerExpired()) {
+            throw new TooManyResourcesException(
+                    "Abandoned static initializer exceeded its termination grace period");
         }
 
         if (!activated) {
@@ -257,9 +347,9 @@ public class LoopCounter {
         // everything that reads from it throw NoClassDefFoundError from then on —
         // which silently zeroes the coverage of the whole run, not just this test.
         // An interrupt only says "we would like to stop", so it is not worth that
-        // price. A truly stuck static initializer is still terminated: by the 10x
-        // clinit iteration limit below, and by the kill-switch probe backstop in
-        // ExecutionTracer.checkTimeout().
+        // price. A truly stuck static initializer is still terminated by the
+        // timeout-probe backstop and, after executor abandonment, by the
+        // per-thread deadline checked below.
         if (Thread.currentThread().isInterrupted() && !isInterruptInStaticInit()) {
             this.reset();
             throw new TooManyResourcesException(
@@ -291,10 +381,11 @@ public class LoopCounter {
             // mark the class erroneous for the lifetime of the classloader, so that
             // class and every class reading from it fail with NoClassDefFoundError
             // for the rest of the run — a permanent loss to buy a bounded saving.
-            // A genuinely stuck initializer is still terminated, by two time-gated
+            // A genuinely stuck initializer is still terminated by time-gated
             // guards that only fire once the test has already run out of budget:
-            // the kill-switch probe in ExecutionTracer.checkTimeout() and the
-            // timed-out-class tracking in ClassReInitializeExecutor.
+            // the kill-switch probe in ExecutionTracer.checkTimeout(), the
+            // timed-out-class tracking in ClassReInitializeExecutor, and the
+            // per-thread deadline armed when TestCaseExecutor abandons a worker.
             if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInit()) {
                 this.reset();
                 throw new TooManyResourcesException("Loop has been executed more times than the allowed "
@@ -340,6 +431,39 @@ public class LoopCounter {
             }
         }
         return false;
+    }
+
+    /**
+     * Checks whether this worker's abandoned-initializer deadline has elapsed.
+     * Before the deadline we avoid a stack walk on every loop back-edge.  Once
+     * it expires, the walk distinguishes a worker that completed its initializer
+     * from one that is still holding the class-initialization lock.  A positive
+     * result deliberately leaves the marker installed: a catch-all in the
+     * initializer may swallow the first timeout, and the next probe must still
+     * terminate it.  The marker is removed once the worker is observed outside
+     * the initializer, or opportunistically when the worker is dead.
+     */
+    private boolean abandonedStaticInitializerExpired() {
+        Thread current = Thread.currentThread();
+        Long deadline = abandonedStaticInitDeadlines.get(current);
+        if (deadline == null) {
+            return false;
+        }
+        long now = java.lang.System.nanoTime();
+        // Compare by subtraction so a nanoTime wrap cannot make a one-second
+        // deadline appear centuries away. The interval is far below half the
+        // representable range, so this signed comparison is well-defined.
+        if (deadline - now > 0) {
+            return false;
+        }
+        if (!isInStaticInit()) {
+            synchronized (abandonedStaticInitLock) {
+                abandonedStaticInitDeadlines.remove(current, deadline);
+                abandonedStaticInitArmed = !abandonedStaticInitDeadlines.isEmpty();
+            }
+            return false;
+        }
+        return true;
     }
 
     private Object invokeDelegate(String methodName, Object... args) {

@@ -32,9 +32,9 @@ import java.util.Set;
  * A minimal {@link MethodVisitor} that prevents SUT catch blocks from
  * swallowing EvoSuite's {@code TestCaseExecutor.TimeoutExceeded} exception.
  *
- * <p>At every catch/finally handler entry point whose declared type could
+ * <p>At every catch handler entry point whose declared type could
  * catch {@code TimeoutExceeded} (i.e. {@code Throwable}, {@code Exception},
- * {@code RuntimeException}, or {@code null} for finally), this adapter
+ * or {@code RuntimeException}), this adapter
  * injects:
  * <pre>
  *   DUP
@@ -63,12 +63,11 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     private Set<Label> catchHandlerLabels;
 
     /**
-     * javac up to Java 8 protects the first instruction of a finally handler with the
-     * handler itself (exception table entry {@code [handler, handler+1) -> handler}). Code
-     * injected at the handler label would sit inside that range, and an exception it throws
-     * would dispatch straight back to the same handler, forever: liferay's
-     * CoalescedPipe.take() spun at 100% CPU in its finally block until force-stopped. Such
-     * ranges are moved to start at a fresh label emitted after the injected code.
+     * Some compilers protect the first instruction of a catch handler with the handler itself
+     * (exception table entry {@code [handler, handler+1) -> handler}). Code injected at the
+     * handler label would sit inside that range, and an exception it throws would dispatch
+     * straight back to the same handler, forever. Such ranges are moved to start at a fresh
+     * label emitted after the injected code.
      */
     private Map<Label, Label> shiftedRangeStarts;
 
@@ -82,17 +81,15 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
 
     @Override
     public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
-        if (start == handler) {
+        boolean rethrowAtHandler = isTimeoutCatchType(type);
+        if (start == handler && rethrowAtHandler) {
             if (shiftedRangeStarts == null) {
                 shiftedRangeStarts = new HashMap<>();
             }
             start = shiftedRangeStarts.computeIfAbsent(handler, h -> new Label());
         }
         super.visitTryCatchBlock(start, end, handler, type);
-        if (type == null
-                || "java/lang/Throwable".equals(type)
-                || "java/lang/Exception".equals(type)
-                || "java/lang/RuntimeException".equals(type)) {
+        if (rethrowAtHandler) {
             if (catchHandlerLabels == null) {
                 catchHandlerLabels = new HashSet<>();
             }
@@ -125,5 +122,11 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
         // DUP adds one extra stack slot.  With COMPUTE_FRAMES this value is
         // ignored, but we bump it for COMPUTE_MAXS compatibility.
         super.visitMaxs(injected ? maxStack + 1 : maxStack, maxLocals);
+    }
+
+    private static boolean isTimeoutCatchType(String type) {
+        return "java/lang/Throwable".equals(type)
+                || "java/lang/Exception".equals(type)
+                || "java/lang/RuntimeException".equals(type);
     }
 }

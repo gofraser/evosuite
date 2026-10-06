@@ -24,6 +24,7 @@ import org.evosuite.coverage.dataflow.DefUsePool;
 import org.evosuite.coverage.dataflow.Definition;
 import org.evosuite.coverage.dataflow.Use;
 import org.evosuite.instrumentation.testability.BooleanHelper;
+import org.evosuite.runtime.LoopCounter;
 import org.evosuite.seeding.ConstantPoolManager;
 import org.evosuite.utils.ArrayUtil;
 import org.objectweb.asm.Opcodes;
@@ -458,6 +459,9 @@ public class ExecutionTracer {
         // checkTimeout is a kill-switch probe and must fire regardless of tracing
         // state, otherwise a runaway SUT loop during JUnit check (where the tracer
         // is deliberately disabled to avoid pollution) would have no way out.
+        if (LoopCounter.getInstance().shouldTerminateAbandonedStaticInitializer()) {
+            throw new TestCaseExecutor.TimeoutExceeded();
+        }
         if (!tracer.killSwitch) {
             return;
         }

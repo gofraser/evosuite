@@ -856,12 +856,9 @@ public class TestCaseExecutor implements ThreadFactory {
                     // Abandon the thread instead, the same way this method already abandons
                     // an unkillable thread elsewhere: leave it running at background priority
                     // and let the caller rotate to a fresh executor. A genuinely infinite loop
-                    // in the initializer is still bounded — LoopCounter's unconditional 10x
-                    // iteration cap and ExecutionTracer.checkTimeout()'s clinit kill-switch
-                    // ceiling both throw regardless of interrupt state — so this does not
-                    // reintroduce an unkillable-forever thread, it just stops us from being
-                    // the ones who force an early, poisoning exit for a <clinit> that is
-                    // merely slow rather than stuck.
+                    // in the initializer is still bounded: the per-thread abandonment deadline
+                    // is checked by both LoopCounter and ExecutionTracer, even though ordinary
+                    // loop counting and the kill switch are disabled during this grace path.
                     if (alreadyAbandonedThisClass) {
                         logger.debug("Static initializer of {} was already abandoned once; "
                                         + "abandoning again without re-waiting the grace period.",
@@ -875,6 +872,12 @@ public class TestCaseExecutor implements ThreadFactory {
                     if (stuckClinitClass != null) {
                         abandonedClinitClasses.add(stuckClinitClass);
                     }
+                    // The worker is intentionally left alone after this point to
+                    // avoid force-throwing out of <clinit>. Arm LoopCounter's
+                    // per-thread, time-bounded escape so an instrumented infinite
+                    // initializer cannot keep the class-initialization lock and
+                    // consume CPU forever.
+                    LoopCounter.getInstance().abandonStaticInitializer(currentThread);
                     abandonStuckStaticInit = true;
                 } else if (wasInStaticInit && needsTimeoutCleanup(handler)) {
                     // The initial timeout was consumed by classloading/static initialization.
@@ -949,6 +952,11 @@ public class TestCaseExecutor implements ThreadFactory {
                     if (stuckClinitClass != null) {
                         abandonedClinitClasses.add(stuckClinitClass);
                     }
+                    // This late re-check is another abandonment path. Arm
+                    // the same per-thread deadline before leaving the worker
+                    // untouched, otherwise a class initializer entered after
+                    // the initial timeout can still run forever.
+                    LoopCounter.getInstance().abandonStaticInitializer(currentThread);
                     logger.warn("Thread {} is inside <clinit> of {} at the force-stop decision "
                                     + "(it was not when the timeout was first caught) — abandoning "
                                     + "it instead of forcing it, to avoid poisoning the class.",

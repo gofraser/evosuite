@@ -33,9 +33,12 @@ import org.objectweb.asm.util.CheckClassAdapter;
 
 import java.io.InputStream;
 import java.io.PrintWriter;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.concurrent.Callable;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -89,6 +92,27 @@ public class TimeoutExceededRethrowClassAdapterTest {
             assertTrue(e.getCause() instanceof TestCaseExecutor.TimeoutExceeded,
                     "expected TimeoutExceeded, got " + e.getCause());
         }
+
+        // The timeout must unwind the finally block before it reaches the caller.  If the
+        // adapter rethrows at the handler entry, the current thread still owns this lock and
+        // a subsequent test can deadlock trying to acquire it.
+        Field lockField = cls.getDeclaredField("lock");
+        lockField.setAccessible(true);
+        ReentrantLock lock = (ReentrantLock) lockField.get(sut);
+        AtomicBoolean acquired = new AtomicBoolean(false);
+        Thread waiter = new Thread(() -> {
+            try {
+                if (lock.tryLock(500, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                    acquired.set(true);
+                    lock.unlock();
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        waiter.start();
+        waiter.join(2000);
+        assertTrue(acquired.get(), "finally must release the lock after TimeoutExceeded");
     }
 
     /**

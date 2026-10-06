@@ -25,6 +25,7 @@ import org.evosuite.testcase.statements.MethodStatement;
 import org.evosuite.utils.generic.GenericMethod;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -64,12 +65,22 @@ public class TestCaseExecutorClinitReCheckTest {
 
     private int originalTimeout;
     private int originalShutdownTimeout;
+    private int originalClinitGraceTimeout;
+
+    @BeforeEach
+    public void captureProperties() {
+        originalTimeout = Properties.TIMEOUT;
+        originalShutdownTimeout = Properties.SHUTDOWN_TIMEOUT;
+        originalClinitGraceTimeout = Properties.CLINIT_GRACE_TIMEOUT;
+    }
 
     @AfterEach
     public void restore() {
         Properties.TIMEOUT = originalTimeout;
         Properties.SHUTDOWN_TIMEOUT = originalShutdownTimeout;
+        Properties.CLINIT_GRACE_TIMEOUT = originalClinitGraceTimeout;
         ExecutionTracer.setKillSwitch(false);
+        stopRunawayClinit = true;
         // Always release, even on assertion failure, so a stuck worker thread does not sit
         // blocked in BlockingClinitHolder's <clinit> for the rest of the test JVM's life.
         CountDownLatch latch = releaseLatch;
@@ -101,6 +112,11 @@ public class TestCaseExecutorClinitReCheckTest {
         BlockingClinitHolder.touch();
     }
 
+    /** Entry point used by the integration regression below. */
+    public static void startRunawayClinit() {
+        RunawayClinitHolder.touch();
+    }
+
     static final class BlockingClinitHolder {
         static volatile boolean initialized = false;
 
@@ -126,11 +142,32 @@ public class TestCaseExecutorClinitReCheckTest {
         }
     }
 
+    /**
+     * A real class initializer that keeps polling the timeout hook after the
+     * executor has timed out the test. The outer stop flag lets a failing test
+     * cleanly release the worker on the old implementation.
+     */
+    static final class RunawayClinitHolder {
+        static {
+            runawayClinitWorker = Thread.currentThread();
+            runawayClinitEntered = true;
+            while (!stopRunawayClinit) {
+                ExecutionTracer.checkTimeout();
+            }
+        }
+
+        static void touch() {
+            // Calling this is enough to trigger <clinit> on first use.
+        }
+    }
+
+    private static volatile Thread runawayClinitWorker;
+    private static volatile boolean runawayClinitEntered;
+    private static volatile boolean stopRunawayClinit;
+
     @Test
     @Timeout(value = 20, unit = TimeUnit.SECONDS)
     public void reChecksStaticInitBeforeForcingAThreadTheFastPathWouldOtherwiseStop() throws Exception {
-        originalTimeout = Properties.TIMEOUT;
-        originalShutdownTimeout = Properties.SHUTDOWN_TIMEOUT;
         Properties.TIMEOUT = 150;
         Properties.SHUTDOWN_TIMEOUT = 300;
         releaseLatch = new CountDownLatch(1);
@@ -156,11 +193,58 @@ public class TestCaseExecutorClinitReCheckTest {
                         + "poisoned by a force-stop while the worker thread was inside it");
     }
 
+    @Test
+    @Timeout(value = 20, unit = TimeUnit.SECONDS)
+    public void abandonedStaticInitializerEventuallyTerminatesItsOriginalWorker() throws Exception {
+        Properties.TIMEOUT = 100;
+        Properties.SHUTDOWN_TIMEOUT = 100;
+        Properties.CLINIT_GRACE_TIMEOUT = 300;
+        releaseLatch = null;
+        stopRunawayClinit = false;
+        runawayClinitEntered = false;
+        runawayClinitWorker = null;
+
+        try {
+            ExecutionResult result = TestCaseExecutor.runTest(buildRunawayClinitTestCase());
+            Assertions.assertNotNull(result);
+            Assertions.assertTrue(result.hasTimeout(),
+                    "the executor regression must exercise its timeout/abandonment path");
+
+            Assertions.assertTrue(runawayClinitEntered,
+                    "the timeout must have reached the real static initializer");
+            Thread worker = runawayClinitWorker;
+            Assertions.assertNotNull(worker, "the static initializer should record its worker");
+            worker.join(5000);
+            Assertions.assertFalse(worker.isAlive(),
+                    "the executor's abandoned-initializer path must retain a termination guard");
+        } finally {
+            // On the pre-fix implementation the worker survives the executor's
+            // return. Let its bounded test flag finish the initializer before the
+            // test fixture is torn down, rather than leaking a hot daemon thread.
+            stopRunawayClinit = true;
+            Thread worker = runawayClinitWorker;
+            if (worker != null) {
+                worker.join(2000);
+            }
+        }
+    }
+
     private static DefaultTestCase buildBlockingTestCase() throws Exception {
         DefaultTestCase testCase = new DefaultTestCase();
         Method spin = TestCaseExecutorClinitReCheckTest.class.getMethod("spinThenBlockInClinit");
         MethodStatement ms = new MethodStatement(testCase,
                 new GenericMethod(spin, TestCaseExecutorClinitReCheckTest.class),
+                null,
+                Collections.emptyList());
+        testCase.addStatement(ms);
+        return testCase;
+    }
+
+    private static DefaultTestCase buildRunawayClinitTestCase() throws Exception {
+        DefaultTestCase testCase = new DefaultTestCase();
+        Method start = TestCaseExecutorClinitReCheckTest.class.getMethod("startRunawayClinit");
+        MethodStatement ms = new MethodStatement(testCase,
+                new GenericMethod(start, TestCaseExecutorClinitReCheckTest.class),
                 null,
                 Collections.emptyList());
         testCase.addStatement(ms);
