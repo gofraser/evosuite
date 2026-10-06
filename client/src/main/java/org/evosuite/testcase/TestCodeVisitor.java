@@ -3382,7 +3382,15 @@ public class TestCodeVisitor extends TestVisitor {
                 }
                 org.evosuite.testcase.fm.MethodDescriptor updatedMd = new org.evosuite.testcase.fm.MethodDescriptor(originalMethod, retval.getGenericClass());
                 
-                result.append("doReturn(").append(parameterString)                        .append(").when(").append(getVariableName(retval)).append(")");
+                // The variable may be declared wider than the mocked class (Object for an
+                // erased type variable), and the stubbed method must resolve on the receiver.
+                String stubReceiver = getVariableName(retval);
+                if (!originalMethod.getDeclaringClass().isAssignableFrom(retval.getVariableClass())
+                        && originalMethod.getDeclaringClass().isAssignableFrom(rawClass)) {
+                    stubReceiver = "(" + rawClassName + ") " + stubReceiver;
+                }
+                result.append("doReturn(").append(parameterString)
+                        .append(").when(").append(stubReceiver).append(")");
                 result.append(".").append(md.getMethodName()).append("(")
                         .append(updatedMd.getInputParameterMatchers()).append(");").append(NEWLINE);
 
