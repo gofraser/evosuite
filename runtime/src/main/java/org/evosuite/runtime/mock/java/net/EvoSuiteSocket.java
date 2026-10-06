@@ -261,13 +261,13 @@ public class EvoSuiteSocket extends MockSocketImpl {
     @Override
     protected InputStream getInputStream() throws IOException {
         checkIfClosed();
-        return new SocketIn(openedConnection, true);
+        return new SocketIn(openedConnection, true, socket);
     }
 
     @Override
     protected OutputStream getOutputStream() throws IOException {
         checkIfClosed();
-        return new SocketOut(openedConnection, true);
+        return new SocketOut(openedConnection, true, socket);
     }
 
     @Override

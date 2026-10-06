@@ -42,6 +42,12 @@ public class SocketIn extends InputStream {
      */
     private final boolean isLocal;
 
+    /**
+     * The owning socket, when this stream was obtained from a MockSocket. This
+     * lets a stream that was cached before shutdown observe a later half-close.
+     */
+    private final MockSocket owner;
+
     private volatile boolean closed;
 
     /**
@@ -52,6 +58,10 @@ public class SocketIn extends InputStream {
      * @throws IllegalArgumentException if tcp is null
      */
     public SocketIn(NativeTcp tcp, boolean isLocal) throws IllegalArgumentException {
+        this(tcp, isLocal, null);
+    }
+
+    SocketIn(NativeTcp tcp, boolean isLocal, MockSocket owner) throws IllegalArgumentException {
         super();
 
         if (tcp == null) {
@@ -60,6 +70,7 @@ public class SocketIn extends InputStream {
 
         this.tcp = tcp;
         this.isLocal = isLocal;
+        this.owner = owner;
         closed = false;
     }
 
@@ -67,6 +78,10 @@ public class SocketIn extends InputStream {
     public int read() throws IOException {
 
         checkClosed();
+
+        if (owner != null && owner.isInputShutdown()) {
+            return -1;
+        }
 
         if (isLocal) {
             return tcp.readInSUTfromRemote();
@@ -95,6 +110,10 @@ public class SocketIn extends InputStream {
     public int available() throws IOException {
 
         checkClosed();
+
+        if (owner != null && owner.isInputShutdown()) {
+            return 0;
+        }
 
         if (isLocal) {
             return tcp.getAmountOfDataInLocalBuffer();

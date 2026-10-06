@@ -35,7 +35,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NotYetBoundException;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.spi.SelectorProvider;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -81,7 +80,7 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
     private final long openGeneration = VirtualNetwork.getInstance().getResetGeneration();
 
     EvoServerSocketChannel() throws IOException {
-        super(SelectorProvider.provider());
+        super(EvoSelectorProvider.provider());
         this.socket = new MockServerSocket();
     }
 
@@ -114,7 +113,22 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
     @Override
     public ServerSocketChannel bind(SocketAddress local, int backlog) throws IOException {
         socket.bind(local, backlog);
+        VirtualNetwork.getInstance().signalStateChange();
         return this;
+    }
+
+    /** Returns whether a selector should report OP_ACCEPT for this channel. */
+    boolean isAcceptReady() {
+        if (staleGeneration() || !isOpen() || !socket.isBound()) {
+            return false;
+        }
+        java.net.InetAddress address = socket.getInetAddress();
+        // MockServerSocket reports null for the address after a wildcard bind.  The
+        // virtual network's matching method deliberately falls back to any pending
+        // connection, which is the same behavior used by accept(), so use a stable
+        // wildcard marker instead of dropping accept readiness in this case.
+        String host = address == null ? "0.0.0.0" : address.getHostAddress();
+        return VirtualNetwork.getInstance().hasPendingTcpConnection(host, socket.getLocalPort());
     }
 
     @Override
@@ -195,6 +209,7 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
             throw new IOException("Unexpected non-mocked socket returned by accept()");
         }
 
+        VirtualNetwork.getInstance().signalStateChange();
         return EvoSocketChannel.wrap((MockSocket) accepted);
     }
 
@@ -228,10 +243,12 @@ public class EvoServerSocketChannel extends ServerSocketChannel {
     @Override
     protected void implCloseSelectableChannel() throws IOException {
         socket.close();
+        VirtualNetwork.getInstance().signalStateChange();
     }
 
     @Override
     protected void implConfigureBlocking(boolean block) throws IOException {
         this.blocking = block;
+        VirtualNetwork.getInstance().signalStateChange();
     }
 }

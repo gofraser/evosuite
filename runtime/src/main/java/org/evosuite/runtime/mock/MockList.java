@@ -35,6 +35,8 @@ import org.evosuite.runtime.mock.java.nio.channels.MockAsynchronousServerSocketC
 import org.evosuite.runtime.mock.java.nio.channels.MockAsynchronousSocketChannel;
 import org.evosuite.runtime.mock.java.nio.channels.MockDatagramChannel;
 import org.evosuite.runtime.mock.java.nio.channels.MockServerSocketChannel;
+import org.evosuite.runtime.mock.java.nio.channels.MockSelector;
+import org.evosuite.runtime.mock.java.nio.channels.MockSelectorProvider;
 import org.evosuite.runtime.mock.java.nio.channels.MockSocketChannel;
 import org.evosuite.runtime.mock.java.security.MockSecureRandom;
 import org.evosuite.runtime.mock.java.text.MockDateFormat;
@@ -205,6 +207,8 @@ public class MockList {
             list.add(MockSSLSocketFactory.class);
             list.add(MockServerSocketChannel.class);
             list.add(MockSocketChannel.class);
+            list.add(MockSelector.class);
+            list.add(MockSelectorProvider.class);
             list.add(MockDatagramChannel.class);
             list.add(MockAsynchronousSocketChannel.class);
             list.add(MockAsynchronousServerSocketChannel.class);

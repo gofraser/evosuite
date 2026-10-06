@@ -169,6 +169,15 @@ public class VirtualNetwork {
     private final AtomicLong resetGeneration = new AtomicLong(0);
 
     /**
+     * Monitor used by virtual NIO selectors. A network event wakes selectors without
+     * replacing the JVM's real selector provider or making selection spin.
+     */
+    private final Object stateMonitor = new Object();
+
+    /** Monotonic version used to close the check-then-wait window in selectors. */
+    private final AtomicLong stateVersion = new AtomicLong(0);
+
+    /**
      * Private, singleton constructor.
      */
     private VirtualNetwork() {
@@ -225,6 +234,7 @@ public class VirtualNetwork {
         remoteContactedPorts.clear();
         remoteAccessedFiles.clear();
         remoteDnsLookups.clear();
+        signalStateChange();
     }
 
     // -------  observers ----------------------
@@ -240,6 +250,31 @@ public class VirtualNetwork {
      */
     public long getResetGeneration() {
         return resetGeneration.get();
+    }
+
+    /**
+     * Waits only if the supplied version is still current. This avoids losing a notification
+     * between a selector's readiness check and its wait.
+     */
+    public void awaitStateChange(long observedVersion, long timeoutMillis) throws InterruptedException {
+        synchronized (stateMonitor) {
+            if (stateVersion.get() == observedVersion) {
+                stateMonitor.wait(timeoutMillis);
+            }
+        }
+    }
+
+    /** Returns the current virtual-network event version. */
+    public long getStateVersion() {
+        return stateVersion.get();
+    }
+
+    /** Wakes virtual NIO selectors waiting for a network event. */
+    public void signalStateChange() {
+        synchronized (stateMonitor) {
+            stateVersion.incrementAndGet();
+            stateMonitor.notifyAll();
+        }
     }
 
     public Set<String> getViewOfRemoteAccessedFiles() {
@@ -470,6 +505,7 @@ public class VirtualNetwork {
 
         NativeTcp connection = new NativeTcp(dest, origin);
         queue.add(connection);
+        signalStateChange();
         return connection;
     }
 
@@ -511,6 +547,40 @@ public class VirtualNetwork {
         // host can differ as well as the port. The test wants *a* client to arrive at the
         // server it is about to accept() on, and that is what it gets.
         return pullTcpConnection(key -> true);
+    }
+
+    /**
+     * Tests whether an inbound virtual TCP connection is waiting without consuming it.
+     * The matching order intentionally mirrors {@link #pullTcpConnection(String, int)} so
+     * a selector's OP_ACCEPT result describes the same connection that accept() will take.
+     *
+     * @param localAddress the local address
+     * @param localPort the local port
+     * @return true when accept() can return a pending connection
+     */
+    public synchronized boolean hasPendingTcpConnection(String localAddress, int localPort) {
+        EndPointInfo local = new EndPointInfo(localAddress, localPort, ConnectionType.TCP);
+        Queue<NativeTcp> queue = incomingConnections.get(local);
+        if (queue != null && !queue.isEmpty()) {
+            return true;
+        }
+
+        if (hasPendingTcpConnection(key -> key.getHost().equals(localAddress))) {
+            return true;
+        }
+        return hasPendingTcpConnection(key -> true);
+    }
+
+    private boolean hasPendingTcpConnection(java.util.function.Predicate<EndPointInfo> matches) {
+        for (EndPointInfo key : incomingConnections.keySet()) {
+            if (key.getType() == ConnectionType.TCP && matches.test(key)) {
+                Queue<NativeTcp> queue = incomingConnections.get(key);
+                if (queue != null && !queue.isEmpty()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private NativeTcp pullTcpConnection(java.util.function.Predicate<EndPointInfo> matches) {
@@ -630,6 +700,7 @@ public class VirtualNetwork {
 
         RemoteTcpServer server = queue.poll();
         NativeTcp connection = server.connect(localOrigin);
+        signalStateChange();
         return connection;
     }
 

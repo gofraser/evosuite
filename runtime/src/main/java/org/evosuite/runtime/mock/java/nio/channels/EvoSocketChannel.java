@@ -36,7 +36,6 @@ import java.nio.channels.ClosedChannelException;
 import java.nio.channels.NoConnectionPendingException;
 import java.nio.channels.NotYetConnectedException;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.spi.SelectorProvider;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -68,12 +67,12 @@ public class EvoSocketChannel extends SocketChannel {
     private final long openGeneration = VirtualNetwork.getInstance().getResetGeneration();
 
     EvoSocketChannel() {
-        super(SelectorProvider.provider());
+        super(EvoSelectorProvider.provider());
         this.socket = new MockSocket();
     }
 
     private EvoSocketChannel(MockSocket socket) {
-        super(SelectorProvider.provider());
+        super(EvoSelectorProvider.provider());
         this.socket = socket;
     }
 
@@ -176,6 +175,7 @@ public class EvoSocketChannel extends SocketChannel {
             throw new AlreadyConnectedException();
         }
         socket.connect(remote);
+        VirtualNetwork.getInstance().signalStateChange();
         return true;
     }
 
@@ -199,19 +199,54 @@ public class EvoSocketChannel extends SocketChannel {
 
     @Override
     public SocketChannel shutdownInput() throws IOException {
-        socket.shutdownInput();
+        ensureOpenAndConnected();
+        if (!socket.isInputShutdown()) {
+            socket.shutdownInput();
+        }
         return this;
     }
 
     @Override
     public SocketChannel shutdownOutput() throws IOException {
-        socket.shutdownOutput();
+        ensureOpenAndConnected();
+        if (!socket.isOutputShutdown()) {
+            socket.shutdownOutput();
+        }
         return this;
+    }
+
+    /** Returns whether a selector should report OP_READ for this channel. */
+    boolean isReadReady() {
+        if (staleGeneration() || !isOpen() || !isConnected()) {
+            return false;
+        }
+        if (socket.isInputShutdown() || socket.isClosed()) {
+            return true;
+        }
+        try {
+            return in().available() > 0;
+        } catch (IOException ignored) {
+            return socket.isClosed() || socket.isInputShutdown();
+        }
+    }
+
+    /** Virtual writes do not have a finite kernel buffer, so an open output is writable. */
+    boolean isWriteReady() {
+        return !staleGeneration() && isOpen() && isConnected()
+                && !socket.isClosed() && !socket.isOutputShutdown();
+    }
+
+    /** Connections are completed synchronously by the virtual network. */
+    boolean isConnectionReady() {
+        return false;
     }
 
     @Override
     public int read(ByteBuffer dst) throws IOException {
         ensureOpenAndConnected();
+        if (socket.isInputShutdown()) {
+            return -1;
+        }
         int remaining = dst.remaining();
         if (remaining == 0) {
             return 0;
@@ -300,6 +335,10 @@ public class EvoSocketChannel extends SocketChannel {
     @Override
     public long read(ByteBuffer[] dsts, int offset, int length) throws IOException {
         checkBufferRange(dsts, offset, length);
+        ensureOpenAndConnected();
+        if (socket.isInputShutdown()) {
+            return -1;
+        }
         long total = 0;
         for (int i = offset; i < offset + length; i++) {
             int wanted = dsts[i].remaining();
@@ -322,6 +361,9 @@ public class EvoSocketChannel extends SocketChannel {
     @Override
     public int write(ByteBuffer src) throws IOException {
         ensureOpenAndConnected();
+        if (socket.isOutputShutdown()) {
+            throw new ClosedChannelException();
+        }
         int n = src.remaining();
         if (n == 0) {
             return 0;
@@ -335,6 +377,10 @@ public class EvoSocketChannel extends SocketChannel {
     @Override
     public long write(ByteBuffer[] srcs, int offset, int length) throws IOException {
         checkBufferRange(srcs, offset, length);
+        ensureOpenAndConnected();
+        if (socket.isOutputShutdown()) {
+            throw new ClosedChannelException();
+        }
         long total = 0;
         for (int i = offset; i < offset + length; i++) {
             total += write(srcs[i]);
@@ -382,10 +428,12 @@ public class EvoSocketChannel extends SocketChannel {
     @Override
     protected void implCloseSelectableChannel() throws IOException {
         socket.close();
+        VirtualNetwork.getInstance().signalStateChange();
     }
 
     @Override
     protected void implConfigureBlocking(boolean block) throws IOException {
         this.blocking = block;
+        VirtualNetwork.getInstance().signalStateChange();
     }
 }
