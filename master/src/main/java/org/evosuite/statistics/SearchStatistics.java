@@ -558,13 +558,12 @@ public class SearchStatistics implements Listener<ClientStateInformation> {
                 logger.error("Some statistics are missing; writing the row with empty values for them");
                 map = getOutputVariables(individual, true);
                 setGenerationStatus(TestGenerationResult.Status.ERROR.name());
-                if (map != null) {
-                    OutputVariable<?> status = map.get(RuntimeVariable.Test_Generation_Status.toString());
-                    if (status == null || !TestGenerationResult.Status.ERROR.name().equals(String.valueOf(status.getValue()))) {
-                        map.put(RuntimeVariable.Test_Generation_Status.toString(),
-                                new OutputVariable<>(RuntimeVariable.Test_Generation_Status.toString(),
-                                        TestGenerationResult.Status.ERROR.name()));
-                    }
+                // Keep the selected schema: CSV rows are serialized positionally under
+                // the first row's header. The internal status still records the failure
+                // for coverage normalization even when the status column is unselected.
+                if (map != null && map.containsKey(RuntimeVariable.Test_Generation_Status.toString())) {
+                    map.put(RuntimeVariable.Test_Generation_Status.toString(),
+                            outputVariables.get(RuntimeVariable.Test_Generation_Status.toString()));
                 }
             }
 
