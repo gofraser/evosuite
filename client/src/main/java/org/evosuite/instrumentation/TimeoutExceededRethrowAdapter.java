@@ -19,6 +19,7 @@
  */
 package org.evosuite.instrumentation;
 
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -63,11 +64,14 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     private Set<Label> catchHandlerLabels;
 
     /**
-     * Some compilers protect the first instruction of a catch handler with the handler itself
-     * (exception table entry {@code [handler, handler+1) -> handler}). Code injected at the
-     * handler label would sit inside that range, and an exception it throws would dispatch
-     * straight back to the same handler, forever. Such ranges are moved to start at a fresh
-     * label emitted after the injected code.
+     * Some compilers protect the first instruction of a catch or finally handler with the
+     * handler itself (exception table entry {@code [handler, handler+1) -> handler}). Code
+     * injected at the handler label would sit inside that range, and an exception it throws
+     * would dispatch straight back to the same handler, forever. This holds for finally
+     * handlers too, although nothing is injected there: the kill-switch probe at the start
+     * of the handler's line throws the same way, and a thread caught in that loop never
+     * ends (104_vuze's EventWaiter.waitForEvent). Such ranges are moved to start at a fresh
+     * label emitted after the handler's first code.
      */
     private Map<Label, Label> shiftedRangeStarts;
 
@@ -82,7 +86,7 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
     @Override
     public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
         boolean rethrowAtHandler = isTimeoutCatchType(type);
-        if (start == handler && rethrowAtHandler) {
+        if (start == handler) {
             if (shiftedRangeStarts == null) {
                 shiftedRangeStarts = new HashMap<>();
             }
@@ -99,8 +103,10 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
 
     @Override
     public void visitLabel(Label label) {
+        flushShiftedStart();
         super.visitLabel(label);
-        if (catchHandlerLabels != null && catchHandlerLabels.remove(label)) {
+        boolean injectsHere = catchHandlerLabels != null && catchHandlerLabels.remove(label);
+        if (injectsHere) {
             // At handler entry the caught exception is on top of the stack.
             // Inject: DUP; Runtime.rethrowIfTimeout(ex);
             // The method checks the class name and rethrows if it is TimeoutExceeded.
@@ -112,9 +118,116 @@ public class TimeoutExceededRethrowAdapter extends MethodVisitor {
         if (shiftedRangeStarts != null) {
             Label shiftedStart = shiftedRangeStarts.remove(label);
             if (shiftedStart != null) {
-                super.visitLabel(shiftedStart);
+                if (injectsHere) {
+                    super.visitLabel(shiftedStart);
+                } else {
+                    // Nothing is injected here, so the kill-switch probe that follows the
+                    // handler's line number is the first thing to run in the handler. It
+                    // must stay outside the self-covering range: when it throws, the
+                    // exception would be caught by the very handler it leaves, which
+                    // runs the probe again, for as long as the kill switch is on.
+                    pendingShiftedStart = shiftedStart;
+                }
             }
         }
+    }
+
+    private Label pendingShiftedStart;
+
+    private void flushShiftedStart() {
+        if (pendingShiftedStart != null) {
+            Label l = pendingShiftedStart;
+            pendingShiftedStart = null;
+            super.visitLabel(l);
+        }
+    }
+
+    @Override
+    public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
+                                boolean isInterface) {
+        if (pendingShiftedStart != null && opcode == Opcodes.INVOKESTATIC
+                && "checkTimeout".equals(name) && "()V".equals(descriptor)
+                && owner.endsWith("/ExecutionTracer")) {
+            super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+            flushShiftedStart();
+            return;
+        }
+        flushShiftedStart();
+        super.visitMethodInsn(opcode, owner, name, descriptor, isInterface);
+    }
+
+    @Override
+    public void visitInsn(int opcode) {
+        flushShiftedStart();
+        super.visitInsn(opcode);
+    }
+
+    @Override
+    public void visitIntInsn(int opcode, int operand) {
+        flushShiftedStart();
+        super.visitIntInsn(opcode, operand);
+    }
+
+    @Override
+    public void visitVarInsn(int opcode, int varIndex) {
+        flushShiftedStart();
+        super.visitVarInsn(opcode, varIndex);
+    }
+
+    @Override
+    public void visitTypeInsn(int opcode, String type) {
+        flushShiftedStart();
+        super.visitTypeInsn(opcode, type);
+    }
+
+    @Override
+    public void visitFieldInsn(int opcode, String owner, String name, String descriptor) {
+        flushShiftedStart();
+        super.visitFieldInsn(opcode, owner, name, descriptor);
+    }
+
+    @Override
+    public void visitJumpInsn(int opcode, Label label) {
+        flushShiftedStart();
+        super.visitJumpInsn(opcode, label);
+    }
+
+    @Override
+    public void visitLdcInsn(Object value) {
+        flushShiftedStart();
+        super.visitLdcInsn(value);
+    }
+
+    @Override
+    public void visitIincInsn(int varIndex, int increment) {
+        flushShiftedStart();
+        super.visitIincInsn(varIndex, increment);
+    }
+
+    @Override
+    public void visitTableSwitchInsn(int min, int max, Label dflt, Label... labels) {
+        flushShiftedStart();
+        super.visitTableSwitchInsn(min, max, dflt, labels);
+    }
+
+    @Override
+    public void visitLookupSwitchInsn(Label dflt, int[] keys, Label[] labels) {
+        flushShiftedStart();
+        super.visitLookupSwitchInsn(dflt, keys, labels);
+    }
+
+    @Override
+    public void visitMultiANewArrayInsn(String descriptor, int numDimensions) {
+        flushShiftedStart();
+        super.visitMultiANewArrayInsn(descriptor, numDimensions);
+    }
+
+    @Override
+    public void visitInvokeDynamicInsn(String name, String descriptor, Handle bootstrapMethodHandle,
+                                       Object... bootstrapMethodArguments) {
+        flushShiftedStart();
+        super.visitInvokeDynamicInsn(name, descriptor, bootstrapMethodHandle,
+                bootstrapMethodArguments);
     }
 
     @Override
