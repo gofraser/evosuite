@@ -64,7 +64,7 @@ public class StatisticsSender {
         }
 
         try {
-            ClientServices.<T>getInstance().getClientNode().updateStatistics(individual);
+            ClientServices.<T>getInstance().getClientNode().updateStatistics(lightweightCopy(individual));
         } catch (RuntimeException t) {
             // Statistics export must never abort test generation. In some environments
             // the master cannot deserialize certain generic members from the client
@@ -77,6 +77,41 @@ public class StatisticsSender {
         }
     }
 
+
+    /**
+     * Returns a copy of the individual that carries only what the master reads from it: the
+     * suite-level fitness and coverage values and each test's statements. A test chromosome keeps
+     * a fitness value for every goal of the search, so a suite of a thousand tests over fifteen
+     * thousand goals held several million map entries, and the master held the previous
+     * individual while it deserialised the next one.
+     *
+     * @param individual the individual to copy; anything but a test suite is returned as it is
+     * @return a copy that shares nothing mutable with the individual
+     */
+    @SuppressWarnings("unchecked")
+    public static <T extends Chromosome<T>> T lightweightCopy(T individual) {
+        if (!(individual instanceof TestSuiteChromosome)) {
+            return individual;
+        }
+        TestSuiteChromosome suite = (TestSuiteChromosome) individual;
+        TestSuiteChromosome copy = new TestSuiteChromosome();
+        for (TestChromosome test : suite.getTestChromosomes()) {
+            TestChromosome light = new TestChromosome();
+            light.setTestCase(test.getTestCase().clone());
+            copy.addTestChromosome(light);
+        }
+        copy.setFitnessValues(suite.getFitnessValues());
+        copy.setPreviousFitnessValues(suite.getPreviousFitnessValues());
+        copy.setCoverageValues(suite.getCoverageValues());
+        copy.setNumsOfCoveredGoals(suite.getNumsOfCoveredGoals());
+        copy.setNumsOfNotCoveredGoals(suite.getNumsNotCoveredGoals());
+        copy.setNumberOfMutations(suite.getNumberOfMutations());
+        copy.setNumberOfEvaluations(suite.getNumberOfEvaluations());
+        copy.setKineticEnergy(suite.getKineticEnergy());
+        copy.setNumCollisions(suite.getNumCollisions());
+        copy.setChanged(suite.isChanged());
+        return (T) copy;
+    }
 
     /**
      * First execute (if needed) the test cases to be sure to have latest correct data,

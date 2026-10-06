@@ -44,6 +44,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 import java.util.jar.Manifest;
@@ -121,16 +123,38 @@ public class EvoSuite {
             EvoSuite evosuite = new EvoSuite();
             evosuite.parseCommandLine(args);
         } catch (Throwable t) {
-            logger().error("Fatal crash on main EvoSuite process. Class "
-                    + Properties.TARGET_CLASS + " using seed " + Randomness.getSeed()
-                    + ". Configuration id : " + Properties.CONFIGURATION_ID, t);
-            System.exit(-1);
+            exitAfterFatalCrash(t, EvoSuite::logFatalCrash, System::exit);
         }
 
         /*
          * Some threads could still be running, so we need to kill the process explicitly
          */
         System.exit(0);
+    }
+
+    private static void logFatalCrash(Throwable t) {
+        logger().error("Fatal crash on main EvoSuite process. Class "
+                + Properties.TARGET_CLASS + " using seed " + Randomness.getSeed()
+                + ". Configuration id : " + Properties.CONFIGURATION_ID, t);
+    }
+
+    /**
+     * Reports a crash of the main process and ends it. Reporting is best effort: a crash caused
+     * by memory exhaustion usually cannot allocate what logging needs, and an error escaping
+     * from here would end only the main thread. The RMI and logging threads that are still
+     * running would then keep the JVM alive with nothing left to stop it.
+     */
+    static void exitAfterFatalCrash(Throwable crash, Consumer<Throwable> report, IntConsumer exit) {
+        try {
+            report.accept(crash);
+        } catch (Throwable reportFailure) {
+            try {
+                System.err.println("Fatal crash on main EvoSuite process: " + crash);
+            } catch (Throwable ignored) {
+                // nothing left to report with; the exit below is what matters
+            }
+        }
+        exit.accept(-1);
     }
 
     private void setupProperties() {
