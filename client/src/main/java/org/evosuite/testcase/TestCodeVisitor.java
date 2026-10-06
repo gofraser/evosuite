@@ -1786,6 +1786,21 @@ public class TestCodeVisitor extends TestVisitor {
         VariableReference retval = statement.getReturnValue();
         GenericField field = statement.getField();
         boolean needsCast = !retval.isAssignableFrom(field.getFieldType());
+        String castTypeName = getClassName(retval);
+        // A Class<?> field read into a Class<Object> variable: the model treats the wildcard
+        // as assignable, but javac sees Class<capture> and rejects the assignment. A raw cast
+        // is an unchecked but legal conversion.
+        Type declaredFieldType = field.getField().getGenericType();
+        if (declaredFieldType instanceof ParameterizedType
+                && retval.getType() instanceof ParameterizedType
+                && java.util.Arrays.stream(((ParameterizedType) declaredFieldType).getActualTypeArguments())
+                .anyMatch(a -> a instanceof WildcardType)
+                && java.util.Arrays.stream(((ParameterizedType) retval.getType()).getActualTypeArguments())
+                .noneMatch(a -> a instanceof WildcardType)) {
+            needsCast = true;
+            castTypeName = getClassName(
+                    (Class<?>) ((ParameterizedType) retval.getType()).getRawType());
+        }
 
         if (exception != null) {
             builder.append(getClassName(retval));
@@ -1804,11 +1819,11 @@ public class TestCodeVisitor extends TestVisitor {
             VariableReference source = statement.getSource();
             builder.append(getVariableName(retval));
             builder.append(" = ");
-            builder.append(getFieldAccess(field.getField(), source, getClassName(retval), needsCast));
+            builder.append(getFieldAccess(field.getField(), source, castTypeName, needsCast));
         } else {
             builder.append(getVariableName(retval));
             builder.append(" = ");
-            builder.append(getFieldAccess(field.getField(), null, getClassName(retval), needsCast));
+            builder.append(getFieldAccess(field.getField(), null, castTypeName, needsCast));
         }
         builder.append(";");
         if (exception != null) {
