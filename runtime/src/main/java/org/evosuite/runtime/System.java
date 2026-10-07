@@ -222,6 +222,14 @@ public class System {
     }
 
     /**
+     * Replacement function for System.gc: a full collection is of no use to a test and
+     * costs the search a stop-the-world pause per call.
+     */
+    public static void gc() {
+        // do nothing
+    }
+
+    /**
      * Replacement function for System.exit.
      *
      * @param status a int.

@@ -850,6 +850,11 @@ public class MethodCallReplacementCache {
                 "currentTimeMillis", "()J", false, false));
         addReplacementCall(new MethodCallReplacement("java/lang/System", "nanoTime", "()J", Opcodes.INVOKESTATIC,
                 PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "nanoTime", "()J", false, false));
+        // A SUT that collects garbage in a loop (squirrel-sql's MemoryDiagnostics calls
+        // System.gc() every iteration of a loop the tests run) must not pay for full
+        // collections on every test; Runtime.gc() is already mocked the same way.
+        addReplacementCall(new MethodCallReplacement("java/lang/System", "gc", "()V", Opcodes.INVOKESTATIC,
+                PackageInfo.getNameWithSlash(org.evosuite.runtime.System.class), "gc", "()V", false, false));
         addReplacementCall(new MethodCallReplacement("java/lang/System", "identityHashCode", "(Ljava/lang/Object;)I",
                 Opcodes.INVOKESTATIC, "org/evosuite/runtime/System", "identityHashCode", "(Ljava/lang/Object;)I", false,
                 false));
