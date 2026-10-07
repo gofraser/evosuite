@@ -5508,6 +5508,11 @@ public class TestCodeVisitor extends TestVisitor {
     /**
      * {@inheritDoc}
      */
+    private boolean isNullLiteralValue(VariableReference value) {
+        return value instanceof NullReference
+                || (value instanceof ConstantValue && ((ConstantValue) value).getValue() == null);
+    }
+
     /**
      * Cast prefix for a reference assignment {@code retval = value}. Normally
      * {@code "(TargetType) "}, but when the target is a parameterized type
@@ -5679,7 +5684,12 @@ public class TestCodeVisitor extends TestVisitor {
         }
         VariableReference parameter = statement.getValue();
 
-        if (!retval.getVariableClass().equals(parameter.getVariableClass())) {
+        if (isNullLiteralValue(parameter) && !retval.isPrimitive()) {
+            // null converts to every reference type, so a cast can only do harm: a target whose
+            // recorded type is wider than the field's declared type (Object for a CommonTree
+            // field) turns a legal "x.tree = null" into "x.tree = (Object) null".
+            cast = "";
+        } else if (!retval.getVariableClass().equals(parameter.getVariableClass())) {
             if (retval.isWrapperType() && parameter.isPrimitive()) {
                 cast = "(" + getTypeName(retval.getType()) + ") ";
                 if (!ClassUtils.primitiveToWrapper(parameter.getVariableClass()).equals(retval.getVariableClass())) {
