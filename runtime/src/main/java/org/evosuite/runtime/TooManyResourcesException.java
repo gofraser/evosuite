@@ -38,4 +38,20 @@ public class TooManyResourcesException extends RuntimeException {
     public TooManyResourcesException(String msg) {
         super(msg);
     }
+
+    /**
+     * Whether the throwable is a {@code TooManyResourcesException} or has one in its cause chain.
+     * Mockito wraps an exception thrown by an invocation listener (see
+     * {@link MockInvocationLimit}) into a MockitoException, so the limit reaches the test wrapped.
+     */
+    public static boolean isOrWraps(Throwable t) {
+        int depth = 0;
+        while (t != null && depth++ < 20) {
+            if (t instanceof TooManyResourcesException) {
+                return true;
+            }
+            t = t.getCause();
+        }
+        return false;
+    }
 }

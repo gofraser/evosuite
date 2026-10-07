@@ -465,7 +465,8 @@ public abstract class JUnitAnalyzer {
                 // completion during generation must also have terminated this way; the
                 // rerun is reproducing the same termination, not exposing a new bug.
                 // Treat the test as valid and keep it in the suite.
-                if ("org.evosuite.runtime.TooManyResourcesException".equals(failure.getExceptionClassName())) {
+                if ("org.evosuite.runtime.TooManyResourcesException".equals(failure.getExceptionClassName())
+                        || isMockInvocationLimitFailure(failure)) {
                     logger.debug("Ignoring expected TooManyResourcesException for test {} "
                             + "(SUT loop terminated by iteration cap, same as during search): {}",
                             testName, failure.getMessage());
@@ -558,6 +559,23 @@ public abstract class JUnitAnalyzer {
 
         //if we arrive here, then it means at least one test was unstable
         return numUnstable;
+    }
+
+    /**
+     * A mock that exceeded the invocation limit of the runtime. Mockito wraps what an invocation
+     * listener throws, so the TooManyResourcesException reaches the test inside a MockitoException
+     * whose message names it.
+     */
+    static boolean isMockInvocationLimitFailure(JUnitFailure failure) {
+        if (failure == null) {
+            return false;
+        }
+        String cls = normalizeFailureClassName(failure.getExceptionClassName());
+        String message = failure.getMessage();
+        // the class name carries the shading prefix when Mockito is the relocated copy
+        return cls.endsWith("org.mockito.exceptions.base.MockitoException")
+                && message != null && message.contains("MockInvocationLimit")
+                && message.contains("TooManyResourcesException");
     }
 
     private static boolean isClassInitializerFailure(JUnitFailure failure) {

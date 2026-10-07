@@ -843,6 +843,10 @@ public class Scaffolding {
         bd.append(RuntimeSettings.class.getName()).append(".maxCumulativeArrayBytes = ")
                 .append(Properties.CUMULATIVE_ARRAY_LIMIT_BYTES).append("L; \n");
 
+        bd.append(BLOCK_SPACE);
+        bd.append(RuntimeSettings.class.getName()).append(".maxMockInvocationsPerTest = ")
+                .append(Properties.MAX_MOCK_INVOCATIONS_PER_TEST).append("; \n");
+
         if (Properties.REPLACE_SYSTEM_IN) {
             bd.append(BLOCK_SPACE);
             bd.append(RuntimeSettings.class.getName()).append(".mockSystemIn = true; \n");

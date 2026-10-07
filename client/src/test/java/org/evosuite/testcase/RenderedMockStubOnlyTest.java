@@ -42,8 +42,8 @@ public class RenderedMockStubOnlyTest {
         tc.accept(visitor);
         String code = visitor.getCode();
 
-        assertTrue(code.contains("withSettings().stubOnly().defaultAnswer(new ViolatedAssumptionAnswer())"),
-                code);
+        assertTrue(code.contains("withSettings().stubOnly().invocationListeners(new MockInvocationLimit())"
+                + ".defaultAnswer(new ViolatedAssumptionAnswer())"), code);
         assertFalse(code.contains(".class, new ViolatedAssumptionAnswer())"), code);
     }
 

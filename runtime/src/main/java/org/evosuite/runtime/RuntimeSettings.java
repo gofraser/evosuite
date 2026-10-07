@@ -125,6 +125,13 @@ public class RuntimeSettings {
     public static long maxCumulativeArrayBytes = 400_000_000L;
 
     /**
+     * Maximum number of calls a single mock of a generated test accepts before
+     * {@link MockInvocationLimit} aborts the test with a {@link TooManyResourcesException}.
+     * Mirrors the search property {@code max_mock_invocations_per_test}.
+     */
+    public static int maxMockInvocationsPerTest = 10_000;
+
+    /**
      * Should tests be executed in a separate instrumenting class loader
      * or with the standard classloader and instrumentation via an agent?.
      */

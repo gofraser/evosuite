@@ -147,6 +147,26 @@ class MockitoPatternParserTest {
     }
 
     @Test
+    void parseRenderedStubOnlyMockWithInvocationLimit() {
+        Fixture fixture = fixture(
+                "List mockList = mock(List.class, withSettings().stubOnly()"
+                        + ".invocationListeners(new MockInvocationLimit())"
+                        + ".defaultAnswer(new ViolatedAssumptionAnswer()));\n"
+                        + "doReturn(42).when(mockList).size();",
+                MOCKITO_IMPORTS,
+                false);
+
+        int consumed = fixture.mockitoPatternParser.handleVariableDeclarationWithLookahead(
+                variableDeclaration(fixture, 0), fixture.astStatements, 0);
+
+        assertEquals(2, consumed);
+        assertFalse(fixture.result.hasErrors(), "Errors: " + fixture.result.getDiagnostics());
+        FunctionalMockStatement mockStmt = findFunctionalMockStatement(fixture.testCase);
+        assertNotNull(mockStmt, "Should produce FunctionalMockStatement:\n" + fixture.testCase.toCode());
+        assertEquals("size", mockStmt.getMockedMethods().get(0).getMethodName());
+    }
+
+    @Test
     void parseEvoSuiteMockForAbstractClass() {
         Fixture fixture = fixture(
                 "List mockList = mock(List.class, CALLS_REAL_METHODS);\n"

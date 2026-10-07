@@ -31,7 +31,7 @@ import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 public class NonFunctionalRequirementExtension implements TestExecutionExceptionHandler {
     @Override
     public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
-        if (throwable instanceof TooManyResourcesException) {
+        if (TooManyResourcesException.isOrWraps(throwable)) {
             // Prevent TMRE to propagate to the JUnit runner
             return;
         }

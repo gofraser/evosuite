@@ -40,6 +40,7 @@ import org.evosuite.testcase.TestPresentationMetadata;
 import org.evosuite.runtime.PrivateAccess;
 import org.evosuite.classpath.ResourceList;
 import org.evosuite.runtime.LenientMockAnswer;
+import org.evosuite.runtime.MockInvocationLimit;
 import org.evosuite.runtime.TooManyResourcesException;
 import org.evosuite.runtime.ViolatedAssumptionAnswer;
 import org.evosuite.runtime.mock.EvoSuiteMock;
@@ -5357,7 +5358,7 @@ public class TestCodeVisitor extends TestVisitor {
     private boolean shouldUseTryCatch(Throwable t, boolean isDeclared) {
         return t != null
                 && !(t instanceof OutOfMemoryError)
-                && !(t instanceof TooManyResourcesException)
+                && !TooManyResourcesException.isOrWraps(t)
                 && !isEnvironmentSpecificError(t)
                 && !isEvoReflectionHelperError(t)
                 && !test.isFailing()
@@ -5891,9 +5892,10 @@ public class TestCodeVisitor extends TestVisitor {
     /**
      * Appends {@code mock(Foo.class, withSettings().stubOnly().defaultAnswer(answer));}.
      */
-    static void appendStubOnlyMock(StringBuffer result, String rawClassName, String answer) {
+    private void appendStubOnlyMock(StringBuffer result, String rawClassName, String answer) {
         result.append("mock(").append(rawClassName)
-                .append(".class, withSettings().stubOnly().defaultAnswer(")
+                .append(".class, withSettings().stubOnly().invocationListeners(new ")
+                .append(getClassName(MockInvocationLimit.class)).append("()).defaultAnswer(")
                 .append(answer).append("));").append(NEWLINE);
     }
 }

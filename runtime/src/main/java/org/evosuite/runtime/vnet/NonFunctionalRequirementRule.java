@@ -39,7 +39,10 @@ public class NonFunctionalRequirementRule implements TestRule {
             public void evaluate() throws Throwable {
                 try {
                     base.evaluate();
-                } catch (TooManyResourcesException e) {
+                } catch (Throwable e) {
+                    if (!TooManyResourcesException.isOrWraps(e)) {
+                        throw e;
+                    }
                     //prevent TMRE to propagate to the JUnit runner
                 }
             }
