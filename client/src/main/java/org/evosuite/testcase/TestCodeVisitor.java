@@ -5717,6 +5717,10 @@ public class TestCodeVisitor extends TestVisitor {
             } else {
                 cast = getReferenceAssignmentCast(retval, parameter);
             }
+        } else if (parameterizedCastIsInconvertible(retval.getType(), parameter)) {
+            // Same raw class, provably different type arguments (a Vector<Object> variable written
+            // into a Vector<Character> field): the assignment is rejected, and so is a plain cast.
+            cast = getReferenceAssignmentCast(retval, parameter);
         } else if (requiresRawClassCast(retval.getType(), parameter.getType())) {
             // Both sides erase to the same raw class (java.lang.Class) -- which is why the
             // block above was skipped -- but their generic Class<...> type arguments differ
