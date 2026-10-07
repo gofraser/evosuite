@@ -231,7 +231,61 @@ public class LoopCounter {
             invokeDelegate("reset");
             return;
         }
+        testEpoch.incrementAndGet();
         counters.clear();
+    }
+
+    /**
+     * Counts the calls to {@link #reset()}, so that each thread's {@link #trippedLoops} can tell
+     * whether it was recorded in the current test. reset() runs on the thread that prepares the
+     * test, not necessarily on the threads that then run it, so it cannot clear their records
+     * itself.
+     */
+    private final java.util.concurrent.atomic.AtomicInteger testEpoch =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /**
+     * The loops that hit the iteration limit on this thread in the current test.
+     *
+     * <p>When a loop hits the limit a second time, the code under test caught the first
+     * exception and went on running, inside that loop or back into it: a while (true) whose
+     * body catches Throwable around it (vuze's GlobalManagerImpl.Checker) would otherwise go
+     * round a full limit after every trip, until the test times out. The exception of such a
+     * second trip is flagged, and the instrumented catch handlers let it through, see
+     * {@link Runtime#rethrowIfTimeout(Throwable)}.
+     *
+     * <p>The record is per loop and per thread. A trip of another loop, or on another thread,
+     * says nothing about whether this loop's exception was swallowed: the earlier one may have
+     * reached the test, or belong to a thread abandoned by an earlier test, and the handlers of
+     * the code under test must then see this exception like in a replay of the test on its own.
+     * The same loop tripping in two statements of one test, the first exception having reached
+     * the test, is flagged too; telling that apart would need a hook at the statement boundary,
+     * which a replayed test does not have, and the search and the replay must agree.
+     */
+    private final ThreadLocal<TrippedLoops> trippedLoops = ThreadLocal.withInitial(TrippedLoops::new);
+
+    private static final class TrippedLoops {
+        int epoch = -1;
+        final java.util.BitSet indices = new java.util.BitSet();
+    }
+
+    /**
+     * Records that loop {@code index} hit the iteration limit on the calling thread.
+     *
+     * @return whether it had already hit it on this thread in the current test
+     */
+    private boolean recordTrip(int index) {
+        TrippedLoops tripped = trippedLoops.get();
+        // An abandoned thread keeps its record, like its counters (see protectedCounters):
+        // the resets are made for other threads' tests.
+        int epoch = testEpoch.get();
+        if (tripped.epoch != epoch && !protectedCounters.containsKey(Thread.currentThread())) {
+            tripped.indices.clear();
+            tripped.epoch = epoch;
+        }
+        boolean repeated = tripped.indices.get(index);
+        tripped.indices.set(index);
+        return repeated;
     }
 
     /**
@@ -351,7 +405,11 @@ public class LoopCounter {
         // timeout-probe backstop and, after executor abandonment, by the
         // per-thread deadline checked below.
         if (Thread.currentThread().isInterrupted() && !isInterruptInStaticInit()) {
-            this.reset();
+            // Not reset(): that starts a new test, and would make the code under test that
+            // swallows this exception and goes on start over with a clean record of tripped
+            // loops, see trippedLoops.
+            interruptMemo.remove();
+            counters.clear();
             throw new TooManyResourcesException(
                     "Loop terminated early: thread was interrupted (likely timeout)");
         }
@@ -387,9 +445,15 @@ public class LoopCounter {
             // timed-out-class tracking in ClassReInitializeExecutor, and the
             // per-thread deadline armed when TestCaseExecutor abandons a worker.
             if (value >= RuntimeSettings.maxNumberOfIterationsPerLoop && !isInStaticInit()) {
-                this.reset();
+                interruptMemo.remove();
+                counters.clear();
+                // The counters start from zero again, so a loop whose body swallows the exception
+                // would go round another full limit, and so on until the test times out. From
+                // this loop's second trip on the exception gets through such handlers, see
+                // trippedLoops.
+                boolean repeated = recordTrip(index);
                 throw new TooManyResourcesException("Loop has been executed more times than the allowed "
-                        + RuntimeSettings.maxNumberOfIterationsPerLoop);
+                        + RuntimeSettings.maxNumberOfIterationsPerLoop, repeated);
             }
         } catch (TooManyResourcesException e) {
             throw e; // re-throw — must not be swallowed

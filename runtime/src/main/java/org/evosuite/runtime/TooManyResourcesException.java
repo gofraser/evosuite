@@ -31,12 +31,36 @@ public class TooManyResourcesException extends RuntimeException {
 
     private static final long serialVersionUID = 1L;
 
+    private final boolean repeated;
+
     public TooManyResourcesException() {
         super();
+        this.repeated = false;
     }
 
     public TooManyResourcesException(String msg) {
         super(msg);
+        this.repeated = false;
+    }
+
+    /**
+     * @param msg      the message
+     * @param repeated whether the same loop already threw such an exception on this thread in
+     *                 the same test and the code under test went on running, so it must not be
+     *                 swallowed again
+     */
+    public TooManyResourcesException(String msg, boolean repeated) {
+        super(msg);
+        this.repeated = repeated;
+    }
+
+    /**
+     * Whether the code under test has already swallowed such an exception of the same loop in
+     * this test and went on to exhaust it again. Catch handlers that EvoSuite instrumented let
+     * this one through, see {@link Runtime#rethrowIfTimeout(Throwable)}.
+     */
+    public boolean isRepeated() {
+        return repeated;
     }
 
     /**
