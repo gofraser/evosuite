@@ -3747,6 +3747,14 @@ public class TestCodeVisitor extends TestVisitor {
                 } else {
                     calleeStr += "((" + getTypeName(declaringClass) + ")" + calleeName + ")";
                 }
+            } else if (bridgeSourceDeclaringClass(method.getMethod()) != null
+                    && !(callee instanceof ConstantValue)) {
+                // The search called a synthetic bridge, typically to feed an argument of the
+                // wrong type into a generic override. Source code naming the method binds to the
+                // override with the specific parameter type; viewing the receiver as the generic
+                // declaring class binds to the erased signature the bridge implements.
+                calleeStr += "((" + getClassName(bridgeSourceDeclaringClass(method.getMethod()))
+                        + ") " + getVariableName(callee) + ")";
             } else if (callee instanceof ConstantValue) {
                 Class<?> declaringClass = method.getMethod().getDeclaringClass();
                 Class<?> calleeClass = callee.getVariableClass();
@@ -3837,6 +3845,53 @@ public class TestCodeVisitor extends TestVisitor {
 
         testCode.append(result + NEWLINE);
         addAssertions(statement);
+    }
+
+    /**
+     * For a bridge method that exists because a subclass overrides a generic method with a more
+     * specific parameter type, the supertype declaring the generic method, whose erased signature
+     * equals the bridge's; null for any other method (including covariant-return bridges, which
+     * source code resolves correctly) or when that supertype cannot be named from the test.
+     */
+    private static Class<?> bridgeSourceDeclaringClass(Method method) {
+        if (method == null || !method.isBridge() || Modifier.isStatic(method.getModifiers())) {
+            return null;
+        }
+        Class<?> bridgeOwner = method.getDeclaringClass();
+        Deque<Class<?>> pending = new ArrayDeque<>();
+        Set<Class<?>> seen = new HashSet<>();
+        pending.add(bridgeOwner);
+        while (!pending.isEmpty()) {
+            Class<?> current = pending.poll();
+            if (!seen.add(current)) {
+                continue;
+            }
+            if (current != bridgeOwner) {
+                try {
+                    Method candidate = current.getDeclaredMethod(method.getName(),
+                            method.getParameterTypes());
+                    if (!candidate.isBridge() && !Modifier.isStatic(candidate.getModifiers())
+                            && !Modifier.isPrivate(candidate.getModifiers())
+                            && candidate.getGenericParameterTypes().length > 0
+                            && !Arrays.equals(candidate.getGenericParameterTypes(),
+                            candidate.getParameterTypes())
+                            && Modifier.isPublic(current.getModifiers())) {
+                        return current;
+                    }
+                } catch (NoSuchMethodException | LinkageError e) {
+                    // keep looking
+                }
+            }
+            try {
+                if (current.getSuperclass() != null) {
+                    pending.add(current.getSuperclass());
+                }
+                pending.addAll(Arrays.asList(current.getInterfaces()));
+            } catch (LinkageError e) {
+                // unresolvable hierarchy, stop here
+            }
+        }
+        return null;
     }
 
     /**
