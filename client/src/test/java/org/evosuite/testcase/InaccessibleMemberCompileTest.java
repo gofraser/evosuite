@@ -20,6 +20,7 @@
 package org.evosuite.testcase;
 
 import org.evosuite.Properties;
+import org.evosuite.testcase.accessfixture.PropertyTable;
 import org.evosuite.testcase.accessfixture.TableBase;
 import org.evosuite.testcase.accessfixture.other.Exposer;
 import org.evosuite.testcase.accessfixture.other.OpenTableSwt;
@@ -175,6 +176,68 @@ public class InaccessibleMemberCompileTest {
         assertCompiles(render(tc));
     }
 
+    private static Class<?> hiddenClass() throws Exception {
+        return Class.forName(Exposer.class.getName() + "$Hidden");
+    }
+
+    private static Class<?> hiddenChildClass() throws Exception {
+        return Class.forName(Exposer.class.getName() + "$HiddenChild");
+    }
+
+    private VariableReference callOnDict(TestCase tc, VariableReference dict, String name,
+                                         Class<?>... parameterTypes) throws Exception {
+        return callOnDict(tc, dict, hiddenClass(), name, parameterTypes);
+    }
+
+    private VariableReference callOnDict(TestCase tc, VariableReference dict, Class<?> valueType,
+                                         String name, Class<?>... parameterTypes) throws Exception {
+        java.lang.reflect.Type owner = org.apache.commons.lang3.reflect.TypeUtils.parameterize(
+                java.util.LinkedHashMap.class, String.class, valueType);
+        java.lang.reflect.Method method = java.util.HashMap.class.getMethod(name, parameterTypes);
+        return tc.addStatement(new MethodStatement(tc, new GenericMethod(method, owner), dict,
+                parameterTypes.length == 0 ? Collections.<VariableReference>emptyList()
+                        : Collections.singletonList(tc.addStatement(
+                        new StringPrimitiveStatement(tc, "k")))));
+    }
+
+    @Test
+    public void valueReadFromRawReceiverOfHiddenTypeCompiles() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference exposer = addExposer(tc);
+        VariableReference dict = call(tc, Exposer.class, "hiddenMap", exposer);
+        VariableReference value = callOnDict(tc, dict, "get", Object.class);
+        call(tc, Object.class, "hashCode", value);
+
+        String code = render(tc);
+        assertCompiles(code);
+    }
+
+    @Test
+    public void valueOfHiddenSubclassReadFromRawReceiverIsCastToAccessibleSuperclass() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference exposer = addExposer(tc);
+        VariableReference dict = call(tc, Exposer.class, "hiddenMap", exposer);
+        VariableReference value = callOnDict(tc, dict, hiddenChildClass(), "get", Object.class);
+        call(tc, java.util.Date.class, "getTime", value);
+
+        String code = render(tc);
+        assertTrue(code.contains("Date date0 = (Date)") || code.contains("(Date)"), code);
+        assertCompiles(code);
+    }
+
+    @Test
+    public void viewsOfRawReceiverOfHiddenTypeCompile() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference exposer = addExposer(tc);
+        VariableReference dict = call(tc, Exposer.class, "hiddenMap", exposer);
+        call(tc, java.util.Set.class, "size", callOnDict(tc, dict, "keySet"));
+        call(tc, java.util.Set.class, "size", callOnDict(tc, dict, "entrySet"));
+        call(tc, java.util.Collection.class, "size", callOnDict(tc, dict, "values"));
+
+        String code = render(tc);
+        assertCompiles(code);
+    }
+
     // -- protected methods overridden in another package --------------------------------------
 
     private String renderSetSort(Class<?> receiverClass) throws Exception {
@@ -202,6 +265,36 @@ public class InaccessibleMemberCompileTest {
     public void publicOverrideNeedsNoCast() throws Exception {
         String code = renderSetSort(OpenTableSwt.class);
         assertFalse(code.contains("(TableBase)"), code);
+        assertCompiles(code);
+    }
+
+    // -- private inner class of a generic class ----------------------------------------------
+
+    private String renderGetProperty(java.lang.reflect.Type tableType) throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference table = tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(PropertyTable.class.getConstructor(), tableType),
+                Collections.emptyList()));
+        VariableReference name = tc.addStatement(new StringPrimitiveStatement(tc, "name"));
+        VariableReference property = tc.addStatement(new MethodStatement(tc,
+                new GenericMethod(PropertyTable.class.getDeclaredMethod("getProperty", String.class),
+                        tableType), table, Collections.singletonList(name)));
+        call(tc, Object.class, "hashCode", property);
+        return render(tc);
+    }
+
+    @Test
+    public void privateInnerClassOfParameterizedOwnerIsNotNamed() throws Exception {
+        String code = renderGetProperty(org.apache.commons.lang3.reflect.TypeUtils.parameterize(
+                PropertyTable.class, String.class));
+        assertFalse(code.matches("(?s).*PropertyTable(<\\w+>)?\\.Property\\b.*"), code);
+        assertCompiles(code);
+    }
+
+    @Test
+    public void privateInnerClassOfRawOwnerIsNotNamed() throws Exception {
+        String code = renderGetProperty(PropertyTable.class);
+        assertFalse(code.matches("(?s).*PropertyTable(<\\w+>)?\\.Property\\b.*"), code);
         assertCompiles(code);
     }
 

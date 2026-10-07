@@ -4063,15 +4063,23 @@ public class TestCodeVisitor extends TestVisitor {
         return true;
     }
 
-    /** Match the accessible declaration of a hidden class inferred for a method type variable. */
+    /**
+     * The type to declare (or cast) a method's return value as when that value's class cannot be
+     * named: a hidden class inferred for a type variable (the method's own or the receiver
+     * class's, as in Map&lt;K,V&gt;.get), or a private class the method returns directly. The
+     * latter includes an inner class of a generic class, whose type is the parameterized
+     * {@code Outer<T>.Inner} and would otherwise be written out through its owner.
+     */
     private String getAccessibleGenericReturnTypeName(GenericMethod method, VariableReference retval) {
-        if (method != null && retval != null && retval.getType() instanceof Class<?>
-                && method.getMethod().getTypeParameters().length > 0
-                && method.getMethod().getGenericReturnType() instanceof TypeVariable<?>) {
-            Class<?> inferredType = (Class<?>) retval.getType();
-            if (!inferredType.isPrimitive() && !inferredType.isArray()
-                    && !isDeclaredTypeNameableInGeneratedTest(inferredType)) {
-                return getTypeName(findAccessibleGenericSupertype(inferredType,
+        if (method != null && retval != null) {
+            Type returnType = retval.getType();
+            Class<?> returnedClass = returnType instanceof Class<?> ? (Class<?>) returnType
+                    : returnType instanceof ParameterizedType
+                    && ((ParameterizedType) returnType).getRawType() instanceof Class<?>
+                    ? (Class<?>) ((ParameterizedType) returnType).getRawType() : null;
+            if (returnedClass != null && !returnedClass.isPrimitive() && !returnedClass.isArray()
+                    && !isDeclaredTypeNameableInGeneratedTest(returnedClass)) {
+                return getTypeName(findAccessibleGenericSupertype(returnedClass,
                         method.getMethod().getGenericReturnType()));
             }
         }
