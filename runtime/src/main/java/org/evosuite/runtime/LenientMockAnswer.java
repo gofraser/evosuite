@@ -111,7 +111,8 @@ public class LenientMockAnswer implements Answer<Object> {
                 || type == Cloneable.class) {
             return null;
         }
-        if (!Modifier.isFinal(type.getModifiers()) && !type.isPrimitive()) {
+        if (!Modifier.isFinal(type.getModifiers()) && !type.isPrimitive()
+                && !UnmockableTypes.isUnmockable(type)) {
             try {
                 return Mockito.mock(type, new LenientMockAnswer());
             } catch (Exception expected) {

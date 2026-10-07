@@ -27,6 +27,7 @@ import org.evosuite.assertion.Assertion;
 import org.evosuite.ga.ConstructionFailedException;
 import org.evosuite.runtime.FalsePositiveException;
 import org.evosuite.runtime.RuntimeSettings;
+import org.evosuite.runtime.UnmockableTypes;
 import org.evosuite.runtime.instrumentation.InstrumentedClass;
 import org.evosuite.runtime.instrumentation.RemoveFinalClassAdapter;
 import org.evosuite.runtime.mock.EvoSuiteMock;
@@ -378,6 +379,10 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
             return false;
         }
 
+        if (UnmockableTypes.isUnmockable(rawClass)) {
+            return false;
+        }
+
         if (!InstrumentedClass.class.isAssignableFrom(rawClass)
                 && Modifier.isFinal(rawClass.getModifiers())) {
             /*
@@ -440,19 +445,6 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
         // return null for getFileSystem()/getParent(), which makes Files.*
         // calls fail before useful SUT behavior is exercised.
         if (java.nio.file.Path.class.isAssignableFrom(rawClass)) {
-            return false;
-        }
-
-        // Reject ClassLoader types.  Mockito's SubclassByteBuddyMockMaker
-        // generates a subclass of the mocked type, so a ClassLoader mock IS a
-        // ClassLoader.  On JDK 25+, instantiating a dynamically-generated
-        // ClassLoader subclass triggers a JVM guarantee failure
-        // (moduleEntry.cpp: "unnamed module is null") because the unnamed module
-        // for the new ClassLoader is not properly initialized.  Even on older
-        // JDKs, mocking ClassLoaders is semantically dangerous — the mock may be
-        // used as a parent loader by other code, corrupting the class loading
-        // hierarchy.
-        if (ClassLoader.class.isAssignableFrom(rawClass)) {
             return false;
         }
 
@@ -1335,7 +1327,8 @@ public class FunctionalMockStatement extends EntityWithParametersStatement {
                 // getModifiers() no longer shows final once the class is instrumented
                 && (Properties.USE_SEPARATE_CLASSLOADER
                         || !RemoveFinalClassAdapter.finalClasses.contains(returnType.getName()))
-                && !returnType.isPrimitive()) {
+                && !returnType.isPrimitive()
+                && !UnmockableTypes.isUnmockable(returnType)) {
             try {
                 lenientMockDepth.set(depth + 1);
                 return Mockito.mock(returnType,

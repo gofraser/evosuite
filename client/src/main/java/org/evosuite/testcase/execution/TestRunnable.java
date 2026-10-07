@@ -25,6 +25,7 @@ import org.evosuite.TestGenerationContext;
 import org.evosuite.dse.VMError;
 import org.evosuite.runtime.GuiSupport;
 import org.evosuite.runtime.System.SystemExitException;
+import org.evosuite.runtime.UnmockableTypes;
 import org.evosuite.runtime.jvm.ShutdownHookHandler;
 import org.evosuite.runtime.thread.KillSwitch;
 import org.evosuite.runtime.thread.ThreadStopper;
@@ -1073,6 +1074,10 @@ public class TestRunnable implements InterfaceTestRunnable {
     }
 
     private static Object createEphemeralMock(Class<?> type) {
+        if (UnmockableTypes.isUnmockable(type)) {
+            // every injection site treats an exception as "cannot inject"
+            throw new IllegalArgumentException("Cannot create an ephemeral mock of " + type.getName());
+        }
         return Mockito.mock(type, invocation -> createEphemeralReturnValue(invocation.getMethod().getReturnType()));
     }
 
@@ -1097,6 +1102,9 @@ public class TestRunnable implements InterfaceTestRunnable {
         }
         if (Modifier.isFinal(returnType.getModifiers())
                 && returnType.getName().startsWith("java.lang.")) {
+            return null;
+        }
+        if (UnmockableTypes.isUnmockable(returnType)) {
             return null;
         }
         try {

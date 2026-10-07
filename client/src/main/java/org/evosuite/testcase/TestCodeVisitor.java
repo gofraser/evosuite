@@ -3348,7 +3348,7 @@ public class TestCodeVisitor extends TestVisitor {
                     "new " + getClassName(ViolatedAssumptionAnswer.class) + "()");
         }
 
-        // DMoN lenient mocks: skip doReturn stubs — RETURNS_MOCKS handles all calls.
+        // DMoN lenient mocks: skip doReturn stubs — LenientMockAnswer handles all calls.
         if (!st.isUseLenientDefaultAnswer()) {
 
             //when(...).thenReturn(...)
