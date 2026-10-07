@@ -85,6 +85,42 @@ public class Sandbox {
      */
     private static volatile int counter;
 
+    /**
+     * Threads that were given up on while they may still be running SUT or
+     * scaffolding code (e.g. the JUnit check runner after a timeout). The sandbox
+     * state is process-global, so once the lock of such a thread has been
+     * reclaimed for somebody else, whatever the orphan does to that state when it
+     * eventually unwinds would corrupt the state of the thread that is legitimately
+     * using the sandbox now. State-changing calls from these threads are ignored.
+     */
+    private static final Set<Thread> abandonedThreads =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(
+                    new java.util.WeakHashMap<Thread, Boolean>()));
+
+    /**
+     * Marks a thread as abandoned and reclaims the sandbox lock it may hold. From
+     * now on its calls that would change the global sandbox state are no-ops.
+     *
+     * @param lostOwner the thread that was given up on, may be null
+     * @return true if a leaked lock was reclaimed
+     */
+    public static boolean abandonThread(Thread lostOwner) {
+        if (lostOwner == null) {
+            return false;
+        }
+        abandonedThreads.add(lostOwner);
+        return reclaimSandboxLockOwnedBy(lostOwner);
+    }
+
+    private static boolean isCurrentThreadAbandoned(String call) {
+        if (abandonedThreads.isEmpty() ||!abandonedThreads.contains(Thread.currentThread())) {
+            return false;
+        }
+        logger.debug("Ignoring Sandbox.{}() from abandoned thread '{}'", call,
+                Thread.currentThread().getName());
+        return true;
+    }
+
     private static boolean checkForInitialization = false;
     /**
      * Tracks per-thread temporary privilege downgrades while executing SUT code.
@@ -102,6 +138,9 @@ public class Sandbox {
      * Create and initialize security manager for SUT.
      */
     public static synchronized void initializeSecurityManagerForSUT(Set<Thread> privileged) {
+        if (isCurrentThreadAbandoned("initializeSecurityManagerForSUT")) {
+            return;
+        }
         if (!SECURITY_MANAGER_SUPPORTED) {
             // On Java 24+, Security Manager is not supported.
             // We still increment counter to maintain symmetry with resetDefaultSecurityManager()
@@ -174,6 +213,9 @@ public class Sandbox {
      *     if then we want to reactivate the security manager with the same priviliged threads.
      */
     public static synchronized Set<Thread> resetDefaultSecurityManager() {
+        if (isCurrentThreadAbandoned("resetDefaultSecurityManager")) {
+            return null;
+        }
 
         Set<Thread> privileged = null;
         if (manager != null) {
@@ -219,6 +261,9 @@ public class Sandbox {
      * Call before starting executing SUT code.
      */
     public static void goingToExecuteSUTCode() {
+        if (isCurrentThreadAbandoned("goingToExecuteSUTCode")) {
+            return;
+        }
         if (!isSecurityManagerInitialized()) {
             if (checkForInitialization && SECURITY_MANAGER_SUPPORTED) {
                 logger.error("Sandbox is not initialized!");
@@ -255,6 +300,9 @@ public class Sandbox {
      * Call after finishing executing SUT code.
      */
     public static void doneWithExecutingSUTCode() {
+        if (isCurrentThreadAbandoned("doneWithExecutingSUTCode")) {
+            return;
+        }
         if (!isSecurityManagerInitialized()) {
             if (checkForInitialization && SECURITY_MANAGER_SUPPORTED) {
                 logger.error("Sandbox is not initialized!");
@@ -356,7 +404,7 @@ public class Sandbox {
      */
     public static void goingToExecuteUnsafeCodeOnSameThread() throws SecurityException,
             IllegalStateException {
-        if (!isSecurityManagerInitialized()) {
+        if (!isSecurityManagerInitialized() || isCurrentThreadAbandoned("goingToExecuteUnsafeCodeOnSameThread")) {
             return;
         }
         manager.goingToExecuteUnsafeCodeOnSameThread();
@@ -370,7 +418,7 @@ public class Sandbox {
      */
     public static void doneWithExecutingUnsafeCodeOnSameThread()
             throws SecurityException, IllegalStateException {
-        if (!isSecurityManagerInitialized()) {
+        if (!isSecurityManagerInitialized() || isCurrentThreadAbandoned("doneWithExecutingUnsafeCodeOnSameThread")) {
             return;
         }
         manager.doneWithExecutingUnsafeCodeOnSameThread();

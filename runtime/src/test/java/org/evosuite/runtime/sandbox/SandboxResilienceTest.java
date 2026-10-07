@@ -42,6 +42,65 @@ public class SandboxResilienceTest {
     }
 
     @Test
+    public void abandonedThreadCannotDisturbSandboxStateOfTheCurrentExecution() throws Exception {
+        Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
+        Assumptions.assumeFalse(Sandbox.isSecurityManagerInitialized());
+
+        Sandbox.initializeSecurityManagerForSUT();
+        MSecurityManager manager = getManager();
+        int counterBefore = getCounter();
+
+        java.util.concurrent.CountDownLatch inSandbox = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch resume = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        Thread orphan = new Thread(() -> {
+            try {
+                Sandbox.goingToExecuteSUTCode();
+                inSandbox.countDown();
+                resume.await();
+                // the teardown a JUnit check runner performs when it finally unwinds
+                Sandbox.doneWithExecutingSUTCode();
+                Sandbox.resetDefaultSecurityManager();
+                Sandbox.initializeSecurityManagerForSUT();
+                Sandbox.goingToExecuteSUTCode();
+                Sandbox.doneWithExecutingSUTCode();
+                Sandbox.resetDefaultSecurityManager();
+            } catch (Throwable t) {
+                failure.set(t);
+            }
+        }, "orphan-runner");
+        Sandbox.addPrivilegedThread(orphan);
+        orphan.start();
+        try {
+            Assertions.assertTrue(inSandbox.await(10, java.util.concurrent.TimeUnit.SECONDS));
+            Assertions.assertTrue(Sandbox.abandonThread(orphan));
+            Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+
+            // this thread now runs a test case
+            Sandbox.goingToExecuteSUTCode();
+            Assertions.assertTrue(Sandbox.isOnAndExecutingSUTCode());
+
+            resume.countDown();
+            orphan.join(10_000);
+            Assertions.assertFalse(orphan.isAlive());
+            Assertions.assertNull(failure.get());
+
+            Assertions.assertTrue(Sandbox.isSecurityManagerInitialized());
+            Assertions.assertSame(manager, getManager());
+            Assertions.assertEquals(counterBefore, getCounter());
+            Assertions.assertTrue(Sandbox.isOnAndExecutingSUTCode());
+            Assertions.assertDoesNotThrow(() -> org.evosuite.runtime.jvm.ShutdownHookHandler
+                    .getInstance().safeExecuteAddedHooks());
+
+            Sandbox.doneWithExecutingSUTCode();
+            Assertions.assertFalse(Sandbox.isOnAndExecutingSUTCode());
+        } finally {
+            resume.countDown();
+        }
+    }
+
+    @Test
     public void resetShouldRetainInternalStateWhenRestoreIsDenied() throws Exception {
         Assumptions.assumeTrue(Sandbox.isSecurityManagerSupported());
 

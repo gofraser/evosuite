@@ -868,7 +868,7 @@ public abstract class JUnitAnalyzer {
                 // The orphan keeps running, so it will never call goingToEndTestCase(). Take the
                 // sandbox lock back on its behalf now rather than making the next test execution
                 // discover the leak by burning its whole acquisition timeout.
-                Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
+                Sandbox.abandonThread(runnerThread.get());
                 checkRunnerAbandoned = true;
                 recordCheckIncomplete("runner did not respond " + graceMs + " ms after interrupt");
                 return JUnitResult.allPassed(testClasses.length);
@@ -879,7 +879,7 @@ public abstract class JUnitAnalyzer {
                 // is the wrong trade: report the tests as passing and skip the phase.
                 logger.error("JUnit check was cancelled before completing; "
                         + "keeping the suite as-is without checking it.");
-                Sandbox.reclaimSandboxLockOwnedBy(runnerThread.get());
+                Sandbox.abandonThread(runnerThread.get());
                 checkRunnerAbandoned = true;
                 recordCheckIncomplete("runner was cancelled before completing");
                 return JUnitResult.allPassed(testClasses.length);
