@@ -148,6 +148,11 @@ public class TestUsageChecker {
             return false;
         }
 
+        if (isProtectedMemberOfOtherPackage(c.getDeclaringClass())) {
+            logger.debug("Skipping constructor of protected member class {}", c.getName());
+            return false;
+        }
+
         if (!Properties.USE_DEPRECATED && c.isAnnotationPresent(Deprecated.class)
                 && !isExemptFromDeprecationFilter(c.getDeclaringClass())) {
             logger.debug("Excluding deprecated constructor " + c.getName());
@@ -485,6 +490,76 @@ public class TestUsageChecker {
             return true;
         }
         return ClassUtils.getPackageName(member.getDeclaringClass()).equals(Properties.CLASS_PREFIX);
+    }
+
+    private static final Map<Class<?>, Integer> SOURCE_MEMBER_MODIFIERS =
+            Collections.synchronizedMap(new WeakHashMap<>());
+
+    /**
+     * The modifiers javac attributes to {@code type}. For a member class javac reads the access
+     * flags from the InnerClasses table of the enclosing class, while reflection reads them from
+     * the member's own class file; the two disagree for some older libraries (xerces'
+     * {@code protected class ScannedEntity} reflects as public). The enclosing table wins.
+     */
+    public static int getSourceModifiers(Class<?> type) {
+        int reflected = type.getModifiers();
+        Class<?> enclosing = getDeclaringClassSafely(type);
+        if (enclosing == null || enclosing == UNRESOLVABLE_OWNER_CLASS) {
+            return reflected;
+        }
+        Integer cached = SOURCE_MEMBER_MODIFIERS.get(type);
+        if (cached == null) {
+            cached = readEnclosingInnerClassAccess(type, enclosing, reflected);
+            SOURCE_MEMBER_MODIFIERS.put(type, cached);
+        }
+        return cached;
+    }
+
+    private static int readEnclosingInnerClassAccess(Class<?> type, Class<?> enclosing,
+                                                     int reflected) {
+        ClassLoader loader = enclosing.getClassLoader();
+        String resource = enclosing.getName().replace('.', '/') + ".class";
+        String internalName = type.getName().replace('.', '/');
+        int[] found = {reflected};
+        try (InputStream input = loader == null
+                ? ClassLoader.getSystemResourceAsStream(resource)
+                : loader.getResourceAsStream(resource)) {
+            if (input != null) {
+                new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
+                    @Override
+                    public void visitInnerClass(String name, String outerName, String innerName,
+                                                int access) {
+                        if (internalName.equals(name) && outerName != null) {
+                            // A promoted (instrumented) class reflects as more visible than its
+                            // original; only the access levels are taken over from the table.
+                            int levels = Modifier.PUBLIC | Modifier.PROTECTED | Modifier.PRIVATE;
+                            found[0] = (reflected & ~levels) | (access & levels);
+                        }
+                    }
+                }, ClassReader.SKIP_CODE | ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
+            }
+        } catch (java.io.IOException | RuntimeException e) {
+            logger.debug("Cannot read the InnerClasses table of {}", enclosing.getName(), e);
+        }
+        return found[0];
+    }
+
+    /**
+     * Whether {@code type} is, or sits inside, a protected member class of a package other than the
+     * generated test's. JLS 6.6.2 admits such a class only in subclasses of its enclosing class, so
+     * the test can neither name it nor call its constructor.
+     */
+    public static boolean isProtectedMemberOfOtherPackage(Class<?> type) {
+        for (Class<?> current = type; current != null; current = getDeclaringClassSafely(current)) {
+            if (current == UNRESOLVABLE_OWNER_CLASS) {
+                return false;
+            }
+            if (Modifier.isProtected(getSourceModifiers(current))
+                    && !ClassUtils.getPackageName(current).equals(Properties.CLASS_PREFIX)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Field modifiers as javac sees them, before accessibility instrumentation promotes them. */

@@ -29,6 +29,17 @@ public class Exposer {
     private static class Hidden {
     }
 
+    /** Accessible only to subclasses and the package, though its constructor is public. */
+    protected class ProtectedInner {
+        public ProtectedInner() {
+        }
+    }
+
+    protected static class ProtectedNested {
+        public ProtectedNested() {
+        }
+    }
+
     private static class HiddenChild extends java.util.Date {
     }
 

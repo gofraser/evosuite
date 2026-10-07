@@ -259,6 +259,44 @@ public class InaccessibleMemberCompileTest {
         assertCompiles(code);
     }
 
+    private VariableReference constructProtectedMember(TestCase tc, String simpleName,
+                                                       boolean inner) throws Exception {
+        Class<?> member = Class.forName(Exposer.class.getName() + "$" + simpleName);
+        if (inner) {
+            VariableReference exposer = addExposer(tc);
+            return tc.addStatement(new ConstructorStatement(tc,
+                    new GenericConstructor(member.getDeclaredConstructor(Exposer.class), member),
+                    Collections.singletonList(exposer)));
+        }
+        return tc.addStatement(new ConstructorStatement(tc,
+                new GenericConstructor(member.getDeclaredConstructor(), member),
+                Collections.<VariableReference>emptyList()));
+    }
+
+    @Test
+    public void protectedInnerClassOfAnotherPackageIsNotNamed() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference value = constructProtectedMember(tc, "ProtectedInner", true);
+        call(tc, Object.class, "hashCode", value);
+
+        String code = render(tc);
+        assertFalse(code.contains("Exposer.ProtectedInner"), code);
+        assertFalse(code.contains(".new "), code);
+        assertCompiles(code);
+    }
+
+    @Test
+    public void protectedNestedClassOfAnotherPackageIsNotNamed() throws Exception {
+        TestCase tc = new DefaultTestCase();
+        VariableReference value = constructProtectedMember(tc, "ProtectedNested", false);
+        call(tc, Object.class, "hashCode", value);
+
+        String code = render(tc);
+        assertFalse(code.contains("Exposer.ProtectedNested"), code);
+        assertFalse(code.contains("new Exposer.ProtectedNested"), code);
+        assertCompiles(code);
+    }
+
     // -- protected methods overridden in another package --------------------------------------
 
     private String renderSetSort(Class<?> receiverClass) throws Exception {

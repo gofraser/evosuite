@@ -5102,7 +5102,7 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
         for (Class<?> current = type; current != null; current = current.getEnclosingClass()) {
-            int modifiers = current.getModifiers();
+            int modifiers = TestUsageChecker.getSourceModifiers(current);
             if (Modifier.isPrivate(modifiers)) {
                 return false;
             }
@@ -5255,7 +5255,7 @@ public class TestCodeVisitor extends TestVisitor {
             return false;
         }
 
-        int modifiers = type.getModifiers();
+        int modifiers = TestUsageChecker.getSourceModifiers(type);
         if (Modifier.isPublic(modifiers)) {
             return true;
         }
