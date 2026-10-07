@@ -558,8 +558,7 @@ public class VariableCodeGenerationUtil {
             // javac's access$NNN stubs (and bridges) read the field but are not callable from
             // source: the generated test would not compile. registerAllMethods() gives them a CFG,
             // so isFieldGetter() would otherwise accept them.
-            if (method.isSynthetic() || method.isBridge()
-                    || TestUsageChecker.isCompilerGeneratedAccessorMethod(method)) {
+            if (TestUsageChecker.isNotCallableFromSource(method)) {
                 continue;
             }
             boolean isValid = DataDependencyUtil.isFieldGetter(method, field);

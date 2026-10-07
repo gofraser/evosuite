@@ -609,6 +609,18 @@ public class StatementFactory {
     }
 
     /**
+     * Compiler-generated members (access$NNN stubs, bridges, lambda bodies) cannot be named in
+     * source, so a call to one would never compile in the generated test.
+     */
+    private static void rejectUncallableFromSource(GenericMethod method)
+            throws ConstructionFailedException {
+        if (TestUsageChecker.isNotCallableFromSource(method.getMethod())) {
+            throw new ConstructionFailedException(
+                    "Method cannot be called from source: " + method.getName());
+        }
+    }
+
+    /**
      * Adds a method call.
      *
      * @param test the test case
@@ -620,6 +632,7 @@ public class StatementFactory {
      */
     public VariableReference addMethod(TestCase test, GenericMethod method, int position,
                                        GenerationContext context) throws ConstructionFailedException {
+        rejectUncallableFromSource(method);
 
         if (context.getDepth() > Properties.MAX_RECURSION) {
             throw new ConstructionFailedException("Max recursion depth reached");
@@ -711,6 +724,7 @@ public class StatementFactory {
     public VariableReference addMethodFor(TestCase test, VariableReference callee,
                                           GenericMethod method, int position, GenerationContext context)
             throws ConstructionFailedException {
+        rejectUncallableFromSource(method);
 
         if (position <= callee.getStPosition()) {
             throw new ConstructionFailedException("Cannot insert call on object before the object is defined");
@@ -742,6 +756,7 @@ public class StatementFactory {
     public VariableReference addMethod(TestCase test, GenericMethod method, int position,
                                        GenerationContext context, boolean allowNullParam)
             throws ConstructionFailedException {
+        rejectUncallableFromSource(method);
 
         if (context.getDepth() > Properties.MAX_RECURSION) {
             throw new ConstructionFailedException("Max recursion depth reached");
@@ -798,6 +813,7 @@ public class StatementFactory {
     public VariableReference addMethodFor(TestCase test, VariableReference callee,
                                           GenericMethod method, int position, GenerationContext context,
                                           boolean allowNullParameter) throws ConstructionFailedException {
+        rejectUncallableFromSource(method);
 
         if (position <= callee.getStPosition()) {
             throw new ConstructionFailedException("Cannot insert call on object before the object is defined");

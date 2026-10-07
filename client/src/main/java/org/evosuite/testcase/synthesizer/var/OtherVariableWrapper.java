@@ -121,11 +121,13 @@ public class OtherVariableWrapper extends DepVariableWrapper {
     static Method findSourceCallableMethod(
             Class<?> declaringClass, String name, Class<?>[] parameterTypes) {
         try {
-            return declaringClass.getMethod(name, parameterTypes);
+            Method found = declaringClass.getMethod(name, parameterTypes);
+            return TestUsageChecker.isNotCallableFromSource(found) ? null : found;
         } catch (Exception e) {
             try {
                 Method declared = declaringClass.getDeclaredMethod(name, parameterTypes);
-                if (TestUsageChecker.isCallableFromTestPackage(declared)) {
+                if (TestUsageChecker.isCallableFromTestPackage(declared)
+                        && !TestUsageChecker.isNotCallableFromSource(declared)) {
                     return declared;
                 }
             } catch (Exception ignored) {
