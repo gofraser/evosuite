@@ -592,34 +592,16 @@ public class MethodStatement extends EntityWithParametersStatement {
             rejectWithLog(declaringClass, methodName, "product of int args", product, limit);
         }
 
-        // For resize methods, check the product with the object's current dimensions
-        if (hasPositiveInt && calleeObject instanceof javax.swing.table.DefaultTableModel) {
-            javax.swing.table.DefaultTableModel model =
-                    (javax.swing.table.DefaultTableModel) calleeObject;
-            int intArg = firstPositiveIntArg(paramTypes, inputs);
-            long effectiveSize = 0;
-            if ("setColumnCount".equals(methodName)) {
-                effectiveSize = (long) model.getRowCount() * intArg;
-            } else if ("setRowCount".equals(methodName)) {
-                effectiveSize = (long) model.getColumnCount() * intArg;
-            }
-            if (effectiveSize > limit) {
+        // Resizing a table model allocates rows x columns slots, and the two dimensions come
+        // from the argument, the model's current state or the vectors passed in
+        if (calleeObject instanceof javax.swing.table.DefaultTableModel) {
+            long cells = TableModelAllocation.estimateCells(
+                    (javax.swing.table.DefaultTableModel) calleeObject, methodName, inputs);
+            if (cells > limit) {
                 rejectWithLog(declaringClass, methodName,
-                        "effective allocation (existing dimension × arg)", effectiveSize, limit);
+                        "resulting table size (rows x columns)", cells, limit);
             }
         }
-    }
-
-    private int firstPositiveIntArg(Class<?>[] paramTypes, Object[] inputs) {
-        for (int i = 0; i < paramTypes.length && i < inputs.length; i++) {
-            if (paramTypes[i].equals(int.class) && inputs[i] instanceof Integer) {
-                int val = (Integer) inputs[i];
-                if (val > 0) {
-                    return val;
-                }
-            }
-        }
-        return 0;
     }
 
     /**

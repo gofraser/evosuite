@@ -391,19 +391,24 @@ public class ConstructorStatement extends EntityWithParametersStatement {
         for (int i = 0; i < inputs.length; i++) {
             if (inputs[i] instanceof javax.swing.table.TableModel) {
                 javax.swing.table.TableModel model = (javax.swing.table.TableModel) inputs[i];
+                long rows;
+                long cols;
                 try {
-                    long rows = model.getRowCount();
-                    long cols = model.getColumnCount();
-                    logger.debug("TableModel guard: rows={}, cols={}, limit={}", rows, cols, limit);
-                    if (rows > limit || cols > limit) {
-                        rejectConstructor("TableModel dimension", Math.max(rows, cols), limit);
-                    }
-                    if (rows > 0 && cols > 0 && rows * cols > limit) {
-                        rejectConstructor("TableModel size (rows × cols)", rows * cols, limit);
-                    }
+                    rows = model.getRowCount();
+                    cols = model.getColumnCount();
                 } catch (Throwable e) {
+                    // Unknown dimensions: allow the call. Only the query is guarded here, so
+                    // that the rejections below are not swallowed with it.
                     logger.warn("TableModel dimension query failed for {}: {}",
                             inputs[i].getClass().getName(), e.toString());
+                    continue;
+                }
+                logger.debug("TableModel guard: rows={}, cols={}, limit={}", rows, cols, limit);
+                if (rows > limit || cols > limit) {
+                    rejectConstructor("TableModel dimension", Math.max(rows, cols), limit);
+                }
+                if (rows > 0 && cols > 0 && rows * cols > limit) {
+                    rejectConstructor("TableModel size (rows × cols)", rows * cols, limit);
                 }
             } else if (inputs[i] != null) {
                 // Check if the input implements TableModel via a different classloader
